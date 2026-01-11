@@ -1,0 +1,14 @@
+﻿Collecting pyyaml>=6.0
+  Using cached pyyaml-6.0.3-cp312-cp312-win_amd64.whl.metadata (2.4 kB)
+Using cached pyyaml-6.0.3-cp312-cp312-win_amd64.whl (154 kB)
+Installing collected packages: pyyaml
+Successfully installed pyyaml-6.0.3
+pip : 
+At C:\Users\Admin\Desktop\ella\.claude\skills\install.ps1:669 char:15
++     $output = pip install $PackageSpec --prefer-binary 2>&1
++               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[notice] A new release of pip is available: 24.0 -> 25.3
+[notice] To update, run: python.exe -m pip install --upgrade pip

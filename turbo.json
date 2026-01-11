@@ -17,7 +17,6 @@
       "cache": true
     },
     "lint": {
-      "dependsOn": ["^lint"],
       "outputs": [],
       "cache": true
     },
@@ -25,7 +24,5 @@
       "cache": false
     }
   },
-  "globalDependencies": [
-    "tsconfig.json"
-  ]
+  "globalDependencies": ["tsconfig.json", "eslint.config.js"]
 }

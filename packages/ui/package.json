@@ -17,7 +17,8 @@
     }
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

@@ -16,7 +16,8 @@
     "migrate": "prisma migrate dev",
     "push": "prisma db push",
     "studio": "prisma studio",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0"

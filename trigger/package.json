@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "echo 'Trigger.dev not configured yet'",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
   },
   "dependencies": {
     "@ella/db": "workspace:*",

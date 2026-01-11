@@ -1,0 +1,179 @@
+# Ella - Codebase Summary
+
+**Phase 2 Status:** Packages setup completed (2026-01-11)
+
+## Project Overview
+
+Ella is a monorepo-based TypeScript/Node.js application using pnpm workspaces and Turbo for task orchestration. It follows modern development practices with type safety, database management via Prisma, and UI components via shadcn/ui.
+
+## Architecture
+
+**Monorepo Structure:**
+```
+ella/
+├── apps/              # Application layer (frontend/backend)
+├── packages/          # Shared utilities
+│   ├── db/           # Database & Prisma client
+│   ├── shared/       # Shared types & schemas
+│   └── ui/           # UI components library
+└── .claude/          # Claude Code workflows
+```
+
+## Phase 2: Packages Setup (COMPLETED)
+
+### Package: @ella/db
+**Purpose:** Database layer with Prisma ORM singleton pattern
+
+**Key Files:**
+- `packages/db/src/client.ts` - Prisma singleton preventing connection leaks
+- `packages/db/prisma/schema.prisma` - Data model (PostgreSQL)
+- `packages/db/package.json` - Exports: prisma client + generated types
+
+**Current Schema:**
+- User model (id, email, timestamps)
+- PostgreSQL datasource via DATABASE_URL env var
+
+**Scripts:**
+- `pnpm -F @ella/db generate` - Generate Prisma client
+- `pnpm -F @ella/db migrate` - Run migrations
+- `pnpm -F @ella/db push` - Sync schema with DB
+- `pnpm -F @ella/db studio` - Prisma Studio UI
+
+### Package: @ella/shared
+**Purpose:** Shared validation schemas and TypeScript types
+
+**Key Files:**
+- `packages/shared/src/schemas/index.ts` - Zod validation schemas
+- `packages/shared/src/types/index.ts` - Inferred TypeScript types
+
+**Exports:**
+- `@ella/shared` - All types & schemas
+- `@ella/shared/schemas` - Zod validators only
+- `@ella/shared/types` - TypeScript types only
+
+**Validation Schemas:**
+- emailSchema, phoneSchema, uuidSchema (primitives)
+- paginationSchema (page, limit with defaults)
+- apiResponseSchema (generic success/error wrapper)
+
+**Types:**
+- Pagination, ApiResponse<T>, UserId, ClientId, DocumentId
+
+### Package: @ella/ui
+**Purpose:** Reusable UI components (shadcn/ui based)
+
+**Key Files:**
+- `packages/ui/src/components/button.tsx` - Button component
+- `packages/ui/src/lib/utils.ts` - Utility functions (cn for Tailwind merging)
+- `packages/ui/src/styles.css` - Global Tailwind styles
+- `packages/ui/components.json` - shadcn/ui configuration
+
+**Dependencies:**
+- @radix-ui/react-primitive (accessible primitives)
+- tailwindcss ^4.0.0
+- class-variance-authority (component variants)
+- clsx + tailwind-merge (class utilities)
+
+**Setup:**
+- Tailwind v4 configured with neutral baseColor
+- Paths alias configured for imports
+
+## Dependencies Overview
+
+**Core:**
+- TypeScript ^5.7.3
+- @prisma/client ^6.7.0
+- zod ^3.24.1
+
+**Build & Type Checking:**
+- tsx (TypeScript executor)
+- Turbo (monorepo orchestration)
+- pnpm (package manager)
+
+**UI:**
+- shadcn/ui (Radix UI + Tailwind)
+- tailwindcss ^4.0.0
+
+## Configuration Files
+
+**Root Level:**
+- `tsconfig.json` - Shared TypeScript config
+- `turbo.json` - Turbo pipeline & caching
+- `pnpm-workspace.yaml` - Workspace definition
+- `.npmrc` - pnpm registry & authentication
+- `.env.example` - Environment variable template
+
+**Package Level:**
+- Each package has own `tsconfig.json` extending root
+
+## Environment Variables
+
+See `.env.example`:
+- `DATABASE_URL` - PostgreSQL connection string
+- (More to be added as features develop)
+
+## Development Workflow
+
+**Install Dependencies:**
+```bash
+pnpm install
+```
+
+**Type Check All Packages:**
+```bash
+pnpm type-check
+```
+
+**Database Operations:**
+```bash
+pnpm -F @ella/db generate  # Generate Prisma client
+pnpm -F @ella/db push      # Sync schema to DB
+```
+
+**Run Turbo Tasks:**
+```bash
+turbo run build
+turbo run type-check
+```
+
+## Phase 3 Planning
+
+Anticipated next steps:
+- Backend API setup (apps layer)
+- Frontend application scaffold
+- Database migrations & schema expansion
+- Authentication system
+- API routes & endpoints
+
+## File Statistics
+
+**Total Files:** 36
+**Total Tokens:** 108,034
+**Total Characters:** 308,359
+
+**Top Content Files:**
+1. release-manifest.json (79,953 tokens - auto-generated)
+2. System architecture docs (11,929 tokens)
+3. UI wireframe specs (2,627 tokens)
+4. Product requirements (2,055 tokens)
+
+## Key Decisions
+
+1. **Prisma Singleton Pattern** - Prevents connection pool exhaustion in development
+2. **Zod Validation** - Runtime type safety for APIs
+3. **shadcn/ui Components** - Copy-paste component library with Tailwind
+4. **Monorepo Structure** - Shared code via workspace packages
+5. **PostgreSQL** - Production-grade relational database
+
+## Next Steps for Users
+
+1. Configure `.env` file with `DATABASE_URL`
+2. Run `pnpm -F @ella/db generate` to create Prisma client
+3. Create initial migrations via `pnpm -F @ella/db migrate`
+4. Begin apps layer development (frontend/backend)
+
+---
+
+**Last Updated:** 2026-01-11
+**Phase:** 2 - Package Setup
+**Maintained By:** Documentation Manager

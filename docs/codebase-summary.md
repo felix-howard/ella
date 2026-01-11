@@ -1,6 +1,7 @@
 # Ella - Codebase Summary
 
-**Phase 2 Status:** Packages setup completed (2026-01-11)
+**Phase 3 Status:** Apps setup completed (2026-01-11)
+**Phase 2 Status:** Packages setup completed
 
 ## Project Overview
 
@@ -78,6 +79,89 @@ ella/
 - Tailwind v4 configured with neutral baseColor
 - Paths alias configured for imports
 
+## Phase 3: Apps Setup (COMPLETED)
+
+### App: @ella/api
+**Purpose:** Backend API server (Hono framework)
+
+**Technology Stack:**
+- Hono ^4.6.15 (lightweight web framework)
+- @hono/node-server (Node.js runtime adapter)
+- @hono/zod-openapi (OpenAPI v3 + Zod validation integration)
+- TypeScript, tsx (development)
+- tsup (build bundler)
+
+**Key Files:**
+- `apps/api/src/index.ts` - Server entry point (serves on PORT 3001)
+- `apps/api/src/app.ts` - Main app instance & routes
+- `apps/api/src/routes/health.ts` - Health check endpoint
+- `apps/api/package.json` - Dependencies & scripts
+- `apps/api/tsconfig.json` - TypeScript config extending root
+
+**Scripts:**
+- `pnpm -F @ella/api dev` - Start dev server with tsx watch
+- `pnpm -F @ella/api build` - Build to dist/ (ESM + types)
+- `pnpm -F @ella/api start` - Run built server
+- `pnpm -F @ella/api type-check` - Type validation
+
+**Architecture:**
+- Imports from @ella/db, @ella/shared for type safety
+- OpenAPI schema generation via zod-openapi
+- RESTful endpoint design
+
+### App: @ella/portal
+**Purpose:** Primary user-facing frontend (React + Vite)
+
+**Technology Stack:**
+- React ^19.0.0 (UI framework)
+- Vite ^6.0.7 (frontend bundler)
+- TanStack Router ^1.94.0 (file-based routing)
+- TanStack React Query ^5.64.1 (server state management)
+- Tailwind CSS ^4.0.0 (styling)
+- TypeScript
+
+**Key Files:**
+- `apps/portal/index.html` - HTML entry point
+- `apps/portal/src/main.tsx` - React root mount
+- `apps/portal/src/styles.css` - Global styles
+- `apps/portal/src/routes/__root.tsx` - Root layout/router provider
+- `apps/portal/src/routes/index.tsx` - Home page
+- `apps/portal/src/routeTree.gen.ts` - Auto-generated route tree
+- `apps/portal/vite.config.ts` - Vite + TanStack Router plugin config
+- `apps/portal/postcss.config.js` - Tailwind PostCSS pipeline
+
+**Scripts:**
+- `pnpm -F @ella/portal dev` - Start dev server (port 5173)
+- `pnpm -F @ella/portal build` - Production build
+- `pnpm -F @ella/portal preview` - Preview built output
+- `pnpm -F @ella/portal type-check` - Type validation
+
+**Architecture:**
+- File-based routing convention (src/routes/*)
+- Server state via React Query
+- UI components from @ella/ui
+- Type safety via @ella/shared
+
+### App: @ella/workspace
+**Purpose:** Secondary frontend workspace (same structure as portal)
+
+**Technology Stack:** Identical to portal (React 19, Vite 6, TanStack Router, React Query)
+
+**Key Difference:** Separate app instance for multi-tenant/workspace-specific UI
+
+### Dir: trigger/
+**Purpose:** Job/task orchestration placeholder
+
+**Technology Stack:**
+- TypeScript
+- tsx (development)
+
+**Key Files:**
+- `trigger/src/index.ts` - Placeholder entry point
+- `trigger/package.json` - Dependencies & scripts
+
+**Status:** Placeholder for future queue/job system integration
+
 ## Dependencies Overview
 
 **Core:**
@@ -136,14 +220,14 @@ turbo run build
 turbo run type-check
 ```
 
-## Phase 3 Planning
+## Phase 4 Planning
 
 Anticipated next steps:
-- Backend API setup (apps layer)
-- Frontend application scaffold
-- Database migrations & schema expansion
-- Authentication system
-- API routes & endpoints
+- API route implementation & database integration
+- Authentication & authorization system
+- Frontend component development & API integration
+- Database schema expansion for documents, compliance rules
+- Testing infrastructure setup
 
 ## File Statistics
 
@@ -175,5 +259,5 @@ Anticipated next steps:
 ---
 
 **Last Updated:** 2026-01-11
-**Phase:** 2 - Package Setup
+**Phase:** 3 - Apps Setup
 **Maintained By:** Documentation Manager

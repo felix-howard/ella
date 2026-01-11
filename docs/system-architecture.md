@@ -35,15 +35,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 ## Layer Responsibilities
 
-### Frontend Layer (apps/web)
-**Technology:** React 18+, TanStack Router, @ella/ui components
+### Frontend Layer (apps/portal & apps/workspace)
+**Technology:** React 19, Vite 6, TanStack Router 1.94+, React Query 5.64+, @ella/ui, Tailwind CSS v4
+
+**Structure:**
+- `apps/portal/` - Primary user-facing frontend
+- `apps/workspace/` - Secondary workspace-specific frontend
+- File-based routing via TanStack Router (`src/routes/*`)
+- Auto-generated route tree (`routeTree.gen.ts`)
 
 **Responsibilities:**
 - User interface rendering
-- Client-side routing
+- Client-side routing & navigation
 - Form handling & validation
+- Server state management (React Query)
 - API request orchestration
-- State management
 - Authentication flow (login, logout, signup)
 
 **Key Features:**
@@ -53,12 +59,23 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - User settings & profile
 
 **API Communication:**
-- HTTP REST calls to backend
+- HTTP REST calls to backend (via React Query)
 - Request validation via @ella/shared schemas
 - Response type safety via TypeScript
 
 ### Backend API Layer (apps/api)
-**Technology:** Express.js or Fastify (pending Phase 3)
+**Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, TypeScript
+
+**Structure:**
+- Entry: `src/index.ts` (serves on PORT 3001, fallback default)
+- App config: `src/app.ts` (main Hono app instance & routes)
+- Routes: `src/routes/*` (modular endpoint definitions)
+- Example: `src/routes/health.ts` (health check endpoint)
+
+**Build & Deployment:**
+- Dev: `pnpm -F @ella/api dev` (tsx watch for hot reload)
+- Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
+- Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
 **Responsibilities:**
 - HTTP request handling
@@ -67,9 +84,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Database transaction management
 - Error handling & standardized responses
 - Authentication & authorization
+- OpenAPI schema generation
 - Logging & monitoring
 
-**Core Services:**
+**Core Services (to implement):**
 - User authentication (JWT-based)
 - Document CRUD operations
 - Compliance rule engine
@@ -321,12 +339,14 @@ packages:
 ```
 ella/
 ├── packages/
-│   ├── db/       # @ella/db (private workspace)
-│   ├── shared/   # @ella/shared (private)
-│   └── ui/       # @ella/ui (private)
+│   ├── db/       # @ella/db - Prisma client & database layer
+│   ├── shared/   # @ella/shared - Types & validation schemas
+│   └── ui/       # @ella/ui - Component library (shadcn/ui)
 ├── apps/
-│   ├── web/      # @ella/web (private)
-│   └── api/      # @ella/api (private)
+│   ├── api/      # @ella/api - Hono backend server
+│   ├── portal/   # @ella/portal - Primary React frontend (Vite)
+│   └── workspace/# @ella/workspace - Secondary React frontend
+├── trigger/      # Job orchestration placeholder
 └── pnpm-workspace.yaml
 ```
 
@@ -503,5 +523,5 @@ try {
 ---
 
 **Last Updated:** 2026-01-11
-**Phase:** 2
-**Architecture Version:** 1.0
+**Phase:** 3 - Apps Setup
+**Architecture Version:** 1.1

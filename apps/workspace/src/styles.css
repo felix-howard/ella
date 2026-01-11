@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@ella/ui/styles.css";
+
+@source "../src/**/*.{ts,tsx}";
+@source "../../packages/ui/src/**/*.{ts,tsx}";

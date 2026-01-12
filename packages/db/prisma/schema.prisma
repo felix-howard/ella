@@ -130,6 +130,10 @@ model Staff {
   avatarUrl String?
   isActive  Boolean   @default(true)
 
+  // Audit fields (H2)
+  deactivatedAt DateTime?
+  lastLoginAt   DateTime?
+
   actions   Action[]  @relation("AssignedStaff")
 
   createdAt DateTime  @default(now())
@@ -205,6 +209,8 @@ model TaxCase {
   @@unique([clientId, taxYear])
   @@index([status])
   @@index([taxYear])
+  @@index([status, taxYear])    // H1: Composite index for filtering by status and year
+  @@index([clientId, status])   // H1: Composite index for client's cases by status
 }
 
 model RawImage {
@@ -310,6 +316,7 @@ model ChecklistItem {
   @@unique([caseId, templateId])
   @@index([caseId])
   @@index([status])
+  @@index([caseId, status])     // H1: Composite index for case's checklist by status
 }
 
 model Conversation {
@@ -324,6 +331,8 @@ model Conversation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([lastMessageAt])      // M2: Index for inbox sorting
 }
 
 model Message {
@@ -333,7 +342,7 @@ model Message {
 
   channel        MessageChannel
   direction      MessageDirection
-  content        String           @db.Text
+  content        String           @db.VarChar(5000)  // M3: Limit message length for security
 
   twilioSid      String?          @unique
   twilioStatus   String?
@@ -398,4 +407,6 @@ model Action {
   @@index([priority])
   @@index([isCompleted])
   @@index([assignedToId])
+  @@index([isCompleted, priority])      // H1: Composite index for action queue
+  @@index([assignedToId, isCompleted])  // H1: Composite index for staff's pending actions
 }

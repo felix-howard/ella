@@ -42,35 +42,38 @@ async function main() {
     { docType: DocType.FORM_1099_NEC, labelVi: '1099-NEC (Da phat)', labelEn: '1099-NEC (Issued)', category: 'expenses', sortOrder: 30, condition: '{"hasContractors": true}' },
   ]
 
-  // Insert 1040 templates
-  console.log('Inserting FORM_1040 templates...')
-  for (const template of form1040Templates) {
-    await prisma.checklistTemplate.upsert({
-      where: { taxType_docType: { taxType: TaxType.FORM_1040, docType: template.docType } },
-      update: { ...template, isRequired: template.isRequired ?? true },
-      create: { ...template, taxType: TaxType.FORM_1040, isRequired: template.isRequired ?? true },
-    })
-  }
+  // M1: Wrap all operations in a transaction for atomicity
+  await prisma.$transaction(async (tx) => {
+    // Insert 1040 templates
+    console.log('Inserting FORM_1040 templates...')
+    for (const template of form1040Templates) {
+      await tx.checklistTemplate.upsert({
+        where: { taxType_docType: { taxType: TaxType.FORM_1040, docType: template.docType } },
+        update: { ...template, isRequired: template.isRequired ?? true },
+        create: { ...template, taxType: TaxType.FORM_1040, isRequired: template.isRequired ?? true },
+      })
+    }
 
-  // Insert 1120S templates
-  console.log('Inserting FORM_1120S templates...')
-  for (const template of form1120STemplates) {
-    await prisma.checklistTemplate.upsert({
-      where: { taxType_docType: { taxType: TaxType.FORM_1120S, docType: template.docType } },
-      update: { ...template, isRequired: template.isRequired ?? true },
-      create: { ...template, taxType: TaxType.FORM_1120S, isRequired: template.isRequired ?? true },
-    })
-  }
+    // Insert 1120S templates
+    console.log('Inserting FORM_1120S templates...')
+    for (const template of form1120STemplates) {
+      await tx.checklistTemplate.upsert({
+        where: { taxType_docType: { taxType: TaxType.FORM_1120S, docType: template.docType } },
+        update: { ...template, isRequired: template.isRequired ?? true },
+        create: { ...template, taxType: TaxType.FORM_1120S, isRequired: template.isRequired ?? true },
+      })
+    }
 
-  // Insert 1065 templates
-  console.log('Inserting FORM_1065 templates...')
-  for (const template of form1065Templates) {
-    await prisma.checklistTemplate.upsert({
-      where: { taxType_docType: { taxType: TaxType.FORM_1065, docType: template.docType } },
-      update: { ...template, isRequired: template.isRequired ?? true },
-      create: { ...template, taxType: TaxType.FORM_1065, isRequired: template.isRequired ?? true },
-    })
-  }
+    // Insert 1065 templates
+    console.log('Inserting FORM_1065 templates...')
+    for (const template of form1065Templates) {
+      await tx.checklistTemplate.upsert({
+        where: { taxType_docType: { taxType: TaxType.FORM_1065, docType: template.docType } },
+        update: { ...template, isRequired: template.isRequired ?? true },
+        create: { ...template, taxType: TaxType.FORM_1065, isRequired: template.isRequired ?? true },
+      })
+    }
+  })
 
   console.log('Seed completed!')
   console.log(`  - FORM_1040: ${form1040Templates.length} templates`)

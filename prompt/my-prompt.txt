@@ -1,0 +1,34 @@
+read @input-docs\project-manifesto.md to understand my problem,
+  basically, My cpas got a problem that they have to text with client back and
+  forth to chasing missing, blurry documents for tax, and they have to data
+  entry into tax software which take too much of their time. They want to
+  offshore the docs chasing and data entry to vietnamese staff. My software help
+  streamline this process, help the vietnamese staff easily do this, so that,
+  vietnamese staff can have a unified place for docs, can check what docs is
+  missing in the checklist, can ask them for docs, know what docs is what, know
+  what is missing, can text or call client, and when docs are enoguh, staff do
+  the entry the data into the tax software, cpa only need to review and efile,
+  advisory. Im also thinking of AI to auto-rename docs sent by client and ocr to
+  extract data so staff only need to verify AI output. THe client is vietnamese
+  nail spa salon, nail tech. These people don't like install a complicated
+  portal app to upload their docs, they usually just take photos of all of the
+  docs, file they have, that they don't even know what file is file, they just
+  take photos of them all and send all of them to my sms message, they don't
+  know what they need, they just send them, previously, CPAs  don't know which
+  clients's docs are enough to start data entry, sometimes docs is missing,
+  sometimes docs images are blurry which require cpa have to chatting back and
+  forth with clients to ask for docs, and docs manament previously are scatter
+  all over the places, cpa have to download image from their sms, pass them to
+  computer, rename them, checking if docs are clear, if docs blurry, they have
+  to chat again to ask for better docs, then they check if all docs are
+  enough,based on their checklist, depend on the client. then they start data
+  entry. the data entry is not required a degree CPA to do, but it take most of
+  their time, so they want to offshore to vietnamese staff to do this. for
+  checklist, cpa give me 3: 1040 pdf checklist, 1065 checklist, 1120s checklist
+
+  @input-docs\product-requirement-development.md
+  The solution I have in that project-manifesto is just my initial thinking to
+  solve this problem. I want to listen to  your point, your approach, so see
+  that if you think my solution is valid, or you have an even better approach to
+  design this product software to better solve this problem
+  to be honest, Im still not sure if my solution is best at solve this problem or not, it just my initial thought. Im still un-sure of how my solfware Ella should have what features, I still don't know how many tabs Ella should have, how each tab/page should look like, the wireframe for every screen. How to design the software to best solve this 

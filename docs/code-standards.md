@@ -319,7 +319,7 @@ turbo run dev           # Development watch mode
   - React Refresh optimization checks
   - Unused variables banned (except `_` prefixed)
   - Consistent type imports required
-- **Ignored Paths:** `dist/`, `node_modules/`, `*.gen.ts`, `.claude/skills/`
+- **Ignored Paths:** `dist/`, `node_modules/`, `*.gen.ts`, `.claude/skills/`, `**/generated/**`
 - **Script:** `pnpm lint:root` (lint root directory), `turbo lint` (all packages)
 
 **Prettier Configuration**:
@@ -331,7 +331,7 @@ turbo run dev           # Development watch mode
   - Indent: 2 spaces
   - Print width: 100 columns
   - Trailing commas: ES5 style
-- **Ignored:** Files listed in `.prettierignore` (node_modules, dist, .turbo, .claude/skills)
+- **Ignored:** Files listed in `.prettierignore` (node_modules, dist, .turbo, .claude, input-docs, \*.gen.ts, generated/)
 - **Scripts:**
   - `pnpm format` - Format all files
   - `pnpm format:check` - Verify formatting
@@ -351,6 +351,6 @@ turbo run dev           # Development watch mode
 
 ---
 
-**Last Updated:** 2026-01-11
-**Phase:** 4 - Tooling
-**Standards Version:** 1.1
+**Last Updated:** 2026-01-12
+**Phase:** 5 - Verification (Complete)
+**Standards Version:** 1.2

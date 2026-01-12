@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 5 Status:** Verification completed (2026-01-12)
 **Phase 4 Status:** Tooling setup completed (2026-01-11)
 **Phase 3 Status:** Apps setup completed
 **Phase 2 Status:** Packages setup completed
@@ -229,7 +230,9 @@ ella/
 See `.env.example`:
 
 - `DATABASE_URL` - PostgreSQL connection string
-- (More to be added as features develop)
+- `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` - Authentication
+- `API_URL`, `PORTAL_URL`, `WORKSPACE_URL` - Service URLs
+- Optional: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`, `UPLOADTHING_TOKEN`, `TRIGGER_SECRET_KEY`
 
 ## Development Workflow
 
@@ -272,7 +275,7 @@ turbo run type-check
   - React Refresh optimization (react-refresh plugin)
   - Enforce type-only imports
   - Ban unused variables (unless `_` prefixed)
-- **Ignored:** dist/, node_modules/, *.gen.ts, .claude/skills/
+- **Ignored:** dist/, node_modules/, \*.gen.ts, .claude/skills/, generated/
 
 **Scripts:**
 
@@ -291,7 +294,7 @@ turbo run type-check
   - 2-space indents
   - 100-char line width
   - ES5 trailing commas
-- **Ignores:** `.prettierignore` (node_modules, dist, .turbo, .claude/skills)
+- **Ignores:** `.prettierignore` (node_modules, dist, .turbo, .claude, input-docs, \*.gen.ts, generated/)
 
 **Scripts:**
 
@@ -323,12 +326,22 @@ turbo run type-check
 - Lint runs in parallel (no dependsOn)
 - Output: empty (linting doesn't produce artifacts)
 
-## Phase 5 Planning
+## Phase 5: Verification (COMPLETED)
 
-Anticipated next steps:
+**Date:** 2026-01-12
+
+**Verification Completed:**
+
+1. **Development Servers:** All apps (portal, workspace, api) verified working
+2. **ESLint:** Added `**/generated/**` to ignore patterns (auto-generated Prisma files)
+3. **Prettier:** Updated `.prettierignore` to exclude `.claude` and `input-docs` directories
+4. **Environment Variables:** Updated `.env.example` with complete variable set including Clerk auth, service URLs, and optional integrations
+5. **CI/CD Verification:** All linting and formatting pipelines pass
+
+**Next Phase Planning:**
 
 - API route implementation & database integration
-- Authentication & authorization system
+- Authentication & authorization system (Clerk integration)
 - Frontend component development & API integration
 - Database schema expansion for documents, compliance rules
 - Testing infrastructure setup
@@ -363,6 +376,6 @@ Anticipated next steps:
 
 ---
 
-**Last Updated:** 2026-01-11
-**Phase:** 4 - Tooling
+**Last Updated:** 2026-01-12
+**Phase:** 5 - Verification (Complete)
 **Maintained By:** Documentation Manager

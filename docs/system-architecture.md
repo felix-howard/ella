@@ -36,15 +36,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 ## Layer Responsibilities
 
 ### Frontend Layer (apps/portal & apps/workspace)
+
 **Technology:** React 19, Vite 6, TanStack Router 1.94+, React Query 5.64+, @ella/ui, Tailwind CSS v4
 
 **Structure:**
+
 - `apps/portal/` - Primary user-facing frontend
 - `apps/workspace/` - Secondary workspace-specific frontend
 - File-based routing via TanStack Router (`src/routes/*`)
 - Auto-generated route tree (`routeTree.gen.ts`)
 
 **Responsibilities:**
+
 - User interface rendering
 - Client-side routing & navigation
 - Form handling & validation
@@ -53,31 +56,37 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Authentication flow (login, logout, signup)
 
 **Key Features:**
+
 - Document upload interface
 - Dashboard with compliance status
 - Document search & filtering
 - User settings & profile
 
 **API Communication:**
+
 - HTTP REST calls to backend (via React Query)
 - Request validation via @ella/shared schemas
 - Response type safety via TypeScript
 
 ### Backend API Layer (apps/api)
+
 **Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, TypeScript
 
 **Structure:**
+
 - Entry: `src/index.ts` (serves on PORT 3001, fallback default)
 - App config: `src/app.ts` (main Hono app instance & routes)
 - Routes: `src/routes/*` (modular endpoint definitions)
 - Example: `src/routes/health.ts` (health check endpoint)
 
 **Build & Deployment:**
+
 - Dev: `pnpm -F @ella/api dev` (tsx watch for hot reload)
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
 **Responsibilities:**
+
 - HTTP request handling
 - Request validation (Zod schemas from @ella/shared)
 - Business logic execution
@@ -88,6 +97,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Logging & monitoring
 
 **Core Services (to implement):**
+
 - User authentication (JWT-based)
 - Document CRUD operations
 - Compliance rule engine
@@ -96,15 +106,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Response Format:**
 All API responses follow `apiResponseSchema`:
+
 ```json
 {
   "success": true,
-  "data": { /* payload */ },
+  "data": {
+    /* payload */
+  },
   "error": null
 }
 ```
 
 **Error Format:**
+
 ```json
 {
   "success": false,
@@ -120,6 +134,7 @@ All API responses follow `apiResponseSchema`:
 **Key Components:**
 
 #### Prisma Schema (prisma/schema.prisma)
+
 ```
 datasource db {
   provider = "postgresql"
@@ -134,6 +149,7 @@ generator client {
 ```
 
 #### Singleton Client (src/client.ts)
+
 ```typescript
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -151,19 +167,21 @@ if (process.env.NODE_ENV !== 'production') {
 ```
 
 **Why Singleton?**
+
 - Prevents connection pool exhaustion in development
 - Hot module reloading safe
 - Single connection instance per process
 - Production: New instance created per server instance
 
 **Database Queries:**
+
 ```typescript
 // Safe, typed queries
 import { prisma } from '@ella/db'
 
 const user = await prisma.user.findUnique({
   where: { email },
-  select: { id: true, email: true, createdAt: true }
+  select: { id: true, email: true, createdAt: true },
 })
 ```
 
@@ -174,6 +192,7 @@ const user = await prisma.user.findUnique({
 **Exports:**
 
 #### Schemas (Zod validation)
+
 ```typescript
 import { emailSchema, phoneSchema, paginationSchema } from '@ella/shared/schemas'
 
@@ -182,18 +201,18 @@ const result = emailSchema.parse(userInput)
 ```
 
 #### Types (TypeScript)
+
 ```typescript
 import type { ApiResponse, Pagination, UserId } from '@ella/shared/types'
 
 // Type-safe endpoints
-const getUsers = async (
-  pagination: Pagination
-): Promise<ApiResponse<User[]>> => {
+const getUsers = async (pagination: Pagination): Promise<ApiResponse<User[]>> => {
   // ...
 }
 ```
 
 **Benefits:**
+
 - Shared validation between frontend & backend
 - Type safety across API boundaries
 - Single schema maintains multiple responsibilities
@@ -204,6 +223,7 @@ const getUsers = async (
 **Technology:** shadcn/ui (Radix UI + Tailwind CSS v4)
 
 **Architecture:**
+
 ```
 packages/ui/
 ├── src/
@@ -217,6 +237,7 @@ packages/ui/
 ```
 
 **Component Pattern:**
+
 ```typescript
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../lib/utils'
@@ -241,6 +262,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 ```
 
 **Tailwind Configuration:**
+
 - Base color: neutral
 - Version: 4.0.0+
 - CSS output: src/styles.css
@@ -249,6 +271,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 ## Data Flow
 
 ### Authentication Flow
+
 ```
 User Login Form (Frontend)
         ↓
@@ -268,6 +291,7 @@ Attach token to future requests
 ```
 
 ### Document Upload Flow
+
 ```
 Upload Form (Frontend)
         ↓
@@ -289,6 +313,7 @@ Update frontend state (show in list)
 ```
 
 ### Compliance Check Flow
+
 ```
 Scheduled Job (Backend - future)
         ↓
@@ -308,6 +333,7 @@ Log audit trail (Prisma)
 ## Database Schema (Phase 2)
 
 **Current Models:**
+
 ```
 User
 ├── id (String, @id, @default(cuid()))
@@ -317,6 +343,7 @@ User
 ```
 
 **Phase 3+ Models (Planned):**
+
 ```
 - Document (belongs to User)
 - ComplianceRule (one to many Documents)
@@ -329,13 +356,15 @@ User
 ## Monorepo Configuration
 
 ### pnpm Workspaces
+
 ```yaml
 packages:
-  - "packages/*"
-  - "apps/*"
+  - 'packages/*'
+  - 'apps/*'
 ```
 
 **Workspace Structure:**
+
 ```
 ella/
 ├── packages/
@@ -351,6 +380,7 @@ ella/
 ```
 
 ### Turbo Orchestration
+
 ```json
 {
   "globalDependencies": ["**/*.env"],
@@ -369,6 +399,7 @@ ella/
 ```
 
 **Task Dependencies:**
+
 - `build` depends on `^build` (all dependencies build first)
 - Results cached for incremental builds
 - Reduces redundant compilation
@@ -376,12 +407,14 @@ ella/
 ## Environment Configuration
 
 **Development:**
+
 ```
 DATABASE_URL=postgresql://user:pass@localhost:5432/ella_dev
 NODE_ENV=development
 ```
 
 **Production:**
+
 ```
 DATABASE_URL=postgresql://user:pass@prod-db:5432/ella
 NODE_ENV=production
@@ -389,6 +422,7 @@ PORT=3000
 ```
 
 **Environment Variables:**
+
 - Loaded from `.env` (git-ignored)
 - Template: `.env.example`
 - No secrets in code
@@ -397,6 +431,7 @@ PORT=3000
 ## Type Safety Strategy
 
 **Layer 1: Database Layer**
+
 ```typescript
 import { prisma } from '@ella/db'
 const user = await prisma.user.findUnique(...)
@@ -404,6 +439,7 @@ const user = await prisma.user.findUnique(...)
 ```
 
 **Layer 2: Validation Layer**
+
 ```typescript
 import { emailSchema } from '@ella/shared/schemas'
 const validEmail = emailSchema.parse(input)
@@ -411,13 +447,14 @@ const validEmail = emailSchema.parse(input)
 ```
 
 **Layer 3: API Layer**
+
 ```typescript
 import { apiResponseSchema } from '@ella/shared/schemas'
 import type { ApiResponse } from '@ella/shared/types'
 
 const response: ApiResponse<UserData> = {
   success: true,
-  data: userData
+  data: userData,
 }
 ```
 
@@ -426,6 +463,7 @@ const response: ApiResponse<UserData> = {
 ## Error Handling Strategy
 
 **Backend Error Handling:**
+
 ```typescript
 try {
   const user = await prisma.user.findUnique(...)
@@ -439,6 +477,7 @@ try {
 ```
 
 **Frontend Error Handling:**
+
 ```typescript
 try {
   const response = await api.getUser(id)
@@ -455,18 +494,21 @@ try {
 ## Scaling Considerations
 
 **Horizontal Scaling:**
+
 - Stateless API design (no session state)
 - Load balancer distributes requests
 - Shared PostgreSQL database
 - Redis for distributed caching (future)
 
 **Vertical Scaling:**
+
 - Connection pooling prevents exhaustion
 - Query optimization via Prisma
 - Index strategy for common queries
 - Pagination to limit data transfers
 
 **Future Optimizations:**
+
 - GraphQL for flexible queries
 - Caching layer (Redis)
 - CDN for static assets
@@ -476,16 +518,19 @@ try {
 ## Security Architecture
 
 **Authentication:**
+
 - JWT tokens for stateless auth
 - Secure refresh token rotation
 - Password hashing (via @prisma/client lifecycle hooks - future)
 
 **Authorization:**
+
 - Role-based access control (RBAC)
 - Middleware checks permissions
 - Resource-level authorization
 
 **Data Protection:**
+
 - HTTPS enforced
 - SQL injection prevention (Prisma parameterized queries)
 - CSRF protection (SameSite cookies)
@@ -493,6 +538,7 @@ try {
 - Audit logging for compliance
 
 **Sensitive Data:**
+
 - Database encryption (future)
 - PII masked in logs
 - Secrets in environment variables only
@@ -500,22 +546,26 @@ try {
 ## Testing Architecture
 
 **Unit Testing:**
+
 - Test individual functions/components
 - Mock Prisma queries
 - Schema validation tests
 
 **Integration Testing:**
+
 - Test API endpoints
 - Real database (test database)
 - Authentication flow
 - Error scenarios
 
 **E2E Testing:**
+
 - Test complete user workflows
 - Frontend + Backend + Database
 - Real browser (Playwright/Cypress - future)
 
 **Test Data:**
+
 - Seed scripts for consistent data
 - Transaction rollback per test
 - Isolated test database

@@ -330,28 +330,74 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
-## Database Schema (Phase 2)
+## Database Schema (Phase 1.1 - Complete)
 
-**Current Models:**
-
-```
-User
-├── id (String, @id, @default(cuid()))
-├── email (String, @unique)
-├── createdAt (DateTime, @default(now()))
-└── updatedAt (DateTime, @updatedAt)
-```
-
-**Phase 3+ Models (Planned):**
+**Core Models (12):**
 
 ```
-- Document (belongs to User)
-- ComplianceRule (one to many Documents)
-- Notification (belongs to User)
-- AuditLog (tracks all changes)
-- Role (Admin, User, Client)
-- Permission (RBAC)
+Staff - Authentication & authorization
+├── id, email (@unique), name, role (ADMIN|STAFF|CPA)
+├── avatarUrl, isActive, timestamps
+
+Client - Tax client management
+├── id, name, phone (@unique), email, language (VI|EN)
+├── profile (1:1 ClientProfile)
+├── taxCases (1:many TaxCase)
+
+ClientProfile - Tax situation questionnaire
+├── Dependents: hasKidsUnder17, numKidsUnder17, paysDaycare, hasKids17to24
+├── Employment: hasW2, hasSelfEmployment
+├── Investments: hasBankAccount, hasInvestments
+├── Business: ein, businessName, hasEmployees, hasContractors, has1099K
+├── Housing: hasRentalProperty
+
+TaxCase - Per-client per-year tax filing
+├── clientId, taxYear, status (INTAKE→FILED), taxTypes[]
+├── rawImages, digitalDocs, checklistItems (1:many)
+├── conversation, magicLinks, actions (1:many)
+├── Timestamps: lastContactAt, entryCompletedAt, filedAt
+
+RawImage - Document uploads
+├── caseId, r2Key, r2Url, filename, fileSize
+├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
+├── uploadedVia (SMS|PORTAL|SYSTEM)
+
+DigitalDoc - Extracted/verified documents
+├── caseId, rawImageId, docType, status (PENDING→VERIFIED)
+├── extractedData (JSON), aiConfidence, verifiedById
+├── checklistItemId (optional linking)
+
+ChecklistTemplate - Tax form requirements
+├── taxType, docType (@unique combo), labelVi/labelEn, descriptionVi/labelEn
+├── isRequired, condition (JSON), sortOrder, category
+
+ChecklistItem - Per-case checklist status
+├── caseId, templateId (@unique combo), status (MISSING→VERIFIED)
+├── expectedCount, receivedCount, notes
+
+Conversation - Per-case message thread
+├── caseId (@unique), unreadCount, lastMessageAt
+
+Message - SMS/portal/system messages
+├── conversationId, channel (SMS|PORTAL|SYSTEM)
+├── direction (INBOUND|OUTBOUND), content, twilioSid
+├── attachmentUrls[], isSystem, templateUsed
+
+MagicLink - Passwordless access tokens
+├── caseId, token (@unique), expiresAt, isActive
+├── lastUsedAt, usageCount
+
+Action - Staff tasks & reminders
+├── caseId, type (VERIFY_DOCS|AI_FAILED|BLURRY_DETECTED|REMINDER_DUE|CLIENT_REPLIED)
+├── priority (URGENT|HIGH|NORMAL|LOW), assignedToId
+├── isCompleted, completedAt, scheduledFor, metadata (JSON)
 ```
+
+**Enums (12):**
+- TaxCaseStatus, TaxType, DocType (21 document types)
+- RawImageStatus, DigitalDocStatus, ChecklistItemStatus
+- ActionType, ActionPriority, MessageChannel, MessageDirection
+- StaffRole, Language
 
 ## Monorepo Configuration
 
@@ -572,6 +618,6 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-11
-**Phase:** 3 - Apps Setup
-**Architecture Version:** 1.1
+**Last Updated:** 2026-01-12
+**Phase:** 1.1 - Database Schema Design (Complete)
+**Architecture Version:** 1.2

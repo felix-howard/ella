@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
 **Phase 4 Status:** Tooling setup completed (2026-01-11)
 **Phase 3 Status:** Apps setup completed
@@ -32,19 +33,41 @@ ella/
 **Key Files:**
 
 - `packages/db/src/client.ts` - Prisma singleton preventing connection leaks
-- `packages/db/prisma/schema.prisma` - Data model (PostgreSQL)
+- `packages/db/src/index.ts` - Exports generated Prisma client
+- `packages/db/prisma/schema.prisma` - Complete data model (12 models, 12 enums)
+- `packages/db/prisma/seed.ts` - Checklist template seeds (25 records across 3 tax forms)
 - `packages/db/package.json` - Exports: prisma client + generated types
 
-**Current Schema:**
+**Complete Schema (Phase 1.1):**
 
-- User model (id, email, timestamps)
-- PostgreSQL datasource via DATABASE_URL env var
+**Models (12):**
+- Staff (admin/staff/CPA roles)
+- Client (name, phone, email, language preference)
+- ClientProfile (tax situation questionnaire data)
+- TaxCase (per client per tax year, status tracking)
+- RawImage (document uploads with AI classification)
+- DigitalDoc (extracted/verified documents)
+- ChecklistTemplate (tax form requirements)
+- ChecklistItem (per-case checklist status)
+- Conversation (per-case message threads)
+- Message (SMS/portal/system messages)
+- MagicLink (passwordless access tokens)
+- Action (staff tasks, reminders, verifications)
+
+**Enums (12):**
+- TaxCaseStatus, TaxType, DocType, RawImageStatus, DigitalDocStatus, ChecklistItemStatus, ActionType, ActionPriority, MessageChannel, MessageDirection, StaffRole, Language
+
+**Seed Data:**
+- FORM_1040: 12 checklist templates (personal tax return)
+- FORM_1120S: 7 checklist templates (S-Corp tax return)
+- FORM_1065: 6 checklist templates (Partnership tax return)
 
 **Scripts:**
 
 - `pnpm -F @ella/db generate` - Generate Prisma client
 - `pnpm -F @ella/db migrate` - Run migrations
 - `pnpm -F @ella/db push` - Sync schema with DB
+- `pnpm -F @ella/db seed` - Run seed.ts (populate checklist templates)
 - `pnpm -F @ella/db studio` - Prisma Studio UI
 
 ### Package: @ella/shared
@@ -325,6 +348,41 @@ turbo run type-check
 - Global dependencies: `tsconfig.json`, `eslint.config.js`
 - Lint runs in parallel (no dependsOn)
 - Output: empty (linting doesn't produce artifacts)
+
+## Phase 1.1: Database Schema Design (COMPLETED)
+
+**Date:** 2026-01-12
+
+**Deliverable:** Complete Prisma schema with tax case management data models
+
+**Key Additions:**
+
+1. **12 Core Models:** Staff, Client, ClientProfile, TaxCase, RawImage, DigitalDoc, ChecklistTemplate, ChecklistItem, Conversation, Message, MagicLink, Action
+
+2. **12 Enums:** Complete enumeration for tax forms, document types, statuses, and roles
+
+3. **Seed Script:** Checklist templates for FORM_1040 (12), FORM_1120S (7), FORM_1065 (6)
+
+4. **Schema Features:**
+   - Proper indexing for common queries (status, case ID, type)
+   - Unique constraints (client-phone, case-year combination)
+   - Cascading deletes for data integrity
+   - JSON fields for flexible metadata
+
+5. **Scripts Added:** `seed` script added to package.json for populating initial checklist data
+
+**Files Modified:**
+- `packages/db/prisma/schema.prisma` - 402 lines, complete schema
+- `packages/db/prisma/seed.ts` - 89 lines, checklist template seeder
+- `packages/db/package.json` - Added seed script
+- `packages/db/tsconfig.json` - Fixed exclude config
+- `packages/db/src/index.ts` - Updated export path
+
+**Next Steps:**
+1. Run `pnpm -F @ella/db push` to sync schema with PostgreSQL
+2. Run `pnpm -F @ella/db seed` to populate checklist templates
+3. Verify schema in `pnpm -F @ella/db studio`
+4. Begin Phase 3 API route implementation
 
 ## Phase 5: Verification (COMPLETED)
 

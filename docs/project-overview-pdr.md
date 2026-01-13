@@ -1,7 +1,7 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 1.1 - Database Schema Design (Completed)
-**Last Updated:** 2026-01-12
+**Current Phase:** 1.2 - Backend API Endpoints (Completed)
+**Last Updated:** 2026-01-13
 
 ## Project Vision
 
@@ -139,56 +139,69 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - class-variance-authority for variants
 - Component variants pattern implemented
 
-### Phase 3: Backend API Setup
+### Phase 1.2: Backend API Endpoints (COMPLETED)
+
+**Status:** Completed 2026-01-13
+
+**Objective:** Implement REST API with complete route coverage for tax case management
+
+**Requirements Met:**
+
+- [x] Hono API server on PORT 3001
+- [x] 24 endpoints across 7 route modules (clients, cases, docs, actions, messages, portal, health)
+- [x] Request validation via Zod + @hono/zod-validator
+- [x] Prisma database integration via @ella/db
+- [x] Global error handler middleware
+- [x] OpenAPI documentation at `/doc` endpoint
+- [x] Scalar API UI for interactive testing at `/docs`
+- [x] CORS configured for frontend localhost ports
+- [x] Pagination helpers & Vietnamese label constants
+- [x] Service layer for business logic
+
+**Acceptance Criteria Met:**
+
+- [x] Server starts on PORT 3001
+- [x] All endpoints validated via Zod
+- [x] Prisma queries typed and type-safe
+- [x] Error responses with HTTP status codes & descriptive messages
+- [x] Endpoints testable via Scalar UI
+- [x] Request logging via hono/logger middleware
+- [x] Pagination support on all list endpoints
+
+**Deliverables:**
+
+- Client CRUD with profile & automatic checklist generation
+- Tax case management with status tracking & document counts
+- Digital document endpoints for classification, OCR, verification
+- Action queue for staff task management
+- Message/conversation endpoints for client communication
+- Magic link portal for passwordless client access
+- Health check for monitoring
+
+### Phase 3: Frontend Application
 
 **Status:** Pending
 
-**Objective:** Establish backend application with API framework
+**Objective:** Build React frontend with API integration
 
 **Planned Requirements:**
 
-- Express.js or Fastify API server
-- API routes for document CRUD operations
-- Authentication system (JWT/session-based)
-- Request validation via Zod schemas from @ella/shared
-- Database integration via @ella/db
-- Error handling & logging middleware
-- API documentation (OpenAPI/Swagger)
+- React 19+ application with Vite
+- TanStack Router for file-based routing
+- Components from @ella/ui library
+- React Query for server state management
+- Authentication flow integration
+- API client for backend communication
+- Form validation with Zod from @ella/shared
 
 **Acceptance Criteria:**
 
 - [ ] Server starts on configured port
-- [ ] All endpoints validated via Zod
-- [ ] Prisma queries typed and type-safe
-- [ ] JWT tokens issued and verified
-- [ ] Error responses follow apiResponseSchema
-- [ ] Endpoints testable via Swagger UI
-
-### Phase 4: Frontend Application
-
-**Status:** Pending
-
-**Objective:** Build user-facing web application
-
-**Planned Requirements:**
-
-- React 18+ application
-- TanStack Router for routing
-- Component library from @ella/ui
-- State management for documents & auth
-- API client for backend communication
-- Authentication flow (login/signup)
-- Document upload & management UI
-- Dashboard with compliance status
-
-**Acceptance Criteria:**
-
-- [ ] Login/signup pages functional
-- [ ] User can upload documents
-- [ ] Document list displays with sorting/filtering
-- [ ] Responsive on mobile (Tailwind responsive)
-- [ ] Type-safe API calls via shared types
-- [ ] Loading/error states handled
+- [ ] Frontend communicates with API successfully
+- [ ] Authentication system integrated (Clerk)
+- [ ] Login/signup flows working
+- [ ] Type-safe API calls via shared schemas
+- [ ] Responsive design on mobile
 
 ### Phase 5: Features & Polish
 
@@ -246,7 +259,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 | Database        | PostgreSQL      | 14+     |
 | ORM             | Prisma          | 6.7.0   |
 | Validation      | Zod             | 3.24.1  |
-| Backend         | TBD             | -       |
+| Backend         | Hono            | 4.6.15+ |
 | Frontend        | React           | 18+     |
 | Styling         | Tailwind CSS    | 4.0.0+  |
 | Components      | shadcn/ui       | Latest  |
@@ -258,10 +271,11 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 | ----- | -------------------------------------------- | ---------- |
 | 1     | Monorepo structure, TypeScript config        | ✓ Complete |
 | 1.1   | Complete database schema (12 models, 12 enums) | ✓ Complete |
+| 1.2   | Backend API with 24 endpoints                | ✓ Complete |
 | 2     | @ella/db, @ella/shared, @ella/ui             | ✓ Complete |
-| 3     | Backend API with authentication              | - Pending  |
-| 4     | Frontend React app with routing              | - Pending  |
-| 5     | Full feature set & polish                    | - Pending  |
+| 3     | Frontend React app with routing              | - Pending  |
+| 4     | Full feature set & polish                    | - Pending  |
+| 5     | Production deployment & monitoring           | - Pending  |
 
 ## Success Metrics
 
@@ -311,17 +325,17 @@ docs/
 
 ## Next Steps
 
-### For Development Team (Phase 1.1 → Phase 3)
+### For Development Team (Phase 1.2 Complete → Phase 3)
 
-1. Ensure PostgreSQL database is running and `DATABASE_URL` is configured
-2. Run `pnpm -F @ella/db push` to sync schema to database
-3. Run `pnpm -F @ella/db seed` to populate checklist templates (25 records)
-4. Verify schema in Prisma Studio: `pnpm -F @ella/db studio`
-5. Begin Phase 3: Backend API routes for tax case management
-   - Implement CRUD endpoints for TaxCase, Client, Staff
-   - Add document upload handler (RawImage creation)
-   - Build checklist item status management
-   - Set up message/conversation endpoints
+1. Start API server: `pnpm -F @ella/api dev` (runs on PORT 3001)
+2. Test endpoints via Scalar UI: http://localhost:3001/docs
+3. Begin Phase 3: Frontend React application
+   - Set up API client with type safety from @ella/shared
+   - Implement authentication flow (Clerk integration)
+   - Build client intake form with profile wizard
+   - Create case dashboard with document upload
+   - Add checklist status tracking UI
+   - Implement message/conversation UI
 
 ### For Product Team
 
@@ -339,7 +353,7 @@ docs/
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Created:** 2026-01-11
 **Maintained By:** Documentation Manager
-**Last Review:** 2026-01-12
+**Last Review:** 2026-01-13

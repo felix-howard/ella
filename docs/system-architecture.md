@@ -70,14 +70,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 ### Backend API Layer (apps/api)
 
-**Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, TypeScript
+**Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, @hono/zod-validator, TypeScript
 
 **Structure:**
 
-- Entry: `src/index.ts` (serves on PORT 3001, fallback default)
-- App config: `src/app.ts` (main Hono app instance & routes)
-- Routes: `src/routes/*` (modular endpoint definitions)
-- Example: `src/routes/health.ts` (health check endpoint)
+- Entry: `src/index.ts` (serves on PORT 3001)
+- App config: `src/app.ts` (main Hono app instance & all routes)
+- Middleware: `src/middleware/error-handler.ts` (global error handling)
+- Lib: `src/lib/db.ts` (Prisma re-export), `src/lib/constants.ts` (pagination, Vietnamese labels)
+- Routes: `src/routes/{clients,cases,docs,actions,messages,portal,health}/` (modular endpoints)
+- Services: `src/services/{checklist-generator,magic-link,storage}.ts` (business logic)
 
 **Build & Deployment:**
 
@@ -85,47 +87,84 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
+**Implemented Endpoints (24 total):**
+
+**Clients (5):**
+- `GET /clients` - List with search/status filters, pagination
+- `POST /clients` - Create client + profile + case + magic link + checklist
+- `GET /clients/:id` - Client with profile, tax cases, doc counts
+- `PATCH /clients/:id` - Update name/phone/email/language
+- `DELETE /clients/:id` - Delete client
+
+**Tax Cases (6):**
+- `GET /cases` - List with status/year/client filters, pagination
+- `POST /cases` - Create new case
+- `GET /cases/:id` - Case details with document counts
+- `PATCH /cases/:id` - Update status/metadata
+- `GET /cases/:id/checklist` - Dynamic checklist from profile & templates
+- `GET /cases/:id/images` - Raw images for case
+
+**Digital Documents (5):**
+- `GET /docs/:id` - Document details with extracted data
+- `POST /docs/:id/classify` - AI classify raw image to docType
+- `POST /docs/:id/ocr` - Trigger OCR for data extraction
+- `PATCH /docs/:id/verify` - Verify extracted data, set status VERIFIED
+
+**Actions (2):**
+- `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
+- `GET/PATCH /actions/:id` - Action details & mark complete
+
+**Messages (2):**
+- `GET /messages/:caseId` - Conversation history (SMS/portal/system)
+- `POST /messages/send` - Create message, support bulk SMS
+
+**Portal (2):**
+- `GET /portal/:token` - Verify magic link, return case data for client
+- `POST /portal/:token/upload` - Client document upload via magic link
+
+**Health (1):**
+- `GET /health` - Server status check
+
 **Responsibilities:**
 
-- HTTP request handling
-- Request validation (Zod schemas from @ella/shared)
-- Business logic execution
-- Database transaction management
-- Error handling & standardized responses
-- Authentication & authorization
-- OpenAPI schema generation
-- Logging & monitoring
+- HTTP request handling with Hono framework
+- Request validation via Zod + @hono/zod-validator
+- Business logic execution via service layer
+- Database transaction management (Prisma)
+- Global error handling with standardized responses
+- OpenAPI schema generation (accessible at `/doc`)
+- Scalar API UI for interactive docs (at `/docs`)
+- CORS for frontend (localhost:5173, :5174)
+- Request logging via hono/logger middleware
 
-**Core Services (to implement):**
+**Core Services (Phase 1.2):**
 
-- User authentication (JWT-based)
-- Document CRUD operations
+- `checklist-generator.ts` - Generate checklist from profile & templates
+- `magic-link.ts` - Create/validate passwordless access tokens
+- `storage.ts` - R2 Cloudflare storage service (placeholder)
+
+**Future Services:**
+
+- AI classification & confidence scoring
+- OCR document extraction
+- Notification system (SMS/email)
 - Compliance rule engine
-- Notification system (future)
-- File storage service (future)
 
 **Response Format:**
-All API responses follow `apiResponseSchema`:
+All endpoints return standard format:
 
 ```json
 {
-  "success": true,
-  "data": {
-    /* payload */
-  },
-  "error": null
+  "data": { /* endpoint-specific payload */ },
+  "pagination": { "page": 1, "limit": 20, "total": 100 } // if list endpoint
 }
 ```
 
-**Error Format:**
+**Error Handling:**
 
-```json
-{
-  "success": false,
-  "data": null,
-  "error": "Descriptive error message"
-}
-```
+- Global error handler middleware catches all exceptions
+- Returns HTTP status codes: 400 (validation), 404 (not found), 500 (server error)
+- Error response includes descriptive message for debugging
 
 ### Database Abstraction (@ella/db)
 
@@ -618,6 +657,6 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-12
-**Phase:** 1.1 - Database Schema Design (Complete)
-**Architecture Version:** 1.2
+**Last Updated:** 2026-01-13
+**Phase:** 1.2 - Backend API Endpoints (Complete)
+**Architecture Version:** 1.3

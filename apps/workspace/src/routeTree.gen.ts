@@ -10,33 +10,115 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClientsIndexRouteImport } from './routes/clients/index'
+import { Route as ActionsIndexRouteImport } from './routes/actions/index'
+import { Route as ClientsNewRouteImport } from './routes/clients/new'
+import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
+import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
+import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/clients/',
+  path: '/clients/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActionsIndexRoute = ActionsIndexRouteImport.update({
+  id: '/actions/',
+  path: '/actions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsNewRoute = ClientsNewRouteImport.update({
+  id: '/clients/new',
+  path: '/clients/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
+  id: '/clients/$clientId',
+  path: '/clients/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CasesCaseIdMessagesRoute = CasesCaseIdMessagesRouteImport.update({
+  id: '/cases/$caseId/messages',
+  path: '/cases/$caseId/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CasesCaseIdEntryRoute = CasesCaseIdEntryRouteImport.update({
+  id: '/cases/$caseId/entry',
+  path: '/cases/$caseId/entry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/clients/new': typeof ClientsNewRoute
+  '/actions': typeof ActionsIndexRoute
+  '/clients': typeof ClientsIndexRoute
+  '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
+  '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/clients/new': typeof ClientsNewRoute
+  '/actions': typeof ActionsIndexRoute
+  '/clients': typeof ClientsIndexRoute
+  '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
+  '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/clients/new': typeof ClientsNewRoute
+  '/actions/': typeof ActionsIndexRoute
+  '/clients/': typeof ClientsIndexRoute
+  '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
+  '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/clients/$clientId'
+    | '/clients/new'
+    | '/actions'
+    | '/clients'
+    | '/cases/$caseId/entry'
+    | '/cases/$caseId/messages'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/clients/$clientId'
+    | '/clients/new'
+    | '/actions'
+    | '/clients'
+    | '/cases/$caseId/entry'
+    | '/cases/$caseId/messages'
+  id:
+    | '__root__'
+    | '/'
+    | '/clients/$clientId'
+    | '/clients/new'
+    | '/actions/'
+    | '/clients/'
+    | '/cases/$caseId/entry'
+    | '/cases/$caseId/messages'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClientsClientIdRoute: typeof ClientsClientIdRoute
+  ClientsNewRoute: typeof ClientsNewRoute
+  ActionsIndexRoute: typeof ActionsIndexRoute
+  ClientsIndexRoute: typeof ClientsIndexRoute
+  CasesCaseIdEntryRoute: typeof CasesCaseIdEntryRoute
+  CasesCaseIdMessagesRoute: typeof CasesCaseIdMessagesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +130,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients/': {
+      id: '/clients/'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/actions/': {
+      id: '/actions/'
+      path: '/actions'
+      fullPath: '/actions'
+      preLoaderRoute: typeof ActionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients/new': {
+      id: '/clients/new'
+      path: '/clients/new'
+      fullPath: '/clients/new'
+      preLoaderRoute: typeof ClientsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients/$clientId': {
+      id: '/clients/$clientId'
+      path: '/clients/$clientId'
+      fullPath: '/clients/$clientId'
+      preLoaderRoute: typeof ClientsClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cases/$caseId/messages': {
+      id: '/cases/$caseId/messages'
+      path: '/cases/$caseId/messages'
+      fullPath: '/cases/$caseId/messages'
+      preLoaderRoute: typeof CasesCaseIdMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cases/$caseId/entry': {
+      id: '/cases/$caseId/entry'
+      path: '/cases/$caseId/entry'
+      fullPath: '/cases/$caseId/entry'
+      preLoaderRoute: typeof CasesCaseIdEntryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClientsClientIdRoute: ClientsClientIdRoute,
+  ClientsNewRoute: ClientsNewRoute,
+  ActionsIndexRoute: ActionsIndexRoute,
+  ClientsIndexRoute: ClientsIndexRoute,
+  CasesCaseIdEntryRoute: CasesCaseIdEntryRoute,
+  CasesCaseIdMessagesRoute: CasesCaseIdMessagesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

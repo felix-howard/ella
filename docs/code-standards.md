@@ -133,9 +133,17 @@ import { cn } from '../lib/utils'
 const buttonVariants = cva('base-styles', {
   variants: {
     variant: {
-      primary: 'primary-styles',
-      secondary: 'secondary-styles',
+      default: 'bg-primary text-primary-foreground rounded-full',
+      destructive: 'bg-destructive rounded-full',
     },
+    size: {
+      default: 'h-10 px-5',
+      sm: 'h-8 px-4 text-xs',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+    size: 'default',
   },
 })
 
@@ -144,14 +152,16 @@ interface ButtonProps
     VariantProps<typeof buttonVariants> {}
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, ...props }, ref) => (
+  ({ className, variant, size, ...props }, ref) => (
     <button
       ref={ref}
-      className={cn(buttonVariants({ variant }), className)}
+      className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   )
 )
+Button.displayName = 'Button'
+export { Button, buttonVariants }
 ```
 
 **Styling:**
@@ -159,13 +169,207 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - Tailwind CSS v4 with utility-first approach
 - Component variants via `class-variance-authority`
 - Class merging via `cn()` utility (clsx + tailwind-merge)
-- Global styles in `src/styles.css`
+- Global styles in `src/styles.css` with design tokens
+- Pill-shaped components (`rounded-full`)
+
+**Design Tokens (Tailwind v4):**
+
+```css
+@theme {
+  --color-primary: #10B981;
+  --color-primary-light: #D1FAE5;
+  --color-primary-dark: #059669;
+  --color-accent: #F97316;
+  --color-error: #EF4444;
+  --radius-full: 9999px;
+}
+```
 
 **shadcn/ui Integration:**
 
 - Components copied from shadcn/ui registry
 - Customizations in local codebase
 - Config: `components.json`
+
+## Frontend Application Patterns (@ella/workspace, @ella/portal)
+
+**Directory Structure:**
+
+```
+apps/{app}/
+├── src/
+│   ├── lib/
+│   │   ├── api-client.ts    # Centralized HTTP client
+│   │   └── constants.ts     # UI labels, colors, navigation
+│   ├── stores/
+│   │   └── ui-store.ts      # Zustand store (persisted)
+│   ├── components/
+│   │   ├── layout/          # Sidebar, Header, PageContainer
+│   │   └── {feature}/       # Feature-specific components
+│   ├── routes/
+│   │   ├── __root.tsx       # Root layout
+│   │   ├── index.tsx        # Home page
+│   │   └── {feature}/       # Feature pages
+│   └── main.tsx
+├── vite.config.ts
+└── tsconfig.json
+```
+
+**API Client Pattern:**
+
+```typescript
+// lib/api-client.ts
+export class ApiError extends Error {
+  constructor(public status: number, public code: string, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+export const api = {
+  clients: {
+    list: (params?: { page?: number; search?: string }) =>
+      request<PaginatedResponse<Client>>('/clients', { params }),
+    get: (id: string) => request<Client>(`/clients/${id}`),
+    create: (data: CreateClientInput) =>
+      request<Client>('/clients', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  // ... more endpoints
+}
+```
+
+**Constants Organization:**
+
+```typescript
+// lib/constants.ts
+export const DOC_TYPE_LABELS = {
+  W2: 'W2 (Thu nhập từ công việc)',
+  FORM_1099_NEC: '1099-NEC (Thu nhập tự do)',
+  // ... more labels
+}
+
+export const CASE_STATUS_LABELS = {
+  INTAKE: 'Tiếp nhận',
+  WAITING_DOCS: 'Chờ tài liệu',
+  // ... more labels
+}
+
+export const CASE_STATUS_COLORS = {
+  INTAKE: { bg: 'bg-muted', text: 'text-muted-foreground' },
+  // ... more colors
+}
+
+export const NAV_ITEMS = [
+  { path: '/', label: 'Tổng quan', icon: 'LayoutDashboard' },
+  // ... more items
+]
+
+export const UI_TEXT = {
+  loading: 'Đang tải...',
+  error: 'Đã có lỗi xảy ra',
+  // ... more text
+}
+```
+
+**State Management (Zustand):**
+
+```typescript
+// stores/ui-store.ts
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface UIState {
+  sidebarCollapsed: boolean
+  toggleSidebar: () => void
+  clientViewMode: 'kanban' | 'list'
+  setClientViewMode: (mode: 'kanban' | 'list') => void
+}
+
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      sidebarCollapsed: false,
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      clientViewMode: 'kanban',
+      setClientViewMode: (mode) => set({ clientViewMode: mode }),
+    }),
+    {
+      name: 'ella-ui-store',
+      partialize: (state) => ({
+        sidebarCollapsed: state.sidebarCollapsed,
+        clientViewMode: state.clientViewMode,
+      }),
+    }
+  )
+)
+```
+
+**Layout Pattern:**
+
+```typescript
+// routes/__root.tsx - Root layout with sidebar + header
+export const Route = createRootRoute({
+  component: RootLayout,
+})
+
+function RootLayout() {
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background">
+        <Sidebar />
+        <Header />
+        <Outlet />
+      </div>
+    </ErrorBoundary>
+  )
+}
+
+// components/layout/page-container.tsx - Content wrapper
+export function PageContainer({ children }: { children: ReactNode }) {
+  return <main className="ml-[var(--sidebar-width)] p-6">{children}</main>
+}
+```
+
+**Error Boundary Pattern:**
+
+```typescript
+// components/error-boundary.tsx
+export class ErrorBoundary extends Component<Props, State> {
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="bg-card rounded-xl p-8 text-center">
+            <AlertTriangle className="w-8 h-8 text-error mx-auto mb-4" />
+            <h1 className="text-xl font-semibold text-foreground mb-2">Đã có lỗi xảy ra</h1>
+            <Button onClick={this.handleRetry}>Thử lại</Button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+```
+
+**Localization Pattern:**
+
+- All UI text in `constants.ts` with Vietnamese-first approach
+- Use `CASE_STATUS_LABELS[status]` instead of hardcoded strings
+- Support EN fallback via additional constants if needed
 
 ## Git Workflow & Commits
 

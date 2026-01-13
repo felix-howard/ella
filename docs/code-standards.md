@@ -191,6 +191,183 @@ export { Button, buttonVariants }
 - Customizations in local codebase
 - Config: `components.json`
 
+## AI Services (@ella/api - Phase 2.1)
+
+**Service Organization:**
+
+```
+apps/api/src/services/ai/
+├── gemini-client.ts         # Low-level API wrapper
+├── document-classifier.ts   # Document type recognition
+├── blur-detector.ts         # Image quality assessment
+├── ocr-extractor.ts         # Data extraction routing
+├── document-pipeline.ts     # Orchestration engine
+├── pipeline-types.ts        # Shared interfaces
+├── pipeline-helpers.ts      # Database operations
+├── prompts/
+│   ├── classify.ts          # Multi-class detection
+│   ├── blur-check.ts        # Quality assessment
+│   └── ocr/
+│       ├── w2.ts            # W2 form extraction
+│       ├── 1099-int.ts      # 1099-INT extraction
+│       ├── 1099-nec.ts      # 1099-NEC extraction
+│       ├── ssn-dl.ts        # SSN Card & Driver's License
+│       └── index.ts         # OCR router
+└── index.ts                 # Public exports
+```
+
+**Service Patterns:**
+
+```typescript
+// 1. Configuration with env var fallback
+import { config } from '../lib/config'
+
+const geminiKey = process.env.GEMINI_API_KEY || ''
+export const isGeminiConfigured = !!geminiKey
+
+// 2. Result wrapper pattern (success + error handling)
+export interface ServiceResult<T> {
+  success: boolean
+  data?: T
+  error?: string
+  processingTimeMs?: number
+}
+
+// 3. Type-safe metadata for database records
+export interface ActionMetadata {
+  rawImageId: string
+  docType?: DocType
+  confidence?: number
+  errorMessage?: string
+  // Type-specific fields per action type
+}
+
+// 4. Validation function pattern
+export function validateExtractedData(docType: string, data: unknown): boolean {
+  switch (docType) {
+    case 'W2':
+      return validateW2Data(data)
+    case 'FORM_1099_NEC':
+      return validate1099NecData(data)
+    // ...
+    default:
+      return false
+  }
+}
+
+// 5. Field labels for i18n
+export const FORM_1099_NEC_FIELD_LABELS_VI: Record<string, string> = {
+  payerName: 'Tên Người trả',
+  nonemployeeCompensation: 'Thu nhập tự do/Hợp đồng (Box 1)',
+  // ...
+}
+```
+
+**Prompt Engineering Standards:**
+
+Prompts stored as string-returning functions for maintainability.
+
+```typescript
+// Pattern: Document-specific extraction prompt
+export function get1099NecExtractionPrompt(): string {
+  return `You are an expert OCR system...
+
+  Extract the following fields:
+  - payerName: Company/person paying [instructions]
+  - nonemployeeCompensation: Box 1 amount [instructions]
+
+  Respond in JSON format:
+  {
+    "payerName": "...",
+    "nonemployeeCompensation": 45000.00,
+    ...
+  }
+
+  Rules:
+  1. All monetary values are numbers without $ or commas
+  2. Use null for empty/unclear fields, NEVER guess
+  3. [form-specific rules]
+  `
+}
+
+// Pattern: Validation ensures response matches interface
+export function validate1099NecData(data: unknown): data is Form1099NecExtractedData {
+  if (!data || typeof data !== 'object') return false
+  const d = data as Record<string, unknown>
+
+  // Check required fields exist (values can be null)
+  const requiredFields = ['payerName', 'recipientName', 'recipientTIN']
+  for (const field of requiredFields) {
+    if (!(field in d)) return false
+  }
+
+  return true
+}
+```
+
+**Error Handling Strategy:**
+
+```typescript
+// Distinguish transient vs permanent errors
+const isTransient = /rate.?limit|timeout|503|500|502|overloaded/i.test(error.message)
+
+if (isTransient && attempt < maxRetries) {
+  // Retry with exponential backoff
+  await sleep(delayMs * Math.pow(2, attempt))
+} else {
+  // Permanent error → create AI_FAILED action
+  await createAction({
+    type: 'AI_FAILED',
+    priority: 'HIGH',
+    title: 'Lỗi xử lý AI',
+    description: errorMessage,
+    metadata: { rawImageId }
+  })
+}
+```
+
+**Testing Patterns:**
+
+```typescript
+// Mock Gemini responses for unit tests
+jest.mock('../services/ai/gemini-client', () => ({
+  analyzeImage: jest.fn().mockResolvedValue({
+    success: true,
+    data: {
+      docType: 'W2',
+      confidence: 0.95
+    }
+  })
+}))
+
+// Integration test: full pipeline
+it('processes W2 image end-to-end', async () => {
+  const result = await processImage(rawImageId, buffer, 'image/jpeg')
+
+  expect(result.success).toBe(true)
+  expect(result.classification?.docType).toBe('W2')
+
+  // Verify database state
+  const rawImage = await prisma.rawImage.findUnique({ where: { id: rawImageId } })
+  expect(rawImage?.classifiedType).toBe('W2')
+})
+```
+
+**Configuration Constants:**
+
+```typescript
+export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
+  maxRetries: 2,              // Transient error retries
+  retryDelayMs: 1000,         // 1s base, then exponential
+  batchConcurrency: 3,        // Parallel image processing
+}
+
+// Confidence thresholds
+const CONFIDENCE_HIGH = 0.85        // Auto-accept OCR
+const CONFIDENCE_VERIFY = 0.7       // Create VERIFY_DOCS action
+const BLUR_THRESHOLD = 70           // Request resend
+```
+
 ## Frontend Application Patterns (@ella/workspace, @ella/portal)
 
 **Directory Structure:**

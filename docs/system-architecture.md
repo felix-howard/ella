@@ -369,6 +369,67 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
+### AI Document Processing Pipeline Flow (Phase 2.1)
+
+```
+Client Uploads Documents via Portal
+        ↓
+POST /portal/:token/upload (multipart form)
+        ↓
+Validate files (type, size, count)
+        ↓
+Upload to R2 storage (Cloudflare)
+        ↓
+Create RawImage records (status: UPLOADED)
+        ↓
+[PIPELINE STAGE 1: Classification]
+        ├─ analyzeImage() with classify prompt
+        ├─ Gemini vision identifies document type
+        ├─ Returns { docType, confidence }
+        └─ Update RawImage.classifiedType & aiConfidence
+        ↓
+[PIPELINE STAGE 2: Blur Detection]
+        ├─ analyzeImage() with blur-check prompt
+        ├─ Gemini assesses sharpness (0-100 scale)
+        ├─ Returns { blurScore, issues }
+        └─ If blurry (>70): Create BLURRY_DETECTED action
+        ↓
+[PIPELINE STAGE 3: OCR Extraction] (if document supports it)
+        ├─ getOcrPromptForDocType(docType)
+        ├─ analyzeImage() with form-specific prompt
+        ├─ Extract & validate structured data
+        ├─ Calculate confidence from key fields
+        └─ Create/update DigitalDoc with extractedData
+        ↓
+[Database Updates]
+        ├─ Update RawImage status (CLASSIFIED/BLURRY/LINKED)
+        ├─ Link RawImage to matching ChecklistItem
+        ├─ Create DigitalDoc with extracted fields
+        ├─ Increment ChecklistItem.receivedCount
+        └─ Create Action records for follow-ups
+        ↓
+[Action Creation Rules]
+        ├─ AI_FAILED → Classification or extraction error
+        ├─ BLURRY_DETECTED → Image quality issue (blur >70)
+        ├─ VERIFY_DOCS → OCR confidence <0.85 or invalid data
+        └─ Actions appear in workspace queue
+        ↓
+[Portal Status Update]
+        ├─ Client sees uploaded documents
+        ├─ Blurry documents flagged for resend
+        ├─ Verified documents marked as received
+        └─ Real-time checklist progress
+
+**Retry Strategy:**
+- Transient errors (timeout, rate limit, 500/502/503)
+- Exponential backoff: 1s → 2s → 4s (default: 3 retries)
+- Non-transient: Single attempt, create AI_FAILED action
+
+**Concurrency Control:**
+- Batch processing: 3 images parallel (tuned for Gemini rate limits)
+- Per-image: Sequential stages (classify → blur → ocr)
+```
+
 ## Database Schema (Phase 1.1 - Complete)
 
 **Core Models (12):**

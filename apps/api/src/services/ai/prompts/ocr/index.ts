@@ -14,6 +14,19 @@ import {
   validate1099IntData as _validate1099Int,
   FORM_1099_INT_FIELD_LABELS_VI as _1099IntLabels,
 } from './1099-int'
+import {
+  get1099NecExtractionPrompt as _get1099NecPrompt,
+  validate1099NecData as _validate1099Nec,
+  FORM_1099_NEC_FIELD_LABELS_VI as _1099NecLabels,
+} from './1099-nec'
+import {
+  getSsnCardExtractionPrompt as _getSsnCardPrompt,
+  validateSsnCardData as _validateSsnCard,
+  SSN_CARD_FIELD_LABELS_VI as _SsnCardLabels,
+  getDriverLicenseExtractionPrompt as _getDLPrompt,
+  validateDriverLicenseData as _validateDL,
+  DRIVER_LICENSE_FIELD_LABELS_VI as _DLLabels,
+} from './ssn-dl'
 
 // Re-export W2 prompt and types
 export {
@@ -30,6 +43,25 @@ export {
   FORM_1099_INT_FIELD_LABELS_VI,
 } from './1099-int'
 export type { Form1099IntExtractedData } from './1099-int'
+
+// Re-export 1099-NEC prompt and types
+export {
+  get1099NecExtractionPrompt,
+  validate1099NecData,
+  FORM_1099_NEC_FIELD_LABELS_VI,
+} from './1099-nec'
+export type { Form1099NecExtractedData } from './1099-nec'
+
+// Re-export SSN Card and Driver's License prompts and types
+export {
+  getSsnCardExtractionPrompt,
+  validateSsnCardData,
+  SSN_CARD_FIELD_LABELS_VI,
+  getDriverLicenseExtractionPrompt,
+  validateDriverLicenseData,
+  DRIVER_LICENSE_FIELD_LABELS_VI,
+} from './ssn-dl'
+export type { SsnCardExtractedData, DriverLicenseExtractedData } from './ssn-dl'
 
 /**
  * Supported OCR document types
@@ -54,11 +86,12 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _getW2Prompt()
     case 'FORM_1099_INT':
       return _get1099IntPrompt()
-    // Future prompts will be added here:
-    // case 'FORM_1099_NEC':
-    //   return get1099NecExtractionPrompt()
-    // case 'SSN_CARD':
-    //   return getSsnCardExtractionPrompt()
+    case 'FORM_1099_NEC':
+      return _get1099NecPrompt()
+    case 'SSN_CARD':
+      return _getSsnCardPrompt()
+    case 'DRIVER_LICENSE':
+      return _getDLPrompt()
     default:
       return null
   }
@@ -71,11 +104,9 @@ export function supportsOcrExtraction(docType: string): boolean {
   const supportedTypes: string[] = [
     'W2',
     'FORM_1099_INT',
-    // Future supported types:
-    // 'FORM_1099_NEC',
-    // 'FORM_1099_DIV',
-    // 'SSN_CARD',
-    // 'DRIVER_LICENSE',
+    'FORM_1099_NEC',
+    'SSN_CARD',
+    'DRIVER_LICENSE',
   ]
   return supportedTypes.includes(docType)
 }
@@ -89,6 +120,12 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validateW2(data)
     case 'FORM_1099_INT':
       return _validate1099Int(data)
+    case 'FORM_1099_NEC':
+      return _validate1099Nec(data)
+    case 'SSN_CARD':
+      return _validateSsnCard(data)
+    case 'DRIVER_LICENSE':
+      return _validateDL(data)
     default:
       return false
   }
@@ -103,6 +140,12 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _W2Labels
     case 'FORM_1099_INT':
       return _1099IntLabels
+    case 'FORM_1099_NEC':
+      return _1099NecLabels
+    case 'SSN_CARD':
+      return _SsnCardLabels
+    case 'DRIVER_LICENSE':
+      return _DLLabels
     default:
       return {}
   }

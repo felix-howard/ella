@@ -230,22 +230,48 @@ TWILIO_ACCOUNT_SID=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1 First Half - AI Document Processing)
+## Recent Changes (Phase 2.1 - AI Document Processing)
 
-**New AI Services Added:**
+### Phase 2.1 First Half (Complete)
+**Core AI Services:**
 - `apps/api/src/services/ai/gemini-client.ts` - Gemini API wrapper with retry logic & image validation
-- `apps/api/src/services/ai/document-classifier.ts` - Multi-document classification (W2, 1099-INT, etc)
+- `apps/api/src/services/ai/document-classifier.ts` - Multi-document classification (W2, 1099-INT, 1099-NEC, SSN_CARD, DRIVER_LICENSE)
 - `apps/api/src/services/ai/blur-detector.ts` - Image quality/blur detection for document validation
 - `apps/api/src/services/ai/index.ts` - AI services exports
 
-**New AI Prompts Added:**
-- `apps/api/src/services/ai/prompts/classify.ts` - Document type classification prompt
-- `apps/api/src/services/ai/prompts/blur-check.ts` - Image quality check prompt
+**AI Prompts:**
+- `apps/api/src/services/ai/prompts/classify.ts` - Document type classification
+- `apps/api/src/services/ai/prompts/blur-check.ts` - Image quality assessment
 - `apps/api/src/services/ai/prompts/ocr/w2.ts` - W2 form OCR extraction
 - `apps/api/src/services/ai/prompts/ocr/1099-int.ts` - 1099-INT form OCR extraction
-- `apps/api/src/services/ai/prompts/ocr/index.ts` - OCR prompts router
+- `apps/api/src/services/ai/prompts/ocr/index.ts` - OCR routing logic
+
+### Phase 2.1 Second Half (Complete)
+**OCR Extraction Services:**
+- `apps/api/src/services/ai/prompts/ocr/1099-nec.ts` - 1099-NEC form OCR with Vietnamese field labels
+- `apps/api/src/services/ai/prompts/ocr/ssn-dl.ts` - SSN Card & Driver's License OCR extraction
+- `apps/api/src/services/ai/ocr-extractor.ts` - Service routing OCR extraction by document type
+- `apps/api/src/services/ai/pipeline-types.ts` - Shared pipeline interface definitions
+- `apps/api/src/services/ai/pipeline-helpers.ts` - Database operations for AI pipeline
+- `apps/api/src/services/ai/document-pipeline.ts` - End-to-end processing: classify → blur detect → OCR extract
+
+**Pipeline Features:**
+- Single image processing: `processImage(rawImageId, buffer, mimeType)`
+- Batch processing: `processImageBatch(images[], concurrency=3)`
+- Automatic Action creation on AI events (BLURRY_DETECTED, VERIFY_DOCS, AI_FAILED)
+- Confidence scoring & validation for extracted data
+- Vietnamese field labels for all form types
+- Retry logic with exponential backoff (2 retries, 1s delay)
+- Concurrency-controlled batch processing
+
+**Portal Integration:**
+- POST `/portal/:token/upload` auto-triggers AI pipeline on file upload
+- Real-time document classification & validation
+- Automatic checklist linking when document recognized
+- Blur detection feedback in portal status UI
 
 **Files Modified:**
+- `apps/api/src/routes/portal/index.ts` - Integrated `processImage()` on file upload
 - `apps/api/package.json` - Added @google/generative-ai ^0.21.0
 - `apps/api/src/lib/config.ts` - Added AI configuration section with Gemini settings
 - `apps/workspace/routeTree.gen.ts` - Auto-generated (no manual edits)
@@ -253,43 +279,78 @@ TWILIO_ACCOUNT_SID=...
 
 ## AI Services Architecture (Phase 2.1)
 
+### Processing Pipeline Flow
+```
+Upload → Classification → Blur Detection → OCR Extraction → Database + Actions
+```
+
 ### Core AI Components
 
 **GeminiClient** (`gemini-client.ts`)
-- Wraps @google/generative-ai SDK
-- Validates image formats & sizes (10MB max)
-- Implements exponential backoff retry logic
-- Handles rate limiting & transient errors
-- Supports text & vision models
+- Wraps @google/generative-ai SDK with `analyzeImage<T>()` method
+- Validates image formats (JPEG, PNG, WebP, HEIC, HEIF) & sizes (≤10MB)
+- Exponential backoff retry (default: 3 retries, 1s base delay)
+- Detects & handles rate limiting/transient errors (500, 502, 503)
+- Returns typed `{ success, data, error }` results
 
 **DocumentClassifier** (`document-classifier.ts`)
-- Classifies uploaded images by tax form type
-- Uses Gemini vision model + custom prompts
-- Returns confidence scores & document categories
-- Handles batch processing with concurrency control
+- Vision-based classification: W2, 1099-INT, 1099-NEC, 1099-DIV, 1099-K, 1099-R, SSN_CARD, DRIVER_LICENSE
+- Determines if document requires OCR extraction
+- Returns `{ docType, confidence, error }`
+- Confidence: 0-1 (1 = highest)
 
 **BlurDetector** (`blur-detector.ts`)
-- Analyzes image quality & sharpness
-- Detects blurry or low-quality documents
-- Validates document readability before extraction
-- Prevents poor-quality OCR processing
+- Analyzes sharpness & quality on 0-100 scale
+- Flags blurry (>70), partially blurry (50-70), sharp (<50)
+- Determines if client should resend image
+- Returns `{ isBlurry, blurScore, needsResend }`
 
-### AI Prompts
+**OcrExtractor** (`ocr-extractor.ts`)
+- Routes to document-specific OCR prompts
+- Validates extracted data structure
+- Calculates confidence from key field completeness (0.5-0.99)
+- Determines if manual verification needed
+- Returns `{ success, extractedData, confidence, isValid }`
 
-Structured prompts for consistent AI outputs:
-- **classify.ts** - Multi-class document type detection
-- **blur-check.ts** - Image quality assessment
-- **ocr/w2.ts** - W2 form field extraction
-- **ocr/1099-int.ts** - 1099-INT form field extraction
-- **ocr/index.ts** - OCR prompt routing by document type
+**DocumentPipeline** (`document-pipeline.ts`)
+- Orchestrates: classify → blur detect → ocr extract
+- Single: `processImage(rawImageId, buffer, mimeType)` → `PipelineResult`
+- Batch: `processImageBatch(images[], concurrency)` → `PipelineResult[]`
+- Creates Action records for: BLURRY_DETECTED, VERIFY_DOCS, AI_FAILED
+- Retry wrapper with exponential backoff for transient failures
+- Links to ChecklistItem when document recognized
+
+### AI Prompts & OCR Support
+
+| Form Type | File | Fields | Vietnamese Labels |
+|-----------|------|--------|------------------|
+| W2 | `ocr/w2.ts` | Employer, Employee, Wages, Tax | ✓ |
+| 1099-INT | `ocr/1099-int.ts` | Payer, Interest Income, Tax | ✓ |
+| 1099-NEC | `ocr/1099-nec.ts` | Payer, Recipient, Compensation, State Tax | ✓ |
+| SSN Card | `ocr/ssn-dl.ts` | Name, SSN, Card Type | ✓ |
+| Driver's License | `ocr/ssn-dl.ts` | Name, DOB, Address, License#, Exp Date | ✓ |
+
+**Classification Prompt** (`prompts/classify.ts`)
+- Multi-class detection with confidence scoring
+- Handles unclear/mixed documents
+
+**Blur Check Prompt** (`prompts/blur-check.ts`)
+- Evaluates readability & sharpness
+- Detects common issues: glare, shadows, angle
+
+**OCR Router** (`prompts/ocr/index.ts`)
+- `getOcrPromptForDocType(docType)` - Gets form-specific prompt
+- `supportsOcrExtraction(docType)` - Checks if type has OCR
+- `validateExtractedData(docType, data)` - Type-specific validation
+- `getFieldLabels(docType)` - Returns Vietnamese field labels
 
 ## Next Steps
 
-1. **Phase 2.1 (Second Half)** - API endpoints for document processing
-2. **Phase 2.2** - Frontend document upload with AI validation
-3. **Phase 3.0** - Authentication integration (Clerk setup)
-4. **Phase 3.1** - Advanced OCR & data extraction
-5. **Phase 4.0** - Advanced search & analytics
+1. **Phase 3.0** - Document verification endpoint + workspace review UI
+2. **Phase 3.1** - Advanced OCR for remaining form types (1099-DIV, 1099-K, 1099-R)
+3. **Phase 3.2** - Multi-page document support & PDF extraction
+4. **Phase 4.0** - Advanced search & tax case analytics
+5. **Phase 5.0** - Authentication integration (Clerk setup)
 
 ## Key Decisions
 
@@ -318,6 +379,6 @@ Structured prompts for consistent AI outputs:
 
 ---
 
-**Last Updated:** 2026-01-13 20:27
-**Status:** Phase 2.1 First Half Complete - AI Document Processing (Gemini services)
+**Last Updated:** 2026-01-13 21:15
+**Status:** Phase 2.1 Complete - AI Document Processing with Full Pipeline (Classification, Blur Detection, OCR Extraction)
 **Branch:** feature/phase-2.1-ai-document-processing

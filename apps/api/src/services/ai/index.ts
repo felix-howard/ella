@@ -37,6 +37,14 @@ export {
   type BlurIssue,
 } from './blur-detector'
 
+// OCR Extractor Service
+export {
+  extractDocumentData,
+  getExtractionStatusMessage,
+  needsManualVerification,
+  type OcrExtractionResult,
+} from './ocr-extractor'
+
 // OCR Prompts (for direct access)
 export {
   getOcrPromptForDocType,
@@ -45,6 +53,9 @@ export {
   getFieldLabels,
   type W2ExtractedData,
   type Form1099IntExtractedData,
+  type Form1099NecExtractedData,
+  type SsnCardExtractedData,
+  type DriverLicenseExtractedData,
   type OcrDocType,
 } from './prompts/ocr'
 
@@ -57,3 +68,27 @@ export {
 
 // Blur detection types
 export { type BlurDetectionResult } from './prompts/blur-check'
+
+// Document Processing Pipeline
+export {
+  processImage,
+  processImageBatch,
+  getPipelineStatus,
+} from './document-pipeline'
+
+// Pipeline Types
+export type {
+  PipelineResult,
+  BatchImageInput,
+  PipelineConfig,
+  ActionMetadata,
+  CreateActionParams,
+} from './pipeline-types'
+export { DEFAULT_PIPELINE_CONFIG } from './pipeline-types'
+
+// Pipeline Helpers (for advanced use)
+export {
+  createAction,
+  linkToChecklistItem,
+  upsertDigitalDoc,
+} from './pipeline-helpers'

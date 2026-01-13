@@ -7,6 +7,8 @@ import { prisma } from '../../lib/db'
 import { validateMagicLink } from '../../services/magic-link'
 import { validateUploadedFiles } from '../../lib/validation'
 import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/constants'
+import { processImage, isGeminiConfigured } from '../../services/ai'
+import { uploadFile, generateFileKey } from '../../services/storage'
 
 const portalRoute = new Hono()
 
@@ -129,20 +131,27 @@ portalRoute.post('/:token/upload', async (c) => {
     )
   }
 
-  // For each file, create RawImage record
-  // In Phase 2, this will also upload to R2 and trigger AI processing
+  // Process each file: upload to R2 + AI processing
   const createdImages = []
+  const aiResults = []
 
   for (const file of files) {
-    // Generate a placeholder R2 key (actual upload in Phase 2)
-    const r2Key = `cases/${caseId}/${Date.now()}-${file.name}`
+    // Read file buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const mimeType = file.type || 'image/jpeg'
 
+    // Generate R2 key and upload
+    const r2Key = generateFileKey(caseId, file.name, 'raw')
+    await uploadFile(r2Key, buffer, mimeType)
+
+    // Create raw image record
     const rawImage = await prisma.rawImage.create({
       data: {
         caseId,
         r2Key,
         filename: file.name,
-        mimeType: file.type || 'image/jpeg',
+        mimeType,
         fileSize: file.size,
         status: 'UPLOADED',
         uploadedVia: 'PORTAL',
@@ -155,17 +164,36 @@ portalRoute.post('/:token/upload', async (c) => {
       status: rawImage.status,
       createdAt: rawImage.createdAt.toISOString(),
     })
+
+    // Trigger AI processing if configured
+    if (isGeminiConfigured) {
+      try {
+        const pipelineResult = await processImage(rawImage.id, buffer, mimeType)
+        aiResults.push({
+          imageId: rawImage.id,
+          success: pipelineResult.success,
+          docType: pipelineResult.classification?.docType,
+          isBlurry: pipelineResult.blurDetection?.isBlurry,
+        })
+      } catch (error) {
+        console.error('AI processing failed for image:', rawImage.id, error)
+        aiResults.push({ imageId: rawImage.id, success: false })
+      }
+    }
   }
 
-  // Create action for staff to review (once per upload batch)
-  if (createdImages.length > 0) {
+  // Create action for staff to review if AI not configured or some images failed
+  const needsManualReview = !isGeminiConfigured || aiResults.some((r) => !r.success)
+  if (createdImages.length > 0 && needsManualReview) {
     await prisma.action.create({
       data: {
         caseId,
         type: 'VERIFY_DOCS',
         priority: 'HIGH',
         title: 'Tài liệu mới từ khách hàng',
-        description: `Khách hàng đã gửi ${createdImages.length} file qua portal`,
+        description: isGeminiConfigured
+          ? `Khách hàng đã gửi ${createdImages.length} file - một số cần xác minh thủ công`
+          : `Khách hàng đã gửi ${createdImages.length} file qua portal`,
         metadata: { rawImageIds: createdImages.map((img) => img.id) },
       },
     })
@@ -174,6 +202,8 @@ portalRoute.post('/:token/upload', async (c) => {
   return c.json({
     uploaded: createdImages.length,
     images: createdImages,
+    aiProcessed: isGeminiConfigured,
+    aiResults: isGeminiConfigured ? aiResults : undefined,
     message: `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
   })
 })

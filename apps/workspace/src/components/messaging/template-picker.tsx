@@ -148,7 +148,7 @@ export function TemplatePicker({
   // Handle template selection with placeholder replacement
   const handleSelect = (template: MessageTemplate) => {
     // Replace all known placeholders with values or friendly defaults
-    let processedContent = template.content
+    const processedContent = template.content
       .replace(/{clientName}/g, clientName || 'Quý khách')
       .replace(/{docType}/g, '[loại tài liệu]') // Default placeholder for docType
 

@@ -369,6 +369,82 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
+### AI Document Processing Pipeline Flow (Phase 2.1 & 2.2)
+
+```
+Client Uploads Documents via Portal
+        ↓
+POST /portal/:token/upload (multipart form)
+        ↓
+Validate files (type, size, count)
+        ↓
+Upload to R2 storage (Cloudflare)
+        ↓
+Create RawImage records (status: UPLOADED)
+        ↓
+[PIPELINE STAGE 1: Classification]
+        ├─ analyzeImage() with classify prompt
+        ├─ Gemini vision identifies document type
+        ├─ Returns { docType, confidence }
+        └─ Update RawImage.classifiedType & aiConfidence
+        ↓
+[PIPELINE STAGE 2: Auto-Linking to Checklist] (Phase 2.2)
+        ├─ linkToChecklistItem(rawImageId, caseId, docType)
+        ├─ Search ChecklistItem by (caseId, template.docType)
+        ├─ If found: Link RawImage ↔ ChecklistItem
+        ├─ Update ChecklistItem.status: MISSING → HAS_RAW
+        ├─ Increment ChecklistItem.receivedCount
+        └─ RawImage.status: CLASSIFIED → LINKED
+        ↓
+[PIPELINE STAGE 3: Blur Detection]
+        ├─ analyzeImage() with blur-check prompt
+        ├─ Gemini assesses sharpness (0-100 scale)
+        ├─ Returns { blurScore, issues }
+        └─ If blurry (>70): Create BLURRY_DETECTED action
+        ↓
+[PIPELINE STAGE 4: OCR Extraction] (if document supports it)
+        ├─ getOcrPromptForDocType(docType)
+        ├─ analyzeImage() with form-specific prompt
+        ├─ Extract & validate structured data
+        ├─ Calculate confidence from key fields
+        └─ Prepare data for atomic transaction
+        ↓
+[Atomic Transaction] (Phase 2.2)
+        ├─ Upsert DigitalDoc with extracted fields
+        ├─ Update ChecklistItem.status: HAS_RAW → HAS_DIGITAL
+        ├─ Mark RawImage.status: LINKED
+        ├─ All 3 operations in single transaction (ACID)
+        └─ No partial states possible
+        ↓
+[Action Creation Rules]
+        ├─ AI_FAILED → Classification or extraction error
+        ├─ BLURRY_DETECTED → Image quality issue (blur >70)
+        ├─ VERIFY_DOCS → OCR confidence <0.85 or invalid data
+        └─ Actions appear in workspace queue
+        ↓
+[Portal Status Update]
+        ├─ Client sees uploaded documents
+        ├─ Blurry documents flagged for resend
+        ├─ Verified documents marked as received
+        └─ Real-time checklist progress (MISSING/HAS_RAW/HAS_DIGITAL)
+
+**Checklist Status Lifecycle:**
+- MISSING: Initial state (no docs received)
+- HAS_RAW: Raw image received (classification success)
+- HAS_DIGITAL: Digital doc created (OCR extraction success)
+- VERIFIED: Manually verified by staff (future action)
+
+**Retry Strategy:**
+- Transient errors (timeout, rate limit, 500/502/503)
+- Exponential backoff: 1s → 2s → 4s (default: 3 retries)
+- Non-transient: Single attempt, create AI_FAILED action
+
+**Concurrency Control:**
+- Batch processing: 3 images parallel (tuned for Gemini rate limits)
+- Per-image: Sequential stages (classify → blur → ocr → atomic commit)
+- Atomic transactions prevent race conditions on concurrent uploads
+```
+
 ## Database Schema (Phase 1.1 - Complete)
 
 **Core Models (12):**
@@ -657,6 +733,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-13
-**Phase:** 1.2 - Backend API Endpoints (Complete)
-**Architecture Version:** 1.3
+**Last Updated:** 2026-01-13 21:30
+**Phase:** 2.2 - Dynamic Checklist System with Atomic Transactions (Complete)
+**Architecture Version:** 2.2
+**Next Phase:** 3.0 - Document Verification Endpoint + Workspace Review UI

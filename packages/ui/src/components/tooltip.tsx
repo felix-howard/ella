@@ -79,7 +79,7 @@ const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
     const showTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
     const hideTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const showTooltip = () => {
+    const showTooltip = React.useCallback(() => {
       if (disabled) return
       // Clear any pending hide timeout
       if (hideTimeoutRef.current) {
@@ -93,9 +93,9 @@ const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
           setIsVisible(true)
         })
       }, delay)
-    }
+    }, [disabled, delay])
 
-    const hideTooltip = () => {
+    const hideTooltip = React.useCallback(() => {
       // Clear any pending show timeout
       if (showTimeoutRef.current) {
         clearTimeout(showTimeoutRef.current)
@@ -106,7 +106,7 @@ const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
       hideTimeoutRef.current = setTimeout(() => {
         setShouldRender(false)
       }, 200)
-    }
+    }, [])
 
     // Cleanup all timeouts on unmount
     React.useEffect(() => {
@@ -120,28 +120,49 @@ const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
       }
     }, [])
 
-    // Get the original props from the child
-    const childProps = children.props
+    const childPropsSnapshot = children.props
+
+    // Create stable handlers that merge with original child props
+    const handleMouseEnter = React.useCallback(
+      (e: React.MouseEvent) => {
+        showTooltip()
+        childPropsSnapshot.onMouseEnter?.(e)
+      },
+      [showTooltip, childPropsSnapshot]
+    )
+
+    const handleMouseLeave = React.useCallback(
+      (e: React.MouseEvent) => {
+        hideTooltip()
+        childPropsSnapshot.onMouseLeave?.(e)
+      },
+      [hideTooltip, childPropsSnapshot]
+    )
+
+    const handleFocus = React.useCallback(
+      (e: React.FocusEvent) => {
+        showTooltip()
+        childPropsSnapshot.onFocus?.(e)
+      },
+      [showTooltip, childPropsSnapshot]
+    )
+
+    const handleBlur = React.useCallback(
+      (e: React.FocusEvent) => {
+        hideTooltip()
+        childPropsSnapshot.onBlur?.(e)
+      },
+      [hideTooltip, childPropsSnapshot]
+    )
 
     return (
       <div ref={ref} className="relative inline-flex">
+        {/* eslint-disable-next-line react-hooks/refs -- cloneElement is valid React pattern */}
         {React.cloneElement(children, {
-          onMouseEnter: (e: React.MouseEvent) => {
-            showTooltip()
-            childProps.onMouseEnter?.(e)
-          },
-          onMouseLeave: (e: React.MouseEvent) => {
-            hideTooltip()
-            childProps.onMouseLeave?.(e)
-          },
-          onFocus: (e: React.FocusEvent) => {
-            showTooltip()
-            childProps.onFocus?.(e)
-          },
-          onBlur: (e: React.FocusEvent) => {
-            hideTooltip()
-            childProps.onBlur?.(e)
-          },
+          onMouseEnter: handleMouseEnter,
+          onMouseLeave: handleMouseLeave,
+          onFocus: handleFocus,
+          onBlur: handleBlur,
         })}
         {shouldRender && (
           <div

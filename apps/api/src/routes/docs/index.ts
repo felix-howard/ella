@@ -6,6 +6,13 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { classifyDocSchema, verifyDocSchema } from './schemas'
+import {
+  extractDocumentData,
+  needsManualVerification,
+  isGeminiConfigured,
+  supportsOcrExtraction,
+} from '../../services/ai'
+import { getSignedDownloadUrl } from '../../services/storage'
 import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
 
 const docsRoute = new Hono()
@@ -120,11 +127,11 @@ docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c)
   })
 })
 
-// POST /docs/:id/ocr - Trigger OCR extraction (placeholder for AI integration)
+// POST /docs/:id/ocr - Trigger OCR extraction using Gemini AI
 docsRoute.post('/:id/ocr', async (c) => {
   const id = c.req.param('id')
 
-  // Find digital doc
+  // Find digital doc with raw image
   const doc = await prisma.digitalDoc.findUnique({
     where: { id },
     include: { rawImage: true },
@@ -134,29 +141,116 @@ docsRoute.post('/:id/ocr', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
   }
 
-  // OCR placeholder - in Phase 2, this will call Gemini API
-  // For now, mark as extracted with placeholder data
-  const extractedData = generatePlaceholderExtractedData(doc.docType)
+  // Check if AI is configured
+  if (!isGeminiConfigured) {
+    // Fall back to placeholder data
+    const placeholderData = generatePlaceholderExtractedData(doc.docType)
+    const updatedDoc = await prisma.digitalDoc.update({
+      where: { id },
+      data: {
+        status: 'PENDING' as DigitalDocStatus,
+        extractedData: placeholderData as Parameters<typeof prisma.digitalDoc.update>[0]['data']['extractedData'],
+        aiConfidence: 0,
+      },
+    })
 
-  const updatedDoc = await prisma.digitalDoc.update({
-    where: { id },
-    data: {
-      status: 'EXTRACTED' as DigitalDocStatus,
-      extractedData: extractedData as unknown as Parameters<typeof prisma.digitalDoc.update>[0]['data']['extractedData'],
-      aiConfidence: 0.85, // Placeholder confidence
-    },
-  })
+    return c.json({
+      digitalDoc: {
+        ...updatedDoc,
+        createdAt: updatedDoc.createdAt.toISOString(),
+        updatedAt: updatedDoc.updatedAt.toISOString(),
+      },
+      aiConfigured: false,
+      message: 'AI not configured. Manual data entry required.',
+    })
+  }
 
-  // Create action for verification
-  await prisma.action.create({
-    data: {
-      caseId: doc.caseId,
-      type: 'VERIFY_DOCS',
-      priority: 'NORMAL',
-      title: 'Xác minh tài liệu mới',
-      description: `Tài liệu ${doc.docType} cần xác minh OCR`,
-      metadata: { docId: doc.id, rawImageId: doc.rawImageId },
-    },
+  // Check if doc type supports OCR
+  if (!supportsOcrExtraction(doc.docType)) {
+    return c.json({
+      error: 'UNSUPPORTED_DOC_TYPE',
+      message: `Document type ${doc.docType} does not support OCR extraction`,
+    }, 400)
+  }
+
+  // Fetch image from R2 for processing
+  let imageBuffer: Buffer
+  let mimeType: string
+
+  try {
+    if (!doc.rawImage) {
+      return c.json({ error: 'NO_IMAGE', message: 'No raw image linked to document' }, 400)
+    }
+
+    // Get signed URL and fetch image
+    const signedUrl = await getSignedDownloadUrl(doc.rawImage.r2Key)
+    if (!signedUrl) {
+      return c.json({ error: 'STORAGE_ERROR', message: 'Cannot access image file' }, 500)
+    }
+
+    const response = await fetch(signedUrl)
+    if (!response.ok) {
+      return c.json({ error: 'FETCH_ERROR', message: 'Cannot fetch image from storage' }, 500)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    imageBuffer = Buffer.from(arrayBuffer)
+    mimeType = doc.rawImage.mimeType || 'image/jpeg'
+  } catch (error) {
+    console.error('Failed to fetch image for OCR:', error)
+    return c.json({ error: 'IMAGE_ERROR', message: 'Failed to load image for processing' }, 500)
+  }
+
+  // Run OCR extraction
+  const ocrResult = await extractDocumentData(imageBuffer, mimeType, doc.docType)
+
+  // Determine status based on result
+  let status: DigitalDocStatus = 'PENDING'
+  if (ocrResult.success) {
+    status = ocrResult.isValid ? 'EXTRACTED' : 'PARTIAL'
+  } else {
+    status = 'FAILED'
+  }
+
+  // Atomic transaction: Update digital doc, checklist item, and create action
+  const updatedDoc = await prisma.$transaction(async (tx) => {
+    // Update digital doc with extracted data
+    const digitalDoc = await tx.digitalDoc.update({
+      where: { id },
+      data: {
+        status,
+        extractedData: (ocrResult.extractedData || {}) as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+        aiConfidence: ocrResult.confidence,
+      },
+    })
+
+    // Update checklist item status to HAS_DIGITAL on successful extraction
+    if (doc.checklistItemId && (status === 'EXTRACTED' || status === 'PARTIAL')) {
+      await tx.checklistItem.update({
+        where: { id: doc.checklistItemId },
+        data: { status: 'HAS_DIGITAL' as ChecklistItemStatus },
+      })
+    }
+
+    // Create action for verification if needed
+    if (needsManualVerification(ocrResult)) {
+      await tx.action.create({
+        data: {
+          caseId: doc.caseId,
+          type: 'VERIFY_DOCS',
+          priority: 'NORMAL',
+          title: 'Xác minh dữ liệu OCR',
+          description: `${doc.docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
+          metadata: {
+            docId: doc.id,
+            rawImageId: doc.rawImageId,
+            confidence: ocrResult.confidence,
+          },
+        },
+      })
+    }
+
+    return digitalDoc
   })
 
   return c.json({
@@ -165,7 +259,16 @@ docsRoute.post('/:id/ocr', async (c) => {
       createdAt: updatedDoc.createdAt.toISOString(),
       updatedAt: updatedDoc.updatedAt.toISOString(),
     },
-    message: 'OCR extraction completed. Awaiting verification.',
+    ocrResult: {
+      success: ocrResult.success,
+      confidence: ocrResult.confidence,
+      isValid: ocrResult.isValid,
+      fieldLabels: ocrResult.fieldLabels,
+      processingTimeMs: ocrResult.processingTimeMs,
+    },
+    message: ocrResult.success
+      ? 'OCR extraction completed. Awaiting verification.'
+      : `OCR extraction failed: ${ocrResult.error}`,
   })
 })
 

@@ -181,9 +181,26 @@ export const UI_TEXT = {
     title: 'Khách hàng',
     newClient: 'Thêm khách hàng',
     noClients: 'Chưa có khách hàng nào',
+    noClientsHint: 'Thêm khách hàng mới để bắt đầu',
+    noCase: 'Chưa có hồ sơ',
     searchPlaceholder: 'Tìm theo tên hoặc số điện thoại...',
     viewKanban: 'Xem Kanban',
     viewList: 'Xem danh sách',
+    backToList: 'Quay lại danh sách',
+    count: 'khách hàng',
+    personalInfo: 'Thông tin cá nhân',
+    taxProfile: 'Hồ sơ thuế',
+    checklistTitle: 'Danh sách tài liệu',
+    tabs: {
+      overview: 'Tổng quan',
+      documents: 'Tài liệu',
+      messages: 'Tin nhắn',
+    },
+  },
+
+  // Kanban
+  kanban: {
+    noClients: 'Không có khách hàng',
   },
 
   // Actions

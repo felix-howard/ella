@@ -10,11 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
+import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/clients/',
+  path: '/clients/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActionsIndexRoute = ActionsIndexRouteImport.update({
@@ -22,31 +29,44 @@ const ActionsIndexRoute = ActionsIndexRouteImport.update({
   path: '/actions/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
+  id: '/clients/$clientId',
+  path: '/clients/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
   '/actions': typeof ActionsIndexRoute
+  '/clients': typeof ClientsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
   '/actions': typeof ActionsIndexRoute
+  '/clients': typeof ClientsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
   '/actions/': typeof ActionsIndexRoute
+  '/clients/': typeof ClientsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/actions'
+  fullPaths: '/' | '/clients/$clientId' | '/actions' | '/clients'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/actions'
-  id: '__root__' | '/' | '/actions/'
+  to: '/' | '/clients/$clientId' | '/actions' | '/clients'
+  id: '__root__' | '/' | '/clients/$clientId' | '/actions/' | '/clients/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClientsClientIdRoute: typeof ClientsClientIdRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
+  ClientsIndexRoute: typeof ClientsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +78,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients/': {
+      id: '/clients/'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/actions/': {
       id: '/actions/'
       path: '/actions'
@@ -65,12 +92,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients/$clientId': {
+      id: '/clients/$clientId'
+      path: '/clients/$clientId'
+      fullPath: '/clients/$clientId'
+      preLoaderRoute: typeof ClientsClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClientsClientIdRoute: ClientsClientIdRoute,
   ActionsIndexRoute: ActionsIndexRoute,
+  ClientsIndexRoute: ClientsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

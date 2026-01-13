@@ -1,6 +1,6 @@
 # Ella - Codebase Summary
 
-**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.10 completed (2026-01-13)
+**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.15 completed (2026-01-13)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
@@ -429,9 +429,9 @@ turbo run type-check
 
 **Date:** 2026-01-13
 
-**Deliverable:** Complete workspace UI with dashboard, actions page, and core components
+**Deliverable:** Complete workspace UI with dashboard, actions page, client management, and core components
 
-**Tasks Completed (1.3.1-1.3.10):**
+**Tasks Completed (1.3.1-1.3.15):**
 
 1. **Task 1.3.1:** Update @ella/ui design tokens & Button component
    - Added mint green design system via `packages/ui/src/styles.css`
@@ -455,7 +455,7 @@ turbo run type-check
    - ACTION_TYPE_LABELS (6 types), ACTION_PRIORITY_LABELS (4 priorities) with colors
    - TAX_TYPE_LABELS, FILING_STATUS_LABELS, LANGUAGE_LABELS
    - NAV_ITEMS sidebar navigation (4 routes)
-   - UI_TEXT object with dashboard, quick actions, clients, actions, form, and error labels
+   - UI_TEXT object with dashboard, quick actions, clients, actions, form, kanban, and error labels
 
 4. **Task 1.3.4:** Zustand UI state management
    - File: `apps/workspace/src/stores/ui-store.ts`
@@ -510,12 +510,72 @@ turbo run type-check
    - Recent Activity section placeholder
    - Ready for API integration
 
+7. **Task 1.3.11-1.3.15:** Client Management Components
+
+   - **Formatter Utilities** (`apps/workspace/src/lib/formatters.ts`)
+     - `formatPhone(phone)` - Format to US format: (xxx) xxx-xxxx
+     - `getInitials(name)` - Extract first + last name initials
+     - `getRelativeTimeVi(date)` - Vietnamese relative time (e.g., "5 phút trước")
+     - `copyToClipboard(text)` - Safe clipboard write with fallback
+     - `formatCurrency(amount)` - Vietnamese VND formatting
+     - `formatDateVi(date, options)` - Vietnamese date locale
+
+   - **Client Card Component** (`apps/workspace/src/components/clients/client-card.tsx`)
+     - Main variant: Shows name, phone, tax year, latest case status
+     - Status badge with dynamic color styling via `CASE_STATUS_COLORS`
+     - Compact variant: Avatar with initials, minimal layout for lists
+     - Skeleton loader for loading states
+     - Auto-links to `/clients/$clientId` detail page
+
+   - **Kanban Board Component** (`apps/workspace/src/components/clients/kanban-board.tsx`)
+     - Visual status-based client management (7 columns)
+     - Column order: INTAKE → WAITING_DOCS → IN_PROGRESS → READY_FOR_ENTRY → ENTRY_COMPLETE → REVIEW → FILED
+     - O(n) grouping performance via `useMemo`
+     - Dynamic column headers with client count badges
+     - Empty state per column with icon
+     - Responsive horizontal scroll on mobile
+     - Skeleton loader with varied column fills
+
+   - **Client List Table Component** (`apps/workspace/src/components/clients/client-list-table.tsx`)
+     - Sortable table view with 7 columns
+     - Responsive: hidden columns on smaller screens (Language hidden <md, TaxTypes hidden <lg)
+     - Client avatar + name, phone, language, tax year, tax types, status
+     - Color-coded status badges
+     - Row click navigation to detail page
+     - Empty state when no clients
+     - Skeleton loader support
+
+   - **Client List Page** (`apps/workspace/src/routes/clients/index.tsx`)
+     - View mode toggle: Kanban ↔ Table (via `useClientViewState`)
+     - Search by client name or phone
+     - Status filter with CASE_STATUS_LABELS
+     - Refresh button
+     - Real-time filter/search updates
+     - Mock data: 6 Vietnamese clients across all statuses
+     - TODO: Replace with `useSuspenseQuery` API call
+
+   - **Client Detail Page** (`apps/workspace/src/routes/clients/$clientId.tsx`)
+     - TanStack Router typed params with `parseParams`
+     - 3-tab interface: Overview, Documents, Messages
+     - Overview tab shows:
+       - Client header with avatar, name, phone, email, created date
+       - Filing status, dependents, employment/business info
+       - Tax case details with checklist status
+     - Copy-to-clipboard for phone/email
+     - Mock data structure ready for API integration
+     - Responsive layout
+
 **Component Architecture:**
-   - Barrel exports for organizing components (`dashboard/index.ts`, `actions/index.ts`)
+   - Barrel exports organize components (`dashboard/index.ts`, `actions/index.ts`, `clients/index.ts`)
    - Consistent color system: primary (mint), accent (coral), success, warning, error
    - Type-safe props using TypeScript interfaces
-   - Responsive grid layouts (mobile-first)
+   - Responsive grid layouts (mobile-first design)
    - Accessible icon labeling with aria-hidden
+   - DRY principle: Shared formatters in `lib/formatters.ts`
+   - Vietnamese-first: All UI text via `UI_TEXT` constants
+   - TanStack Router: Type-safe route params with `parseParams`
+   - Zustand: Client view state persisted to localStorage
+   - Performance: O(n) Kanban grouping, proper `useMemo` usage
 
 **Files Added:**
 - `apps/workspace/src/components/dashboard/today-summary.tsx`
@@ -524,19 +584,28 @@ turbo run type-check
 - `apps/workspace/src/components/dashboard/index.ts`
 - `apps/workspace/src/components/actions/action-card.tsx`
 - `apps/workspace/src/components/actions/index.ts`
+- `apps/workspace/src/components/clients/client-card.tsx`
+- `apps/workspace/src/components/clients/kanban-board.tsx`
+- `apps/workspace/src/components/clients/client-list-table.tsx`
+- `apps/workspace/src/components/clients/index.ts`
 - `apps/workspace/src/routes/actions/index.tsx`
+- `apps/workspace/src/routes/clients/index.tsx`
+- `apps/workspace/src/routes/clients/$clientId.tsx`
+- `apps/workspace/src/lib/formatters.ts`
 
 **Files Modified:**
 - `apps/workspace/src/routes/index.tsx` - Refactored to use new dashboard components
-- `apps/workspace/src/lib/constants.ts` - Added ACTION_TYPE_COLORS, ACTION_PRIORITY_COLORS
+- `apps/workspace/src/lib/constants.ts` - Added ACTION_TYPE_COLORS, ACTION_PRIORITY_COLORS, kanban labels
 
 **Pattern Notes:**
 
 - **Dashboard:** Composition pattern with reusable stat/action cards
+- **Client Management:** Dual-view pattern (Kanban + Table) with shared data
 - **Localization:** Vietnamese-first with all UI text in constants
 - **Components:** Self-contained, type-safe, accessible with proper ARIA labels
 - **Responsive:** Mobile-first approach with responsive grids and hidden elements
 - **State:** Ready for API integration via React Query (TODO comments in place)
+- **Type Safety:** Full TypeScript types for Client, ClientDetail, TaxCaseStatus, etc.
 
 ## Phase 1.2: Backend API Endpoints (COMPLETED)
 
@@ -667,5 +736,5 @@ turbo run type-check
 ---
 
 **Last Updated:** 2026-01-13
-**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.10 COMPLETED
+**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.15 COMPLETED
 **Maintained By:** Documentation Manager

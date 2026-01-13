@@ -9,6 +9,7 @@ import {
   getPaginationParams,
   buildPaginationResponse,
 } from '../../lib/constants'
+import { sanitizeSearchInput, pickFields } from '../../lib/validation'
 import {
   createClientSchema,
   updateClientSchema,
@@ -29,10 +30,13 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   const where: Record<string, unknown> = {}
 
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search } },
-    ]
+    const sanitizedSearch = sanitizeSearchInput(search)
+    if (sanitizedSearch) {
+      where.OR = [
+        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { phone: { contains: sanitizedSearch } },
+      ]
+    }
   }
 
   if (status) {
@@ -195,9 +199,13 @@ clientsRoute.patch('/:id', zValidator('json', updateClientSchema), async (c) => 
   const id = c.req.param('id')
   const body = c.req.valid('json')
 
+  // Explicitly pick only allowed fields to prevent mass assignment
+  const allowedFields = ['name', 'phone', 'email', 'language'] as const
+  const updateData = pickFields(body, [...allowedFields])
+
   const client = await prisma.client.update({
     where: { id },
-    data: body as { name?: string; phone?: string; email?: string | null; language?: Language },
+    data: updateData as { name?: string; phone?: string; email?: string | null; language?: Language },
   })
 
   return c.json({

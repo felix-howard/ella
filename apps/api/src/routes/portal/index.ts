@@ -5,6 +5,7 @@
 import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
 import { validateMagicLink } from '../../services/magic-link'
+import { validateUploadedFiles } from '../../lib/validation'
 import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/constants'
 
 const portalRoute = new Hono()
@@ -110,11 +111,19 @@ portalRoute.post('/:token/upload', async (c) => {
   const formData = await c.req.formData()
   const files = formData.getAll('files') as File[]
 
-  if (files.length === 0) {
+  // Validate uploaded files (type, size, count)
+  const validation = validateUploadedFiles(files)
+  if (!validation.valid) {
+    const errorMessages: Record<string, string> = {
+      NO_FILES: 'Vui lòng chọn ít nhất một file',
+      TOO_MANY_FILES: 'Quá nhiều file. Tối đa 20 file mỗi lần tải lên',
+      FILE_TOO_LARGE: 'File quá lớn. Tối đa 10MB mỗi file',
+      INVALID_TYPE: 'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
+    }
     return c.json(
       {
-        error: 'NO_FILES',
-        message: 'Vui lòng chọn ít nhất một file',
+        error: validation.errorCode || 'VALIDATION_ERROR',
+        message: errorMessages[validation.errorCode || 'NO_FILES'] || validation.error,
       },
       400
     )

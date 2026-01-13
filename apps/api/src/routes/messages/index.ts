@@ -20,17 +20,12 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
   const { page, limit } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
-  // Get or create conversation
-  let conversation = await prisma.conversation.findUnique({
+  // Get or create conversation using upsert to prevent race conditions
+  const conversation = await prisma.conversation.upsert({
     where: { caseId },
+    update: {}, // No updates needed, just ensure it exists
+    create: { caseId },
   })
-
-  if (!conversation) {
-    // Create conversation if it doesn't exist
-    conversation = await prisma.conversation.create({
-      data: { caseId },
-    })
-  }
 
   const [messages, total] = await Promise.all([
     prisma.message.findMany({
@@ -71,32 +66,25 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
 messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => {
   const { caseId, content, channel, templateName } = c.req.valid('json')
 
-  // Get or create conversation
-  let conversation = await prisma.conversation.findUnique({
+  // Verify case exists first
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id: caseId },
+    include: { client: true },
+  })
+
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Get or create conversation using upsert to prevent race conditions
+  const conversation = await prisma.conversation.upsert({
     where: { caseId },
+    update: {}, // No updates needed, just ensure it exists
+    create: { caseId },
     include: {
       taxCase: { include: { client: true } },
     },
   })
-
-  if (!conversation) {
-    // Verify case exists
-    const taxCase = await prisma.taxCase.findUnique({
-      where: { id: caseId },
-      include: { client: true },
-    })
-
-    if (!taxCase) {
-      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-    }
-
-    conversation = await prisma.conversation.create({
-      data: { caseId },
-      include: {
-        taxCase: { include: { client: true } },
-      },
-    })
-  }
 
   // Create message record
   const message = await prisma.message.create({

@@ -2,6 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { errorHandler } from './middleware/error-handler'
+import { config } from './lib/config'
 import { healthRoute } from './routes/health'
 import { clientsRoute } from './routes/clients'
 import { casesRoute } from './routes/cases'
@@ -20,7 +21,7 @@ app.use('*', logger())
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: config.corsOrigins,
     credentials: true,
   })
 )

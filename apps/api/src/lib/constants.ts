@@ -2,17 +2,17 @@
  * Shared constants and helpers for API
  * Vietnamese labels for document types and statuses
  */
+import { config } from './config'
 
-// Environment variables with defaults
-export const PORTAL_URL = process.env.PORTAL_URL || 'http://localhost:5173'
-export const WORKSPACE_URL =
-  process.env.WORKSPACE_URL || 'http://localhost:5174'
+// Re-export config URLs for backward compatibility
+export const PORTAL_URL = config.portalUrl
+export const WORKSPACE_URL = config.workspaceUrl
 export const API_URL = process.env.API_URL || 'http://localhost:3000'
 
-// Pagination defaults
+// Pagination defaults (re-exported from config)
 export const DEFAULT_PAGE = 1
-export const DEFAULT_LIMIT = 20
-export const MAX_LIMIT = 100
+export const DEFAULT_LIMIT = config.pagination.defaultLimit
+export const MAX_LIMIT = config.pagination.maxLimit
 
 // Vietnamese labels for DocType
 export const DOC_TYPE_LABELS_VI: Record<string, string> = {

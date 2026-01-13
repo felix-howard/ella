@@ -17,7 +17,7 @@ import {
   ZoomOut,
   RotateCw,
 } from 'lucide-react'
-import { DOC_TYPE_LABELS, UI_TEXT } from '../../lib/constants'
+import { DOC_TYPE_LABELS } from '../../lib/constants'
 import type { RawImage } from '../../lib/api-client'
 
 // Image status types
@@ -135,9 +135,10 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
         ))}
       </div>
 
-      {/* Image Viewer Modal */}
+      {/* Image Viewer Modal - key forces remount on image change to reset zoom/rotation */}
       {viewerOpen && selectedImage && (
         <ImageViewer
+          key={selectedImage.id}
           image={selectedImage}
           onClose={closeViewer}
         />
@@ -268,11 +269,7 @@ function ImageViewer({ image, onClose }: ImageViewerProps) {
   const [rotation, setRotation] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Reset state when image changes
-  useEffect(() => {
-    setZoom(1)
-    setRotation(0)
-  }, [image.id])
+  // Note: State resets automatically via key prop on parent mount
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

@@ -16,7 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
-import { DOC_TYPE_LABELS, UI_TEXT } from '../../lib/constants'
+import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { copyToClipboard } from '../../lib/formatters'
 import type { DigitalDoc } from '../../lib/api-client'
 

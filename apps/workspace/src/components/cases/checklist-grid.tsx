@@ -50,8 +50,8 @@ export function ChecklistGrid({ items, isLoading, onItemClick, onVerify }: Check
     )
   }
 
-  // Group by status for better overview
-  const groupedItems = groupByStatus(items)
+  // Group by status for better overview (available for future grouped view)
+  const _groupedItems = groupByStatus(items)
 
   return (
     <div className="space-y-6">

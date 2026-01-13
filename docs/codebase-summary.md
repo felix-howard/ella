@@ -808,6 +808,93 @@ turbo run type-check
 
 ---
 
+**Task 1.3.21-1.3.25: Document Verification & Data Entry (COMPLETED)**
+
+   - **DocVerificationModal Component** (`apps/workspace/src/components/verification/doc-verification-modal.tsx`)
+     - Modal for verifying/reclassifying raw document images
+     - Keyboard shortcuts: ESC (close), +/- (zoom 0.5-3x), R (rotate 90°), ← → (navigate), 0 (reset)
+     - Image viewer with zoom/rotate controls and navigation arrows
+     - Common doc types selection (11 types: W2, SSN_CARD, DRIVER_LICENSE, 1099_*, BANK_STATEMENT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER)
+     - Blurry image detection with "Request Resend" action
+     - OCR data preview (first 5 fields) from linked DigitalDoc
+     - Reject reason textarea for non-blurry docs
+     - Status tracking: pending → verified/rejected → auto-navigate on success
+     - Images navigation via prev/next buttons or arrow keys
+
+   - **OCRVerificationPanel Component** (`apps/workspace/src/components/verification/ocr-verification-panel.tsx`)
+     - Right-slide panel for OCR field editing & verification
+     - Displays extracted data with field configs per doc type (W2, SSN_CARD, DRIVER_LICENSE, 1099_*, BANK_STATEMENT)
+     - Inline field editing with FieldEditForm component
+     - Copy-to-clipboard for each field with feedback (2s timeout)
+     - Show more/less toggle for fields (first 8 visible by default)
+     - Display value formatter: dates (vi-VN locale), numbers ($X,XXX if ≥100)
+     - Save/verify buttons; unsaved changes detection
+     - Linked rawImage preview with "View Image" button
+     - Status display: EXTRACTED (pending), VERIFIED, PARTIAL (missing data), FAILED (OCR error)
+
+   - **FieldEditForm & FieldCopyRow** (`apps/workspace/src/components/verification/field-edit-form.tsx`)
+     - FieldEditForm: Inline editing for text/number/date types
+     - Type icons (DollarSign for numbers, Calendar for dates), input type validation
+     - Enter to save, ESC to cancel; saves converted values (numbers as floats, dates as ISO strings)
+     - FieldCopyRow: Compact single-row display with hover copy button (shows "Đã copy" on success)
+     - Data entry optimized: quick copy for OltPro workflow
+
+   - **DocTabs & DocTabsSidebar Components** (`apps/workspace/src/components/data-entry/doc-tabs.tsx`)
+     - DocTabs: Horizontal tab navigation showing doc type, status (icon badge), field count, copy progress
+     - DocTabsSidebar: Vertical sidebar tabs with numbered badges, status icons, copy progress indicator
+     - Progress bar: fills as fields are copied (0-100%)
+     - Complete badge (green checkmark) when all fields copied
+     - Status colors: EXTRACTED (primary/clock), VERIFIED (success/check), PARTIAL (warning), FAILED (error)
+
+   - **OriginalImageViewer Component** (`apps/workspace/src/components/data-entry/original-image-viewer.tsx`)
+     - Expandable image viewer for data entry mode
+     - Fixed size (h-64) or expanded (inset-4 z-50 fixed)
+     - Keyboard controls: +/- (zoom), R (rotate), 0 (reset), F (toggle expand)
+     - Image display with placeholder for missing images
+     - Zoom range: 0.5-3x with display percentage
+     - Rotation: 0/90/180/270 degrees
+     - ImagePreview: Compact 4:3 aspect preview button for tight layouts
+
+   - **Data Entry Page** (`apps/workspace/src/routes/cases/$caseId/entry.tsx`)
+     - Split-pane layout: left sidebar (docs), center (image viewer), right (data fields)
+     - Header shows client name, tax year, case status badge
+     - Copy progress: "Đã copy: X/Y tài liệu" with progress bar
+     - Keyboard hints toggle (Keyboard icon)
+     - Complete button appears when all docs fully copied → redirects to client detail
+     - Left panel: DocTabsSidebar with copy progress tracking per doc
+     - Center: OriginalImageViewer with F key for fullscreen toggle
+     - Right panel: FieldCopyRow list for active doc (fields ordered for OltPro entry)
+     - Navigation: Prev/Next buttons between docs or arrow keys
+     - Field config per doc type optimizes copy order (EIN first for W2, SSN first for SSN_CARD)
+
+   - **Verification Components Export** (`apps/workspace/src/components/verification/index.ts`)
+     - Barrel exports: DocVerificationModal, OCRVerificationPanel, FieldEditForm, FieldCopyRow
+
+   - **Data Entry Components Export** (`apps/workspace/src/components/data-entry/index.ts`)
+     - Barrel exports: DocTabs, DocTabsSidebar, OriginalImageViewer, ImagePreview
+
+**Files Added (Tasks 1.3.21-1.3.25):**
+- `apps/workspace/src/components/verification/doc-verification-modal.tsx` (459 LOC)
+- `apps/workspace/src/components/verification/ocr-verification-panel.tsx` (392 LOC)
+- `apps/workspace/src/components/verification/field-edit-form.tsx` (310 LOC)
+- `apps/workspace/src/components/verification/index.ts` (14 LOC)
+- `apps/workspace/src/components/data-entry/doc-tabs.tsx` (208 LOC)
+- `apps/workspace/src/components/data-entry/original-image-viewer.tsx` (259 LOC)
+- `apps/workspace/src/components/data-entry/index.ts` (11 LOC)
+- `apps/workspace/src/routes/cases/$caseId/entry.tsx` (423 LOC)
+
+**Verification System Features:**
+- Two-stage verification: image classification → OCR field editing
+- Keyboard-first design for fast staff workflows
+- Vietnamese-language all UI text
+- Copy-to-clipboard workflow for OltPro integration
+- Image zoom/rotate for quality verification
+- Blurry document detection with manual resend request
+- Field-level inline editing with type validation
+- Progress tracking: copy completion per document
+
+---
+
 **Last Updated:** 2026-01-13
-**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.20 COMPLETED
+**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.25 COMPLETED
 **Maintained By:** Documentation Manager

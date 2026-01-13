@@ -20,6 +20,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
+import { ChecklistGrid } from '../../components/cases'
+import { RawImageGallery } from '../../components/cases'
+import { DigitalDocTable } from '../../components/cases'
 import {
   CASE_STATUS_LABELS,
   CASE_STATUS_COLORS,
@@ -31,7 +34,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import type { ClientDetail, TaxCaseStatus, ChecklistItemStatus } from '../../lib/api-client'
+import type { ClientDetail, TaxCaseStatus, ChecklistItemStatus, ChecklistItem, RawImage, DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -86,14 +89,30 @@ function ClientDetailPage() {
     ],
   }
 
-  // Mock checklist data
-  const checklistItems = [
-    { id: '1', status: 'VERIFIED', labelVi: 'Thẻ SSN', docType: 'SSN_CARD' },
-    { id: '2', status: 'VERIFIED', labelVi: 'Bằng lái / ID', docType: 'DRIVER_LICENSE' },
-    { id: '3', status: 'HAS_DIGITAL', labelVi: 'W2', docType: 'W2' },
-    { id: '4', status: 'HAS_RAW', labelVi: '1099-INT', docType: 'FORM_1099_INT' },
-    { id: '5', status: 'MISSING', labelVi: 'Giấy khai sinh con', docType: 'BIRTH_CERTIFICATE' },
-    { id: '6', status: 'MISSING', labelVi: 'Hóa đơn Daycare', docType: 'DAYCARE_RECEIPT' },
+  // Mock checklist data with full structure
+  const checklistItems: ChecklistItem[] = [
+    { id: '1', caseId: 'case-1', templateId: 't-1', status: 'VERIFIED', template: { id: 't-1', docType: 'SSN_CARD', labelVi: 'Thẻ SSN', labelEn: 'SSN Card', sortOrder: 1 }, rawImages: [], digitalDocs: [] },
+    { id: '2', caseId: 'case-1', templateId: 't-2', status: 'VERIFIED', template: { id: 't-2', docType: 'DRIVER_LICENSE', labelVi: 'Bằng lái / ID', labelEn: 'Driver License', sortOrder: 2 }, rawImages: [], digitalDocs: [] },
+    { id: '3', caseId: 'case-1', templateId: 't-3', status: 'HAS_DIGITAL', template: { id: 't-3', docType: 'W2', labelVi: 'W2', labelEn: 'W2', sortOrder: 3 }, rawImages: [{ id: 'img-1', caseId: 'case-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z' }], digitalDocs: [{ id: 'doc-1', caseId: 'case-1', rawImageId: 'img-1', docType: 'W2', status: 'EXTRACTED', extractedData: { employerName: 'ABC Corp', wagesTips: 75000 }, createdAt: '2026-01-11T10:05:00Z', updatedAt: '2026-01-11T10:05:00Z' }] },
+    { id: '4', caseId: 'case-1', templateId: 't-4', status: 'HAS_RAW', template: { id: 't-4', docType: 'FORM_1099_INT', labelVi: '1099-INT', labelEn: '1099-INT', sortOrder: 4 }, rawImages: [{ id: 'img-2', caseId: 'case-1', filename: '1099_int.jpg', r2Key: 'images/1099_int.jpg', status: 'CLASSIFIED', createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z' }] },
+    { id: '5', caseId: 'case-1', templateId: 't-5', status: 'MISSING', template: { id: 't-5', docType: 'BIRTH_CERTIFICATE', labelVi: 'Giấy khai sinh con', labelEn: 'Birth Certificate', sortOrder: 5 } },
+    { id: '6', caseId: 'case-1', templateId: 't-6', status: 'MISSING', template: { id: 't-6', docType: 'DAYCARE_RECEIPT', labelVi: 'Hóa đơn Daycare', labelEn: 'Daycare Receipt', sortOrder: 6 } },
+  ]
+
+  // Mock raw images data
+  const rawImages: RawImage[] = [
+    { id: 'img-1', caseId: 'case-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z', checklistItem: { template: { id: 't-3', docType: 'W2', labelVi: 'W2', labelEn: 'W2', sortOrder: 3 } } },
+    { id: 'img-2', caseId: 'case-1', filename: '1099_int.jpg', r2Key: 'images/1099_int.jpg', status: 'CLASSIFIED', createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z', checklistItem: { template: { id: 't-4', docType: 'FORM_1099_INT', labelVi: '1099-INT', labelEn: '1099-INT', sortOrder: 4 } } },
+    { id: 'img-3', caseId: 'case-1', filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg', status: 'LINKED', createdAt: '2026-01-10T09:00:00Z', updatedAt: '2026-01-10T09:00:00Z', checklistItem: { template: { id: 't-1', docType: 'SSN_CARD', labelVi: 'Thẻ SSN', labelEn: 'SSN Card', sortOrder: 1 } } },
+    { id: 'img-4', caseId: 'case-1', filename: 'drivers_license.jpg', r2Key: 'images/drivers_license.jpg', status: 'LINKED', createdAt: '2026-01-10T09:05:00Z', updatedAt: '2026-01-10T09:05:00Z', checklistItem: { template: { id: 't-2', docType: 'DRIVER_LICENSE', labelVi: 'Bằng lái / ID', labelEn: 'Driver License', sortOrder: 2 } } },
+    { id: 'img-5', caseId: 'case-1', filename: 'blurry_doc.jpg', r2Key: 'images/blurry_doc.jpg', status: 'BLURRY', createdAt: '2026-01-12T14:00:00Z', updatedAt: '2026-01-12T14:00:00Z' },
+  ]
+
+  // Mock digital docs data
+  const digitalDocs: DigitalDoc[] = [
+    { id: 'doc-1', caseId: 'case-1', rawImageId: 'img-1', docType: 'W2', status: 'EXTRACTED', extractedData: { employerName: 'ABC Corporation', employerEin: '12-3456789', wagesTips: 75000, federalTaxWithheld: 12500, socialSecurityWages: 75000, medicareWages: 75000 }, createdAt: '2026-01-11T10:05:00Z', updatedAt: '2026-01-11T10:05:00Z', rawImage: { id: 'img-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg' } },
+    { id: 'doc-2', caseId: 'case-1', rawImageId: 'img-3', docType: 'SSN_CARD', status: 'VERIFIED', extractedData: { name: 'Nguyễn Văn An', ssn: '123-45-6789' }, createdAt: '2026-01-10T09:10:00Z', updatedAt: '2026-01-10T09:10:00Z', rawImage: { id: 'img-3', filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg' } },
+    { id: 'doc-3', caseId: 'case-1', rawImageId: 'img-4', docType: 'DRIVER_LICENSE', status: 'VERIFIED', extractedData: { name: 'Nguyen Van An', licenseNumber: 'D1234567', address: '123 Main St, Los Angeles, CA 90001', dateOfBirth: '1985-03-15', expirationDate: '2028-03-15' }, createdAt: '2026-01-10T09:15:00Z', updatedAt: '2026-01-10T09:15:00Z', rawImage: { id: 'img-4', filename: 'drivers_license.jpg', r2Key: 'images/drivers_license.jpg' } },
   ]
 
   const latestCase = client.taxCases[0]
@@ -300,7 +319,7 @@ function ClientDetailPage() {
                     key={item.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border"
                   >
-                    <span className="text-sm text-foreground">{item.labelVi}</span>
+                    <span className="text-sm text-foreground">{item.template?.labelVi || 'Tài liệu'}</span>
                     <span
                       className={cn(
                         'text-xs font-medium px-2 py-1 rounded-full',
@@ -319,13 +338,41 @@ function ClientDetailPage() {
       )}
 
       {activeTab === 'documents' && (
-        <div className="bg-card rounded-xl border border-border p-6">
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-            <h3 className="font-medium text-foreground mb-1">Quản lý tài liệu</h3>
-            <p className="text-sm text-muted-foreground">
-              Chức năng này sẽ được triển khai trong các nhiệm vụ tiếp theo (1.3.16-1.3.18)
-            </p>
+        <div className="space-y-6">
+          {/* Checklist Grid */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-primary mb-4">
+              Danh sách tài liệu cần thu thập
+            </h2>
+            <ChecklistGrid
+              items={checklistItems}
+              onItemClick={(item) => console.log('Clicked checklist item:', item.id)}
+              onVerify={(item) => console.log('Verify item:', item.id)}
+            />
+          </div>
+
+          {/* Raw Images Gallery */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-primary mb-4">
+              Ảnh đã tải lên ({rawImages.length})
+            </h2>
+            <RawImageGallery
+              images={rawImages}
+              onImageClick={(img) => console.log('Clicked image:', img.id)}
+              onClassify={(img) => console.log('Classify image:', img.id)}
+            />
+          </div>
+
+          {/* Digital Docs Table */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-primary mb-4">
+              Tài liệu đã trích xuất ({digitalDocs.length})
+            </h2>
+            <DigitalDocTable
+              docs={digitalDocs}
+              onDocClick={(doc) => console.log('Clicked doc:', doc.id)}
+              onVerify={(doc) => console.log('Verify doc:', doc.id)}
+            />
           </div>
         </div>
       )}

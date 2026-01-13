@@ -1,6 +1,6 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 1.2 - Backend API Endpoints (Completed)
+**Current Phase:** 1.3 - Frontend Foundation (Workspace)
 **Last Updated:** 2026-01-13
 
 ## Project Vision
@@ -139,6 +139,43 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - class-variance-authority for variants
 - Component variants pattern implemented
 
+### Phase 1.3: Frontend Foundation - Workspace (COMPLETED)
+
+**Status:** Completed 2026-01-13
+
+**Objective:** Build core workspace UI components, API client, and state management
+
+**Requirements Met:**
+
+- [x] Update @ella/ui design tokens with mint green theme (Tailwind v4)
+- [x] Implement pill-shaped Button component with multiple variants
+- [x] Create type-safe centralized API client with timeout handling
+- [x] Implement Vietnamese localization constants (21 doc types, 7 statuses, 6 actions)
+- [x] Build Zustand UI store for sidebar/view mode/search persistence
+- [x] Create layout components: Sidebar, Header, PageContainer
+- [x] Implement React Error Boundary for error handling
+- [x] Build dashboard page with stat cards and quick actions
+- [x] Root layout with proper routing structure
+
+**Acceptance Criteria Met:**
+
+- [x] Design tokens cover all colors, spacing, radius per guidelines
+- [x] Button component exports pill-shaped, rounded-full variants
+- [x] API client handles timeouts, errors, pagination types
+- [x] All UI text Vietnamese with English fallback support
+- [x] Sidebar state persists across sessions
+- [x] Layout responsive on mobile/tablet/desktop
+- [x] Error boundary catches unhandled errors gracefully
+
+**Deliverables:**
+
+- Updated @ella/ui with design system (styles.css, button.tsx)
+- Type-safe API client (429 lines, full type coverage)
+- Localization constants (192 lines, 21+ label categories)
+- Zustand UI store with persistence
+- Core layout components with responsive design
+- Dashboard page with mock data integration points
+
 ### Phase 1.2: Backend API Endpoints (COMPLETED)
 
 **Status:** Completed 2026-01-13
@@ -178,30 +215,46 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - Magic link portal for passwordless client access
 - Health check for monitoring
 
-### Phase 3: Frontend Application
+### Phase 1.4: Frontend Features (Portal & Workspace)
 
 **Status:** Pending
 
-**Objective:** Build React frontend with API integration
+**Objective:** Build client intake, case management, and action pages
 
 **Planned Requirements:**
 
-- React 19+ application with Vite
-- TanStack Router for file-based routing
-- Components from @ella/ui library
-- React Query for server state management
-- Authentication flow integration
-- API client for backend communication
+- Client intake wizard with profile questionnaire
+- Case management dashboard with document upload
+- Checklist status tracking UI
+- Action queue with priority grouping
+- Message/conversation interface
+- Portal client view (magic link access)
 - Form validation with Zod from @ella/shared
 
-**Acceptance Criteria:**
+**Planned Pages:**
 
-- [ ] Server starts on configured port
-- [ ] Frontend communicates with API successfully
-- [ ] Authentication system integrated (Clerk)
-- [ ] Login/signup flows working
-- [ ] Type-safe API calls via shared schemas
-- [ ] Responsive design on mobile
+- `/clients` - Client list (kanban/list view)
+- `/clients/new` - Client intake wizard
+- `/clients/:id` - Client detail view
+- `/cases/:id` - Case details with documents
+- `/actions` - Action queue with priority grouping
+- `/messages` - Conversation list
+- Portal: Client magic link pages
+
+### Phase 2: Frontend Polish
+
+**Status:** Pending
+
+**Objective:** Add advanced features and polish
+
+**Planned Features:**
+
+- Compliance deadline tracking
+- Search and filtering across pages
+- Print/export functionality (PDF, CSV)
+- Bulk operations
+- Advanced sorting
+- Keyboard shortcuts
 
 ### Phase 5: Features & Polish
 
@@ -272,10 +325,11 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 | 1     | Monorepo structure, TypeScript config        | ✓ Complete |
 | 1.1   | Complete database schema (12 models, 12 enums) | ✓ Complete |
 | 1.2   | Backend API with 24 endpoints                | ✓ Complete |
-| 2     | @ella/db, @ella/shared, @ella/ui             | ✓ Complete |
-| 3     | Frontend React app with routing              | - Pending  |
-| 4     | Full feature set & polish                    | - Pending  |
-| 5     | Production deployment & monitoring           | - Pending  |
+| 1.3   | Frontend foundation (UI tokens, API client, layout) | ✓ Complete |
+| 1.4   | Frontend features (clients, cases, actions pages) | - Pending  |
+| 2     | Frontend polish & refinement                 | - Pending  |
+| 3     | Testing, QA, deployment prep                | - Pending  |
+| 4     | Production deployment & monitoring           | - Pending  |
 
 ## Success Metrics
 
@@ -304,11 +358,13 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ## Timeline
 
-- **Phase 1.1 (Current):** Jan 12, 2026 - Database schema design
-- **Phase 3 (Next):** Jan 2026 - Backend API implementation
-- **Phase 4:** Feb 2026 - Frontend React apps
-- **Phase 5:** Feb-Mar 2026 - Features & polish
-- **Launch:** Mar 2026
+- **Phase 1.1:** Jan 12, 2026 - Database schema design (COMPLETE)
+- **Phase 1.2:** Jan 13, 2026 - Backend API implementation (COMPLETE)
+- **Phase 1.3:** Jan 13, 2026 - Frontend foundation (COMPLETE)
+- **Phase 1.4 (Next):** Jan 15-20, 2026 - Frontend features (clients, cases, actions)
+- **Phase 2:** Jan 20-25, 2026 - Frontend polish & refinement
+- **Phase 3:** Feb 2026 - Testing & QA
+- **Launch:** Feb 28, 2026
 
 ## Documentation Structure
 
@@ -325,17 +381,19 @@ docs/
 
 ## Next Steps
 
-### For Development Team (Phase 1.2 Complete → Phase 3)
+### For Development Team (Phase 1.3 Complete → Phase 1.4)
 
-1. Start API server: `pnpm -F @ella/api dev` (runs on PORT 3001)
-2. Test endpoints via Scalar UI: http://localhost:3001/docs
-3. Begin Phase 3: Frontend React application
-   - Set up API client with type safety from @ella/shared
-   - Implement authentication flow (Clerk integration)
-   - Build client intake form with profile wizard
-   - Create case dashboard with document upload
-   - Add checklist status tracking UI
-   - Implement message/conversation UI
+1. Start workspace dev server: `pnpm -F @ella/workspace dev` (runs on PORT 5174)
+2. Start API server: `pnpm -F @ella/api dev` (runs on PORT 3001)
+3. Verify integration: Test API calls via workspace dashboard
+4. Begin Phase 1.4: Frontend features
+   - Build clients list page (kanban/list view via useUIStore)
+   - Implement client intake wizard with profile questionnaire
+   - Create case details page with document upload
+   - Build action queue page with priority grouping
+   - Implement checklist status tracking UI
+   - Add message/conversation UI
+   - Integrate React Query for server state management
 
 ### For Product Team
 
@@ -353,7 +411,7 @@ docs/
 
 ---
 
-**Document Version:** 1.2
+**Document Version:** 1.3
 **Created:** 2026-01-11
 **Maintained By:** Documentation Manager
 **Last Review:** 2026-01-13

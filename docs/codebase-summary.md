@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.5 completed (2026-01-13)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
@@ -424,6 +425,96 @@ turbo run type-check
 3. Verify schema in `pnpm -F @ella/db studio`
 4. Begin Phase 3 API route implementation
 
+## Phase 1.3: Frontend Foundation - Workspace (COMPLETED)
+
+**Date:** 2026-01-13
+
+**Deliverable:** Core workspace UI components, API client, constants, and state management
+
+**Tasks Completed (1.3.1-1.3.5):**
+
+1. **Task 1.3.1:** Update @ella/ui design tokens & Button component
+   - Added mint green design system via `packages/ui/src/styles.css`
+   - Tailwind v4 theme configuration with semantic colors
+   - Dark mode support
+   - Updated Button component with pill-shaped variants (default, destructive, outline, secondary, ghost, link)
+   - Button sizes: sm, default, lg, icon
+
+2. **Task 1.3.2:** Create type-safe API client
+   - File: `apps/workspace/src/lib/api-client.ts`
+   - Centralized HTTP client with auto-timeout handling (30s default)
+   - ApiError class for consistent error handling
+   - Generic request wrapper with abort controller
+   - Organized endpoints: clients, cases, actions, messages
+   - Type-safe request/response handling
+   - Paginated response types built-in
+   - 180+ lines of TypeScript types covering all API models
+
+3. **Task 1.3.3:** Vietnamese localization constants
+   - File: `apps/workspace/src/lib/constants.ts`
+   - DOC_TYPE_LABELS (21 document types in Vietnamese)
+   - CASE_STATUS_LABELS with colors (7 statuses)
+   - CHECKLIST_STATUS_LABELS (5 statuses)
+   - ACTION_TYPE_LABELS & colors (6 types)
+   - ACTION_PRIORITY_LABELS & colors (4 priorities)
+   - TAX_TYPE_LABELS, FILING_STATUS_LABELS, LANGUAGE_LABELS
+   - NAV_ITEMS for sidebar (4 main routes)
+   - UI_TEXT object with common UI labels
+
+4. **Task 1.3.4:** Zustand UI state management
+   - File: `apps/workspace/src/stores/ui-store.ts`
+   - Sidebar expanded/collapsed state
+   - Client view mode (kanban/list)
+   - Global search state
+   - Mobile menu state
+   - Persisted via Zustand middleware to localStorage
+
+5. **Task 1.3.5:** Core layout components
+   - Sidebar component: Logo, nav items, collapse animation, user menu placeholder
+   - Header component: Page title, user greeting, action buttons
+   - PageContainer component: Content wrapper with responsive padding
+   - Error boundary: React error handling with Vietnamese UI
+
+**Infrastructure:**
+
+- Root layout with sidebar + header + outlet pattern
+- Dashboard page with mock stats cards, quick actions, recent activity
+- Error boundary for graceful error handling
+- All Vietnamese labels for Vietnamese-speaking staff
+- Responsive design (mobile/tablet/desktop breakpoints)
+
+**Design System Alignment:**
+
+- Mint green (#10B981) as primary color
+- Coral orange (#F97316) for accents
+- Pill-shaped buttons (rounded-full)
+- Consistent spacing (4px base unit)
+- Card-based layout with shadows
+- Accessible focus states
+
+**Files Added/Modified:**
+
+- `packages/ui/src/styles.css` - Ella design tokens
+- `packages/ui/src/components/button.tsx` - Updated button variants
+- `apps/workspace/src/lib/api-client.ts` - Type-safe API client
+- `apps/workspace/src/lib/constants.ts` - Vietnamese labels & colors
+- `apps/workspace/src/stores/ui-store.ts` - Zustand UI store
+- `apps/workspace/src/components/layout/sidebar.tsx` - Navigation sidebar
+- `apps/workspace/src/components/layout/header.tsx` - Top header
+- `apps/workspace/src/components/layout/page-container.tsx` - Content wrapper
+- `apps/workspace/src/components/layout/index.ts` - Barrel export
+- `apps/workspace/src/components/error-boundary.tsx` - Error handling
+- `apps/workspace/src/routes/__root.tsx` - Root layout
+- `apps/workspace/src/routes/index.tsx` - Dashboard page
+
+**Pattern Notes:**
+
+- **API Client:** Centralized, type-safe, auto-timeout, error handling
+- **Constants:** Organized by domain (docs, cases, actions, etc.)
+- **State Management:** Zustand with persistence for UI preferences
+- **Components:** Sidebar-header-content layout pattern
+- **Localization:** Vietnamese-first (VI/EN support via constants)
+
 ## Phase 1.2: Backend API Endpoints (COMPLETED)
 
 **Date:** 2026-01-13
@@ -553,5 +644,5 @@ turbo run type-check
 ---
 
 **Last Updated:** 2026-01-13
-**Phase:** 1.2 - Backend API Endpoints (Complete)
+**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.5
 **Maintained By:** Documentation Manager

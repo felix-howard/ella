@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
 **Phase 4 Status:** Tooling setup completed (2026-01-11)
@@ -129,14 +130,19 @@ ella/
 - Hono ^4.6.15 (lightweight web framework)
 - @hono/node-server (Node.js runtime adapter)
 - @hono/zod-openapi (OpenAPI v3 + Zod validation integration)
+- @hono/zod-validator (request validation)
 - TypeScript, tsx (development)
 - tsup (build bundler)
 
 **Key Files:**
 
-- `apps/api/src/index.ts` - Server entry point (serves on PORT 3001)
-- `apps/api/src/app.ts` - Main app instance & routes
-- `apps/api/src/routes/health.ts` - Health check endpoint
+- `apps/api/src/index.ts` - Server entry point (PORT 3001)
+- `apps/api/src/app.ts` - Main app instance & route wiring
+- `apps/api/src/middleware/error-handler.ts` - Global error handling
+- `apps/api/src/lib/db.ts` - Prisma client re-export
+- `apps/api/src/lib/constants.ts` - Vietnamese labels, pagination helpers
+- `apps/api/src/routes/*` - Modular endpoint definitions
+- `apps/api/src/services/` - Business logic services
 - `apps/api/package.json` - Dependencies & scripts
 - `apps/api/tsconfig.json` - TypeScript config extending root
 
@@ -147,11 +153,45 @@ ella/
 - `pnpm -F @ella/api start` - Run built server
 - `pnpm -F @ella/api type-check` - Type validation
 
+**API Routes (Phase 1.2):**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/health` | GET | Server health check |
+| `/clients` | GET/POST | List/Create clients |
+| `/clients/:id` | GET/PATCH/DELETE | Client CRUD & profile |
+| `/cases` | GET/POST | List/Create tax cases |
+| `/cases/:id` | GET/PATCH | Case details & update |
+| `/cases/:id/checklist` | GET | Dynamic case checklist |
+| `/cases/:id/images` | GET | Raw images for case |
+| `/cases/:id/docs` | GET | Digital documents |
+| `/actions` | GET | Action queue (grouped by priority) |
+| `/actions/:id` | GET/PATCH | Action details & update |
+| `/docs/:id` | GET | Digital doc details |
+| `/docs/:id/classify` | POST | Classify raw image |
+| `/docs/:id/ocr` | POST | Trigger OCR extraction |
+| `/docs/:id/verify` | PATCH | Verify extracted data |
+| `/messages/:caseId` | GET | Case conversation history |
+| `/messages/send` | POST | Send message (SMS/portal/system) |
+| `/portal/:token` | GET | Magic link portal data |
+| `/portal/:token/upload` | POST | Portal document upload |
+
+**Services:**
+
+- `checklist-generator.ts` - Dynamic checklist from templates
+- `magic-link.ts` - Passwordless token management
+- `storage.ts` - R2 storage service placeholder
+
 **Architecture:**
 
-- Imports from @ella/db, @ella/shared for type safety
-- OpenAPI schema generation via zod-openapi
-- RESTful endpoint design
+- Global error handler catches all exceptions
+- Zod validation on all requests via @hono/zod-validator
+- Pagination helpers for list endpoints (page, limit, maxLimit)
+- Vietnamese label constants for enums
+- Prisma transactions for multi-step operations
+- OpenAPI schema generation at `/doc` endpoint
+- CORS enabled for localhost:5173, :5174 (frontend ports)
+- Scalar API UI at `/docs` endpoint
 
 ### App: @ella/portal
 
@@ -384,6 +424,85 @@ turbo run type-check
 3. Verify schema in `pnpm -F @ella/db studio`
 4. Begin Phase 3 API route implementation
 
+## Phase 1.2: Backend API Endpoints (COMPLETED)
+
+**Date:** 2026-01-13
+
+**Deliverable:** Complete REST API with 7 route modules, services, and error handling
+
+**API Endpoints Implemented:**
+
+1. **Clients Management** (5 endpoints)
+   - `GET /clients` - List clients with search/status filters
+   - `POST /clients` - Create client + profile + tax case + magic link + checklist
+   - `GET /clients/:id` - Get client with profile & tax cases
+   - `PATCH /clients/:id` - Update client details
+   - `DELETE /clients/:id` - Delete client
+
+2. **Tax Cases** (6 endpoints)
+   - `GET /cases` - List cases with status/year/client filters
+   - `POST /cases` - Create new tax case
+   - `GET /cases/:id` - Get case details with document counts
+   - `PATCH /cases/:id` - Update case status/metadata
+   - `GET /cases/:id/checklist` - Dynamic checklist based on profile
+   - `GET /cases/:id/images` - Raw images for case
+
+3. **Digital Documents** (6 endpoints)
+   - `GET /cases/:id/docs` - Case digital documents
+   - `GET /docs/:id` - Document details with extraction
+   - `POST /docs/:id/classify` - AI classify raw image
+   - `POST /docs/:id/ocr` - Trigger OCR extraction
+   - `PATCH /docs/:id/verify` - Verify & approve extracted data
+
+4. **Actions/Queue** (2 endpoints)
+   - `GET /actions` - Action queue grouped by priority (URGENT/HIGH/NORMAL/LOW)
+   - `GET/PATCH /actions/:id` - Action details & completion
+
+5. **Messages/Conversations** (2 endpoints)
+   - `GET /messages/:caseId` - Case conversation history
+   - `POST /messages/send` - Send SMS/portal/system message
+
+6. **Magic Link Portal** (2 endpoints)
+   - `GET /portal/:token` - Verify token, return case data for client
+   - `POST /portal/:token/upload` - Client document upload to case
+
+7. **Health Check** (1 endpoint)
+   - `GET /health` - Server status
+
+**Services Implemented:**
+
+- `checklist-generator.ts` - Generate checklist from profile & templates
+- `magic-link.ts` - Create/validate passwordless tokens
+- `storage.ts` - R2 storage service placeholder
+
+**Infrastructure:**
+
+- Global error handler middleware
+- Zod validation on all inputs
+- Pagination helpers (page, limit, maxLimit=100)
+- Vietnamese label constants
+- Prisma transactions for data consistency
+- OpenAPI documentation at `/doc`
+- Scalar API UI at `/docs`
+- CORS configured for frontend (localhost:5173, :5174)
+
+**Files Added:**
+- `apps/api/src/middleware/error-handler.ts`
+- `apps/api/src/lib/db.ts`, `lib/constants.ts`
+- `apps/api/src/routes/clients/index.ts`, `schemas.ts`
+- `apps/api/src/routes/cases/index.ts`, `schemas.ts`
+- `apps/api/src/routes/actions/index.ts`, `schemas.ts`
+- `apps/api/src/routes/docs/index.ts`, `schemas.ts`
+- `apps/api/src/routes/messages/index.ts`, `schemas.ts`
+- `apps/api/src/routes/portal/index.ts`, `schemas.ts`
+- `apps/api/src/services/checklist-generator.ts`
+- `apps/api/src/services/magic-link.ts`
+- `apps/api/src/services/storage.ts`
+
+**Files Modified:**
+- `apps/api/src/app.ts` - Wired all routes, added OpenAPI/Scalar docs
+- `apps/api/src/index.ts` - Main server entry
+
 ## Phase 5: Verification (COMPLETED)
 
 **Date:** 2026-01-12
@@ -398,11 +517,10 @@ turbo run type-check
 
 **Next Phase Planning:**
 
-- API route implementation & database integration
-- Authentication & authorization system (Clerk integration)
 - Frontend component development & API integration
-- Database schema expansion for documents, compliance rules
+- Authentication & authorization system (Clerk integration)
 - Testing infrastructure setup
+- Advanced features (AI classification, notifications)
 
 ## File Statistics
 
@@ -434,6 +552,6 @@ turbo run type-check
 
 ---
 
-**Last Updated:** 2026-01-12
-**Phase:** 5 - Verification (Complete)
+**Last Updated:** 2026-01-13
+**Phase:** 1.2 - Backend API Endpoints (Complete)
 **Maintained By:** Documentation Manager

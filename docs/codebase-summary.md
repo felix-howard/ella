@@ -7,7 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 3.1 | Twilio SMS Integration (First Half) | **2026-01-13** |
+| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | **2026-01-13** |
 | Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
 | Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
@@ -241,18 +241,34 @@ CLERK_SECRET_KEY=...
 ## Recent Changes (Phase 2.1, 2.2, 3.1 - AI & Communication Integration)
 
 ### Phase 3.1 (Complete - 2026-01-13)
-**Twilio SMS Integration (First Half)**
+**Twilio SMS Integration (First Half + Second Half)**
 
-**Key Addition:**
+**First Half (Core SMS Infrastructure):**
 - `apps/api/src/services/sms/twilio-client.ts` - SMS sending with retry logic & E.164 formatting
 - `apps/api/src/services/sms/message-sender.ts` - High-level templated SMS service
 - `apps/api/src/services/sms/webhook-handler.ts` - Incoming SMS processing with signature validation
 - `apps/api/src/services/sms/templates/` - 4 Vietnamese message templates
 - `apps/api/src/routes/webhooks/twilio.ts` - Webhook route handlers
 
-**New Endpoints:**
+**Second Half (Automated Notifications & Batch Reminders):**
+- `apps/api/src/services/sms/notification-service.ts` - Auto-notify orchestration (NEW)
+- `apps/api/src/routes/clients/index.ts` - Auto welcome SMS on client creation (UPDATED)
+- `apps/api/src/routes/messages/index.ts` - New reminder endpoints (UPDATED)
+- `apps/api/src/services/ai/document-pipeline.ts` - Auto blurry SMS trigger (UPDATED)
+
+**Endpoints:**
+**Core:**
 - `POST /webhooks/twilio/sms` - Receive incoming SMS (signature validated, rate limited)
 - `POST /webhooks/twilio/status` - Receive delivery status updates
+
+**New (Second Half):**
+- `POST /messages/remind/:caseId` - Send missing docs reminder to specific case
+- `POST /messages/remind-batch` - Batch send reminders to all eligible cases (for cron)
+
+**Automation Triggers:**
+- Welcome SMS auto-sent when creating new client
+- Blurry document SMS auto-sent from AI pipeline (non-blocking)
+- Missing docs reminder via API endpoints or batch job
 
 **SMS Templates:**
 - `welcome.ts` - New client onboarding with magic link
@@ -274,6 +290,10 @@ CLERK_SECRET_KEY=...
 - Rate limiting: 60 requests/minute/IP
 - Duplicate message prevention via MessageSid
 - Vietnamese-first messaging with EN fallback
+- Smart throttling: 1h blurry notifications, 24h missing docs
+- 3-day grace period for new clients before first reminder
+- Batch processing with 5 concurrent SMS limit
+- Fire-and-forget notifications (non-blocking)
 
 **New Environment Variables:**
 - `TWILIO_ACCOUNT_SID` - Twilio account identifier
@@ -447,7 +467,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-13 22:30
-**Status:** Phase 3.1 Complete - Twilio SMS Integration
+**Last Updated:** 2026-01-13 23:18
+**Status:** Phase 3.1 Complete - Twilio SMS Integration (First Half + Second Half with Automated Notifications)
 **Branch:** feature/phase-3-communication
 **Next Phase:** Phase 3.2 - SMS Status Tracking & MMS Support

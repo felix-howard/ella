@@ -17,6 +17,7 @@ import {
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { createMagicLink } from '../../services/magic-link'
+import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
 import type { TaxType, Language } from '@ella/db'
 
 const clientsRoute = new Hono()
@@ -133,6 +134,25 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   // Create magic link
   const magicLink = await createMagicLink(result.taxCase.id)
 
+  // Send welcome SMS with magic link (async, non-blocking)
+  let smsStatus: { sent: boolean; error?: string } = { sent: false }
+  if (isSmsEnabled()) {
+    try {
+      const smsResult = await sendWelcomeMessage(
+        result.taxCase.id,
+        result.client.name,
+        result.client.phone,
+        magicLink,
+        result.taxCase.taxYear,
+        (result.client.language as 'VI' | 'EN') || 'VI'
+      )
+      smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
+    } catch (error) {
+      console.error('[Create Client] Failed to send welcome SMS:', error)
+      smsStatus = { sent: false, error: 'SMS_SEND_FAILED' }
+    }
+  }
+
   return c.json(
     {
       client: {
@@ -150,6 +170,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         status: result.taxCase.status,
       },
       magicLink,
+      smsStatus,
     },
     201
   )

@@ -10,7 +10,12 @@ import {
   buildPaginationResponse,
 } from '../../lib/constants'
 import { sendMessageSchema, listMessagesQuerySchema } from './schemas'
-import { sendCustomMessage, isSmsEnabled } from '../../services/sms'
+import {
+  sendCustomMessage,
+  isSmsEnabled,
+  notifyMissingDocuments,
+  sendBatchMissingReminders,
+} from '../../services/sms'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
 const messagesRoute = new Hono()
@@ -136,6 +141,52 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     },
     201
   )
+})
+
+// POST /messages/remind/:caseId - Send missing docs reminder to specific case
+messagesRoute.post('/remind/:caseId', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  // Verify case exists
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id: caseId },
+    select: { id: true, status: true },
+  })
+
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  if (!isSmsEnabled()) {
+    return c.json({ error: 'SMS_DISABLED', message: 'SMS is not configured' }, 400)
+  }
+
+  const result = await notifyMissingDocuments(caseId)
+
+  return c.json({
+    success: result.success,
+    smsSent: result.smsSent,
+    messageId: result.messageId,
+    error: result.error,
+  })
+})
+
+// POST /messages/remind-batch - Send reminders to all eligible cases
+// Should be called by cron job (e.g., daily at 10am)
+messagesRoute.post('/remind-batch', async (c) => {
+  if (!isSmsEnabled()) {
+    return c.json({ error: 'SMS_DISABLED', message: 'SMS is not configured' }, 400)
+  }
+
+  const result = await sendBatchMissingReminders()
+
+  return c.json({
+    success: true,
+    sent: result.sent,
+    failed: result.failed,
+    skipped: result.skipped,
+    details: result.details,
+  })
 })
 
 export { messagesRoute }

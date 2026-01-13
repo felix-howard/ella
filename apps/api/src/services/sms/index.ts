@@ -37,3 +37,11 @@ export {
 
 // Templates
 export * from './templates'
+
+// Notification service (automated SMS)
+export {
+  notifyBlurryDocument,
+  notifyMissingDocuments,
+  getCasesNeedingReminders,
+  sendBatchMissingReminders,
+} from './notification-service'

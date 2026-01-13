@@ -1,13 +1,17 @@
-# Phase 3.1 - Twilio SMS Integration (First Half)
+# Phase 3.1 - Twilio SMS Integration
 
-**Status:** Complete - 2026-01-13
+**Status:** Complete (First Half + Second Half) - 2026-01-13
 **Branch:** feature/phase-3-communication
+
+## Phase Breakdown
+- **First Half:** Core Twilio setup, outbound/inbound SMS, webhook handling
+- **Second Half:** Automated notifications, batch reminders, API integration
 
 ## Overview
 
-Phase 3.1 integrates Twilio SMS to enable two-way SMS communication with tax clients. Outbound messages notify clients about document status, missing documents, and completion. Inbound messages are captured and create staff action items.
+Phase 3.1 integrates Twilio SMS to enable two-way SMS communication with tax clients with automated notifications and batch processing.
 
-**Key Features:**
+**Key Features (First Half):**
 - Outbound SMS with Vietnamese template messages
 - Webhook handler for incoming SMS
 - Database message tracking (SMS, Portal, System)
@@ -15,6 +19,17 @@ Phase 3.1 integrates Twilio SMS to enable two-way SMS communication with tax cli
 - Signature validation for webhook security
 - Rate limiting (60 req/min/IP)
 - Duplicate message prevention
+
+**Key Features (Second Half):**
+- Auto welcome SMS on client creation with magic link
+- Automated blurry document notifications from AI pipeline
+- Missing documents reminder API endpoints
+- Batch missing reminder system with cron job support
+- Smart throttling (1-hour blurry, 24-hour missing docs)
+- 3-day grace period before first reminder
+- Concurrent batch processing (5 concurrent max)
+
+**Details:** See [Phase 3.1 Second Half documentation](./phase-3.1-second-half.md) for automated notification service details.
 
 ## Architecture
 
@@ -744,7 +759,7 @@ apps/api/src/
 
 ---
 
-**Last Updated:** 2026-01-13 22:30
-**Phase:** 3.1 - Twilio SMS Integration (First Half, Complete)
-**Files Created:** 9 (twilio-client, message-sender, webhook-handler, 4 templates, 2 route handlers)
+**Last Updated:** 2026-01-13 23:18
+**Phase:** 3.1 - Twilio SMS Integration (Complete)
+**Files Modified:** 5 (clients, messages routes, AI pipeline, notification service)
 **Next Phase:** 3.2 - SMS Status Tracking & MMS Support

@@ -10,33 +10,52 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UTokenRouteImport } from './routes/u/$token'
+import { Route as UTokenUploadRouteImport } from './routes/u/$token/upload'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UTokenRoute = UTokenRouteImport.update({
+  id: '/u/$token',
+  path: '/u/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UTokenUploadRoute = UTokenUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => UTokenRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/u/$token': typeof UTokenRouteWithChildren
+  '/u/$token/upload': typeof UTokenUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/u/$token': typeof UTokenRouteWithChildren
+  '/u/$token/upload': typeof UTokenUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/u/$token': typeof UTokenRouteWithChildren
+  '/u/$token/upload': typeof UTokenUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/u/$token' | '/u/$token/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/u/$token' | '/u/$token/upload'
+  id: '__root__' | '/' | '/u/$token' | '/u/$token/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  UTokenRoute: typeof UTokenRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +67,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/u/$token': {
+      id: '/u/$token'
+      path: '/u/$token'
+      fullPath: '/u/$token'
+      preLoaderRoute: typeof UTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/u/$token/upload': {
+      id: '/u/$token/upload'
+      path: '/upload'
+      fullPath: '/u/$token/upload'
+      preLoaderRoute: typeof UTokenUploadRouteImport
+      parentRoute: typeof UTokenRoute
+    }
   }
 }
 
+interface UTokenRouteChildren {
+  UTokenUploadRoute: typeof UTokenUploadRoute
+}
+
+const UTokenRouteChildren: UTokenRouteChildren = {
+  UTokenUploadRoute: UTokenUploadRoute,
+}
+
+const UTokenRouteWithChildren =
+  UTokenRoute._addFileChildren(UTokenRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  UTokenRoute: UTokenRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

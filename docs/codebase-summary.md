@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 1.4 Status:** Frontend Client Portal (first half) - COMPLETED (2026-01-13)
 **Phase 1.3 Status:** Frontend foundation (workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED (2026-01-13 13:09)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
@@ -196,41 +197,79 @@ ella/
 
 ### App: @ella/portal
 
-**Purpose:** Primary user-facing frontend (React + Vite)
+**Purpose:** Passwordless client portal for document upload via magic links (Phase 1.4+)
 
 **Technology Stack:**
 
 - React ^19.0.0 (UI framework)
 - Vite ^6.0.7 (frontend bundler)
 - TanStack Router ^1.94.0 (file-based routing)
-- TanStack React Query ^5.64.1 (server state management)
 - Tailwind CSS ^4.0.0 (styling)
 - TypeScript
+- lucide-react (icons)
+
+**Key Features (Phase 1.4 - First Half):**
+
+- Magic link authentication (stateless token-based)
+- Mobile-optimized layout (max-width 448px)
+- Document upload with camera + gallery support
+- Vietnamese/English language toggle
+- File validation (JPEG, PNG, PDF, 10MB max)
+- Rate limit handling with bilingual messages
+- Image preview grid with memory cleanup
+- Multipart form upload with progress states
+
+**Directory Structure:**
+
+```
+apps/portal/src/
+├── lib/
+│   ├── api-client.ts      # HTTP client + error handling
+│   └── i18n.ts            # VI/EN translations
+├── routes/
+│   ├── __root.tsx         # Root layout
+│   ├── index.tsx          # Home (landing)
+│   └── u/
+│       ├── $token.tsx     # Magic link landing
+│       └── $token/
+│           └── upload.tsx # Upload flow
+└── components/
+    ├── landing/
+    │   ├── welcome-header.tsx
+    │   └── upload-buttons.tsx
+    └── upload/
+        └── image-picker.tsx
+```
 
 **Key Files:**
 
-- `apps/portal/index.html` - HTML entry point
-- `apps/portal/src/main.tsx` - React root mount
-- `apps/portal/src/styles.css` - Global styles
-- `apps/portal/src/routes/__root.tsx` - Root layout/router provider
-- `apps/portal/src/routes/index.tsx` - Home page
-- `apps/portal/src/routeTree.gen.ts` - Auto-generated route tree
-- `apps/portal/vite.config.ts` - Vite + TanStack Router plugin config
-- `apps/portal/postcss.config.js` - Tailwind PostCSS pipeline
+- `apps/portal/src/lib/api-client.ts` - Simplified HTTP client (no auth)
+- `apps/portal/src/lib/i18n.ts` - 45+ UI text translations
+- `apps/portal/src/routes/__root.tsx` - Mobile-first root layout
+- `apps/portal/src/routes/u/$token.tsx` - Magic link landing page
+- `apps/portal/src/routes/u/$token/upload.tsx` - Upload page with states
+- `apps/portal/src/components/upload/image-picker.tsx` - File picker + preview
 
 **Scripts:**
 
-- `pnpm -F @ella/portal dev` - Start dev server (port 5173)
+- `pnpm -F @ella/portal dev` - Start dev server (port 5174)
 - `pnpm -F @ella/portal build` - Production build
 - `pnpm -F @ella/portal preview` - Preview built output
 - `pnpm -F @ella/portal type-check` - Type validation
 
+**API Integration:**
+
+- `GET /portal/:token` - Fetch portal data (client, case, checklist, stats)
+- `POST /portal/:token/upload` - Upload documents (multipart/form-data)
+
 **Architecture:**
 
-- File-based routing convention (src/routes/\*)
-- Server state via React Query
-- UI components from @ella/ui
-- Type safety via @ella/shared
+- Stateless (no session storage needed)
+- TanStack Router for file-based routing + typed params
+- useState for local state (page state, files, errors)
+- Memory-safe ObjectURL management in ImagePicker
+- Function-based i18n (lighter than Context)
+- Bilingual error messages (VI priority)
 
 ### App: @ella/workspace
 
@@ -424,6 +463,139 @@ turbo run type-check
 2. Run `pnpm -F @ella/db seed` to populate checklist templates
 3. Verify schema in `pnpm -F @ella/db studio`
 4. Begin Phase 3 API route implementation
+
+## Phase 1.4: Frontend Client Portal (COMPLETED - First Half)
+
+**Date:** 2026-01-13
+
+**Deliverable:** Passwordless client portal with mobile-optimized document upload flow
+
+**Key Features Implemented:**
+
+1. **Magic Link Authentication**
+   - Stateless token-based access via `/u/$token` route
+   - Token validation on portal data fetch
+   - Automatic error handling for invalid/expired tokens
+   - No user authentication required
+
+2. **Internationalization (i18n)**
+   - File: `apps/portal/src/lib/i18n.ts` (86 LOC)
+   - Vietnamese-first (VI) with English (EN) fallback
+   - 45+ UI text keys covering complete flow
+   - Language detection from client profile
+   - `getText(language)` helper for dynamic translations
+
+3. **API Client**
+   - File: `apps/portal/src/lib/api-client.ts` (156 LOC)
+   - Simplified HTTP client (no authentication headers)
+   - `portalApi.getData(token)` - Fetch client/case/checklist data
+   - `portalApi.upload(token, files)` - Multipart file upload
+   - Rate limit handling (429 status with bilingual messages)
+   - Custom `ApiError` class with error codes (RATE_LIMITED, SERVER_ERROR, NETWORK_ERROR)
+   - Error messages in Vietnamese by default
+
+4. **Portal Data Types**
+   - `PortalClient` - name, language (VI/EN)
+   - `PortalTaxCase` - id, taxYear, status
+   - `ChecklistDoc` - id, docType, labelVi, status, reason
+   - `PortalStats` - uploaded, verified, missing counts
+   - `PortalData` - Complete case context (client, case, checklist, stats)
+
+5. **Root Layout**
+   - File: `apps/portal/src/routes/__root.tsx` (21 LOC)
+   - Mobile-first layout (max-w-lg: 448px)
+   - Safe area padding with min-h-dvh
+   - Minimal chrome (no header/footer in layout)
+
+6. **Landing Pages**
+
+   - **Home Page** (`apps/portal/src/routes/index.tsx`)
+     - Direct access error handling
+     - Bilingual instructions (VI/EN)
+     - Ella branding with logo
+
+   - **Magic Link Landing** (`apps/portal/src/routes/u/$token.tsx`)
+     - Loads and displays client/case context
+     - 3 states: loading, success, error
+     - Success state shows:
+       - WelcomeHeader with client name + tax year
+       - Stats badges (verified/missing counts)
+       - UploadButtons for upload/status actions
+     - Error view with retry button for recoverable errors
+     - Invalid link message for expired/bad tokens (no retry)
+     - Token passed via TanStack Router params
+
+7. **UI Components**
+
+   - **WelcomeHeader** (`apps/portal/src/components/landing/welcome-header.tsx` - 39 LOC)
+     - Ella logo with primary mint color
+     - Client greeting (accented name in coral)
+     - Tax year badge with primary background
+     - Responsive header layout
+
+   - **UploadButtons** (`apps/portal/src/components/landing/upload-buttons.tsx` - 93 LOC)
+     - Large primary button: "Gửi tài liệu" (Upload Documents)
+     - Outline secondary button: "Xem trạng thái" (View Status)
+     - File format/size hints (JPEG, PNG, PDF, 10MB max)
+     - 44px min touch targets (mobile-friendly)
+     - Divider with "hoặc" (or) separator
+
+   - **ImagePicker** (`apps/portal/src/components/upload/image-picker.tsx` - 271 LOC)
+     - Camera capture and gallery file selection
+     - Validates file type (image/*, PDF only)
+     - Enforces max 10MB per file, 20 files total
+     - Grid preview (3 columns) with file thumbnails
+     - PDF shown as text badge (not rendered)
+     - Memory-safe: useMemo + useEffect for ObjectURL cleanup
+     - Remove button per file with hover reveal
+     - "Add more" button (dashed border) if under limit
+     - Bilingual validation error messages
+     - Auto-dismiss errors after 3 seconds
+
+8. **Upload Page** (`apps/portal/src/routes/u/$token/upload.tsx` - 235 LOC)
+   - Multi-state flow: loading → select → uploading → success/error
+   - Token validation on mount
+   - ImagePicker integration for file selection
+   - Handles multipart upload via API
+   - Success state shows uploaded count + filename count
+   - Options: upload more or return to home
+   - Error state with retry + back buttons
+   - Loading spinners (Loader2 icon)
+   - Back button with navigation
+
+**Architecture Patterns:**
+
+- **TanStack Router:** File-based routing with type-safe params (`$token` dynamic segment)
+- **React Hooks:** useRef (file inputs), useCallback (memoized handlers), useMemo (URL cleanup)
+- **i18n:** Function-based getText() instead of Context (simpler, lighter)
+- **Error Handling:** ApiError class with codes + bilingual messages
+- **Mobile-first:** Max-width 448px, large touch targets, vertical layouts
+- **Memory Management:** ObjectURL cleanup via useEffect return function
+- **State Management:** useState for page state + data/files (no external store needed)
+
+**Files Added:**
+- `apps/portal/src/lib/api-client.ts` (156 LOC)
+- `apps/portal/src/lib/i18n.ts` (90 LOC)
+- `apps/portal/src/routes/__root.tsx` (21 LOC)
+- `apps/portal/src/routes/index.tsx` (45 LOC)
+- `apps/portal/src/routes/u/$token.tsx` (208 LOC)
+- `apps/portal/src/routes/u/$token/upload.tsx` (235 LOC)
+- `apps/portal/src/components/landing/welcome-header.tsx` (39 LOC)
+- `apps/portal/src/components/landing/upload-buttons.tsx` (93 LOC)
+- `apps/portal/src/components/upload/image-picker.tsx` (271 LOC)
+
+**Files Modified:**
+- None (phase-1.4-frontend-client-portal is new branch)
+
+**Phase 1.4 Second Half (TODO):**
+- Document status page (show received/missing checklist)
+- Blurry image detection UI
+- Document classification confirmation (user confirms doc type if AI unsure)
+- Rate limit friendly messaging
+- Offline mode (queue uploads when offline)
+- Settings page (client preferences - language, phone number)
+
+---
 
 ## Phase 1.3: Frontend Foundation - Workspace (COMPLETED)
 

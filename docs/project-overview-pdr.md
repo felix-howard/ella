@@ -1,6 +1,6 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 1.3 - Frontend Foundation (Workspace)
+**Current Phase:** 2.1 - AI Document Processing (First Half)
 **Last Updated:** 2026-01-13
 
 ## Project Vision
@@ -217,21 +217,21 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ### Phase 1.4: Frontend Features (Portal & Workspace)
 
-**Status:** Pending
+**Status:** Completed 2026-01-13
 
 **Objective:** Build client intake, case management, and action pages
 
-**Planned Requirements:**
+**Requirements Met:**
 
-- Client intake wizard with profile questionnaire
-- Case management dashboard with document upload
-- Checklist status tracking UI
-- Action queue with priority grouping
-- Message/conversation interface
-- Portal client view (magic link access)
-- Form validation with Zod from @ella/shared
+- [x] Client intake wizard with profile questionnaire
+- [x] Case management dashboard with document upload
+- [x] Checklist status tracking UI
+- [x] Action queue with priority grouping
+- [x] Message/conversation interface
+- [x] Portal client view (magic link access)
+- [x] Form validation with Zod from @ella/shared
 
-**Planned Pages:**
+**Completed Pages:**
 
 - `/clients` - Client list (kanban/list view)
 - `/clients/new` - Client intake wizard
@@ -240,6 +240,54 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - `/actions` - Action queue with priority grouping
 - `/messages` - Conversation list
 - Portal: Client magic link pages
+
+### Phase 2.1: AI Document Processing (First Half)
+
+**Status:** Completed 2026-01-13
+
+**Objective:** Implement AI services for document classification, quality detection, and data extraction using Google Gemini
+
+**Requirements Met:**
+
+- [x] Google Gemini API client with retry logic & image validation
+- [x] Document classification service (multi-class tax form detection)
+- [x] Image quality/blur detection for document validation
+- [x] Structured AI prompts for consistent outputs
+- [x] Batch processing with concurrency control
+- [x] Configuration management via environment variables
+- [x] Error handling & rate limiting resilience
+
+**Functional Features:**
+
+- Image format validation (JPEG, PNG, WebP, HEIC - 10MB max)
+- Exponential backoff retry with configurable attempts
+- Vision model integration for document type classification
+- Quality assessment before expensive OCR processing
+- Multi-tax-form OCR extraction (W2, 1099-INT)
+- Prompt routing by document type
+
+**Deliverables:**
+
+- `apps/api/src/services/ai/gemini-client.ts` - Core AI API wrapper (122 lines)
+- `apps/api/src/services/ai/document-classifier.ts` - Classification service
+- `apps/api/src/services/ai/blur-detector.ts` - Quality detection service
+- `apps/api/src/services/ai/prompts/classify.ts` - Classification prompt template
+- `apps/api/src/services/ai/prompts/blur-check.ts` - Quality check prompt
+- `apps/api/src/services/ai/prompts/ocr/w2.ts` - W2 extraction prompt
+- `apps/api/src/services/ai/prompts/ocr/1099-int.ts` - 1099-INT extraction prompt
+- `apps/api/src/services/ai/prompts/ocr/index.ts` - OCR router
+- `apps/api/src/services/ai/index.ts` - Module exports
+
+**Configuration Added:**
+
+```javascript
+// Environment variables for AI services
+GEMINI_API_KEY              // Required - Google Gemini API key
+GEMINI_MODEL                // Optional - Model (default: gemini-2.0-flash)
+GEMINI_MAX_RETRIES          // Optional - Max retries (default: 3)
+GEMINI_RETRY_DELAY_MS       // Optional - Delay between retries (default: 1000ms)
+AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default: 3)
+```
 
 ### Phase 2: Frontend Polish
 
@@ -313,6 +361,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 | ORM             | Prisma          | 6.7.0   |
 | Validation      | Zod             | 3.24.1  |
 | Backend         | Hono            | 4.6.15+ |
+| AI Engine       | Google Gemini   | 2.0-flash |
 | Frontend        | React           | 18+     |
 | Styling         | Tailwind CSS    | 4.0.0+  |
 | Components      | shadcn/ui       | Latest  |
@@ -326,10 +375,13 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 | 1.1   | Complete database schema (12 models, 12 enums) | ✓ Complete |
 | 1.2   | Backend API with 24 endpoints                | ✓ Complete |
 | 1.3   | Frontend foundation (UI tokens, API client, layout) | ✓ Complete |
-| 1.4   | Frontend features (clients, cases, actions pages) | - Pending  |
-| 2     | Frontend polish & refinement                 | - Pending  |
-| 3     | Testing, QA, deployment prep                | - Pending  |
-| 4     | Production deployment & monitoring           | - Pending  |
+| 1.4   | Frontend features (clients, cases, actions pages) | ✓ Complete |
+| 1.5   | Shared UI Components (11 components)         | ✓ Complete |
+| 2.1   | AI Document Processing (Gemini services)    | ✓ Complete |
+| 2.2   | API endpoints for document processing        | - Pending  |
+| 3     | Frontend document upload with AI validation | - Pending  |
+| 4     | Testing, QA, deployment prep                | - Pending  |
+| 5     | Production deployment & monitoring           | - Pending  |
 
 ## Success Metrics
 
@@ -361,10 +413,13 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - **Phase 1.1:** Jan 12, 2026 - Database schema design (COMPLETE)
 - **Phase 1.2:** Jan 13, 2026 - Backend API implementation (COMPLETE)
 - **Phase 1.3:** Jan 13, 2026 - Frontend foundation (COMPLETE)
-- **Phase 1.4 (Next):** Jan 15-20, 2026 - Frontend features (clients, cases, actions)
-- **Phase 2:** Jan 20-25, 2026 - Frontend polish & refinement
-- **Phase 3:** Feb 2026 - Testing & QA
-- **Launch:** Feb 28, 2026
+- **Phase 1.4:** Jan 13, 2026 - Frontend features (clients, cases, actions) (COMPLETE)
+- **Phase 1.5:** Jan 13, 2026 - Shared UI Components (11 components) (COMPLETE)
+- **Phase 2.1:** Jan 13, 2026 - AI Document Processing (Gemini services) (COMPLETE)
+- **Phase 2.2 (Next):** Jan 14-15, 2026 - API endpoints for document processing
+- **Phase 3:** Jan 16-20, 2026 - Frontend document upload & validation
+- **Phase 4:** Jan 25-31, 2026 - Testing & QA
+- **Launch:** Feb 15, 2026
 
 ## Documentation Structure
 
@@ -411,7 +466,8 @@ docs/
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 2.1
 **Created:** 2026-01-11
 **Maintained By:** Documentation Manager
 **Last Review:** 2026-01-13
+**Status:** Phase 2.1 First Half Complete - AI Document Processing Foundations

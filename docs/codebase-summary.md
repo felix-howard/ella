@@ -1,17 +1,18 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-13
-**Current Branch:** feature/phase-1.5-shared-ui-components
+**Current Branch:** feature/phase-2.1-ai-document-processing
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| Phase 2.1 | AI Document Processing (First Half) | **2026-01-13** |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
 | Phase 3 | Apps Setup (API, Portal, Workspace) | Complete |
 | Phase 2 | Packages Setup (DB, Shared, UI) | Complete |
-| Phase 1.5 | Shared UI Components | **2026-01-13** |
+| Phase 1.5 | Shared UI Components | 2026-01-13 |
 | Phase 1.4 | Client Portal | 2026-01-13 |
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
@@ -195,11 +196,19 @@ Required in `.env`:
 DATABASE_URL=postgresql://user:password@localhost:5432/ella
 ```
 
+AI Services (Phase 2.1):
+```
+GEMINI_API_KEY=                    # Required - Google Gemini API key
+GEMINI_MODEL=gemini-2.0-flash      # Optional - Model (default: gemini-2.0-flash)
+GEMINI_MAX_RETRIES=3               # Optional - Max retries (default: 3)
+GEMINI_RETRY_DELAY_MS=1000         # Optional - Retry delay ms (default: 1000)
+AI_BATCH_CONCURRENCY=3             # Optional - Batch concurrency (default: 3)
+```
+
 Optional (integrations):
 ```
 CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
-GEMINI_API_KEY=...
 TWILIO_ACCOUNT_SID=...
 ```
 
@@ -221,28 +230,66 @@ TWILIO_ACCOUNT_SID=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 1.5 Second Half)
+## Recent Changes (Phase 2.1 First Half - AI Document Processing)
 
-**New Components Added:**
-- Modal - Dialog with backdrop blur
-- Tabs - Tabbed content with keyboard nav
-- Avatar - User images with initials fallback
-- Progress - Linear & circular progress indicators
-- Tooltip - Floating help tooltips
-- Icons - 50+ Lucide icon exports
+**New AI Services Added:**
+- `apps/api/src/services/ai/gemini-client.ts` - Gemini API wrapper with retry logic & image validation
+- `apps/api/src/services/ai/document-classifier.ts` - Multi-document classification (W2, 1099-INT, etc)
+- `apps/api/src/services/ai/blur-detector.ts` - Image quality/blur detection for document validation
+- `apps/api/src/services/ai/index.ts` - AI services exports
+
+**New AI Prompts Added:**
+- `apps/api/src/services/ai/prompts/classify.ts` - Document type classification prompt
+- `apps/api/src/services/ai/prompts/blur-check.ts` - Image quality check prompt
+- `apps/api/src/services/ai/prompts/ocr/w2.ts` - W2 form OCR extraction
+- `apps/api/src/services/ai/prompts/ocr/1099-int.ts` - 1099-INT form OCR extraction
+- `apps/api/src/services/ai/prompts/ocr/index.ts` - OCR prompts router
 
 **Files Modified:**
-- `packages/ui/src/index.ts` - Added 6 new component exports
+- `apps/api/package.json` - Added @google/generative-ai ^0.21.0
+- `apps/api/src/lib/config.ts` - Added AI configuration section with Gemini settings
 - `apps/workspace/routeTree.gen.ts` - Auto-generated (no manual edits)
 - `apps/portal/routeTree.gen.ts` - Auto-generated (no manual edits)
 
+## AI Services Architecture (Phase 2.1)
+
+### Core AI Components
+
+**GeminiClient** (`gemini-client.ts`)
+- Wraps @google/generative-ai SDK
+- Validates image formats & sizes (10MB max)
+- Implements exponential backoff retry logic
+- Handles rate limiting & transient errors
+- Supports text & vision models
+
+**DocumentClassifier** (`document-classifier.ts`)
+- Classifies uploaded images by tax form type
+- Uses Gemini vision model + custom prompts
+- Returns confidence scores & document categories
+- Handles batch processing with concurrency control
+
+**BlurDetector** (`blur-detector.ts`)
+- Analyzes image quality & sharpness
+- Detects blurry or low-quality documents
+- Validates document readability before extraction
+- Prevents poor-quality OCR processing
+
+### AI Prompts
+
+Structured prompts for consistent AI outputs:
+- **classify.ts** - Multi-class document type detection
+- **blur-check.ts** - Image quality assessment
+- **ocr/w2.ts** - W2 form field extraction
+- **ocr/1099-int.ts** - 1099-INT form field extraction
+- **ocr/index.ts** - OCR prompt routing by document type
+
 ## Next Steps
 
-1. **Phase 2.0** - Authentication integration (Clerk setup)
-2. **Phase 2.1** - API client integration (React Query)
-3. **Phase 2.2** - Data entry workflows (OltPro integration)
-4. **Phase 3.0** - AI document classification
-5. **Phase 3.1** - Advanced search & analytics
+1. **Phase 2.1 (Second Half)** - API endpoints for document processing
+2. **Phase 2.2** - Frontend document upload with AI validation
+3. **Phase 3.0** - Authentication integration (Clerk setup)
+4. **Phase 3.1** - Advanced OCR & data extraction
+5. **Phase 4.0** - Advanced search & analytics
 
 ## Key Decisions
 
@@ -271,6 +318,6 @@ TWILIO_ACCOUNT_SID=...
 
 ---
 
-**Last Updated:** 2026-01-13 20:00
-**Status:** Phase 1.5 Complete - Ready for Phase 2 (Auth Integration)
-**Branch:** feature/phase-1.5-shared-ui-components
+**Last Updated:** 2026-01-13 20:27
+**Status:** Phase 2.1 First Half Complete - AI Document Processing (Gemini services)
+**Branch:** feature/phase-2.1-ai-document-processing

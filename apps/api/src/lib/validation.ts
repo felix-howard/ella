@@ -63,7 +63,7 @@ export function validateUploadedFiles(files: File[]): FileValidationResult {
 
     // Check mime type
     const mimeType = file.type || 'application/octet-stream'
-    if (!config.upload.allowedMimeTypes.includes(mimeType)) {
+    if (!(config.upload.allowedMimeTypes as readonly string[]).includes(mimeType)) {
       return {
         valid: false,
         error: `File type "${mimeType}" is not allowed. Allowed: images (JPEG, PNG, WebP, HEIC) and PDF`,

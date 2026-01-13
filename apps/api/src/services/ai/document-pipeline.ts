@@ -11,12 +11,11 @@ import {
   getRawImageCaseId,
   markImageProcessing,
   linkToChecklistItem,
-  upsertDigitalDoc,
   createAction,
-  markImageLinked,
   markImageUnclassified,
+  processOcrResultAtomic,
 } from './pipeline-helpers'
-import type { PipelineResult, BatchImageInput, PipelineConfig } from './pipeline-types'
+import type { PipelineResult, BatchImageInput } from './pipeline-types'
 import { DEFAULT_PIPELINE_CONFIG } from './pipeline-types'
 import type { DocType } from '@ella/db'
 
@@ -158,16 +157,18 @@ export async function processImage(
         ? (ocrResult.isValid ? 'EXTRACTED' : 'PARTIAL')
         : 'FAILED'
 
-      digitalDocId = await upsertDigitalDoc(
+      // Atomic transaction: upsert digital doc, update checklist, mark image linked
+      digitalDocId = await processOcrResultAtomic({
         rawImageId,
         caseId,
         docType,
-        ocrResult.extractedData || {},
-        status as 'EXTRACTED' | 'PARTIAL' | 'FAILED',
-        ocrResult.confidence,
-        checklistItemId
-      )
+        extractedData: ocrResult.extractedData || {},
+        status: status as 'EXTRACTED' | 'PARTIAL' | 'FAILED',
+        confidence: ocrResult.confidence,
+        checklistItemId,
+      })
 
+      // Create verification action (outside transaction - non-critical)
       if (needsManualVerification(ocrResult)) {
         const actionId = await createAction({
           caseId,
@@ -179,8 +180,6 @@ export async function processImage(
         })
         actionsCreated.push(actionId)
       }
-
-      await markImageLinked(rawImageId)
     }
 
     return {

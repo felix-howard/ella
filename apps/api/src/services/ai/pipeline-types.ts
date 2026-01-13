@@ -39,7 +39,7 @@ export interface ActionMetadataBase {
 }
 
 export interface ClassificationFailedMetadata extends ActionMetadataBase {
-  // Classification failed - no doc type yet
+  error?: string
 }
 
 export interface BlurryDetectedMetadata extends ActionMetadataBase {

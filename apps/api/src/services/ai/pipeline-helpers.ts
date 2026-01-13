@@ -156,3 +156,71 @@ export async function markImageUnclassified(rawImageId: string) {
     data: { status: 'UNCLASSIFIED' as RawImageStatus },
   })
 }
+
+/**
+ * Update checklist item status to HAS_DIGITAL after successful OCR extraction
+ * This is the status transition: HAS_RAW → HAS_DIGITAL
+ */
+export async function updateChecklistItemToHasDigital(checklistItemId: string) {
+  await prisma.checklistItem.update({
+    where: { id: checklistItemId },
+    data: { status: 'HAS_DIGITAL' },
+  })
+}
+
+/**
+ * Atomic OCR post-processing: upsert digital doc, update checklist, mark image linked
+ * All operations within a transaction to ensure consistency
+ */
+export interface OcrPostProcessParams {
+  rawImageId: string
+  caseId: string
+  docType: DocType
+  extractedData: Record<string, unknown>
+  status: 'EXTRACTED' | 'PARTIAL' | 'FAILED'
+  confidence: number
+  checklistItemId: string | null
+}
+
+export async function processOcrResultAtomic(params: OcrPostProcessParams): Promise<string> {
+  const { rawImageId, caseId, docType, extractedData, status, confidence, checklistItemId } = params
+  const extractedJson = extractedData as Prisma.InputJsonValue
+
+  return await prisma.$transaction(async (tx) => {
+    // 1. Upsert digital doc
+    const digitalDoc = await tx.digitalDoc.upsert({
+      where: { rawImageId },
+      update: {
+        docType,
+        status,
+        extractedData: extractedJson,
+        aiConfidence: confidence,
+      },
+      create: {
+        caseId,
+        rawImageId,
+        docType,
+        status,
+        extractedData: extractedJson,
+        aiConfidence: confidence,
+        checklistItemId,
+      },
+    })
+
+    // 2. Update checklist item status to HAS_DIGITAL on successful extraction
+    if (checklistItemId && (status === 'EXTRACTED' || status === 'PARTIAL')) {
+      await tx.checklistItem.update({
+        where: { id: checklistItemId },
+        data: { status: 'HAS_DIGITAL' },
+      })
+    }
+
+    // 3. Mark raw image as linked
+    await tx.rawImage.update({
+      where: { id: rawImageId },
+      data: { status: 'LINKED' as RawImageStatus },
+    })
+
+    return digitalDoc.id
+  })
+}

@@ -212,33 +212,46 @@ docsRoute.post('/:id/ocr', async (c) => {
     status = 'FAILED'
   }
 
-  // Update digital doc with extracted data
-  const updatedDoc = await prisma.digitalDoc.update({
-    where: { id },
-    data: {
-      status,
-      extractedData: (ocrResult.extractedData || {}) as Parameters<typeof prisma.digitalDoc.update>[0]['data']['extractedData'],
-      aiConfidence: ocrResult.confidence,
-    },
-  })
-
-  // Create action for verification if needed
-  if (needsManualVerification(ocrResult)) {
-    await prisma.action.create({
+  // Atomic transaction: Update digital doc, checklist item, and create action
+  const updatedDoc = await prisma.$transaction(async (tx) => {
+    // Update digital doc with extracted data
+    const digitalDoc = await tx.digitalDoc.update({
+      where: { id },
       data: {
-        caseId: doc.caseId,
-        type: 'VERIFY_DOCS',
-        priority: 'NORMAL',
-        title: 'Xác minh dữ liệu OCR',
-        description: `${doc.docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
-        metadata: {
-          docId: doc.id,
-          rawImageId: doc.rawImageId,
-          confidence: ocrResult.confidence,
-        },
+        status,
+        extractedData: (ocrResult.extractedData || {}) as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+        aiConfidence: ocrResult.confidence,
       },
     })
-  }
+
+    // Update checklist item status to HAS_DIGITAL on successful extraction
+    if (doc.checklistItemId && (status === 'EXTRACTED' || status === 'PARTIAL')) {
+      await tx.checklistItem.update({
+        where: { id: doc.checklistItemId },
+        data: { status: 'HAS_DIGITAL' as ChecklistItemStatus },
+      })
+    }
+
+    // Create action for verification if needed
+    if (needsManualVerification(ocrResult)) {
+      await tx.action.create({
+        data: {
+          caseId: doc.caseId,
+          type: 'VERIFY_DOCS',
+          priority: 'NORMAL',
+          title: 'Xác minh dữ liệu OCR',
+          description: `${doc.docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
+          metadata: {
+            docId: doc.id,
+            rawImageId: doc.rawImageId,
+            confidence: ocrResult.confidence,
+          },
+        },
+      })
+    }
+
+    return digitalDoc
+  })
 
   return c.json({
     digitalDoc: {

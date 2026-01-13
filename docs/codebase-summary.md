@@ -230,7 +230,27 @@ TWILIO_ACCOUNT_SID=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1 - AI Document Processing)
+## Recent Changes (Phase 2.1 & 2.2 - AI Document Processing & Checklist System)
+
+### Phase 2.2 (Complete - 2026-01-13)
+**Dynamic Checklist System with Atomic Transactions**
+
+**Key Addition:**
+- `apps/api/src/services/ai/pipeline-helpers.ts` - Enhanced with `processOcrResultAtomic()`
+- Auto-linking raw images to checklist items on successful classification
+- Atomic transaction wrapper: upsert DigitalDoc + update ChecklistItem + mark RawImage linked
+- Checklist status transitions: MISSING → HAS_RAW → HAS_DIGITAL → VERIFIED
+
+**New Functions:**
+- `processOcrResultAtomic()` - Wraps 3 DB operations in single transaction
+- `updateChecklistItemToHasDigital()` - Status transition on successful OCR
+- Enhanced `linkToChecklistItem()` - Auto-links classified documents to checklist
+
+**Benefits:**
+- Zero race conditions on concurrent uploads
+- No partial states (all-or-nothing consistency)
+- Real-time checklist progress tracking
+- Automatic document-to-requirement matching
 
 ### Phase 2.1 First Half (Complete)
 **Core AI Services:**
@@ -379,6 +399,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-13 21:15
-**Status:** Phase 2.1 Complete - AI Document Processing with Full Pipeline (Classification, Blur Detection, OCR Extraction)
+**Last Updated:** 2026-01-13 21:30
+**Status:** Phase 2.1 & 2.2 Complete - AI Document Processing + Dynamic Checklist System
 **Branch:** feature/phase-2.1-ai-document-processing
+**Next Phase:** Phase 3.0 - Document Verification & Workspace Review UI

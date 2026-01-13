@@ -369,7 +369,7 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
-### AI Document Processing Pipeline Flow (Phase 2.1)
+### AI Document Processing Pipeline Flow (Phase 2.1 & 2.2)
 
 ```
 Client Uploads Documents via Portal
@@ -388,25 +388,33 @@ Create RawImage records (status: UPLOADED)
         ├─ Returns { docType, confidence }
         └─ Update RawImage.classifiedType & aiConfidence
         ↓
-[PIPELINE STAGE 2: Blur Detection]
+[PIPELINE STAGE 2: Auto-Linking to Checklist] (Phase 2.2)
+        ├─ linkToChecklistItem(rawImageId, caseId, docType)
+        ├─ Search ChecklistItem by (caseId, template.docType)
+        ├─ If found: Link RawImage ↔ ChecklistItem
+        ├─ Update ChecklistItem.status: MISSING → HAS_RAW
+        ├─ Increment ChecklistItem.receivedCount
+        └─ RawImage.status: CLASSIFIED → LINKED
+        ↓
+[PIPELINE STAGE 3: Blur Detection]
         ├─ analyzeImage() with blur-check prompt
         ├─ Gemini assesses sharpness (0-100 scale)
         ├─ Returns { blurScore, issues }
         └─ If blurry (>70): Create BLURRY_DETECTED action
         ↓
-[PIPELINE STAGE 3: OCR Extraction] (if document supports it)
+[PIPELINE STAGE 4: OCR Extraction] (if document supports it)
         ├─ getOcrPromptForDocType(docType)
         ├─ analyzeImage() with form-specific prompt
         ├─ Extract & validate structured data
         ├─ Calculate confidence from key fields
-        └─ Create/update DigitalDoc with extractedData
+        └─ Prepare data for atomic transaction
         ↓
-[Database Updates]
-        ├─ Update RawImage status (CLASSIFIED/BLURRY/LINKED)
-        ├─ Link RawImage to matching ChecklistItem
-        ├─ Create DigitalDoc with extracted fields
-        ├─ Increment ChecklistItem.receivedCount
-        └─ Create Action records for follow-ups
+[Atomic Transaction] (Phase 2.2)
+        ├─ Upsert DigitalDoc with extracted fields
+        ├─ Update ChecklistItem.status: HAS_RAW → HAS_DIGITAL
+        ├─ Mark RawImage.status: LINKED
+        ├─ All 3 operations in single transaction (ACID)
+        └─ No partial states possible
         ↓
 [Action Creation Rules]
         ├─ AI_FAILED → Classification or extraction error
@@ -418,7 +426,13 @@ Create RawImage records (status: UPLOADED)
         ├─ Client sees uploaded documents
         ├─ Blurry documents flagged for resend
         ├─ Verified documents marked as received
-        └─ Real-time checklist progress
+        └─ Real-time checklist progress (MISSING/HAS_RAW/HAS_DIGITAL)
+
+**Checklist Status Lifecycle:**
+- MISSING: Initial state (no docs received)
+- HAS_RAW: Raw image received (classification success)
+- HAS_DIGITAL: Digital doc created (OCR extraction success)
+- VERIFIED: Manually verified by staff (future action)
 
 **Retry Strategy:**
 - Transient errors (timeout, rate limit, 500/502/503)
@@ -427,7 +441,8 @@ Create RawImage records (status: UPLOADED)
 
 **Concurrency Control:**
 - Batch processing: 3 images parallel (tuned for Gemini rate limits)
-- Per-image: Sequential stages (classify → blur → ocr)
+- Per-image: Sequential stages (classify → blur → ocr → atomic commit)
+- Atomic transactions prevent race conditions on concurrent uploads
 ```
 
 ## Database Schema (Phase 1.1 - Complete)
@@ -718,6 +733,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-13
-**Phase:** 1.2 - Backend API Endpoints (Complete)
-**Architecture Version:** 1.3
+**Last Updated:** 2026-01-13 21:30
+**Phase:** 2.2 - Dynamic Checklist System with Atomic Transactions (Complete)
+**Architecture Version:** 2.2
+**Next Phase:** 3.0 - Document Verification Endpoint + Workspace Review UI

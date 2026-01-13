@@ -1,6 +1,6 @@
 # Ella - Codebase Summary
 
-**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.5 completed (2026-01-13)
+**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.10 completed (2026-01-13)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
@@ -429,9 +429,9 @@ turbo run type-check
 
 **Date:** 2026-01-13
 
-**Deliverable:** Core workspace UI components, API client, constants, and state management
+**Deliverable:** Complete workspace UI with dashboard, actions page, and core components
 
-**Tasks Completed (1.3.1-1.3.5):**
+**Tasks Completed (1.3.1-1.3.10):**
 
 1. **Task 1.3.1:** Update @ella/ui design tokens & Button component
    - Added mint green design system via `packages/ui/src/styles.css`
@@ -448,72 +448,95 @@ turbo run type-check
    - Organized endpoints: clients, cases, actions, messages
    - Type-safe request/response handling
    - Paginated response types built-in
-   - 180+ lines of TypeScript types covering all API models
 
 3. **Task 1.3.3:** Vietnamese localization constants
    - File: `apps/workspace/src/lib/constants.ts`
-   - DOC_TYPE_LABELS (21 document types in Vietnamese)
-   - CASE_STATUS_LABELS with colors (7 statuses)
-   - CHECKLIST_STATUS_LABELS (5 statuses)
-   - ACTION_TYPE_LABELS & colors (6 types)
-   - ACTION_PRIORITY_LABELS & colors (4 priorities)
+   - DOC_TYPE_LABELS (21 document types), CASE_STATUS_LABELS (7), CHECKLIST_STATUS_LABELS (5)
+   - ACTION_TYPE_LABELS (6 types), ACTION_PRIORITY_LABELS (4 priorities) with colors
    - TAX_TYPE_LABELS, FILING_STATUS_LABELS, LANGUAGE_LABELS
-   - NAV_ITEMS for sidebar (4 main routes)
-   - UI_TEXT object with common UI labels
+   - NAV_ITEMS sidebar navigation (4 routes)
+   - UI_TEXT object with dashboard, quick actions, clients, actions, form, and error labels
 
 4. **Task 1.3.4:** Zustand UI state management
    - File: `apps/workspace/src/stores/ui-store.ts`
-   - Sidebar expanded/collapsed state
-   - Client view mode (kanban/list)
-   - Global search state
-   - Mobile menu state
-   - Persisted via Zustand middleware to localStorage
+   - Sidebar expanded/collapsed state, client view mode (kanban/list)
+   - Global search state, mobile menu state
+   - Persisted to localStorage via Zustand middleware
 
 5. **Task 1.3.5:** Core layout components
-   - Sidebar component: Logo, nav items, collapse animation, user menu placeholder
-   - Header component: Page title, user greeting, action buttons
-   - PageContainer component: Content wrapper with responsive padding
+   - Sidebar: Logo, nav items, collapse animation, user menu
+   - Header: Page title, user greeting, action buttons
+   - PageContainer: Content wrapper with responsive padding
    - Error boundary: React error handling with Vietnamese UI
 
-**Infrastructure:**
+6. **Task 1.3.6-1.3.10:** Dashboard and Actions Page Components
+   - **TodaySummary Component** (`apps/workspace/src/components/dashboard/today-summary.tsx`)
+     - Personalized greeting with staff name
+     - Current date in Vietnamese format
+     - Responsive header with calendar icon
 
-- Root layout with sidebar + header + outlet pattern
-- Dashboard page with mock stats cards, quick actions, recent activity
-- Error boundary for graceful error handling
-- All Vietnamese labels for Vietnamese-speaking staff
-- Responsive design (mobile/tablet/desktop breakpoints)
+   - **StatsOverview Component** (`apps/workspace/src/components/dashboard/stats-overview.tsx`)
+     - 4 stat cards: Pending Actions, New Clients, Docs Received, Blurry Docs
+     - Color-coded icons (primary, accent, success, warning)
+     - Optional navigation links (to /actions, /clients, etc.)
+     - Loading skeleton support
+     - Responsive grid (1→2→4 columns)
 
-**Design System Alignment:**
+   - **QuickActions Component** (`apps/workspace/src/components/dashboard/quick-actions.tsx`)
+     - 4 action shortcuts: Add Client, View Actions, Verify Docs, Handle Blurry
+     - Card-based layout with icon & hover effects
+     - Quick navigation to common staff tasks
 
-- Mint green (#10B981) as primary color
-- Coral orange (#F97316) for accents
-- Pill-shaped buttons (rounded-full)
-- Consistent spacing (4px base unit)
-- Card-based layout with shadows
-- Accessible focus states
+   - **ActionCard Component** (`apps/workspace/src/components/actions/action-card.tsx`)
+     - Full & compact variants for different contexts
+     - Displays action type, priority, title, client name, description
+     - Relative time formatting in Vietnamese
+     - Priority-based border styling (URGENT=red, HIGH=orange)
+     - Type-based icon color mapping (6 action types)
+     - Complete & view detail action buttons
+     - Links to case detail page (`/cases/:caseId/verify`)
 
-**Files Added/Modified:**
+   - **Actions Page** (`apps/workspace/src/routes/actions/index.tsx`)
+     - Filter by type & priority with chip interface
+     - Grouped by priority (URGENT→HIGH→NORMAL→LOW)
+     - Empty state with icon when no actions
+     - Mock data (6 sample actions in Vietnamese)
+     - Header with refresh button & action count
+     - TODO: Replace with API call using useSuspenseQuery
 
-- `packages/ui/src/styles.css` - Ella design tokens
-- `packages/ui/src/components/button.tsx` - Updated button variants
-- `apps/workspace/src/lib/api-client.ts` - Type-safe API client
-- `apps/workspace/src/lib/constants.ts` - Vietnamese labels & colors
-- `apps/workspace/src/stores/ui-store.ts` - Zustand UI store
-- `apps/workspace/src/components/layout/sidebar.tsx` - Navigation sidebar
-- `apps/workspace/src/components/layout/header.tsx` - Top header
-- `apps/workspace/src/components/layout/page-container.tsx` - Content wrapper
-- `apps/workspace/src/components/layout/index.ts` - Barrel export
-- `apps/workspace/src/components/error-boundary.tsx` - Error handling
-- `apps/workspace/src/routes/__root.tsx` - Root layout
-- `apps/workspace/src/routes/index.tsx` - Dashboard page
+**Refactored Dashboard Page** (`apps/workspace/src/routes/index.tsx`)
+   - Now uses new components: TodaySummary, StatsOverview, QuickActions
+   - Mock stats (12 pending, 3 new clients, 28 docs, 2 blurry)
+   - Recent Activity section placeholder
+   - Ready for API integration
+
+**Component Architecture:**
+   - Barrel exports for organizing components (`dashboard/index.ts`, `actions/index.ts`)
+   - Consistent color system: primary (mint), accent (coral), success, warning, error
+   - Type-safe props using TypeScript interfaces
+   - Responsive grid layouts (mobile-first)
+   - Accessible icon labeling with aria-hidden
+
+**Files Added:**
+- `apps/workspace/src/components/dashboard/today-summary.tsx`
+- `apps/workspace/src/components/dashboard/stats-overview.tsx`
+- `apps/workspace/src/components/dashboard/quick-actions.tsx`
+- `apps/workspace/src/components/dashboard/index.ts`
+- `apps/workspace/src/components/actions/action-card.tsx`
+- `apps/workspace/src/components/actions/index.ts`
+- `apps/workspace/src/routes/actions/index.tsx`
+
+**Files Modified:**
+- `apps/workspace/src/routes/index.tsx` - Refactored to use new dashboard components
+- `apps/workspace/src/lib/constants.ts` - Added ACTION_TYPE_COLORS, ACTION_PRIORITY_COLORS
 
 **Pattern Notes:**
 
-- **API Client:** Centralized, type-safe, auto-timeout, error handling
-- **Constants:** Organized by domain (docs, cases, actions, etc.)
-- **State Management:** Zustand with persistence for UI preferences
-- **Components:** Sidebar-header-content layout pattern
-- **Localization:** Vietnamese-first (VI/EN support via constants)
+- **Dashboard:** Composition pattern with reusable stat/action cards
+- **Localization:** Vietnamese-first with all UI text in constants
+- **Components:** Self-contained, type-safe, accessible with proper ARIA labels
+- **Responsive:** Mobile-first approach with responsive grids and hidden elements
+- **State:** Ready for API integration via React Query (TODO comments in place)
 
 ## Phase 1.2: Backend API Endpoints (COMPLETED)
 
@@ -644,5 +667,5 @@ turbo run type-check
 ---
 
 **Last Updated:** 2026-01-13
-**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.5
+**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.10 COMPLETED
 **Maintained By:** Documentation Manager

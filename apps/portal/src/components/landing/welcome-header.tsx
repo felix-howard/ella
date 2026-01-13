@@ -3,6 +3,7 @@
  * Displays greeting with client name and tax year info
  * Mobile-first design with Ella mint green theme
  */
+import { EllaLogoDark } from '@ella/ui'
 import { getText, type Language } from '../../lib/i18n'
 
 interface WelcomeHeaderProps {
@@ -18,9 +19,7 @@ export function WelcomeHeader({ clientName, taxYear, language }: WelcomeHeaderPr
     <header className="px-6 pt-8 pb-6 text-center">
       {/* Ella Logo */}
       <div className="mb-6">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10">
-          <span className="text-3xl font-bold text-primary">E</span>
-        </div>
+        <img src={EllaLogoDark} alt="ella.tax" className="h-10 mx-auto object-contain" />
       </div>
 
       {/* Greeting */}

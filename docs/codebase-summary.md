@@ -1,5 +1,6 @@
 # Ella - Codebase Summary
 
+**Phase 1.5 Status:** Shared UI Components (First Half) - COMPLETED (2026-01-13 19:26)
 **Phase 1.4 Status:** Frontend Client Portal (complete) - COMPLETED (2026-01-13)
 **Phase 1.3 Status:** Frontend foundation (workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED (2026-01-13 13:09)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
@@ -105,9 +106,41 @@ ella/
 **Key Files:**
 
 - `packages/ui/src/components/button.tsx` - Button component
+- `packages/ui/src/components/card.tsx` - Card container components (NEW Phase 1.5)
+- `packages/ui/src/components/input.tsx` - Input field with error/hint support (NEW Phase 1.5)
+- `packages/ui/src/components/select.tsx` - Select dropdown with field wrapper (NEW Phase 1.5)
+- `packages/ui/src/components/badge.tsx` - Badge & StatusBadge for status display (NEW Phase 1.5)
 - `packages/ui/src/lib/utils.ts` - Utility functions (cn for Tailwind merging)
 - `packages/ui/src/styles.css` - Global Tailwind styles
 - `packages/ui/components.json` - shadcn/ui configuration
+
+**Components (Phase 1.5 First Half):**
+
+- **Card Family (card.tsx)**
+  - `Card` - Base container with variants (default, elevated, flat, feature) and padding options
+  - `CardHeader` - Top section for titles/descriptions
+  - `CardTitle` - Semantic heading component
+  - `CardDescription` - Secondary text/subtitle
+  - `CardContent` - Main content area
+  - `CardFooter` - Bottom section for actions
+
+- **Input Family (input.tsx)**
+  - `Input` - Base input with variants (default, error, ghost) and sizes (sm, default, lg)
+  - `InputField` - Wrapper with label, error, hint support for complete form control
+  - Supports all HTML input attributes (type, disabled, placeholder, etc.)
+
+- **Select Family (select.tsx)**
+  - `Select` - Native select element with variants (default, error) and sizes
+  - `SelectField` - Wrapper with label, error, hint support
+  - ChevronDown icon indicator
+  - Options prop for array-based option rendering
+
+- **Badge Family (badge.tsx)**
+  - `Badge` - Base badge with variants (default, secondary, outline, success, error, warning, accent)
+  - Size variants (sm, default, lg)
+  - Shape variants (rounded-full, rounded-md)
+  - `StatusBadge` - Specialized for document/case status with semantic mapping
+  - StatusType enum: missing, has_raw, has_digital, verified, uploaded, classified, linked, blurry, extracted, partial, failed, pending, in_progress, complete
 
 **Dependencies:**
 
@@ -115,6 +148,7 @@ ella/
 - tailwindcss ^4.0.0
 - class-variance-authority (component variants)
 - clsx + tailwind-merge (class utilities)
+- lucide-react (icons for Select/Badge)
 
 **Setup:**
 
@@ -1235,8 +1269,137 @@ apps/portal/src/components/
 **Files Modified (Tasks 1.3.26-1.3.32):**
 - `apps/workspace/src/lib/formatters.ts` - Added sanitizeHtml utility
 
+## Phase 1.5: Shared UI Components (COMPLETED - First Half)
+
+**Date:** 2026-01-13
+
+**Deliverable:** Foundational shared UI component library for forms, containers, and status displays
+
+**Components Implemented (Phase 1.5 First Half):**
+
+1. **Card Component** (`packages/ui/src/components/card.tsx` - 80 LOC)
+   - Base `Card` component with CVA variants (default, elevated, flat, feature)
+   - Padding variants (none, sm, default, lg)
+   - Semantic sub-components: CardHeader, CardTitle, CardDescription, CardContent, CardFooter
+   - Default: rounded-xl border shadow-sm
+   - All components are forwardRefs for proper DOM access
+   - Used as container for content sections across workspace & portal
+
+2. **Input Component** (`packages/ui/src/components/input.tsx` - 75 LOC)
+   - Base `Input` with CVA variants (default, error, ghost)
+   - Size variants (sm: h-8, default: h-10, lg: h-12)
+   - Focus states with ring-2 for accessibility
+   - Error variant for validation display (red border/ring)
+   - Ghost variant for borderless inputs
+   - `InputField` wrapper component with:
+     - Label support with htmlFor linking
+     - Error message display (red text)
+     - Hint text for guidance (muted foreground)
+     - Auto-variant switching (error state when error provided)
+   - Supports all standard HTML input attributes
+
+3. **Select Component** (`packages/ui/src/components/select.tsx` - 92 LOC)
+   - Base `Select` with CVA variants (default, error)
+   - Size variants (sm: h-8, default: h-10, lg: h-12)
+   - ChevronDown icon indicator (positioned absolutely, pointer-events-none)
+   - Option mapping via array or children
+   - Placeholder support (disabled first option)
+   - `SelectField` wrapper with:
+     - Label support with htmlFor linking
+     - Error message display
+     - Hint text support
+     - Auto-variant switching on error
+   - Native select element (no complex dropdown library)
+
+4. **Badge Component** (`packages/ui/src/components/badge.tsx` - 97 LOC)
+   - Base `Badge` with 7 variants (default, secondary, outline, success, error, warning, accent)
+   - Size variants (sm: text-[10px], default: text-xs, lg: text-sm)
+   - Shape variants (rounded-full default, rounded-md square)
+   - Inline-flex for semantic spacing
+   - `StatusBadge` specialized component with automatic variant mapping
+   - StatusType enum (13 types):
+     - missing, has_raw, has_digital, verified (data states)
+     - uploaded, classified, linked, extracted (process states)
+     - blurry, partial, failed (error/quality states)
+     - pending, in_progress, complete (progress states)
+   - Status mapping:
+     - verified/complete → success (green)
+     - missing/blurry/failed → error (red)
+     - partial/has_raw/in_progress → warning (orange)
+     - has_digital/uploaded/classified/extracted/linked/pending → secondary (gray)
+
+**Architecture Notes:**
+
+- **Component Pattern:** Each component family (Card, Input, Select, Badge) has:
+  - Base component with CVA variants for customization
+  - Optional wrapper component (InputField, SelectField, StatusBadge) for complete form control
+  - ForwardRef for proper DOM element access
+  - TypeScript interfaces extending HTML attributes
+  - displayName for debugging in React DevTools
+
+- **Variants via CVA:** All sizing/styling via class-variance-authority for:
+  - Type safety
+  - Clean component props
+  - Easy variant extension
+  - Zero runtime overhead
+
+- **Accessibility:**
+  - Label components with htmlFor linking
+  - Semantic HTML (Input, Select use native elements)
+  - Focus states with visible rings (focus:ring-2)
+  - Error states clearly marked (red border + text)
+
+- **Design System:**
+  - Colors from Tailwind theme: primary (mint), error (red), warning (orange), muted-foreground (gray)
+  - Consistent padding/sizing across components
+  - Smooth transitions (duration-200)
+  - Touch-friendly sizes (min h-8, typically h-10)
+
+**Files Added (Phase 1.5 First Half):**
+- `packages/ui/src/components/card.tsx` (80 LOC)
+- `packages/ui/src/components/input.tsx` (75 LOC)
+- `packages/ui/src/components/select.tsx` (92 LOC)
+- `packages/ui/src/components/badge.tsx` (97 LOC)
+
+**Files Modified (Phase 1.5 First Half):**
+- `packages/ui/src/index.ts` - Added exports for new components
+
+**Component Export Structure:**
+
+```
+packages/ui/src/index.ts exports:
+
+// Card
+export { Card, cardVariants, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
+
+// Input
+export { Input, inputVariants, InputField, type InputProps, type InputFieldProps }
+
+// Select
+export { Select, selectVariants, SelectField, type SelectProps, type SelectFieldProps }
+
+// Badge
+export { Badge, badgeVariants, StatusBadge, type BadgeProps, type StatusBadgeProps, type StatusType }
+```
+
+**Usage Patterns:**
+
+All components follow consistent patterns:
+1. Base component for flexibility: `<Input />`, `<Select />`, `<Card />`
+2. Field wrapper for forms: `<InputField label="Name" error={error} hint="First and last" />`
+3. CVA variants for styling: `<Badge variant="success" size="lg" />`
+4. StatusBadge for automatic status styling: `<StatusBadge status="verified" />`
+
+**Integration Notes:**
+
+These components serve as foundation for:
+- Workspace forms (client creation, case management)
+- Portal document upload flow
+- All data entry interfaces requiring user input
+- Status displays and progress indicators
+
 ---
 
-**Last Updated:** 2026-01-13 13:09
-**Phase:** 1.3 - Frontend Foundation (Workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED
+**Last Updated:** 2026-01-13 19:26
+**Phase:** 1.5 - Shared UI Components (First Half) - COMPLETED
 **Maintained By:** Documentation Manager

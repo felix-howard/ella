@@ -10,6 +10,7 @@ import {
   buildPaginationResponse,
 } from '../../lib/constants'
 import { sendMessageSchema, listMessagesQuerySchema } from './schemas'
+import { sendCustomMessage, isSmsEnabled } from '../../services/sms'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
 const messagesRoute = new Hono()
@@ -109,9 +110,18 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     data: { lastContactAt: new Date() },
   })
 
-  // SMS sending will be implemented in Phase 3 (Twilio integration)
-  // For now, just record the message
-  const smsSent = channel === 'SYSTEM' ? true : false // SMS not implemented yet
+  // Send SMS if channel is SMS and Twilio is configured
+  let smsSent = false
+  let smsError: string | undefined
+
+  if (channel === 'SMS' && isSmsEnabled()) {
+    const result = await sendCustomMessage(caseId, taxCase.client.phone, content)
+    smsSent = result.smsSent
+    smsError = result.error
+  } else if (channel !== 'SMS') {
+    // System/Portal messages don't need SMS
+    smsSent = true
+  }
 
   return c.json(
     {
@@ -121,6 +131,8 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
         updatedAt: message.updatedAt.toISOString(),
       },
       sent: smsSent,
+      smsEnabled: isSmsEnabled(),
+      error: smsError,
     },
     201
   )

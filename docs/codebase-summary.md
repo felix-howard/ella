@@ -1,13 +1,15 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-13
-**Current Branch:** feature/phase-2.1-ai-document-processing
+**Current Branch:** feature/phase-3-communication
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 2.1 | AI Document Processing (First Half) | **2026-01-13** |
+| Phase 3.1 | Twilio SMS Integration (First Half) | **2026-01-13** |
+| Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
+| Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
 | Phase 3 | Apps Setup (API, Portal, Workspace) | Complete |
@@ -191,13 +193,13 @@ pnpm type-check              # TypeScript validation
 
 ## Environment Variables
 
-Required in `.env`:
-```
+**Required:**
+```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/ella
 ```
 
-AI Services (Phase 2.1):
-```
+**AI Services (Phase 2.1):**
+```bash
 GEMINI_API_KEY=                    # Required - Google Gemini API key
 GEMINI_MODEL=gemini-2.0-flash      # Optional - Model (default: gemini-2.0-flash)
 GEMINI_MAX_RETRIES=3               # Optional - Max retries (default: 3)
@@ -205,11 +207,17 @@ GEMINI_RETRY_DELAY_MS=1000         # Optional - Retry delay ms (default: 1000)
 AI_BATCH_CONCURRENCY=3             # Optional - Batch concurrency (default: 3)
 ```
 
-Optional (integrations):
+**SMS Integration (Phase 3.1):**
+```bash
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
 ```
+
+**Optional (future integrations):**
+```bash
 CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
-TWILIO_ACCOUNT_SID=...
 ```
 
 ## Design System
@@ -230,7 +238,47 @@ TWILIO_ACCOUNT_SID=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1 & 2.2 - AI Document Processing & Checklist System)
+## Recent Changes (Phase 2.1, 2.2, 3.1 - AI & Communication Integration)
+
+### Phase 3.1 (Complete - 2026-01-13)
+**Twilio SMS Integration (First Half)**
+
+**Key Addition:**
+- `apps/api/src/services/sms/twilio-client.ts` - SMS sending with retry logic & E.164 formatting
+- `apps/api/src/services/sms/message-sender.ts` - High-level templated SMS service
+- `apps/api/src/services/sms/webhook-handler.ts` - Incoming SMS processing with signature validation
+- `apps/api/src/services/sms/templates/` - 4 Vietnamese message templates
+- `apps/api/src/routes/webhooks/twilio.ts` - Webhook route handlers
+
+**New Endpoints:**
+- `POST /webhooks/twilio/sms` - Receive incoming SMS (signature validated, rate limited)
+- `POST /webhooks/twilio/status` - Receive delivery status updates
+
+**SMS Templates:**
+- `welcome.ts` - New client onboarding with magic link
+- `missing-docs.ts` - Reminder for missing required documents
+- `blurry-resend.ts` - Request to resend blurry/unclear images
+- `complete.ts` - Notification that all documents received
+
+**Database Integration:**
+- All messages recorded in Message table (SMS channel)
+- Conversation tracking with unread count
+- TaxCase.lastContactAt updated for compliance
+- CLIENT_REPLIED action created for incoming SMS
+
+**Features:**
+- E.164 phone number formatting (handles US numbers)
+- Exponential backoff retry (2 retries, 500ms base)
+- Timing-safe signature validation (prevents replay attacks)
+- Input sanitization & XSS protection
+- Rate limiting: 60 requests/minute/IP
+- Duplicate message prevention via MessageSid
+- Vietnamese-first messaging with EN fallback
+
+**New Environment Variables:**
+- `TWILIO_ACCOUNT_SID` - Twilio account identifier
+- `TWILIO_AUTH_TOKEN` - Twilio authentication token
+- `TWILIO_PHONE_NUMBER` - Twilio SMS-enabled phone number
 
 ### Phase 2.2 (Complete - 2026-01-13)
 **Dynamic Checklist System with Atomic Transactions**
@@ -366,11 +414,11 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ## Next Steps
 
-1. **Phase 3.0** - Document verification endpoint + workspace review UI
-2. **Phase 3.1** - Advanced OCR for remaining form types (1099-DIV, 1099-K, 1099-R)
-3. **Phase 3.2** - Multi-page document support & PDF extraction
-4. **Phase 4.0** - Advanced search & tax case analytics
-5. **Phase 5.0** - Authentication integration (Clerk setup)
+1. **Phase 3.2** - SMS status tracking & MMS support
+2. **Phase 4.0** - Email integration + scheduled messages
+3. **Phase 4.5** - Multi-page document support & PDF extraction
+4. **Phase 5.0** - Advanced search & tax case analytics
+5. **Phase 6.0** - Authentication integration (Clerk setup)
 
 ## Key Decisions
 
@@ -399,7 +447,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-13 21:30
-**Status:** Phase 2.1 & 2.2 Complete - AI Document Processing + Dynamic Checklist System
-**Branch:** feature/phase-2.1-ai-document-processing
-**Next Phase:** Phase 3.0 - Document Verification & Workspace Review UI
+**Last Updated:** 2026-01-13 22:30
+**Status:** Phase 3.1 Complete - Twilio SMS Integration
+**Branch:** feature/phase-3-communication
+**Next Phase:** Phase 3.2 - SMS Status Tracking & MMS Support

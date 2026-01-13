@@ -10,6 +10,7 @@ import { actionsRoute } from './routes/actions'
 import { docsRoute } from './routes/docs'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
+import { twilioWebhookRoute } from './routes/webhooks'
 
 const app = new OpenAPIHono()
 
@@ -34,6 +35,7 @@ app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
 app.route('/messages', messagesRoute)
 app.route('/portal', portalRoute)
+app.route('/webhooks/twilio', twilioWebhookRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

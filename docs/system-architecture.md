@@ -87,7 +87,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (24 total):**
+**Implemented Endpoints (26 total):**
 
 **Clients (5):**
 - `GET /clients` - List with search/status filters, pagination
@@ -122,6 +122,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/:token` - Verify magic link, return case data for client
 - `POST /portal/:token/upload` - Client document upload via magic link
 
+**Webhooks - SMS (2, Phase 3.1):**
+- `POST /webhooks/twilio/sms` - Incoming SMS handler (signature validation, rate limited 60/min)
+- `POST /webhooks/twilio/status` - Message status updates (optional tracking)
+
 **Health (1):**
 - `GET /health` - Server status check
 
@@ -143,11 +147,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 
+**SMS Service (Phase 3.1):**
+
+- `sms/twilio-client.ts` - Twilio API wrapper with retry logic & E.164 formatting
+- `sms/message-sender.ts` - High-level SMS sending with templates
+- `sms/webhook-handler.ts` - Incoming SMS processing with signature validation
+- `sms/templates/*.ts` - Vietnamese message templates (welcome, missing docs, blurry, complete)
+
 **Future Services:**
 
-- AI classification & confidence scoring
-- OCR document extraction
-- Notification system (SMS/email)
+- Email notifications
+- Message scheduling
+- MMS support (images)
 - Compliance rule engine
 
 **Response Format:**
@@ -733,7 +744,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-13 21:30
-**Phase:** 2.2 - Dynamic Checklist System with Atomic Transactions (Complete)
-**Architecture Version:** 2.2
-**Next Phase:** 3.0 - Document Verification Endpoint + Workspace Review UI
+**Last Updated:** 2026-01-13 22:30
+**Phase:** 3.1 - Twilio SMS Integration (Complete)
+**Architecture Version:** 3.1
+**Next Phase:** 3.2 - SMS Status Tracking & MMS Support

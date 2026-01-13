@@ -368,6 +368,201 @@ const CONFIDENCE_VERIFY = 0.7       // Create VERIFY_DOCS action
 const BLUR_THRESHOLD = 70           // Request resend
 ```
 
+## SMS Services (@ella/api - Phase 3.1)
+
+**Service Organization:**
+
+```
+apps/api/src/services/sms/
+├── twilio-client.ts         # Low-level Twilio API wrapper
+├── message-sender.ts        # High-level SMS sending service
+├── webhook-handler.ts       # Incoming message processor
+├── templates/
+│   ├── welcome.ts           # New client onboarding
+│   ├── missing-docs.ts      # Missing docs reminder
+│   ├── blurry-resend.ts     # Blurry image request
+│   ├── complete.ts          # Completion notification
+│   └── index.ts             # Template exports
+└── index.ts                 # Public exports
+```
+
+**Service Patterns:**
+
+```typescript
+// 1. SMS sending with retry logic
+export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
+  const maxRetries = 2
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const message = await client.messages.create({...})
+      return { success: true, sid: message.sid, status: message.status }
+    } catch (error) {
+      lastError = error as Error
+      const errorCode = (error as { code?: number })?.code
+
+      // Non-transient errors: don't retry
+      if (errorCode === 21211 || errorCode === 21614 || errorCode === 21408) {
+        return { success: false, error: `TWILIO_ERROR_${errorCode}` }
+      }
+
+      // Retry on transient failures with exponential backoff
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 500 // 500ms → 1s → 2s
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  return { success: false, error: lastError?.message || 'TWILIO_SEND_FAILED' }
+}
+
+// 2. Phone number normalization (E.164 format)
+export function formatPhoneToE164(phone: string): string {
+  let cleaned = phone.replace(/[^\d+]/g, '')
+
+  if (!cleaned.startsWith('+')) {
+    if (cleaned.startsWith('1') && cleaned.length === 11) {
+      cleaned = cleaned.substring(1)
+    }
+    if (cleaned.length === 10) {
+      cleaned = '+1' + cleaned
+    }
+  }
+
+  return cleaned
+}
+
+// 3. Template-based message generation
+export function generateWelcomeMessage(params: WelcomeTemplateParams): string {
+  const { clientName, magicLink, taxYear, language } = params
+
+  if (language === 'EN') {
+    return `Hello ${clientName},
+
+We created your account to submit documents for ${taxYear}.
+
+Please visit: ${magicLink}
+
+Thank you,
+Ella Accounting`
+  }
+
+  return `Xin chào ${clientName},
+
+Chúng tôi đã tạo tài khoản cho quý vị để nộp hóa đơn cho năm ${taxYear}.
+
+Vui lòng truy cập: ${magicLink}
+
+Cảm ơn,
+Ella Accounting`
+}
+
+// 4. Webhook signature validation (timing-safe)
+export function validateTwilioSignature(
+  url: string,
+  params: Record<string, string>,
+  signature: string
+): SignatureValidationResult {
+  if (!config.twilio.authToken) {
+    if (config.nodeEnv === 'production') {
+      return { valid: false, error: 'TWILIO_NOT_CONFIGURED' }
+    }
+    return { valid: true }
+  }
+
+  const sortedParams = Object.keys(params)
+    .sort()
+    .map((key) => key + params[key])
+    .join('')
+
+  const expectedSignature = crypto
+    .createHmac('sha1', config.twilio.authToken)
+    .update(url + sortedParams, 'utf8')
+    .digest('base64')
+
+  try {
+    const sigBuffer = Buffer.from(signature, 'base64')
+    const expectedBuffer = Buffer.from(expectedSignature, 'base64')
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return { valid: false, error: 'INVALID_SIGNATURE' }
+    }
+
+    // CRITICAL: Use timing-safe comparison
+    const isValid = crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    return { valid: isValid, error: isValid ? undefined : 'INVALID_SIGNATURE' }
+  } catch {
+    return { valid: false, error: 'SIGNATURE_COMPARISON_FAILED' }
+  }
+}
+
+// 5. Message sanitization (prevent XSS, limit length)
+function sanitizeMessageContent(content: string): string {
+  const maxLength = 1600 // SMS limit
+  let sanitized = content.slice(0, maxLength)
+
+  // Remove control characters except \n and \t
+  // eslint-disable-next-line no-control-regex
+  sanitized = sanitized.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+
+  return sanitized.trim()
+}
+
+// 6. Client lookup with multiple phone formats
+const client = await prisma.client.findFirst({
+  where: {
+    OR: [
+      { phone: fromPhone },        // Exact match
+      { phone: e164Phone },        // E.164 format
+      { phone: normalizedPhone },  // Digits only
+    ],
+  },
+  include: {
+    taxCases: {
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    },
+  },
+})
+```
+
+**Configuration Constants:**
+
+```typescript
+const TWILIO_RETRY_BACKOFF = [500, 1000, 2000]  // ms per attempt
+const RATE_LIMIT_WINDOW_MS = 60000               // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60               // per IP per window
+const SMS_MAX_LENGTH = 1600                      // Character limit
+const TWILIO_NON_TRANSIENT_ERRORS = [
+  21211, // Invalid 'To' phone number
+  21614, // 'To' number not verified
+  21408, // Permission to send SMS not enabled
+]
+```
+
+**Error Handling Strategy:**
+
+```typescript
+// Distinguish transient vs permanent errors
+const isTransient = /rate.?limit|timeout|50[0-3]|overloaded/i.test(
+  error.message
+)
+
+if (isTransient && attempt < maxRetries) {
+  // Retry with exponential backoff
+  const delay = Math.pow(2, attempt) * baseDelayMs
+  await sleep(delay)
+} else {
+  // Permanent error → return failure
+  return {
+    success: false,
+    error: `TWILIO_ERROR_${error.code || 'UNKNOWN'}`
+  }
+}
+```
+
 ## Frontend Application Patterns (@ella/workspace, @ella/portal)
 
 **Directory Structure:**
@@ -732,6 +927,6 @@ turbo run dev           # Development watch mode
 
 ---
 
-**Last Updated:** 2026-01-12
-**Phase:** 5 - Verification (Complete)
-**Standards Version:** 1.2
+**Last Updated:** 2026-01-13 22:30
+**Phase:** 3.1 - Twilio SMS Integration (Complete)
+**Standards Version:** 1.3

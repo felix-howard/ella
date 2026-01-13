@@ -1,6 +1,6 @@
 # Ella - Codebase Summary
 
-**Phase 1.3 Status:** Frontend foundation (workspace) - Tasks 1.3.1-1.3.15 completed (2026-01-13)
+**Phase 1.3 Status:** Frontend foundation (workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED (2026-01-13 13:09)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
 **Phase 5 Status:** Verification completed (2026-01-12)
@@ -893,8 +893,68 @@ turbo run type-check
 - Field-level inline editing with type validation
 - Progress tracking: copy completion per document
 
+**Task 1.3.26-1.3.32: Messaging Components (COMPLETED)**
+
+   - **Message Thread Component** (`apps/workspace/src/components/messaging/message-thread.tsx`)
+     - Displays conversation thread for case messaging
+     - Supports SMS, portal, and system messages
+     - Message grouping by date with Vietnamese locale
+     - Auto-scroll to latest message on mount
+     - Loading skeleton for message fetching
+     - Responsive layout with message attribution
+
+   - **Message Bubble Component** (`apps/workspace/src/components/messaging/message-bubble.tsx`)
+     - Renders individual messages with direction (sent/received)
+     - Message types: SMS, portal, system
+     - Timestamp display in Vietnamese relative format
+     - User avatar with initials for received messages
+     - Responsive text wrapping with max-width handling
+     - Status indicators (pending, sent, failed)
+
+   - **Quick Actions Bar Component** (`apps/workspace/src/components/messaging/quick-actions-bar.tsx`)
+     - Template-based quick response buttons
+     - Categories: Greeting, Status Update, Missing Docs, Reminder, Complete
+     - One-click send with template picker modal trigger
+     - Button styling with icons and Vietnamese labels
+     - Integrates with Template Picker for selection
+
+   - **Template Picker Modal** (`apps/workspace/src/components/messaging/template-picker.tsx`)
+     - Modal for selecting/customizing message templates
+     - Organized by category with description preview
+     - Template list with copy-to-clipboard functionality
+     - Custom message textarea for manual composition
+     - Send button with loading state
+     - Vietnamese template content (greeting, status, reminder types)
+
+   - **Messaging Page** (`apps/workspace/src/routes/cases/$caseId/messages.tsx`)
+     - Full messaging interface for case communication
+     - Message thread display with case context
+     - Header with client name, case year, phone number
+     - Message input field with template support
+     - Quick Actions Bar for fast responses
+     - Type-safe route parameters via TanStack Router
+
+   - **Messaging Export** (`apps/workspace/src/components/messaging/index.ts`)
+     - Barrel export for all messaging components
+
+   - **Sanitization Utilities** (`apps/workspace/src/lib/formatters.ts`)
+     - `sanitizeHtml()` function for XSS protection in messages
+     - Blocks script tags, event handlers, and dangerous protocols
+     - Safe rendering of user-submitted message content
+
+**Files Added (Tasks 1.3.26-1.3.32):**
+- `apps/workspace/src/components/messaging/message-thread.tsx` (185 LOC)
+- `apps/workspace/src/components/messaging/message-bubble.tsx` (142 LOC)
+- `apps/workspace/src/components/messaging/quick-actions-bar.tsx` (120 LOC)
+- `apps/workspace/src/components/messaging/template-picker.tsx` (195 LOC)
+- `apps/workspace/src/routes/cases/$caseId/messages.tsx` (178 LOC)
+- `apps/workspace/src/components/messaging/index.ts` (8 LOC)
+
+**Files Modified (Tasks 1.3.26-1.3.32):**
+- `apps/workspace/src/lib/formatters.ts` - Added sanitizeHtml utility
+
 ---
 
-**Last Updated:** 2026-01-13
-**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.25 COMPLETED
+**Last Updated:** 2026-01-13 13:09
+**Phase:** 1.3 - Frontend Foundation (Workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED
 **Maintained By:** Documentation Manager

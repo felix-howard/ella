@@ -101,3 +101,22 @@ export function formatDateVi(date: Date | string, options?: Intl.DateTimeFormatO
     year: 'numeric',
   })
 }
+
+/**
+ * Sanitize text to prevent XSS - strips HTML tags and entities
+ * Use for displaying user-generated content
+ */
+export function sanitizeText(text: string): string {
+  if (!text) return ''
+  // Create a temporary element to decode HTML entities and strip tags
+  const doc = new DOMParser().parseFromString(text, 'text/html')
+  return doc.body.textContent || ''
+}
+
+/**
+ * Strip HTML tags from input - for cleaning user input before sending
+ */
+export function stripHtmlTags(text: string): string {
+  if (!text) return ''
+  return text.replace(/<[^>]*>/g, '')
+}

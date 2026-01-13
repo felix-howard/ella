@@ -150,14 +150,30 @@ export const UI_TEXT = {
   search: 'Tìm kiếm...',
   noData: 'Không có dữ liệu',
   confirm: 'Xác nhận',
+  logout: 'Đăng xuất',
+  notifications: 'Thông báo',
+  addClient: 'Thêm khách',
 
   // Dashboard
   dashboard: {
     greeting: 'Xin chào',
+    greetingSubtext: 'Đây là tổng quan công việc hôm nay của bạn',
     todaySummary: 'Hôm nay',
-    pendingActions: 'việc cần làm',
-    newClients: 'khách hàng mới',
-    docsUploaded: 'tài liệu đã nhận',
+    pendingActions: 'Việc cần làm',
+    newClients: 'Khách hàng mới',
+    docsReceived: 'Tài liệu đã nhận',
+    blurryDocs: 'Ảnh bị mờ',
+    quickActions: 'Thao tác nhanh',
+    recentActivity: 'Hoạt động gần đây',
+    noRecentActivity: 'Chưa có hoạt động nào gần đây',
+  },
+
+  // Quick Actions
+  quickAction: {
+    addClient: 'Thêm khách hàng',
+    viewActions: 'Xem việc cần làm',
+    verifyDocs: 'Xác minh tài liệu',
+    handleBlurry: 'Xử lý ảnh mờ',
   },
 
   // Clients
@@ -187,5 +203,18 @@ export const UI_TEXT = {
     taxTypes: 'Loại tờ khai',
     filingStatus: 'Tình trạng hôn nhân',
     required: 'Bắt buộc',
+  },
+
+  // Error boundary
+  errorBoundary: {
+    title: 'Đã có lỗi xảy ra',
+    message: 'Xin lỗi, ứng dụng gặp sự cố. Vui lòng thử lại.',
+    retry: 'Thử lại',
+  },
+
+  // Staff info (placeholder)
+  staff: {
+    defaultName: 'Nhân viên',
+    defaultEmail: 'staff@ella.app',
   },
 }

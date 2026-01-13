@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
+import { UI_TEXT } from '../lib/constants'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
@@ -23,15 +24,17 @@ function DashboardPage() {
     blurryDocs: 2,
   }
 
+  const { dashboard, quickAction, staff } = UI_TEXT
+
   return (
     <PageContainer>
       {/* Greeting */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">
-          Xin chào, <span className="text-accent">Nhân viên</span>
+          {dashboard.greeting}, <span className="text-accent">{staff.defaultName}</span>
         </h1>
         <p className="text-muted-foreground mt-1">
-          Đây là tổng quan công việc hôm nay của bạn
+          {dashboard.greetingSubtext}
         </p>
       </div>
 
@@ -39,27 +42,27 @@ function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={CheckSquare}
-          label="Việc cần làm"
+          label={dashboard.pendingActions}
           value={stats.pendingActions}
           color="primary"
           href="/actions"
         />
         <StatCard
           icon={Users}
-          label="Khách hàng mới"
+          label={dashboard.newClients}
           value={stats.newClients}
           color="accent"
           href="/clients"
         />
         <StatCard
           icon={FileText}
-          label="Tài liệu đã nhận"
+          label={dashboard.docsReceived}
           value={stats.docsReceived}
           color="success"
         />
         <StatCard
           icon={AlertTriangle}
-          label="Ảnh bị mờ"
+          label={dashboard.blurryDocs}
           value={stats.blurryDocs}
           color="warning"
           href="/actions?type=BLURRY_DETECTED"
@@ -68,26 +71,26 @@ function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="bg-card rounded-xl border border-border p-6 mb-8">
-        <h2 className="text-lg font-semibold text-primary mb-4">Thao tác nhanh</h2>
+        <h2 className="text-lg font-semibold text-primary mb-4">{dashboard.quickActions}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <QuickActionButton
             icon={Users}
-            label="Thêm khách hàng"
+            label={quickAction.addClient}
             href="/clients/new"
           />
           <QuickActionButton
             icon={CheckSquare}
-            label="Xem việc cần làm"
+            label={quickAction.viewActions}
             href="/actions"
           />
           <QuickActionButton
             icon={FileText}
-            label="Xác minh tài liệu"
+            label={quickAction.verifyDocs}
             href="/actions?type=VERIFY_DOCS"
           />
           <QuickActionButton
             icon={AlertTriangle}
-            label="Xử lý ảnh mờ"
+            label={quickAction.handleBlurry}
             href="/actions?type=BLURRY_DETECTED"
           />
         </div>
@@ -95,9 +98,9 @@ function DashboardPage() {
 
       {/* Recent Activity Placeholder */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-lg font-semibold text-primary mb-4">Hoạt động gần đây</h2>
+        <h2 className="text-lg font-semibold text-primary mb-4">{dashboard.recentActivity}</h2>
         <div className="text-center py-8 text-muted-foreground">
-          <p>Chưa có hoạt động nào gần đây</p>
+          <p>{dashboard.noRecentActivity}</p>
         </div>
       </div>
     </PageContainer>

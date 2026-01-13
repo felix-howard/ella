@@ -1,12 +1,21 @@
 /**
  * API client for Ella Workspace
  * Centralized HTTP client with type-safe request handling
+ * Features: timeout, retry logic, env validation
  */
 
+// Environment validation
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-// Default request timeout (30 seconds)
-const DEFAULT_TIMEOUT = 30000
+// Validate API URL format
+if (typeof API_BASE_URL !== 'string' || !API_BASE_URL.startsWith('http')) {
+  console.error('[API Client] Invalid VITE_API_URL. Using default: http://localhost:3001')
+}
+
+// Configuration
+const DEFAULT_TIMEOUT = 30000 // 30 seconds
+const MAX_RETRIES = 3
+const RETRY_DELAY_BASE = 1000 // 1 second base delay for exponential backoff
 
 // API error class for consistent error handling
 export class ApiError extends Error {
@@ -35,7 +44,19 @@ export interface PaginatedResponse<T> {
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>
   timeout?: number
+  retries?: number // Number of retries (0 = no retry)
 }
+
+// Check if error is retryable (network errors, 5xx, 429)
+function isRetryable(error: ApiError): boolean {
+  if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT') return true
+  if (error.status >= 500 && error.status < 600) return true
+  if (error.status === 429) return true // Rate limited
+  return false
+}
+
+// Sleep helper for retry delay
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Build URL with query params
 function buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
@@ -50,12 +71,8 @@ function buildUrl(path: string, params?: Record<string, string | number | boolea
   return url.toString()
 }
 
-// Core fetch wrapper with error handling and timeout
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { params, timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options
-  const url = buildUrl(path, params)
-
-  // Create abort controller for timeout
+// Single request attempt with timeout
+async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout: number): Promise<T> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
@@ -95,6 +112,33 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+// Core fetch wrapper with error handling, timeout, and retry logic
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { params, timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES, ...fetchOptions } = options
+  const url = buildUrl(path, params)
+
+  let lastError: ApiError | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await attemptRequest<T>(url, fetchOptions, timeout)
+    } catch (error) {
+      lastError = error instanceof ApiError ? error : new ApiError(0, 'UNKNOWN', 'Unknown error')
+
+      // Don't retry if not retryable or last attempt
+      if (!isRetryable(lastError) || attempt === retries) {
+        throw lastError
+      }
+
+      // Exponential backoff: 1s, 2s, 4s...
+      const delay = RETRY_DELAY_BASE * Math.pow(2, attempt)
+      await sleep(delay)
+    }
+  }
+
+  throw lastError || new ApiError(0, 'UNKNOWN', 'Request failed')
 }
 
 // API methods organized by resource

@@ -49,10 +49,14 @@ export function Header({ title, showSearch = true, actions }: HeaderProps) {
         {actions}
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-muted transition-colors">
-          <Bell className="w-5 h-5 text-muted-foreground" />
+        <button
+          className="relative p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label="Thông báo"
+          title="Thông báo"
+        >
+          <Bell className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
           {/* Notification badge */}
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" aria-label="Có thông báo mới" />
         </button>
 
         {/* Quick add client */}

@@ -607,6 +607,79 @@ turbo run type-check
 - **State:** Ready for API integration via React Query (TODO comments in place)
 - **Type Safety:** Full TypeScript types for Client, ClientDetail, TaxCaseStatus, etc.
 
+**Task 1.3.16-1.3.20: Case Management Components & Create Client Page**
+
+   - **Checklist Grid Component** (`apps/workspace/src/components/cases/checklist-grid.tsx`)
+     - Visual card-based checklist display for case document requirements
+     - Status icons: VERIFIED (check), HAS_DIGITAL (file), HAS_RAW (image), MISSING (alert)
+     - Progress circle with completion % and real-time stats (verified/extracted/received/missing)
+     - Hover-triggered verify button for actionable items
+     - Responsive grid (1→2→3→4 columns)
+     - ChecklistGridSkeleton for loading states
+     - Type-safe ChecklistItem[] with optional callbacks
+
+   - **Raw Image Gallery Component** (`apps/workspace/src/components/cases/raw-image-gallery.tsx`)
+     - Thumbnail gallery with status badges (UPLOADED, CLASSIFIED, LINKED, BLURRY, UNCLASSIFIED)
+     - Status filter pills showing count per status
+     - Modal viewer with zoom (0.5-3x), rotate 90°, keyboard shortcuts (ESC, +/-, R, 0)
+     - Image info display and classify action for unclassified items
+     - Keyboard focus trap and body scroll prevention
+     - R2 placeholder URLs (TODO: signed URLs in Phase INF.4)
+     - Responsive grid (2→3→4→5 columns)
+     - RawImageGallerySkeleton with loading state
+
+   - **Digital Doc Table Component** (`apps/workspace/src/components/cases/digital-doc-table.tsx`)
+     - Table view of extracted OCR documents (Type, Status, Updated Date, Actions)
+     - Expandable rows showing extracted data with copy-to-clipboard
+     - Status badges (EXTRACTED, VERIFIED, PARTIAL, FAILED) with icons
+     - Field mappings: W2, SSN_CARD, DRIVER_LICENSE, 1099_INT, 1099_NEC, 1099_DIV, BANK_STATEMENT
+     - XSS sanitization of OCR data (blocks tags, handlers, protocols)
+     - Currency formatting ($X,XXX) for numeric fields
+     - Copy feedback (Check icon, 2s timeout)
+     - Responsive: full on md+, compact mobile
+     - DigitalDocTableSkeleton for loading
+
+   - **Cases Components Export** (`apps/workspace/src/components/cases/index.ts`)
+     - Barrel exports: ChecklistGrid, RawImageGallery, DigitalDocTable + skeletons
+
+   - **Intake Questions Form** (`apps/workspace/src/components/clients/intake-questions-form.tsx`)
+     - Dynamic conditional questionnaire for tax profile
+     - Sections: Tax Info → Income Sources → Dependents → Business (if applicable)
+     - Tax year selector (2025, 2024, 2023), tax type multi-select, filing status dropdown
+     - Income toggles: W2, Bank Account, Investments, Self-Employment, Rental
+     - Dependent section with conditional nested questions (kids <17 count/daycare, kids 17-24)
+     - Business section (conditional): name, EIN, employees, contractors, 1099-K processing
+     - Hint text with HelpCircle icons for credit/benefit explanations
+     - IntakeFormData interface with validation, getDefaultIntakeFormData() helper
+
+   - **Create Client Page** (`apps/workspace/src/routes/clients/new.tsx`)
+     - Multi-step form: Step 1 (Basic Info) → Step 2 (Tax Profile)
+     - Step indicator with progress (pending/active/✓ completed)
+     - BasicInfoForm: name (min 2 chars), phone (US 10-digit validation), email (optional), language
+     - Phone validation: no leading 0/1 in area code, formatted display
+     - IntakeQuestionsForm for tax profile details
+     - Submit via `api.clients.create()` with profile data
+     - Redirect to `/clients/$clientId` on success
+     - Error messaging and loading state (Loader2 spinner)
+     - Validation gates per step with back/continue navigation
+
+   - **Client Detail Integration** (`apps/workspace/src/routes/clients/$clientId.tsx`)
+     - Integrated case components in Documents tab
+     - Imports from @ella/workspace/components/cases barrel
+     - Mock data with full checklist/raw image/digital doc structure
+
+**Files Added (Tasks 1.3.16-1.3.20):**
+- `apps/workspace/src/components/cases/checklist-grid.tsx` (292 LOC)
+- `apps/workspace/src/components/cases/raw-image-gallery.tsx` (435 LOC)
+- `apps/workspace/src/components/cases/digital-doc-table.tsx` (402 LOC)
+- `apps/workspace/src/components/cases/index.ts` (8 LOC)
+- `apps/workspace/src/components/clients/intake-questions-form.tsx` (413 LOC)
+- `apps/workspace/src/routes/clients/new.tsx` (434 LOC)
+
+**Files Modified (Tasks 1.3.16-1.3.20):**
+- `apps/workspace/src/routes/clients/$clientId.tsx` - Integrated case components
+- `apps/workspace/src/components/clients/index.ts` - Added intake form exports
+
 ## Phase 1.2: Backend API Endpoints (COMPLETED)
 
 **Date:** 2026-01-13
@@ -736,5 +809,5 @@ turbo run type-check
 ---
 
 **Last Updated:** 2026-01-13
-**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.15 COMPLETED
+**Phase:** 1.3 - Frontend Foundation (Workspace) - Tasks 1.3.1-1.3.20 COMPLETED
 **Maintained By:** Documentation Manager

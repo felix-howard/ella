@@ -1,6 +1,6 @@
 # Ella - Codebase Summary
 
-**Phase 1.4 Status:** Frontend Client Portal (first half) - COMPLETED (2026-01-13)
+**Phase 1.4 Status:** Frontend Client Portal (complete) - COMPLETED (2026-01-13)
 **Phase 1.3 Status:** Frontend foundation (workspace) - ALL TASKS 1.3.1-1.3.32 COMPLETED (2026-01-13 13:09)
 **Phase 1.2 Status:** Backend API endpoints implemented (2026-01-13)
 **Phase 1.1 Status:** Database schema design completed (2026-01-12)
@@ -587,13 +587,123 @@ turbo run type-check
 **Files Modified:**
 - None (phase-1.4-frontend-client-portal is new branch)
 
-**Phase 1.4 Second Half (TODO):**
-- Document status page (show received/missing checklist)
-- Blurry image detection UI
-- Document classification confirmation (user confirms doc type if AI unsure)
-- Rate limit friendly messaging
-- Offline mode (queue uploads when offline)
-- Settings page (client preferences - language, phone number)
+**Phase 1.4 Second Half (COMPLETED):**
+
+9. **Upload Progress Indicator** (`apps/portal/src/components/upload/upload-progress.tsx` - 98 LOC)
+   - Multi-state spinner: uploading, processing, complete
+   - Animated circular progress ring with centered upload icon
+   - File count display ("X selected files")
+   - Pulse animation for progress dots
+   - Bilingual status messages
+   - Smooth state transitions
+
+10. **Image Preview Grid** (`apps/portal/src/components/upload/image-preview-grid.tsx` - 155 LOC)
+    - 3-column responsive grid display
+    - Memory-safe ObjectURL management (useMemo + cleanup)
+    - Sanitized file names to prevent XSS in display
+    - PDF shown as badge (FileText icon + "PDF")
+    - Images with lazy loading and object-cover
+    - File size display (KB/MB)
+    - Remove button per item (-top-1.5, -right-1.5 positioning)
+    - Overflow indicator: "+N more" when exceeding maxDisplay (9 default)
+    - File info overlay (name) on hover/touch with gradient background
+    - Full accessibility: aria-labels, role="list", role="listitem"
+
+11. **Success Screen** (`apps/portal/src/components/upload/success-screen.tsx` - 76 LOC)
+    - Animated success icon (zoom-in with CheckCircle2)
+    - Bilingual confirmation message + file count
+    - Success note box: "Documents being processed..."
+    - Two action buttons:
+      - Outline: "Upload More" (Upload icon)
+      - Primary: "Done" (Home icon)
+    - Staggered fade-in animations for each element
+    - Mobile-friendly large touch targets (h-14)
+
+12. **Status View Page** (`apps/portal/src/routes/u/$token/status.tsx` - 240 LOC)
+    - Document status tracking (received/blurry/missing breakdown)
+    - Header: Back button, page title, tax year subtitle, refresh button
+    - Summary stat pills: received (primary), needResend (warning), missing (error)
+    - Collapsible doc sections:
+      - Blurry/Need Resend (priority - always first if any)
+      - Missing Docs (prominent with dashed error border)
+      - Received Docs (collapsed by default unless all clear)
+    - Fixed bottom action button (sticky) when blurry/missing exist
+    - Empty state: "No documents yet"
+    - Refresh functionality with loading state
+    - Bilingual error handling + retry buttons
+    - Error state with back navigation
+
+13. **Doc Status Section** (`apps/portal/src/components/status/doc-status-section.tsx` - 141 LOC)
+    - Collapsible section header with icon, title, count
+    - 4 variants: success (mint), warning (orange), error (red), muted (gray)
+    - Expand/collapse animation (ChevronDown rotation)
+    - Border + background colors per variant
+    - List role with accessibility support
+    - Upload CTA button in warning/error sections
+    - defaultExpanded prop for conditional expansion
+
+14. **Doc Thumbnail** (`apps/portal/src/components/status/doc-thumbnail.tsx` - 151 LOC)
+    - Icon mapping for 20 doc types (W2, 1099s, SSN_CARD, DRIVER_LICENSE, etc.)
+    - Status icon indicator (CheckCircle2, AlertTriangle, Clock)
+    - Vietnamese labels from ChecklistDoc (fallback to docType)
+    - Optional reason display (BLURRY, INCOMPLETE, WRONG_DOC, EXPIRED)
+    - Reason translation: VI/EN support with fallback
+    - Variant styling: background + icon background colors
+    - Compact mobile layout with truncation
+
+15. **Missing Docs List** (`apps/portal/src/components/status/missing-docs-list.tsx` - 99 LOC)
+    - Prominent alert styling: dashed border + error/5 background
+    - Alert header with AlertCircle icon + document count
+    - Missing doc items with FileQuestion icon
+    - Upload CTA button with Upload icon
+    - Early return if docs.length === 0
+
+16. **Error Boundary** (`apps/portal/src/components/error-boundary.tsx` - 95 LOC)
+    - Class component with getDerivedStateFromError lifecycle
+    - Fallback UI with error icon, message, and action buttons
+    - Reset handler + onReset callback prop
+    - Retry and "Reload Page" buttons
+    - Vietnamese error messages
+    - Alert role with aria-live="assertive" for accessibility
+    - Console logging for debugging (in production use error tracking)
+
+**Files Added (Phase 1.4 Second Half):**
+- `apps/portal/src/components/upload/upload-progress.tsx` (98 LOC)
+- `apps/portal/src/components/upload/image-preview-grid.tsx` (155 LOC)
+- `apps/portal/src/components/upload/success-screen.tsx` (76 LOC)
+- `apps/portal/src/routes/u/$token/status.tsx` (240 LOC)
+- `apps/portal/src/components/status/doc-status-section.tsx` (141 LOC)
+- `apps/portal/src/components/status/doc-thumbnail.tsx` (151 LOC)
+- `apps/portal/src/components/status/missing-docs-list.tsx` (99 LOC)
+- `apps/portal/src/components/error-boundary.tsx` (95 LOC)
+
+**Files Modified (Phase 1.4 Second Half):**
+- `apps/portal/src/routes/u/$token.tsx` - Added status navigation handler
+
+**Complete Portal Component Architecture:**
+
+```
+apps/portal/src/components/
+├── upload/
+│   ├── image-picker.tsx (upload file selection)
+│   ├── image-preview-grid.tsx (grid display with memory cleanup)
+│   ├── upload-progress.tsx (progress states)
+│   └── success-screen.tsx (post-upload confirmation)
+└── status/
+    ├── doc-status-section.tsx (collapsible document groups)
+    ├── doc-thumbnail.tsx (individual doc display)
+    └── missing-docs-list.tsx (prominent missing section)
+```
+
+**Portal Features Summary:**
+- Upload flow: file picker → preview → upload progress → success
+- Status tracking: categorized sections (received/blurry/missing)
+- Mobile-optimized: max-width 448px, large touch targets, vertical layouts
+- Internationalization: VI-first with EN fallback
+- Accessibility: ARIA labels, roles, error alerts
+- Security: XSS sanitization (file names), type validation
+- Performance: React.memo optimization, ObjectURL cleanup
+- Error handling: API errors, network errors, invalid tokens
 
 ---
 

@@ -3,13 +3,38 @@
  * Mobile-friendly file input with camera and gallery support
  * Shows preview of selected images with remove functionality
  */
-import { useRef, useCallback, useState, useEffect, useMemo } from 'react'
+import { memo, useRef, useCallback, useState, useEffect, useMemo } from 'react'
 import { Camera, ImageIcon, X, Plus, AlertCircle } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { getText, type Language } from '../../lib/i18n'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_FILES_COUNT = 20
+
+// Valid file extensions and MIME types
+const VALID_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf']
+const VALID_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]
+
+// Sanitize file name to prevent XSS
+function sanitizeFileName(name: string): string {
+  // eslint-disable-next-line no-control-regex
+  return name.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').slice(0, 255)
+}
+
+// Validate file type by both MIME and extension
+function isValidFileType(file: File): boolean {
+  const mimeValid = VALID_MIME_TYPES.includes(file.type) ||
+    file.type.startsWith('image/')
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+  const extValid = VALID_EXTENSIONS.includes(ext)
+  return mimeValid && extValid
+}
 
 interface ImagePickerProps {
   files: File[]
@@ -24,7 +49,7 @@ interface ValidationError {
   message: string
 }
 
-export function ImagePicker({
+export const ImagePicker = memo(function ImagePicker({
   files,
   onFilesChange,
   language,
@@ -53,8 +78,7 @@ export function ImagePicker({
 
       // Filter and validate files
       const validFiles = selectedFiles.filter((file) => {
-        const isValidType =
-          file.type.startsWith('image/') || file.type === 'application/pdf'
+        const isValidType = isValidFileType(file)
         const isValidSize = file.size <= MAX_FILE_SIZE
 
         if (!isValidType && !invalidReason) {
@@ -114,7 +138,7 @@ export function ImagePicker({
   const handleGalleryClick = () => galleryInputRef.current?.click()
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="region" aria-label={t.uploadTitle}>
       {/* Hidden file inputs */}
       <input
         ref={cameraInputRef}
@@ -125,6 +149,7 @@ export function ImagePicker({
         onChange={handleFileSelect}
         disabled={disabled}
         multiple
+        aria-hidden="true"
       />
       <input
         ref={galleryInputRef}
@@ -134,23 +159,29 @@ export function ImagePicker({
         onChange={handleFileSelect}
         disabled={disabled}
         multiple
+        aria-hidden="true"
       />
 
       {/* Validation error message */}
       {validationError && (
-        <div className="flex items-center gap-2 p-3 bg-error/10 text-error text-sm rounded-xl animate-in fade-in">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div
+          role="alert"
+          aria-live="polite"
+          className="flex items-center gap-2 p-3 bg-error/10 text-error text-sm rounded-xl animate-in fade-in"
+        >
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{validationError.message}</span>
         </div>
       )}
 
       {/* Preview grid */}
       {files.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2" role="list" aria-label="Selected files">
           {files.map((file, index) => (
             <FilePreview
-              key={`${file.name}-${index}-${file.size}`}
+              key={`${sanitizeFileName(file.name)}-${index}-${file.size}`}
               file={file}
+              index={index}
               onRemove={() => handleRemoveFile(index)}
               disabled={disabled}
             />
@@ -162,10 +193,10 @@ export function ImagePicker({
               type="button"
               onClick={handleGalleryClick}
               disabled={disabled}
-              className="aspect-square rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50"
+              className="aspect-square rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-50 touch-manipulation"
               aria-label={t.chooseFromGallery}
             >
-              <Plus className="w-6 h-6 text-muted-foreground" />
+              <Plus className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -182,7 +213,7 @@ export function ImagePicker({
             onClick={handleCameraClick}
             disabled={disabled}
           >
-            <Camera className="w-5 h-5" />
+            <Camera className="w-5 h-5" aria-hidden="true" />
             {t.takePhoto}
           </Button>
 
@@ -194,7 +225,7 @@ export function ImagePicker({
             onClick={handleGalleryClick}
             disabled={disabled}
           >
-            <ImageIcon className="w-5 h-5" />
+            <ImageIcon className="w-5 h-5" aria-hidden="true" />
             {t.chooseFromGallery}
           </Button>
         </div>
@@ -202,25 +233,31 @@ export function ImagePicker({
 
       {/* Selected count */}
       {files.length > 0 && (
-        <p className="text-sm text-center text-muted-foreground">
+        <p
+          className="text-sm text-center text-muted-foreground"
+          aria-live="polite"
+        >
           {files.length} {t.selectedFiles}
         </p>
       )}
     </div>
   )
-}
+})
 
 // File preview thumbnail component with memory cleanup
-function FilePreview({
+const FilePreview = memo(function FilePreview({
   file,
+  index,
   onRemove,
   disabled,
 }: {
   file: File
+  index: number
   onRemove: () => void
   disabled: boolean
 }) {
   const isPDF = file.type === 'application/pdf'
+  const safeName = sanitizeFileName(file.name)
 
   // Memoize ObjectURL and cleanup on unmount/file change
   const previewUrl = useMemo(() => {
@@ -237,15 +274,22 @@ function FilePreview({
   }, [previewUrl])
 
   return (
-    <div className="relative aspect-square group">
+    <div
+      className="relative aspect-square group"
+      role="listitem"
+      aria-label={`File ${index + 1}: ${safeName}`}
+    >
       {isPDF ? (
-        <div className="w-full h-full rounded-xl bg-muted flex items-center justify-center">
+        <div
+          className="w-full h-full rounded-xl bg-muted flex items-center justify-center"
+          aria-label="PDF document"
+        >
           <span className="text-xs font-medium text-muted-foreground">PDF</span>
         </div>
       ) : (
         <img
           src={previewUrl || ''}
-          alt={file.name}
+          alt={`Preview of ${safeName}`}
           className="w-full h-full object-cover rounded-xl"
         />
       )}
@@ -255,16 +299,21 @@ function FilePreview({
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-error text-error-foreground flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-        aria-label="Remove file"
+        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-error text-error-foreground flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50 touch-manipulation"
+        aria-label={`Remove ${safeName}`}
       >
-        <X className="w-4 h-4" />
+        <X className="w-4 h-4" aria-hidden="true" />
       </button>
 
       {/* File name tooltip on hover */}
-      <div className="absolute inset-x-0 bottom-0 p-1 bg-gradient-to-t from-black/60 to-transparent rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="text-[10px] text-white truncate px-1">{file.name}</p>
+      <div
+        className="absolute inset-x-0 bottom-0 p-1 bg-gradient-to-t from-black/60 to-transparent rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-hidden="true"
+      >
+        <p className="text-[10px] text-white truncate px-1">{safeName}</p>
       </div>
     </div>
   )
-}
+})
+
+export default ImagePicker

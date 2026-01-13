@@ -78,12 +78,7 @@ function MagicLinkLanding() {
   }
 
   function handleStatusClick() {
-    // Status page will be implemented in Phase 1.4 (second half)
-    // For now, show alert with status summary
-    if (data) {
-      const statusMsg = `${t.received}: ${data.stats.verified}\n${t.missing}: ${data.stats.missing}`
-      alert(statusMsg)
-    }
+    navigate({ to: '/u/$token/status', params: { token } })
   }
 
   // Loading state

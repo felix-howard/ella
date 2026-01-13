@@ -60,7 +60,7 @@ export function Header({ title, showSearch = true, actions }: HeaderProps) {
         </button>
 
         {/* Quick add client */}
-        <Link to={'/' as '/'}>
+        <Link to="/">
           <Button size="sm" className="gap-2">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Thêm khách</span>

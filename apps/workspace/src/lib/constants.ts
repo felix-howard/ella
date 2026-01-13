@@ -191,6 +191,15 @@ export const UI_TEXT = {
     title: 'Việc cần làm',
     noActions: 'Không có việc nào cần làm',
     markComplete: 'Đánh dấu hoàn thành',
+    complete: 'Hoàn thành',
+    viewDetail: 'Xem chi tiết',
+    refresh: 'Làm mới',
+    filterBy: 'Lọc theo',
+    typeFilter: 'Loại',
+    priorityFilter: 'Mức độ',
+    all: 'Tất cả',
+    allDone: 'Tất cả công việc đã được hoàn thành!',
+    pendingCount: 'việc cần làm',
   },
 
   // Forms

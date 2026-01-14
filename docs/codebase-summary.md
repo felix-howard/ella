@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 05** | **Real-time Updates (Polling & Notifications)** | **2026-01-14** |
 | **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
 | **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
 | **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
@@ -472,6 +473,78 @@ TWILIO_PHONE_NUMBER=+1234567890
 - createdAt - Issue timestamp
 - Indexes: userId, token, expiresAt (for cleanup queries)
 ```
+
+---
+
+---
+
+## Phase 05: Real-time Updates (Polling & Notifications - 2026-01-14)
+
+**Phase 05 adds real-time UI updates when AI classification completes, with polling, toast notifications, and floating status panel.**
+
+### Phase 05 Core Features:
+
+**1. Classification Updates Hook** (`apps/workspace/src/hooks/use-classification-updates.ts`)
+- Polls `/cases/:id/images` endpoint every 5s (when documents tab active)
+- Tracks image status changes (UPLOADED → PROCESSING → CLASSIFIED/UNCLASSIFIED/BLURRY)
+- Shows contextual toast notifications based on confidence levels
+- Invalidates checklist query when images linked
+- Memory leak prevention (cleanup on unmount)
+
+**2. Processing Status Display**
+- `apps/workspace/src/components/documents/upload-progress.tsx` - Floating panel
+- Shows "AI đang phân loại N ảnh..." with pulsing spinner
+- Auto-hides when processingCount = 0
+- Fixed position bottom-right (z-50)
+
+**3. RawImage Gallery PROCESSING State**
+- `apps/workspace/src/components/cases/raw-image-gallery.tsx` - Enhanced
+- New PROCESSING status badge (Loader2 icon, animated)
+- Shows "Đang phân loại" label during AI processing
+- Integrates with polling hook via `processingCount` tracking
+
+**4. Client Detail Integration**
+- `apps/workspace/src/routes/clients/$clientId.tsx` - Updated
+- `useClassificationUpdates()` hook enables real-time feedback
+- UploadProgress component shown when processing images
+- Toast notifications for HIGH/MEDIUM/LOW confidence levels
+- Automatic checklist refresh on image linking
+
+### Polling Architecture:
+```
+Documents tab active
+        ↓
+useClassificationUpdates({ enabled: true, refetchInterval: 5000 })
+        ↓
+React Query: GET /cases/:id/images (every 5s)
+        ↓
+Compare previous vs current image states
+        ↓
+Detect transitions (UPLOADED → PROCESSING, etc.)
+        ↓
+handleStatusChange() → Toast notification
+        ↓
+invalidateQueries(['checklist', caseId]) → Auto-refresh
+```
+
+### Toast Notifications:
+- **HIGH confidence (85%+):** `toast.success("W2 (95%)")`
+- **MEDIUM confidence (60-85%):** `toast.info("Cần xác minh: 1099-NEC (72%)")`
+- **LOW confidence (<60%):** `toast.info("Độ tin cậy thấp: Invoice")`
+- **Linked:** `toast.success("Đã liên kết: W2")`
+- **Blurry:** `toast.error("Ảnh mờ: filename.jpg")`
+
+### Performance Optimizations:
+- `refetchIntervalInBackground: false` - Only polls when tab active
+- Skip initial load notifications (prevents noise on mount)
+- Memory cleanup: `previousImagesRef.clear()` on unmount
+- Debounced notifications (no duplicate messages for same image)
+
+### Files Modified:
+- `apps/workspace/src/hooks/use-classification-updates.ts` - NEW
+- `apps/workspace/src/components/documents/upload-progress.tsx` - NEW
+- `apps/workspace/src/components/cases/raw-image-gallery.tsx` - MODIFIED (PROCESSING status)
+- `apps/workspace/src/routes/clients/$clientId.tsx` - MODIFIED (hook integration)
 
 ---
 
@@ -1032,7 +1105,8 @@ app.route('/api/inngest', inngestRoute)  // Public route (no auth required)
 
 ---
 
-**Last Updated:** 2026-01-14 21:16
-**Status:** Phase 2 Complete + Phase 3 Complete + Phase 4.1-4.2 Complete + Phase 01 Inngest Setup Complete
+**Last Updated:** 2026-01-14
+**Status:** Phase 05 Complete (Real-time Updates) + Phase 04 Complete (Review UX) + Phase 3 Complete (Auth) + Phase 2 Complete (Core Workflow)
 **Branch:** feature/enhancement
-**Next Phase:** Phase 02 Inngest Job Implementation - Document Classification Pipeline
+**Architecture Version:** 5.0 (Polling & Real-time Notifications)
+**Next Phase:** Phase 05.1 - WebSocket Real-time Updates (Replace Polling with Live Events)

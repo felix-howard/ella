@@ -4,7 +4,7 @@
  * Uses FileViewerModal for full-screen viewing with PDF support
  */
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { cn } from '@ella/ui'
 import { Document, Page, pdfjs } from 'react-pdf'
 import {
@@ -31,7 +31,7 @@ function isPdfFile(filename: string): boolean {
 }
 
 // Image status types
-type ImageStatus = 'UPLOADED' | 'CLASSIFIED' | 'LINKED' | 'BLURRY' | 'UNCLASSIFIED'
+type ImageStatus = 'UPLOADED' | 'PROCESSING' | 'CLASSIFIED' | 'LINKED' | 'BLURRY' | 'UNCLASSIFIED'
 
 interface RawImageGalleryProps {
   images: RawImage[]
@@ -53,6 +53,12 @@ const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
     icon: Clock,
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
+  },
+  PROCESSING: {
+    label: 'Đang phân loại',
+    icon: Loader2,
+    color: 'text-primary',
+    bgColor: 'bg-primary-light',
   },
   CLASSIFIED: {
     label: 'Đã phân loại',
@@ -202,13 +208,18 @@ interface ImageCardProps {
   onReviewClassification?: () => void
 }
 
-function ImageCard({ image, onClick, onClassify, onReviewClassification }: ImageCardProps) {
+/**
+ * Memoized ImageCard to prevent unnecessary re-renders during polling
+ * Only re-renders when image data or callbacks change
+ */
+const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReviewClassification }: ImageCardProps) {
   const status = image.status as ImageStatus
   const config = IMAGE_STATUS_CONFIG[status] || IMAGE_STATUS_CONFIG.UPLOADED
   const Icon = config.icon
   const docType = image.classifiedType || image.checklistItem?.template?.docType
   const docLabel = docType ? DOC_TYPE_LABELS[docType] : null
   const needsClassify = status === 'UPLOADED' || status === 'UNCLASSIFIED'
+  const isProcessing = status === 'PROCESSING'
 
   // Confidence badge - show for classified images
   const showConfidenceBadge = status === 'CLASSIFIED' && image.aiConfidence !== null
@@ -219,17 +230,32 @@ function ImageCard({ image, onClick, onClassify, onReviewClassification }: Image
 
   return (
     <div
-      className="group relative bg-card rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      className={cn(
+        'group relative bg-card rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow',
+        isProcessing && 'animate-pulse'
+      )}
       onClick={onClick}
     >
       {/* Image Thumbnail - Shows placeholder until clicked */}
       <div className="aspect-[4/3] bg-muted relative overflow-hidden">
         <ImageThumbnail imageId={image.id} filename={image.filename} />
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <Eye className="w-6 h-6 text-white" />
-        </div>
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              <span className="text-xs text-muted-foreground">Đang phân loại...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Hover Overlay - hidden during processing */}
+        {!isProcessing && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Eye className="w-6 h-6 text-white" />
+          </div>
+        )}
 
         {/* Confidence Badge - Top Left */}
         {showConfidenceBadge && confidenceLevel && (
@@ -247,7 +273,7 @@ function ImageCard({ image, onClick, onClassify, onReviewClassification }: Image
           'absolute top-2 right-2 p-1 rounded-md',
           config.bgColor
         )}>
-          <Icon className={cn('w-3.5 h-3.5', config.color)} />
+          <Icon className={cn('w-3.5 h-3.5', config.color, isProcessing && 'animate-spin')} />
         </div>
       </div>
 
@@ -291,7 +317,7 @@ function ImageCard({ image, onClick, onClassify, onReviewClassification }: Image
       </div>
     </div>
   )
-}
+})
 
 /**
  * Thumbnail that fetches signed URL on demand

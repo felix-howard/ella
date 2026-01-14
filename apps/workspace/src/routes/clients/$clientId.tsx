@@ -29,7 +29,8 @@ import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
-import { VerificationPanel, ClassificationReviewModal } from '../../components/documents'
+import { VerificationPanel, ClassificationReviewModal, UploadProgress } from '../../components/documents'
+import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_COLORS,
@@ -119,6 +120,14 @@ function ClientDetailPage() {
     enabled: !!latestCaseId,
   })
 
+  // Enable polling for real-time classification updates when on documents tab
+  const isDocumentsTab = activeTab === 'documents'
+  const { images: polledImages, processingCount } = useClassificationUpdates({
+    caseId: latestCaseId,
+    enabled: isDocumentsTab,
+    refetchInterval: 5000,
+  })
+
   // Loading state
   if (isClientLoading) {
     return (
@@ -161,7 +170,10 @@ function ClientDetailPage() {
   }
 
   const checklistItems = checklistResponse?.items ?? []
-  const rawImages = imagesResponse?.images ?? []
+  // Use polled images when on documents tab for real-time updates
+  const rawImages = isDocumentsTab && polledImages.length > 0
+    ? polledImages
+    : (imagesResponse?.images ?? [])
   const digitalDocs = docsResponse?.docs ?? []
 
   const latestCase = client.taxCases[0]
@@ -552,6 +564,9 @@ function ClientDetailPage() {
               onVerify={(doc) => console.log('Verify doc:', doc.id)}
             />
           </div>
+
+          {/* Upload Progress - shows when images are processing */}
+          <UploadProgress processingCount={processingCount} />
         </div>
       )}
 

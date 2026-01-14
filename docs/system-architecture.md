@@ -884,6 +884,68 @@ Validation errors (OCR confidence < 0.85):
 - Future (Phase 3.1): 1099-DIV, 1099-K, 1099-R
 ```
 
+### Real-Time Updates & Notifications Flow - Phase 05 Implementation
+
+```
+Staff Views Client Documents Tab
+        ↓
+useClassificationUpdates() hook activates
+        ↓
+Query: GET /cases/:id/images
+        ↓
+React Query polling: every 5 seconds (only when tab active)
+        ↓
+Image States Tracked:
+├─ UPLOADED → Processing initiated
+├─ PROCESSING → AI classification running
+├─ CLASSIFIED → AI complete (show confidence)
+├─ LINKED → Auto-linked to checklist
+├─ UNCLASSIFIED → Low confidence (<60%)
+└─ BLURRY → Quality issues detected
+        ↓
+Compare current state vs previous state
+        ↓
+Status Change Detected:
+├─ UPLOADED → PROCESSING: Show FloatingPanel "Đang xử lý N ảnh..."
+├─ PROCESSING → CLASSIFIED:
+│  ├─ HIGH (85%+): toast.success("W2 (95%)")
+│  ├─ MEDIUM (60-85%): toast.info("Cần xác minh: 1099-NEC (72%)")
+│  └─ LOW (<60%): toast.info("Độ tin cậy thấp")
+├─ PROCESSING → LINKED: toast.success("Đã liên kết: W2")
+├─ PROCESSING → UNCLASSIFIED: toast.info("Cần xem xét: filename")
+└─ PROCESSING → BLURRY: toast.error("Ảnh mờ: filename")
+        ↓
+Gallery UI Updates:
+├─ PROCESSING badge appears (Loader2 icon, animated)
+├─ Confidence badge shows (HIGH/MEDIUM/LOW color)
+├─ Image preview refreshes
+└─ Review button toggles based on confidence
+        ↓
+Invalidate Related Queries:
+├─ queryClient.invalidateQueries(['checklist', caseId])
+├─ RawImageGallery re-renders
+└─ ChecklistGrid reflects new status
+        ↓
+FloatingPanel Auto-Hides:
+└─ When processingCount === 0
+        ↓
+Poll Stops (unsubscribe):
+└─ When documents tab inactive or component unmounts
+
+**Performance Notes:**
+- refetchIntervalInBackground: false (battery/bandwidth friendly)
+- Skip notifications on initial mount (prevents noise)
+- Memory cleanup: previousImagesRef.clear() on unmount
+- State comparison prevents duplicate notifications
+- Debounced polling (5s interval, not per-update)
+
+**Components:**
+- useClassificationUpdates() - Polling hook with state tracking
+- UploadProgress - Floating panel showing processing count
+- RawImageGallery - Display with PROCESSING status badge
+- Client Detail - Route that integrates polling + notifications
+```
+
 ## Database Schema (Phase 1.1 - Complete)
 
 **Core Models (13):**
@@ -1353,9 +1415,20 @@ scheduler: {
 ---
 
 **Last Updated:** 2026-01-14
-**Phase:** Phase 04 - Frontend Review UX (Complete)
-**Architecture Version:** 4.2 (Review UX + Confidence Thresholds)
-**Completed Features:**
+**Phase:** Phase 05 - Real-time Updates (Complete)
+**Architecture Version:** 5.0 (Polling & Notifications)
+**Completed Features (Phase 05):**
+- ✓ Classification updates hook with 5s polling
+- ✓ Real-time status tracking (UPLOADED → PROCESSING → CLASSIFIED/LINKED)
+- ✓ Confidence-level notifications (HIGH/MEDIUM/LOW toasts)
+- ✓ Floating status panel (UploadProgress component)
+- ✓ PROCESSING image overlay in gallery
+- ✓ Tab-aware polling (stops when inactive, battery-friendly)
+- ✓ Automatic checklist refresh on image linking
+- ✓ Memory leak prevention (cleanup on unmount)
+- ✓ Initial load noise prevention
+- ✓ State comparison to prevent duplicate notifications
+**Completed Features (Phase 04):**
 - ✓ Confidence-level system (HIGH/MEDIUM/LOW with thresholds)
 - ✓ Confidence badges in image gallery
 - ✓ Classification review modal for CPA verification
@@ -1367,4 +1440,4 @@ scheduler: {
 - ✓ Toast notifications (success/error)
 - ✓ React Query integration with cache invalidation
 - ✓ 21 supported document types in selector
-**Next Phase:** Phase 04.1 - Confidence-based Action Queue + Batch Workflow
+**Next Phase:** Phase 05.1 - WebSocket Real-time (Replace Polling)

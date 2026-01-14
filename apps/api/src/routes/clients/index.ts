@@ -76,6 +76,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
   const { profile, ...clientData } = body
 
+  try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create client
@@ -174,6 +175,20 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     },
     201
   )
+  } catch (error) {
+    console.error('[Create Client] Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('[Create Client] Stack:', errorStack)
+    return c.json(
+      {
+        error: 'CREATE_CLIENT_FAILED',
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+      },
+      500
+    )
+  }
 })
 
 // GET /clients/:id - Get client details

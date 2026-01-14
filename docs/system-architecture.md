@@ -402,6 +402,7 @@ export const inngest = new Inngest({
 - Handle function discovery & invocation
 - Validate signing key (prevents unauthorized triggers)
 - Serve development UI for monitoring
+- Production security: Blocks jobs if INNGEST_SIGNING_KEY missing
 
 **Configuration:**
 ```typescript
@@ -410,20 +411,50 @@ serve({
   functions: [classifyDocumentJob],
   signingKey: config.inngest.signingKey || undefined,
 })
+
+// Production safety check
+if (!config.inngest.isProductionReady) {
+  return c.json({ error: 'Inngest not configured' }, 503)
+}
 ```
 
-### Background Jobs
+### Background Jobs - Phase 02 Implementation
 
 **classifyDocumentJob** (`apps/api/src/jobs/classify-document.ts`)
+
+**Configuration:**
 - **ID:** `classify-document`
 - **Trigger:** `document/uploaded` event
 - **Retries:** 3 (exponential backoff)
-- **Step Structure:**
-  1. `fetch-image` - Retrieve image from R2 storage
-  2. `classify` - Gemini vision classification
-  3. `update-db` - Update RawImage record with results
-- **Future (Phase 02):** Full Gemini + OCR integration
-- **Status:** Placeholder implementation (steps documented)
+- **Throttle:** 10 req/min (Gemini rate limit protection)
+- **Status:** Production ready
+
+**Durable Step Structure:**
+
+1. **mark-processing** - Update RawImage.status = PROCESSING
+2. **fetch-image** - Retrieve image from R2 via signed URL
+   - Returns: { buffer: base64, mimeType }
+3. **classify** - Gemini vision classification
+   - Returns: { success, docType, confidence, reasoning }
+4. **route-by-confidence** - Route by confidence thresholds
+   - < 60%: UNCLASSIFIED, create AI_FAILED action
+   - 60-85%: CLASSIFIED, create VERIFY_DOCS action
+   - >= 85%: CLASSIFIED, auto-link, no action
+   - Returns: { action, needsOcr, checklistItemId }
+5. **ocr-extract** - Conditional OCR extraction (if needsOcr)
+   - Extract structured data with confidence score
+   - Atomic DB transaction: upsert DigitalDoc + update ChecklistItem + mark LINKED
+   - Returns: { digitalDocId }
+
+**Return Value:**
+```typescript
+{
+  rawImageId: string
+  classification: { docType: DocType, confidence: number }
+  routing: 'auto-linked' | 'needs-review' | 'unclassified'
+  digitalDocId?: string
+}
+```
 
 ### Environment Configuration
 
@@ -715,80 +746,125 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
-### AI Document Processing Pipeline Flow (Phase 2.1 & 2.2)
+### AI Document Processing Pipeline Flow - Phase 02 Implementation
 
 ```
 Client Uploads Documents via Portal
         ↓
 POST /portal/:token/upload (multipart form)
         ↓
-Validate files (type, size, count)
+1. Validate files (type, size, count ≤20)
+2. Upload each file to R2 storage
+3. Create RawImage record (status: UPLOADED)
+4. Emit inngest.send({ name: 'document/uploaded', data: {...} })
+5. Return { uploaded: N, aiProcessing: true, ... }
         ↓
-Upload to R2 storage (Cloudflare)
+[Inngest Cloud Processing]
+Receive document/uploaded event batch
         ↓
-Create RawImage records (status: UPLOADED)
+Match to classifyDocumentJob function
+Execute with:
+  - 3 retries (exponential backoff)
+  - 10 req/min throttle (Gemini rate limit)
         ↓
-[PIPELINE STAGE 1: Classification]
-        ├─ analyzeImage() with classify prompt
-        ├─ Gemini vision identifies document type
-        ├─ Returns { docType, confidence }
-        └─ Update RawImage.classifiedType & aiConfidence
+[DURABLE STEP 1: mark-processing]
+Update RawImage.status = PROCESSING
         ↓
-[PIPELINE STAGE 2: Auto-Linking to Checklist] (Phase 2.2)
-        ├─ linkToChecklistItem(rawImageId, caseId, docType)
-        ├─ Search ChecklistItem by (caseId, template.docType)
-        ├─ If found: Link RawImage ↔ ChecklistItem
-        ├─ Update ChecklistItem.status: MISSING → HAS_RAW
-        ├─ Increment ChecklistItem.receivedCount
-        └─ RawImage.status: CLASSIFIED → LINKED
+[DURABLE STEP 2: fetch-image]
+├─ Generate signed R2 URL (1hr expiry)
+├─ Fetch image via HTTP
+├─ Base64 encode for step durability
+└─ Return { buffer, mimeType }
         ↓
-[PIPELINE STAGE 3: Blur Detection]
-        ├─ analyzeImage() with blur-check prompt
-        ├─ Gemini assesses sharpness (0-100 scale)
-        ├─ Returns { blurScore, issues }
-        └─ If blurry (>70): Create BLURRY_DETECTED action
+[DURABLE STEP 3: classify]
+├─ Decode base64 buffer
+├─ Call classifyDocument() (Gemini vision)
+├─ Extract { docType, confidence, reasoning }
+└─ Return classification result
         ↓
-[PIPELINE STAGE 4: OCR Extraction] (if document supports it)
-        ├─ getOcrPromptForDocType(docType)
-        ├─ analyzeImage() with form-specific prompt
-        ├─ Extract & validate structured data
-        ├─ Calculate confidence from key fields
-        └─ Prepare data for atomic transaction
+[DURABLE STEP 4: route-by-confidence]
+Confidence < 60%:
+  ├─ Update RawImage.status = UNCLASSIFIED
+  ├─ Create AI_FAILED action (NORMAL priority)
+  └─ Return { action: 'unclassified', needsOcr: false }
         ↓
-[Atomic Transaction] (Phase 2.2)
-        ├─ Upsert DigitalDoc with extracted fields
-        ├─ Update ChecklistItem.status: HAS_RAW → HAS_DIGITAL
-        ├─ Mark RawImage.status: LINKED
-        ├─ All 3 operations in single transaction (ACID)
-        └─ No partial states possible
+Confidence 60-85%:
+  ├─ Update RawImage.status = CLASSIFIED
+  ├─ Link to ChecklistItem (auto-link)
+  ├─ Create VERIFY_DOCS action (NORMAL priority)
+  │  Title: "Xác minh phân loại"
+  │  Description: "{DocType}: {Confidence}% - cần xác minh"
+  └─ Return { action: 'needs-review', needsOcr: true/false }
         ↓
-[Action Creation Rules]
-        ├─ AI_FAILED → Classification or extraction error
-        ├─ BLURRY_DETECTED → Image quality issue (blur >70)
-        ├─ VERIFY_DOCS → OCR confidence <0.85 or invalid data
-        └─ Actions appear in workspace queue
+Confidence >= 85%:
+  ├─ Update RawImage.status = CLASSIFIED
+  ├─ Link to ChecklistItem (auto-link)
+  ├─ No action created (silent success)
+  └─ Return { action: 'auto-linked', needsOcr: true/false }
+        ↓
+[DURABLE STEP 5: ocr-extract] (conditional)
+If needsOcr && docType supports OCR:
+  ├─ Decode base64 buffer
+  ├─ Call extractDocumentData() (Gemini vision + prompts)
+  ├─ Validate extracted JSON against schema
+  └─ Call processOcrResultAtomic() for atomic DB update
+        ↓
+[Atomic Transaction]
+All-or-nothing commit:
+  ├─ Upsert DigitalDoc with extracted fields
+  ├─ Update ChecklistItem.status = HAS_DIGITAL
+  ├─ Mark RawImage.status = LINKED
+  └─ No partial states possible
+        ↓
+[Action Creation Summary]
+AI_FAILED → Classification failed (confidence < 60%)
+  ├─ Priority: NORMAL
+  ├─ Title: "Phân loại tự động thất bại"
+  └─ Metadata: error message, confidence, r2Key
+        ↓
+VERIFY_DOCS → Medium confidence (60-85%) OR OCR validation needed
+  ├─ Priority: NORMAL
+  ├─ Title: "Xác minh phân loại" or "Xác minh dữ liệu OCR"
+  └─ Metadata: docType, confidence, checklistItemId
+        ↓
+(None) → Auto-linked (confidence >= 85%)
+  └─ Silent success, document processing complete
         ↓
 [Portal Status Update]
-        ├─ Client sees uploaded documents
-        ├─ Blurry documents flagged for resend
-        ├─ Verified documents marked as received
-        └─ Real-time checklist progress (MISSING/HAS_RAW/HAS_DIGITAL)
+Real-time checklist reflects:
+  ├─ Received: Classified & verified documents
+  ├─ Blurry: Images flagged for resend (future blur detection)
+  └─ Missing: Still-needed documents
+        ↓
+[Workspace Action Queue]
+Staff views actions:
+  ├─ AI_FAILED → Manual classification required
+  ├─ VERIFY_DOCS → Review auto-classification
+  └─ HIGH priority for issues, NORMAL for review
 
-**Checklist Status Lifecycle:**
-- MISSING: Initial state (no docs received)
-- HAS_RAW: Raw image received (classification success)
-- HAS_DIGITAL: Digital doc created (OCR extraction success)
-- VERIFIED: Manually verified by staff (future action)
+**Error Handling:**
+Transient errors (timeout, rate limit, 500/502/503):
+  └─ Auto-retry up to 3 times (1s → 2s → 4s backoff)
+        ↓
+Non-transient errors (invalid format, missing API key):
+  └─ Single attempt, create AI_FAILED action
+        ↓
+Validation errors (OCR confidence < 0.85):
+  └─ No retry, create VERIFY_DOCS action
 
-**Retry Strategy:**
-- Transient errors (timeout, rate limit, 500/502/503)
-- Exponential backoff: 1s → 2s → 4s (default: 3 retries)
-- Non-transient: Single attempt, create AI_FAILED action
+**Concurrency & Performance:**
+- Inngest throttle: 10 jobs/min (Gemini protection)
+- Per-image steps: Sequential (classify → route → ocr → atomic)
+- Batch uploads: Each image independent job
+- Total time/image: 2-5s (varies with Gemini latency)
 
-**Concurrency Control:**
-- Batch processing: 3 images parallel (tuned for Gemini rate limits)
-- Per-image: Sequential stages (classify → blur → ocr → atomic commit)
-- Atomic transactions prevent race conditions on concurrent uploads
+**Supported Document Types for OCR:**
+- W2 (employment income)
+- 1099-INT (interest income)
+- 1099-NEC (contractor compensation)
+- SSN_CARD (Social Security card)
+- DRIVER_LICENSE (state ID)
+- Future (Phase 3.1): 1099-DIV, 1099-K, 1099-R
 ```
 
 ## Database Schema (Phase 1.1 - Complete)
@@ -1254,7 +1330,18 @@ scheduler: {
 
 ---
 
-**Last Updated:** 2026-01-14 21:16
-**Phase:** Phase 01 Inngest Setup (Complete) + Phase 2-4 Complete
-**Architecture Version:** 4.0 (Inngest Background Jobs)
-**Next Phase:** Phase 02 - Inngest Job Implementation (Gemini Classification + OCR)
+**Last Updated:** 2026-01-14
+**Phase:** Phase 02 - Background Classification Job (Complete)
+**Architecture Version:** 4.1 (Production-Ready Inngest + Confidence Routing)
+**Completed Features:**
+- ✓ Inngest durable job execution (5-step pipeline)
+- ✓ Gemini classification with confidence scoring
+- ✓ Confidence-based routing (< 60% | 60-85% | >= 85%)
+- ✓ OCR extraction (5 document types)
+- ✓ Atomic database transactions
+- ✓ R2 image fetching via signed URLs
+- ✓ Production security (signing key validation)
+- ✓ Inngest throttling (10 req/min)
+- ✓ Error handling & retry logic
+- ✓ Portal integration with batch event sending
+**Next Phase:** Phase 3.1 - Advanced OCR (PDF, 1099-DIV/K/R) + Real-time Notifications

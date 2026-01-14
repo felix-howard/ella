@@ -5,12 +5,14 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import { classifyDocSchema, verifyDocSchema, verifyActionSchema } from './schemas'
+import { classifyDocSchema, verifyDocSchema, verifyActionSchema, selectBestImageSchema } from './schemas'
 import {
   extractDocumentData,
   needsManualVerification,
   isGeminiConfigured,
   supportsOcrExtraction,
+  selectBestImage,
+  getGroupImages,
 } from '../../services/ai'
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
@@ -427,5 +429,93 @@ function generatePlaceholderExtractedData(docType: DocType): Record<string, unkn
       }
   }
 }
+
+// ============================================
+// IMAGE GROUP ENDPOINTS
+// ============================================
+
+// GET /docs/groups/:groupId - Get image group with all images
+docsRoute.get('/groups/:groupId', async (c) => {
+  const groupId = c.req.param('groupId')
+
+  const group = await getGroupImages(groupId)
+
+  if (!group) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image group not found' }, 404)
+  }
+
+  return c.json({
+    ...group,
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+    images: group.images.map((img) => ({
+      ...img,
+      createdAt: img.createdAt.toISOString(),
+    })),
+  })
+})
+
+// POST /docs/groups/:groupId/select-best - Select the best image from a group
+docsRoute.post(
+  '/groups/:groupId/select-best',
+  zValidator('json', selectBestImageSchema),
+  async (c) => {
+    const groupId = c.req.param('groupId')
+    const { imageId } = c.req.valid('json')
+
+    try {
+      await selectBestImage(groupId, imageId)
+
+      return c.json({
+        success: true,
+        message: 'Best image selected',
+        groupId,
+        bestImageId: imageId,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('does not belong')) {
+        return c.json(
+          { error: 'INVALID_IMAGE', message: error.message },
+          400
+        )
+      }
+      throw error
+    }
+  }
+)
+
+// GET /docs/groups/case/:caseId - Get all image groups for a case
+docsRoute.get('/groups/case/:caseId', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  const groups = await prisma.imageGroup.findMany({
+    where: { caseId },
+    include: {
+      images: {
+        select: {
+          id: true,
+          r2Key: true,
+          filename: true,
+          aiConfidence: true,
+          blurScore: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return c.json(
+    groups.map((group) => ({
+      ...group,
+      createdAt: group.createdAt.toISOString(),
+      updatedAt: group.updatedAt.toISOString(),
+      images: group.images.map((img) => ({
+        ...img,
+        createdAt: img.createdAt.toISOString(),
+      })),
+    }))
+  )
+})
 
 export { docsRoute }

@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-14
-**Current Branch:** feature/phase-4-data-entry-optimization
+**Current Branch:** feature/enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
 | **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
 | Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
 | Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
@@ -57,10 +58,11 @@ ella/ (Monorepo - pnpm workspaces)
 ### @ella/db
 **Database layer with Prisma ORM**
 
-- 12 models: Staff, Client, ClientProfile, TaxCase, RawImage, DigitalDoc, ChecklistTemplate, ChecklistItem, Conversation, Message, MagicLink, Action
+- 13 models: Staff, Client, ClientProfile, TaxCase, RawImage, ImageGroup, DigitalDoc, ChecklistTemplate, ChecklistItem, Conversation, Message, MagicLink, Action
 - 12 enums for tax types, statuses, roles
 - Singleton pattern for connection pooling
 - Seed data: 25 checklist templates across 3 tax forms
+- **Phase 03:** ImageGroup model for duplicate detection & grouping
 
 **Quick Commands:**
 ```bash
@@ -92,10 +94,10 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 ### @ella/api
 **REST API (Hono framework, PORT 3001)**
 
-**Routes:** 35+ endpoints across 8 modules
+**Routes:** 38+ endpoints across 8 modules
 - Clients (6 endpoints: CRUD + profile + resend SMS)
 - Cases (7 endpoints: CRUD + checklist + images + transitions)
-- Documents (6 endpoints: details + classify + OCR + verify)
+- Documents (9 endpoints: details + classify + OCR + verify + image groups [Phase 03])
 - Actions (2 endpoints: list + get/complete)
 - Messages (4 endpoints: conversations + history + send + remind)
 - Portal (2 endpoints: validate magic link + upload)
@@ -161,7 +163,8 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - **Staff** - Roles: admin, staff, CPA
 - **Client** - Name, phone, email, language
 - **TaxCase** - Per-client per-year, 7 status states
-- **RawImage** - Upload documents with AI classification
+- **RawImage** - Upload documents with AI classification + perceptual hash + group tracking
+- **ImageGroup** - Duplicate grouping by pHash (Phase 03)
 - **DigitalDoc** - Extracted & verified documents
 - **ChecklistTemplate** - Requirements per tax form
 - **Message** - SMS/portal/system conversations

@@ -119,13 +119,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /cases/:id/images` - Raw images for case with pagination
 - `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
 
-**Digital Documents (6 - Phase 2 additions):**
+**Digital Documents (9 - Phase 2 + Phase 03 additions):**
 - `GET /docs/:id` - Document details with extracted data
 - `POST /docs/:id/classify` - AI classify raw image to docType
 - `POST /docs/:id/ocr` - Trigger OCR for data extraction
 - `PATCH /docs/:id/verify` - Verify/edit extracted data with notes
 - `POST /docs/:id/verify-action` - Quick verify or reject action (PHASE 2 NEW)
 - `GET /cases/:id/docs` - Get digital docs for case with pagination (PHASE 2 NEW)
+- `GET /docs/groups/:groupId` - Get image group with all duplicate images (PHASE 03 NEW)
+- `POST /docs/groups/:groupId/select-best` - Select best image from duplicate group (PHASE 03 NEW)
+- `GET /docs/groups/case/:caseId` - Get all image groups for case (PHASE 03 NEW)
 
 **Actions (2):**
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
@@ -369,13 +372,14 @@ Matches event to classifyDocumentJob trigger
         ↓
 Execute classifyDocumentJob with retry logic (3 retries)
         ↓
-Steps:
+Steps (5 durable steps):
   1. Fetch image from R2
   2. Classify with Gemini (docType + confidence)
-  3. Detect duplicates
-  4. Update RawImage.classifiedType, aiConfidence
-  5. Trigger OCR if confidence > 60%
-  6. Emit: document/classification.complete event
+  3. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
+  4. Detect duplicates via pHash & group (Phase 03)
+  5. OCR extraction if confidence >= 60%
+        ↓
+Emit: document/classification.complete event
         ↓
 Frontend polls /messages/conversations for updates (Phase 05)
 ```
@@ -441,7 +445,12 @@ if (!config.inngest.isProductionReady) {
    - 60-85%: CLASSIFIED, create VERIFY_DOCS action
    - >= 85%: CLASSIFIED, auto-link, no action
    - Returns: { action, needsOcr, checklistItemId }
-5. **ocr-extract** - Conditional OCR extraction (if needsOcr)
+5. **detect-duplicates** - Perceptual hash grouping (Phase 03)
+   - Generate 64-bit pHash from image
+   - Find existing duplicates via Hamming distance (threshold: <10 bits)
+   - Create/join ImageGroup if duplicate found
+   - Returns: { grouped, groupId, isNewGroup, imageCount }
+6. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
    - Extract structured data with confidence score
    - Atomic DB transaction: upsert DigitalDoc + update ChecklistItem + mark LINKED
    - Returns: { digitalDocId }
@@ -452,6 +461,11 @@ if (!config.inngest.isProductionReady) {
   rawImageId: string
   classification: { docType: DocType, confidence: number }
   routing: 'auto-linked' | 'needs-review' | 'unclassified'
+  grouping: {
+    grouped: boolean
+    groupId: string | null
+    imageCount: number
+  }
   digitalDocId?: string
 }
 ```
@@ -869,7 +883,7 @@ Validation errors (OCR confidence < 0.85):
 
 ## Database Schema (Phase 1.1 - Complete)
 
-**Core Models (12):**
+**Core Models (13):**
 
 ```
 Staff - Authentication & authorization
@@ -890,14 +904,19 @@ ClientProfile - Tax situation questionnaire
 
 TaxCase - Per-client per-year tax filing
 ├── clientId, taxYear, status (INTAKE→FILED), taxTypes[]
-├── rawImages, digitalDocs, checklistItems (1:many)
+├── rawImages, digitalDocs, checklistItems, imageGroups (1:many)
 ├── conversation, magicLinks, actions (1:many)
 ├── Timestamps: lastContactAt, entryCompletedAt, filedAt
 
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
 ├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
+├── imageHash (pHash for duplicates), imageGroupId (duplicate grouping)
 ├── uploadedVia (SMS|PORTAL|SYSTEM)
+
+ImageGroup - Duplicate document grouping (Phase 03)
+├── caseId, docType, bestImageId (selected best image)
+├── images (1:many RawImage), timestamps
 
 DigitalDoc - Extracted/verified documents
 ├── caseId, rawImageId, docType, status (PENDING→VERIFIED)

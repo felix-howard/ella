@@ -201,6 +201,7 @@ model TaxCase {
   conversation    Conversation?
   magicLinks      MagicLink[]
   actions         Action[]
+  imageGroups     ImageGroup[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -232,6 +233,11 @@ model RawImage {
   aiConfidence    Float?
   blurScore       Float?
 
+  // Duplicate detection fields
+  imageHash       String?        // Perceptual hash (pHash) for duplicate detection
+  imageGroupId    String?
+  imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
+
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
   digitalDoc      DigitalDoc?
@@ -243,6 +249,26 @@ model RawImage {
 
   @@index([caseId])
   @@index([status])
+  @@index([imageGroupId])
+  @@index([caseId, classifiedType])  // For duplicate detection queries
+}
+
+// Groups duplicate images of the same physical document
+model ImageGroup {
+  id          String     @id @default(cuid())
+  caseId      String
+  taxCase     TaxCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  docType     DocType
+  bestImageId String?    // Selected best image from group
+
+  images      RawImage[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([caseId])
+  @@index([caseId, docType])
 }
 
 model DigitalDoc {

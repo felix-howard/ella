@@ -25,12 +25,14 @@
     "inngest": "^3.49.1",
     "nanoid": "^5.1.6",
     "node-cron": "^4.2.1",
+    "sharp": "^0.34.5",
     "twilio": "^5.4.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
+    "@types/sharp": "^0.32.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

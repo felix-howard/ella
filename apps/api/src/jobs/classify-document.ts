@@ -6,8 +6,9 @@
  * 1. Fetch image from R2
  * 2. Classify with Gemini
  * 3. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 4. OCR extraction (if confidence >= 60% and doc type supports OCR)
- * 5. Update DB with results
+ * 4. Detect duplicates using pHash and group similar images
+ * 5. OCR extraction (if confidence >= 60% and doc type supports OCR)
+ * 6. Update DB with results
  */
 
 import { inngest } from '../lib/inngest'
@@ -21,6 +22,7 @@ import {
   processOcrResultAtomic,
   markImageProcessing,
 } from '../services/ai/pipeline-helpers'
+import { generateImageHash, assignToImageGroup } from '../services/ai/duplicate-detector'
 import type { DocType } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -130,7 +132,33 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     })
 
-    // Step 4: OCR extraction (only if confidence >= 60% and doc type supports OCR)
+    // Step 4: Detect duplicates and group similar images
+    const grouping = await step.run('detect-duplicates', async () => {
+      // Skip grouping for unclassified images
+      if (routing.action === 'unclassified') {
+        return { grouped: false, groupId: null, imageCount: 1 }
+      }
+
+      const buffer = Buffer.from(imageData.buffer, 'base64')
+      const imageHash = await generateImageHash(buffer)
+      const validDocType = classification.docType as DocType
+
+      const result = await assignToImageGroup(
+        rawImageId,
+        caseId,
+        validDocType,
+        imageHash
+      )
+
+      return {
+        grouped: result.groupId !== '',
+        groupId: result.groupId || null,
+        isNewGroup: result.isNew,
+        imageCount: result.imageCount,
+      }
+    })
+
+    // Step 5: OCR extraction (only if confidence >= 60% and doc type supports OCR)
     let digitalDocId: string | undefined
     if (routing.needsOcr) {
       digitalDocId = await step.run('ocr-extract', async () => {
@@ -171,6 +199,11 @@ export const classifyDocumentJob = inngest.createFunction(
         confidence: classification.confidence,
       },
       routing: routing.action,
+      grouping: {
+        grouped: grouping.grouped,
+        groupId: grouping.groupId,
+        imageCount: grouping.imageCount,
+      },
       digitalDocId,
     }
   }

@@ -56,7 +56,13 @@ export const verifyActionSchema = z.object({
   notes: z.string().optional(),
 })
 
+// Select best image from group input
+export const selectBestImageSchema = z.object({
+  imageId: z.string().min(1),
+})
+
 // Type exports
 export type ClassifyDocInput = z.infer<typeof classifyDocSchema>
 export type VerifyDocInput = z.infer<typeof verifyDocSchema>
 export type VerifyActionInput = z.infer<typeof verifyActionSchema>
+export type SelectBestImageInput = z.infer<typeof selectBestImageSchema>

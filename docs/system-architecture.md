@@ -94,13 +94,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (28 total):**
+**Implemented Endpoints (29 total):**
 
-**Clients (5):**
+**Clients (6):**
 - `GET /clients` - List with search/status filters, pagination
-- `POST /clients` - Create client + profile + case + magic link + checklist
-- `GET /clients/:id` - Client with profile, tax cases, doc counts
+- `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
+- `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
+- `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
 **Tax Cases (6):**
@@ -154,15 +155,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 - `checklist-generator.ts` - Generate checklist from profile & templates
 - `magic-link.ts` - Create/validate passwordless access tokens
+- `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 
-**SMS Service (Phase 3.1):**
+**SMS Service Implementation (Phase 1.2+):**
 
-- `sms/twilio-client.ts` - Twilio API wrapper with retry logic & E.164 formatting
-- `sms/message-sender.ts` - High-level SMS sending with templates
-- `sms/webhook-handler.ts` - Incoming SMS processing with signature validation
-- `sms/notification-service.ts` - Auto-notification orchestration
-- `sms/templates/*.ts` - Vietnamese message templates (welcome, missing docs, blurry, complete)
+- Twilio API wrapper with E.164 phone formatting & error handling
+- Welcome message template with magic link portal URL inclusion
+- SMS enablement detection via environment variable check (TWILIO_ACCOUNT_SID)
+- Resend SMS endpoint for client onboarding recovery
+- Comprehensive error codes for missing configs (NO_MAGIC_LINK, SMS_NOT_CONFIGURED, PORTAL_URL_NOT_CONFIGURED)
+- Vietnamese & English message support
 
 **Unified Messaging (Phase 3.2):**
 

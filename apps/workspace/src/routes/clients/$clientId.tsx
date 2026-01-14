@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Phone,
@@ -21,7 +21,11 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
+  Send,
+  Link2,
+  ExternalLink,
 } from 'lucide-react'
+import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid } from '../../components/cases'
@@ -49,8 +53,36 @@ type TabType = 'overview' | 'documents' | 'messages'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [copiedField, setCopiedField] = useState<string | null>(null)
+
+  // Error code to Vietnamese message mapping
+  const SMS_ERROR_MESSAGES: Record<string, string> = {
+    NO_MAGIC_LINK: 'Không có magic link khả dụng',
+    SMS_NOT_CONFIGURED: 'Twilio chưa được cấu hình',
+    PORTAL_URL_NOT_CONFIGURED: 'PORTAL_URL chưa được cấu hình',
+    SMS_SEND_FAILED: 'Không thể gửi SMS',
+    SMS_SEND_ERROR: 'Lỗi khi gửi SMS',
+  }
+
+  // Mutation for resending SMS
+  const resendSmsMutation = useMutation({
+    mutationFn: () => api.clients.resendSms(clientId),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success('Đã gửi lại SMS thành công')
+      } else {
+        const errorMessage = result.error
+          ? SMS_ERROR_MESSAGES[result.error] || result.error
+          : 'Không thể gửi SMS'
+        toast.error(errorMessage)
+      }
+    },
+    onError: () => {
+      toast.error('Lỗi kết nối, vui lòng thử lại')
+    },
+  })
 
   // Fetch client detail from API
   const {
@@ -194,8 +226,20 @@ function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Status Badge & Edit */}
+          {/* Status Badges & Edit */}
           <div className="flex items-center gap-3">
+            {/* SMS Status Badge */}
+            <span
+              className={cn(
+                'text-xs font-medium px-2.5 py-1 rounded-full',
+                client.smsEnabled
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              )}
+            >
+              {client.smsEnabled ? 'SMS Bật' : 'SMS Tắt'}
+            </span>
+            {/* Case Status Badge */}
             {statusColors && (
               <span
                 className={cn(
@@ -310,6 +354,88 @@ function ClientDetailPage() {
                 value={client.profile?.hasSelfEmployment ? 'Có' : 'Không'}
               />
             </div>
+          </div>
+
+          {/* Portal Link Card */}
+          <div className="bg-card rounded-xl border border-border p-6 lg:col-span-2">
+            <h2 className="text-lg font-semibold text-primary mb-4 flex items-center gap-2">
+              <Link2 className="w-5 h-5" aria-hidden="true" />
+              Link Portal
+            </h2>
+            {client.portalUrl ? (
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Link cho khách hàng tải tài liệu
+                    </p>
+                    <p className="text-sm font-mono text-foreground truncate">
+                      {client.portalUrl}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleCopy(client.portalUrl!, 'portalUrl')}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
+                        copiedField === 'portalUrl'
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                          : 'bg-background text-foreground border-border hover:bg-muted'
+                      )}
+                    >
+                      {copiedField === 'portalUrl' ? (
+                        <>
+                          <Check className="w-4 h-4" aria-hidden="true" />
+                          Đã copy
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" aria-hidden="true" />
+                          Copy Link
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={client.portalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" aria-hidden="true" />
+                      Mở
+                    </a>
+                    <button
+                      onClick={() => resendSmsMutation.mutate()}
+                      disabled={resendSmsMutation.isPending || !client.smsEnabled}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                        client.smsEnabled
+                          ? 'bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                          : 'bg-muted text-muted-foreground cursor-not-allowed'
+                      )}
+                      title={!client.smsEnabled ? 'Twilio chưa được cấu hình' : undefined}
+                    >
+                      {resendSmsMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                          Đang gửi...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" aria-hidden="true" />
+                          Gửi lại SMS
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-muted/30 rounded-lg">
+                <Link2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">Không có magic link khả dụng</p>
+              </div>
+            )}
           </div>
 
           {/* Checklist Summary */}

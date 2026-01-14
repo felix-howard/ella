@@ -166,6 +166,12 @@ export const api = {
       request<{ success: boolean; message: string }>(`/clients/${id}`, {
         method: 'DELETE',
       }),
+
+    resendSms: (id: string) =>
+      request<{ success: boolean; error: string | null; smsEnabled: boolean }>(
+        `/clients/${id}/resend-sms`,
+        { method: 'POST' }
+      ),
   },
 
   // Tax Cases
@@ -284,6 +290,8 @@ export interface ClientProfile {
 export interface ClientDetail extends Client {
   profile: ClientProfile | null
   taxCases: TaxCaseSummary[]
+  portalUrl: string | null
+  smsEnabled: boolean
 }
 
 export interface TaxCaseSummary {

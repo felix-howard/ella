@@ -91,3 +91,12 @@ export {
 
 // Icons
 export * from './components/icons'
+
+// Assets
+export { default as EllaLogo } from './assets/ella-logo.png'
+export { default as EllaArrow } from './assets/ella-arrow.png'
+export { default as EllaLogoFull } from './assets/ella-logo-full.png'
+/** Logo with white text - use for dark mode */
+export { default as EllaLogoDark } from './assets/ella-logo-light.png'
+/** Logo with black text - use for light mode */
+export { default as EllaLogoLight } from './assets/ella-logo-dark.png'

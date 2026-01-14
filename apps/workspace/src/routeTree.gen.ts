@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MessagesIndexRouteImport } from './routes/messages/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
+import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
@@ -22,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MessagesIndexRoute = MessagesIndexRouteImport.update({
+  id: '/messages/',
+  path: '/messages/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
   path: '/clients/',
@@ -30,6 +37,11 @@ const ClientsIndexRoute = ClientsIndexRouteImport.update({
 const ActionsIndexRoute = ActionsIndexRouteImport.update({
   id: '/actions/',
   path: '/actions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesCaseIdRoute = MessagesCaseIdRouteImport.update({
+  id: '/messages/$caseId',
+  path: '/messages/$caseId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsNewRoute = ClientsNewRouteImport.update({
@@ -57,8 +69,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
+  '/messages': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
@@ -66,8 +80,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
+  '/messages': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
@@ -76,8 +92,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions/': typeof ActionsIndexRoute
   '/clients/': typeof ClientsIndexRoute
+  '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
@@ -87,8 +105,10 @@ export interface FileRouteTypes {
     | '/'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/messages/$caseId'
     | '/actions'
     | '/clients'
+    | '/messages'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
   fileRoutesByTo: FileRoutesByTo
@@ -96,8 +116,10 @@ export interface FileRouteTypes {
     | '/'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/messages/$caseId'
     | '/actions'
     | '/clients'
+    | '/messages'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
   id:
@@ -105,8 +127,10 @@ export interface FileRouteTypes {
     | '/'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/messages/$caseId'
     | '/actions/'
     | '/clients/'
+    | '/messages/'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
   fileRoutesById: FileRoutesById
@@ -115,8 +139,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
+  MessagesCaseIdRoute: typeof MessagesCaseIdRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
+  MessagesIndexRoute: typeof MessagesIndexRoute
   CasesCaseIdEntryRoute: typeof CasesCaseIdEntryRoute
   CasesCaseIdMessagesRoute: typeof CasesCaseIdMessagesRoute
 }
@@ -128,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages/': {
+      id: '/messages/'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients/': {
@@ -142,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/actions'
       fullPath: '/actions'
       preLoaderRoute: typeof ActionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages/$caseId': {
+      id: '/messages/$caseId'
+      path: '/messages/$caseId'
+      fullPath: '/messages/$caseId'
+      preLoaderRoute: typeof MessagesCaseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients/new': {
@@ -179,8 +219,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
+  MessagesCaseIdRoute: MessagesCaseIdRoute,
   ActionsIndexRoute: ActionsIndexRoute,
   ClientsIndexRoute: ClientsIndexRoute,
+  MessagesIndexRoute: MessagesIndexRoute,
   CasesCaseIdEntryRoute: CasesCaseIdEntryRoute,
   CasesCaseIdMessagesRoute: CasesCaseIdMessagesRoute,
 }

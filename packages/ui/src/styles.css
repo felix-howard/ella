@@ -39,8 +39,8 @@
   --color-input: #E2E8F0;
   --color-ring: #10B981;
 
-  /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Typography - Quicksand Bold */
+  --font-sans: 'Quicksand', system-ui, -apple-system, sans-serif;
 
   /* Border Radius - Rounded design */
   --radius-sm: 6px;

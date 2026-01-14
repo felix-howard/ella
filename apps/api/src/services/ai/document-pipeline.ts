@@ -15,6 +15,7 @@ import {
   markImageUnclassified,
   processOcrResultAtomic,
 } from './pipeline-helpers'
+import { notifyBlurryDocument } from '../sms'
 import type { PipelineResult, BatchImageInput } from './pipeline-types'
 import { DEFAULT_PIPELINE_CONFIG } from './pipeline-types'
 import type { DocType } from '@ella/db'
@@ -126,6 +127,11 @@ export async function processImage(
         metadata: { rawImageId, docType, blurScore: blurResult.blurScore },
       })
       actionsCreated.push(actionId)
+
+      // Auto-send blurry resend SMS (non-blocking, fire-and-forget)
+      notifyBlurryDocument(caseId, [docType]).catch((err) => {
+        console.error('[Pipeline] Failed to send blurry SMS notification:', err)
+      })
 
       return {
         rawImageId,

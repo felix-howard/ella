@@ -51,6 +51,18 @@ export const config = {
     retryDelayMs: parseInt(process.env.GEMINI_RETRY_DELAY_MS || '1000', 10),
     batchConcurrency: parseInt(process.env.AI_BATCH_CONCURRENCY || '3', 10),
   },
+
+  // Twilio SMS Configuration
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+    isConfigured: Boolean(
+      process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_PHONE_NUMBER
+    ),
+  },
 } as const
 
 export type Config = typeof config

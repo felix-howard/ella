@@ -120,3 +120,11 @@ export function stripHtmlTags(text: string): string {
   if (!text) return ''
   return text.replace(/<[^>]*>/g, '')
 }
+
+/**
+ * Format relative time from ISO string
+ * Wrapper for getRelativeTimeVi that handles string input
+ */
+export function formatRelativeTime(isoString: string): string {
+  return getRelativeTimeVi(new Date(isoString))
+}

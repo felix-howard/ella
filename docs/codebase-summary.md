@@ -1,13 +1,16 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-13
-**Current Branch:** feature/phase-2.1-ai-document-processing
+**Current Branch:** feature/phase-3-communication
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 2.1 | AI Document Processing (First Half) | **2026-01-13** |
+| Phase 3.2 | Unified Inbox & Conversation Management | **2026-01-14** |
+| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
+| Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
+| Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
 | Phase 3 | Apps Setup (API, Portal, Workspace) | Complete |
@@ -127,14 +130,17 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - `/clients/$clientId` - Client detail (3 tabs)
 - `/clients/new` - Multi-step client creation
 - `/cases/$caseId/entry` - Data entry mode
-- `/cases/$caseId/messages` - Case messaging
+- `/messages` - Unified inbox (split view: conversations left, thread right)
+- `/messages/$caseId` - Conversation detail with message thread
 
 **Features:**
 - Vietnamese-first UI
 - Zustand state management
-- 20+ reusable components
+- 20+ reusable components + 7 messaging components
 - Type-safe routing (TanStack Router)
-- Mock API integration (ready for real API)
+- Real-time polling: 30s inbox, 10s active conversation
+- Unified message management (SMS, portal, system)
+- Unread count badges & filtering
 
 ## Database Schema Highlights
 
@@ -191,13 +197,13 @@ pnpm type-check              # TypeScript validation
 
 ## Environment Variables
 
-Required in `.env`:
-```
+**Required:**
+```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/ella
 ```
 
-AI Services (Phase 2.1):
-```
+**AI Services (Phase 2.1):**
+```bash
 GEMINI_API_KEY=                    # Required - Google Gemini API key
 GEMINI_MODEL=gemini-2.0-flash      # Optional - Model (default: gemini-2.0-flash)
 GEMINI_MAX_RETRIES=3               # Optional - Max retries (default: 3)
@@ -205,11 +211,17 @@ GEMINI_RETRY_DELAY_MS=1000         # Optional - Retry delay ms (default: 1000)
 AI_BATCH_CONCURRENCY=3             # Optional - Batch concurrency (default: 3)
 ```
 
-Optional (integrations):
+**SMS Integration (Phase 3.1):**
+```bash
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
 ```
+
+**Optional (future integrations):**
+```bash
 CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
-TWILIO_ACCOUNT_SID=...
 ```
 
 ## Design System
@@ -230,7 +242,116 @@ TWILIO_ACCOUNT_SID=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1 & 2.2 - AI Document Processing & Checklist System)
+## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2 - AI & Communication Integration)
+
+### Phase 3.2 (Complete - 2026-01-14)
+**Unified Inbox & Conversation Management**
+
+**API Enhancements:**
+- `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
+- Auto-fetches conversation with unread count reset on first message load
+- Upsert pattern prevents race conditions on concurrent conversation access
+
+**Frontend Pages & Components:**
+- `/messages` - Unified inbox with split view layout
+  - Left panel: Conversation list with unread badges, unread-only filter toggle, refresh button
+  - Right panel: Message thread or empty state selection UI
+  - Auto-navigation to first conversation if none selected
+
+- `/messages/$caseId` - Conversation detail view
+  - Message thread (chronological, with channel/direction indicators)
+  - Client header with name, phone, case status, language, tax year
+  - Quick actions bar: message send button, link to client profile
+  - Refresh capability for manual updates
+
+**Messaging Components (7 total):**
+1. `ConversationList` - Scrollable list with loading state & empty state
+2. `ConversationListItem` - Individual conversation with unread badge, preview, timestamps
+3. `MessageThread` - Chronological message display with channel chips
+4. `MessageBubble` - Individual message rendering (INBOUND/OUTBOUND styling)
+5. `QuickActionsBar` - Message input with SMS/PORTAL channel picker
+6. `TemplatePicker` - Pre-defined message templates selector (future)
+7. Export helpers in `index.ts`
+
+**Real-Time Features:**
+- Inbox polling: 30-second interval for background updates
+- Active conversation polling: 10-second interval while viewing
+- Optimistic message updates on send
+- Silent refresh (non-blocking) with visual feedback
+
+**Accessibility:**
+- aria-label on filter/refresh buttons
+- aria-pressed state for toggle buttons
+- aria-hidden for decorative icons
+- Semantic HTML with proper heading hierarchy
+
+**UI/UX Details:**
+- Vietnamese labels: "Tin nhắn" (Messages), "Chọn cuộc hội thoại" (Select conversation)
+- Empty state icon + helpful text for no selection
+- Loading skeleton for case header data
+- Unread count badge on messages list header
+- Client avatar with initials
+- Status color coding per case status
+
+### Phase 3.1 (Complete - 2026-01-13)
+**Twilio SMS Integration (First Half + Second Half)**
+
+**First Half (Core SMS Infrastructure):**
+- `apps/api/src/services/sms/twilio-client.ts` - SMS sending with retry logic & E.164 formatting
+- `apps/api/src/services/sms/message-sender.ts` - High-level templated SMS service
+- `apps/api/src/services/sms/webhook-handler.ts` - Incoming SMS processing with signature validation
+- `apps/api/src/services/sms/templates/` - 4 Vietnamese message templates
+- `apps/api/src/routes/webhooks/twilio.ts` - Webhook route handlers
+
+**Second Half (Automated Notifications & Batch Reminders):**
+- `apps/api/src/services/sms/notification-service.ts` - Auto-notify orchestration (NEW)
+- `apps/api/src/routes/clients/index.ts` - Auto welcome SMS on client creation (UPDATED)
+- `apps/api/src/routes/messages/index.ts` - New reminder endpoints (UPDATED)
+- `apps/api/src/services/ai/document-pipeline.ts` - Auto blurry SMS trigger (UPDATED)
+
+**Endpoints:**
+**Core:**
+- `POST /webhooks/twilio/sms` - Receive incoming SMS (signature validated, rate limited)
+- `POST /webhooks/twilio/status` - Receive delivery status updates
+
+**New (Second Half):**
+- `POST /messages/remind/:caseId` - Send missing docs reminder to specific case
+- `POST /messages/remind-batch` - Batch send reminders to all eligible cases (for cron)
+
+**Automation Triggers:**
+- Welcome SMS auto-sent when creating new client
+- Blurry document SMS auto-sent from AI pipeline (non-blocking)
+- Missing docs reminder via API endpoints or batch job
+
+**SMS Templates:**
+- `welcome.ts` - New client onboarding with magic link
+- `missing-docs.ts` - Reminder for missing required documents
+- `blurry-resend.ts` - Request to resend blurry/unclear images
+- `complete.ts` - Notification that all documents received
+
+**Database Integration:**
+- All messages recorded in Message table (SMS channel)
+- Conversation tracking with unread count
+- TaxCase.lastContactAt updated for compliance
+- CLIENT_REPLIED action created for incoming SMS
+
+**Features:**
+- E.164 phone number formatting (handles US numbers)
+- Exponential backoff retry (2 retries, 500ms base)
+- Timing-safe signature validation (prevents replay attacks)
+- Input sanitization & XSS protection
+- Rate limiting: 60 requests/minute/IP
+- Duplicate message prevention via MessageSid
+- Vietnamese-first messaging with EN fallback
+- Smart throttling: 1h blurry notifications, 24h missing docs
+- 3-day grace period for new clients before first reminder
+- Batch processing with 5 concurrent SMS limit
+- Fire-and-forget notifications (non-blocking)
+
+**New Environment Variables:**
+- `TWILIO_ACCOUNT_SID` - Twilio account identifier
+- `TWILIO_AUTH_TOKEN` - Twilio authentication token
+- `TWILIO_PHONE_NUMBER` - Twilio SMS-enabled phone number
 
 ### Phase 2.2 (Complete - 2026-01-13)
 **Dynamic Checklist System with Atomic Transactions**
@@ -366,11 +487,11 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ## Next Steps
 
-1. **Phase 3.0** - Document verification endpoint + workspace review UI
-2. **Phase 3.1** - Advanced OCR for remaining form types (1099-DIV, 1099-K, 1099-R)
-3. **Phase 3.2** - Multi-page document support & PDF extraction
-4. **Phase 4.0** - Advanced search & tax case analytics
-5. **Phase 5.0** - Authentication integration (Clerk setup)
+1. **Phase 3.3** - SMS status tracking & delivery notifications
+2. **Phase 4.0** - Email integration + scheduled messages
+3. **Phase 4.5** - Multi-page document support & PDF extraction
+4. **Phase 5.0** - Advanced search & tax case analytics
+5. **Phase 6.0** - Authentication integration (Clerk setup)
 
 ## Key Decisions
 
@@ -399,7 +520,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-13 21:30
-**Status:** Phase 2.1 & 2.2 Complete - AI Document Processing + Dynamic Checklist System
-**Branch:** feature/phase-2.1-ai-document-processing
-**Next Phase:** Phase 3.0 - Document Verification & Workspace Review UI
+**Last Updated:** 2026-01-14 07:05
+**Status:** Phase 3.2 Complete - Unified Inbox & Conversation Management
+**Branch:** feature/phase-3-communication
+**Next Phase:** Phase 3.3 - SMS Status Tracking & Delivery Notifications

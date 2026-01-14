@@ -41,32 +41,39 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Structure:**
 
-- `apps/portal/` - Primary user-facing frontend
-- `apps/workspace/` - Secondary workspace-specific frontend
+- `apps/portal/` - Primary user-facing frontend (document upload)
+- `apps/workspace/` - Secondary workspace-specific frontend (staff dashboard)
+  - 10 main pages (/, /actions, /clients, /cases, /messages, etc.)
+  - 27 components (6 feature areas + 7 messaging)
+  - Real-time polling for live updates
 - File-based routing via TanStack Router (`src/routes/*`)
 - Auto-generated route tree (`routeTree.gen.ts`)
 
 **Responsibilities:**
 
-- User interface rendering
+- User interface rendering (Vietnamese-first)
 - Client-side routing & navigation
 - Form handling & validation
 - Server state management (React Query)
+- Real-time data polling (30s inbox, 10s active conversation)
+- Optimistic updates for responsiveness
 - API request orchestration
-- Authentication flow (login, logout, signup)
 
 **Key Features:**
 
-- Document upload interface
+- Document upload interface (portal)
+- Unified message inbox with split-view (workspace)
 - Dashboard with compliance status
-- Document search & filtering
-- User settings & profile
+- Client/case management with messaging
+- Action queue with priority grouping
+- Accessibility: ARIA labels, semantic HTML
 
 **API Communication:**
 
-- HTTP REST calls to backend (via React Query)
+- HTTP REST calls to backend
 - Request validation via @ella/shared schemas
 - Response type safety via TypeScript
+- Pagination support with limit/offset
 
 ### Backend API Layer (apps/api)
 
@@ -87,7 +94,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (24 total):**
+**Implemented Endpoints (28 total):**
 
 **Clients (5):**
 - `GET /clients` - List with search/status filters, pagination
@@ -114,13 +121,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
 - `GET/PATCH /actions/:id` - Action details & mark complete
 
-**Messages (2):**
-- `GET /messages/:caseId` - Conversation history (SMS/portal/system)
-- `POST /messages/send` - Create message, support bulk SMS
+**Messages (4, Phase 3.2):**
+- `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
+- `GET /messages/:caseId` - Conversation history (SMS/portal/system) with auto-reset unread
+- `POST /messages/send` - Create message, support SMS/PORTAL/SYSTEM channels
+- `POST /messages/remind/:caseId` - Send missing docs reminder to specific case
 
 **Portal (2):**
 - `GET /portal/:token` - Verify magic link, return case data for client
 - `POST /portal/:token/upload` - Client document upload via magic link
+
+**Webhooks - SMS (2, Phase 3.1):**
+- `POST /webhooks/twilio/sms` - Incoming SMS handler (signature validation, rate limited 60/min)
+- `POST /webhooks/twilio/status` - Message status updates (optional tracking)
 
 **Health (1):**
 - `GET /health` - Server status check
@@ -143,11 +156,27 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 
+**SMS Service (Phase 3.1):**
+
+- `sms/twilio-client.ts` - Twilio API wrapper with retry logic & E.164 formatting
+- `sms/message-sender.ts` - High-level SMS sending with templates
+- `sms/webhook-handler.ts` - Incoming SMS processing with signature validation
+- `sms/notification-service.ts` - Auto-notification orchestration
+- `sms/templates/*.ts` - Vietnamese message templates (welcome, missing docs, blurry, complete)
+
+**Unified Messaging (Phase 3.2):**
+
+- `messages/` routes handle conversation listing, message history, and sending
+- Conversation auto-creation with upsert pattern (prevents race conditions)
+- Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM stored in database
+- Unread count tracking per conversation
+- Real-time updates via polling (30s inbox, 10s active)
+
 **Future Services:**
 
-- AI classification & confidence scoring
-- OCR document extraction
-- Notification system (SMS/email)
+- Email notifications
+- Message scheduling
+- MMS support (images)
 - Compliance rule engine
 
 **Response Format:**
@@ -308,6 +337,56 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - Utility-first styling with variants
 
 ## Data Flow
+
+### Unified Inbox & Messaging Flow (Phase 3.2)
+
+```
+Staff Views Unified Inbox (/messages)
+        ↓
+GET /messages/conversations (30s polling)
+        ↓
+Fetch all conversations with:
+├─ Last message preview
+├─ Unread count
+├─ Client info (name, phone)
+└─ Case status & tax year
+        ↓
+Render split view:
+├─ Left: Conversation list with unread badges
+└─ Right: Empty state or selected conversation
+        ↓
+Staff clicks conversation → Navigate to /messages/$caseId
+        ↓
+GET /messages/:caseId (10s polling while active)
+        ↓
+Fetch conversation & messages:
+├─ Auto-create conversation if missing (upsert)
+├─ Reset unread count to 0
+└─ Fetch messages (paginated, desc order)
+        ↓
+Render message thread + quick actions bar
+        ↓
+Staff sends message:
+├─ Choose channel (SMS or PORTAL)
+├─ POST /messages/send
+├─ Create message record in DB
+├─ Update conversation timestamp
+├─ If SMS: Send via Twilio
+├─ Optimistic update: show message immediately
+└─ Silent refresh: sync with server in background (10s)
+        ↓
+Real-time updates via polling:
+├─ Inbox updates every 30s
+├─ Active conversation updates every 10s
+└─ Non-blocking refresh with loading indicator
+```
+
+**Key Features:**
+- Race condition prevention: upsert pattern for conversation creation
+- Optimistic UI: message shows immediately, syncs after send
+- Multi-channel support: SMS (Twilio), PORTAL (in-app), SYSTEM (notifications)
+- Accessibility: aria-labels, aria-pressed, semantic HTML
+- Vietnamese UI: "Tin nhắn", "Chọn cuộc hội thoại"
 
 ### Authentication Flow
 
@@ -733,7 +812,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-13 21:30
-**Phase:** 2.2 - Dynamic Checklist System with Atomic Transactions (Complete)
-**Architecture Version:** 2.2
-**Next Phase:** 3.0 - Document Verification Endpoint + Workspace Review UI
+**Last Updated:** 2026-01-14 07:05
+**Phase:** 3.2 - Unified Inbox & Conversation Management (Complete)
+**Architecture Version:** 3.2
+**Next Phase:** 3.3 - SMS Status Tracking & Delivery Notifications

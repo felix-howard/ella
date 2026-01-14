@@ -12,7 +12,7 @@ import {
   ChevronRight,
   LogOut,
 } from 'lucide-react'
-import { cn } from '@ella/ui'
+import { cn, EllaLogoDark, EllaArrow } from '@ella/ui'
 import { useUIStore } from '../../stores/ui-store'
 import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 
@@ -37,20 +37,15 @@ export function Sidebar() {
       )}
     >
       {/* Logo Section */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+      <div className="h-16 flex items-center justify-center px-4 border-b border-border">
         {!sidebarCollapsed && (
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-lg">E</span>
-            </div>
-            <span className="font-semibold text-xl text-primary">Ella</span>
+          <Link to="/">
+            <img src={EllaLogoDark} alt="ella.tax" className="h-8 object-contain" />
           </Link>
         )}
         {sidebarCollapsed && (
-          <Link to="/" className="w-full flex justify-center">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-lg">E</span>
-            </div>
+          <Link to="/">
+            <img src={EllaArrow} alt="Ella" className="w-8 h-8 object-contain" />
           </Link>
         )}
       </div>

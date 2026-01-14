@@ -124,9 +124,13 @@ function CreateClientPage() {
     setSubmitError(null)
 
     try {
+      // Format phone as +1XXXXXXXXXX for US numbers (backend requirement)
+      const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
+      const formattedPhone = `+1${cleanedPhone}`
+
       const response = await api.clients.create({
         name: basicInfo.name.trim(),
-        phone: basicInfo.phone.replace(/\D/g, ''),
+        phone: formattedPhone,
         email: basicInfo.email || undefined,
         language: basicInfo.language,
         profile: {
@@ -368,7 +372,7 @@ function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
           type="tel"
           value={data.phone}
           onChange={(e) => handlePhoneChange(e.target.value)}
-          placeholder="(818) 222-3333"
+          placeholder="(818) 222-3333 hoặc 8182223333"
           className={cn(
             'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',

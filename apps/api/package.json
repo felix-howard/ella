@@ -22,6 +22,7 @@
     "@hono/zod-openapi": "=0.18.3",
     "@hono/zod-validator": "^0.7.6",
     "hono": "^4.6.15",
+    "inngest": "^3.49.1",
     "nanoid": "^5.1.6",
     "node-cron": "^4.2.1",
     "twilio": "^5.4.0",

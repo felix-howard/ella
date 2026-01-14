@@ -5,31 +5,37 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────┐
-│           Frontend Layer (React)                 │
-│    apps/web - User-facing web application       │
-└──────────────────┬──────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│         Frontend Layer (React)                    │
+│   apps/portal & apps/workspace                   │
+│   - Client upload portal & staff dashboard      │
+└──────────────────┬───────────────────────────────┘
                    │
                    ↓ HTTP/REST API calls
 ┌──────────────────────────────────────────────────┐
-│         Backend Layer (API Server)                │
-│  apps/api - Express/Fastify API endpoints        │
+│      Backend Layer (Hono API Server)             │
+│   apps/api/src - REST endpoints + webhooks      │
 └──────────────────┬───────────────────────────────┘
                    │
-                   ↓ Prisma ORM queries
+         ┌─────────┴──────────┐
+         ↓                    ↓
+┌─────────────────┐  ┌──────────────────────────┐
+│ Prisma ORM      │  │ Inngest Cloud Platform   │
+│ (Database)      │  │ (Background Jobs)        │
+└────────┬────────┘  └──────────┬───────────────┘
+         │                      │
+         ↓                      ↓
 ┌──────────────────────────────────────────────────┐
-│      Shared Packages (Monorepo Utilities)        │
+│     Data Layer (PostgreSQL + Job Queue)          │
+│  - Tax cases, documents, messages                │
+│  - Background job execution log                  │
+└──────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────┐
+│   Shared Packages (Monorepo Utilities)           │
 │  ├─ @ella/db - Database & Prisma client         │
 │  ├─ @ella/shared - Types & validation schemas   │
 │  └─ @ella/ui - Component library                │
-└──────────────────┬───────────────────────────────┘
-                   │
-                   ↓ Database queries
-┌──────────────────────────────────────────────────┐
-│     Data Layer (PostgreSQL)                      │
-│     - User accounts & documents                  │
-│     - Audit logs                                │
-│     - Compliance data                           │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -341,6 +347,144 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - Version: 4.0.0+
 - CSS output: src/styles.css
 - Utility-first styling with variants
+
+## Background Job Processing (Inngest)
+
+**Purpose:** Reliable, scalable background job execution for long-running tasks like AI document classification, OCR extraction, and batch processing.
+
+### Architecture
+
+```
+Document Upload Event
+        ↓
+POST /portal/:token/upload
+        ↓
+Create RawImage record
+        ↓
+Emit: inngest.send({ name: 'document/uploaded', data: {...} })
+        ↓
+Inngest Cloud receives event
+        ↓
+Matches event to classifyDocumentJob trigger
+        ↓
+Execute classifyDocumentJob with retry logic (3 retries)
+        ↓
+Steps:
+  1. Fetch image from R2
+  2. Classify with Gemini (docType + confidence)
+  3. Detect duplicates
+  4. Update RawImage.classifiedType, aiConfidence
+  5. Trigger OCR if confidence > 60%
+  6. Emit: document/classification.complete event
+        ↓
+Frontend polls /messages/conversations for updates (Phase 05)
+```
+
+### Inngest Client & Configuration
+
+**Singleton Pattern (`apps/api/src/lib/inngest.ts`):**
+```typescript
+export const inngest = new Inngest({
+  id: 'ella',
+})
+```
+
+**Type-Safe Events:**
+- `document/uploaded` - Triggered on file upload
+- `document/classification.complete` - Fired on completion (Phase 05)
+
+### Inngest Route
+
+**Endpoint:** `POST/GET/PUT /api/inngest`
+
+**Responsibilities:**
+- Register all Inngest functions from `jobs/` directory
+- Handle function discovery & invocation
+- Validate signing key (prevents unauthorized triggers)
+- Serve development UI for monitoring
+
+**Configuration:**
+```typescript
+serve({
+  client: inngest,
+  functions: [classifyDocumentJob],
+  signingKey: config.inngest.signingKey || undefined,
+})
+```
+
+### Background Jobs
+
+**classifyDocumentJob** (`apps/api/src/jobs/classify-document.ts`)
+- **ID:** `classify-document`
+- **Trigger:** `document/uploaded` event
+- **Retries:** 3 (exponential backoff)
+- **Step Structure:**
+  1. `fetch-image` - Retrieve image from R2 storage
+  2. `classify` - Gemini vision classification
+  3. `update-db` - Update RawImage record with results
+- **Future (Phase 02):** Full Gemini + OCR integration
+- **Status:** Placeholder implementation (steps documented)
+
+### Environment Configuration
+
+**Required (Production):**
+```bash
+INNGEST_SIGNING_KEY=<generated-key>  # Validates cloud requests
+```
+
+**Optional (Local Dev):**
+```bash
+INNGEST_EVENT_KEY=<event-api-key>   # For sending events to cloud
+```
+
+**Config Structure:**
+```typescript
+inngest: {
+  eventKey: string,         // Optional: cloud event API key
+  signingKey: string,       // Required in production
+  isConfigured: boolean,    // true if eventKey set
+  isProductionReady: boolean // Enforces signingKey in prod
+}
+```
+
+### Security Considerations
+
+**Signing Key Validation:**
+- All requests from Inngest cloud validated with signing key
+- Prevents unauthorized job triggers
+- Required in production deployments
+- Optional in local development
+
+**Public Route:**
+- `/api/inngest` is intentionally public (no auth required)
+- Allows Inngest cloud to invoke jobs reliably
+- Protected by signing key, not authentication
+
+### Event Flow Integration
+
+**Document Upload Triggering Jobs:**
+```typescript
+// In portal upload route:
+await inngest.send({
+  name: 'document/uploaded',
+  data: {
+    rawImageId,
+    caseId,
+    r2Key,
+    mimeType,
+    uploadedAt: new Date().toISOString(),
+  },
+})
+```
+
+**Phase 02 Implementation Plan:**
+- Fetch image buffer from R2 via signed URL
+- Call Gemini classification with image
+- Extract document type + confidence score
+- If high confidence: Trigger OCR extraction job
+- If low confidence: Create VERIFY_DOCS action
+- Update RawImage + ChecklistItem status
+- Emit completion event for real-time frontend updates
 
 ## Data Flow
 
@@ -1110,7 +1254,7 @@ scheduler: {
 
 ---
 
-**Last Updated:** 2026-01-14 14:25
-**Phase:** 2 - Make It Usable (Complete) + 3.2 - Unified Inbox & Conversation Management (Complete)
-**Architecture Version:** 3.2
-**Next Phase:** 2.1 Advanced - Document Upload Batch Processing
+**Last Updated:** 2026-01-14 21:16
+**Phase:** Phase 01 Inngest Setup (Complete) + Phase 2-4 Complete
+**Architecture Version:** 4.0 (Inngest Background Jobs)
+**Next Phase:** Phase 02 - Inngest Job Implementation (Gemini Classification + OCR)

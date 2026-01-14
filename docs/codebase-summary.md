@@ -817,20 +817,146 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 - `validateExtractedData(docType, data)` - Type-specific validation
 - `getFieldLabels(docType)` - Returns Vietnamese field labels
 
+## Phase 01: Inngest Background Job Processing Setup (2026-01-14)
+
+**Phase 01 focuses on establishing a reliable, scalable background job processing system using Inngest for document classification and AI processing pipelines.**
+
+### Phase 01 Infrastructure (Complete)
+
+**Core Files:**
+- `apps/api/src/lib/inngest.ts` - Inngest client singleton + event type definitions
+- `apps/api/src/routes/inngest.ts` - Inngest serve endpoint (handles function discovery, invocation, dev UI)
+- `apps/api/src/jobs/index.ts` - Jobs barrel export
+- `apps/api/src/jobs/classify-document.ts` - Document classification job (placeholder for Phase 02)
+
+**Configuration:**
+- `apps/api/src/lib/config.ts` - Inngest configuration section with eventKey + signingKey
+- `.env.example` - Inngest environment variables documented
+
+**Architecture Overview:**
+```
+Inngest Cloud Platform
+        ↓
+POST /api/inngest (serve endpoint)
+        ↓
+inngest.createFunction() tasks
+        ↓
+document/uploaded event → classifyDocumentJob
+        ↓
+Background Processing (Retry logic, rate limiting, monitoring)
+```
+
+### Event Definitions
+
+**Type-safe events defined in `inngest.ts`:**
+
+1. `document/uploaded` - Triggered when client uploads document to portal
+   ```typescript
+   {
+     rawImageId: string
+     caseId: string
+     r2Key: string
+     mimeType: string
+     uploadedAt: string
+   }
+   ```
+
+2. `document/classification.complete` - Fired when classification finishes (Phase 05)
+   ```typescript
+   {
+     rawImageId: string
+     caseId: string
+     docType: string | null
+     confidence: number
+     status: 'success' | 'failed' | 'needs_review'
+     errorMessage?: string
+   }
+   ```
+
+### Background Jobs (Placeholder - Implements Phase 02)
+
+**classifyDocumentJob** - Document Classification Pipeline
+- **ID:** `classify-document`
+- **Trigger:** `document/uploaded` event
+- **Retries:** 3 (configurable)
+- **Steps:** Fetch R2 → Classify → Detect duplicates → Update DB → OCR extract → Notify
+- **Status:** Placeholder steps documented (implementation Phase 02)
+- **Future integrations:** Gemini classification, blur detection, OCR extraction
+
+### Configuration (Inngest)
+
+**Environment Variables:**
+```bash
+# Event key for sending events (optional for local dev)
+INNGEST_EVENT_KEY=""
+
+# Signing key - REQUIRED in production!
+# Validates requests from Inngest cloud, prevents unauthorized job triggers
+INNGEST_SIGNING_KEY=""
+```
+
+**Config Structure:**
+```typescript
+inngest: {
+  eventKey: string              // Optional: cloud event API key
+  signingKey: string           // Required in production for security
+  isConfigured: boolean        // true if eventKey set
+  isProductionReady: boolean   // true if production + signingKey, else true for dev
+}
+```
+
+**Security Notes:**
+- Signing key validates all requests from Inngest cloud
+- Production deployments must have INNGEST_SIGNING_KEY set
+- Local dev can run without signing key for testing
+- Route serves at `/api/inngest` with automatic signature validation
+
+### API Route
+
+**Endpoint:** `POST/GET/PUT /api/inngest`
+- **Purpose:** Serves Inngest background job functions
+- **Functionality:**
+  - Function discovery (registers all Inngest functions)
+  - Job invocation (executes background tasks)
+  - Development UI (introspection + testing)
+- **Middleware:** Signature key validation (if configured)
+- **Registration:** All jobs in `jobs/index.ts` exported + registered
+
+### Router Integration
+
+**In `apps/api/src/app.ts`:**
+```typescript
+import { inngestRoute } from './routes/inngest'
+app.route('/api/inngest', inngestRoute)  // Public route (no auth required)
+```
+
+**Public Route Note:** `/api/inngest` is intentionally public + outside auth middleware to allow Inngest cloud to invoke jobs reliably.
+
 ## Next Steps
 
-1. **Phase 4.3** - Document type auto-detection on entry
+1. **Phase 02 Inngest Implementation** - Document Classification Job
+   - Implement `classifyDocumentJob` with Gemini integration
+   - Add AI classification step + blur detection
+   - Create Inngest event triggers on file upload
+   - Build job monitoring + error handling
+
+2. **Phase 03 Advanced** - Multi-stage Processing Pipeline
+   - Parallel OCR extraction for multiple documents
+   - Batch job scheduling with concurrency control
+   - Dead letter queue for failed jobs
+
+3. **Phase 4.3** - Document type auto-detection on entry
    - Auto-detect and pre-fill document type when image viewed
    - Pre-populate field extraction based on classification
 
-2. **Phase 4.4** - Multi-page document support
+4. **Phase 4.4** - Multi-page document support
    - PDF page navigation in viewer
    - Thumbnail strip for quick navigation
    - Page-specific field highlighting
 
-3. **Phase 5.0** - Advanced search & tax case analytics
-4. **Phase 6.0** - Authentication integration (Clerk setup)
-5. **Phase 7.0** - Signed R2 URL integration & image caching
+5. **Phase 5.0** - Advanced search & tax case analytics
+6. **Phase 6.0** - Full authentication integration (Clerk setup)
+7. **Phase 7.0** - Signed R2 URL integration & image caching
 
 ## Key Decisions
 
@@ -859,7 +985,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-14 14:30
-**Status:** Phase 2 Complete - Make It Usable (Core Workflow) + Phase 4.2 Complete
-**Branch:** fix/bug-fixes
-**Next Phase:** Phase 2.1 Advanced - Batch Document Processing & Advanced Search
+**Last Updated:** 2026-01-14 21:16
+**Status:** Phase 2 Complete + Phase 3 Complete + Phase 4.1-4.2 Complete + Phase 01 Inngest Setup Complete
+**Branch:** feature/enhancement
+**Next Phase:** Phase 02 Inngest Job Implementation - Document Classification Pipeline

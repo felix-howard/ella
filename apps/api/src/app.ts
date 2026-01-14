@@ -12,6 +12,7 @@ import { docsRoute } from './routes/docs'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
 import { twilioWebhookRoute } from './routes/webhooks'
+import { inngestRoute } from './routes/inngest'
 
 const app = new OpenAPIHono()
 
@@ -35,6 +36,7 @@ app.use('*', clerkMiddleware())
 app.route('/health', healthRoute)
 app.route('/portal', portalRoute)
 app.route('/webhooks/twilio', twilioWebhookRoute)
+app.route('/api/inngest', inngestRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

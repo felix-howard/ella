@@ -78,6 +78,19 @@ export const config = {
     enabled: process.env.SCHEDULER_ENABLED === 'true',
     reminderCron: process.env.REMINDER_CRON || '0 2 * * *', // 2 AM UTC = 9 PM EST
   },
+
+  // Inngest Configuration
+  // Note: signingKey REQUIRED in production for security
+  inngest: {
+    eventKey: process.env.INNGEST_EVENT_KEY || '',
+    signingKey: process.env.INNGEST_SIGNING_KEY || '',
+    isConfigured: Boolean(process.env.INNGEST_EVENT_KEY),
+    // Production requires signing key to prevent unauthorized job triggers
+    isProductionReady:
+      process.env.NODE_ENV === 'production'
+        ? Boolean(process.env.INNGEST_SIGNING_KEY)
+        : true,
+  },
 } as const
 
 export type Config = typeof config

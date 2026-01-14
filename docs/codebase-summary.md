@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-13
-**Current Branch:** feature/phase-3-communication
+**Current Date:** 2026-01-14
+**Current Branch:** feature/phase-4-data-entry-optimization
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 3.2 | Unified Inbox & Conversation Management | **2026-01-14** |
+| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | **2026-01-14** |
+| Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
 | Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
 | Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
 | Phase 2.1 | AI Document Processing | 2026-01-13 |
@@ -129,18 +130,19 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - `/clients` - Kanban/table client view
 - `/clients/$clientId` - Client detail (3 tabs)
 - `/clients/new` - Multi-step client creation
-- `/cases/$caseId/entry` - Data entry mode
+- `/cases/$caseId/entry` - Data entry mode (Phase 4.1: enhanced with clipboard workflow)
 - `/messages` - Unified inbox (split view: conversations left, thread right)
 - `/messages/$caseId` - Conversation detail with message thread
 
 **Features:**
 - Vietnamese-first UI
-- Zustand state management
-- 20+ reusable components + 7 messaging components
+- Zustand state management (UI store + toast store)
+- 20+ reusable components + 7 messaging components + toast system
 - Type-safe routing (TanStack Router)
 - Real-time polling: 30s inbox, 10s active conversation
 - Unified message management (SMS, portal, system)
 - Unread count badges & filtering
+- Copy-to-clipboard workflow with keyboard navigation (Phase 4.1)
 
 ## Database Schema Highlights
 
@@ -242,7 +244,49 @@ CLERK_SECRET_KEY=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2 - AI & Communication Integration)
+## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2, 4.1 - AI, Communication & Data Entry Optimization)
+
+### Phase 4.1 (Complete - 2026-01-14)
+**Copy-to-Clipboard Workflow (Data Entry Optimization)**
+
+**Core Additions:**
+- `apps/workspace/src/stores/toast-store.ts` - Zustand toast notification store with auto-dismiss & cleanup
+- `apps/workspace/src/components/ui/toast-container.tsx` - Toast UI component (bottom-center stack)
+- `apps/workspace/src/hooks/use-clipboard.ts` - Clipboard hook with modern API + fallback support
+- `apps/workspace/src/hooks/index.ts` - Hooks barrel export
+
+**Features:**
+- Toast system: success/error/info types, auto-dismiss (2s default), manual dismiss, memory leak prevention
+- useClipboard hook: copy text, copyFormatted for label:value pairs, browser fallback
+- Data entry page enhancements:
+  - Field configuration per document type (W2, 1099s, SSN, DL, Bank Statement)
+  - Keyboard navigation: Tab/Shift+Tab, Up/Down arrows, Enter to copy, Ctrl+Shift+C for copy-all
+  - Copy tracking visual feedback
+  - Formatted copy-all output with document type header
+  - Mark entry complete workflow
+
+**Keyboard Shortcuts:**
+- `Tab` - Next field
+- `Shift+Tab` - Previous field
+- `↑/↓` - Navigate field items
+- `Enter` - Copy focused field
+- `←/→` - Switch documents
+- `Ctrl+Shift+C` - Copy all fields
+
+**Memory Safety:**
+- Timeout cleanup tracking prevents memory leaks on manual toast dismiss
+- DOM cleanup in clipboard fallback
+- useCallback dependency optimization
+
+**Browser Compatibility:**
+- Modern: Clipboard API (Chrome 63+, Firefox 53+, Safari 13.1+, Edge 79+)
+- Fallback: execCommand for older browsers & IE 11
+
+**Files Modified:**
+- `apps/workspace/src/routes/__root.tsx` - Added ToastContainer
+- `apps/workspace/src/routes/cases/$caseId/entry.tsx` - Enhanced with clipboard, keyboard nav, copy tracking
+
+See detailed docs: [phase-4.1-copy-clipboard-workflow.md](./phase-4.1-copy-clipboard-workflow.md)
 
 ### Phase 3.2 (Complete - 2026-01-14)
 **Unified Inbox & Conversation Management**
@@ -487,11 +531,11 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ## Next Steps
 
-1. **Phase 3.3** - SMS status tracking & delivery notifications
-2. **Phase 4.0** - Email integration + scheduled messages
-3. **Phase 4.5** - Multi-page document support & PDF extraction
-4. **Phase 5.0** - Advanced search & tax case analytics
-5. **Phase 6.0** - Authentication integration (Clerk setup)
+1. **Phase 4.2** - Side-by-side document viewer (split-pane layout)
+2. **Phase 4.3** - Document type auto-detection on entry
+3. **Phase 5.0** - Advanced search & tax case analytics
+4. **Phase 6.0** - Authentication integration (Clerk setup)
+5. **Phase 7.0** - Multi-page document support & PDF extraction
 
 ## Key Decisions
 
@@ -520,7 +564,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-14 07:05
-**Status:** Phase 3.2 Complete - Unified Inbox & Conversation Management
-**Branch:** feature/phase-3-communication
-**Next Phase:** Phase 3.3 - SMS Status Tracking & Delivery Notifications
+**Last Updated:** 2026-01-14 08:35
+**Status:** Phase 4.1 Complete - Copy-to-Clipboard Workflow (Data Entry Optimization)
+**Branch:** feature/phase-4-data-entry-optimization
+**Next Phase:** Phase 4.2 - Side-by-Side Document Viewer

@@ -2,8 +2,9 @@
  * Sidebar component for Ella Workspace
  * Collapsible navigation with Ella mint green design
  */
-import { Link, useRouterState } from '@tanstack/react-router'
+import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useClerk, useUser } from '@clerk/clerk-react'
 import {
   LayoutDashboard,
   CheckSquare,
@@ -29,7 +30,24 @@ const navItemsWithIcons = [
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const routerState = useRouterState()
+  const navigate = useNavigate()
   const currentPath = routerState.location.pathname
+  const { signOut } = useClerk()
+  const { user } = useUser()
+
+  // Get user initials from Clerk user data
+  const userInitials = user?.firstName && user?.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : user?.emailAddresses?.[0]?.emailAddress?.substring(0, 2).toUpperCase() || 'NV'
+
+  const userName = user?.fullName || user?.firstName || UI_TEXT.staff.defaultName
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress || UI_TEXT.staff.defaultEmail
+
+  // Handle logout
+  const handleLogout = async () => {
+    await signOut()
+    navigate({ to: '/login' })
+  }
 
   // Fetch total unread count for messages badge
   const { data: unreadData } = useQuery({
@@ -118,18 +136,19 @@ export function Sidebar() {
           )}
         >
           <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-            <span className="text-white text-sm font-medium">NV</span>
+            <span className="text-white text-sm font-medium">{userInitials}</span>
           </div>
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{UI_TEXT.staff.defaultName}</p>
-              <p className="text-xs text-muted-foreground truncate">{UI_TEXT.staff.defaultEmail}</p>
+              <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>
           )}
         </div>
 
         {/* Logout button */}
         <button
+          onClick={handleLogout}
           className={cn(
             'flex items-center gap-3 px-3 py-2 w-full rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors',
             sidebarCollapsed && 'justify-center'

@@ -124,13 +124,14 @@ enum Language {
 
 model Staff {
   id        String    @id @default(cuid())
+  clerkId   String?   @unique  // Clerk user ID for auth sync
   email     String    @unique
   name      String
   role      StaffRole @default(STAFF)
   avatarUrl String?
   isActive  Boolean   @default(true)
 
-  // Audit fields (H2)
+  // Audit fields
   deactivatedAt DateTime?
   lastLoginAt   DateTime?
 
@@ -138,41 +139,8 @@ model Staff {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-}
 
-// User model for authentication (Phase 3)
-model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String    // bcrypt hashed
-  name      String
-  role      StaffRole @default(STAFF)
-  avatarUrl String?
-  isActive  Boolean   @default(true)
-
-  refreshTokens RefreshToken[]
-  actions       Action[]       @relation("AssignedUser")
-
-  lastLoginAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  @@index([email])
-}
-
-// Refresh tokens for JWT rotation (Phase 3)
-model RefreshToken {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique // SHA-256 hashed
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt]) // H6: Index for cleanup queries
+  @@index([clerkId])
 }
 
 model Client {
@@ -425,10 +393,6 @@ model Action {
   assignedToId String?
   assignedTo   Staff?      @relation("AssignedStaff", fields: [assignedToId], references: [id])
 
-  // User assignment (Phase 3 - auth migration)
-  assignedUserId String?
-  assignedUser   User?       @relation("AssignedUser", fields: [assignedUserId], references: [id])
-
   isCompleted   Boolean    @default(false)
   completedAt   DateTime?
 
@@ -446,7 +410,6 @@ model Action {
   @@index([priority])
   @@index([isCompleted])
   @@index([assignedToId])
-  @@index([assignedUserId])
-  @@index([isCompleted, priority])      // H1: Composite index for action queue
-  @@index([assignedToId, isCompleted])  // H1: Composite index for staff's pending actions
+  @@index([isCompleted, priority])      // Composite index for action queue
+  @@index([assignedToId, isCompleted])  // Composite index for staff's pending actions
 }

@@ -7,10 +7,8 @@ import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import { sendBatchMissingReminders } from '../sms/notification-service'
 import { isSmsEnabled } from '../sms/message-sender'
-import { cleanupExpiredTokens } from '../auth'
 
 let reminderTask: ScheduledTask | null = null
-let tokenCleanupTask: ScheduledTask | null = null
 
 /**
  * Initialize scheduler with daily jobs
@@ -32,13 +30,6 @@ export function initializeScheduler() {
     console.log('[Scheduler] SMS reminders disabled - Twilio not configured')
   }
 
-  // Token cleanup job (3 AM UTC daily) - always enabled if scheduler is enabled
-  tokenCleanupTask = cron.schedule('0 3 * * *', async () => {
-    console.log('[Scheduler] Running token cleanup job...')
-    const count = await cleanupExpiredTokens()
-    console.log(`[Scheduler] Cleaned up ${count} expired/revoked tokens`)
-  })
-
   console.log('[Scheduler] Scheduler initialized successfully')
 }
 
@@ -49,10 +40,6 @@ export function stopScheduler() {
   if (reminderTask) {
     reminderTask.stop()
     reminderTask = null
-  }
-  if (tokenCleanupTask) {
-    tokenCleanupTask.stop()
-    tokenCleanupTask = null
   }
   console.log('[Scheduler] Stopped all jobs')
 }
@@ -131,13 +118,11 @@ export function getSchedulerStatus(): {
   smsEnabled: boolean
   cronSchedule: string
   reminderRunning: boolean
-  tokenCleanupRunning: boolean
 } {
   return {
     enabled: config.scheduler.enabled,
     smsEnabled: isSmsEnabled(),
     cronSchedule: config.scheduler.reminderCron,
     reminderRunning: reminderTask !== null,
-    tokenCleanupRunning: tokenCleanupTask !== null,
   }
 }

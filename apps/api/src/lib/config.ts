@@ -64,22 +64,13 @@ export const config = {
     ),
   },
 
-  // Authentication Configuration (Phase 3)
-  auth: {
-    jwtSecret: (() => {
-      const secret = process.env.JWT_SECRET
-      if (!secret || secret.length < 32) {
-        if (process.env.NODE_ENV === 'production') {
-          throw new Error('JWT_SECRET must be set in production (min 32 chars)')
-        }
-        console.warn('[SECURITY] Using dev JWT secret - NOT FOR PRODUCTION')
-        return 'development-secret-change-in-prod-32chars!'
-      }
-      return secret
-    })(),
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
-    refreshTokenExpiresDays: parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10),
-    isConfigured: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32),
+  // Clerk Authentication (Phase 3)
+  clerk: {
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
+    secretKey: process.env.CLERK_SECRET_KEY || '',
+    isConfigured: Boolean(
+      process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
+    ),
   },
 
   // Scheduler Configuration (Phase 3)

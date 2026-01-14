@@ -1,46 +1,70 @@
 /**
- * Auth Middleware - JWT verification and role-based access control
- * Phase 3: Authentication System
+ * Auth Middleware - Clerk authentication and role-based access control
+ * Phase 3: Authentication System with Clerk
+ * Uses @hono/clerk-auth official middleware
  */
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
-import { verifyAccessToken } from '../services/auth'
+import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
+import { syncStaffFromClerk, getStaffByClerkId, type AuthUser } from '../services/auth'
 
-export interface AuthUser {
-  id: string
-  email: string
-  role: string
-  name: string
-}
+export type { AuthUser }
 
 export interface AuthVariables {
   user: AuthUser
 }
 
 /**
- * JWT verification middleware
- * Extracts user from Authorization: Bearer <token> header
+ * Base Clerk middleware - verifies JWT and injects auth context
+ */
+export { clerkMiddleware }
+
+/**
+ * Auth middleware that requires authentication and syncs with Staff table
+ * Extracts user from Clerk session and gets role from Staff table
  */
 export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
-  const authHeader = c.req.header('Authorization')
+  const auth = getAuth(c)
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!auth?.userId) {
     throw new HTTPException(401, { message: 'Yêu cầu xác thực' })
   }
 
-  const token = authHeader.slice(7)
+  // Get staff record to check role
+  let staff = await getStaffByClerkId(auth.userId)
 
-  const payload = await verifyAccessToken(token)
-  if (!payload) {
-    throw new HTTPException(401, { message: 'Token không hợp lệ hoặc đã hết hạn' })
+  // If no staff record exists, sync from Clerk session claims
+  if (!staff) {
+    // Try to get user info from session claims
+    const sessionClaims = auth.sessionClaims as {
+      email?: string
+      name?: string
+      picture?: string
+    } | undefined
+
+    if (sessionClaims?.email) {
+      await syncStaffFromClerk(
+        auth.userId,
+        sessionClaims.email,
+        sessionClaims.name || 'Unknown',
+        sessionClaims.picture
+      )
+      staff = await getStaffByClerkId(auth.userId)
+    }
   }
 
-  // Set user in context (name is now included in JWT - H3)
+  // Check if staff is active
+  if (staff && !staff.isActive) {
+    throw new HTTPException(403, { message: 'Tài khoản đã bị vô hiệu hóa' })
+  }
+
+  // Set user in context
   c.set('user', {
-    id: payload.sub,
-    email: payload.email,
-    role: payload.role,
-    name: payload.name,
+    id: auth.userId,
+    email: staff?.email || '',
+    name: staff?.name || 'Unknown',
+    role: staff?.role || 'STAFF',
+    imageUrl: staff?.avatarUrl || undefined,
   })
 
   await next()
@@ -51,18 +75,18 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
  * Sets user if valid token present, continues without if not
  */
 export const optionalAuthMiddleware = createMiddleware<{ Variables: Partial<AuthVariables> }>(async (c, next) => {
-  const authHeader = c.req.header('Authorization')
+  const auth = getAuth(c)
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.slice(7)
-    const payload = await verifyAccessToken(token)
+  if (auth?.userId) {
+    const staff = await getStaffByClerkId(auth.userId)
 
-    if (payload) {
+    if (staff && staff.isActive) {
       c.set('user', {
-        id: payload.sub,
-        email: payload.email,
-        role: payload.role,
-        name: payload.name,
+        id: auth.userId,
+        email: staff.email,
+        name: staff.name,
+        role: staff.role,
+        imageUrl: staff.avatarUrl || undefined,
       })
     }
   }

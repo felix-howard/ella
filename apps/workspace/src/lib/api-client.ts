@@ -17,6 +17,16 @@ const DEFAULT_TIMEOUT = 30000 // 30 seconds
 const MAX_RETRIES = 3
 const RETRY_DELAY_BASE = 1000 // 1 second base delay for exponential backoff
 
+// Auth token getter (set by ClerkAuthProvider)
+let getAuthToken: (() => Promise<string | null>) | null = null
+
+/**
+ * Set the auth token getter function (called by ClerkAuthProvider)
+ */
+export function setAuthTokenGetter(getter: () => Promise<string | null>) {
+  getAuthToken = getter
+}
+
 // API error class for consistent error handling
 export class ApiError extends Error {
   constructor(
@@ -119,11 +129,26 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const { params, timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES, ...fetchOptions } = options
   const url = buildUrl(path, params)
 
+  // Get auth token if available
+  let authHeaders: Record<string, string> = {}
+  if (getAuthToken) {
+    const token = await getAuthToken()
+    if (token) {
+      authHeaders = { Authorization: `Bearer ${token}` }
+    }
+  }
+
+  // Merge auth headers with existing headers
+  const headersWithAuth = {
+    ...fetchOptions.headers,
+    ...authHeaders,
+  }
+
   let lastError: ApiError | null = null
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await attemptRequest<T>(url, fetchOptions, timeout)
+      return await attemptRequest<T>(url, { ...fetchOptions, headers: headersWithAuth }, timeout)
     } catch (error) {
       lastError = error instanceof ApiError ? error : new ApiError(0, 'UNKNOWN', 'Unknown error')
 

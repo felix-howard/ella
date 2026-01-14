@@ -100,7 +100,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (35 total):**
+**Implemented Endpoints (36 total):**
 
 **Clients (6):**
 - `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
@@ -119,7 +119,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /cases/:id/images` - Raw images for case with pagination
 - `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
 
-**Digital Documents (9 - Phase 2 + Phase 03 additions):**
+**Digital Documents (10 - Phase 2 + Phase 03 + Phase 04 additions):**
 - `GET /docs/:id` - Document details with extracted data
 - `POST /docs/:id/classify` - AI classify raw image to docType
 - `POST /docs/:id/ocr` - Trigger OCR for data extraction
@@ -129,6 +129,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /docs/groups/:groupId` - Get image group with all duplicate images (PHASE 03 NEW)
 - `POST /docs/groups/:groupId/select-best` - Select best image from duplicate group (PHASE 03 NEW)
 - `GET /docs/groups/case/:caseId` - Get all image groups for case (PHASE 03 NEW)
+
+**Raw Images (1 - Phase 04 NEW):**
+- `PATCH /images/:id/classification` - CPA review & approve/reject AI classification (PHASE 04 NEW)
 
 **Actions (2):**
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
@@ -1350,17 +1353,18 @@ scheduler: {
 ---
 
 **Last Updated:** 2026-01-14
-**Phase:** Phase 02 - Background Classification Job (Complete)
-**Architecture Version:** 4.1 (Production-Ready Inngest + Confidence Routing)
+**Phase:** Phase 04 - Frontend Review UX (Complete)
+**Architecture Version:** 4.2 (Review UX + Confidence Thresholds)
 **Completed Features:**
-- ✓ Inngest durable job execution (5-step pipeline)
-- ✓ Gemini classification with confidence scoring
-- ✓ Confidence-based routing (< 60% | 60-85% | >= 85%)
-- ✓ OCR extraction (5 document types)
-- ✓ Atomic database transactions
-- ✓ R2 image fetching via signed URLs
-- ✓ Production security (signing key validation)
-- ✓ Inngest throttling (10 req/min)
-- ✓ Error handling & retry logic
-- ✓ Portal integration with batch event sending
-**Next Phase:** Phase 3.1 - Advanced OCR (PDF, 1099-DIV/K/R) + Real-time Notifications
+- ✓ Confidence-level system (HIGH/MEDIUM/LOW with thresholds)
+- ✓ Confidence badges in image gallery
+- ✓ Classification review modal for CPA verification
+- ✓ Approve/reject workflow with optimistic updates
+- ✓ XSS-safe signed URL validation
+- ✓ Atomic database transactions (RawImage + ChecklistItem + DigitalDoc)
+- ✓ BLURRY_DETECTED action creation on rejection
+- ✓ Keyboard shortcuts (Enter/Esc)
+- ✓ Toast notifications (success/error)
+- ✓ React Query integration with cache invalidation
+- ✓ 21 supported document types in selector
+**Next Phase:** Phase 04.1 - Confidence-based Action Queue + Batch Workflow

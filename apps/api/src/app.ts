@@ -9,6 +9,7 @@ import { clientsRoute } from './routes/clients'
 import { casesRoute } from './routes/cases'
 import { actionsRoute } from './routes/actions'
 import { docsRoute } from './routes/docs'
+import { imagesRoute } from './routes/images'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
 import { twilioWebhookRoute } from './routes/webhooks'
@@ -43,6 +44,7 @@ app.use('/clients/*', authMiddleware)
 app.use('/cases/*', authMiddleware)
 app.use('/actions/*', authMiddleware)
 app.use('/docs/*', authMiddleware)
+app.use('/images/*', authMiddleware)
 app.use('/messages/*', authMiddleware)
 
 // Routes
@@ -50,6 +52,7 @@ app.route('/clients', clientsRoute)
 app.route('/cases', casesRoute)
 app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
+app.route('/images', imagesRoute)
 app.route('/messages', messagesRoute)
 
 // OpenAPI documentation

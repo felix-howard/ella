@@ -70,6 +70,8 @@ export function FileViewerModal({
   const fileType = getFileType(filename)
 
   // Reset state when modal opens with new file
+  // Note: setState calls here are intentional to reset viewer state when switching files
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setZoom(1)
@@ -79,6 +81,7 @@ export function FileViewerModal({
       setPdfError(null)
     }
   }, [isOpen, url])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback(

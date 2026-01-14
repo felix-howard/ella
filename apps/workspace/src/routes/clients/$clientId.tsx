@@ -29,7 +29,7 @@ import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
-import { VerificationPanel } from '../../components/documents'
+import { VerificationPanel, ClassificationReviewModal } from '../../components/documents'
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_COLORS,
@@ -39,7 +39,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type ChecklistItemStatus } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -53,6 +53,8 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
 
   // Error code to Vietnamese message mapping
   const SMS_ERROR_MESSAGES: Record<string, string> = {
@@ -171,6 +173,18 @@ function ClientDetailPage() {
       setCopiedField(field)
       setTimeout(() => setCopiedField(null), 2000)
     }
+  }
+
+  // Handler for opening classification review modal
+  const handleReviewClassification = (image: RawImage) => {
+    setReviewImage(image)
+    setIsReviewModalOpen(true)
+  }
+
+  const handleCloseReviewModal = () => {
+    setIsReviewModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setReviewImage(null), 200)
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -513,8 +527,19 @@ function ClientDetailPage() {
               images={rawImages}
               onImageClick={(img) => console.log('Clicked image:', img.id)}
               onClassify={(img) => console.log('Classify image:', img.id)}
+              onReviewClassification={handleReviewClassification}
             />
           </div>
+
+          {/* Classification Review Modal */}
+          {latestCaseId && (
+            <ClassificationReviewModal
+              image={reviewImage}
+              isOpen={isReviewModalOpen}
+              onClose={handleCloseReviewModal}
+              caseId={latestCaseId}
+            />
+          )}
 
           {/* Digital Docs Table */}
           <div className="bg-card rounded-xl border border-border p-6">

@@ -253,6 +253,16 @@ export const api = {
       }),
   },
 
+  // Raw Images
+  images: {
+    // Update classification for an image (approve/reject/change type)
+    updateClassification: (id: string, data: { docType: string; action: 'approve' | 'reject' }) =>
+      request<{ success: boolean; status: string }>(`/images/${id}/classification`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  },
+
   // Messages
   messages: {
     list: (caseId: string) => request<MessagesResponse>(`/messages/${caseId}`),
@@ -414,9 +424,24 @@ export interface RawImage {
   filename: string
   r2Key: string
   status: string
+  classifiedType: string | null
+  aiConfidence: number | null
+  imageGroupId: string | null
   createdAt: string
   updatedAt: string
   checklistItem?: { template: ChecklistTemplate } | null
+  imageGroup?: ImageGroup | null
+}
+
+// Image group for duplicate detection
+export interface ImageGroup {
+  id: string
+  caseId: string
+  docType: string
+  bestImageId: string | null
+  images: { id: string; filename: string }[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface DigitalDoc {

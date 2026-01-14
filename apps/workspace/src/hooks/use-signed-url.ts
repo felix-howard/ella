@@ -3,7 +3,7 @@
  * Automatically refreshes when URL expires
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 
 interface UseSignedUrlOptions {
@@ -40,7 +40,7 @@ export function useSignedUrl(imageId: string | null, options: UseSignedUrlOption
  */
 export async function prefetchSignedUrls(
   imageIds: string[],
-  queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>
+  queryClient: QueryClient
 ) {
   await Promise.all(
     imageIds.map((id) =>

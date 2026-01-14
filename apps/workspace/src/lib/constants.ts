@@ -128,6 +128,25 @@ export const FILING_STATUS_LABELS: Record<string, string> = {
   QUALIFYING_WIDOW: 'Góa phụ có con',
 }
 
+// AI Classification confidence level config
+// Used for confidence badges in image gallery and review workflow
+export const CONFIDENCE_LEVELS = {
+  HIGH: { min: 0.85, label: 'Cao', color: 'text-success', bg: 'bg-success/10' },
+  MEDIUM: { min: 0.60, label: 'Trung bình', color: 'text-warning', bg: 'bg-warning/10' },
+  LOW: { min: 0, label: 'Thấp', color: 'text-error', bg: 'bg-error/10' },
+} as const
+
+/**
+ * Get confidence level based on score
+ * @param confidence - Confidence score from 0-1
+ * @returns Confidence level config (HIGH, MEDIUM, or LOW)
+ */
+export function getConfidenceLevel(confidence: number | null) {
+  if (!confidence || confidence < 0.60) return CONFIDENCE_LEVELS.LOW
+  if (confidence < 0.85) return CONFIDENCE_LEVELS.MEDIUM
+  return CONFIDENCE_LEVELS.HIGH
+}
+
 // Sidebar navigation items
 export const NAV_ITEMS = [
   { path: '/', label: 'Tổng quan', icon: 'LayoutDashboard' },

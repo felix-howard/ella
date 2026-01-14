@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
 | **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
 | **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
 | Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
@@ -474,7 +475,50 @@ TWILIO_PHONE_NUMBER=+1234567890
 
 ---
 
-## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - AI, Communication & Data Entry Optimization)
+## Recent Changes (Phase 04, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - Review UX, AI, Communication & Data Entry)
+
+### Phase 04 (Complete - 2026-01-14)
+**Frontend Review UX - Confidence Badges & Classification Modal**
+
+**Core Additions:**
+- `apps/workspace/src/lib/constants.ts` - CONFIDENCE_LEVELS config + getConfidenceLevel() helper
+- `apps/workspace/src/lib/api-client.ts` - RawImage type enhanced (classifiedType, aiConfidence), ImageGroup interface, api.images.updateClassification()
+- `apps/workspace/src/components/cases/raw-image-gallery.tsx` - Confidence badges, review button for MEDIUM/LOW confidence
+- `apps/workspace/src/components/documents/classification-review-modal.tsx` - Modal for CPA review + approval/rejection
+- `apps/api/src/routes/images/index.ts` - PATCH /images/:id/classification endpoint with atomic transactions
+
+**Confidence Levels:**
+- HIGH (85%+): Auto-linked "Cao" badge, no review needed
+- MEDIUM (60-85%): "Trung bình" badge, Review button visible, modal opens
+- LOW (<60%): "Thấp" badge, Review button visible, modal opens
+
+**Classification Review Modal:**
+- Image preview with XSS-safe signed URL validation
+- Current classification + confidence display
+- DocType selector dropdown (21 supported types)
+- Approve/Reject buttons
+- Keyboard shortcuts: Enter=Approve, Esc=Close
+- Optimistic React Query updates
+- Toast notifications
+
+**Approve Workflow:**
+1. PATCH /images/:id/classification { docType, action: 'approve' }
+2. Backend: RawImage.status = LINKED, aiConfidence = 1.0 (manual)
+3. Link to ChecklistItem + increment receivedCount
+4. Create/update DigitalDoc (PENDING status for OCR)
+5. Toast: "Đã xác nhận phân loại"
+
+**Reject Workflow:**
+1. PATCH /images/:id/classification { docType, action: 'reject' }
+2. Backend: RawImage.status = BLURRY, clear classification
+3. Create BLURRY_DETECTED action (HIGH priority)
+4. Toast: "Đã từ chối - yêu cầu gửi lại"
+
+**Security:**
+- XSS prevention: Signed URL validation against trusted cloud hosts
+- Only HTTPS URLs from .r2.cloudflarestorage.com, .amazonaws.com, .storage.googleapis.com, .blob.core.windows.net
+
+See detailed docs: [phase-04-frontend-review-ux.md](./phase-04-frontend-review-ux.md)
 
 ### Phase 4.2 (Complete - 2026-01-14)
 **Side-by-Side Document Viewer with Pan/Zoom & Field Highlighting**

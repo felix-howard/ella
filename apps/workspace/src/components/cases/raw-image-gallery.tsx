@@ -17,7 +17,7 @@ import {
   Loader2,
   FileText,
 } from 'lucide-react'
-import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { DOC_TYPE_LABELS, getConfidenceLevel } from '../../lib/constants'
 import { FileViewerModal } from '../file-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
@@ -38,6 +38,7 @@ interface RawImageGalleryProps {
   isLoading?: boolean
   onImageClick?: (image: RawImage) => void
   onClassify?: (image: RawImage) => void
+  onReviewClassification?: (image: RawImage) => void
 }
 
 // Status configuration for UI display
@@ -79,7 +80,7 @@ const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
   },
 }
 
-export function RawImageGallery({ images, isLoading, onImageClick, onClassify }: RawImageGalleryProps) {
+export function RawImageGallery({ images, isLoading, onImageClick, onClassify, onReviewClassification }: RawImageGalleryProps) {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)
 
@@ -148,6 +149,7 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
             image={image}
             onClick={() => handleImageClick(image)}
             onClassify={() => onClassify?.(image)}
+            onReviewClassification={() => onReviewClassification?.(image)}
           />
         ))}
       </div>
@@ -197,15 +199,23 @@ interface ImageCardProps {
   image: RawImage
   onClick: () => void
   onClassify?: () => void
+  onReviewClassification?: () => void
 }
 
-function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
+function ImageCard({ image, onClick, onClassify, onReviewClassification }: ImageCardProps) {
   const status = image.status as ImageStatus
   const config = IMAGE_STATUS_CONFIG[status] || IMAGE_STATUS_CONFIG.UPLOADED
   const Icon = config.icon
-  const docType = image.checklistItem?.template?.docType
+  const docType = image.classifiedType || image.checklistItem?.template?.docType
   const docLabel = docType ? DOC_TYPE_LABELS[docType] : null
   const needsClassify = status === 'UPLOADED' || status === 'UNCLASSIFIED'
+
+  // Confidence badge - show for classified images
+  const showConfidenceBadge = status === 'CLASSIFIED' && image.aiConfidence !== null
+  const confidenceLevel = showConfidenceBadge ? getConfidenceLevel(image.aiConfidence) : null
+
+  // Show review button for medium/low confidence classified images
+  const needsReview = status === 'CLASSIFIED' && image.aiConfidence !== null && image.aiConfidence < 0.85
 
   return (
     <div
@@ -221,7 +231,18 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
           <Eye className="w-6 h-6 text-white" />
         </div>
 
-        {/* Status Badge */}
+        {/* Confidence Badge - Top Left */}
+        {showConfidenceBadge && confidenceLevel && (
+          <div className={cn(
+            'absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium',
+            confidenceLevel.bg,
+            confidenceLevel.color
+          )}>
+            {Math.round(image.aiConfidence! * 100)}%
+          </div>
+        )}
+
+        {/* Status Badge - Top Right */}
         <div className={cn(
           'absolute top-2 right-2 p-1 rounded-md',
           config.bgColor
@@ -253,6 +274,17 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
               className="text-xs text-primary hover:text-primary-dark"
             >
               Phân loại
+            </button>
+          )}
+          {needsReview && onReviewClassification && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onReviewClassification()
+              }}
+              className="text-xs text-warning hover:text-warning/80"
+            >
+              Xác minh
             </button>
           )}
         </div>

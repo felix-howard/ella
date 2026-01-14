@@ -3,6 +3,7 @@
  * Collapsible navigation with Ella mint green design
  */
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   CheckSquare,
@@ -15,6 +16,7 @@ import {
 import { cn, EllaLogoDark, EllaArrow } from '@ella/ui'
 import { useUIStore } from '../../stores/ui-store'
 import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
+import { api } from '../../lib/api-client'
 
 // Navigation items with icons mapped from constants
 const navItemsWithIcons = [
@@ -28,6 +30,19 @@ export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+
+  // Fetch total unread count for messages badge
+  const { data: unreadData } = useQuery({
+    queryKey: ['unread-count'],
+    queryFn: async () => {
+      const response = await api.messages.listConversations({ limit: 1 })
+      return response.totalUnread || 0
+    },
+    refetchInterval: 30000, // Poll every 30 seconds
+    staleTime: 10000,
+  })
+
+  const unreadCount = unreadData || 0
 
   return (
     <aside
@@ -57,13 +72,15 @@ export function Sidebar() {
             ? currentPath === '/'
             : currentPath.startsWith(item.path)
           const Icon = item.icon
+          const isMessages = item.path === '/messages'
+          const showBadge = isMessages && unreadCount > 0
 
           return (
             <Link
               key={item.path}
               to={item.path as '/'}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative',
                 isActive
                   ? 'bg-primary-light text-primary font-medium'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -71,6 +88,21 @@ export function Sidebar() {
             >
               <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={isActive ? 2.5 : 2} />
               {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+
+              {/* Unread badge for messages */}
+              {showBadge && (
+                <span
+                  className={cn(
+                    'absolute bg-destructive text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center',
+                    sidebarCollapsed
+                      ? 'top-0.5 right-0.5 px-1'
+                      : 'ml-auto px-1.5'
+                  )}
+                  aria-label={`${unreadCount} tin nhắn chưa đọc`}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}

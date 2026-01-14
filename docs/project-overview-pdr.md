@@ -1,7 +1,7 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 2.1 - AI Document Processing (First Half)
-**Last Updated:** 2026-01-13
+**Current Phase:** 1 - Foundation & API Complete
+**Last Updated:** 2026-01-14
 
 ## Project Vision
 
@@ -178,32 +178,45 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ### Phase 1.2: Backend API Endpoints (COMPLETED)
 
-**Status:** Completed 2026-01-13
+**Status:** Completed 2026-01-14
 
 **Objective:** Implement REST API with complete route coverage for tax case management
 
 **Requirements Met:**
 
 - [x] Hono API server on PORT 3001
-- [x] 24 endpoints across 7 route modules (clients, cases, docs, actions, messages, portal, health)
-- [x] Request validation via Zod + @hono/zod-validator
+- [x] 26 endpoints across 7 route modules (clients, cases, docs, actions, messages, portal, health)
+- [x] Request validation via Zod + @hono/zod-validator with CUID format validation
 - [x] Prisma database integration via @ella/db
 - [x] Global error handler middleware
 - [x] OpenAPI documentation at `/doc` endpoint
 - [x] Scalar API UI for interactive testing at `/docs`
 - [x] CORS configured for frontend localhost ports
 - [x] Pagination helpers & Vietnamese label constants
-- [x] Service layer for business logic
+- [x] Service layer for business logic (magic links, SMS, checklists)
+- [x] Magic link generation & portal URL construction
+- [x] SMS welcome message sending via Twilio integration
+- [x] Resend SMS endpoint for client portal link re-delivery
+- [x] SMS configuration status reporting
 
 **Acceptance Criteria Met:**
 
 - [x] Server starts on PORT 3001
-- [x] All endpoints validated via Zod
+- [x] All endpoints validated via Zod (including CUID format for client IDs)
 - [x] Prisma queries typed and type-safe
 - [x] Error responses with HTTP status codes & descriptive messages
 - [x] Endpoints testable via Scalar UI
 - [x] Request logging via hono/logger middleware
 - [x] Pagination support on all list endpoints
+- [x] Magic links automatically created on client creation
+- [x] SMS sent upon client creation (if Twilio enabled)
+- [x] Portal URLs constructed with magic link tokens
+- [x] SMS resend capability for workspace staff
+
+**New Endpoints:**
+
+- `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL env var)
+- Enhanced `GET /clients/:id` - Returns portalUrl and smsEnabled flags
 
 **Deliverables:**
 
@@ -212,12 +225,14 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - Digital document endpoints for classification, OCR, verification
 - Action queue for staff task management
 - Message/conversation endpoints for client communication
-- Magic link portal for passwordless client access
+- Magic link portal for passwordless client access with SMS delivery
+- SMS resend capability for client onboarding recovery
 - Health check for monitoring
+- Comprehensive environment variable documentation in .env.example
 
 ### Phase 1.4: Frontend Features (Portal & Workspace)
 
-**Status:** Completed 2026-01-13
+**Status:** Completed 2026-01-14
 
 **Objective:** Build client intake, case management, and action pages
 
@@ -230,16 +245,28 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - [x] Message/conversation interface
 - [x] Portal client view (magic link access)
 - [x] Form validation with Zod from @ella/shared
+- [x] Portal Link card in client detail view with copy/open actions
+- [x] SMS status badge on client detail header
+- [x] Resend SMS button for client onboarding recovery
+- [x] Portal URL display with one-click external link opening
+- [x] Error handling for missing magic links or Twilio config
+- [x] Vietnamese localization for SMS error messages
 
 **Completed Pages:**
 
 - `/clients` - Client list (kanban/list view)
 - `/clients/new` - Client intake wizard
-- `/clients/:id` - Client detail view
+- `/clients/:id` - Client detail view with Portal Link card & SMS status
 - `/cases/:id` - Case details with documents
 - `/actions` - Action queue with priority grouping
 - `/messages` - Conversation list
 - Portal: Client magic link pages
+
+**New UI Components:**
+
+- Portal Link Card: Displays magic link portal URL with copy/open/resend actions
+- SMS Status Badge: Shows Twilio configuration status (Bật/Tắt)
+- Resend SMS Mutation: Integrates with workspace state for error handling
 
 ### Phase 2.1: AI Document Processing (First Half)
 
@@ -373,9 +400,9 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 | ----- | -------------------------------------------- | ---------- |
 | 1     | Monorepo structure, TypeScript config        | ✓ Complete |
 | 1.1   | Complete database schema (12 models, 12 enums) | ✓ Complete |
-| 1.2   | Backend API with 24 endpoints                | ✓ Complete |
+| 1.2   | Backend API with 26 endpoints (magic links, SMS) | ✓ Complete |
 | 1.3   | Frontend foundation (UI tokens, API client, layout) | ✓ Complete |
-| 1.4   | Frontend features (clients, cases, actions pages) | ✓ Complete |
+| 1.4   | Frontend features (Portal Link card, SMS status) | ✓ Complete |
 | 1.5   | Shared UI Components (11 components)         | ✓ Complete |
 | 2.1   | AI Document Processing (Gemini services)    | ✓ Complete |
 | 2.2   | API endpoints for document processing        | - Pending  |
@@ -411,13 +438,13 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 ## Timeline
 
 - **Phase 1.1:** Jan 12, 2026 - Database schema design (COMPLETE)
-- **Phase 1.2:** Jan 13, 2026 - Backend API implementation (COMPLETE)
+- **Phase 1.2:** Jan 13-14, 2026 - Backend API implementation with magic links & SMS (COMPLETE)
 - **Phase 1.3:** Jan 13, 2026 - Frontend foundation (COMPLETE)
-- **Phase 1.4:** Jan 13, 2026 - Frontend features (clients, cases, actions) (COMPLETE)
+- **Phase 1.4:** Jan 13-14, 2026 - Frontend features with Portal Link card & SMS UI (COMPLETE)
 - **Phase 1.5:** Jan 13, 2026 - Shared UI Components (11 components) (COMPLETE)
 - **Phase 2.1:** Jan 13, 2026 - AI Document Processing (Gemini services) (COMPLETE)
-- **Phase 2.2 (Next):** Jan 14-15, 2026 - API endpoints for document processing
-- **Phase 3:** Jan 16-20, 2026 - Frontend document upload & validation
+- **Phase 2.2 (Next):** Jan 15-16, 2026 - API endpoints for document processing
+- **Phase 3:** Jan 17-21, 2026 - Frontend document upload & validation
 - **Phase 4:** Jan 25-31, 2026 - Testing & QA
 - **Launch:** Feb 15, 2026
 
@@ -436,19 +463,28 @@ docs/
 
 ## Next Steps
 
-### For Development Team (Phase 1.3 Complete → Phase 1.4)
+### For Development Team (Phase 1 Complete → Phase 2.2)
 
-1. Start workspace dev server: `pnpm -F @ella/workspace dev` (runs on PORT 5174)
-2. Start API server: `pnpm -F @ella/api dev` (runs on PORT 3001)
-3. Verify integration: Test API calls via workspace dashboard
-4. Begin Phase 1.4: Frontend features
-   - Build clients list page (kanban/list view via useUIStore)
-   - Implement client intake wizard with profile questionnaire
-   - Create case details page with document upload
-   - Build action queue page with priority grouping
-   - Implement checklist status tracking UI
-   - Add message/conversation UI
-   - Integrate React Query for server state management
+1. **Verify Phase 1 Features:**
+   - Start workspace dev server: `pnpm -F @ella/workspace dev` (PORT 5174)
+   - Start API server: `pnpm -F @ella/api dev` (PORT 3001)
+   - Test client creation with magic link & SMS delivery
+   - Verify Portal Link card in client detail view
+   - Test resend SMS from workspace
+
+2. **Environment Configuration:**
+   - Ensure PORTAL_URL env var is set (e.g., `http://localhost:5174`)
+   - Configure Twilio credentials if SMS testing needed:
+     - `TWILIO_ACCOUNT_SID`
+     - `TWILIO_AUTH_TOKEN`
+     - `TWILIO_PHONE_NUMBER`
+
+3. **Begin Phase 2.2: Document Processing API**
+   - Create API endpoints for document upload & processing
+   - Integrate AI classification service (Gemini)
+   - Implement document quality checks
+   - Add OCR endpoints for data extraction
+   - Support file storage via R2 (Cloudflare)
 
 ### For Product Team
 
@@ -466,8 +502,8 @@ docs/
 
 ---
 
-**Document Version:** 2.1
+**Document Version:** 2.2
 **Created:** 2026-01-11
 **Maintained By:** Documentation Manager
-**Last Review:** 2026-01-13
-**Status:** Phase 2.1 First Half Complete - AI Document Processing Foundations
+**Last Review:** 2026-01-14
+**Status:** Phase 1 Complete - Foundation, API, & Frontend with Magic Links & SMS Integration

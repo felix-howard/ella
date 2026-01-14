@@ -44,12 +44,19 @@ export const classifyDocSchema = z.object({
   docType: docTypeEnum,
 })
 
-// Verify doc input
+// Verify doc input (for updating extracted data)
 export const verifyDocSchema = z.object({
   extractedData: z.record(z.any()),
   status: z.enum(['VERIFIED', 'PARTIAL']),
 })
 
+// Quick verify/reject action input
+export const verifyActionSchema = z.object({
+  action: z.enum(['verify', 'reject']),
+  notes: z.string().optional(),
+})
+
 // Type exports
 export type ClassifyDocInput = z.infer<typeof classifyDocSchema>
 export type VerifyDocInput = z.infer<typeof verifyDocSchema>
+export type VerifyActionInput = z.infer<typeof verifyActionSchema>

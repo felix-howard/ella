@@ -55,6 +55,11 @@ export const updateClientSchema = z.object({
   language: z.enum(['VI', 'EN']).optional(),
 })
 
+// Client ID param validation (CUID format)
+export const clientIdParamSchema = z.object({
+  id: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid client ID format'),
+})
+
 // Query params for listing clients
 export const listClientsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),

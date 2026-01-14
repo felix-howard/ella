@@ -14,6 +14,7 @@ import {
   createClientSchema,
   updateClientSchema,
   listClientsQuerySchema,
+  clientIdParamSchema,
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { createMagicLink } from '../../services/magic-link'
@@ -76,6 +77,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
   const { profile, ...clientData } = body
 
+  try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create client
@@ -174,11 +176,25 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     },
     201
   )
+  } catch (error) {
+    console.error('[Create Client] Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('[Create Client] Stack:', errorStack)
+    return c.json(
+      {
+        error: 'CREATE_CLIENT_FAILED',
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+      },
+      500
+    )
+  }
 })
 
-// GET /clients/:id - Get client details
-clientsRoute.get('/:id', async (c) => {
-  const id = c.req.param('id')
+// GET /clients/:id - Get client details with magic link and SMS status
+clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
 
   const client = await prisma.client.findUnique({
     where: { id },
@@ -187,6 +203,11 @@ clientsRoute.get('/:id', async (c) => {
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
+          magicLinks: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
           _count: {
             select: {
               rawImages: true,
@@ -203,42 +224,154 @@ clientsRoute.get('/:id', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
   }
 
+  // Build portal URL from active magic link (require PORTAL_URL in production)
+  const latestCase = client.taxCases[0]
+  const activeMagicLink = latestCase?.magicLinks?.[0]
+  const portalBaseUrl = process.env.PORTAL_URL
+  const portalUrl = activeMagicLink && portalBaseUrl
+    ? `${portalBaseUrl}/u/${activeMagicLink.token}`
+    : null
+
+  // Check SMS configuration status
+  const smsEnabled = isSmsEnabled()
+
   return c.json({
     ...client,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: client.taxCases.map((tc) => ({
       ...tc,
+      // Exclude magicLinks from response (token is sensitive)
+      magicLinks: undefined,
       createdAt: tc.createdAt.toISOString(),
       updatedAt: tc.updatedAt.toISOString(),
     })),
+    portalUrl,
+    smsEnabled,
   })
+})
+
+// POST /clients/:id/resend-sms - Resend welcome SMS with magic link
+clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
+
+  // Fetch client with latest case and active magic link
+  const client = await prisma.client.findUnique({
+    where: { id },
+    include: {
+      taxCases: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          magicLinks: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      },
+    },
+  })
+
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
+
+  const taxCase = client.taxCases[0]
+  const magicLink = taxCase?.magicLinks?.[0]
+
+  if (!taxCase || !magicLink) {
+    return c.json({
+      success: false,
+      error: 'NO_MAGIC_LINK',
+      smsEnabled: isSmsEnabled(),
+    })
+  }
+
+  // Check if SMS is enabled
+  if (!isSmsEnabled()) {
+    return c.json({
+      success: false,
+      error: 'SMS_NOT_CONFIGURED',
+      smsEnabled: false,
+    })
+  }
+
+  // Require PORTAL_URL to be configured
+  const portalBaseUrl = process.env.PORTAL_URL
+  if (!portalBaseUrl) {
+    return c.json({
+      success: false,
+      error: 'PORTAL_URL_NOT_CONFIGURED',
+      smsEnabled: true,
+    })
+  }
+
+  // Build portal URL and send welcome SMS
+  const portalUrl = `${portalBaseUrl}/u/${magicLink.token}`
+
+  try {
+    const result = await sendWelcomeMessage(
+      taxCase.id,
+      client.name,
+      client.phone,
+      portalUrl,
+      taxCase.taxYear,
+      (client.language as 'VI' | 'EN') || 'VI'
+    )
+
+    if (result.smsSent) {
+      return c.json({
+        success: true,
+        error: null,
+        smsEnabled: true,
+      })
+    } else {
+      return c.json({
+        success: false,
+        error: result.error || 'SMS_SEND_FAILED',
+        smsEnabled: true,
+      })
+    }
+  } catch (error) {
+    console.error('[Resend SMS] Error:', error)
+    return c.json({
+      success: false,
+      error: 'SMS_SEND_ERROR',
+      smsEnabled: true,
+    })
+  }
 })
 
 // PATCH /clients/:id - Update client
-clientsRoute.patch('/:id', zValidator('json', updateClientSchema), async (c) => {
-  const id = c.req.param('id')
-  const body = c.req.valid('json')
+clientsRoute.patch(
+  '/:id',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', updateClientSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
 
-  // Explicitly pick only allowed fields to prevent mass assignment
-  const allowedFields = ['name', 'phone', 'email', 'language'] as const
-  const updateData = pickFields(body, [...allowedFields])
+    // Explicitly pick only allowed fields to prevent mass assignment
+    const allowedFields = ['name', 'phone', 'email', 'language'] as const
+    const updateData = pickFields(body, [...allowedFields])
 
-  const client = await prisma.client.update({
-    where: { id },
-    data: updateData as { name?: string; phone?: string; email?: string | null; language?: Language },
-  })
+    const client = await prisma.client.update({
+      where: { id },
+      data: updateData as { name?: string; phone?: string; email?: string | null; language?: Language },
+    })
 
-  return c.json({
-    ...client,
-    createdAt: client.createdAt.toISOString(),
-    updatedAt: client.updatedAt.toISOString(),
-  })
-})
+    return c.json({
+      ...client,
+      createdAt: client.createdAt.toISOString(),
+      updatedAt: client.updatedAt.toISOString(),
+    })
+  }
+)
 
 // DELETE /clients/:id - Delete client
-clientsRoute.delete('/:id', async (c) => {
-  const id = c.req.param('id')
+clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
 
   await prisma.client.delete({ where: { id } })
 

@@ -5,7 +5,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import { classifyDocSchema, verifyDocSchema } from './schemas'
+import { classifyDocSchema, verifyDocSchema, verifyActionSchema } from './schemas'
 import {
   extractDocumentData,
   needsManualVerification,
@@ -270,6 +270,87 @@ docsRoute.post('/:id/ocr', async (c) => {
       ? 'OCR extraction completed. Awaiting verification.'
       : `OCR extraction failed: ${ocrResult.error}`,
   })
+})
+
+// POST /docs/:id/verify-action - Quick verify or reject a document
+docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), async (c) => {
+  const id = c.req.param('id')
+  const { action, notes } = c.req.valid('json')
+
+  // Fetch document with related data
+  const doc = await prisma.digitalDoc.findUnique({
+    where: { id },
+    include: {
+      rawImage: true,
+      checklistItem: true,
+      taxCase: { include: { client: true } },
+    },
+  })
+
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  if (action === 'verify') {
+    // Mark as verified
+    await prisma.$transaction(async (tx) => {
+      await tx.digitalDoc.update({
+        where: { id },
+        data: {
+          status: 'VERIFIED',
+          verifiedAt: new Date(),
+        },
+      })
+
+      // Update checklist item if linked
+      if (doc.checklistItemId) {
+        await tx.checklistItem.update({
+          where: { id: doc.checklistItemId },
+          data: { status: 'VERIFIED' },
+        })
+      }
+    })
+
+    return c.json({ success: true, message: 'Document verified' })
+  }
+
+  if (action === 'reject') {
+    // Reset status and create action for follow-up
+    await prisma.$transaction(async (tx) => {
+      await tx.digitalDoc.update({
+        where: { id },
+        data: { status: 'PENDING' },
+      })
+
+      // Mark raw image as needing resend
+      if (doc.rawImageId) {
+        await tx.rawImage.update({
+          where: { id: doc.rawImageId },
+          data: { status: 'BLURRY' },
+        })
+      }
+
+      // Create action for follow-up
+      await tx.action.create({
+        data: {
+          caseId: doc.caseId,
+          type: 'BLURRY_DETECTED',
+          priority: 'HIGH',
+          title: 'Yêu cầu gửi lại tài liệu',
+          description: notes || 'Tài liệu bị từ chối, cần gửi lại',
+          metadata: {
+            rawImageId: doc.rawImageId,
+            docType: doc.docType,
+            rejectedDocId: doc.id,
+          },
+        },
+      })
+    })
+
+    return c.json({ success: true, message: 'Document rejected' })
+  }
+
+  return c.json({ error: 'INVALID_ACTION', message: 'Invalid action' }, 400)
 })
 
 // PATCH /docs/:id/verify - Verify/edit extracted data

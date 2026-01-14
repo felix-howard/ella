@@ -1203,6 +1203,149 @@ turbo run type-check    # Type check all
 turbo run dev           # Development watch mode
 ```
 
+## Authentication & Authorization (Phase 3)
+
+### Password Hashing Standard
+
+**Use bcrypt with 12 rounds:**
+
+```typescript
+import bcrypt from 'bcrypt'
+
+// Hashing (one-way)
+const hashed = await bcrypt.hash(password, 12)
+
+// Verification
+const isValid = await bcrypt.compare(password, hashed)
+```
+
+**Why 12 rounds?**
+- Industry standard (~250ms on modern hardware)
+- Resistant to GPU attacks
+- Configurable in `src/services/auth/index.ts` via `BCRYPT_ROUNDS`
+
+### JWT Token Structure
+
+**Access Token (15m default, configurable):**
+
+```typescript
+{
+  sub: string         // User ID
+  email: string       // User email
+  name: string        // User full name (Phase 3)
+  role: string        // User role (ADMIN|STAFF|CPA)
+  iat: number         // Issued at (unix timestamp)
+  exp: number         // Expiry (unix timestamp)
+}
+```
+
+**Refresh Token (7 days default, configurable):**
+
+- Opaque random token (no claims)
+- Hashed with SHA-256 before storage
+- Stored in database with expiry & revocation tracking
+- Rotated on use (old revoked, new issued)
+
+### Token Rotation Pattern
+
+**Safe refresh token rotation:**
+
+```typescript
+// Client: POST /api/auth/refresh with old refreshToken
+// Backend flow:
+1. Hash provided refresh token
+2. Lookup token in database
+3. Validate: not expired, not revoked, user active
+4. Validate ownership: token.userId === expectedUserId
+5. Revoke old token: set revokedAt = now()
+6. Issue new refresh token: generate & store in DB
+7. Return new accessToken + new refreshToken
+8. Client updates stored tokens
+```
+
+**Why validate ownership?**
+- Prevents token reuse if captured
+- Ensures token can't be used with different user ID
+
+### RBAC Middleware Usage
+
+**Protect routes by role:**
+
+```typescript
+import { authMiddleware, requireRole, adminOnly, staffOrAdmin } from '../middleware/auth'
+
+// Require authentication only
+app.get('/profile', authMiddleware, handler)
+
+// Require specific role
+app.get('/admin/users', authMiddleware, adminOnly, handler)
+
+// Multiple roles allowed
+app.patch('/cases/:id', authMiddleware, staffOrAdmin, handler)
+
+// Optional: protect route group
+app.use('/admin/*', authMiddleware, adminOnly)
+
+// Optional auth (set user if valid, continue without if not)
+app.get('/public/data', optionalAuthMiddleware, handler)
+```
+
+**Roles:**
+- `ADMIN` - Full system access, user management
+- `STAFF` - Client & case management
+- `CPA` - Finance & tax preparation
+
+**Error Handling:**
+- Missing token: 401 "Yêu cầu xác thực"
+- Invalid token: 401 "Token không hợp lệ hoặc đã hết hạn"
+- Insufficient role: 403 "Không đủ quyền truy cập"
+
+### Token Verification Checklist
+
+**Always verify (in order):**
+
+1. Token signature (JWT signature validation)
+2. Token expiry (exp claim vs current time)
+3. Required claims: sub, email, role
+4. (Refresh tokens only) Token hash match, expiry, revocation status, user active
+
+**Never trust:**
+- Expiry claim alone (always check current time)
+- JWT claims without signature verification
+- Token without source validation
+
+### Configuration Standards
+
+**In `src/lib/config.ts`:**
+
+```typescript
+auth: {
+  jwtSecret: string         // Validated: min 32 chars in production
+  jwtExpiresIn: string      // Format: "15m", "1h", "7d"
+  refreshTokenExpiresDays: number
+  isConfigured: boolean     // Quick check: JWT_SECRET length >= 32
+}
+```
+
+**Validation Rules:**
+- Production: JWT_SECRET missing/short → throw error
+- Development: Auto-use insecure default with console warning
+- Expiry parsing: Supports s/m/h/d units (e.g., "15m" = 900 seconds)
+
+### Token Cleanup Maintenance
+
+**Automatic cleanup for production:**
+
+```typescript
+// Call this in scheduled job or during off-peak hours
+await cleanupExpiredTokens()
+// Removes:
+// - Refresh tokens with expiresAt < now()
+// - Refresh tokens with revokedAt != null
+```
+
+---
+
 ## Security Best Practices
 
 1. **No Secrets in Code:**
@@ -1217,6 +1360,12 @@ turbo run dev           # Development watch mode
    - Use `apiResponseSchema` wrapper
    - Never expose internal error details
    - Always sanitize user input
+
+4. **Authentication:**
+   - Use bcrypt (12 rounds) for passwords
+   - Never log tokens or passwords
+   - Validate token ownership before rotation
+   - Require HTTPS in production
 
 ## Dependencies Management
 
@@ -1274,6 +1423,6 @@ turbo run dev           # Development watch mode
 
 ---
 
-**Last Updated:** 2026-01-14 08:30
-**Phase:** 4.1 - Copy-to-Clipboard Workflow (Complete)
-**Standards Version:** 1.4
+**Last Updated:** 2026-01-14 16:36
+**Phase:** 3 (Production Ready - Auth System) + 4.1 (Copy-to-Clipboard Workflow Complete)
+**Standards Version:** 1.5

@@ -63,6 +63,21 @@ export const config = {
         process.env.TWILIO_PHONE_NUMBER
     ),
   },
+
+  // Clerk Authentication (Phase 3)
+  clerk: {
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
+    secretKey: process.env.CLERK_SECRET_KEY || '',
+    isConfigured: Boolean(
+      process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
+    ),
+  },
+
+  // Scheduler Configuration (Phase 3)
+  scheduler: {
+    enabled: process.env.SCHEDULER_ENABLED === 'true',
+    reminderCron: process.env.REMINDER_CRON || '0 2 * * *', // 2 AM UTC = 9 PM EST
+  },
 } as const
 
 export type Config = typeof config

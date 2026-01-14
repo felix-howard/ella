@@ -2,6 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { errorHandler } from './middleware/error-handler'
+import { clerkMiddleware, authMiddleware } from './middleware/auth'
 import { config } from './lib/config'
 import { healthRoute } from './routes/health'
 import { clientsRoute } from './routes/clients'
@@ -27,15 +28,27 @@ app.use(
   })
 )
 
-// Routes
+// Clerk middleware - parses JWT from Authorization header (runs on all routes)
+app.use('*', clerkMiddleware())
+
+// Public routes (no auth required)
 app.route('/health', healthRoute)
+app.route('/portal', portalRoute)
+app.route('/webhooks/twilio', twilioWebhookRoute)
+
+// Protected routes - require authenticated Clerk user + Staff record
+app.use('/clients/*', authMiddleware)
+app.use('/cases/*', authMiddleware)
+app.use('/actions/*', authMiddleware)
+app.use('/docs/*', authMiddleware)
+app.use('/messages/*', authMiddleware)
+
+// Routes
 app.route('/clients', clientsRoute)
 app.route('/cases', casesRoute)
 app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
 app.route('/messages', messagesRoute)
-app.route('/portal', portalRoute)
-app.route('/webhooks/twilio', twilioWebhookRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

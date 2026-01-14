@@ -14,9 +14,11 @@ import {
   updateCaseSchema,
   listCasesQuerySchema,
   listImagesQuerySchema,
+  listDocsQuerySchema,
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import type { TaxType, TaxCaseStatus, RawImageStatus } from '@ella/db'
+import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 
 const casesRoute = new Hono()
 
@@ -152,10 +154,36 @@ casesRoute.get('/:id', async (c) => {
   })
 })
 
-// PATCH /cases/:id - Update case status
+// PATCH /cases/:id - Update case status with transition validation
 casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
   const id = c.req.param('id')
   const { status } = c.req.valid('json')
+
+  // Fetch current case to validate transition
+  const currentCase = await prisma.taxCase.findUnique({
+    where: { id },
+    select: { status: true },
+  })
+
+  if (!currentCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Validate status transition if status is being changed
+  if (status && status !== currentCase.status) {
+    if (!isValidStatusTransition(currentCase.status as TaxCaseStatus, status as TaxCaseStatus)) {
+      const validNext = getValidNextStatuses(currentCase.status as TaxCaseStatus).slice(1)
+      return c.json(
+        {
+          error: 'INVALID_TRANSITION',
+          message: `Cannot transition from ${currentCase.status} to ${status}`,
+          currentStatus: currentCase.status,
+          validTransitions: validNext,
+        },
+        400
+      )
+    }
+  }
 
   const updateData: Record<string, unknown> = {}
   if (status) {
@@ -177,6 +205,28 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
     ...taxCase,
     createdAt: taxCase.createdAt.toISOString(),
     updatedAt: taxCase.updatedAt.toISOString(),
+  })
+})
+
+// GET /cases/:id/valid-transitions - Get valid status transitions for a case
+casesRoute.get('/:id/valid-transitions', async (c) => {
+  const id = c.req.param('id')
+
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id },
+    select: { status: true },
+  })
+
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  const currentStatus = taxCase.status as TaxCaseStatus
+  const validTransitions = getValidNextStatuses(currentStatus)
+
+  return c.json({
+    currentStatus,
+    validTransitions,
   })
 })
 
@@ -205,21 +255,27 @@ casesRoute.get('/:id/checklist', async (c) => {
   return c.json({ items, summary })
 })
 
-// GET /cases/:id/images - Get raw images for case
+// GET /cases/:id/images - Get raw images for case (with pagination)
 casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async (c) => {
   const id = c.req.param('id')
-  const { status } = c.req.valid('query')
+  const { page, limit, status } = c.req.valid('query')
+  const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   const where: Record<string, unknown> = { caseId: id }
   if (status) where.status = status as RawImageStatus
 
-  const images = await prisma.rawImage.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      checklistItem: { include: { template: true } },
-    },
-  })
+  const [images, total] = await Promise.all([
+    prisma.rawImage.findMany({
+      where,
+      skip,
+      take: safeLimit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        checklistItem: { include: { template: true } },
+      },
+    }),
+    prisma.rawImage.count({ where }),
+  ])
 
   return c.json({
     images: images.map((img) => ({
@@ -227,20 +283,30 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
       createdAt: img.createdAt.toISOString(),
       updatedAt: img.updatedAt.toISOString(),
     })),
+    pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })
 
-// GET /cases/:id/docs - Get digital docs for case
-casesRoute.get('/:id/docs', async (c) => {
+// GET /cases/:id/docs - Get digital docs for case (with pagination)
+casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) => {
   const id = c.req.param('id')
+  const { page, limit } = c.req.valid('query')
+  const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
-  const docs = await prisma.digitalDoc.findMany({
-    where: { caseId: id },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      rawImage: { select: { id: true, filename: true, r2Key: true } },
-    },
-  })
+  const where = { caseId: id }
+
+  const [docs, total] = await Promise.all([
+    prisma.digitalDoc.findMany({
+      where,
+      skip,
+      take: safeLimit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        rawImage: { select: { id: true, filename: true, r2Key: true } },
+      },
+    }),
+    prisma.digitalDoc.count({ where }),
+  ])
 
   return c.json({
     docs: docs.map((doc) => ({
@@ -248,6 +314,7 @@ casesRoute.get('/:id/docs', async (c) => {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
     })),
+    pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })
 

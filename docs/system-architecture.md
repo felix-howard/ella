@@ -94,28 +94,32 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (28 total):**
+**Implemented Endpoints (35 total):**
 
-**Clients (5):**
-- `GET /clients` - List with search/status filters, pagination
-- `POST /clients` - Create client + profile + case + magic link + checklist
-- `GET /clients/:id` - Client with profile, tax cases, doc counts
+**Clients (6):**
+- `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
+- `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
+- `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
+- `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
-**Tax Cases (6):**
+**Tax Cases (7 - Phase 2 additions):**
 - `GET /cases` - List with status/year/client filters, pagination
 - `POST /cases` - Create new case
 - `GET /cases/:id` - Case details with document counts
-- `PATCH /cases/:id` - Update status/metadata
+- `PATCH /cases/:id` - Update status/metadata with transition validation (PHASE 2)
 - `GET /cases/:id/checklist` - Dynamic checklist from profile & templates
-- `GET /cases/:id/images` - Raw images for case
+- `GET /cases/:id/images` - Raw images for case with pagination
+- `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
 
-**Digital Documents (5):**
+**Digital Documents (6 - Phase 2 additions):**
 - `GET /docs/:id` - Document details with extracted data
 - `POST /docs/:id/classify` - AI classify raw image to docType
 - `POST /docs/:id/ocr` - Trigger OCR for data extraction
-- `PATCH /docs/:id/verify` - Verify extracted data, set status VERIFIED
+- `PATCH /docs/:id/verify` - Verify/edit extracted data with notes
+- `POST /docs/:id/verify-action` - Quick verify or reject action (PHASE 2 NEW)
+- `GET /cases/:id/docs` - Get digital docs for case with pagination (PHASE 2 NEW)
 
 **Actions (2):**
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
@@ -154,15 +158,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 - `checklist-generator.ts` - Generate checklist from profile & templates
 - `magic-link.ts` - Create/validate passwordless access tokens
+- `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 
-**SMS Service (Phase 3.1):**
+**SMS Service Implementation (Phase 1.2+):**
 
-- `sms/twilio-client.ts` - Twilio API wrapper with retry logic & E.164 formatting
-- `sms/message-sender.ts` - High-level SMS sending with templates
-- `sms/webhook-handler.ts` - Incoming SMS processing with signature validation
-- `sms/notification-service.ts` - Auto-notification orchestration
-- `sms/templates/*.ts` - Vietnamese message templates (welcome, missing docs, blurry, complete)
+- Twilio API wrapper with E.164 phone formatting & error handling
+- Welcome message template with magic link portal URL inclusion
+- SMS enablement detection via environment variable check (TWILIO_ACCOUNT_SID)
+- Resend SMS endpoint for client onboarding recovery
+- Comprehensive error codes for missing configs (NO_MAGIC_LINK, SMS_NOT_CONFIGURED, PORTAL_URL_NOT_CONFIGURED)
+- Vietnamese & English message support
 
 **Unified Messaging (Phase 3.2):**
 
@@ -337,6 +343,93 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - Utility-first styling with variants
 
 ## Data Flow
+
+### Phase 2: Case Status Transition & Document Verification Flow
+
+```
+Staff views Client Detail Page
+        ↓
+Frontend loads case with status & documents
+        ↓
+GET /cases/:id/valid-transitions (or use shared constants)
+        ↓
+StatusSelector component renders valid transitions
+        ↓
+Staff clicks status dropdown
+        ↓
+Frontend calls PATCH /cases/:id { status: "WAITING_DOCS" }
+        ↓
+Backend validates transition via isValidStatusTransition()
+        ↓
+If invalid:
+├─ Return 400 with valid transitions
+└─ Frontend shows error + available options
+        ↓
+If valid:
+├─ Update TaxCase.status
+├─ If status === ENTRY_COMPLETE: Set entryCompletedAt timestamp
+├─ If status === FILED: Set filedAt timestamp
+└─ Return 200 with updated case
+        ↓
+Frontend toast: "Đã cập nhật trạng thái: [New Status]"
+        ↓
+Staff views pending documents
+        ↓
+Frontend loads case documents (status: PENDING|EXTRACTED|PARTIAL)
+        ↓
+GET /cases/:id/docs { page: 1, limit: 20 }
+        ↓
+VerificationPanel lists documents with:
+├─ Document type & confidence %
+├─ Extracted data preview
+├─ Verify button & Reject button
+└─ Loading states during actions
+        ↓
+Staff clicks Verify button
+        ↓
+Frontend calls POST /docs/:id/verify-action { action: "verify" }
+        ↓
+Backend atomic transaction:
+├─ Update DigitalDoc.status = VERIFIED
+├─ Update ChecklistItem.status = VERIFIED
+├─ Set verifiedAt timestamp
+└─ Commit all changes
+        ↓
+Frontend toast: "Đã xác minh tài liệu"
+        ↓
+VerificationPanel refresh removes document from list
+        ↓
+---
+        ↓
+Alternative: Staff clicks Reject button
+        ↓
+Staff enters reject reason/notes
+        ↓
+Frontend calls POST /docs/:id/verify-action { action: "reject", notes: "..." }
+        ↓
+Backend atomic transaction:
+├─ Update DigitalDoc.status = PENDING
+├─ Update RawImage.status = BLURRY
+├─ Create Action { type: BLURRY_DETECTED, priority: HIGH }
+└─ Store notes in Action metadata
+        ↓
+Frontend toast: "Đã từ chối tài liệu"
+        ↓
+Action appears in queue with "Yêu cầu gửi lại tài liệu"
+        ↓
+Staff can send SMS reminder to client via Messages
+        ↓
+Client receives SMS: "Document rejected - please resend"
+        ↓
+Case returns to WAITING_DOCS or IN_PROGRESS
+```
+
+**Phase 2 Key Guarantees:**
+- Status transitions enforced (no invalid states)
+- All-or-nothing document verification (atomic)
+- Audit trail via timestamps & actions
+- Clear user feedback via toast notifications
+- Debounced search prevents API overload
 
 ### Unified Inbox & Messaging Flow (Phase 3.2)
 
@@ -755,19 +848,184 @@ try {
 - Database replication & sharding
 - Microservices if modules grow
 
+## Authentication & Authorization (Phase 3)
+
+### JWT Authentication Flow
+
+```
+User Login Form
+        ↓
+POST /api/auth/login (email + password)
+        ↓
+Backend validates credentials via bcrypt
+        ↓
+Query User from database
+        ↓
+Generate access token (JWT, 15m default)
+        ↓
+Generate refresh token (opaque, hashed, 7-day default)
+        ↓
+Return accessToken + refreshToken to client
+        ↓
+Client stores tokens (localStorage/cookie)
+        ↓
+Client attaches "Authorization: Bearer <accessToken>" to requests
+        ↓
+authMiddleware verifies JWT signature & expiry
+        ↓
+If valid: Set user context, proceed to route handler
+If invalid/expired: Return 401, client triggers refresh flow
+        ↓
+Client calls POST /api/auth/refresh with refreshToken
+        ↓
+Backend validates refresh token (check hash, expiry, revocation)
+        ↓
+Backend rotates: revoke old token, issue new refresh token
+        ↓
+Return new accessToken + new refreshToken
+        ↓
+Client updates stored tokens, retry original request
+```
+
+### Database Models
+
+**User Model (Phase 3)**
+```
+- id (cuid) - Primary key
+- email (unique) - Staff email
+- password (string) - bcrypt hashed (12 rounds)
+- name (string) - Full name
+- role (enum) - ADMIN | STAFF | CPA
+- avatarUrl (optional) - Profile photo
+- isActive (bool) - Deactivation flag
+- lastLoginAt (datetime) - Audit trail
+- createdAt, updatedAt - Timestamps
+- refreshTokens (1:many) - Active refresh tokens
+- actions (1:many) - Assigned tasks
+```
+
+**RefreshToken Model (Phase 3)**
+```
+- id (cuid) - Primary key
+- userId (foreign key) - User reference
+- token (unique) - SHA-256 hashed opaque token
+- expiresAt (datetime) - Token expiry (default: 7 days)
+- revokedAt (datetime, optional) - Revocation timestamp
+- createdAt (datetime) - Issue timestamp
+- Indexes: userId, token, expiresAt (cleanup queries)
+- Cascade delete with user
+```
+
+### Auth Service (`src/services/auth/index.ts`)
+
+**Core Functions:**
+
+```typescript
+// Password management
+hashPassword(password) → bcrypt hashed (12 rounds)
+verifyPassword(password, hashed) → boolean
+
+// Access token (JWT, 15 min default)
+generateAccessToken(user) → JWT {sub, email, name, role, exp, iat}
+verifyAccessToken(token) → JWTPayload | null
+
+// Refresh token (opaque, hashed, 7 days default)
+generateRefreshToken(userId) → raw token string
+verifyRefreshToken(rawToken) → {userId} | null
+rotateRefreshToken(oldToken, expectedUserId) → new raw token
+  - Validates token ownership before rotation
+  - Revokes old token
+  - Issues new token
+
+// Token lifecycle
+revokeAllTokens(userId) → void (logout everywhere)
+cleanupExpiredTokens() → count (maintenance job)
+
+// Combined auth flow
+generateAuthTokens(user) → {accessToken, refreshToken}
+```
+
+**Security Measures:**
+- Bcrypt rounds: 12 (industry standard, ~250ms)
+- Token hashing: SHA-256 for refresh token storage
+- Token ownership validation: Prevents token reuse attack
+- Expiry validation: Checked during verification
+- Revocation support: Per-token and global
+
+### Auth Middleware (`src/middleware/auth.ts`)
+
+**Middleware Types:**
+
+```typescript
+// Enforces authentication - returns 401 if no valid token
+authMiddleware - Sets user context {id, email, role, name}
+
+// Optional - sets user if valid token, continues without if not
+optionalAuthMiddleware - Partial<AuthVariables>
+
+// Role-based access control factory
+requireRole(...allowedRoles) - Returns middleware for role checking
+
+// Convenience exports
+adminOnly → requireRole('ADMIN')
+staffOrAdmin → requireRole('ADMIN', 'STAFF')
+cpaOrAdmin → requireRole('ADMIN', 'CPA')
+```
+
+**Usage:**
+```typescript
+// Protect single route
+app.get('/admin/users', authMiddleware, adminOnly, handler)
+
+// Protect route group
+app.use('/admin/*', authMiddleware, adminOnly)
+
+// Optional auth
+app.get('/public/data', optionalAuthMiddleware, handler)
+```
+
+**Error Responses:**
+- 401 "Yêu cầu xác thực" (Vietnamese) - Missing/invalid token
+- 401 "Token không hợp lệ hoặc đã hết hạn" - Expired token
+- 403 "Không đủ quyền truy cập" - Insufficient role
+
+### Configuration (`src/lib/config.ts`)
+
+```typescript
+auth: {
+  jwtSecret: string         // From JWT_SECRET env (min 32 chars, required in prod)
+  jwtExpiresIn: string      // From JWT_EXPIRES_IN env (default: 15m)
+                            // Supports: 15m, 1h, 7d, etc.
+  refreshTokenExpiresDays: number  // From REFRESH_TOKEN_EXPIRES_DAYS (default: 7)
+  isConfigured: boolean     // JWT_SECRET length >= 32
+}
+
+scheduler: {
+  enabled: boolean          // From SCHEDULER_ENABLED (default: false)
+  reminderCron: string      // From REMINDER_CRON (default: 0 2 * * *)
+}
+```
+
+**Security Validation:**
+- Production: JWT_SECRET must be >= 32 chars, throws on missing
+- Development: Uses insecure default ("development-secret-change-in-prod-32chars!")
+- Console warning in dev if using insecure secret
+
 ## Security Architecture
 
 **Authentication:**
 
-- JWT tokens for stateless auth
-- Secure refresh token rotation
-- Password hashing (via @prisma/client lifecycle hooks - future)
+- JWT tokens for stateless auth (15m default expiry)
+- Secure refresh token rotation with ownership validation
+- Password hashing with bcrypt (12 rounds, ~250ms)
+- Token hashing: SHA-256 for refresh tokens in storage
 
 **Authorization:**
 
-- Role-based access control (RBAC)
-- Middleware checks permissions
-- Resource-level authorization
+- Role-based access control (RBAC) via middleware
+- Three roles: ADMIN, STAFF, CPA
+- Middleware enforces at route level
+- Resource-level authorization via business logic
 
 **Data Protection:**
 
@@ -779,9 +1037,19 @@ try {
 
 **Sensitive Data:**
 
-- Database encryption (future)
+- JWT_SECRET required (min 32 chars in production)
+- Refresh tokens hashed before storage
+- Password hashing with strong algorithm
 - PII masked in logs
 - Secrets in environment variables only
+
+**Token Security:**
+
+- Refresh token revocation: Individual or global (logout everywhere)
+- Token expiry validation: Checked on every request
+- Token ownership validation: Prevents reuse attacks
+- Expired token cleanup: Automatic maintenance job
+- No token data in logs
 
 ## Testing Architecture
 
@@ -812,7 +1080,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-14 07:05
-**Phase:** 3.2 - Unified Inbox & Conversation Management (Complete)
+**Last Updated:** 2026-01-14 14:25
+**Phase:** 2 - Make It Usable (Complete) + 3.2 - Unified Inbox & Conversation Management (Complete)
 **Architecture Version:** 3.2
-**Next Phase:** 3.3 - SMS Status Tracking & Delivery Notifications
+**Next Phase:** 2.1 Advanced - Document Upload Batch Processing

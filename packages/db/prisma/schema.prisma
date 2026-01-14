@@ -124,13 +124,14 @@ enum Language {
 
 model Staff {
   id        String    @id @default(cuid())
+  clerkId   String?   @unique  // Clerk user ID for auth sync
   email     String    @unique
   name      String
   role      StaffRole @default(STAFF)
   avatarUrl String?
   isActive  Boolean   @default(true)
 
-  // Audit fields (H2)
+  // Audit fields
   deactivatedAt DateTime?
   lastLoginAt   DateTime?
 
@@ -138,6 +139,8 @@ model Staff {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([clerkId])
 }
 
 model Client {
@@ -407,6 +410,6 @@ model Action {
   @@index([priority])
   @@index([isCompleted])
   @@index([assignedToId])
-  @@index([isCompleted, priority])      // H1: Composite index for action queue
-  @@index([assignedToId, isCompleted])  // H1: Composite index for staff's pending actions
+  @@index([isCompleted, priority])      // Composite index for action queue
+  @@index([assignedToId, isCompleted])  // Composite index for staff's pending actions
 }

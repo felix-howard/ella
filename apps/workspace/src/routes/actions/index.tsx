@@ -4,7 +4,7 @@
  */
 
 import { createFileRoute, useSearch, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PageContainer } from '../../components/layout'
 import { ActionCard } from '../../components/actions'
 import {
@@ -13,13 +13,17 @@ import {
   SortAsc,
   RefreshCw,
   Inbox,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
+import { toast } from '../../stores/toast-store'
 import {
   UI_TEXT,
   ACTION_TYPE_LABELS,
   ACTION_PRIORITY_LABELS,
 } from '../../lib/constants'
+import { api } from '../../lib/api-client'
 import type { Action, ActionType, ActionPriority } from '../../lib/api-client'
 
 // Search params validation
@@ -36,110 +40,66 @@ export const Route = createFileRoute('/actions/')({
   }),
 })
 
-// Mock data with static timestamps - will be replaced with API call
-const MOCK_ACTIONS: Action[] = [
-  {
-    id: '1',
-    caseId: 'case-1',
-    type: 'VERIFY_DOCS',
-    priority: 'URGENT',
-    title: 'Xác minh W2 - Nguyễn Văn A',
-    description: 'W2 mới được upload, cần xác minh thông tin',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-13T07:30:00Z',
-    taxCase: { id: 'case-1', client: { id: 'client-1', name: 'Nguyễn Văn A' } },
-  },
-  {
-    id: '2',
-    caseId: 'case-2',
-    type: 'BLURRY_DETECTED',
-    priority: 'HIGH',
-    title: 'Ảnh mờ - SSN Card',
-    description: 'Ảnh SSN Card không rõ, cần yêu cầu gửi lại',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-13T06:00:00Z',
-    taxCase: { id: 'case-2', client: { id: 'client-2', name: 'Trần Thị B' } },
-  },
-  {
-    id: '3',
-    caseId: 'case-3',
-    type: 'AI_FAILED',
-    priority: 'HIGH',
-    title: 'AI không nhận diện được tài liệu',
-    description: 'Cần phân loại thủ công tài liệu mới upload',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-13T04:00:00Z',
-    taxCase: { id: 'case-3', client: { id: 'client-3', name: 'Lê Văn C' } },
-  },
-  {
-    id: '4',
-    caseId: 'case-4',
-    type: 'READY_FOR_ENTRY',
-    priority: 'NORMAL',
-    title: 'Sẵn sàng nhập liệu',
-    description: 'Tất cả tài liệu đã xác minh, có thể nhập liệu',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-12T08:00:00Z',
-    taxCase: { id: 'case-4', client: { id: 'client-4', name: 'Phạm Thị D' } },
-  },
-  {
-    id: '5',
-    caseId: 'case-5',
-    type: 'CLIENT_REPLIED',
-    priority: 'NORMAL',
-    title: 'Khách hàng trả lời tin nhắn',
-    description: 'Có tin nhắn mới từ khách hàng',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-13T03:00:00Z',
-    taxCase: { id: 'case-5', client: { id: 'client-5', name: 'Hoàng Văn E' } },
-  },
-  {
-    id: '6',
-    caseId: 'case-6',
-    type: 'REMINDER_DUE',
-    priority: 'LOW',
-    title: 'Cần gửi nhắc nhở',
-    description: '3 ngày chưa có tài liệu mới',
-    isCompleted: false,
-    assignedToId: null,
-    createdAt: '2026-01-10T08:00:00Z',
-    taxCase: { id: 'case-6', client: { id: 'client-6', name: 'Vũ Thị F' } },
-  },
-]
+// API response type for actions grouped by priority
+interface ActionsGroupedResponse {
+  urgent: Action[]
+  high: Action[]
+  normal: Action[]
+  low: Action[]
+  stats: { total: number; urgent: number; high: number; normal: number; low: number }
+}
 
 function ActionsPage() {
+  const queryClient = useQueryClient()
   const { type: filterType, priority: filterPriority } = useSearch({
     from: '/actions/',
   })
-
-  const [isLoading, setIsLoading] = useState(false)
   const { actions: actionsText } = UI_TEXT
 
-  // Apply filters
-  const filteredActions = MOCK_ACTIONS.filter((action) => {
-    if (filterType && action.type !== filterType) return false
-    if (filterPriority && action.priority !== filterPriority) return false
-    return true
+  // Fetch actions from API
+  const {
+    data: actionsData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: ['actions', { type: filterType, priority: filterPriority }],
+    queryFn: () =>
+      api.actions.list({
+        type: filterType,
+        priority: filterPriority,
+        isCompleted: false,
+      }) as Promise<ActionsGroupedResponse>,
   })
 
-  // Group by priority
-  const groupedActions = groupActionsByPriority(filteredActions)
+  // Complete action mutation
+  const completeMutation = useMutation({
+    mutationFn: (actionId: string) => api.actions.complete(actionId),
+    onSuccess: () => {
+      toast.success('Đã hoàn thành công việc')
+      queryClient.invalidateQueries({ queryKey: ['actions'] })
+    },
+    onError: () => {
+      toast.error('Không thể hoàn thành công việc')
+    },
+  })
 
-  const handleComplete = async (_actionId: string) => {
-    setIsLoading(true)
-    // TODO: Call api.actions.complete(actionId) when API is integrated
-    setTimeout(() => setIsLoading(false), 500)
+  // Combine all actions for filtering and grouping
+  const allActions: Action[] = actionsData
+    ? [...actionsData.urgent, ...actionsData.high, ...actionsData.normal, ...actionsData.low]
+    : []
+
+  // Group by priority
+  const groupedActions = groupActionsByPriority(allActions)
+
+  const handleComplete = (actionId: string) => {
+    completeMutation.mutate(actionId)
   }
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    // TODO: Refetch actions
-    setTimeout(() => setIsLoading(false), 500)
+    refetch()
   }
 
   return (
@@ -155,17 +115,17 @@ function ActionsPage() {
               {actionsText.title}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {filteredActions.length} {actionsText.pendingCount}
+              {actionsData?.stats?.total || 0} {actionsText.pendingCount}
             </p>
           </div>
         </div>
 
         <button
           onClick={handleRefresh}
-          disabled={isLoading}
+          disabled={isLoading || isRefetching}
           className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+          <RefreshCw className={cn('w-4 h-4', (isLoading || isRefetching) && 'animate-spin')} />
           <span className="hidden sm:inline">{actionsText.refresh}</span>
         </button>
       </div>
@@ -176,20 +136,48 @@ function ActionsPage() {
         selectedPriority={filterPriority}
       />
 
-      {/* Action List */}
-      {filteredActions.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <div className="space-y-6">
-          {groupedActions.map(({ priority, actions }) => (
-            <ActionGroup
-              key={priority}
-              priority={priority}
-              actions={actions}
-              onComplete={handleComplete}
-            />
-          ))}
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">Đang tải công việc...</p>
         </div>
+      )}
+
+      {/* Error state */}
+      {isError && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {/* Action List */}
+      {!isLoading && !isError && (
+        allActions.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div className="space-y-6">
+            {groupedActions.map(({ priority, actions }) => (
+              <ActionGroup
+                key={priority}
+                priority={priority}
+                actions={actions}
+                onComplete={handleComplete}
+              />
+            ))}
+          </div>
+        )
       )}
     </PageContainer>
   )

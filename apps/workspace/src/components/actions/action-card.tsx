@@ -50,8 +50,16 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
   const createdAt = new Date(action.createdAt)
   const relativeTime = getRelativeTime(createdAt)
 
-  // Generate link to case detail
-  const caseLink = `/cases/${action.caseId}/verify`
+  // Generate link based on action type
+  const isClientReplied = action.type === 'CLIENT_REPLIED'
+  const caseLink = isClientReplied
+    ? `/messages/${action.caseId}`
+    : `/cases/${action.caseId}/verify`
+
+  // Get message preview from metadata for CLIENT_REPLIED actions
+  const messagePreview = isClientReplied && action.metadata?.preview
+    ? String(action.metadata.preview)
+    : null
 
   return (
     <div
@@ -59,7 +67,8 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
         'bg-card rounded-xl border p-4 hover:shadow-md transition-shadow',
         action.priority === 'URGENT' && 'border-error',
         action.priority === 'HIGH' && 'border-accent',
-        action.priority !== 'URGENT' && action.priority !== 'HIGH' && 'border-border'
+        isClientReplied && 'border-l-4 border-l-success',
+        !action.priority && !isClientReplied && 'border-border'
       )}
     >
       <div className="flex items-start gap-3">
@@ -67,10 +76,10 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
         <div
           className={cn(
             'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-            typeColors?.bg || 'bg-muted'
+            isClientReplied ? 'bg-success/10' : (typeColors?.bg || 'bg-muted')
           )}
         >
-          <Icon className={cn('w-5 h-5', typeColors?.text || 'text-muted-foreground')} />
+          <Icon className={cn('w-5 h-5', isClientReplied ? 'text-success' : (typeColors?.text || 'text-muted-foreground'))} />
         </div>
 
         {/* Content */}
@@ -80,11 +89,11 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
             <span
               className={cn(
                 'text-xs font-medium px-2 py-0.5 rounded-full',
-                priorityColors?.bg || 'bg-muted',
-                priorityColors?.text || 'text-muted-foreground'
+                isClientReplied ? 'bg-success/10 text-success' : (priorityColors?.bg || 'bg-muted'),
+                !isClientReplied && (priorityColors?.text || 'text-muted-foreground')
               )}
             >
-              {ACTION_PRIORITY_LABELS[action.priority] || action.priority}
+              {isClientReplied ? 'Mới' : (ACTION_PRIORITY_LABELS[action.priority] || action.priority)}
             </span>
             {/* Type Label */}
             <span className="text-xs text-muted-foreground">
@@ -102,8 +111,15 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
             </p>
           )}
 
-          {/* Description if available */}
-          {action.description && (
+          {/* Message preview for CLIENT_REPLIED */}
+          {messagePreview && (
+            <p className="text-sm bg-muted/50 rounded p-2 mt-2 italic text-muted-foreground line-clamp-2">
+              &ldquo;{messagePreview}&rdquo;
+            </p>
+          )}
+
+          {/* Description if available (and not CLIENT_REPLIED with preview) */}
+          {action.description && !messagePreview && (
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
               {action.description}
             </p>
@@ -131,13 +147,22 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
                 </button>
               )}
 
-              {/* View detail link */}
+              {/* View link - different label for CLIENT_REPLIED */}
               <Link
                 to={caseLink as '/'}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                aria-label={`${actionsText.viewDetail}: ${action.title}`}
+                className={cn(
+                  'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded transition-colors',
+                  isClientReplied
+                    ? 'text-success hover:text-success/80 hover:bg-success/10'
+                    : 'text-muted-foreground hover:text-primary'
+                )}
+                aria-label={isClientReplied
+                  ? `Xem hội thoại: ${action.title}`
+                  : `${actionsText.viewDetail}: ${action.title}`
+                }
               >
-                <span>{actionsText.viewDetail}</span>
+                {isClientReplied && <MessageCircle className="w-3 h-3" aria-hidden="true" />}
+                <span>{isClientReplied ? 'Xem hội thoại' : actionsText.viewDetail}</span>
                 <ChevronRight className="w-3 h-3" aria-hidden="true" />
               </Link>
             </div>

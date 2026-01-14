@@ -57,10 +57,6 @@ function CreateClientPage() {
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
 
-  // Phone number validation patterns
-  // US format: area code cannot start with 0 or 1, next 3 digits follow same rule
-  const US_PHONE_REGEX = /^[2-9]\d{2}[2-9]\d{6}$/
-
   // Validation
   const validateBasicInfo = (): boolean => {
     const newErrors: Partial<Record<keyof BasicInfoData, string>> = {}
@@ -76,8 +72,6 @@ function CreateClientPage() {
       newErrors.phone = 'Vui lòng nhập số điện thoại'
     } else if (cleanedPhone.length !== 10) {
       newErrors.phone = 'Số điện thoại phải có 10 chữ số'
-    } else if (!US_PHONE_REGEX.test(cleanedPhone)) {
-      newErrors.phone = 'Số điện thoại không hợp lệ (mã vùng không được bắt đầu bằng 0 hoặc 1)'
     }
 
     if (basicInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basicInfo.email)) {
@@ -124,9 +118,13 @@ function CreateClientPage() {
     setSubmitError(null)
 
     try {
+      // Format phone as +1XXXXXXXXXX for US numbers (backend requirement)
+      const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
+      const formattedPhone = `+1${cleanedPhone}`
+
       const response = await api.clients.create({
         name: basicInfo.name.trim(),
-        phone: basicInfo.phone.replace(/\D/g, ''),
+        phone: formattedPhone,
         email: basicInfo.email || undefined,
         language: basicInfo.language,
         profile: {
@@ -368,7 +366,7 @@ function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
           type="tel"
           value={data.phone}
           onChange={(e) => handlePhoneChange(e.target.value)}
-          placeholder="(818) 222-3333"
+          placeholder="(818) 222-3333 hoặc 8182223333"
           className={cn(
             'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',

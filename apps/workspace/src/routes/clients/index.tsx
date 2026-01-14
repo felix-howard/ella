@@ -4,14 +4,15 @@
  */
 
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Plus, Search, LayoutGrid, List, RefreshCw, Filter } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { KanbanBoard, ClientListTable } from '../../components/clients'
 import { useClientViewState } from '../../stores/ui-store'
 import { CASE_STATUS_LABELS, UI_TEXT } from '../../lib/constants'
-import type { Client, TaxCaseStatus } from '../../lib/api-client'
+import { api, type Client, type TaxCaseStatus } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/')({
   component: ClientListPage,
@@ -21,94 +22,37 @@ function ClientListPage() {
   const { viewMode, setViewMode } = useClientViewState()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // TODO: Replace with API call using useSuspenseQuery
-  // Mock data for now
-  const mockClients: Client[] = [
-    {
-      id: '1',
-      name: 'Nguyễn Văn An',
-      phone: '8182223333',
-      email: 'an.nguyen@email.com',
-      language: 'VI',
-      createdAt: '2026-01-10T10:00:00Z',
-      updatedAt: '2026-01-12T14:30:00Z',
-      taxCases: [{ status: 'WAITING_DOCS', taxYear: 2025 }],
-    },
-    {
-      id: '2',
-      name: 'Trần Thị Bình',
-      phone: '6264445555',
-      email: 'binh.tran@email.com',
-      language: 'VI',
-      createdAt: '2026-01-08T09:00:00Z',
-      updatedAt: '2026-01-11T16:00:00Z',
-      taxCases: [{ status: 'IN_PROGRESS', taxYear: 2025 }],
-    },
-    {
-      id: '3',
-      name: 'Lê Minh Châu',
-      phone: '7147778888',
-      email: null,
-      language: 'VI',
-      createdAt: '2026-01-05T11:00:00Z',
-      updatedAt: '2026-01-10T10:00:00Z',
-      taxCases: [{ status: 'INTAKE', taxYear: 2025 }],
-    },
-    {
-      id: '4',
-      name: 'Phạm Quốc Dũng',
-      phone: '9496667777',
-      email: 'dung.pham@email.com',
-      language: 'EN',
-      createdAt: '2026-01-03T08:00:00Z',
-      updatedAt: '2026-01-09T12:00:00Z',
-      taxCases: [{ status: 'READY_FOR_ENTRY', taxYear: 2025 }],
-    },
-    {
-      id: '5',
-      name: 'Hoàng Thị Em',
-      phone: '5629998888',
-      email: 'em.hoang@email.com',
-      language: 'VI',
-      createdAt: '2026-01-01T10:00:00Z',
-      updatedAt: '2026-01-08T15:00:00Z',
-      taxCases: [{ status: 'FILED', taxYear: 2025 }],
-    },
-    {
-      id: '6',
-      name: 'Võ Văn Phúc',
-      phone: '4083334444',
-      email: null,
-      language: 'VI',
-      createdAt: '2025-12-20T09:00:00Z',
-      updatedAt: '2026-01-07T11:00:00Z',
-      taxCases: [{ status: 'REVIEW', taxYear: 2025 }],
-    },
-  ]
-
-  // Filter clients
-  const filteredClients = mockClients.filter((client) => {
-    // Search filter
-    const searchLower = searchQuery.toLowerCase()
-    const matchesSearch =
-      !searchQuery ||
-      client.name.toLowerCase().includes(searchLower) ||
-      client.phone.includes(searchQuery)
-
-    // Status filter
-    const latestStatus = client.taxCases?.[0]?.status
-    const matchesStatus = statusFilter === 'ALL' || latestStatus === statusFilter
-
-    return matchesSearch && matchesStatus
+  // Fetch clients from API
+  const {
+    data: clientsResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: ['clients', { status: statusFilter === 'ALL' ? undefined : statusFilter }],
+    queryFn: () => api.clients.list({
+      limit: 100,
+      status: statusFilter === 'ALL' ? undefined : statusFilter
+    }),
   })
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    // TODO: Refetch data from API
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    setIsRefreshing(false)
+  const clients = clientsResponse?.data ?? []
+
+  // Filter clients by search (server-side filtering for status already handled)
+  const filteredClients = clients.filter((client) => {
+    if (!searchQuery) return true
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      client.name.toLowerCase().includes(searchLower) ||
+      client.phone.includes(searchQuery)
+    )
+  })
+
+  const handleRefresh = () => {
+    refetch()
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -125,16 +69,13 @@ function ClientListPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            // TODO: Navigate to /clients/new when route is created
-            alert('Chức năng thêm khách hàng mới sẽ được triển khai ở task 1.3.19')
-          }}
+        <Link
+          to="/clients/new"
           className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-full font-medium hover:bg-primary-dark transition-colors shadow-sm"
         >
           <Plus className="w-5 h-5" aria-hidden="true" />
           <span>{clientsText.newClient}</span>
-        </button>
+        </Link>
       </div>
 
       {/* Controls Bar */}
@@ -174,11 +115,11 @@ function ClientListPage() {
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isRefetching}
             className="p-2 rounded-lg border border-border bg-card hover:bg-muted transition-colors disabled:opacity-50"
             aria-label={UI_TEXT.actions.refresh}
           >
-            <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefreshing && 'animate-spin')} />
+            <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefetching && 'animate-spin')} />
           </button>
 
           {/* View Toggle */}
@@ -216,7 +157,30 @@ function ClientListPage() {
       </div>
 
       {/* Content */}
-      {viewMode === 'kanban' ? (
+      {isLoading ? (
+        // Loading skeleton
+        viewMode === 'kanban' ? (
+          <KanbanBoard clients={[]} isLoading />
+        ) : (
+          <ClientListTable clients={[]} isLoading />
+        )
+      ) : isError ? (
+        // Error state
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách khách hàng</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Thử lại
+          </button>
+        </div>
+      ) : viewMode === 'kanban' ? (
         <KanbanBoard clients={filteredClients} />
       ) : (
         <ClientListTable clients={filteredClients} />

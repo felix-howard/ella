@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Phone,
@@ -17,6 +18,9 @@ import {
   Pencil,
   Copy,
   Check,
+  AlertCircle,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
@@ -34,7 +38,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import type { ClientDetail, TaxCaseStatus, ChecklistItemStatus, ChecklistItem, RawImage, DigitalDoc } from '../../lib/api-client'
+import { api, type ClientDetail, type TaxCaseStatus, type ChecklistItemStatus, type ChecklistItem, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -48,72 +52,86 @@ function ClientDetailPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
-  // TODO: Replace with API call using useSuspenseQuery
-  // Mock data for demonstration
-  const client: ClientDetail = {
-    id: clientId,
-    name: 'Nguyễn Văn An',
-    phone: '8182223333',
-    email: 'an.nguyen@email.com',
-    language: 'VI',
-    createdAt: '2026-01-10T10:00:00Z',
-    updatedAt: '2026-01-12T14:30:00Z',
-    profile: {
-      id: 'profile-1',
-      filingStatus: 'MARRIED_FILING_JOINTLY',
-      hasW2: true,
-      hasBankAccount: true,
-      hasInvestments: false,
-      hasKidsUnder17: true,
-      numKidsUnder17: 2,
-      paysDaycare: true,
-      hasKids17to24: false,
-      hasSelfEmployment: false,
-      hasRentalProperty: false,
-      businessName: null,
-      ein: null,
-      hasEmployees: false,
-      hasContractors: false,
-      has1099K: false,
-    },
-    taxCases: [
-      {
-        id: 'case-1',
-        taxYear: 2025,
-        taxTypes: ['FORM_1040'],
-        status: 'WAITING_DOCS',
-        createdAt: '2026-01-10T10:00:00Z',
-        updatedAt: '2026-01-12T14:30:00Z',
-        _count: { rawImages: 5, digitalDocs: 3, checklistItems: 8 },
-      },
-    ],
+  // Fetch client detail from API
+  const {
+    data: client,
+    isLoading: isClientLoading,
+    isError: isClientError,
+    error: clientError,
+    refetch: refetchClient,
+  } = useQuery({
+    queryKey: ['client', clientId],
+    queryFn: () => api.clients.get(clientId),
+  })
+
+  // Get the latest case ID for fetching case-related data
+  const latestCaseId = client?.taxCases?.[0]?.id
+
+  // Fetch checklist for the latest case
+  const { data: checklistResponse } = useQuery({
+    queryKey: ['checklist', latestCaseId],
+    queryFn: () => api.cases.getChecklist(latestCaseId!),
+    enabled: !!latestCaseId,
+  })
+
+  // Fetch raw images for the latest case
+  const { data: imagesResponse } = useQuery({
+    queryKey: ['images', latestCaseId],
+    queryFn: () => api.cases.getImages(latestCaseId!),
+    enabled: !!latestCaseId,
+  })
+
+  // Fetch digital docs for the latest case
+  const { data: docsResponse } = useQuery({
+    queryKey: ['docs', latestCaseId],
+    queryFn: () => api.cases.getDocs(latestCaseId!),
+    enabled: !!latestCaseId,
+  })
+
+  // Loading state
+  if (isClientLoading) {
+    return (
+      <PageContainer>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground">Đang tải thông tin khách hàng...</p>
+        </div>
+      </PageContainer>
+    )
   }
 
-  // Mock checklist data with full structure
-  const checklistItems: ChecklistItem[] = [
-    { id: '1', caseId: 'case-1', templateId: 't-1', status: 'VERIFIED', template: { id: 't-1', docType: 'SSN_CARD', labelVi: 'Thẻ SSN', labelEn: 'SSN Card', sortOrder: 1 }, rawImages: [], digitalDocs: [] },
-    { id: '2', caseId: 'case-1', templateId: 't-2', status: 'VERIFIED', template: { id: 't-2', docType: 'DRIVER_LICENSE', labelVi: 'Bằng lái / ID', labelEn: 'Driver License', sortOrder: 2 }, rawImages: [], digitalDocs: [] },
-    { id: '3', caseId: 'case-1', templateId: 't-3', status: 'HAS_DIGITAL', template: { id: 't-3', docType: 'W2', labelVi: 'W2', labelEn: 'W2', sortOrder: 3 }, rawImages: [{ id: 'img-1', caseId: 'case-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z' }], digitalDocs: [{ id: 'doc-1', caseId: 'case-1', rawImageId: 'img-1', docType: 'W2', status: 'EXTRACTED', extractedData: { employerName: 'ABC Corp', wagesTips: 75000 }, createdAt: '2026-01-11T10:05:00Z', updatedAt: '2026-01-11T10:05:00Z' }] },
-    { id: '4', caseId: 'case-1', templateId: 't-4', status: 'HAS_RAW', template: { id: 't-4', docType: 'FORM_1099_INT', labelVi: '1099-INT', labelEn: '1099-INT', sortOrder: 4 }, rawImages: [{ id: 'img-2', caseId: 'case-1', filename: '1099_int.jpg', r2Key: 'images/1099_int.jpg', status: 'CLASSIFIED', createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z' }] },
-    { id: '5', caseId: 'case-1', templateId: 't-5', status: 'MISSING', template: { id: 't-5', docType: 'BIRTH_CERTIFICATE', labelVi: 'Giấy khai sinh con', labelEn: 'Birth Certificate', sortOrder: 5 } },
-    { id: '6', caseId: 'case-1', templateId: 't-6', status: 'MISSING', template: { id: 't-6', docType: 'DAYCARE_RECEIPT', labelVi: 'Hóa đơn Daycare', labelEn: 'Daycare Receipt', sortOrder: 6 } },
-  ]
+  // Error state
+  if (isClientError || !client) {
+    return (
+      <PageContainer>
+        <Link
+          to="/clients"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+          <span>Quay lại danh sách</span>
+        </Link>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">Không tìm thấy khách hàng</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {clientError instanceof Error ? clientError.message : 'Khách hàng này không tồn tại hoặc đã bị xóa'}
+          </p>
+          <button
+            onClick={() => refetchClient()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Thử lại
+          </button>
+        </div>
+      </PageContainer>
+    )
+  }
 
-  // Mock raw images data
-  const rawImages: RawImage[] = [
-    { id: 'img-1', caseId: 'case-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z', checklistItem: { template: { id: 't-3', docType: 'W2', labelVi: 'W2', labelEn: 'W2', sortOrder: 3 } } },
-    { id: 'img-2', caseId: 'case-1', filename: '1099_int.jpg', r2Key: 'images/1099_int.jpg', status: 'CLASSIFIED', createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z', checklistItem: { template: { id: 't-4', docType: 'FORM_1099_INT', labelVi: '1099-INT', labelEn: '1099-INT', sortOrder: 4 } } },
-    { id: 'img-3', caseId: 'case-1', filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg', status: 'LINKED', createdAt: '2026-01-10T09:00:00Z', updatedAt: '2026-01-10T09:00:00Z', checklistItem: { template: { id: 't-1', docType: 'SSN_CARD', labelVi: 'Thẻ SSN', labelEn: 'SSN Card', sortOrder: 1 } } },
-    { id: 'img-4', caseId: 'case-1', filename: 'drivers_license.jpg', r2Key: 'images/drivers_license.jpg', status: 'LINKED', createdAt: '2026-01-10T09:05:00Z', updatedAt: '2026-01-10T09:05:00Z', checklistItem: { template: { id: 't-2', docType: 'DRIVER_LICENSE', labelVi: 'Bằng lái / ID', labelEn: 'Driver License', sortOrder: 2 } } },
-    { id: 'img-5', caseId: 'case-1', filename: 'blurry_doc.jpg', r2Key: 'images/blurry_doc.jpg', status: 'BLURRY', createdAt: '2026-01-12T14:00:00Z', updatedAt: '2026-01-12T14:00:00Z' },
-  ]
-
-  // Mock digital docs data
-  const digitalDocs: DigitalDoc[] = [
-    { id: 'doc-1', caseId: 'case-1', rawImageId: 'img-1', docType: 'W2', status: 'EXTRACTED', extractedData: { employerName: 'ABC Corporation', employerEin: '12-3456789', wagesTips: 75000, federalTaxWithheld: 12500, socialSecurityWages: 75000, medicareWages: 75000 }, createdAt: '2026-01-11T10:05:00Z', updatedAt: '2026-01-11T10:05:00Z', rawImage: { id: 'img-1', filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg' } },
-    { id: 'doc-2', caseId: 'case-1', rawImageId: 'img-3', docType: 'SSN_CARD', status: 'VERIFIED', extractedData: { name: 'Nguyễn Văn An', ssn: '123-45-6789' }, createdAt: '2026-01-10T09:10:00Z', updatedAt: '2026-01-10T09:10:00Z', rawImage: { id: 'img-3', filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg' } },
-    { id: 'doc-3', caseId: 'case-1', rawImageId: 'img-4', docType: 'DRIVER_LICENSE', status: 'VERIFIED', extractedData: { name: 'Nguyen Van An', licenseNumber: 'D1234567', address: '123 Main St, Los Angeles, CA 90001', dateOfBirth: '1985-03-15', expirationDate: '2028-03-15' }, createdAt: '2026-01-10T09:15:00Z', updatedAt: '2026-01-10T09:15:00Z', rawImage: { id: 'img-4', filename: 'drivers_license.jpg', r2Key: 'images/drivers_license.jpg' } },
-  ]
+  const checklistItems = checklistResponse?.items ?? []
+  const rawImages = imagesResponse?.images ?? []
+  const digitalDocs = docsResponse?.docs ?? []
 
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus

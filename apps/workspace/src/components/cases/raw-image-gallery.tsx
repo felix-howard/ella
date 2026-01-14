@@ -1,9 +1,10 @@
 /**
  * Raw Image Gallery Component - Displays uploaded images with status indicators
  * Shows image thumbnails, status badges, and quick actions
+ * Uses FileViewerModal for full-screen viewing with PDF support
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState } from 'react'
 import { cn } from '@ella/ui'
 import {
   Image as ImageIcon,
@@ -12,12 +13,11 @@ import {
   CheckCircle,
   Clock,
   HelpCircle,
-  X,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
+  Loader2,
 } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { FileViewerModal } from '../file-viewer'
+import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
 
 // Image status types
@@ -73,6 +73,12 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)
 
+  // Fetch signed URL when an image is selected
+  const { data: signedUrlData, isLoading: isUrlLoading, error: urlError } = useSignedUrl(
+    selectedImage?.id ?? null,
+    { enabled: viewerOpen && !!selectedImage }
+  )
+
   const handleImageClick = (image: RawImage) => {
     setSelectedImage(image)
     setViewerOpen(true)
@@ -81,7 +87,8 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
 
   const closeViewer = () => {
     setViewerOpen(false)
-    setSelectedImage(null)
+    // Small delay before clearing selected to avoid flash
+    setTimeout(() => setSelectedImage(null), 200)
   }
 
   if (isLoading) {
@@ -135,14 +142,15 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
         ))}
       </div>
 
-      {/* Image Viewer Modal - key forces remount on image change to reset zoom/rotation */}
-      {viewerOpen && selectedImage && (
-        <ImageViewer
-          key={selectedImage.id}
-          image={selectedImage}
-          onClose={closeViewer}
-        />
-      )}
+      {/* File Viewer Modal */}
+      <FileViewerModal
+        url={signedUrlData?.url ?? null}
+        filename={selectedImage?.filename ?? ''}
+        isOpen={viewerOpen}
+        onClose={closeViewer}
+        isLoading={isUrlLoading}
+        error={urlError ? (urlError as Error).message : null}
+      />
     </div>
   )
 }
@@ -189,30 +197,14 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
   const docLabel = docType ? DOC_TYPE_LABELS[docType] : null
   const needsClassify = status === 'UPLOADED' || status === 'UNCLASSIFIED'
 
-  // TODO: Replace placeholder with signed R2 URL when storage service is implemented (Phase INF.4)
-  // Security note: Never expose raw R2 keys in production - use time-limited signed URLs
-  const imageUrl = image.r2Key
-    ? `https://placeholder.pics/svg/200x150/DEDEDE/555555/${encodeURIComponent(image.filename.slice(0, 10))}`
-    : null
-
   return (
     <div
       className="group relative bg-card rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
       onClick={onClick}
     >
-      {/* Image Thumbnail */}
+      {/* Image Thumbnail - Shows placeholder until clicked */}
       <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={image.filename}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-muted-foreground" />
-          </div>
-        )}
+        <ImageThumbnail imageId={image.id} filename={image.filename} />
 
         {/* Hover Overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -259,145 +251,39 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
   )
 }
 
-interface ImageViewerProps {
-  image: RawImage
-  onClose: () => void
-}
+/**
+ * Thumbnail that fetches signed URL on demand
+ */
+function ImageThumbnail({ imageId, filename }: { imageId: string; filename: string }) {
+  // Fetch signed URL for thumbnail (with longer stale time since thumbnails rarely change)
+  const { data, isLoading, error } = useSignedUrl(imageId, { staleTime: 55 * 60 * 1000 })
 
-function ImageViewer({ image, onClose }: ImageViewerProps) {
-  const [zoom, setZoom] = useState(1)
-  const [rotation, setRotation] = useState(0)
-  const containerRef = useRef<HTMLDivElement>(null)
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+      </div>
+    )
+  }
 
-  // Note: State resets automatically via key prop on parent mount
-
-  // Keyboard navigation handler
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        onClose()
-        break
-      case '+':
-      case '=':
-        setZoom((z) => Math.min(3, z + 0.25))
-        break
-      case '-':
-        setZoom((z) => Math.max(0.5, z - 0.25))
-        break
-      case 'r':
-      case 'R':
-        setRotation((r) => (r + 90) % 360)
-        break
-      case '0':
-        setZoom(1)
-        setRotation(0)
-        break
-    }
-  }, [onClose])
-
-  // Add keyboard event listener and focus trap
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    // Focus the container for keyboard events
-    containerRef.current?.focus()
-
-    // Prevent body scroll when modal is open
-    const originalOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = originalOverflow
-    }
-  }, [handleKeyDown])
-
-  // TODO: Replace placeholder with signed R2 URL when storage service is implemented
-  // This is a temporary solution for development/demo purposes
-  const imageUrl = image.r2Key
-    ? `https://placeholder.pics/svg/800x600/DEDEDE/555555/${encodeURIComponent(image.filename.slice(0, 15))}`
-    : null
+  if (error || !data?.url) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+        <span className="text-[10px] text-muted-foreground text-center px-2 truncate max-w-full">
+          {filename.slice(0, 15)}
+        </span>
+      </div>
+    )
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Xem ảnh: ${image.filename}`}
-      tabIndex={-1}
-    >
-      {/* Close Button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-        aria-label="Đóng"
-      >
-        <X className="w-6 h-6 text-white" />
-      </button>
-
-      {/* Controls */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/10 rounded-full p-2">
-        <button
-          onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Thu nhỏ (phím -)"
-          title="Thu nhỏ (phím -)"
-        >
-          <ZoomOut className="w-5 h-5 text-white" />
-        </button>
-        <span className="text-white text-sm px-2 min-w-[4rem] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Phóng to (phím +)"
-          title="Phóng to (phím +)"
-        >
-          <ZoomIn className="w-5 h-5 text-white" />
-        </button>
-        <div className="w-px h-6 bg-white/20 mx-2" />
-        <button
-          onClick={() => setRotation((r) => (r + 90) % 360)}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Xoay (phím R)"
-          title="Xoay (phím R)"
-        >
-          <RotateCw className="w-5 h-5 text-white" />
-        </button>
-      </div>
-
-      {/* Keyboard Hints */}
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white/50 text-xs">
-        ESC: đóng • +/-: zoom • R: xoay • 0: reset
-      </div>
-
-      {/* Image Info */}
-      <div className="absolute top-4 left-4 text-white">
-        <p className="font-medium">{image.filename}</p>
-        <p className="text-sm text-white/70">
-          {IMAGE_STATUS_CONFIG[image.status as ImageStatus]?.label || image.status}
-        </p>
-      </div>
-
-      {/* Main Image */}
-      <div className="max-w-[90vw] max-h-[80vh] overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={image.filename}
-            className="max-w-full max-h-full object-contain transition-transform"
-            style={{
-              transform: `scale(${zoom}) rotate(${rotation}deg)`,
-            }}
-          />
-        ) : (
-          <div className="w-96 h-72 bg-muted/20 flex items-center justify-center rounded-xl">
-            <ImageIcon className="w-16 h-16 text-white/50" />
-          </div>
-        )}
-      </div>
-    </div>
+    <img
+      src={data.url}
+      alt={filename}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
   )
 }
 

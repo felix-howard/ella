@@ -17,6 +17,7 @@ import {
   listDocsQuerySchema,
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
+import { getSignedDownloadUrl } from '../../services/storage'
 import type { TaxType, TaxCaseStatus, RawImageStatus } from '@ella/db'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 
@@ -315,6 +316,40 @@ casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) 
       updatedAt: doc.updatedAt.toISOString(),
     })),
     pagination: buildPaginationResponse(safePage, safeLimit, total),
+  })
+})
+
+// GET /images/:imageId/signed-url - Get signed URL for a single image
+casesRoute.get('/images/:imageId/signed-url', async (c) => {
+  const imageId = c.req.param('imageId')
+
+  const image = await prisma.rawImage.findUnique({
+    where: { id: imageId },
+    select: { id: true, r2Key: true, filename: true },
+  })
+
+  if (!image) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  if (!image.r2Key) {
+    return c.json({ error: 'NO_FILE', message: 'Image file not available' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(image.r2Key)
+
+  if (!signedUrl) {
+    return c.json(
+      { error: 'STORAGE_ERROR', message: 'Could not generate signed URL. R2 may not be configured.' },
+      500
+    )
+  }
+
+  return c.json({
+    id: image.id,
+    filename: image.filename,
+    url: signedUrl,
+    expiresIn: 3600, // 1 hour
   })
 })
 

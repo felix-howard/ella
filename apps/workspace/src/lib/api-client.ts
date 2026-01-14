@@ -225,6 +225,9 @@ export const api = {
       request<ImagesResponse>(`/cases/${id}/images`, { params }),
 
     getDocs: (id: string) => request<DocsResponse>(`/cases/${id}/docs`),
+
+    getImageSignedUrl: (imageId: string) =>
+      request<SignedUrlResponse>(`/cases/images/${imageId}/signed-url`),
   },
 
   // Actions
@@ -434,6 +437,13 @@ export interface ImagesResponse {
 
 export interface DocsResponse {
   docs: DigitalDoc[]
+}
+
+export interface SignedUrlResponse {
+  id: string
+  filename: string
+  url: string
+  expiresIn: number
 }
 
 // Action types

@@ -92,14 +92,15 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 ### @ella/api
 **REST API (Hono framework, PORT 3001)**
 
-**Routes:** 18 endpoints across 7 modules
-- Clients (CRUD + profile)
-- Cases (tax case management)
-- Documents (digital doc handling)
-- Actions (task queue)
-- Messages (conversations)
-- Portal (magic link access)
-- Health check
+**Routes:** 35+ endpoints across 8 modules
+- Clients (6 endpoints: CRUD + profile + resend SMS)
+- Cases (7 endpoints: CRUD + checklist + images + transitions)
+- Documents (6 endpoints: details + classify + OCR + verify)
+- Actions (2 endpoints: list + get/complete)
+- Messages (4 endpoints: conversations + history + send + remind)
+- Portal (2 endpoints: validate magic link + upload)
+- Webhooks (2 endpoints: Twilio SMS + status updates)
+- Health (1 endpoint: server status)
 
 **Features:**
 - Zod validation on all inputs
@@ -114,15 +115,22 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 **Pages:**
 - Home - Landing page
 - `/u/$token` - Magic link entry
-- `/u/$token/upload` - Document upload flow
+- `/u/$token/upload` - Document upload flow (EnhancedUploader component)
 - `/u/$token/status` - Upload status tracking
 
 **Features:**
-- Passwordless token-based auth
+- Passwordless token-based auth (magic link)
 - Mobile-optimized (max-width 448px)
 - Vietnamese/English i18n
-- File validation (JPEG, PNG, PDF, 10MB max)
-- Upload progress & status tracking
+- Enhanced uploader with:
+  - Mobile: Camera + Gallery buttons
+  - Desktop: Drag & drop + click to browse
+  - Real-time progress tracking (XHR)
+  - Automatic retry for network errors (2 retries)
+  - File validation (JPEG, PNG, GIF, WebP, PDF; 10MB max per file, 20 files max)
+  - Preview grid with upload overlays
+  - Memory-safe (cleanup blob URLs on unmount)
+  - Accessibility (ARIA labels, progress bar role, semantic HTML)
 
 ### @ella/workspace
 **Staff management dashboard (React, PORT 5173)**

@@ -501,27 +501,57 @@ Store token in localStorage/cookie (Frontend)
 Attach token to future requests
 ```
 
-### Document Upload Flow
+### Document Upload Flow (Portal - Magic Link)
+
+**See:** [portal-enhanced-uploader.md](./portal-enhanced-uploader.md) for detailed component documentation
 
 ```
-Upload Form (Frontend)
+Client Portal (Magic Link Token)
         ↓
-Select file + metadata (validated locally)
+POST /portal/:token (validate token & fetch case data)
         ↓
-POST /api/documents (with auth header)
+User selects files via:
+├─ Mobile: Camera capture or Gallery picker
+└─ Desktop: Drag & drop or click to browse
         ↓
-Validate request (Zod from @ella/shared)
+EnhancedUploader validates files:
+├─ Type: JPEG, PNG, GIF, WebP, PDF
+├─ Size: ≤ 10MB each
+└─ Count: ≤ 20 files per batch
         ↓
-Check authorization
+File preview grid shows selected files
         ↓
-Store file (to storage service - future)
+User clicks Upload button
         ↓
-Create Document record (Prisma)
+XHR-based upload with progress tracking:
+├─ onprogress fires real-time updates (0-100%)
+├─ Progress bar & overlay on each file
+└─ All files uploaded as single batch
         ↓
-Return document data (apiResponseSchema)
+POST /portal/:token/upload (multipart/form-data)
         ↓
-Update frontend state (show in list)
+Backend validates token + file integrity
+        ↓
+Create RawImage records (status: UPLOADED)
+        ↓
+Return UploadResponse { uploaded, images[], message }
+        ↓
+Frontend shows success state:
+├─ Checkmark overlay on completed files
+├─ Success page with upload count
+└─ Option to upload more or return to status
+        ↓
+On error (network or server):
+├─ Network errors: Auto-retry (up to 2 retries, exponential backoff)
+├─ Server errors: Show error message, allow manual retry
+└─ File state marked as 'error' with visual indicator
 ```
+
+**Retry Logic:**
+- Only retries on transient network errors (`NETWORK_ERROR`, status 0)
+- Server errors (429, 500, etc.) are not retried
+- Max 2 automatic retries before user intervention
+- User can manually retry after error
 
 ### Compliance Check Flow
 

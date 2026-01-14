@@ -3,7 +3,7 @@
  * Creates 5 sample clients with profiles, cases, magic links, and checklist items
  * Run: pnpm -F @ella/db seed:test
  */
-import { PrismaClient, TaxType, TaxCaseStatus, Language, ChecklistItemStatus } from '../src/generated/index.js'
+import { PrismaClient, type TaxType, type TaxCaseStatus, type Language, type ChecklistItemStatus } from '../src/generated/index.js'
 
 const prisma = new PrismaClient()
 

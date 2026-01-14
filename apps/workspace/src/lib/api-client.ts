@@ -205,12 +205,23 @@ export const api = {
   // Actions
   actions: {
     list: (params?: { type?: string; priority?: string; assignedToId?: string; isCompleted?: boolean }) =>
-      request<{ data: Action[] }>('/actions', { params }),
+      request<ActionsGroupedResponse>('/actions', { params }),
 
     complete: (id: string) =>
       request<Action>(`/actions/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ isCompleted: true }),
+      }),
+  },
+
+  // Documents
+  docs: {
+    get: (id: string) => request<DigitalDoc>(`/docs/${id}`),
+
+    verifyAction: (id: string, data: { action: 'verify' | 'reject'; notes?: string }) =>
+      request<{ success: boolean; message: string }>(`/docs/${id}/verify-action`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
 
@@ -414,6 +425,21 @@ export interface Action {
   taxCase?: {
     id: string
     client: { id: string; name: string }
+  }
+}
+
+// Actions grouped by priority (API response)
+export interface ActionsGroupedResponse {
+  urgent: Action[]
+  high: Action[]
+  normal: Action[]
+  low: Action[]
+  stats: {
+    total: number
+    urgent: number
+    high: number
+    normal: number
+    low: number
   }
 }
 

@@ -11,12 +11,13 @@
 | Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
 | Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
 | Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
+| **Phase 2** | **Make It Usable (Core Workflow)** | **2026-01-14** |
 | Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
 | Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
 | Phase 3 | Apps Setup (API, Portal, Workspace) | Complete |
-| Phase 2 | Packages Setup (DB, Shared, UI) | Complete |
+| Phase 2 Infrastructure | Packages Setup (DB, Shared, UI) | Complete |
 | Phase 1.5 | Shared UI Components | 2026-01-13 |
 | Phase 1.4 | Client Portal | 2026-01-13 |
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
@@ -244,6 +245,132 @@ CLERK_SECRET_KEY=...
 **Spacing:**
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
+
+## Phase 2: Make It Usable (Core Workflow - 2026-01-14)
+
+**Phase 2 focuses on making the platform functional for daily workflow with status transitions, document verification, and efficient data entry.**
+
+### Phase 2 Core Features:
+
+**1. Tax Case Status Transitions**
+- 7-state workflow: INTAKE → WAITING_DOCS → IN_PROGRESS → READY_FOR_ENTRY → ENTRY_COMPLETE → REVIEW → FILED
+- Validation engine prevents invalid transitions
+- Timestamps track key milestones (entryCompletedAt, filedAt)
+- API enforces transitions, frontend reflects valid options
+
+**2. Document Verification Workflow**
+- Quick verify/reject actions on pending documents
+- `POST /docs/:id/verify-action` endpoint with action + notes
+- Staff can reject documents to trigger resend requests
+- Rejected docs marked as BLURRY, create BLURRY_DETECTED actions
+
+**3. Status Selector Component**
+- Frontend component: `apps/workspace/src/components/cases/status-selector.tsx`
+- Dropdown shows only valid transitions for current status
+- Toast notifications on update success/failure
+- Disabled state during API calls
+- Accessibility: aria labels, semantic HTML
+
+**4. Verification Panel Component**
+- Frontend: `apps/workspace/src/components/documents/verification-panel.tsx`
+- Lists pending/extracted/partial documents needing verification
+- Quick verify button or reject with notes
+- Shows document confidence % and type
+- Empty state when all verified
+
+**5. Server-Side Client Search**
+- `GET /clients` endpoint improved with real API calls
+- Supports search parameter (name/phone/email)
+- Pagination: page, limit (default 20)
+- Returns client data with profile & case counts
+
+**6. Pagination System**
+- Standardized pagination: page, limit, skip calculation
+- Helper functions: `getPaginationParams()`, `buildPaginationResponse()`
+- Applied to: cases, images, documents endpoints
+- Prevents memory issues with large datasets
+
+**7. Shared Constants & Types**
+- `packages/shared/src/constants/case-status.ts` - Status transitions + helpers
+- Functions: `isValidStatusTransition()`, `getValidNextStatuses()`
+- Exported from `@ella/shared` (single source of truth)
+- Used by both API and frontend
+
+**8. Enhanced API Client**
+- `apps/workspace/src/lib/api-client.ts` additions:
+  - New methods: `docs.verifyAction()`, `cases.update()`, `cases.getValidTransitions()`
+  - Type exports: `TaxCaseStatus`, `DigitalDoc`
+  - Error handling with typed responses
+
+**9. Debounced Search Hook**
+- `apps/workspace/src/hooks/use-debounced-value.ts`
+- Prevents excessive API calls during typing
+- Returns debounced value + pending state
+- Configurable delay (500ms for search)
+
+### Phase 2 API Endpoints:
+
+**Cases Management:**
+- `GET /cases/:id/valid-transitions` - Get valid status transitions for case
+- `PATCH /cases/:id` - Update case status with validation
+
+**Documents (New/Enhanced):**
+- `POST /docs/:id/verify-action` - Quick verify or reject (NEW)
+- `PATCH /docs/:id/verify` - Verify/edit extracted data with notes
+
+**Clients:**
+- `GET /clients` - Enhanced with real search/filter (Previously Phase 1)
+
+### Phase 2 Database Updates:
+
+**TaxCase Model:**
+- Added: `entryCompletedAt`, `filedAt` timestamps
+- Status field enforces VALID_STATUS_TRANSITIONS
+
+**DigitalDoc Model:**
+- `status` field: PENDING → EXTRACTED → PARTIAL → VERIFIED → FAILED/REJECTED
+- `verifiedAt` timestamp for audit trail
+- Supports confidence scoring for validation workflow
+
+**Action Model:**
+- New type: BLURRY_DETECTED (from document rejection)
+- Enhanced metadata structure for docId, rawImageId tracking
+
+### Phase 2 Frontend Pages Updated:
+
+**Clients Page:**
+- Real API calls replacing mock data
+- Server-side search with debounce
+- Pagination for client lists
+- Loading states during fetch
+
+**Client Detail Page:**
+- Status selector for case management
+- Verification panel showing pending docs
+- Real-time checklist status
+- Document rejection with notes
+
+**Actions Page:**
+- BLURRY_DETECTED actions from doc rejections
+- Priority queue: URGENT, HIGH, NORMAL, LOW
+- Action completion workflow
+
+### Phase 2 Key Decisions:
+
+1. **Status Transitions** - Enforce valid states to prevent invalid workflows
+2. **Verification-First** - Document verification required before case progression
+3. **Debounced Search** - Reduce API load on client search
+4. **Atomic Transactions** - All-or-nothing document state changes
+5. **Toast Notifications** - Clear feedback on all actions
+
+### Phase 2 Next Steps:
+
+1. Action assignment workflow (assign to staff member)
+2. Batch document processing (multiple docs at once)
+3. Search filters on documents (status, type, confidence)
+4. Export case data (PDF, Excel)
+
+---
 
 ## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - AI, Communication & Data Entry Optimization)
 
@@ -633,7 +760,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-14 08:51
-**Status:** Phase 4.2 Complete - Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting)
-**Branch:** feature/phase-4-data-entry-optimization
-**Next Phase:** Phase 4.3 - Document Type Auto-Detection
+**Last Updated:** 2026-01-14 14:30
+**Status:** Phase 2 Complete - Make It Usable (Core Workflow) + Phase 4.2 Complete
+**Branch:** fix/bug-fixes
+**Next Phase:** Phase 2.1 Advanced - Batch Document Processing & Advanced Search

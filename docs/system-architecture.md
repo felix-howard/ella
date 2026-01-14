@@ -94,29 +94,32 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (29 total):**
+**Implemented Endpoints (35 total):**
 
 **Clients (6):**
-- `GET /clients` - List with search/status filters, pagination
+- `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
 - `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
 - `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
-**Tax Cases (6):**
+**Tax Cases (7 - Phase 2 additions):**
 - `GET /cases` - List with status/year/client filters, pagination
 - `POST /cases` - Create new case
 - `GET /cases/:id` - Case details with document counts
-- `PATCH /cases/:id` - Update status/metadata
+- `PATCH /cases/:id` - Update status/metadata with transition validation (PHASE 2)
 - `GET /cases/:id/checklist` - Dynamic checklist from profile & templates
-- `GET /cases/:id/images` - Raw images for case
+- `GET /cases/:id/images` - Raw images for case with pagination
+- `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
 
-**Digital Documents (5):**
+**Digital Documents (6 - Phase 2 additions):**
 - `GET /docs/:id` - Document details with extracted data
 - `POST /docs/:id/classify` - AI classify raw image to docType
 - `POST /docs/:id/ocr` - Trigger OCR for data extraction
-- `PATCH /docs/:id/verify` - Verify extracted data, set status VERIFIED
+- `PATCH /docs/:id/verify` - Verify/edit extracted data with notes
+- `POST /docs/:id/verify-action` - Quick verify or reject action (PHASE 2 NEW)
+- `GET /cases/:id/docs` - Get digital docs for case with pagination (PHASE 2 NEW)
 
 **Actions (2):**
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
@@ -340,6 +343,93 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - Utility-first styling with variants
 
 ## Data Flow
+
+### Phase 2: Case Status Transition & Document Verification Flow
+
+```
+Staff views Client Detail Page
+        ↓
+Frontend loads case with status & documents
+        ↓
+GET /cases/:id/valid-transitions (or use shared constants)
+        ↓
+StatusSelector component renders valid transitions
+        ↓
+Staff clicks status dropdown
+        ↓
+Frontend calls PATCH /cases/:id { status: "WAITING_DOCS" }
+        ↓
+Backend validates transition via isValidStatusTransition()
+        ↓
+If invalid:
+├─ Return 400 with valid transitions
+└─ Frontend shows error + available options
+        ↓
+If valid:
+├─ Update TaxCase.status
+├─ If status === ENTRY_COMPLETE: Set entryCompletedAt timestamp
+├─ If status === FILED: Set filedAt timestamp
+└─ Return 200 with updated case
+        ↓
+Frontend toast: "Đã cập nhật trạng thái: [New Status]"
+        ↓
+Staff views pending documents
+        ↓
+Frontend loads case documents (status: PENDING|EXTRACTED|PARTIAL)
+        ↓
+GET /cases/:id/docs { page: 1, limit: 20 }
+        ↓
+VerificationPanel lists documents with:
+├─ Document type & confidence %
+├─ Extracted data preview
+├─ Verify button & Reject button
+└─ Loading states during actions
+        ↓
+Staff clicks Verify button
+        ↓
+Frontend calls POST /docs/:id/verify-action { action: "verify" }
+        ↓
+Backend atomic transaction:
+├─ Update DigitalDoc.status = VERIFIED
+├─ Update ChecklistItem.status = VERIFIED
+├─ Set verifiedAt timestamp
+└─ Commit all changes
+        ↓
+Frontend toast: "Đã xác minh tài liệu"
+        ↓
+VerificationPanel refresh removes document from list
+        ↓
+---
+        ↓
+Alternative: Staff clicks Reject button
+        ↓
+Staff enters reject reason/notes
+        ↓
+Frontend calls POST /docs/:id/verify-action { action: "reject", notes: "..." }
+        ↓
+Backend atomic transaction:
+├─ Update DigitalDoc.status = PENDING
+├─ Update RawImage.status = BLURRY
+├─ Create Action { type: BLURRY_DETECTED, priority: HIGH }
+└─ Store notes in Action metadata
+        ↓
+Frontend toast: "Đã từ chối tài liệu"
+        ↓
+Action appears in queue with "Yêu cầu gửi lại tài liệu"
+        ↓
+Staff can send SMS reminder to client via Messages
+        ↓
+Client receives SMS: "Document rejected - please resend"
+        ↓
+Case returns to WAITING_DOCS or IN_PROGRESS
+```
+
+**Phase 2 Key Guarantees:**
+- Status transitions enforced (no invalid states)
+- All-or-nothing document verification (atomic)
+- Audit trail via timestamps & actions
+- Clear user feedback via toast notifications
+- Debounced search prevents API overload
 
 ### Unified Inbox & Messaging Flow (Phase 3.2)
 
@@ -815,7 +905,7 @@ try {
 
 ---
 
-**Last Updated:** 2026-01-14 07:05
-**Phase:** 3.2 - Unified Inbox & Conversation Management (Complete)
+**Last Updated:** 2026-01-14 14:25
+**Phase:** 2 - Make It Usable (Complete) + 3.2 - Unified Inbox & Conversation Management (Complete)
 **Architecture Version:** 3.2
-**Next Phase:** 3.3 - SMS Status Tracking & Delivery Notifications
+**Next Phase:** 2.1 Advanced - Document Upload Batch Processing

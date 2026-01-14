@@ -47,9 +47,17 @@ export const rawImageStatusEnum = z.enum([
   'UNCLASSIFIED',
 ])
 
-// Query params for listing images
+// Query params for listing images (with pagination)
 export const listImagesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
   status: rawImageStatusEnum.optional(),
+})
+
+// Query params for listing docs (with pagination)
+export const listDocsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
 // Type exports

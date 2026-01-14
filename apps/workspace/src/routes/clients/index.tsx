@@ -6,13 +6,14 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { KanbanBoard, ClientListTable } from '../../components/clients'
 import { useClientViewState } from '../../stores/ui-store'
+import { useDebouncedValue } from '../../hooks'
 import { CASE_STATUS_LABELS, UI_TEXT } from '../../lib/constants'
-import { api, type Client, type TaxCaseStatus } from '../../lib/api-client'
+import { api, type TaxCaseStatus } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/')({
   component: ClientListPage,
@@ -23,7 +24,10 @@ function ClientListPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
 
-  // Fetch clients from API
+  // Debounce search query for server-side search (300ms delay)
+  const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)
+
+  // Fetch clients from API with server-side search and filter
   const {
     data: clientsResponse,
     isLoading,
@@ -32,24 +36,18 @@ function ClientListPage() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ['clients', { status: statusFilter === 'ALL' ? undefined : statusFilter }],
+    queryKey: ['clients', {
+      search: debouncedSearch || undefined,
+      status: statusFilter === 'ALL' ? undefined : statusFilter
+    }],
     queryFn: () => api.clients.list({
       limit: 100,
+      search: debouncedSearch || undefined,
       status: statusFilter === 'ALL' ? undefined : statusFilter
     }),
   })
 
   const clients = clientsResponse?.data ?? []
-
-  // Filter clients by search (server-side filtering for status already handled)
-  const filteredClients = clients.filter((client) => {
-    if (!searchQuery) return true
-    const searchLower = searchQuery.toLowerCase()
-    return (
-      client.name.toLowerCase().includes(searchLower) ||
-      client.phone.includes(searchQuery)
-    )
-  })
 
   const handleRefresh = () => {
     refetch()
@@ -65,7 +63,7 @@ function ClientListPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{clientsText.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {filteredClients.length} {clientsText.count}
+            {clients.length} {clientsText.count}
           </p>
         </div>
 
@@ -82,7 +80,11 @@ function ClientListPage() {
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          {isSearchPending ? (
+            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" aria-hidden="true" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          )}
           <input
             type="text"
             placeholder={clientsText.searchPlaceholder}
@@ -181,9 +183,9 @@ function ClientListPage() {
           </button>
         </div>
       ) : viewMode === 'kanban' ? (
-        <KanbanBoard clients={filteredClients} />
+        <KanbanBoard clients={clients} />
       ) : (
-        <ClientListTable clients={filteredClients} />
+        <ClientListTable clients={clients} />
       )}
     </PageContainer>
   )

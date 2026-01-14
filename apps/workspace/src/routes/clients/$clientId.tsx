@@ -28,12 +28,9 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { ChecklistGrid } from '../../components/cases'
-import { RawImageGallery } from '../../components/cases'
-import { DigitalDocTable } from '../../components/cases'
+import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
+import { VerificationPanel } from '../../components/documents'
 import {
-  CASE_STATUS_LABELS,
-  CASE_STATUS_COLORS,
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_COLORS,
   TAX_TYPE_LABELS,
@@ -42,7 +39,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import { api, type ClientDetail, type TaxCaseStatus, type ChecklistItemStatus, type ChecklistItem, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type ChecklistItemStatus } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -167,7 +164,6 @@ function ClientDetailPage() {
 
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus
-  const statusColors = CASE_STATUS_COLORS[caseStatus]
 
   const handleCopy = async (text: string, field: string) => {
     const success = await copyToClipboard(text)
@@ -239,17 +235,16 @@ function ClientDetailPage() {
             >
               {client.smsEnabled ? 'SMS Bật' : 'SMS Tắt'}
             </span>
-            {/* Case Status Badge */}
-            {statusColors && (
-              <span
-                className={cn(
-                  'text-sm font-medium px-3 py-1.5 rounded-full',
-                  statusColors.bg,
-                  statusColors.text
-                )}
-              >
-                {CASE_STATUS_LABELS[caseStatus]}
-              </span>
+            {/* Case Status Selector */}
+            {latestCase && (
+              <StatusSelector
+                caseId={latestCase.id}
+                currentStatus={caseStatus}
+                onStatusChange={() => {
+                  // Refetch client data to update UI
+                  queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+                }}
+              />
             )}
             <button
               className="p-2 rounded-lg border border-border hover:bg-muted transition-colors"
@@ -483,6 +478,20 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
+          {/* Document Verification Panel */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-primary mb-4">
+              Xác minh tài liệu
+            </h2>
+            <VerificationPanel
+              documents={digitalDocs}
+              onRefresh={() => {
+                queryClient.invalidateQueries({ queryKey: ['docs', latestCaseId] })
+                queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+              }}
+            />
+          </div>
+
           {/* Checklist Grid */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-lg font-semibold text-primary mb-4">

@@ -210,13 +210,17 @@ export const api = {
 
   // Messages
   messages: {
-    list: (caseId: string) => request<{ messages: Message[] }>(`/messages/${caseId}`),
+    list: (caseId: string) => request<MessagesResponse>(`/messages/${caseId}`),
 
     send: (data: SendMessageInput) =>
-      request<Message>('/messages/send', {
+      request<SendMessageResponse>('/messages/send', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    // Unified inbox - list all conversations
+    listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+      request<ConversationsResponse>('/messages/conversations', { params }),
   },
 }
 
@@ -469,4 +473,69 @@ export interface SendMessageInput {
   caseId: string
   content: string
   channel?: 'SMS' | 'PORTAL'
+}
+
+// Messages response types
+export interface MessagesResponse {
+  conversation: {
+    id: string
+    caseId: string
+    unreadCount: number
+    lastMessageAt: string | null
+    createdAt: string
+    updatedAt: string
+  }
+  messages: Message[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface SendMessageResponse {
+  message: Message
+  sent: boolean
+  smsEnabled: boolean
+  error?: string
+}
+
+// Conversation type for unified inbox
+export interface Conversation {
+  id: string
+  caseId: string
+  unreadCount: number
+  lastMessageAt: string | null
+  createdAt: string
+  updatedAt: string
+  client: {
+    id: string
+    name: string
+    phone: string
+    language: Language
+  }
+  taxCase: {
+    id: string
+    taxYear: number
+    status: TaxCaseStatus
+  }
+  lastMessage: {
+    id: string
+    content: string
+    channel: 'SMS' | 'PORTAL' | 'SYSTEM'
+    direction: 'INBOUND' | 'OUTBOUND'
+    createdAt: string
+  } | null
+}
+
+export interface ConversationsResponse {
+  conversations: Conversation[]
+  totalUnread: number
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }

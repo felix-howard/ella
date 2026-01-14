@@ -14,3 +14,9 @@ export type { QuickActionsBarProps } from './quick-actions-bar'
 
 export { TemplatePicker } from './template-picker'
 export type { TemplatePickerProps, MessageTemplate, TemplateCategory } from './template-picker'
+
+export { ConversationList } from './conversation-list'
+export type { ConversationListProps } from './conversation-list'
+
+export { ConversationListItem } from './conversation-list-item'
+export type { ConversationListItemProps } from './conversation-list-item'

@@ -9,7 +9,11 @@ import {
   getPaginationParams,
   buildPaginationResponse,
 } from '../../lib/constants'
-import { sendMessageSchema, listMessagesQuerySchema } from './schemas'
+import {
+  sendMessageSchema,
+  listMessagesQuerySchema,
+  listConversationsQuerySchema,
+} from './schemas'
 import {
   sendCustomMessage,
   isSmsEnabled,
@@ -19,6 +23,79 @@ import {
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
 const messagesRoute = new Hono()
+
+// GET /messages/conversations - List all conversations for unified inbox
+messagesRoute.get(
+  '/conversations',
+  zValidator('query', listConversationsQuerySchema),
+  async (c) => {
+    const { page, limit, unreadOnly } = c.req.valid('query')
+    const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+
+    // Build where clause
+    const where = unreadOnly ? { unreadCount: { gt: 0 } } : {}
+
+    const [conversations, total] = await Promise.all([
+      prisma.conversation.findMany({
+        where,
+        skip,
+        take: safeLimit,
+        orderBy: { lastMessageAt: 'desc' },
+        include: {
+          taxCase: {
+            include: {
+              client: {
+                select: { id: true, name: true, phone: true, language: true },
+              },
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              content: true,
+              channel: true,
+              direction: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+      prisma.conversation.count({ where }),
+    ])
+
+    // Calculate total unread across all conversations
+    const totalUnread = await prisma.conversation.aggregate({
+      _sum: { unreadCount: true },
+    })
+
+    return c.json({
+      conversations: conversations.map((conv) => ({
+        id: conv.id,
+        caseId: conv.caseId,
+        unreadCount: conv.unreadCount,
+        lastMessageAt: conv.lastMessageAt?.toISOString() || null,
+        createdAt: conv.createdAt.toISOString(),
+        updatedAt: conv.updatedAt.toISOString(),
+        client: conv.taxCase.client,
+        taxCase: {
+          id: conv.taxCase.id,
+          taxYear: conv.taxCase.taxYear,
+          status: conv.taxCase.status,
+        },
+        lastMessage: conv.messages[0]
+          ? {
+              ...conv.messages[0],
+              createdAt: conv.messages[0].createdAt.toISOString(),
+            }
+          : null,
+      })),
+      totalUnread: totalUnread._sum.unreadCount || 0,
+      pagination: buildPaginationResponse(safePage, safeLimit, total),
+    })
+  }
+)
 
 // GET /messages/:caseId - Get conversation for case
 messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), async (c) => {

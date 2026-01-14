@@ -17,6 +17,14 @@ export const listMessagesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+// Query params for listing conversations (inbox)
+export const listConversationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  unreadOnly: z.coerce.boolean().optional(),
+})
+
 // Type exports
 export type SendMessageInput = z.infer<typeof sendMessageSchema>
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>
+export type ListConversationsQuery = z.infer<typeof listConversationsQuerySchema>

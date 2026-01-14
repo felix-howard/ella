@@ -7,7 +7,8 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | **2026-01-13** |
+| Phase 3.2 | Unified Inbox & Conversation Management | **2026-01-14** |
+| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
 | Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
 | Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
@@ -129,14 +130,17 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - `/clients/$clientId` - Client detail (3 tabs)
 - `/clients/new` - Multi-step client creation
 - `/cases/$caseId/entry` - Data entry mode
-- `/cases/$caseId/messages` - Case messaging
+- `/messages` - Unified inbox (split view: conversations left, thread right)
+- `/messages/$caseId` - Conversation detail with message thread
 
 **Features:**
 - Vietnamese-first UI
 - Zustand state management
-- 20+ reusable components
+- 20+ reusable components + 7 messaging components
 - Type-safe routing (TanStack Router)
-- Mock API integration (ready for real API)
+- Real-time polling: 30s inbox, 10s active conversation
+- Unified message management (SMS, portal, system)
+- Unread count badges & filtering
 
 ## Database Schema Highlights
 
@@ -238,7 +242,56 @@ CLERK_SECRET_KEY=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1, 2.2, 3.1 - AI & Communication Integration)
+## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2 - AI & Communication Integration)
+
+### Phase 3.2 (Complete - 2026-01-14)
+**Unified Inbox & Conversation Management**
+
+**API Enhancements:**
+- `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
+- Auto-fetches conversation with unread count reset on first message load
+- Upsert pattern prevents race conditions on concurrent conversation access
+
+**Frontend Pages & Components:**
+- `/messages` - Unified inbox with split view layout
+  - Left panel: Conversation list with unread badges, unread-only filter toggle, refresh button
+  - Right panel: Message thread or empty state selection UI
+  - Auto-navigation to first conversation if none selected
+
+- `/messages/$caseId` - Conversation detail view
+  - Message thread (chronological, with channel/direction indicators)
+  - Client header with name, phone, case status, language, tax year
+  - Quick actions bar: message send button, link to client profile
+  - Refresh capability for manual updates
+
+**Messaging Components (7 total):**
+1. `ConversationList` - Scrollable list with loading state & empty state
+2. `ConversationListItem` - Individual conversation with unread badge, preview, timestamps
+3. `MessageThread` - Chronological message display with channel chips
+4. `MessageBubble` - Individual message rendering (INBOUND/OUTBOUND styling)
+5. `QuickActionsBar` - Message input with SMS/PORTAL channel picker
+6. `TemplatePicker` - Pre-defined message templates selector (future)
+7. Export helpers in `index.ts`
+
+**Real-Time Features:**
+- Inbox polling: 30-second interval for background updates
+- Active conversation polling: 10-second interval while viewing
+- Optimistic message updates on send
+- Silent refresh (non-blocking) with visual feedback
+
+**Accessibility:**
+- aria-label on filter/refresh buttons
+- aria-pressed state for toggle buttons
+- aria-hidden for decorative icons
+- Semantic HTML with proper heading hierarchy
+
+**UI/UX Details:**
+- Vietnamese labels: "Tin nhắn" (Messages), "Chọn cuộc hội thoại" (Select conversation)
+- Empty state icon + helpful text for no selection
+- Loading skeleton for case header data
+- Unread count badge on messages list header
+- Client avatar with initials
+- Status color coding per case status
 
 ### Phase 3.1 (Complete - 2026-01-13)
 **Twilio SMS Integration (First Half + Second Half)**
@@ -434,7 +487,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ## Next Steps
 
-1. **Phase 3.2** - SMS status tracking & MMS support
+1. **Phase 3.3** - SMS status tracking & delivery notifications
 2. **Phase 4.0** - Email integration + scheduled messages
 3. **Phase 4.5** - Multi-page document support & PDF extraction
 4. **Phase 5.0** - Advanced search & tax case analytics
@@ -467,7 +520,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-13 23:18
-**Status:** Phase 3.1 Complete - Twilio SMS Integration (First Half + Second Half with Automated Notifications)
+**Last Updated:** 2026-01-14 07:05
+**Status:** Phase 3.2 Complete - Unified Inbox & Conversation Management
 **Branch:** feature/phase-3-communication
-**Next Phase:** Phase 3.2 - SMS Status Tracking & MMS Support
+**Next Phase:** Phase 3.3 - SMS Status Tracking & Delivery Notifications

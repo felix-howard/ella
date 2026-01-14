@@ -65,12 +65,17 @@ export async function getSignedDownloadUrl(
     return null
   }
 
-  const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: key,
-  })
+  try {
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    })
 
-  return getSignedUrl(s3Client, command, { expiresIn })
+    return await getSignedUrl(s3Client, command, { expiresIn })
+  } catch (error) {
+    console.error('[Storage] Failed to generate signed URL:', key, error)
+    return null
+  }
 }
 
 /**
@@ -136,5 +141,30 @@ export function getStorageStatus(): {
     endpoint: process.env.R2_ACCOUNT_ID
       ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
       : null,
+  }
+}
+
+/**
+ * Fetch image buffer from R2 storage
+ * Used by background jobs to get image data for AI processing
+ */
+export async function fetchImageBuffer(r2Key: string): Promise<{
+  buffer: Buffer
+  mimeType: string
+} | null> {
+  const signedUrl = await getSignedDownloadUrl(r2Key)
+  if (!signedUrl) return null
+
+  try {
+    const response = await fetch(signedUrl)
+    if (!response.ok) return null
+
+    const buffer = Buffer.from(await response.arrayBuffer())
+    const mimeType = response.headers.get('content-type') || 'image/jpeg'
+
+    return { buffer, mimeType }
+  } catch (error) {
+    console.error('[Storage] Failed to fetch image:', r2Key, error)
+    return null
   }
 }

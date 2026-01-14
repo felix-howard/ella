@@ -55,6 +55,8 @@ export interface VerifyDocsMetadata extends ActionMetadataBase {
 
 export interface AiFailedMetadata extends ActionMetadataBase {
   errorMessage?: string
+  r2Key?: string
+  attemptedAt?: string
 }
 
 /**

@@ -7,8 +7,9 @@ import { prisma } from '../../lib/db'
 import { validateMagicLink } from '../../services/magic-link'
 import { validateUploadedFiles } from '../../lib/validation'
 import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/constants'
-import { processImage, isGeminiConfigured } from '../../services/ai'
+import { isGeminiConfigured } from '../../services/ai'
 import { uploadFile, generateFileKey } from '../../services/storage'
+import { inngest } from '../../lib/inngest'
 
 const portalRoute = new Hono()
 
@@ -131,9 +132,9 @@ portalRoute.post('/:token/upload', async (c) => {
     )
   }
 
-  // Process each file: upload to R2 + AI processing
+  // Process each file: upload to R2 + trigger background classification
   const createdImages = []
-  const aiResults = []
+  const inngestEvents = []
 
   for (const file of files) {
     // Read file buffer
@@ -165,35 +166,35 @@ portalRoute.post('/:token/upload', async (c) => {
       createdAt: rawImage.createdAt.toISOString(),
     })
 
-    // Trigger AI processing if configured
+    // Queue background classification job if AI configured
     if (isGeminiConfigured) {
-      try {
-        const pipelineResult = await processImage(rawImage.id, buffer, mimeType)
-        aiResults.push({
-          imageId: rawImage.id,
-          success: pipelineResult.success,
-          docType: pipelineResult.classification?.docType,
-          isBlurry: pipelineResult.blurDetection?.isBlurry,
-        })
-      } catch (error) {
-        console.error('AI processing failed for image:', rawImage.id, error)
-        aiResults.push({ imageId: rawImage.id, success: false })
-      }
+      inngestEvents.push({
+        name: 'document/uploaded' as const,
+        data: {
+          rawImageId: rawImage.id,
+          caseId,
+          r2Key,
+          mimeType,
+          uploadedAt: new Date().toISOString(),
+        },
+      })
     }
   }
 
-  // Create action for staff to review if AI not configured or some images failed
-  const needsManualReview = !isGeminiConfigured || aiResults.some((r) => !r.success)
-  if (createdImages.length > 0 && needsManualReview) {
+  // Send all Inngest events in batch for efficiency
+  if (inngestEvents.length > 0) {
+    await inngest.send(inngestEvents)
+  }
+
+  // Create manual review action only if AI is not configured
+  if (createdImages.length > 0 && !isGeminiConfigured) {
     await prisma.action.create({
       data: {
         caseId,
         type: 'VERIFY_DOCS',
         priority: 'HIGH',
         title: 'Tài liệu mới từ khách hàng',
-        description: isGeminiConfigured
-          ? `Khách hàng đã gửi ${createdImages.length} file - một số cần xác minh thủ công`
-          : `Khách hàng đã gửi ${createdImages.length} file qua portal`,
+        description: `Khách hàng đã gửi ${createdImages.length} file qua portal - cần phân loại thủ công`,
         metadata: { rawImageIds: createdImages.map((img) => img.id) },
       },
     })
@@ -202,9 +203,10 @@ portalRoute.post('/:token/upload', async (c) => {
   return c.json({
     uploaded: createdImages.length,
     images: createdImages,
-    aiProcessed: isGeminiConfigured,
-    aiResults: isGeminiConfigured ? aiResults : undefined,
-    message: `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
+    aiProcessing: isGeminiConfigured,
+    message: isGeminiConfigured
+      ? `Đã nhận ${createdImages.length} file. Đang xử lý tự động...`
+      : `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
   })
 })
 

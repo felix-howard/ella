@@ -368,6 +368,353 @@ const CONFIDENCE_VERIFY = 0.7       // Create VERIFY_DOCS action
 const BLUR_THRESHOLD = 70           // Request resend
 ```
 
+## Toast Notifications (@ella/workspace - Phase 4.1)
+
+**Store Organization:**
+
+```
+apps/workspace/src/
+├── stores/
+│   ├── toast-store.ts      # Toast state management
+│   └── ui-store.ts         # UI state (sidebar, view mode)
+└── components/ui/
+    └── toast-container.tsx # Toast rendering
+```
+
+**Store Pattern:**
+
+```typescript
+// stores/toast-store.ts - Zustand store with auto-dismiss
+import { create } from 'zustand'
+
+export type ToastType = 'success' | 'error' | 'info'
+
+export interface Toast {
+  id: string
+  message: string
+  type: ToastType
+  duration?: number
+}
+
+interface ToastState {
+  toasts: Toast[]
+  addToast: (toast: Omit<Toast, 'id'>) => void
+  removeToast: (id: string) => void
+  clearToasts: () => void
+}
+
+// Track timeouts externally for cleanup on manual dismiss
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+
+export const useToastStore = create<ToastState>((set) => ({
+  toasts: [],
+
+  addToast: (toast) => {
+    const id = generateToastId()
+    const duration = toast.duration ?? 2000
+
+    set((state) => ({
+      toasts: [...state.toasts, { ...toast, id }],
+    }))
+
+    // Auto-remove with cleanup tracking
+    if (duration > 0) {
+      const timeoutId = setTimeout(() => {
+        toastTimeouts.delete(id)
+        set((state) => ({
+          toasts: state.toasts.filter((t) => t.id !== id),
+        }))
+      }, duration)
+      toastTimeouts.set(id, timeoutId)
+    }
+  },
+
+  removeToast: (id) => {
+    // Clear timeout to prevent memory leak
+    const timeoutId = toastTimeouts.get(id)
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+      toastTimeouts.delete(id)
+    }
+    set((state) => ({
+      toasts: state.toasts.filter((t) => t.id !== id),
+    }))
+  },
+
+  clearToasts: () => {
+    toastTimeouts.forEach((timeoutId) => clearTimeout(timeoutId))
+    toastTimeouts.clear()
+    set({ toasts: [] })
+  },
+}))
+
+// Convenience functions
+export const toast = {
+  success: (message: string, duration?: number) =>
+    useToastStore.getState().addToast({ message, type: 'success', duration }),
+  error: (message: string, duration?: number) =>
+    useToastStore.getState().addToast({ message, type: 'error', duration }),
+  info: (message: string, duration?: number) =>
+    useToastStore.getState().addToast({ message, type: 'info', duration }),
+}
+```
+
+**UI Component Pattern:**
+
+```typescript
+// components/ui/toast-container.tsx
+import { useToastStore, type ToastType } from '../../stores/toast-store'
+
+const TOAST_STYLES: Record<ToastType, string> = {
+  success: 'bg-success text-white',
+  error: 'bg-error text-white',
+  info: 'bg-primary text-white',
+}
+
+export function ToastContainer() {
+  const { toasts, removeToast } = useToastStore()
+
+  if (toasts.length === 0) return null
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg',
+            'animate-in fade-in slide-in-from-bottom-4 duration-200',
+            TOAST_STYLES[toast.type]
+          )}
+          role="alert"
+        >
+          <span className="text-sm font-medium">{toast.message}</span>
+          <button
+            onClick={() => removeToast(toast.id)}
+            className="p-0.5 hover:bg-white/20 rounded-full"
+            aria-label="Đóng"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+**Integration Pattern:**
+
+```typescript
+// routes/__root.tsx
+import { ToastContainer } from '@components/ui/toast-container'
+
+function RootLayout() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <Header />
+      <Outlet />
+      <ToastContainer />
+    </div>
+  )
+}
+```
+
+**Usage Pattern:**
+
+```typescript
+import { toast } from '@stores/toast-store'
+
+// Success notification
+toast.success('Đã copy!')
+
+// Error notification
+toast.error('Không thể copy', 3000)
+
+// Info notification
+toast.info('Thông tin lưu')
+```
+
+**Key Features:**
+
+1. **Memory Safety:** Timeout cleanup map prevents leaks on manual dismiss
+2. **Auto-Dismiss:** Configurable duration with automatic removal
+3. **Stacking:** Multiple toasts stack vertically at bottom-center
+4. **Animations:** Slide-in from bottom + fade-in
+5. **Vietnamese-First:** All messages in Vietnamese
+
+## Clipboard Hook (@ella/workspace - Phase 4.1)
+
+**Hook Organization:**
+
+```
+apps/workspace/src/hooks/
+├── use-clipboard.ts  # Clipboard operations
+└── index.ts          # Barrel export
+```
+
+**Hook Pattern:**
+
+```typescript
+// hooks/use-clipboard.ts
+import { useCallback } from 'react'
+import { toast } from '../stores/toast-store'
+
+interface UseClipboardOptions {
+  successMessage?: string  // Default: "Đã copy!"
+  errorMessage?: string    // Default: "Không thể copy"
+  onSuccess?: () => void
+  onError?: (error: Error) => void
+}
+
+interface UseClipboardReturn {
+  copy: (text: string) => Promise<boolean>
+  copyFormatted: (data: Record<string, unknown>) => Promise<boolean>
+}
+
+// Modern Clipboard API + fallback for older browsers
+async function copyToClipboard(text: string): Promise<boolean> {
+  // Try modern API first (requires secure context)
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch (clipboardError) {
+      console.warn('Clipboard API failed, trying fallback:', clipboardError)
+      // Fall through to legacy method
+    }
+  }
+
+  // Fallback: execCommand for older browsers
+  let textArea: HTMLTextAreaElement | null = null
+  try {
+    textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    const success = document.execCommand('copy')
+    if (!success) throw new Error('execCommand copy failed')
+    return true
+  } catch (fallbackError) {
+    console.error('Clipboard fallback failed:', fallbackError)
+    return false
+  } finally {
+    // Always clean up textarea
+    if (textArea && document.body.contains(textArea)) {
+      document.body.removeChild(textArea)
+    }
+  }
+}
+
+export function useClipboard(
+  options: UseClipboardOptions = {}
+): UseClipboardReturn {
+  const {
+    successMessage = 'Đã copy!',
+    errorMessage = 'Không thể copy',
+    onSuccess,
+    onError,
+  } = options
+
+  const copy = useCallback(
+    async (text: string): Promise<boolean> => {
+      if (!text) {
+        toast.error('Không có dữ liệu để copy')
+        return false
+      }
+
+      const success = await copyToClipboard(text)
+
+      if (success) {
+        toast.success(successMessage)
+        onSuccess?.()
+      } else {
+        toast.error(errorMessage)
+        onError?.(new Error('Clipboard copy failed'))
+      }
+
+      return success
+    },
+    [successMessage, errorMessage, onSuccess, onError]
+  )
+
+  const copyFormatted = useCallback(
+    async (data: Record<string, unknown>): Promise<boolean> => {
+      const lines = Object.entries(data)
+        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+        .map(([key, value]) => `${key}: ${value}`)
+
+      if (lines.length === 0) {
+        toast.error('Không có dữ liệu để copy')
+        return false
+      }
+
+      return copy(lines.join('\n'))
+    },
+    [copy]
+  )
+
+  return { copy, copyFormatted }
+}
+```
+
+**Usage Pattern:**
+
+```typescript
+import { useClipboard } from '@hooks'
+
+function DataEntryPage() {
+  const { copy, copyFormatted } = useClipboard({
+    successMessage: 'Sao chép thành công',
+    onSuccess: () => trackEvent('data_copied'),
+  })
+
+  // Copy single field
+  const handleCopyField = async (value: string) => {
+    await copy(value)
+  }
+
+  // Copy all fields with labels
+  const handleCopyAll = async () => {
+    await copyFormatted({
+      'SSN': '123-45-6789',
+      'Tên': 'John Doe',
+      'Ngày sinh': '1990-01-01',
+    })
+  }
+
+  return (
+    <div>
+      <button onClick={() => handleCopyField('value')} />
+      <button onClick={handleCopyAll} />
+    </div>
+  )
+}
+```
+
+**Browser Compatibility:**
+
+| Browser | Support | Method |
+|---------|---------|--------|
+| Chrome 63+ | ✅ | Clipboard API |
+| Firefox 53+ | ✅ | Clipboard API |
+| Safari 13.1+ | ✅ | Clipboard API |
+| Edge 79+ | ✅ | Clipboard API |
+| IE 11 | ✅ | execCommand fallback |
+| Legacy Safari | ✅ | execCommand fallback |
+
+**Key Features:**
+
+1. **Secure Context Check:** Modern API only in HTTPS/localhost
+2. **Fallback Support:** execCommand for older browsers
+3. **Error Handling:** Toast feedback on success/failure
+4. **Formatting:** Label:value pairs for bulk data
+5. **Memory Safe:** DOM cleanup in finally block
+
 ## SMS Services (@ella/api - Phase 3.1)
 
 **Service Organization:**
@@ -927,6 +1274,6 @@ turbo run dev           # Development watch mode
 
 ---
 
-**Last Updated:** 2026-01-13 22:30
-**Phase:** 3.1 - Twilio SMS Integration (Complete)
-**Standards Version:** 1.3
+**Last Updated:** 2026-01-14 08:30
+**Phase:** 4.1 - Copy-to-Clipboard Workflow (Complete)
+**Standards Version:** 1.4

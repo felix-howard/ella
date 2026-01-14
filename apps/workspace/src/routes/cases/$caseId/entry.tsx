@@ -1,10 +1,10 @@
 /**
  * Data Entry Mode Page - Optimized workflow for copying data to OltPro
- * Split-pane layout: documents on left, extracted data with copy buttons on right
+ * Features: toast feedback, keyboard nav (Tab/Enter/Arrows), copy all, complete workflow
  */
 
-import { useState, useCallback } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
 import {
   ArrowLeft,
@@ -14,16 +14,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Keyboard,
+  Loader2,
 } from 'lucide-react'
 import { DocTabsSidebar } from '../../../components/data-entry'
 import { OriginalImageViewer } from '../../../components/data-entry'
-import { FieldCopyRow } from '../../../components/verification'
+import { useClipboard } from '../../../hooks'
+import { toast } from '../../../stores/toast-store'
 import {
   DOC_TYPE_LABELS,
   CASE_STATUS_LABELS,
   CASE_STATUS_COLORS,
 } from '../../../lib/constants'
-import { copyToClipboard, formatPhone } from '../../../lib/formatters'
+import { formatPhone } from '../../../lib/formatters'
 import type { DigitalDoc, RawImage, TaxCaseStatus } from '../../../lib/api-client'
 
 export const Route = createFileRoute('/cases/$caseId/entry')({
@@ -81,14 +83,21 @@ const ENTRY_FIELD_CONFIG: Record<string, { key: string; label: string }[]> = {
 
 function DataEntryPage() {
   const { caseId } = Route.useParams()
+  const navigate = useNavigate()
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [copiedFields, setCopiedFields] = useState<Record<string, Set<string>>>({})
   const [expandedImage, setExpandedImage] = useState(false)
   const [showKeyboardHints, setShowKeyboardHints] = useState(true)
+  const [focusedFieldIndex, setFocusedFieldIndex] = useState(0)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [hoveredFieldLabel, setHoveredFieldLabel] = useState<string | null>(null)
+  const fieldListRef = useRef<HTMLDivElement>(null)
+
+  const { copy } = useClipboard()
 
   // TODO: Replace with API call using useSuspenseQuery
-  // Mock data
-  const taxCase = {
+  // Mock data wrapped in useMemo for stable references
+  const taxCase = useMemo(() => ({
     id: caseId,
     clientId: 'client-1',
     taxYear: 2025,
@@ -98,9 +107,9 @@ function DataEntryPage() {
       name: 'Nguyễn Văn An',
       phone: '8182223333',
     },
-  }
+  }), [caseId])
 
-  const digitalDocs: DigitalDoc[] = [
+  const digitalDocs = useMemo<DigitalDoc[]>(() => [
     {
       id: 'doc-1',
       caseId,
@@ -152,24 +161,55 @@ function DataEntryPage() {
       updatedAt: '2026-01-10T09:00:00Z',
       rawImage: { id: 'img-3', filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg' },
     },
-  ]
+  ], [caseId])
 
-  const rawImages: RawImage[] = [
+  const rawImages = useMemo<RawImage[]>(() => [
     { id: 'img-1', caseId, filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z' },
     { id: 'img-2', caseId, filename: '1099_int_chase.jpg', r2Key: 'images/1099_int.jpg', status: 'LINKED', createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z' },
     { id: 'img-3', caseId, filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg', status: 'LINKED', createdAt: '2026-01-10T09:00:00Z', updatedAt: '2026-01-10T09:00:00Z' },
-  ]
+  ], [caseId])
 
   // Initialize selected doc
-  if (!selectedDocId && digitalDocs.length > 0) {
-    setSelectedDocId(digitalDocs[0].id)
-  }
+  useEffect(() => {
+    if (!selectedDocId && digitalDocs.length > 0) {
+      setSelectedDocId(digitalDocs[0].id)
+    }
+  }, [selectedDocId, digitalDocs])
 
   const selectedDoc = digitalDocs.find((d) => d.id === selectedDocId)
   const selectedImage = rawImages.find((i) => i.id === selectedDoc?.rawImageId) || null
+  const fieldConfig = useMemo(
+    () => selectedDoc ? (ENTRY_FIELD_CONFIG[selectedDoc.docType] || []) : [],
+    [selectedDoc]
+  )
 
+  // Navigate between docs
+  const currentIndex = digitalDocs.findIndex((d) => d.id === selectedDocId)
+  const canGoPrev = currentIndex > 0
+  const canGoNext = currentIndex < digitalDocs.length - 1
+
+  const goToPrev = useCallback(() => {
+    if (canGoPrev) {
+      setSelectedDocId(digitalDocs[currentIndex - 1].id)
+      setFocusedFieldIndex(0)
+    }
+  }, [canGoPrev, digitalDocs, currentIndex])
+
+  const goToNext = useCallback(() => {
+    if (canGoNext) {
+      setSelectedDocId(digitalDocs[currentIndex + 1].id)
+      setFocusedFieldIndex(0)
+    }
+  }, [canGoNext, digitalDocs, currentIndex])
+
+  // Copy field with toast and state tracking
   const handleCopyField = useCallback(async (docId: string, fieldKey: string, value: unknown) => {
-    const success = await copyToClipboard(String(value))
+    if (value === null || value === undefined || value === '') {
+      toast.info('Trường này không có dữ liệu')
+      return
+    }
+
+    const success = await copy(String(value))
     if (success) {
       setCopiedFields((prev) => {
         const docFields = new Set(prev[docId] || [])
@@ -177,52 +217,170 @@ function DataEntryPage() {
         return { ...prev, [docId]: docFields }
       })
     }
-  }, [])
+  }, [copy])
 
+  // Copy all fields of current doc
   const handleCopyAll = useCallback(async () => {
     if (!selectedDoc) return
 
-    const fieldConfig = ENTRY_FIELD_CONFIG[selectedDoc.docType] || []
-    const values = fieldConfig
+    const docType = DOC_TYPE_LABELS[selectedDoc.docType] || selectedDoc.docType
+    const lines = fieldConfig
       .map((f) => {
         const value = selectedDoc.extractedData[f.key]
-        return value !== undefined && value !== null ? `${f.label}: ${value}` : null
+        return value !== undefined && value !== null && value !== ''
+          ? `${f.label}: ${value}`
+          : null
       })
       .filter(Boolean)
-      .join('\n')
 
-    const success = await copyToClipboard(values)
+    if (lines.length === 0) {
+      toast.info('Không có dữ liệu để copy')
+      return
+    }
+
+    const formattedText = `--- ${docType} ---\n${lines.join('\n')}`
+    const success = await copy(formattedText)
+
     if (success) {
-      // Mark all fields as copied
       const allFields = new Set(fieldConfig.map((f) => f.key))
       setCopiedFields((prev) => ({ ...prev, [selectedDoc.id]: allFields }))
+      toast.success(`Đã copy tất cả ${lines.length} trường`)
     }
-  }, [selectedDoc])
+  }, [selectedDoc, fieldConfig, copy])
 
-  // Navigate between docs
-  const currentIndex = digitalDocs.findIndex((d) => d.id === selectedDocId)
-  const canGoPrev = currentIndex > 0
-  const canGoNext = currentIndex < digitalDocs.length - 1
+  // Debounce ref for Enter key to prevent rapid copy spam
+  const lastCopyTimeRef = useRef(0)
+  const COPY_DEBOUNCE_MS = 200
 
-  const goToPrev = () => {
-    if (canGoPrev) setSelectedDocId(digitalDocs[currentIndex - 1].id)
-  }
-  const goToNext = () => {
-    if (canGoNext) setSelectedDocId(digitalDocs[currentIndex + 1].id)
-  }
+  // Keyboard navigation with route-level check and debounced Enter
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
 
-  // Progress calculation
-  const totalDocs = digitalDocs.length
-  const completedDocs = digitalDocs.filter((doc) => {
-    const fieldConfig = ENTRY_FIELD_CONFIG[doc.docType] || []
-    const copiedCount = copiedFields[doc.id]?.size || 0
-    return copiedCount === fieldConfig.length && fieldConfig.length > 0
-  }).length
+      // Route-level check: only handle if data entry page is focused
+      const dataEntryContainer = document.querySelector('[data-entry-page]')
+      if (!dataEntryContainer) return
+
+      switch (e.key) {
+        case 'Tab':
+          e.preventDefault()
+          if (e.shiftKey) {
+            // Shift+Tab: previous field
+            setFocusedFieldIndex((prev) => Math.max(0, prev - 1))
+          } else {
+            // Tab: next field, or next doc if at end
+            if (focusedFieldIndex >= fieldConfig.length - 1) {
+              if (canGoNext) {
+                goToNext()
+              }
+            } else {
+              setFocusedFieldIndex((prev) => Math.min(fieldConfig.length - 1, prev + 1))
+            }
+          }
+          break
+
+        case 'Enter': {
+          e.preventDefault()
+          // Debounce rapid Enter key presses
+          const now = Date.now()
+          if (now - lastCopyTimeRef.current < COPY_DEBOUNCE_MS) return
+          lastCopyTimeRef.current = now
+
+          if (selectedDoc && fieldConfig[focusedFieldIndex]) {
+            const field = fieldConfig[focusedFieldIndex]
+            handleCopyField(selectedDoc.id, field.key, selectedDoc.extractedData[field.key])
+          }
+          break
+        }
+
+        case 'ArrowUp':
+          e.preventDefault()
+          setFocusedFieldIndex((prev) => Math.max(0, prev - 1))
+          break
+
+        case 'ArrowDown':
+          e.preventDefault()
+          setFocusedFieldIndex((prev) => Math.min(fieldConfig.length - 1, prev + 1))
+          break
+
+        case 'ArrowLeft':
+          e.preventDefault()
+          goToPrev()
+          break
+
+        case 'ArrowRight':
+          e.preventDefault()
+          goToNext()
+          break
+
+        // Ctrl+Shift+C for Copy All (avoids conflict with browser Ctrl+A select all)
+        case 'c':
+        case 'C':
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+            e.preventDefault()
+            handleCopyAll()
+          }
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [focusedFieldIndex, fieldConfig, selectedDoc, canGoNext, goToNext, goToPrev, handleCopyField, handleCopyAll])
+
+  // Scroll focused field into view
+  useEffect(() => {
+    if (fieldListRef.current) {
+      const fieldElements = fieldListRef.current.querySelectorAll('[data-field-row]')
+      const focusedElement = fieldElements[focusedFieldIndex]
+      if (focusedElement) {
+        focusedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
+  }, [focusedFieldIndex])
+
+  // Progress calculation memoized for performance
+  const { totalDocs, completedDocs, allDocsComplete } = useMemo(() => {
+    const total = digitalDocs.length
+    const completed = digitalDocs.filter((doc) => {
+      const docFieldConfig = ENTRY_FIELD_CONFIG[doc.docType] || []
+      const copiedCount = copiedFields[doc.id]?.size || 0
+      return copiedCount === docFieldConfig.length && docFieldConfig.length > 0
+    }).length
+    return { totalDocs: total, completedDocs: completed, allDocsComplete: completed === total }
+  }, [digitalDocs, copiedFields])
+
+  // Mark entry as complete workflow
+  const handleMarkComplete = useCallback(async () => {
+    if (!allDocsComplete) {
+      toast.error('Vui lòng copy tất cả trường trước khi hoàn tất')
+      return
+    }
+
+    setIsCompleting(true)
+
+    try {
+      // TODO: Replace with actual API call
+      // await api.patch(`/cases/${caseId}`, { status: 'ENTRY_COMPLETE' })
+      await new Promise((resolve) => setTimeout(resolve, 500)) // Simulate API call
+
+      toast.success('Đã đánh dấu hoàn tất nhập liệu!')
+      navigate({ to: '/clients/$clientId', params: { clientId: taxCase.clientId } })
+    } catch (error) {
+      console.error('Failed to mark complete:', error)
+      toast.error('Không thể cập nhật trạng thái')
+    } finally {
+      setIsCompleting(false)
+    }
+  }, [allDocsComplete, navigate, taxCase.clientId])
 
   const statusColors = CASE_STATUS_COLORS[taxCase.status]
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div data-entry-page className="h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="flex-shrink-0 border-b border-border bg-card px-4 py-3">
         <div className="flex items-center justify-between max-w-[1800px] mx-auto">
@@ -282,16 +440,23 @@ function DataEntryPage() {
             </button>
 
             {/* Complete Button */}
-            {completedDocs === totalDocs && (
-              <Link
-                to="/clients/$clientId"
-                params={{ clientId: taxCase.clientId }}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-success text-white font-medium hover:bg-success/90 transition-colors"
-              >
+            <button
+              onClick={handleMarkComplete}
+              disabled={!allDocsComplete || isCompleting}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors',
+                allDocsComplete
+                  ? 'bg-success text-white hover:bg-success/90'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+              )}
+            >
+              {isCompleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
                 <CheckCircle className="w-4 h-4" />
-                <span>Hoàn tất nhập liệu</span>
-              </Link>
-            )}
+              )}
+              <span>Hoàn tất nhập liệu</span>
+            </button>
           </div>
         </div>
       </header>
@@ -307,19 +472,23 @@ function DataEntryPage() {
             <DocTabsSidebar
               docs={digitalDocs}
               activeDocId={selectedDocId}
-              onDocSelect={(doc) => setSelectedDocId(doc.id)}
+              onDocSelect={(doc) => {
+                setSelectedDocId(doc.id)
+                setFocusedFieldIndex(0)
+              }}
               copiedFields={copiedFields}
             />
           </div>
         </aside>
 
-        {/* Center - Image Viewer - key forces remount on image change to reset zoom/rotation */}
+        {/* Center - Image Viewer */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <OriginalImageViewer
             key={selectedImage?.id || 'empty'}
             image={selectedImage}
             expanded={expandedImage}
             onExpandToggle={() => setExpandedImage(!expandedImage)}
+            highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
             className="flex-1"
           />
         </div>
@@ -340,6 +509,7 @@ function DataEntryPage() {
                   <button
                     onClick={handleCopyAll}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
+                    title="Ctrl/Cmd + Shift + C"
                   >
                     <Copy className="w-4 h-4" />
                     <span>Copy tất cả</span>
@@ -377,20 +547,64 @@ function DataEntryPage() {
               </div>
 
               {/* Fields List */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div ref={fieldListRef} className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-1">
-                  {(ENTRY_FIELD_CONFIG[selectedDoc.docType] || []).map((field) => {
+                  {fieldConfig.map((field, index) => {
                     const value = selectedDoc.extractedData[field.key]
                     const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
+                    const isFocused = index === focusedFieldIndex
+                    const hasValue = value !== null && value !== undefined && value !== ''
+                    const isHovered = hoveredFieldLabel === field.label
 
                     return (
-                      <FieldCopyRow
+                      <div
                         key={field.key}
-                        label={field.label}
-                        value={value}
-                        copied={isCopied}
-                        onCopy={() => handleCopyField(selectedDoc.id, field.key, value)}
-                      />
+                        data-field-row
+                        className={cn(
+                          'group flex items-center justify-between rounded-lg transition-colors py-2 px-3',
+                          'hover:bg-muted/50 cursor-pointer',
+                          isFocused && 'ring-2 ring-primary bg-primary-light/30',
+                          isHovered && !isFocused && 'bg-primary-light/20'
+                        )}
+                        onClick={() => {
+                          setFocusedFieldIndex(index)
+                          if (hasValue) {
+                            handleCopyField(selectedDoc.id, field.key, value)
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredFieldLabel(field.label)}
+                        onMouseLeave={() => setHoveredFieldLabel(null)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-muted-foreground">{field.label}</p>
+                          {hasValue ? (
+                            <p className="font-medium text-foreground truncate">{String(value)}</p>
+                          ) : (
+                            <p className="text-muted-foreground italic">—</p>
+                          )}
+                        </div>
+                        {hasValue && (
+                          <button
+                            className={cn(
+                              'flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg',
+                              'text-sm font-medium transition-all',
+                              isCopied
+                                ? 'bg-success/10 text-success'
+                                : 'bg-primary text-white hover:bg-primary-dark',
+                              !isFocused && 'opacity-0 group-hover:opacity-100'
+                            )}
+                          >
+                            {isCopied ? (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Đã copy</span>
+                              </>
+                            ) : (
+                              <span>Copy</span>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
@@ -400,7 +614,7 @@ function DataEntryPage() {
               {showKeyboardHints && (
                 <div className="flex-shrink-0 p-3 border-t border-border bg-muted/30">
                   <p className="text-xs text-muted-foreground text-center">
-                    Tab: qua trường tiếp • Enter: copy • ←/→: chuyển doc
+                    Tab/↑↓: chuyển trường • Enter: copy • ←/→: chuyển doc • Ctrl+Shift+C: copy all
                   </p>
                 </div>
               )}

@@ -90,6 +90,7 @@ function DataEntryPage() {
   const [showKeyboardHints, setShowKeyboardHints] = useState(true)
   const [focusedFieldIndex, setFocusedFieldIndex] = useState(0)
   const [isCompleting, setIsCompleting] = useState(false)
+  const [hoveredFieldLabel, setHoveredFieldLabel] = useState<string | null>(null)
   const fieldListRef = useRef<HTMLDivElement>(null)
 
   const { copy } = useClipboard()
@@ -487,6 +488,7 @@ function DataEntryPage() {
             image={selectedImage}
             expanded={expandedImage}
             onExpandToggle={() => setExpandedImage(!expandedImage)}
+            highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
             className="flex-1"
           />
         </div>
@@ -552,6 +554,7 @@ function DataEntryPage() {
                     const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
                     const isFocused = index === focusedFieldIndex
                     const hasValue = value !== null && value !== undefined && value !== ''
+                    const isHovered = hoveredFieldLabel === field.label
 
                     return (
                       <div
@@ -560,7 +563,8 @@ function DataEntryPage() {
                         className={cn(
                           'group flex items-center justify-between rounded-lg transition-colors py-2 px-3',
                           'hover:bg-muted/50 cursor-pointer',
-                          isFocused && 'ring-2 ring-primary bg-primary-light/30'
+                          isFocused && 'ring-2 ring-primary bg-primary-light/30',
+                          isHovered && !isFocused && 'bg-primary-light/20'
                         )}
                         onClick={() => {
                           setFocusedFieldIndex(index)
@@ -568,6 +572,8 @@ function DataEntryPage() {
                             handleCopyField(selectedDoc.id, field.key, value)
                           }
                         }}
+                        onMouseEnter={() => setHoveredFieldLabel(field.label)}
+                        onMouseLeave={() => setHoveredFieldLabel(null)}
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-muted-foreground">{field.label}</p>

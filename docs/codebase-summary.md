@@ -7,7 +7,8 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | **2026-01-14** |
+| Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
+| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
 | Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
 | Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
 | Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
@@ -130,7 +131,7 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - `/clients` - Kanban/table client view
 - `/clients/$clientId` - Client detail (3 tabs)
 - `/clients/new` - Multi-step client creation
-- `/cases/$caseId/entry` - Data entry mode (Phase 4.1: enhanced with clipboard workflow)
+- `/cases/$caseId/entry` - Data entry mode (Phase 4.2: side-by-side document viewer with pan/zoom/field highlighting; Phase 4.1: clipboard workflow)
 - `/messages` - Unified inbox (split view: conversations left, thread right)
 - `/messages/$caseId` - Conversation detail with message thread
 
@@ -244,7 +245,68 @@ CLERK_SECRET_KEY=...
 - Scale: px-1 (4px) to px-8 (32px)
 - Rounded: rounded-md (6px) to rounded-full
 
-## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2, 4.1 - AI, Communication & Data Entry Optimization)
+## Recent Changes (Phase 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - AI, Communication & Data Entry Optimization)
+
+### Phase 4.2 (Complete - 2026-01-14)
+**Side-by-Side Document Viewer with Pan/Zoom & Field Highlighting**
+
+**Core Enhancement:**
+- `apps/workspace/src/components/data-entry/original-image-viewer.tsx` - Advanced viewer component (NEW)
+- `apps/workspace/src/routes/cases/$caseId/entry.tsx` - Integrated field hover state (UPDATED)
+
+**Features:**
+- Pan support: Left-click drag to move zoomed images within viewport
+- Zoom control: Ctrl+Scroll (0.5x–4x range), keyboard (+/-), UI buttons
+- Rotate: 90° increments with keyboard (R) and buttons
+- View reset: Double-click, reset button, keyboard (0)
+- Field highlighting badge: Shows active field name in header during hover
+- Expanded/fullscreen mode: Modal overlay with F key toggle
+- Keyboard shortcuts: 10 accessible shortcuts for efficient data entry
+
+**Keyboard Shortcuts:**
+- `Ctrl+Scroll` - Zoom in/out
+- `+/-` - Zoom increment
+- `R` - Rotate right 90°
+- `0` - Reset all transforms
+- `F` - Toggle fullscreen mode
+- Drag - Pan image
+- Double-click - Reset zoom + pan
+
+**Field Highlighting Workflow:**
+- Hover field in data entry form → Badge displays field name
+- Visual correlation between extracted data and document regions
+- Helps staff locate fields quickly in original images
+- Improves data accuracy and reduces lookup time
+
+**Component Details:**
+- Props: `image`, `expanded`, `onExpandToggle`, `highlightedField`, `className`
+- State: `zoom`, `rotation`, `pan`, `isPanning`, `panStart`
+- Auto-resets view when image changes (via ref tracking)
+- Ref-based pan state prevents unnecessary re-renders
+- Pointer management: Stops panning on mouse leave/up
+
+**Browser Support:**
+- All modern browsers (Chrome 88+, Firefox 85+, Safari 14+, Edge 88+)
+- Mac: Uses `ctrlKey || metaKey` for Cmd+Scroll zoom
+
+**Accessibility:**
+- Full keyboard navigation support
+- aria-labels on all buttons
+- Focus rings: `focus:ring-2 focus:ring-primary`
+- Container focusable: `tabIndex={0}`
+
+**UI/UX:**
+- Header: Filename + zoom % + field badge + controls
+- Footer: Vietnamese keyboard hints
+- Expanded mode: Fixed overlay `inset-4` with `z-50`
+- Cursor feedback: `cursor-grab/grabbing` during pan
+
+**Next Steps:**
+- Phase 4.3: Auto-detect document type on image view
+- Phase 4.4: Multi-page PDF support with page navigation
+- Storage: Replace placeholder SVG with signed R2 URLs
+
+See detailed docs: [phase-4.2-side-by-side-document-viewer.md](./phase-4.2-side-by-side-document-viewer.md)
 
 ### Phase 4.1 (Complete - 2026-01-14)
 **Copy-to-Clipboard Workflow (Data Entry Optimization)**
@@ -531,11 +593,18 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ## Next Steps
 
-1. **Phase 4.2** - Side-by-side document viewer (split-pane layout)
-2. **Phase 4.3** - Document type auto-detection on entry
+1. **Phase 4.3** - Document type auto-detection on entry
+   - Auto-detect and pre-fill document type when image viewed
+   - Pre-populate field extraction based on classification
+
+2. **Phase 4.4** - Multi-page document support
+   - PDF page navigation in viewer
+   - Thumbnail strip for quick navigation
+   - Page-specific field highlighting
+
 3. **Phase 5.0** - Advanced search & tax case analytics
 4. **Phase 6.0** - Authentication integration (Clerk setup)
-5. **Phase 7.0** - Multi-page document support & PDF extraction
+5. **Phase 7.0** - Signed R2 URL integration & image caching
 
 ## Key Decisions
 
@@ -564,7 +633,7 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 
 ---
 
-**Last Updated:** 2026-01-14 08:35
-**Status:** Phase 4.1 Complete - Copy-to-Clipboard Workflow (Data Entry Optimization)
+**Last Updated:** 2026-01-14 08:51
+**Status:** Phase 4.2 Complete - Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting)
 **Branch:** feature/phase-4-data-entry-optimization
-**Next Phase:** Phase 4.2 - Side-by-Side Document Viewer
+**Next Phase:** Phase 4.3 - Document Type Auto-Detection

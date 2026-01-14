@@ -848,19 +848,184 @@ try {
 - Database replication & sharding
 - Microservices if modules grow
 
+## Authentication & Authorization (Phase 3)
+
+### JWT Authentication Flow
+
+```
+User Login Form
+        ↓
+POST /api/auth/login (email + password)
+        ↓
+Backend validates credentials via bcrypt
+        ↓
+Query User from database
+        ↓
+Generate access token (JWT, 15m default)
+        ↓
+Generate refresh token (opaque, hashed, 7-day default)
+        ↓
+Return accessToken + refreshToken to client
+        ↓
+Client stores tokens (localStorage/cookie)
+        ↓
+Client attaches "Authorization: Bearer <accessToken>" to requests
+        ↓
+authMiddleware verifies JWT signature & expiry
+        ↓
+If valid: Set user context, proceed to route handler
+If invalid/expired: Return 401, client triggers refresh flow
+        ↓
+Client calls POST /api/auth/refresh with refreshToken
+        ↓
+Backend validates refresh token (check hash, expiry, revocation)
+        ↓
+Backend rotates: revoke old token, issue new refresh token
+        ↓
+Return new accessToken + new refreshToken
+        ↓
+Client updates stored tokens, retry original request
+```
+
+### Database Models
+
+**User Model (Phase 3)**
+```
+- id (cuid) - Primary key
+- email (unique) - Staff email
+- password (string) - bcrypt hashed (12 rounds)
+- name (string) - Full name
+- role (enum) - ADMIN | STAFF | CPA
+- avatarUrl (optional) - Profile photo
+- isActive (bool) - Deactivation flag
+- lastLoginAt (datetime) - Audit trail
+- createdAt, updatedAt - Timestamps
+- refreshTokens (1:many) - Active refresh tokens
+- actions (1:many) - Assigned tasks
+```
+
+**RefreshToken Model (Phase 3)**
+```
+- id (cuid) - Primary key
+- userId (foreign key) - User reference
+- token (unique) - SHA-256 hashed opaque token
+- expiresAt (datetime) - Token expiry (default: 7 days)
+- revokedAt (datetime, optional) - Revocation timestamp
+- createdAt (datetime) - Issue timestamp
+- Indexes: userId, token, expiresAt (cleanup queries)
+- Cascade delete with user
+```
+
+### Auth Service (`src/services/auth/index.ts`)
+
+**Core Functions:**
+
+```typescript
+// Password management
+hashPassword(password) → bcrypt hashed (12 rounds)
+verifyPassword(password, hashed) → boolean
+
+// Access token (JWT, 15 min default)
+generateAccessToken(user) → JWT {sub, email, name, role, exp, iat}
+verifyAccessToken(token) → JWTPayload | null
+
+// Refresh token (opaque, hashed, 7 days default)
+generateRefreshToken(userId) → raw token string
+verifyRefreshToken(rawToken) → {userId} | null
+rotateRefreshToken(oldToken, expectedUserId) → new raw token
+  - Validates token ownership before rotation
+  - Revokes old token
+  - Issues new token
+
+// Token lifecycle
+revokeAllTokens(userId) → void (logout everywhere)
+cleanupExpiredTokens() → count (maintenance job)
+
+// Combined auth flow
+generateAuthTokens(user) → {accessToken, refreshToken}
+```
+
+**Security Measures:**
+- Bcrypt rounds: 12 (industry standard, ~250ms)
+- Token hashing: SHA-256 for refresh token storage
+- Token ownership validation: Prevents token reuse attack
+- Expiry validation: Checked during verification
+- Revocation support: Per-token and global
+
+### Auth Middleware (`src/middleware/auth.ts`)
+
+**Middleware Types:**
+
+```typescript
+// Enforces authentication - returns 401 if no valid token
+authMiddleware - Sets user context {id, email, role, name}
+
+// Optional - sets user if valid token, continues without if not
+optionalAuthMiddleware - Partial<AuthVariables>
+
+// Role-based access control factory
+requireRole(...allowedRoles) - Returns middleware for role checking
+
+// Convenience exports
+adminOnly → requireRole('ADMIN')
+staffOrAdmin → requireRole('ADMIN', 'STAFF')
+cpaOrAdmin → requireRole('ADMIN', 'CPA')
+```
+
+**Usage:**
+```typescript
+// Protect single route
+app.get('/admin/users', authMiddleware, adminOnly, handler)
+
+// Protect route group
+app.use('/admin/*', authMiddleware, adminOnly)
+
+// Optional auth
+app.get('/public/data', optionalAuthMiddleware, handler)
+```
+
+**Error Responses:**
+- 401 "Yêu cầu xác thực" (Vietnamese) - Missing/invalid token
+- 401 "Token không hợp lệ hoặc đã hết hạn" - Expired token
+- 403 "Không đủ quyền truy cập" - Insufficient role
+
+### Configuration (`src/lib/config.ts`)
+
+```typescript
+auth: {
+  jwtSecret: string         // From JWT_SECRET env (min 32 chars, required in prod)
+  jwtExpiresIn: string      // From JWT_EXPIRES_IN env (default: 15m)
+                            // Supports: 15m, 1h, 7d, etc.
+  refreshTokenExpiresDays: number  // From REFRESH_TOKEN_EXPIRES_DAYS (default: 7)
+  isConfigured: boolean     // JWT_SECRET length >= 32
+}
+
+scheduler: {
+  enabled: boolean          // From SCHEDULER_ENABLED (default: false)
+  reminderCron: string      // From REMINDER_CRON (default: 0 2 * * *)
+}
+```
+
+**Security Validation:**
+- Production: JWT_SECRET must be >= 32 chars, throws on missing
+- Development: Uses insecure default ("development-secret-change-in-prod-32chars!")
+- Console warning in dev if using insecure secret
+
 ## Security Architecture
 
 **Authentication:**
 
-- JWT tokens for stateless auth
-- Secure refresh token rotation
-- Password hashing (via @prisma/client lifecycle hooks - future)
+- JWT tokens for stateless auth (15m default expiry)
+- Secure refresh token rotation with ownership validation
+- Password hashing with bcrypt (12 rounds, ~250ms)
+- Token hashing: SHA-256 for refresh tokens in storage
 
 **Authorization:**
 
-- Role-based access control (RBAC)
-- Middleware checks permissions
-- Resource-level authorization
+- Role-based access control (RBAC) via middleware
+- Three roles: ADMIN, STAFF, CPA
+- Middleware enforces at route level
+- Resource-level authorization via business logic
 
 **Data Protection:**
 
@@ -872,9 +1037,19 @@ try {
 
 **Sensitive Data:**
 
-- Database encryption (future)
+- JWT_SECRET required (min 32 chars in production)
+- Refresh tokens hashed before storage
+- Password hashing with strong algorithm
 - PII masked in logs
 - Secrets in environment variables only
+
+**Token Security:**
+
+- Refresh token revocation: Individual or global (logout everywhere)
+- Token expiry validation: Checked on every request
+- Token ownership validation: Prevents reuse attacks
+- Expired token cleanup: Automatic maintenance job
+- No token data in logs
 
 ## Testing Architecture
 

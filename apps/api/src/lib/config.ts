@@ -63,6 +63,30 @@ export const config = {
         process.env.TWILIO_PHONE_NUMBER
     ),
   },
+
+  // Authentication Configuration (Phase 3)
+  auth: {
+    jwtSecret: (() => {
+      const secret = process.env.JWT_SECRET
+      if (!secret || secret.length < 32) {
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('JWT_SECRET must be set in production (min 32 chars)')
+        }
+        console.warn('[SECURITY] Using dev JWT secret - NOT FOR PRODUCTION')
+        return 'development-secret-change-in-prod-32chars!'
+      }
+      return secret
+    })(),
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+    refreshTokenExpiresDays: parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10),
+    isConfigured: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32),
+  },
+
+  // Scheduler Configuration (Phase 3)
+  scheduler: {
+    enabled: process.env.SCHEDULER_ENABLED === 'true',
+    reminderCron: process.env.REMINDER_CRON || '0 2 * * *', // 2 AM UTC = 9 PM EST
+  },
 } as const
 
 export type Config = typeof config

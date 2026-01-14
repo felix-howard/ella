@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
 | Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
 | Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
 | Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
@@ -16,7 +17,7 @@
 | Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
-| Phase 3 | Apps Setup (API, Portal, Workspace) | Complete |
+| Phase 3 (Old) | Apps Setup (API, Portal, Workspace) | Complete |
 | Phase 2 Infrastructure | Packages Setup (DB, Shared, UI) | Complete |
 | Phase 1.5 | Shared UI Components | 2026-01-13 |
 | Phase 1.4 | Client Portal | 2026-01-13 |
@@ -206,6 +207,20 @@ pnpm type-check              # TypeScript validation
 DATABASE_URL=postgresql://user:password@localhost:5432/ella
 ```
 
+**Authentication (Phase 3):**
+```bash
+JWT_SECRET=<generated-secret>           # Required (prod): min 32 chars
+JWT_EXPIRES_IN=15m                      # Optional: Access token expiry (default: 15m)
+REFRESH_TOKEN_EXPIRES_DAYS=7            # Optional: Refresh token expiry (default: 7)
+SCHEDULER_ENABLED=false                 # Optional: Enable scheduler (default: false)
+REMINDER_CRON="0 2 * * *"               # Optional: Cron for reminders (default: 2 AM UTC)
+```
+
+**Generate JWT Secret:**
+```bash
+openssl rand -hex 32
+```
+
 **AI Services (Phase 2.1):**
 ```bash
 GEMINI_API_KEY=                    # Required - Google Gemini API key
@@ -220,12 +235,6 @@ AI_BATCH_CONCURRENCY=3             # Optional - Batch concurrency (default: 3)
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token_here
 TWILIO_PHONE_NUMBER=+1234567890
-```
-
-**Optional (future integrations):**
-```bash
-CLERK_PUBLISHABLE_KEY=...
-CLERK_SECRET_KEY=...
 ```
 
 ## Design System
@@ -369,6 +378,88 @@ CLERK_SECRET_KEY=...
 2. Batch document processing (multiple docs at once)
 3. Search filters on documents (status, type, confidence)
 4. Export case data (PDF, Excel)
+
+---
+
+## Phase 3: Production Ready (Authentication System - 2026-01-14)
+
+**Phase 3 focuses on production-ready authentication with JWT+refresh tokens, RBAC, and secure token management.**
+
+### Phase 3 Core Features:
+
+**1. Database Models**
+- `User` - Staff authentication (email, bcrypt password, roles: ADMIN/STAFF/CPA)
+- `RefreshToken` - Token management (hashed storage, expiry, revocation, cleanup)
+
+**2. Auth Service (`src/services/auth/index.ts`)**
+- `hashPassword()` - bcrypt 12 rounds (industry standard)
+- `generateAccessToken()` - JWT with 15m default expiry (configurable)
+- `generateRefreshToken()` - Opaque token with 7-day default expiry (configurable)
+- `verifyAccessToken()` - JWT signature & expiry validation
+- `verifyRefreshToken()` - Refresh token validation (hash, expiry, revocation)
+- `rotateRefreshToken()` - Ownership validation before rotation
+- `revokeAllTokens()` - Logout everywhere functionality
+- `cleanupExpiredTokens()` - Maintenance job for expired/revoked tokens
+
+**3. Auth Middleware (`src/middleware/auth.ts`)**
+- `authMiddleware` - Requires Bearer token, returns 401 if missing/invalid
+- `optionalAuthMiddleware` - Sets user if valid token, continues without if not
+- `requireRole()` - Factory for role-based access control
+- Convenience: `adminOnly`, `staffOrAdmin`, `cpaOrAdmin`
+
+**4. Configuration (`src/lib/config.ts`)**
+- `auth.jwtSecret` - Validated (min 32 chars), throws in production if missing
+- `auth.jwtExpiresIn` - Configurable expiry format (15m, 1h, 7d, etc.)
+- `auth.refreshTokenExpiresDays` - Configurable expiry in days
+- `scheduler.enabled` - Scheduler on/off switch
+- `scheduler.reminderCron` - Cron schedule for batch reminders (9 PM EST default)
+
+**5. Security Features**
+- Password hashing: bcrypt 12 rounds (~250ms)
+- Token hashing: SHA-256 for refresh tokens in storage
+- Token ownership validation: Prevents reuse attacks
+- Expiry validation: Checked on every request
+- Revocation support: Per-token and global
+- Token cleanup: Automatic maintenance job
+- RBAC: Three roles (ADMIN, STAFF, CPA) enforced at route level
+
+### Phase 3 Environment Variables:
+
+| Variable | Type | Required | Default | Notes |
+|----------|------|----------|---------|-------|
+| JWT_SECRET | string | YES (prod) | dev-only | Min 32 chars, generate via openssl rand -hex 32 |
+| JWT_EXPIRES_IN | string | NO | 15m | Formats: 15m, 1h, 7d, etc. |
+| REFRESH_TOKEN_EXPIRES_DAYS | number | NO | 7 | Days until refresh token expires |
+| SCHEDULER_ENABLED | boolean | NO | false | Enable scheduled jobs |
+| REMINDER_CRON | string | NO | 0 2 * * * | Cron schedule (2 AM UTC = 9 PM EST) |
+
+### Phase 3 Database Schema:
+
+**User Model:**
+```
+- id (cuid) - Primary key
+- email (unique) - Staff email
+- password - bcrypt hashed (12 rounds)
+- name - Full name
+- role - ADMIN | STAFF | CPA (default: STAFF)
+- avatarUrl (optional) - Profile photo
+- isActive - Deactivation flag
+- lastLoginAt (optional) - Audit trail
+- refreshTokens (1:many) - Active refresh tokens
+- actions (1:many) - Assigned tasks
+- createdAt, updatedAt - Timestamps
+```
+
+**RefreshToken Model:**
+```
+- id (cuid) - Primary key
+- userId - User reference (cascade delete)
+- token (unique) - SHA-256 hashed opaque token
+- expiresAt - Token expiry timestamp
+- revokedAt (optional) - Revocation timestamp
+- createdAt - Issue timestamp
+- Indexes: userId, token, expiresAt (for cleanup queries)
+```
 
 ---
 

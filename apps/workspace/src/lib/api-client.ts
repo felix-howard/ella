@@ -422,6 +422,7 @@ export interface Action {
   isCompleted: boolean
   assignedToId: string | null
   createdAt: string
+  metadata?: Record<string, unknown> // JSON field for action-specific data
   taxCase?: {
     id: string
     client: { id: string; name: string }

@@ -208,8 +208,11 @@ export function FileViewerModal({
         </div>
       </div>
 
-      {/* Main content area */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+      {/* Main content area - use items-start for PDF to allow scrolling from top */}
+      <div className={cn(
+        "flex-1 overflow-auto flex justify-center p-4",
+        fileType === 'pdf' ? 'items-start pt-8' : 'items-center'
+      )}>
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-white animate-spin" />

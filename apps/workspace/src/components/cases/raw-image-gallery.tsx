@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { cn } from '@ella/ui'
+import { Document, Page, pdfjs } from 'react-pdf'
 import {
   Image as ImageIcon,
   Eye,
@@ -14,11 +15,20 @@ import {
   Clock,
   HelpCircle,
   Loader2,
+  FileText,
 } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { FileViewerModal } from '../file-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
+
+// Set up PDF.js worker (same as file-viewer-modal)
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
+/** Check if file is a PDF based on filename */
+function isPdfFile(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.pdf')
+}
 
 // Image status types
 type ImageStatus = 'UPLOADED' | 'CLASSIFIED' | 'LINKED' | 'BLURRY' | 'UNCLASSIFIED'
@@ -253,10 +263,12 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
 
 /**
  * Thumbnail that fetches signed URL on demand
+ * Handles both images and PDFs
  */
 function ImageThumbnail({ imageId, filename }: { imageId: string; filename: string }) {
   // Fetch signed URL for thumbnail (with longer stale time since thumbnails rarely change)
   const { data, isLoading, error } = useSignedUrl(imageId, { staleTime: 55 * 60 * 1000 })
+  const isPdf = isPdfFile(filename)
 
   if (isLoading) {
     return (
@@ -269,12 +281,21 @@ function ImageThumbnail({ imageId, filename }: { imageId: string; filename: stri
   if (error || !data?.url) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+        {isPdf ? (
+          <FileText className="w-8 h-8 text-muted-foreground" />
+        ) : (
+          <ImageIcon className="w-8 h-8 text-muted-foreground" />
+        )}
         <span className="text-[10px] text-muted-foreground text-center px-2 truncate max-w-full">
           {filename.slice(0, 15)}
         </span>
       </div>
     )
+  }
+
+  // For PDF files, render first page as thumbnail
+  if (isPdf) {
+    return <PdfThumbnail url={data.url} />
   }
 
   return (
@@ -284,6 +305,52 @@ function ImageThumbnail({ imageId, filename }: { imageId: string; filename: stri
       className="w-full h-full object-cover"
       loading="lazy"
     />
+  )
+}
+
+/**
+ * PDF Thumbnail - Renders first page of PDF as a small preview
+ */
+function PdfThumbnail({ url }: { url: string }) {
+  const [hasError, setHasError] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-muted">
+        <FileText className="w-8 h-8 text-red-400" />
+        <span className="text-[10px] text-muted-foreground text-center px-2">PDF</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-white overflow-hidden">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+        </div>
+      )}
+      <Document
+        file={url}
+        onLoadSuccess={() => setIsLoading(false)}
+        onLoadError={() => {
+          setHasError(true)
+          setIsLoading(false)
+        }}
+        loading={null}
+        className="flex items-center justify-center"
+      >
+        <Page
+          pageNumber={1}
+          width={180}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          loading={null}
+          className="shadow-sm"
+        />
+      </Document>
+    </div>
   )
 }
 

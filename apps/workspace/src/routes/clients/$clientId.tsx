@@ -86,6 +86,28 @@ function ClientDetailPage() {
     },
   })
 
+  // Mutation for moving image to different checklist item (drag & drop)
+  const moveImageMutation = useMutation({
+    mutationFn: async ({ imageId, targetChecklistItemId }: { imageId: string; targetChecklistItemId: string }) => {
+      const response = await fetch(`/api/images/${imageId}/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ targetChecklistItemId }),
+      })
+      if (!response.ok) throw new Error('Move failed')
+      return response.json()
+    },
+    onSuccess: () => {
+      toast.success('Đã di chuyển ảnh thành công')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi di chuyển ảnh')
+    },
+  })
+
   // Fetch client detail from API
   const {
     data: client,
@@ -541,6 +563,10 @@ function ClientDetailPage() {
               items={checklistItems}
               onItemClick={(item) => console.log('Clicked checklist item:', item.id)}
               onVerify={(item) => console.log('Verify item:', item.id)}
+              enableDragDrop={true}
+              onImageDrop={(imageId, targetChecklistItemId) => {
+                moveImageMutation.mutate({ imageId, targetChecklistItemId })
+              }}
             />
           </div>
 

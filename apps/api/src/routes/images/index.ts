@@ -17,6 +17,11 @@ const updateClassificationSchema = z.object({
   action: z.enum(['approve', 'reject']),
 })
 
+// Schema for moving image to different checklist item
+const moveImageSchema = z.object({
+  targetChecklistItemId: z.string().min(1, 'Target checklist item ID is required'),
+})
+
 /**
  * PATCH /images/:id/classification - Update image classification
  * Used by CPA to approve/reject AI classification with optional type change
@@ -205,5 +210,112 @@ imagesRoute.post('/:id/reclassify', async (c) => {
     status: 'PROCESSING',
   })
 })
+
+/**
+ * PATCH /images/:id/move - Move image to a different checklist item
+ * Used by CPA to manually group/re-group multi-page documents
+ */
+imagesRoute.patch(
+  '/:id/move',
+  zValidator('json', moveImageSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { targetChecklistItemId } = c.req.valid('json')
+
+    // Find the raw image
+    const rawImage = await prisma.rawImage.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        caseId: true,
+        checklistItemId: true,
+        classifiedType: true,
+      },
+    })
+
+    if (!rawImage) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Image not found' },
+        404
+      )
+    }
+
+    // Find target checklist item and verify it belongs to same case
+    const targetItem = await prisma.checklistItem.findUnique({
+      where: { id: targetChecklistItemId },
+      include: { template: true },
+    })
+
+    if (!targetItem) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Target checklist item not found' },
+        404
+      )
+    }
+
+    if (targetItem.caseId !== rawImage.caseId) {
+      return c.json(
+        { error: 'INVALID_CASE', message: 'Cannot move image to a different case' },
+        400
+      )
+    }
+
+    // Skip if already in target
+    if (rawImage.checklistItemId === targetChecklistItemId) {
+      return c.json({
+        success: true,
+        message: 'Image already in target checklist item',
+      })
+    }
+
+    // Transaction: update image and both checklist items
+    await prisma.$transaction(async (tx) => {
+      // Decrement count on old checklist item if exists
+      if (rawImage.checklistItemId) {
+        const oldItem = await tx.checklistItem.findUnique({
+          where: { id: rawImage.checklistItemId },
+          select: { receivedCount: true },
+        })
+
+        if (oldItem) {
+          await tx.checklistItem.update({
+            where: { id: rawImage.checklistItemId },
+            data: {
+              receivedCount: Math.max(0, oldItem.receivedCount - 1),
+              // Reset status to MISSING if no more images
+              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+            },
+          })
+        }
+      }
+
+      // Update raw image with new checklist item and doc type
+      await tx.rawImage.update({
+        where: { id },
+        data: {
+          checklistItemId: targetChecklistItemId,
+          classifiedType: targetItem.template?.docType as DocType,
+          status: 'LINKED' as RawImageStatus,
+        },
+      })
+
+      // Increment count on new checklist item
+      await tx.checklistItem.update({
+        where: { id: targetChecklistItemId },
+        data: {
+          receivedCount: { increment: 1 },
+          status: 'HAS_RAW' as ChecklistItemStatus,
+        },
+      })
+    })
+
+    return c.json({
+      success: true,
+      message: 'Image moved successfully',
+      newChecklistItemId: targetChecklistItemId,
+      newDocType: targetItem.template?.docType,
+    })
+  }
+)
 
 export { imagesRoute }

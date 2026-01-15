@@ -109,12 +109,15 @@ export function ManualClassificationModal({
   } = useSignedUrl(image?.id ?? null, { enabled: isOpen && !!image })
 
   // Reset state when image changes
+  // Note: setState is intentional here to sync internal state with prop changes
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSelectedDocType(null)
     setIsDropdownOpen(false)
     setNotes('')
     setImageError(false)
   }, [image])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Mutation for manual classification (uses approve action)
   const classifyMutation = useMutation({

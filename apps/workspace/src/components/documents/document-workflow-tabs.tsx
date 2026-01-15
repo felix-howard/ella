@@ -6,7 +6,7 @@
 
 import { useState, useMemo } from 'react'
 import { Upload, Search, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
-import { cn, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button } from '@ella/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent, Badge, Button } from '@ella/ui'
 import { ErrorBoundary } from '../error-boundary'
 import { UploadsTab } from './uploads-tab'
 import { ReviewQueueTab } from './review-queue-tab'

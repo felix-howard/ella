@@ -28,11 +28,13 @@ export interface VerifiedTabProps {
 }
 
 export function VerifiedTab({
-  caseId,
+  caseId: _caseId,
   docs,
   isLoading,
   onDataEntry,
 }: VerifiedTabProps) {
+  // caseId reserved for future batch export operations
+  void _caseId
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
 

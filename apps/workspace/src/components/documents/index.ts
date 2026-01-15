@@ -17,5 +17,9 @@ export { VerifiedTab, VerifiedTabSkeleton, type VerifiedTabProps } from './verif
 // Verification Modal (Phase 05)
 export { VerificationModal, type VerificationModalProps } from './verification-modal'
 
+// Data Entry and Re-upload Modals (Phase 06)
+export { DataEntryModal, type DataEntryModalProps } from './data-entry-modal'
+export { ReUploadRequestModal, type ReUploadRequestModalProps } from './reupload-request-modal'
+
 // Note: PdfThumbnail is lazy-loaded internally and should not be exported directly
 // to ensure proper code-splitting of the react-pdf library (~150KB)

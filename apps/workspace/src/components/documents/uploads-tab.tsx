@@ -16,7 +16,7 @@ import {
   Loader2,
   FileText,
 } from 'lucide-react'
-import { DOC_TYPE_LABELS, getConfidenceLevel, needsClassificationReview, AI_CONFIDENCE_THRESHOLDS } from '../../lib/constants'
+import { DOC_TYPE_LABELS, getConfidenceLevel, AI_CONFIDENCE_THRESHOLDS } from '../../lib/constants'
 import { FileViewerModal } from '../file-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
@@ -97,12 +97,14 @@ const FILTER_LABELS: Record<UploadFilter, string> = {
 }
 
 export function UploadsTab({
-  caseId,
+  caseId: _caseId,
   images,
   isLoading,
   onClassify,
   onReviewClassification,
 }: UploadsTabProps) {
+  // caseId reserved for future bulk operations
+  void _caseId
   const [filter, setFilter] = useState<UploadFilter>('all')
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)

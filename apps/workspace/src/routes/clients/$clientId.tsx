@@ -29,7 +29,7 @@ import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, StatusSelector } from '../../components/cases'
-import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal } from '../../components/documents'
+import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -60,6 +60,11 @@ function ClientDetailPage() {
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  const [dataEntryDoc, setDataEntryDoc] = useState<DigitalDoc | null>(null)
+  const [isDataEntryModalOpen, setIsDataEntryModalOpen] = useState(false)
+  const [reuploadImage, setReuploadImage] = useState<RawImage | null>(null)
+  const [reuploadFields, setReuploadFields] = useState<string[]>([])
+  const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false)
 
   // Error code to Vietnamese message mapping
   const SMS_ERROR_MESSAGES: Record<string, string> = {
@@ -251,10 +256,32 @@ function ClientDetailPage() {
 
   // Handler for re-upload request from verification modal
   const handleRequestReupload = (doc: DigitalDoc, unreadableFields: string[]) => {
-    // TODO: Open ReUploadRequestModal (Phase 06) - will use doc and unreadableFields
-    void doc
-    void unreadableFields
-    toast.info('Chức năng yêu cầu tải lại ảnh sẽ được triển khai trong Phase 06')
+    // Find the raw image associated with this doc
+    const rawImage = rawImages.find(img => img.id === doc.rawImageId)
+    if (rawImage) {
+      setReuploadImage(rawImage)
+      setReuploadFields(unreadableFields)
+      setIsReuploadModalOpen(true)
+    }
+  }
+
+  const handleCloseReuploadModal = () => {
+    setIsReuploadModalOpen(false)
+    setTimeout(() => {
+      setReuploadImage(null)
+      setReuploadFields([])
+    }, 200)
+  }
+
+  // Handler for data entry modal
+  const handleDataEntry = (doc: DigitalDoc) => {
+    setDataEntryDoc(doc)
+    setIsDataEntryModalOpen(true)
+  }
+
+  const handleCloseDataEntryModal = () => {
+    setIsDataEntryModalOpen(false)
+    setTimeout(() => setDataEntryDoc(null), 200)
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -590,7 +617,7 @@ function ClientDetailPage() {
               onClassifyImage={handleManualClassify}
               onReviewClassification={handleReviewClassification}
               onVerifyDoc={handleVerifyDoc}
-              onDataEntry={(doc) => console.log('Data entry for doc:', doc.id)}
+              onDataEntry={handleDataEntry}
             />
           </div>
 
@@ -622,6 +649,27 @@ function ClientDetailPage() {
               onClose={handleCloseVerifyModal}
               caseId={latestCaseId}
               onRequestReupload={handleRequestReupload}
+            />
+          )}
+
+          {/* Data Entry Modal (Phase 06) */}
+          {latestCaseId && dataEntryDoc && (
+            <DataEntryModal
+              doc={dataEntryDoc}
+              isOpen={isDataEntryModalOpen}
+              onClose={handleCloseDataEntryModal}
+              caseId={latestCaseId}
+            />
+          )}
+
+          {/* Re-upload Request Modal (Phase 06) */}
+          {latestCaseId && reuploadImage && (
+            <ReUploadRequestModal
+              image={reuploadImage}
+              unreadableFields={reuploadFields}
+              isOpen={isReuploadModalOpen}
+              onClose={handleCloseReuploadModal}
+              caseId={latestCaseId}
             />
           )}
 

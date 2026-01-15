@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Search, FileText, Eye, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, FileText, Eye, Loader2 } from 'lucide-react'
 import { cn, Badge, Card } from '@ella/ui'
 import { DOC_TYPE_LABELS, AI_CONFIDENCE_THRESHOLDS } from '../../lib/constants'
 import { CompactProgressIndicator } from '../ui/progress-indicator'
@@ -37,12 +37,15 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 }
 
 export function ReviewQueueTab({
-  caseId,
+  caseId: _caseId,
   docs,
   isLoading,
   onVerify,
 }: ReviewQueueTabProps) {
-  const [selectedDoc, setSelectedDoc] = useState<DigitalDoc | null>(null)
+  // caseId reserved for future API operations (e.g., batch processing)
+  void _caseId
+  const [_selectedDoc, _setSelectedDoc] = useState<DigitalDoc | null>(null)
+  // Reserved for future multi-select/batch verification feature
 
   if (isLoading) {
     return <ReviewQueueSkeleton />

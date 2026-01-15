@@ -40,7 +40,10 @@ messagesRoute.get(
         where,
         skip,
         take: safeLimit,
-        orderBy: { lastMessageAt: 'desc' },
+        orderBy: [
+          { lastMessageAt: 'desc' },
+          { createdAt: 'desc' }, // Secondary sort for same/null lastMessageAt
+        ],
         include: {
           taxCase: {
             include: {

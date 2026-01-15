@@ -379,7 +379,7 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([lastMessageAt])      // M2: Index for inbox sorting
+  @@index([lastMessageAt, createdAt]) // Composite index for inbox sorting with secondary sort
 }
 
 model Message {

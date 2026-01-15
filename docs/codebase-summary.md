@@ -832,13 +832,37 @@ See detailed docs: [phase-4.2-side-by-side-document-viewer.md](./phase-4.2-side-
 
 See detailed docs: [phase-4.1-copy-clipboard-workflow.md](./phase-4.1-copy-clipboard-workflow.md)
 
-### Phase 3.2 (Complete - 2026-01-14)
-**Unified Inbox & Conversation Management**
+### Phase 3.2 (Complete - 2026-01-14) + Phase 01 Backend Fix (2026-01-15)
+**Unified Inbox & Conversation Management + Race Condition Fix**
 
 **API Enhancements:**
 - `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
 - Auto-fetches conversation with unread count reset on first message load
 - Upsert pattern prevents race conditions on concurrent conversation access
+
+**Phase 01 Backend Fix (2026-01-15):**
+Resolved race condition where conversations don't appear in Messages tab after client creation.
+
+**Root Cause:** When creating new client → conversation created with null `lastMessageAt` → welcome SMS sent asynchronously → conversation not visible in sorted inbox until first message arrives.
+
+**Solution:**
+1. **Conversation Creation:** Set `lastMessageAt: new Date()` on creation (clients route, line 128)
+   - Ensures conversation appears immediately in sorted inbox
+   - SMS will overwrite with correct timestamp when message arrives
+   - No data loss, just initial ordering fix
+
+2. **Secondary Sort Index:** Added composite index `[lastMessageAt, createdAt]` on Conversation model (schema.prisma, line 382)
+   - Ensures stable ordering when `lastMessageAt` is identical or null
+   - `createdAt` as tiebreaker for same-second conversation creation
+
+3. **Messages Query:** Added secondary `createdAt` sort to GET /messages/conversations (messages route, line 46)
+   - Prevents unstable ordering during race condition window
+   - Both client creation + SMS message can happen within same millisecond
+
+**Files Modified:**
+- `apps/api/src/routes/clients/index.ts:128` - Added `lastMessageAt` to conversation creation
+- `apps/api/src/routes/messages/index.ts:43-46` - Added secondary createdAt sort
+- `packages/db/prisma/schema.prisma:382` - Changed to composite index
 
 **Frontend Pages & Components:**
 - `/messages` - Unified inbox with split view layout

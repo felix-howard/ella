@@ -55,7 +55,24 @@ export function ClientMessagesTab({
       if (currentFetchId !== fetchIdRef.current) return
 
       // Messages come in desc order from API, reverse for display
-      setMessages(response.messages.reverse())
+      // Deduplicate by ID to prevent optimistic updates from causing duplicates
+      const newMessages = response.messages.reverse()
+      setMessages((prev) => {
+        // If no previous messages, just use new messages
+        if (prev.length === 0) return newMessages
+
+        // Create a Set of IDs from new messages for O(1) lookup
+        const newMessageIds = new Set(newMessages.map((m) => m.id))
+
+        // Keep optimistically added messages (not yet in API response) + all new messages
+        const optimisticMessages = prev.filter((m) => !newMessageIds.has(m.id))
+
+        // If there are no optimistic messages, just return new messages
+        if (optimisticMessages.length === 0) return newMessages
+
+        // Merge: new messages first (in chronological order), then any optimistic ones at the end
+        return [...newMessages, ...optimisticMessages]
+      })
     } catch (err) {
       // Ignore errors from stale requests
       if (currentFetchId !== fetchIdRef.current) return

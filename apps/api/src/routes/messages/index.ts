@@ -15,7 +15,7 @@ import {
   listConversationsQuerySchema,
 } from './schemas'
 import {
-  sendCustomMessage,
+  sendSmsOnly,
   isSmsEnabled,
   notifyMissingDocuments,
   sendBatchMissingReminders,
@@ -200,9 +200,29 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
   let smsError: string | undefined
 
   if (channel === 'SMS' && isSmsEnabled()) {
-    const result = await sendCustomMessage(caseId, taxCase.client.phone, content)
-    smsSent = result.smsSent
+    // Use sendSmsOnly to avoid creating duplicate message record
+    const result = await sendSmsOnly(taxCase.client.phone, content)
+    smsSent = result.success
     smsError = result.error
+
+    // Update message with Twilio response
+    if (result.success && result.sid) {
+      await prisma.message.update({
+        where: { id: message.id },
+        data: {
+          twilioSid: result.sid,
+          twilioStatus: result.status,
+        },
+      })
+    } else if (!result.success) {
+      await prisma.message.update({
+        where: { id: message.id },
+        data: {
+          twilioSid: null,
+          twilioStatus: `ERROR: ${smsError}`,
+        },
+      })
+    }
   } else if (channel !== 'SMS') {
     // System/Portal messages don't need SMS
     smsSent = true

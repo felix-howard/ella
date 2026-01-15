@@ -3,15 +3,18 @@
  * Background job for AI-powered document classification using Gemini
  *
  * Workflow:
- * 1. Fetch image from R2
- * 2. Classify with Gemini
- * 3. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 4. Detect duplicates using pHash and group similar images
- * 5. OCR extraction (if confidence >= 60% and doc type supports OCR)
- * 6. Update DB with results
+ * 1. Idempotency check (skip if already processed)
+ * 2. Fetch image from R2 (with resize for large files)
+ * 3. Classify with Gemini (with error handling for unavailability)
+ * 4. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
+ * 5. Detect duplicates using pHash and group similar images
+ * 6. OCR extraction (if confidence >= 60% and doc type supports OCR)
+ * 7. Update DB with results
  */
 
+import sharp from 'sharp'
 import { inngest } from '../lib/inngest'
+import { prisma } from '../lib/db'
 import { fetchImageBuffer } from '../services/storage'
 import { classifyDocument, requiresOcrExtraction } from '../services/ai'
 import { extractDocumentData } from '../services/ai/ocr-extractor'
@@ -29,6 +32,40 @@ import type { DocType } from '@ella/db'
 const HIGH_CONFIDENCE = 0.85
 const LOW_CONFIDENCE = 0.60
 
+// Image size thresholds
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024 // 4MB - trigger resize
+const HARD_SIZE_LIMIT = 20 * 1024 * 1024 // 20MB - reject outright
+
+// Gemini service unavailability patterns
+const SERVICE_UNAVAILABLE_PATTERNS = [
+  /503/,
+  /service.?unavailable/i,
+  /overloaded/i,
+  /resource.?exhausted/i,
+]
+
+/**
+ * Check if error indicates Gemini service unavailability
+ */
+function isServiceUnavailable(errorMessage: string): boolean {
+  return SERVICE_UNAVAILABLE_PATTERNS.some((pattern) => pattern.test(errorMessage))
+}
+
+/**
+ * Sanitize error message for storage - remove sensitive info
+ */
+function sanitizeErrorMessage(error: string): string {
+  return error
+    // Remove API keys (AIza..., sk-...)
+    .replace(/(?:AIza|sk-)[a-zA-Z0-9_-]{20,}/g, '[API_KEY_REDACTED]')
+    // Remove email addresses
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]')
+    // Remove file paths
+    .replace(/(?:\/|\\)[a-zA-Z0-9._-]+(?:\/|\\)[a-zA-Z0-9._/-]+/g, '[PATH_REDACTED]')
+    // Truncate long messages
+    .substring(0, 500)
+}
+
 export const classifyDocumentJob = inngest.createFunction(
   {
     id: 'classify-document',
@@ -39,41 +76,127 @@ export const classifyDocumentJob = inngest.createFunction(
   async ({ event, step }) => {
     const { rawImageId, caseId, r2Key, mimeType: eventMimeType } = event.data
 
+    // Step 0: Idempotency check - skip if already processed
+    const idempotencyCheck = await step.run('check-idempotency', async () => {
+      const image = await prisma.rawImage.findUnique({
+        where: { id: rawImageId },
+        select: { status: true },
+      })
+
+      // Already processed if not in UPLOADED status
+      if (image?.status !== 'UPLOADED') {
+        return { skip: true, status: image?.status || 'NOT_FOUND' }
+      }
+      return { skip: false, status: 'UPLOADED' }
+    })
+
+    // Exit early if already processed
+    if (idempotencyCheck.skip) {
+      return {
+        skipped: true,
+        reason: 'Already processed',
+        currentStatus: idempotencyCheck.status,
+        rawImageId,
+      }
+    }
+
     // Mark image as processing
     await step.run('mark-processing', async () => {
       await markImageProcessing(rawImageId)
     })
 
-    // Step 1: Fetch image from R2
+    // Step 1: Fetch image from R2 with resize for large files
     const imageData = await step.run('fetch-image', async () => {
       const result = await fetchImageBuffer(r2Key)
       if (!result) {
         throw new Error(`Failed to fetch image from R2: ${r2Key}`)
       }
+
+      // Hard size limit - reject images over 20MB to prevent DoS
+      if (result.buffer.length > HARD_SIZE_LIMIT) {
+        const sizeMB = (result.buffer.length / 1024 / 1024).toFixed(2)
+        throw new Error(`Image too large (${sizeMB}MB). Maximum allowed: 20MB`)
+      }
+
+      let buffer = result.buffer
+      let mimeType = result.mimeType || eventMimeType
+
+      // Resize large images to prevent Gemini timeout
+      if (buffer.length > MAX_IMAGE_SIZE) {
+        console.log(`[classify-document] Resizing large image: ${(buffer.length / 1024 / 1024).toFixed(2)}MB`)
+        buffer = await sharp(buffer)
+          .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer()
+        mimeType = 'image/jpeg'
+      }
+
       // Store as base64 for step durability (Inngest serializes step results)
-      // Use R2 content-type or fallback to event mimeType
       return {
-        buffer: result.buffer.toString('base64'),
-        mimeType: result.mimeType || eventMimeType,
+        buffer: buffer.toString('base64'),
+        mimeType,
+        wasResized: result.buffer.length > MAX_IMAGE_SIZE,
       }
     })
 
-    // Step 2: Classify with Gemini
+    // Step 2: Classify with Gemini (with service unavailability handling)
     const classification = await step.run('classify', async () => {
       const buffer = Buffer.from(imageData.buffer, 'base64')
-      const result = await classifyDocument(buffer, imageData.mimeType)
 
-      return {
-        success: result.success,
-        docType: result.docType,
-        confidence: result.confidence,
-        reasoning: result.reasoning,
+      try {
+        const result = await classifyDocument(buffer, imageData.mimeType)
+
+        // Check for service unavailability in error message
+        if (!result.success && result.error && isServiceUnavailable(result.error)) {
+          // Mark for manual classification and create high-priority action
+          await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', 0)
+          await createAction({
+            caseId,
+            type: 'AI_FAILED',
+            priority: 'HIGH',
+            title: 'AI không khả dụng',
+            description: 'Dịch vụ AI tạm thời không khả dụng. Vui lòng phân loại thủ công.',
+            metadata: {
+              rawImageId,
+              r2Key,
+              errorType: 'SERVICE_UNAVAILABLE',
+              errorMessage: sanitizeErrorMessage(result.error),
+              attemptedAt: new Date().toISOString(),
+            },
+          })
+          // Throw to trigger Inngest retry
+          throw new Error(`Gemini service unavailable: ${result.error}`)
+        }
+
+        return {
+          success: result.success,
+          docType: result.docType,
+          confidence: result.confidence,
+          reasoning: result.reasoning,
+          error: result.error,
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+        // If it's a service unavailability, re-throw for Inngest retry
+        if (isServiceUnavailable(errorMessage)) {
+          throw error
+        }
+
+        // Other errors - return as failed classification
+        return {
+          success: false,
+          docType: 'UNKNOWN' as const,
+          confidence: 0,
+          reasoning: 'Classification error occurred',
+          error: errorMessage,
+        }
       }
     })
 
     // Step 3: Route by confidence and update DB
     const routing = await step.run('route-by-confidence', async () => {
-      const { confidence, docType, success } = classification
+      const { confidence, docType, success, error } = classification
 
       // Failed classification or very low confidence → unclassified
       if (!success || confidence < LOW_CONFIDENCE) {
@@ -88,7 +211,7 @@ export const classifyDocumentJob = inngest.createFunction(
           description: `Không thể phân loại tài liệu (độ tin cậy: ${Math.round(confidence * 100)}%)`,
           metadata: {
             rawImageId,
-            errorMessage: classification.reasoning,
+            errorMessage: sanitizeErrorMessage(error || classification.reasoning),
             r2Key,
             attemptedAt: new Date().toISOString(),
           },
@@ -205,6 +328,7 @@ export const classifyDocumentJob = inngest.createFunction(
         imageCount: grouping.imageCount,
       },
       digitalDocId,
+      wasResized: imageData.wasResized,
     }
   }
 )

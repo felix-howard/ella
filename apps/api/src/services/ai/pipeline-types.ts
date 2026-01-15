@@ -57,6 +57,7 @@ export interface AiFailedMetadata extends ActionMetadataBase {
   errorMessage?: string
   r2Key?: string
   attemptedAt?: string
+  errorType?: 'SERVICE_UNAVAILABLE' | 'CLASSIFICATION_FAILED' | 'NETWORK_ERROR'
 }
 
 /**

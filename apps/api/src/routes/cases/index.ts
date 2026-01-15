@@ -353,4 +353,57 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
   })
 })
 
+// GET /images/:imageId/file - Proxy endpoint to serve files directly (bypasses CORS)
+// Used by PDF.js and other browser-based file viewers
+casesRoute.get('/images/:imageId/file', async (c) => {
+  const imageId = c.req.param('imageId')
+
+  const image = await prisma.rawImage.findUnique({
+    where: { id: imageId },
+    select: { id: true, r2Key: true, filename: true, mimeType: true },
+  })
+
+  if (!image) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  if (!image.r2Key) {
+    return c.json({ error: 'NO_FILE', message: 'Image file not available' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(image.r2Key)
+
+  if (!signedUrl) {
+    return c.json(
+      { error: 'STORAGE_ERROR', message: 'Could not fetch file from storage.' },
+      500
+    )
+  }
+
+  try {
+    // Fetch the file from R2
+    const response = await fetch(signedUrl)
+    if (!response.ok) {
+      return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+
+    // Determine content type
+    const contentType = image.mimeType || response.headers.get('content-type') || 'application/octet-stream'
+
+    // Return the file with proper headers
+    return new Response(arrayBuffer, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(image.filename)}"`,
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
+  } catch (error) {
+    console.error('[File Proxy] Failed to fetch file:', imageId, error)
+    return c.json({ error: 'PROXY_ERROR', message: 'Failed to proxy file' }, 500)
+  }
+})
+
 export { casesRoute }

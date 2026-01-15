@@ -7,9 +7,9 @@
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Loader2 } from 'lucide-react'
 
-// Configure PDF.js worker from cdnjs (more reliable CDN)
-// Note: Using cdnjs with versioned URL for better caching
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+// Configure PDF.js worker from unpkg (serves npm packages directly)
+// This ensures exact version match with the bundled pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 export interface PdfViewerProps {
   /** PDF file URL */

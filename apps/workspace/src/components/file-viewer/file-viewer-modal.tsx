@@ -21,8 +21,9 @@ import {
   Download,
 } from 'lucide-react'
 
-// Set up PDF.js worker (using cdnjs for reliability)
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+// Set up PDF.js worker - using unpkg which serves npm packages directly
+// This ensures exact version match with the bundled pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 export interface FileViewerModalProps {
   /** File URL to display */

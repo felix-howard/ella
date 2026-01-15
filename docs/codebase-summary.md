@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 03 Shared** | **Shared Components (Field Verification, Copy Tracking)** | **2026-01-15** |
 | **Phase 06** | **Testing Infrastructure & Edge Case Handling** | **2026-01-15** |
 | **Phase 05** | **Real-time Updates (Polling & Notifications)** | **2026-01-14** |
 | **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
@@ -83,14 +84,59 @@ pnpm -F @ella/db studio    # Prisma Studio UI
 - Two import paths: `@ella/shared`, `@ella/shared/schemas`
 
 ### @ella/ui
-**11-component shared library**
+**11-component shared library + Phase 03 Shared Components**
 
 See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 
-**Components:**
+**Phase 1.5 Base Components:**
 - Base: Button, Card, Input, Select, Badge, Modal, Tabs, Avatar, Progress, Tooltip
 - Icon exports: 50+ Lucide icons
 - Variants: 80+ total across all components
+
+**Phase 03 Shared Components (Data Entry & Verification):**
+Located in `apps/workspace/src/components/ui/` + hooks:
+
+1. **ImageViewer** - Zoomable image/PDF viewer with lazy-loaded PDF rendering
+   - Features: Zoom (0.5-3x), rotation (90° increments), PDF page navigation
+   - Lazy loads `react-pdf` (~150KB savings) on demand
+   - Controls: Toolbar + page navigation for multi-page PDFs
+   - Error handling: XSS-safe URL validation, fallback messages
+
+2. **PdfViewer** - Internal PDF rendering (lazy loaded)
+   - Uses `react-pdf` + PDF.js worker from cdnjs
+   - Renders single page with zoom/rotation transforms
+   - Text/annotation layers disabled for performance
+   - Skeleton loading state during page load
+
+3. **FieldVerificationItem** - Field verification component with three actions
+   - Actions: Verify (checkmark), Edit (inline editing), Mark Unreadable (alert)
+   - Auto-save on blur with trimmed values
+   - Status badges: "Đã xác minh", "Đã sửa", "Không đọc được"
+   - Color-coded borders per status (verified/edited/unreadable)
+
+4. **CopyableField** - Copy-to-clipboard tracking for data entry
+   - Copy button with visual feedback (2s indicator)
+   - Persisted copy status circle (filled = copied)
+   - Used for OltPro external system data entry workflow
+   - Clipboard API with toast error fallback
+
+5. **ProgressIndicator** - Progress bar with current/total display
+   - Format: "X/Y (Z%)" with ARIA live regions
+   - Wrapper around ProgressBar component with count display
+   - Variants: Standard + CompactProgressIndicator for tables
+
+6. **CompactProgressIndicator** - Inline progress (table cells)
+   - Mini progress bar + inline count/percentage
+   - Single-line format: `─────●  5/10`
+
+7. **useCopyTracking** - Hook for copy tracking state management
+   - Separated from components for Fast Refresh
+   - Methods: markCopied(), isCopied(), getCopyProgress()
+   - Returns Set-based copiedFields + progress stats
+
+**UI Component Index:** `apps/workspace/src/components/ui/index.ts`
+- Exports all Phase 03 components + useCopyTracking hook
+- Central export point for component usage
 
 ## Core Applications
 
@@ -939,6 +985,188 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 - `validateExtractedData(docType, data)` - Type-specific validation
 - `getFieldLabels(docType)` - Returns Vietnamese field labels
 
+## Phase 03: Shared Components for Data Entry & Verification (2026-01-15)
+
+**Focus:** Reusable workspace components for field verification, copy tracking, and document viewing.
+
+### Phase 03 Components Overview
+
+**6 new shared components + 1 hook enable efficient data entry workflows:**
+
+| Component | Purpose | Key Features |
+|-----------|---------|-------------|
+| **ImageViewer** | Multi-format document viewer | Zoom/rotate/navigate pages, lazy-loaded PDF |
+| **PdfViewer** | Internal PDF rendering | Multi-page support, cdnjs PDF.js worker |
+| **FieldVerificationItem** | Field-level verification UI | Verify/edit/mark unreadable, auto-save |
+| **CopyableField** | Copy tracking for data entry | Toast feedback, persisted status circle |
+| **ProgressIndicator** | Progress display with count | ARIA-compliant, live regions |
+| **CompactProgressIndicator** | Inline progress for tables | Minimal layout, percentage/count modes |
+| **useCopyTracking** | Copy state management | Set-based tracking, progress stats |
+
+### Component Details
+
+**ImageViewer:**
+```typescript
+interface ImageViewerProps {
+  imageUrl: string | null
+  isPdf?: boolean
+  className?: string
+  showControls?: boolean
+}
+```
+- Zoom range: 0.5x–3x (0.25 step)
+- Rotation: 90° increments
+- PDF page navigation with min/max bounds
+- XSS-safe URL validation
+- Empty state: Gray placeholder with text
+
+**FieldVerificationItem:**
+```typescript
+interface FieldVerificationItemProps {
+  fieldKey: string
+  label: string
+  value: string
+  status?: 'verified' | 'edited' | 'unreadable' | null
+  onVerify: (status, newValue?) => void
+  disabled?: boolean
+}
+```
+- Edit mode: Input + cancel button, focus selection
+- Auto-save on blur or Enter key
+- Escape cancels edit
+- Status styling: Green/Blue/Red borders
+- Buttons hidden when verified
+
+**CopyableField:**
+```typescript
+interface CopyableFieldProps {
+  fieldKey: string
+  label: string
+  value: string
+  isCopied?: boolean
+  onCopy: (fieldKey) => void
+  disabled?: boolean
+}
+```
+- Clipboard API with fallback
+- Visual feedback: Check icon (2s) + persist circle
+- Toast error on clipboard failure
+- Disabled state on empty value
+- Timeout cleanup prevents memory leaks
+
+**useCopyTracking:**
+```typescript
+useCopyTracking(initialCopied: string[] = [])
+// Returns:
+{
+  copiedFields: Set<string>
+  markCopied: (key) => void
+  isCopied: (key) => boolean
+  getCopyProgress: (total) => { copied, total, percentage }
+}
+```
+- Set-based tracking for O(1) lookups
+- Progress calculation: rounded percentage
+- Separate hook prevents Fast Refresh warnings
+
+**ProgressIndicator:**
+- Displays: "Label [count/total (percentage)]"
+- ARIA: role="group", aria-live="polite"
+- CompactProgressIndicator: Mini bar + inline count
+- Percentage optional via showPercentage prop
+
+### File Locations
+
+```
+apps/workspace/src/
+├── components/ui/
+│   ├── image-viewer.tsx          # Zoomable image/PDF viewer
+│   ├── pdf-viewer.tsx            # Lazy-loaded PDF component
+│   ├── field-verification-item.tsx # Field verification UI
+│   ├── copyable-field.tsx        # Copy tracking field
+│   ├── progress-indicator.tsx    # Progress display components
+│   ├── toast-container.tsx       # Existing toast UI
+│   └── index.ts                  # Component exports
+└── hooks/
+    └── use-copy-tracking.ts      # Copy tracking state hook
+```
+
+### Usage Examples
+
+**ImageViewer with PDF:**
+```typescript
+<ImageViewer
+  imageUrl="https://example.com/doc.pdf"
+  isPdf={true}
+  showControls={true}
+  className="h-96"
+/>
+```
+
+**FieldVerificationItem:**
+```typescript
+<FieldVerificationItem
+  fieldKey="wages"
+  label="Wages, tips, other compensation"
+  value="$45,000"
+  status={verificationStatus}
+  onVerify={(status, newValue) => handleVerify(status, newValue)}
+/>
+```
+
+**CopyableField:**
+```typescript
+<CopyableField
+  fieldKey="ssn"
+  label="Social Security Number"
+  value="123-45-6789"
+  isCopied={copiedFields.has('ssn')}
+  onCopy={(key) => markCopied(key)}
+/>
+```
+
+**useCopyTracking:**
+```typescript
+const { copiedFields, markCopied, getCopyProgress } = useCopyTracking()
+
+const handleCopy = (fieldKey) => {
+  markCopied(fieldKey)
+  api.markCopied({ fieldKey, docId })
+}
+
+const progress = getCopyProgress(fieldCount)
+// → { copied: 3, total: 8, percentage: 37 }
+```
+
+### Design Patterns
+
+**Lazy Loading:** ImageViewer imports PdfViewer only when isPdf=true
+- Saves ~150KB bundle size for non-PDF users
+- Suspense fallback with spinner
+
+**Auto-Save:** FieldVerificationItem saves on blur/Enter
+- Trim whitespace, detect changes
+- onBlur + onKeyDown handlers
+
+**Memory Safety:** CopyableField + useCopyTracking
+- Timeout cleanup on unmount
+- No dangling setTimeout calls
+
+**ARIA Compliance:** All components include:
+- aria-label / aria-labelledby
+- aria-live for updates
+- role attributes
+- Semantic HTML
+
+### Performance Notes
+
+- ImageViewer: SVG icons, css transforms (GPU accelerated)
+- PDF.js worker: Loaded from cdnjs (cached, reliable)
+- CopyableField: Clipboard API (modern), fallback for older browsers
+- useCopyTracking: Set-based O(1) operations vs O(n) arrays
+
+---
+
 ## Phase 01: Document Tab UX Redesign & Entry Workflow Setup (2026-01-15)
 
 **Phase 01 focuses on establishing backend infrastructure for data entry workflows with field-level verification, copy tracking, and document reupload request handling.**
@@ -1219,7 +1447,7 @@ pnpm -F @ella/api test:coverage
 ---
 
 **Last Updated:** 2026-01-15
-**Status:** Phase 06 Complete (Testing + Edge Cases) + Phase 05 Complete (Real-time) + Phase 04 Complete (Review UX)
+**Status:** Phase 03 Shared Complete (Data Entry Components) + Phase 06 Complete (Testing + Edge Cases) + Phase 05 Complete (Real-time) + Phase 04 Complete (Review UX)
 **Branch:** feature/enhancement
-**Architecture Version:** 6.0 (Tested & Resilient)
+**Architecture Version:** 6.1 (Shared Components + Testing)
 **Next Phase:** Phase 07 - Production Hardening & Monitoring

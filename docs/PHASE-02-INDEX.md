@@ -46,6 +46,24 @@
 
 **When to Use:** Quick lookup during development & deployment
 
+### 2.1 **API Endpoints Documentation**
+📄 [`phase-02-api-endpoints.md`](./phase-02-api-endpoints.md) (NEW)
+- **Size:** 650+ lines
+- **Purpose:** Complete API endpoint reference for data entry workflow
+- **Contains:**
+  - 4 new endpoints: verify-field, mark-copied, complete-entry, request-reupload
+  - Request/response schemas with TypeScript types
+  - Field whitelist validation (80+ fields across 5 doc types)
+  - Security considerations (XSS, injection, race conditions)
+  - Atomic transaction patterns
+  - Database schema updates (Phase 01-B)
+  - Client integration (frontend API methods)
+  - Error handling & HTTP status codes
+  - Performance & testing guidance
+  - Deployment checklist
+
+**When to Use:** Deep dive into Phase 02 API implementation and data entry workflow
+
 ---
 
 ## Related Architecture Documentation
@@ -219,10 +237,10 @@ From `phase-02-quick-reference.md`:
 
 ## Documentation Statistics
 
-- **New files:** 2 (phase-02-classification-job.md, phase-02-quick-reference.md)
-- **Updated files:** 1 (system-architecture.md)
-- **Total new content:** ~900 lines
-- **Code references verified:** 8/8
+- **New files:** 3 (phase-02-classification-job.md, phase-02-quick-reference.md, phase-02-api-endpoints.md)
+- **Updated files:** 2 (system-architecture.md, PHASE-02-INDEX.md)
+- **Total new content:** ~1,550 lines
+- **Code references verified:** 12/12 (all 4 new endpoints + existing jobs)
 - **Quality checks passed:** ✓ All
 
 ---

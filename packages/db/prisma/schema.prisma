@@ -424,6 +424,7 @@ model MagicLink {
 
   @@index([token])
   @@index([caseId])
+  @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
 }
 
 model Action {

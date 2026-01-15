@@ -251,6 +251,25 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    // Phase 02: Field-level verification & entry tracking
+    verifyField: (id: string, data: { field: string; status: FieldVerificationStatus; value?: string }) =>
+      request<{ success: boolean; fieldVerifications: Record<string, string> }>(`/docs/${id}/verify-field`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    markCopied: (id: string, field: string) =>
+      request<{ success: boolean; copiedFields: Record<string, boolean> }>(`/docs/${id}/mark-copied`, {
+        method: 'POST',
+        body: JSON.stringify({ field }),
+      }),
+
+    completeEntry: (id: string) =>
+      request<{ success: boolean; message: string }>(`/docs/${id}/complete-entry`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
   },
 
   // Raw Images
@@ -261,6 +280,16 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+
+    // Phase 02: Request document re-upload with optional SMS
+    requestReupload: (id: string, data: { reason: string; fields: string[]; sendSms: boolean }) =>
+      request<{ success: boolean; message: string; smsSent: boolean; smsError?: string }>(
+        `/images/${id}/request-reupload`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
+      ),
   },
 
   // Messages
@@ -304,6 +333,9 @@ export type ActionType =
 export type ActionPriority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW'
 
 export type ChecklistItemStatus = 'MISSING' | 'HAS_RAW' | 'HAS_DIGITAL' | 'VERIFIED' | 'NOT_REQUIRED'
+
+// Phase 02: Field verification status
+export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable'
 
 // Client types
 export interface Client {
@@ -454,6 +486,11 @@ export interface DigitalDoc {
   createdAt: string
   updatedAt: string
   rawImage?: { id: string; filename: string; r2Key: string }
+  // Phase 02: Field-level verification & entry tracking
+  fieldVerifications?: Record<string, FieldVerificationStatus>
+  copiedFields?: Record<string, boolean>
+  entryCompleted?: boolean
+  entryCompletedAt?: string
 }
 
 export interface ImagesResponse {

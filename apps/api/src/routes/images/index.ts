@@ -7,7 +7,10 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import { inngest } from '../../lib/inngest'
-import type { DocType, ChecklistItemStatus, RawImageStatus } from '@ella/db'
+import { DOC_TYPE_LABELS_VI } from '../../lib/constants'
+import { sanitizeReuploadReason } from '../../lib/validation'
+import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
+import type { DocType, ChecklistItemStatus, RawImageStatus, Language } from '@ella/db'
 
 const imagesRoute = new Hono()
 
@@ -20,6 +23,13 @@ const updateClassificationSchema = z.object({
 // Schema for moving image to different checklist item
 const moveImageSchema = z.object({
   targetChecklistItemId: z.string().min(1, 'Target checklist item ID is required'),
+})
+
+// Schema for request re-upload (Phase 02)
+const requestReuploadSchema = z.object({
+  reason: z.string().min(1, 'Reason is required'),
+  fields: z.array(z.string()).min(1, 'At least one field is required'),
+  sendSms: z.boolean().default(true),
 })
 
 /**
@@ -314,6 +324,126 @@ imagesRoute.patch(
       message: 'Image moved successfully',
       newChecklistItemId: targetChecklistItemId,
       newDocType: targetItem.template?.docType,
+    })
+  }
+)
+
+/**
+ * POST /images/:id/request-reupload - Request document re-upload
+ * Used when document is unreadable/blurry and needs client to resend
+ * Optionally sends SMS notification to client
+ */
+imagesRoute.post(
+  '/:id/request-reupload',
+  zValidator('json', requestReuploadSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { reason, fields, sendSms } = c.req.valid('json')
+
+    // Sanitize reason to prevent XSS
+    const sanitizedReason = sanitizeReuploadReason(reason)
+
+    // Use transaction for atomic database operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Find image with case and client info for SMS
+      const image = await tx.rawImage.findUnique({
+        where: { id },
+        include: {
+          taxCase: {
+            include: {
+              client: true,
+              magicLinks: {
+                where: { isActive: true },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+          },
+        },
+      })
+
+      if (!image) {
+        return { error: 'NOT_FOUND' as const }
+      }
+
+      // Update image with reupload request tracking
+      await tx.rawImage.update({
+        where: { id },
+        data: {
+          reuploadRequested: true,
+          reuploadRequestedAt: new Date(),
+          reuploadReason: sanitizedReason,
+          reuploadFields: fields,
+          status: 'BLURRY' as RawImageStatus,
+        },
+      })
+
+      // Create action for follow-up
+      const docTypeLabel = image.classifiedType
+        ? DOC_TYPE_LABELS_VI[image.classifiedType] || image.classifiedType
+        : 'tài liệu'
+
+      await tx.action.create({
+        data: {
+          caseId: image.caseId,
+          type: 'BLURRY_DETECTED',
+          priority: 'HIGH',
+          title: 'Yêu cầu gửi lại tài liệu',
+          description: `${docTypeLabel}: ${sanitizedReason}. Các trường cần gửi lại: ${fields.join(', ')}`,
+          metadata: {
+            rawImageId: id,
+            docType: image.classifiedType,
+            reason: sanitizedReason,
+            fields,
+          },
+        },
+      })
+
+      return { success: true, image }
+    })
+
+    if ('error' in result) {
+      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+    }
+
+    // Send SMS if requested and configured (outside transaction)
+    let smsSent = false
+    let smsError: string | undefined
+
+    if (sendSms && isSmsEnabled() && result.image.taxCase?.client) {
+      const client = result.image.taxCase.client
+      const magicLink = result.image.taxCase.magicLinks[0]
+
+      if (client.phone && magicLink) {
+        const portalUrl = process.env.PORTAL_URL || 'http://localhost:5174'
+        const fullMagicLink = `${portalUrl}/u/${magicLink.token}/upload`
+
+        // Convert field names to Vietnamese doc type labels for SMS
+        const docTypesForSms = result.image.classifiedType
+          ? [DOC_TYPE_LABELS_VI[result.image.classifiedType] || result.image.classifiedType]
+          : fields
+
+        const smsResult = await sendBlurryResendRequest(
+          result.image.caseId,
+          client.name,
+          client.phone,
+          fullMagicLink,
+          docTypesForSms,
+          (client.language as Language) || 'VI'
+        )
+
+        smsSent = smsResult.smsSent
+        if (!smsResult.success) {
+          smsError = smsResult.error
+        }
+      }
+    }
+
+    return c.json({
+      success: true,
+      message: 'Reupload requested',
+      smsSent,
+      smsError,
     })
   }
 )

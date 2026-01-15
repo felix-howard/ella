@@ -97,10 +97,11 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 ### @ella/api
 **REST API (Hono framework, PORT 3001)**
 
-**Routes:** 38+ endpoints across 8 modules
+**Routes:** 42+ endpoints across 8 modules
 - Clients (6 endpoints: CRUD + profile + resend SMS)
 - Cases (7 endpoints: CRUD + checklist + images + transitions)
-- Documents (9 endpoints: details + classify + OCR + verify + image groups [Phase 03])
+- Documents (12 endpoints: details + classify + OCR + verify + image groups [Phase 03] + verify-field + mark-copied + complete-entry)
+- Images (3 endpoints: classification update + move + request-reupload [Phase 02])
 - Actions (2 endpoints: list + get/complete)
 - Messages (4 endpoints: conversations + history + send + remind)
 - Portal (2 endpoints: validate magic link + upload)

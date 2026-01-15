@@ -5,7 +5,15 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import { classifyDocSchema, verifyDocSchema, verifyActionSchema, selectBestImageSchema } from './schemas'
+import {
+  classifyDocSchema,
+  verifyDocSchema,
+  verifyActionSchema,
+  selectBestImageSchema,
+  verifyFieldSchema,
+  markCopiedSchema,
+  completeEntrySchema,
+} from './schemas'
 import {
   extractDocumentData,
   needsManualVerification,
@@ -16,6 +24,7 @@ import {
 } from '../../services/ai'
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
+import { isValidDocField } from '../../lib/validation'
 
 const docsRoute = new Hono()
 
@@ -383,6 +392,121 @@ docsRoute.patch('/:id/verify', zValidator('json', verifyDocSchema), async (c) =>
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   })
+})
+
+// ============================================
+// FIELD-LEVEL VERIFICATION & ENTRY TRACKING (Phase 02)
+// ============================================
+
+// POST /docs/:id/verify-field - Verify single field
+docsRoute.post('/:id/verify-field', zValidator('json', verifyFieldSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field, status, value } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions (read-modify-write atomicity)
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist for the document type
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing fieldVerifications (not overwrite)
+    const fieldVerifications = (doc.fieldVerifications as Record<string, string>) || {}
+    fieldVerifications[field] = status
+
+    // If edited, update extractedData with new value
+    const extractedData = (doc.extractedData as Record<string, unknown>) || {}
+    if (status === 'edited' && value !== undefined) {
+      extractedData[field] = value
+    }
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: {
+        fieldVerifications,
+        extractedData: extractedData as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+      },
+    })
+
+    return { success: true, fieldVerifications }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/mark-copied - Track field copied for clipboard workflow
+docsRoute.post('/:id/mark-copied', zValidator('json', markCopiedSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing copiedFields
+    const copiedFields = (doc.copiedFields as Record<string, boolean>) || {}
+    copiedFields[field] = true
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: { copiedFields },
+    })
+
+    return { success: true, copiedFields }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/complete-entry - Mark entry complete
+docsRoute.post('/:id/complete-entry', zValidator('json', completeEntrySchema), async (c) => {
+  const id = c.req.param('id')
+
+  const doc = await prisma.digitalDoc.findUnique({ where: { id } })
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  await prisma.digitalDoc.update({
+    where: { id },
+    data: {
+      entryCompleted: true,
+      entryCompletedAt: new Date(),
+    },
+  })
+
+  return c.json({ success: true, message: 'Entry marked complete' })
 })
 
 /**

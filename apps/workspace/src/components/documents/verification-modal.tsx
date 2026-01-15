@@ -360,7 +360,12 @@ export function VerificationModal({
               {fields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
-                  <p>Không có dữ liệu được trích xuất</p>
+                  <p className="font-medium">Không có dữ liệu được trích xuất</p>
+                  <p className="text-xs mt-2">
+                    {aiConfidence === 0
+                      ? 'AI đang gặp sự cố. Vui lòng thử lại sau hoặc nhập liệu thủ công.'
+                      : 'Tài liệu chưa được xử lý OCR hoặc không hỗ trợ loại này.'}
+                  </p>
                 </div>
               ) : (
                 fields.map(([key, value], index) => (

@@ -8,8 +8,8 @@ import { useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { FileText, Loader2 } from 'lucide-react'
 
-// Set up PDF.js worker - only loaded when this component is imported
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// Set up PDF.js worker - using cdnjs for reliability
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
 
 export interface PdfThumbnailProps {
   /** URL of the PDF file */

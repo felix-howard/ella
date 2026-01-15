@@ -22,8 +22,8 @@ import { FileViewerModal } from '../file-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
 
-// Set up PDF.js worker (same as file-viewer-modal)
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// Set up PDF.js worker (using cdnjs for reliability)
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
 
 /** Check if file is a PDF based on filename */
 function isPdfFile(filename: string): boolean {

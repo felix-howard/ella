@@ -69,7 +69,12 @@ export function useClassificationUpdates({
         break
 
       case 'UNCLASSIFIED':
-        toast.info(`Cần xem xét: ${current.filename}`)
+        // Check if confidence is 0 (AI service likely unavailable or failed)
+        if (!current.aiConfidence || current.aiConfidence === 0) {
+          toast.error(`AI thất bại: ${current.filename}. Vui lòng phân loại thủ công.`)
+        } else {
+          toast.info(`Cần xem xét: ${current.filename}`)
+        }
         break
 
       case 'BLURRY':

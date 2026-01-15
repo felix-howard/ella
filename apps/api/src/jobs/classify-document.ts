@@ -105,37 +105,40 @@ export const classifyDocumentJob = inngest.createFunction(
       await markImageProcessing(rawImageId)
     })
 
-    // Step 1: Fetch image from R2 with resize for large files
+    // Step 1: Fetch file from R2 with resize for large images (skip for PDFs)
     const imageData = await step.run('fetch-image', async () => {
       const result = await fetchImageBuffer(r2Key)
       if (!result) {
-        throw new Error(`Failed to fetch image from R2: ${r2Key}`)
+        throw new Error(`Failed to fetch file from R2: ${r2Key}`)
       }
 
-      // Hard size limit - reject images over 20MB to prevent DoS
+      // Hard size limit - reject files over 20MB to prevent DoS
       if (result.buffer.length > HARD_SIZE_LIMIT) {
         const sizeMB = (result.buffer.length / 1024 / 1024).toFixed(2)
-        throw new Error(`Image too large (${sizeMB}MB). Maximum allowed: 20MB`)
+        throw new Error(`File too large (${sizeMB}MB). Maximum allowed: 20MB`)
       }
 
       let buffer = result.buffer
       let mimeType = result.mimeType || eventMimeType
+      let wasResized = false
 
-      // Resize large images to prevent Gemini timeout
-      if (buffer.length > MAX_IMAGE_SIZE) {
+      // Only resize images (not PDFs) - Gemini handles PDFs directly
+      const isPdf = mimeType === 'application/pdf'
+      if (!isPdf && buffer.length > MAX_IMAGE_SIZE) {
         console.log(`[classify-document] Resizing large image: ${(buffer.length / 1024 / 1024).toFixed(2)}MB`)
         buffer = await sharp(buffer)
           .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 85 })
           .toBuffer()
         mimeType = 'image/jpeg'
+        wasResized = true
       }
 
       // Store as base64 for step durability (Inngest serializes step results)
       return {
         buffer: buffer.toString('base64'),
         mimeType,
-        wasResized: result.buffer.length > MAX_IMAGE_SIZE,
+        wasResized,
       }
     })
 

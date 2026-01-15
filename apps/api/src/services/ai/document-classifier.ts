@@ -48,14 +48,21 @@ export async function classifyDocument(
     }
   }
 
-  // Validate mime type
-  const supportedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+  // Validate mime type (images + PDF supported by Gemini 2.0)
+  const supportedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+    'application/pdf', // Gemini 2.0 Flash supports PDFs directly
+  ]
   if (!supportedTypes.includes(mimeType)) {
     return {
       success: false,
       docType: 'UNKNOWN',
       confidence: 0,
-      reasoning: 'Unsupported image format',
+      reasoning: 'Unsupported file format',
       error: `Unsupported MIME type: ${mimeType}`,
       processingTimeMs: Date.now() - startTime,
     }

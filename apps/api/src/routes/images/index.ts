@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import { inngest } from '../../lib/inngest'
 import type { DocType, ChecklistItemStatus, RawImageStatus } from '@ella/db'
 
 const imagesRoute = new Hono()
@@ -142,5 +143,67 @@ imagesRoute.patch(
     )
   }
 )
+
+/**
+ * POST /images/:id/reclassify - Re-trigger AI classification
+ * Used when user wants to retry AI classification for a failed image
+ */
+imagesRoute.post('/:id/reclassify', async (c) => {
+  const id = c.req.param('id')
+
+  // Find the raw image
+  const rawImage = await prisma.rawImage.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      caseId: true,
+      r2Key: true,
+      mimeType: true,
+      status: true,
+    },
+  })
+
+  if (!rawImage) {
+    return c.json(
+      { error: 'NOT_FOUND', message: 'Image not found' },
+      404
+    )
+  }
+
+  // Only allow reclassification for UPLOADED or UNCLASSIFIED images
+  const allowedStatuses = ['UPLOADED', 'UNCLASSIFIED']
+  if (!allowedStatuses.includes(rawImage.status)) {
+    return c.json(
+      {
+        error: 'INVALID_STATUS',
+        message: `Cannot reclassify image with status: ${rawImage.status}`,
+      },
+      400
+    )
+  }
+
+  // Reset status to UPLOADED to allow reprocessing
+  await prisma.rawImage.update({
+    where: { id },
+    data: { status: 'UPLOADED' as RawImageStatus },
+  })
+
+  // Re-trigger the classification job via Inngest
+  await inngest.send({
+    name: 'document/uploaded',
+    data: {
+      rawImageId: rawImage.id,
+      caseId: rawImage.caseId,
+      r2Key: rawImage.r2Key,
+      mimeType: rawImage.mimeType || 'application/octet-stream',
+    },
+  })
+
+  return c.json({
+    success: true,
+    message: 'Reclassification triggered',
+    status: 'PROCESSING',
+  })
+})
 
 export { imagesRoute }

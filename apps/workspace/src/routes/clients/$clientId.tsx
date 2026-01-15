@@ -29,7 +29,7 @@ import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
-import { VerificationPanel, ClassificationReviewModal, UploadProgress } from '../../components/documents'
+import { VerificationPanel, ClassificationReviewModal, ManualClassificationModal, UploadProgress } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -56,6 +56,8 @@ function ClientDetailPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
+  const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
 
   // Error code to Vietnamese message mapping
   const SMS_ERROR_MESSAGES: Record<string, string> = {
@@ -197,6 +199,18 @@ function ClientDetailPage() {
     setIsReviewModalOpen(false)
     // Small delay before clearing to avoid flash
     setTimeout(() => setReviewImage(null), 200)
+  }
+
+  // Handler for opening manual classification modal
+  const handleManualClassify = (image: RawImage) => {
+    setClassifyImage(image)
+    setIsClassifyModalOpen(true)
+  }
+
+  const handleCloseClassifyModal = () => {
+    setIsClassifyModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setClassifyImage(null), 200)
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -538,7 +552,7 @@ function ClientDetailPage() {
             <RawImageGallery
               images={rawImages}
               onImageClick={(img) => console.log('Clicked image:', img.id)}
-              onClassify={(img) => console.log('Classify image:', img.id)}
+              onClassify={handleManualClassify}
               onReviewClassification={handleReviewClassification}
             />
           </div>
@@ -549,6 +563,16 @@ function ClientDetailPage() {
               image={reviewImage}
               isOpen={isReviewModalOpen}
               onClose={handleCloseReviewModal}
+              caseId={latestCaseId}
+            />
+          )}
+
+          {/* Manual Classification Modal */}
+          {latestCaseId && (
+            <ManualClassificationModal
+              image={classifyImage}
+              isOpen={isClassifyModalOpen}
+              onClose={handleCloseClassifyModal}
               caseId={latestCaseId}
             />
           )}

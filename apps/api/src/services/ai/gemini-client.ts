@@ -9,13 +9,14 @@ import { config } from '../../lib/config'
 // Maximum image size in bytes (10MB)
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
-// Image magic numbers for format validation
-const IMAGE_MAGIC_NUMBERS: Record<string, number[]> = {
+// File magic numbers for format validation (images + PDF)
+const FILE_MAGIC_NUMBERS: Record<string, number[]> = {
   'image/jpeg': [0xff, 0xd8, 0xff],
   'image/png': [0x89, 0x50, 0x4e, 0x47],
   'image/webp': [0x52, 0x49, 0x46, 0x46], // RIFF header
   'image/heic': [0x00, 0x00, 0x00], // ftyp box start
   'image/heif': [0x00, 0x00, 0x00],
+  'application/pdf': [0x25, 0x50, 0x44, 0x46], // %PDF
 }
 
 // Retryable HTTP status codes and error patterns
@@ -63,10 +64,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Validate image buffer format using magic numbers
+ * Validate file buffer format using magic numbers (images + PDF)
  */
-function validateImageFormat(buffer: Buffer, expectedMimeType: string): boolean {
-  const magicBytes = IMAGE_MAGIC_NUMBERS[expectedMimeType]
+function validateFileFormat(buffer: Buffer, expectedMimeType: string): boolean {
+  const magicBytes = FILE_MAGIC_NUMBERS[expectedMimeType]
   if (!magicBytes) {
     // Unknown format, allow it to pass (Gemini will reject if invalid)
     return true
@@ -82,7 +83,7 @@ function validateImageFormat(buffer: Buffer, expectedMimeType: string): boolean 
 }
 
 /**
- * Validate image buffer size and format
+ * Validate file buffer size and format (images + PDF)
  */
 export function validateImageBuffer(
   buffer: Buffer,
@@ -93,15 +94,15 @@ export function validateImageBuffer(
     const sizeMB = (buffer.length / 1024 / 1024).toFixed(2)
     return {
       valid: false,
-      error: `Image size (${sizeMB}MB) exceeds maximum allowed (10MB)`,
+      error: `File size (${sizeMB}MB) exceeds maximum allowed (10MB)`,
     }
   }
 
-  // Check format
-  if (!validateImageFormat(buffer, mimeType)) {
+  // Check format using magic bytes
+  if (!validateFileFormat(buffer, mimeType)) {
     return {
       valid: false,
-      error: `Image buffer does not match expected format: ${mimeType}`,
+      error: `File buffer does not match expected format: ${mimeType}`,
     }
   }
 

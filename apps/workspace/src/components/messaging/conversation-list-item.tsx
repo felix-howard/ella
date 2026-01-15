@@ -46,8 +46,8 @@ export const ConversationListItem = memo(function ConversationListItem({
       className={cn(
         'flex items-start gap-3 px-4 py-3 border-b border-border transition-colors',
         'hover:bg-muted/50',
-        isActive && 'bg-primary-light',
-        hasUnread && 'bg-primary-light/30'
+        isActive && 'bg-primary/20 border-l-2 border-l-primary',
+        hasUnread && !isActive && 'bg-primary/10'
       )}
     >
       {/* Avatar */}
@@ -55,7 +55,11 @@ export const ConversationListItem = memo(function ConversationListItem({
         <div
           className={cn(
             'w-12 h-12 rounded-full flex items-center justify-center',
-            hasUnread ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+            isActive
+              ? 'bg-primary text-white'
+              : hasUnread
+                ? 'bg-primary text-white'
+                : 'bg-muted text-muted-foreground'
           )}
         >
           <span className="text-sm font-medium">{getInitials(client.name)}</span>
@@ -77,13 +81,20 @@ export const ConversationListItem = memo(function ConversationListItem({
           <h3
             className={cn(
               'text-sm truncate',
-              hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground'
+              isActive
+                ? 'font-semibold text-primary'
+                : hasUnread
+                  ? 'font-semibold text-foreground'
+                  : 'font-medium text-foreground'
             )}
           >
             {client.name}
           </h3>
           {lastMessage && (
-            <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+            <span className={cn(
+              'text-xs flex-shrink-0 ml-2',
+              isActive ? 'text-primary/70' : 'text-muted-foreground'
+            )}>
               {formatRelativeTime(lastMessage.createdAt)}
             </span>
           )}
@@ -92,16 +103,23 @@ export const ConversationListItem = memo(function ConversationListItem({
         {/* Message preview */}
         <div className="flex items-center gap-1.5">
           {ChannelIcon && (
-            <ChannelIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <ChannelIcon className={cn(
+              'w-3 h-3 flex-shrink-0',
+              isActive ? 'text-foreground/70' : 'text-muted-foreground'
+            )} />
           )}
           <p
             className={cn(
               'text-xs truncate',
-              hasUnread ? 'text-foreground' : 'text-muted-foreground'
+              isActive
+                ? 'text-foreground'
+                : hasUnread
+                  ? 'text-foreground'
+                  : 'text-muted-foreground'
             )}
           >
             {lastMessage?.direction === 'OUTBOUND' && (
-              <span className="text-muted-foreground">Bạn: </span>
+              <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>Bạn: </span>
             )}
             {messagePreview}
           </p>
@@ -118,7 +136,10 @@ export const ConversationListItem = memo(function ConversationListItem({
           >
             {CASE_STATUS_LABELS[taxCase.status as TaxCaseStatus]}
           </span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className={cn(
+            'text-[10px]',
+            isActive ? 'text-foreground/70' : 'text-muted-foreground'
+          )}>
             {taxCase.taxYear}
           </span>
         </div>

@@ -153,10 +153,10 @@ export function QuickActionsBar({
               disabled={disabled}
               rows={1}
               className={cn(
-                'w-full px-4 py-2.5 rounded-xl border border-border bg-background',
+                'w-full px-4 py-2.5 rounded-xl border border-border bg-muted',
                 'resize-none overflow-hidden',
-                'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
-                'text-sm placeholder:text-muted-foreground',
+                'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary',
+                'text-sm text-foreground placeholder:text-muted-foreground',
                 'disabled:opacity-50 disabled:cursor-not-allowed'
               )}
             />

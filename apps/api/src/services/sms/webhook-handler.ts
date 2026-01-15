@@ -6,6 +6,7 @@ import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import type { MessageChannel, MessageDirection, ActionType } from '@ella/db'
 import crypto from 'crypto'
+import { processMmsMedia } from './mms-media-handler'
 
 export interface TwilioIncomingMessage {
   MessageSid: string
@@ -14,8 +15,27 @@ export interface TwilioIncomingMessage {
   To: string
   Body: string
   NumMedia?: string
+  // Twilio sends up to 10 media items (MediaUrl0-9, MediaContentType0-9)
   MediaUrl0?: string
   MediaContentType0?: string
+  MediaUrl1?: string
+  MediaContentType1?: string
+  MediaUrl2?: string
+  MediaContentType2?: string
+  MediaUrl3?: string
+  MediaContentType3?: string
+  MediaUrl4?: string
+  MediaContentType4?: string
+  MediaUrl5?: string
+  MediaContentType5?: string
+  MediaUrl6?: string
+  MediaContentType6?: string
+  MediaUrl7?: string
+  MediaContentType7?: string
+  MediaUrl8?: string
+  MediaContentType8?: string
+  MediaUrl9?: string
+  MediaContentType9?: string
 }
 
 export interface ProcessIncomingResult {
@@ -109,8 +129,11 @@ export async function processIncomingMessage(
   const { From: fromPhone, Body: rawContent, MessageSid: twilioSid } = incomingMsg
 
   // Sanitize content
-  const content = sanitizeMessageContent(rawContent)
-  if (!content) {
+  const content = sanitizeMessageContent(rawContent || '')
+  const hasMedia = parseInt(incomingMsg.NumMedia || '0', 10) > 0
+
+  // Allow message if it has content OR media (MMS can have images without text)
+  if (!content && !hasMedia) {
     return { success: false, error: 'EMPTY_MESSAGE' }
   }
 
@@ -157,6 +180,9 @@ export async function processIncomingMessage(
     return { success: false, error: 'NO_TAX_CASE' }
   }
 
+  // Process MMS media (download from Twilio, upload to R2, create RawImage)
+  const mmsResult = await processMmsMedia(incomingMsg, latestCase.id)
+
   // Get or create conversation
   const conversation = await prisma.conversation.upsert({
     where: { caseId: latestCase.id },
@@ -164,7 +190,7 @@ export async function processIncomingMessage(
     create: { caseId: latestCase.id },
   })
 
-  // Create message record
+  // Create message record (with attachmentUrls if media present)
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -172,6 +198,7 @@ export async function processIncomingMessage(
       direction: 'INBOUND' as MessageDirection,
       content,
       twilioSid,
+      attachmentUrls: mmsResult.attachmentUrls,
     },
   })
 
@@ -185,17 +212,28 @@ export async function processIncomingMessage(
   })
 
   // Create action for staff to review
+  const mediaCount = mmsResult.attachmentUrls.length
+  const actionTitle = mediaCount > 0
+    ? content
+      ? `Khách hàng gửi: ${content.substring(0, 40)}${content.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
+      : `Khách hàng gửi ${mediaCount} ảnh`
+    : `Khách hàng trả lời: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`
+
   const action = await prisma.action.create({
     data: {
       type: 'CLIENT_REPLIED' as ActionType,
       priority: 'NORMAL',
       caseId: latestCase.id,
-      title: `Khách hàng trả lời: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
-      description: `Tin nhắn mới từ ${escapeXml(fromPhone)}`,
+      title: actionTitle,
+      description: mediaCount > 0
+        ? `MMS từ ${escapeXml(fromPhone)} với ${mediaCount} file đính kèm`
+        : `Tin nhắn mới từ ${escapeXml(fromPhone)}`,
       metadata: {
         messageId: message.id,
         preview: content.substring(0, 100),
         fromPhone,
+        mediaCount,
+        rawImageIds: mmsResult.rawImageIds,
       },
     },
   })

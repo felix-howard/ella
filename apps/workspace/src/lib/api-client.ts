@@ -575,6 +575,7 @@ export interface Message {
   channel: 'SMS' | 'PORTAL' | 'SYSTEM'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
+  attachmentUrls?: string[]
   createdAt: string
 }
 

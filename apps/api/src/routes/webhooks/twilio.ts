@@ -83,7 +83,7 @@ twilioWebhookRoute.post('/sms', async (c) => {
     return c.text('Forbidden', 403)
   }
 
-  // Process the incoming message
+  // Process the incoming message (including all media URLs for MMS)
   const incomingMsg: TwilioIncomingMessage = {
     MessageSid: formData.MessageSid as string,
     AccountSid: formData.AccountSid as string,
@@ -91,11 +91,31 @@ twilioWebhookRoute.post('/sms', async (c) => {
     To: formData.To as string,
     Body: formData.Body as string,
     NumMedia: formData.NumMedia as string | undefined,
+    // Extract all media URLs (Twilio supports up to 10 media items)
     MediaUrl0: formData.MediaUrl0 as string | undefined,
     MediaContentType0: formData.MediaContentType0 as string | undefined,
+    MediaUrl1: formData.MediaUrl1 as string | undefined,
+    MediaContentType1: formData.MediaContentType1 as string | undefined,
+    MediaUrl2: formData.MediaUrl2 as string | undefined,
+    MediaContentType2: formData.MediaContentType2 as string | undefined,
+    MediaUrl3: formData.MediaUrl3 as string | undefined,
+    MediaContentType3: formData.MediaContentType3 as string | undefined,
+    MediaUrl4: formData.MediaUrl4 as string | undefined,
+    MediaContentType4: formData.MediaContentType4 as string | undefined,
+    MediaUrl5: formData.MediaUrl5 as string | undefined,
+    MediaContentType5: formData.MediaContentType5 as string | undefined,
+    MediaUrl6: formData.MediaUrl6 as string | undefined,
+    MediaContentType6: formData.MediaContentType6 as string | undefined,
+    MediaUrl7: formData.MediaUrl7 as string | undefined,
+    MediaContentType7: formData.MediaContentType7 as string | undefined,
+    MediaUrl8: formData.MediaUrl8 as string | undefined,
+    MediaContentType8: formData.MediaContentType8 as string | undefined,
+    MediaUrl9: formData.MediaUrl9 as string | undefined,
+    MediaContentType9: formData.MediaContentType9 as string | undefined,
   }
 
-  console.log(`[Twilio Webhook] Incoming SMS from ${incomingMsg.From}`)
+  const numMedia = parseInt(incomingMsg.NumMedia || '0', 10)
+  console.log(`[Twilio Webhook] Incoming SMS from ${incomingMsg.From}${numMedia > 0 ? ` with ${numMedia} media` : ''}`)
 
   try {
     const result = await processIncomingMessage(incomingMsg)

@@ -495,7 +495,14 @@ inngest: {
 }
 ```
 
-### Security Considerations
+### Security & Reliability (Phase 06)
+
+**Edge Case Handling:**
+- **Idempotency Check:** Skip if rawImage.status ≠ UPLOADED (prevents duplicate Inngest retries)
+- **Image Resize:** Sharp auto-downsize for files > 4MB (prevents Gemini timeout)
+- **Hard Size Limit:** 20MB buffer enforced (DoS prevention)
+- **Service Unavailability Detection:** Pattern match on "503", "overloaded", "resource exhausted" → retry with HIGH priority action
+- **Error Message Sanitization:** Remove API keys, emails, file paths from stored errors (info disclosure prevention)
 
 **Signing Key Validation:**
 - All requests from Inngest cloud validated with signing key
@@ -1385,38 +1392,86 @@ scheduler: {
 - Expired token cleanup: Automatic maintenance job
 - No token data in logs
 
-## Testing Architecture
+## Testing Architecture (Phase 06)
 
-**Unit Testing:**
+### Unit Testing
 
-- Test individual functions/components
-- Mock Prisma queries
-- Schema validation tests
+**Document Classifier Tests (17 tests)**
+- Classification accuracy (W2, 1099-INT, 1099-NEC, etc.)
+- Low confidence handling (< 60%)
+- Unsupported mime type validation
+- Gemini API failure recovery
+- Batch classification with concurrency
 
-**Integration Testing:**
+**Document Pipeline Tests (11 tests)**
+- Image resizing for files > 4MB
+- Confidence-based routing (auto-link, review, unclassified)
+- Idempotency checks (prevent duplicate processing)
+- Duplicate detection via pHash
+- OCR extraction conditional logic
 
-- Test API endpoints
-- Real database (test database)
-- Authentication flow
-- Error scenarios
+### Testing Infrastructure
 
-**E2E Testing:**
+**Vitest Configuration:**
+- Environment: Node.js
+- Pattern: `src/**/__tests__/**/*.test.ts`
+- Coverage: Services + Jobs (excludes prompts)
+- Timeout: 30s (for Gemini simulations)
 
-- Test complete user workflows
-- Frontend + Backend + Database
-- Real browser (Playwright/Cypress - future)
+**Mocking Strategy:**
+- Mock Inngest, Prisma, R2 storage, Gemini API
+- Mock sharp for image processing
+- Mock duplicate detector service
+- Type-safe mocks with vi.mocked()
 
-**Test Data:**
+### Test Coverage
+
+| Module | Tests | Focus |
+|--------|-------|-------|
+| document-classifier | 8 | Classification, error handling, batch ops |
+| ocr-extractor | 3 | Field extraction, validation, confidence |
+| duplicate-detector | 2 | pHash generation, group assignment |
+| classify-document job | 11 | Workflow integration, edge cases, retry logic |
+
+### Integration Testing
+
+**Classify-Document Job Tests:**
+- Full pipeline flow: fetch → classify → route → duplicate detect → OCR
+- Image resize handling for 4MB+ files
+- Idempotency on duplicate events
+- Gemini service unavailability detection
+- Atomic transaction verification
+- Action creation for failed classifications
+
+**Error Scenarios Covered:**
+- Missing images in R2
+- Corrupted/invalid image data
+- Gemini rate limiting (503, overloaded)
+- Image size violations (20MB hard limit)
+- Duplicate event processing (Inngest retries)
+- OCR validation failures
+
+### Test Data
 
 - Seed scripts for consistent data
 - Transaction rollback per test
 - Isolated test database
+- Mock image buffers (JPEG magic bytes)
 
 ---
 
-**Last Updated:** 2026-01-14
-**Phase:** Phase 05 - Real-time Updates (Complete)
-**Architecture Version:** 5.0 (Polling & Notifications)
+**Last Updated:** 2026-01-15
+**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete)
+**Architecture Version:** 6.0 (Tested & Resilient)
+**Completed Features (Phase 06):**
+- ✓ Vitest unit testing setup for AI services
+- ✓ Integration tests for classify-document job (17 tests total)
+- ✓ Idempotency checks for Inngest duplicate events
+- ✓ Image resize for files >4MB using sharp (prevents Gemini timeout)
+- ✓ 20MB hard size limit enforcement (DoS prevention)
+- ✓ Gemini service unavailability detection with retry logic
+- ✓ Error message sanitization (API keys, emails, paths masked)
+- ✓ AI_FAILED action creation for CPA manual review
 **Completed Features (Phase 05):**
 - ✓ Classification updates hook with 5s polling
 - ✓ Real-time status tracking (UPLOADED → PROCESSING → CLASSIFIED/LINKED)

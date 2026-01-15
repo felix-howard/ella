@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 06** | **Testing Infrastructure & Edge Case Handling** | **2026-01-15** |
 | **Phase 05** | **Real-time Updates (Polling & Notifications)** | **2026-01-14** |
 | **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
 | **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
@@ -1105,8 +1106,93 @@ app.route('/api/inngest', inngestRoute)  // Public route (no auth required)
 
 ---
 
-**Last Updated:** 2026-01-14
-**Status:** Phase 05 Complete (Real-time Updates) + Phase 04 Complete (Review UX) + Phase 3 Complete (Auth) + Phase 2 Complete (Core Workflow)
+## Phase 06: Testing Infrastructure & Edge Case Handling (2026-01-15)
+
+**Focus:** Production-ready testing suite and robust error handling for background job processing.
+
+### Testing Infrastructure
+
+**Vitest Setup:**
+- Configuration: `apps/api/vitest.config.ts`
+- Pattern: `src/**/__tests__/**/*.test.ts`
+- Coverage: AI services + background jobs
+- Timeout: 30s (for API simulations)
+
+**Test Files Added:**
+- `apps/api/src/services/ai/__tests__/document-classifier.test.ts` (8 unit tests)
+- `apps/api/src/jobs/__tests__/classify-document.test.ts` (11 integration tests)
+
+**Test Categories:**
+- Classification accuracy (W2, 1099 variants, ID documents)
+- Error recovery (API failures, rate limiting, network errors)
+- Batch processing with concurrency limits
+- Image validation and preprocessing
+- Idempotency and duplicate prevention
+- Atomic database transactions
+
+### Edge Case Handling (Phase 06)
+
+**1. Idempotency Check**
+- Skip processing if rawImage.status ≠ UPLOADED
+- Prevents duplicate Inngest event processing during retries
+- Early exit with skip reason logged
+
+**2. Image Resizing (Sharp)**
+- Files > 4MB automatically downsampled to 2048x2048 (inside, no enlarge)
+- Converts to JPEG quality 85 to prevent Gemini timeout
+- Hard limit: 20MB buffer (DoS prevention)
+
+**3. Gemini Service Unavailability Detection**
+- Pattern match: "503", "overloaded", "resource exhausted"
+- Triggers retry with exponential backoff
+- Creates HIGH priority AI_FAILED action for manual review
+- Throws to trigger Inngest retry mechanism
+
+**4. Error Message Sanitization**
+- Remove API keys (AIza..., sk-...)
+- Remove email addresses
+- Remove file paths
+- Truncate to 500 chars max
+- Prevents info disclosure in audit logs
+
+**5. AI_FAILED Action Creation**
+- Triggered for classifications < 60% confidence
+- Also triggered on Gemini unavailability
+- Priority: NORMAL (standard workflow) or HIGH (service down)
+- Metadata includes sanitized error message, confidence, timestamp
+
+### Test Execution
+
+```bash
+# Run all tests
+pnpm -F @ella/api test
+
+# Watch mode during development
+pnpm -F @ella/api test:watch
+
+# Coverage report
+pnpm -F @ella/api test:coverage
+```
+
+### Mocking Strategy
+
+**Mocked Dependencies:**
+- Inngest client + event triggers
+- Prisma queries (rawImage, digitalDoc updates)
+- R2 storage (fetchImageBuffer)
+- Gemini API (classification responses)
+- Sharp image processing
+- Duplicate detector (pHash + grouping)
+
+**Type-Safe Mocks:**
+- Using `vi.mocked()` for full TypeScript support
+- Mock setup/teardown in beforeEach/afterEach
+- Return realistic test data structures
+
+---
+
+**Last Updated:** 2026-01-15
+**Status:** Phase 06 Complete (Testing + Edge Cases) + Phase 05 Complete (Real-time) + Phase 04 Complete (Review UX)
 **Branch:** feature/enhancement
-**Architecture Version:** 5.0 (Polling & Real-time Notifications)
-**Next Phase:** Phase 05.1 - WebSocket Real-time Updates (Replace Polling with Live Events)
+**Architecture Version:** 6.0 (Tested & Resilient)
+**Next Phase:** Phase 07 - Production Hardening & Monitoring

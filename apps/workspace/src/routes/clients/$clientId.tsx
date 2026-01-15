@@ -30,6 +30,7 @@ import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, StatusSelector } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
+import { ClientMessagesTab } from '../../components/client-detail'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -684,15 +685,13 @@ function ClientDetailPage() {
       )}
 
       {activeTab === 'messages' && (
-        <div className="bg-card rounded-xl border border-border p-6">
-          <div className="text-center py-12">
-            <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-            <h3 className="font-medium text-foreground mb-1">Tin nhắn với khách hàng</h3>
-            <p className="text-sm text-muted-foreground">
-              Chức năng này sẽ được triển khai trong các nhiệm vụ tiếp theo (1.3.28-1.3.32)
-            </p>
-          </div>
-        </div>
+        <ClientMessagesTab
+          clientId={clientId}
+          caseId={latestCaseId}
+          clientName={client.name}
+          clientPhone={client.phone}
+          isActive={activeTab === 'messages'}
+        />
       )}
     </PageContainer>
   )

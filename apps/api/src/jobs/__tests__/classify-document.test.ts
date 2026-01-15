@@ -82,7 +82,7 @@ const mockUpdateStatus = vi.mocked(updateRawImageStatus)
 const mockLinkToChecklist = vi.mocked(linkToChecklistItem)
 const mockCreateAction = vi.mocked(createAction)
 const mockProcessOcr = vi.mocked(processOcrResultAtomic)
-const mockMarkProcessing = vi.mocked(markImageProcessing)
+const _mockMarkProcessing = vi.mocked(markImageProcessing)
 const mockGenerateHash = vi.mocked(generateImageHash)
 const mockAssignToGroup = vi.mocked(assignToImageGroup)
 

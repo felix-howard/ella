@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MessagesIndexRouteImport } from './routes/messages/index'
@@ -20,6 +21,11 @@ import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
 import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -31,9 +37,9 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesIndexRoute = MessagesIndexRouteImport.update({
-  id: '/messages/',
-  path: '/messages/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => MessagesRoute,
 } as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
@@ -46,9 +52,9 @@ const ActionsIndexRoute = ActionsIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesCaseIdRoute = MessagesCaseIdRouteImport.update({
-  id: '/messages/$caseId',
-  path: '/messages/$caseId',
-  getParentRoute: () => rootRouteImport,
+  id: '/$caseId',
+  path: '/$caseId',
+  getParentRoute: () => MessagesRoute,
 } as any)
 const ClientsNewRoute = ClientsNewRouteImport.update({
   id: '/clients/new',
@@ -74,12 +80,13 @@ const CasesCaseIdEntryRoute = CasesCaseIdEntryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
-  '/messages': typeof MessagesIndexRoute
+  '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
 }
@@ -99,6 +106,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -113,12 +121,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/messages'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
     | '/actions'
     | '/clients'
-    | '/messages'
+    | '/messages/'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
   fileRoutesByTo: FileRoutesByTo
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/messages'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -150,18 +160,24 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  MessagesRoute: typeof MessagesRouteWithChildren
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
-  MessagesCaseIdRoute: typeof MessagesCaseIdRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
-  MessagesIndexRoute: typeof MessagesIndexRoute
   CasesCaseIdEntryRoute: typeof CasesCaseIdEntryRoute
   CasesCaseIdMessagesRoute: typeof CasesCaseIdMessagesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -178,10 +194,10 @@ declare module '@tanstack/react-router' {
     }
     '/messages/': {
       id: '/messages/'
-      path: '/messages'
-      fullPath: '/messages'
+      path: '/'
+      fullPath: '/messages/'
       preLoaderRoute: typeof MessagesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MessagesRoute
     }
     '/clients/': {
       id: '/clients/'
@@ -199,10 +215,10 @@ declare module '@tanstack/react-router' {
     }
     '/messages/$caseId': {
       id: '/messages/$caseId'
-      path: '/messages/$caseId'
+      path: '/$caseId'
       fullPath: '/messages/$caseId'
       preLoaderRoute: typeof MessagesCaseIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MessagesRoute
     }
     '/clients/new': {
       id: '/clients/new'
@@ -235,15 +251,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface MessagesRouteChildren {
+  MessagesCaseIdRoute: typeof MessagesCaseIdRoute
+  MessagesIndexRoute: typeof MessagesIndexRoute
+}
+
+const MessagesRouteChildren: MessagesRouteChildren = {
+  MessagesCaseIdRoute: MessagesCaseIdRoute,
+  MessagesIndexRoute: MessagesIndexRoute,
+}
+
+const MessagesRouteWithChildren = MessagesRoute._addFileChildren(
+  MessagesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  MessagesRoute: MessagesRouteWithChildren,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
-  MessagesCaseIdRoute: MessagesCaseIdRoute,
   ActionsIndexRoute: ActionsIndexRoute,
   ClientsIndexRoute: ClientsIndexRoute,
-  MessagesIndexRoute: MessagesIndexRoute,
   CasesCaseIdEntryRoute: CasesCaseIdEntryRoute,
   CasesCaseIdMessagesRoute: CasesCaseIdMessagesRoute,
 }

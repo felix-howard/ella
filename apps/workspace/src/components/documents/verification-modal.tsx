@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
@@ -38,6 +38,28 @@ const MESSAGES = {
   COMPLETE_SUCCESS: 'Đã hoàn tất xác minh tài liệu',
   COMPLETE_ERROR: 'Lỗi hoàn tất xác minh',
   ALL_FIELDS_REQUIRED: 'Vui lòng xác minh tất cả các trường',
+  EXTRACT_SUCCESS: 'Đã trích xuất dữ liệu thành công',
+  EXTRACT_ERROR: 'Lỗi trích xuất dữ liệu',
+  EXTRACT_AI_NOT_CONFIGURED: 'AI chưa được cấu hình. Vui lòng nhập liệu thủ công.',
+  EXTRACT_RATE_LIMIT: 'Đã vượt giới hạn API. Vui lòng thử lại sau ít phút.',
+  EXTRACT_UNSUPPORTED: 'Loại tài liệu này không hỗ trợ trích xuất OCR.',
+}
+
+/**
+ * Parse OCR error message to user-friendly Vietnamese message
+ */
+function parseOcrError(message: string): string {
+  if (message.includes('429') || message.includes('quota') || message.includes('rate')) {
+    return MESSAGES.EXTRACT_RATE_LIMIT
+  }
+  if (message.includes('UNSUPPORTED_DOC_TYPE') || message.includes('does not support OCR')) {
+    return MESSAGES.EXTRACT_UNSUPPORTED
+  }
+  if (message.includes('AI not configured')) {
+    return MESSAGES.EXTRACT_AI_NOT_CONFIGURED
+  }
+  // Default short error
+  return MESSAGES.EXTRACT_ERROR
 }
 
 // Type guard helpers
@@ -184,6 +206,29 @@ export function VerificationModal({
     },
   })
 
+  // OCR extraction mutation
+  const extractMutation = useMutation({
+    mutationFn: () => api.docs.triggerOcr(doc.id),
+    onSuccess: (data) => {
+      if (data.aiConfigured === false) {
+        toast.error(MESSAGES.EXTRACT_AI_NOT_CONFIGURED)
+        return
+      }
+      if (data.ocrResult?.success) {
+        toast.success(`${MESSAGES.EXTRACT_SUCCESS} (${Math.round(data.ocrResult.confidence * 100)}%)`)
+      } else {
+        // Parse error message to user-friendly Vietnamese
+        const errorMsg = parseOcrError(data.message || '')
+        toast.error(errorMsg)
+      }
+      // Invalidate to refresh extracted data
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
+    },
+    onError: () => {
+      toast.error(MESSAGES.EXTRACT_ERROR)
+    },
+  })
+
   // Handle field verification
   const handleVerifyField = useCallback(
     (fieldKey: string, status: FieldVerificationStatus, newValue?: string) => {
@@ -308,13 +353,34 @@ export function VerificationModal({
               </Badge>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Đóng"
-          >
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => extractMutation.mutate()}
+              disabled={extractMutation.isPending}
+              className="gap-1.5"
+            >
+              {extractMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang trích xuất...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Trích xuất
+                </>
+              )}
+            </Button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* Content - Split view */}
@@ -366,6 +432,25 @@ export function VerificationModal({
                       ? 'AI đang gặp sự cố. Vui lòng thử lại sau hoặc nhập liệu thủ công.'
                       : 'Tài liệu chưa được xử lý OCR hoặc không hỗ trợ loại này.'}
                   </p>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => extractMutation.mutate()}
+                    disabled={extractMutation.isPending}
+                    className="mt-4 gap-1.5"
+                  >
+                    {extractMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang trích xuất...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Trích xuất bằng AI
+                      </>
+                    )}
+                  </Button>
                 </div>
               ) : (
                 fields.map(([key, value], index) => (

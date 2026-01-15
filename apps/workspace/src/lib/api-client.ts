@@ -252,6 +252,13 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    // Trigger OCR extraction using Gemini AI
+    triggerOcr: (id: string) =>
+      request<OcrTriggerResponse>(`/docs/${id}/ocr`, {
+        method: 'POST',
+        timeout: 60000, // 60s timeout for AI processing
+      }),
+
     // Phase 02: Field-level verification & entry tracking
     verifyField: (id: string, data: { field: string; status: FieldVerificationStatus; value?: string }) =>
       request<{ success: boolean; fieldVerifications: Record<string, string> }>(`/docs/${id}/verify-field`, {
@@ -336,6 +343,20 @@ export type ChecklistItemStatus = 'MISSING' | 'HAS_RAW' | 'HAS_DIGITAL' | 'VERIF
 
 // Phase 02: Field verification status
 export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable'
+
+// OCR trigger response
+export interface OcrTriggerResponse {
+  digitalDoc: DigitalDoc
+  ocrResult?: {
+    success: boolean
+    confidence: number
+    isValid: boolean
+    fieldLabels: Record<string, string>
+    processingTimeMs?: number
+  }
+  aiConfigured?: boolean
+  message: string
+}
 
 // Client types
 export interface Client {

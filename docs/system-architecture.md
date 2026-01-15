@@ -985,14 +985,19 @@ RawImage - Document uploads
 ├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
 ├── imageHash (pHash for duplicates), imageGroupId (duplicate grouping)
 ├── uploadedVia (SMS|PORTAL|SYSTEM)
+├── reuploadRequested Boolean, reuploadRequestedAt DateTime (Phase 01)
+├── reuploadReason String?, reuploadFields Json? (Phase 01)
 
 ImageGroup - Duplicate document grouping (Phase 03)
 ├── caseId, docType, bestImageId (selected best image)
 ├── images (1:many RawImage), timestamps
 
-DigitalDoc - Extracted/verified documents
+DigitalDoc - Extracted/verified documents (Phase 01-B: Entry Workflow)
 ├── caseId, rawImageId, docType, status (PENDING→VERIFIED)
 ├── extractedData (JSON), aiConfidence, verifiedById
+├── fieldVerifications Json? - field-level verification status (Phase 01)
+├── copiedFields Json? - copy tracking for data entry (Phase 01)
+├── entryCompleted Boolean, entryCompletedAt DateTime? (Phase 01)
 ├── checklistItemId (optional linking)
 
 ChecklistTemplate - Tax form requirements

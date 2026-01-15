@@ -166,9 +166,9 @@ See detailed docs: [phase-1.5-ui-components.md](./phase-1.5-ui-components.md)
 - **Staff** - Roles: admin, staff, CPA
 - **Client** - Name, phone, email, language
 - **TaxCase** - Per-client per-year, 7 status states
-- **RawImage** - Upload documents with AI classification + perceptual hash + group tracking
+- **RawImage** - Upload documents with reupload tracking (Phase 01); AI classification + perceptual hash + group tracking
 - **ImageGroup** - Duplicate grouping by pHash (Phase 03)
-- **DigitalDoc** - Extracted & verified documents
+- **DigitalDoc** - Extracted & verified docs with field verification + copy tracking + entry completion (Phase 01)
 - **ChecklistTemplate** - Requirements per tax form
 - **Message** - SMS/portal/system conversations
 
@@ -938,17 +938,43 @@ Upload → Classification → Blur Detection → OCR Extraction → Database + A
 - `validateExtractedData(docType, data)` - Type-specific validation
 - `getFieldLabels(docType)` - Returns Vietnamese field labels
 
-## Phase 01: Inngest Background Job Processing Setup (2026-01-14)
+## Phase 01: Document Tab UX Redesign & Entry Workflow Setup (2026-01-15)
 
-**Phase 01 focuses on establishing a reliable, scalable background job processing system using Inngest for document classification and AI processing pipelines.**
+**Phase 01 focuses on establishing backend infrastructure for data entry workflows with field-level verification, copy tracking, and document reupload request handling.**
 
-### Phase 01 Infrastructure (Complete)
+### Phase 01 Infrastructure (Complete - Phase 01-B: Document Tab UX)
+
+**Schema Changes (Phase 01-B):**
+
+**DigitalDoc Model Additions:**
+- `fieldVerifications Json?` - Field-level verification status tracking (verified, edited, unreadable)
+- `copiedFields Json?` - Copy tracking for OltPro data entry workflow
+- `entryCompleted Boolean @default(false)` - Mark document entry as completed
+- `entryCompletedAt DateTime?` - Entry completion timestamp
+- **New Indexes:** `@@index([entryCompleted])`, `@@index([caseId, entryCompleted])`
+
+**RawImage Model Additions:**
+- `reuploadRequested Boolean @default(false)` - Flag reupload request status
+- `reuploadRequestedAt DateTime?` - Reupload request timestamp
+- `reuploadReason String?` - Human-readable reupload reason
+- `reuploadFields Json?` - Array of unreadable field names (e.g., ["ssn", "wages"])
+- **New Indexes:** `@@index([reuploadRequested])`, `@@index([caseId, reuploadRequested])`
 
 **Core Files:**
 - `apps/api/src/lib/inngest.ts` - Inngest client singleton + event type definitions
 - `apps/api/src/routes/inngest.ts` - Inngest serve endpoint (handles function discovery, invocation, dev UI)
 - `apps/api/src/jobs/index.ts` - Jobs barrel export
 - `apps/api/src/jobs/classify-document.ts` - Document classification job (placeholder for Phase 02)
+- `apps/api/src/routes/docs/schemas.ts` - Zod validation schemas (7 new schemas for Phase 01 features)
+
+**Zod Validation Schemas (Phase 01-B):**
+- `verifyFieldSchema` - Verify single field with status (verified/edited/unreadable) + optional value
+- `markCopiedSchema` - Mark field as copied for clipboard tracking
+- `completeEntrySchema` - Mark document entry complete
+- `requestReuploadSchema` - Request document reupload with reason + affected fields
+- `fieldVerificationsSchema` - JSON field validation for fieldVerifications
+- `copiedFieldsSchema` - JSON field validation for copiedFields
+- `reuploadFieldsSchema` - JSON array validation for reuploadFields
 
 **Configuration:**
 - `apps/api/src/lib/config.ts` - Inngest configuration section with eventKey + signingKey

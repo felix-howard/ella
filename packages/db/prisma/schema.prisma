@@ -238,6 +238,12 @@ model RawImage {
   imageGroupId    String?
   imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
 
+  // Re-upload request tracking
+  reuploadRequested   Boolean   @default(false)
+  reuploadRequestedAt DateTime?
+  reuploadReason      String?
+  reuploadFields      Json?     // ["ssn", "wages"] - specific unreadable fields
+
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
   digitalDoc      DigitalDoc?
@@ -251,6 +257,8 @@ model RawImage {
   @@index([status])
   @@index([imageGroupId])
   @@index([caseId, classifiedType])  // For duplicate detection queries
+  @@index([reuploadRequested])
+  @@index([caseId, reuploadRequested])
 }
 
 // Groups duplicate images of the same physical document
@@ -287,6 +295,14 @@ model DigitalDoc {
   verifiedAt    DateTime?
   verifiedById  String?
 
+  // Field-level verification tracking
+  fieldVerifications Json?  // {"ssn": "verified", "wages": "edited", "address": "unreadable"}
+
+  // Copy tracking for data entry
+  copiedFields      Json?       // {"ssn": true, "wages": false}
+  entryCompleted    Boolean     @default(false)
+  entryCompletedAt  DateTime?
+
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
 
@@ -296,6 +312,8 @@ model DigitalDoc {
   @@index([caseId])
   @@index([docType])
   @@index([status])
+  @@index([entryCompleted])
+  @@index([caseId, entryCompleted])
 }
 
 model ChecklistTemplate {

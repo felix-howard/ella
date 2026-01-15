@@ -58,7 +58,15 @@ twilioWebhookRoute.post('/sms', async (c) => {
 
   // Get Twilio signature for validation
   const twilioSignature = c.req.header('X-Twilio-Signature') || ''
-  const requestUrl = new URL(c.req.url).toString()
+
+  // Reconstruct original URL (handles ngrok/proxy scenarios)
+  // Twilio signs using the configured webhook URL, not the internal server URL
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'http'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3001'
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  console.log(`[Twilio Webhook] Incoming request - Original URL: ${c.req.url}, Reconstructed URL: ${requestUrl}`)
 
   // Parse form data (Twilio sends application/x-www-form-urlencoded)
   const formData = await c.req.parseBody()

@@ -13,7 +13,7 @@ import {
   LANGUAGE_LABELS,
   UI_TEXT,
 } from '../../lib/constants'
-import { formatPhone, getInitials } from '../../lib/formatters'
+import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Client, TaxCaseStatus } from '../../lib/api-client'
 
 interface ClientListTableProps {
@@ -78,6 +78,7 @@ function ClientRow({ client, isLast }: ClientRowProps) {
   const caseStatus = latestCase?.status as TaxCaseStatus | undefined
   const statusColors = caseStatus ? CASE_STATUS_COLORS[caseStatus] : null
   const statusLabel = caseStatus ? CASE_STATUS_LABELS[caseStatus] : 'Chưa có hồ sơ'
+  const avatarColor = getAvatarColor(client.name)
 
   return (
     <Link
@@ -91,8 +92,12 @@ function ClientRow({ client, isLast }: ClientRowProps) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="w-9 h-9 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
-            <span className="text-primary font-semibold text-sm">
+          <div className={cn(
+            'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+            avatarColor.bg,
+            avatarColor.text
+          )}>
+            <span className="font-semibold text-sm">
               {getInitials(client.name)}
             </span>
           </div>

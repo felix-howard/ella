@@ -7,7 +7,7 @@ import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot } from 'lucide-react'
-import { getInitials, formatRelativeTime, sanitizeText } from '../../lib/formatters'
+import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
 import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
 import type { Conversation, TaxCaseStatus } from '../../lib/api-client'
 
@@ -33,6 +33,7 @@ export const ConversationListItem = memo(function ConversationListItem({
   // Status styling
   const statusColors = CASE_STATUS_COLORS[taxCase.status as TaxCaseStatus]
   const ChannelIcon = lastMessage ? CHANNEL_ICONS[lastMessage.channel] : null
+  const avatarColor = getAvatarColor(client.name)
 
   // Truncate and sanitize last message
   const messagePreview = lastMessage
@@ -55,11 +56,8 @@ export const ConversationListItem = memo(function ConversationListItem({
         <div
           className={cn(
             'w-12 h-12 rounded-full flex items-center justify-center',
-            isActive
-              ? 'bg-primary text-white'
-              : hasUnread
-                ? 'bg-primary text-white'
-                : 'bg-muted text-muted-foreground'
+            avatarColor.bg,
+            avatarColor.text
           )}
         >
           <span className="text-sm font-medium">{getInitials(client.name)}</span>

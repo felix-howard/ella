@@ -128,3 +128,40 @@ export function stripHtmlTags(text: string): string {
 export function formatRelativeTime(isoString: string): string {
   return getRelativeTimeVi(new Date(isoString))
 }
+
+/**
+ * Avatar color palette - colors that work well on dark backgrounds
+ * Each color has a bg (background) and text color
+ */
+const AVATAR_COLORS = [
+  { bg: 'bg-emerald-500', text: 'text-white' },
+  { bg: 'bg-blue-500', text: 'text-white' },
+  { bg: 'bg-purple-500', text: 'text-white' },
+  { bg: 'bg-pink-500', text: 'text-white' },
+  { bg: 'bg-orange-500', text: 'text-white' },
+  { bg: 'bg-teal-500', text: 'text-white' },
+  { bg: 'bg-indigo-500', text: 'text-white' },
+  { bg: 'bg-rose-500', text: 'text-white' },
+  { bg: 'bg-cyan-500', text: 'text-white' },
+  { bg: 'bg-amber-500', text: 'text-white' },
+  { bg: 'bg-lime-500', text: 'text-white' },
+  { bg: 'bg-violet-500', text: 'text-white' },
+] as const
+
+/**
+ * Generate consistent avatar color based on name
+ * Same name will always return the same color
+ */
+export function getAvatarColor(name: string): { bg: string; text: string } {
+  if (!name) return AVATAR_COLORS[0]
+
+  // Simple hash function to get consistent index from name
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    hash = hash & hash // Convert to 32bit integer
+  }
+
+  const index = Math.abs(hash) % AVATAR_COLORS.length
+  return AVATAR_COLORS[index]
+}

@@ -7,7 +7,7 @@ import { Link } from '@tanstack/react-router'
 import { Phone, ChevronRight } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { CASE_STATUS_LABELS, CASE_STATUS_COLORS, UI_TEXT } from '../../lib/constants'
-import { formatPhone, getInitials } from '../../lib/formatters'
+import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Client, TaxCaseStatus } from '../../lib/api-client'
 
 interface ClientCardProps {
@@ -97,6 +97,7 @@ export function ClientCardCompact({ client, onClick }: ClientCardProps) {
   const caseStatus = latestCase?.status as TaxCaseStatus | undefined
   const statusColors = caseStatus ? CASE_STATUS_COLORS[caseStatus] : null
   const statusLabel = caseStatus ? CASE_STATUS_LABELS[caseStatus] : null
+  const avatarColor = getAvatarColor(client.name)
 
   const content = (
     <div
@@ -106,8 +107,12 @@ export function ClientCardCompact({ client, onClick }: ClientCardProps) {
       onClick={onClick}
     >
       {/* Avatar/Initial */}
-      <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
-        <span className="text-primary font-semibold text-sm">
+      <div className={cn(
+        'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+        avatarColor.bg,
+        avatarColor.text
+      )}>
+        <span className="font-semibold text-sm">
           {getInitials(client.name)}
         </span>
       </div>

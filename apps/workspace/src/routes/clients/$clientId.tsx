@@ -39,7 +39,7 @@ import {
   LANGUAGE_LABELS,
   UI_TEXT,
 } from '../../lib/constants'
-import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
+import { formatPhone, getInitials, copyToClipboard, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
@@ -285,6 +285,7 @@ function ClientDetailPage() {
   }
 
   const { clients: clientsText } = UI_TEXT
+  const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
@@ -306,8 +307,12 @@ function ClientDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
-              <span className="text-primary font-bold text-xl">
+            <div className={cn(
+              'w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0',
+              avatarColor.bg,
+              avatarColor.text
+            )}>
+              <span className="font-bold text-xl">
                 {getInitials(client.name)}
               </span>
             </div>

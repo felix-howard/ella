@@ -28,8 +28,8 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
-import { VerificationPanel, ClassificationReviewModal, ManualClassificationModal, UploadProgress } from '../../components/documents'
+import { ChecklistGrid, StatusSelector } from '../../components/cases'
+import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -540,20 +540,6 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Document Verification Panel */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Xác minh tài liệu
-            </h2>
-            <VerificationPanel
-              documents={digitalDocs}
-              onRefresh={() => {
-                queryClient.invalidateQueries({ queryKey: ['docs', latestCaseId] })
-                queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
-              }}
-            />
-          </div>
-
           {/* Checklist Grid */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-lg font-semibold text-primary mb-4">
@@ -570,16 +556,19 @@ function ClientDetailPage() {
             />
           </div>
 
-          {/* Raw Images Gallery */}
+          {/* Document Workflow Tabs - New 3-tab layout */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-lg font-semibold text-primary mb-4">
-              Ảnh đã tải lên ({rawImages.length})
+              Quy trình xử lý tài liệu
             </h2>
-            <RawImageGallery
-              images={rawImages}
-              onImageClick={(img) => console.log('Clicked image:', img.id)}
-              onClassify={handleManualClassify}
+            <DocumentWorkflowTabs
+              caseId={latestCaseId || ''}
+              rawImages={rawImages}
+              digitalDocs={digitalDocs}
+              onClassifyImage={handleManualClassify}
               onReviewClassification={handleReviewClassification}
+              onVerifyDoc={(doc) => console.log('Verify doc:', doc.id)}
+              onDataEntry={(doc) => console.log('Data entry for doc:', doc.id)}
             />
           </div>
 
@@ -602,18 +591,6 @@ function ClientDetailPage() {
               caseId={latestCaseId}
             />
           )}
-
-          {/* Digital Docs Table */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Tài liệu đã trích xuất ({digitalDocs.length})
-            </h2>
-            <DigitalDocTable
-              docs={digitalDocs}
-              onDocClick={(doc) => console.log('Clicked doc:', doc.id)}
-              onVerify={(doc) => console.log('Verify doc:', doc.id)}
-            />
-          </div>
 
           {/* Upload Progress - shows when images are processing */}
           <UploadProgress processingCount={processingCount} />

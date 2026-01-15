@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-14
+**Current Date:** 2026-01-15
 **Current Branch:** feature/enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 04 Tabs** | **Tab Layout Refactor (3-Tab Workflow: Uploads, Review, Verified)** | **2026-01-15** |
 | **Phase 03 Shared** | **Shared Components (Field Verification, Copy Tracking)** | **2026-01-15** |
 | **Phase 06** | **Testing Infrastructure & Edge Case Handling** | **2026-01-15** |
 | **Phase 05** | **Real-time Updates (Polling & Notifications)** | **2026-01-14** |
@@ -206,6 +207,7 @@ Located in `apps/workspace/src/components/ui/` + hooks:
 - Unified message management (SMS, portal, system)
 - Unread count badges & filtering
 - Copy-to-clipboard workflow with keyboard navigation (Phase 4.1)
+- 3-tab document workflow: Uploads | Review Queue | Verified (Phase 04 Tabs)
 
 ## Database Schema Highlights
 
@@ -596,7 +598,93 @@ invalidateQueries(['checklist', caseId]) → Auto-refresh
 
 ---
 
-## Recent Changes (Phase 04, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - Review UX, AI, Communication & Data Entry)
+## Recent Changes (Phase 04 Tabs, 04, 2.1, 2.2, 3.1, 3.2, 4.1, 4.2 - Tab Refactor, Review UX, AI, Communication & Data Entry)
+
+### Phase 04 Tabs (Complete - 2026-01-15)
+**Tab Layout Refactor - 3-Tab Workflow for Document Management**
+
+**Overview:**
+Refactored document management from confusing 4-card layout into intuitive 3-tab workflow:
+- **Uploads Tab** - Raw images awaiting processing/classification
+- **Review Queue Tab** - AI-extracted docs needing verification
+- **Verified Tab** - Completed docs ready for data entry to OltPro
+
+**Core Components (NEW):**
+- `apps/workspace/src/components/documents/document-workflow-tabs.tsx` - Main 3-tab container
+- `apps/workspace/src/components/documents/uploads-tab.tsx` - Upload queue with filter pills
+- `apps/workspace/src/components/documents/review-queue-tab.tsx` - Doc verification cards
+- `apps/workspace/src/components/documents/verified-tab.tsx` - Completed docs gallery
+- `apps/workspace/src/components/documents/pdf-thumbnail.tsx` - Lazy-loaded PDF preview (~150KB code split)
+
+**Files Modified:**
+- `apps/workspace/src/components/documents/index.ts` - Updated barrel exports (legacy components marked deprecated)
+- `apps/workspace/src/routes/clients/$clientId.tsx` - Integrated DocumentWorkflowTabs component
+- `apps/workspace/src/lib/api-client.ts` - Enhanced RawImage/DigitalDoc interfaces
+- `apps/workspace/src/lib/constants.ts` - AI_CONFIDENCE_THRESHOLDS config
+
+**DocumentWorkflowTabs Props:**
+```typescript
+interface DocumentWorkflowTabsProps {
+  caseId: string
+  rawImages: RawImage[]
+  digitalDocs: DigitalDoc[]
+  onClassifyImage?: (image: RawImage) => void
+  onReviewClassification?: (image: RawImage) => void
+  onVerifyDoc?: (doc: DigitalDoc) => void
+  onDataEntry?: (doc: DigitalDoc) => void
+}
+```
+
+**Uploads Tab Features:**
+- Status-based filtering: All, Processing, Needs Classification, Blurry
+- Confidence badges: HIGH (85%+), MEDIUM (60-85%), LOW (<60%)
+- Image preview with PDF lazy-loading
+- Review button for low/medium confidence images
+- File info: name, size, status
+- Empty state handling
+
+**Review Queue Tab Features:**
+- Doc status filtering: PENDING, EXTRACTED, PARTIAL
+- AI confidence display
+- Field verification progress indicator
+- Compact cards layout
+- Thumbnail preview with signed URLs
+- Verify/Review action buttons
+
+**Verified Tab Features:**
+- Completed documents ready for data entry
+- VERIFIED/ENTRY_COMPLETE status display
+- Multi-document gallery
+- Link to data entry workflow
+- Document type labels (Vietnamese)
+
+**Performance Optimizations:**
+- Memoized counts: useMemo for badge calculations
+- Lazy PDF component: ~150KB code split savings
+- Error boundary wrapper for tab stability
+- Skeleton loaders for async data
+
+**Status Arrays:**
+```typescript
+// Upload statuses
+UPLOAD_STATUSES = ['UPLOADED', 'PROCESSING', 'CLASSIFIED', 'UNCLASSIFIED', 'BLURRY']
+// Review statuses
+REVIEW_STATUSES = ['PENDING', 'EXTRACTED', 'PARTIAL']
+```
+
+**Integration Points:**
+- Replaces confusing RawImageGallery 4-card layout
+- Backwards compatible: legacy components still exported (marked deprecated)
+- Hooks into existing api-client for mutations
+- Uses Zustand toast store for notifications
+- Supports error boundaries for reliability
+
+**Next Steps:**
+- Monitor tab performance with large image counts
+- Consider virtual scrolling if document counts exceed 100+
+- Add bulk actions in Review Queue tab
+
+See detailed docs: [phase-04-frontend-review-ux.md](./phase-04-frontend-review-ux.md)
 
 ### Phase 04 (Complete - 2026-01-14)
 **Frontend Review UX - Confidence Badges & Classification Modal**

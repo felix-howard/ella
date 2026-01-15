@@ -128,13 +128,31 @@ export const FILING_STATUS_LABELS: Record<string, string> = {
   QUALIFYING_WIDOW: 'Góa phụ có con',
 }
 
+// AI Classification thresholds
+// Used for determining when documents need manual review
+export const AI_CONFIDENCE_THRESHOLDS = {
+  /** High confidence - auto-approve */
+  HIGH: 0.85,
+  /** Medium confidence - needs review */
+  MEDIUM: 0.60,
+} as const
+
 // AI Classification confidence level config
 // Used for confidence badges in image gallery and review workflow
 export const CONFIDENCE_LEVELS = {
-  HIGH: { min: 0.85, label: 'Cao', color: 'text-success', bg: 'bg-success/10' },
-  MEDIUM: { min: 0.60, label: 'Trung bình', color: 'text-warning', bg: 'bg-warning/10' },
+  HIGH: { min: AI_CONFIDENCE_THRESHOLDS.HIGH, label: 'Cao', color: 'text-success', bg: 'bg-success/10' },
+  MEDIUM: { min: AI_CONFIDENCE_THRESHOLDS.MEDIUM, label: 'Trung bình', color: 'text-warning', bg: 'bg-warning/10' },
   LOW: { min: 0, label: 'Thấp', color: 'text-error', bg: 'bg-error/10' },
 } as const
+
+/**
+ * Check if classification needs manual review based on confidence
+ * @param confidence - Confidence score from 0-1
+ * @returns true if confidence is below HIGH threshold
+ */
+export function needsClassificationReview(confidence: number | null): boolean {
+  return !confidence || confidence < AI_CONFIDENCE_THRESHOLDS.HIGH
+}
 
 /**
  * Get confidence level based on score
@@ -142,8 +160,8 @@ export const CONFIDENCE_LEVELS = {
  * @returns Confidence level config (HIGH, MEDIUM, or LOW)
  */
 export function getConfidenceLevel(confidence: number | null) {
-  if (!confidence || confidence < 0.60) return CONFIDENCE_LEVELS.LOW
-  if (confidence < 0.85) return CONFIDENCE_LEVELS.MEDIUM
+  if (!confidence || confidence < AI_CONFIDENCE_THRESHOLDS.MEDIUM) return CONFIDENCE_LEVELS.LOW
+  if (confidence < AI_CONFIDENCE_THRESHOLDS.HIGH) return CONFIDENCE_LEVELS.MEDIUM
   return CONFIDENCE_LEVELS.HIGH
 }
 

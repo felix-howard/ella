@@ -463,6 +463,11 @@ export interface RawImage {
   updatedAt: string
   checklistItem?: { template: ChecklistTemplate } | null
   imageGroup?: ImageGroup | null
+  // Phase 01: Re-upload request tracking
+  reuploadRequested?: boolean
+  reuploadRequestedAt?: string | null
+  reuploadReason?: string | null
+  reuploadFields?: string[] | null
 }
 
 // Image group for duplicate detection
@@ -483,6 +488,7 @@ export interface DigitalDoc {
   docType: string
   status: string
   extractedData: Record<string, unknown>
+  aiConfidence?: number | null
   createdAt: string
   updatedAt: string
   rawImage?: { id: string; filename: string; r2Key: string }

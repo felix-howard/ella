@@ -14,5 +14,8 @@ export { UploadsTab, UploadsTabSkeleton, type UploadsTabProps } from './uploads-
 export { ReviewQueueTab, ReviewQueueSkeleton, type ReviewQueueTabProps } from './review-queue-tab'
 export { VerifiedTab, VerifiedTabSkeleton, type VerifiedTabProps } from './verified-tab'
 
+// Verification Modal (Phase 05)
+export { VerificationModal, type VerificationModalProps } from './verification-modal'
+
 // Note: PdfThumbnail is lazy-loaded internally and should not be exported directly
 // to ensure proper code-splitting of the react-pdf library (~150KB)

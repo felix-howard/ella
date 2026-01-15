@@ -29,7 +29,7 @@ import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ChecklistGrid, StatusSelector } from '../../components/cases'
-import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress } from '../../components/documents'
+import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -40,7 +40,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -58,6 +58,8 @@ function ClientDetailPage() {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
+  const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
 
   // Error code to Vietnamese message mapping
   const SMS_ERROR_MESSAGES: Record<string, string> = {
@@ -233,6 +235,26 @@ function ClientDetailPage() {
     setIsClassifyModalOpen(false)
     // Small delay before clearing to avoid flash
     setTimeout(() => setClassifyImage(null), 200)
+  }
+
+  // Handler for opening verification modal
+  const handleVerifyDoc = (doc: DigitalDoc) => {
+    setVerifyDoc(doc)
+    setIsVerifyModalOpen(true)
+  }
+
+  const handleCloseVerifyModal = () => {
+    setIsVerifyModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setVerifyDoc(null), 200)
+  }
+
+  // Handler for re-upload request from verification modal
+  const handleRequestReupload = (doc: DigitalDoc, unreadableFields: string[]) => {
+    // TODO: Open ReUploadRequestModal (Phase 06) - will use doc and unreadableFields
+    void doc
+    void unreadableFields
+    toast.info('Chức năng yêu cầu tải lại ảnh sẽ được triển khai trong Phase 06')
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -567,7 +589,7 @@ function ClientDetailPage() {
               digitalDocs={digitalDocs}
               onClassifyImage={handleManualClassify}
               onReviewClassification={handleReviewClassification}
-              onVerifyDoc={(doc) => console.log('Verify doc:', doc.id)}
+              onVerifyDoc={handleVerifyDoc}
               onDataEntry={(doc) => console.log('Data entry for doc:', doc.id)}
             />
           </div>
@@ -589,6 +611,17 @@ function ClientDetailPage() {
               isOpen={isClassifyModalOpen}
               onClose={handleCloseClassifyModal}
               caseId={latestCaseId}
+            />
+          )}
+
+          {/* Verification Modal (Phase 05) */}
+          {latestCaseId && verifyDoc && (
+            <VerificationModal
+              doc={verifyDoc}
+              isOpen={isVerifyModalOpen}
+              onClose={handleCloseVerifyModal}
+              caseId={latestCaseId}
+              onRequestReupload={handleRequestReupload}
             />
           )}
 

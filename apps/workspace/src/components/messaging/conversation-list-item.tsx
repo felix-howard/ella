@@ -46,9 +46,12 @@ export const ConversationListItem = memo(function ConversationListItem({
       params={{ caseId: conversation.caseId }}
       className={cn(
         'flex items-start gap-3 px-4 py-3 border-b border-border transition-colors',
-        'hover:bg-muted/50',
+        // Active state: green background, no hover effect
         isActive && 'bg-primary/20 border-l-2 border-l-primary',
-        hasUnread && !isActive && 'bg-primary/10'
+        // Unread state: subtle green with darker hover
+        hasUnread && !isActive && 'bg-primary/10 hover:bg-primary/20',
+        // Default state: muted hover
+        !isActive && !hasUnread && 'hover:bg-muted/50'
       )}
     >
       {/* Avatar */}

@@ -7,7 +7,9 @@
       "WebSearch",
       "WebFetch(domain:support.google.com)",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:discuss.ai.google.dev)"
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

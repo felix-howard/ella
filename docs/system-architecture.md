@@ -218,6 +218,26 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Retryable: /rate.?limit/, /timeout/, /503/, /500/, /502/, /overloaded/, /resource.?exhausted/, /quota.?exceeded/, /service.?unavailable/
   - Model not found: /404/, /not found/, /model.*not.*found/, /does not exist/, /is not supported/
 
+**Error Localization (Phase 04):**
+
+- **Vietnamese Error Messages (`src/services/ai/ai-error-messages.ts`):**
+  - Maps technical Gemini errors to 10 error types: MODEL_NOT_FOUND, RATE_LIMIT, QUOTA_EXCEEDED, SERVICE_UNAVAILABLE, INVALID_IMAGE, IMAGE_TOO_LARGE, TIMEOUT, CLASSIFICATION_FAILED, OCR_FAILED, UNKNOWN
+  - Provides Vietnamese user-facing messages for each type with severity levels (info/warning/error)
+  - ReDoS-safe regex patterns with non-greedy quantifiers
+  - Null-safe input handling for robustness
+
+- **Action Priority Calculation:**
+  - Maps error severity → action priority (error → HIGH, warning/info → NORMAL)
+  - Enables workspace to surface critical issues first
+
+- **Error Sanitization:**
+  - Removes API keys, email addresses, file paths from error metadata before storage
+  - Prevents credential leakage in logs/database
+
+- **Idempotency Fix (Phase 04):**
+  - Atomic compare-and-swap on `RawImage.status` to prevent race conditions
+  - Single database operation prevents concurrent processing of same image
+
 **Unified Messaging (Phase 3.2):**
 
 - `messages/` routes handle conversation listing, message history, and sending

@@ -477,6 +477,13 @@ State-issued driver's license or ID.
 - Gemini misconfiguration
 - Unsupported document type (1099-DIV, 1099-K, 1099-R)
 
+**Error Localization (Phase 04):**
+All AI_FAILED actions now include Vietnamese error messages with categorized error types. See [Phase 04 - AI Error Messages](./phase-04-ai-error-messages.md) for:
+- Error type categorization (MODEL_NOT_FOUND, QUOTA_EXCEEDED, etc.)
+- Vietnamese message mapping
+- Action priority calculation from error severity
+- Error sanitization (removes API keys, emails, file paths)
+
 ### Validation Errors (Create VERIFY_DOCS Action)
 - OCR success but confidence < 0.85
 - Data fails type validation

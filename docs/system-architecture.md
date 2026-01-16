@@ -152,10 +152,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /webhooks/twilio/status` - Message status updates (optional tracking)
 
 **Health (1):**
-- `GET /health` - Server status check with Gemini model availability (Phase 02)
-  - Response includes: `status`, `timestamp`, `gemini` (configured, model, available, checkedAt, error)
+- `GET /health` - Server status check with Gemini model availability (Phase 02, Phase 03 updates)
+  - Response includes: `status`, `timestamp`, `gemini` (configured, model, activeModel, fallbackModels, available, checkedAt, error)
   - Gemini validation runs non-blocking on startup
   - Status cached for efficient health checks
+  - Phase 03: Added `activeModel` (current working model) and `fallbackModels[]` array
 
 **Responsibilities:**
 
@@ -184,6 +185,38 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Resend SMS endpoint for client onboarding recovery
 - Comprehensive error codes for missing configs (NO_MAGIC_LINK, SMS_NOT_CONFIGURED, PORTAL_URL_NOT_CONFIGURED)
 - Vietnamese & English message support
+
+**AI Service: Gemini Client with Model Fallback (Phase 03):**
+
+- **Configuration (`src/lib/config.ts`):**
+  - `GEMINI_MODEL`: Primary model (default: `gemini-2.0-flash`)
+  - `GEMINI_FALLBACK_MODELS`: Comma-separated fallback list (default: `gemini-2.5-flash-lite,gemini-2.5-flash`)
+  - `GEMINI_MAX_RETRIES`: Retry attempts per model (default: 3)
+  - `GEMINI_RETRY_DELAY_MS`: Initial retry backoff (default: 1000ms, exponential)
+
+- **Model Fallback Chain (`src/services/ai/gemini-client.ts`):**
+  - Tries primary model first
+  - Auto-falls back to alternatives on 404 "model not found" errors
+  - Caches working model for session persistence
+  - Skips already-tried fallback models during request
+
+- **Functions:**
+  - `generateContent(prompt, image?)` - Text/multimodal with fallback & retries
+  - `generateJsonContent<T>(prompt, image?)` - JSON parsing with fallback
+  - `analyzeImage<T>(buffer, mimeType, prompt)` - Vision analysis with validation
+  - `validateGeminiModel()` - Startup health check with fallback validation
+  - `getGeminiStatus()` - Returns: configured, model, activeModel, fallbackModels[], available, checkedAt
+
+- **Fallback Logic:**
+  - Primary model → Fallback 1 → Fallback 2 → ... → All failed error
+  - Triggers fallback on 404/not found/does not exist/not supported patterns
+  - Retries transient errors (rate limit, timeout, 500/502/503) up to maxRetries
+  - Non-retryable errors fail immediately
+  - Successful request caches working model for future calls
+
+- **Error Patterns:**
+  - Retryable: /rate.?limit/, /timeout/, /503/, /500/, /502/, /overloaded/, /resource.?exhausted/, /quota.?exceeded/, /service.?unavailable/
+  - Model not found: /404/, /not found/, /model.*not.*found/, /does not exist/, /is not supported/
 
 **Unified Messaging (Phase 3.2):**
 

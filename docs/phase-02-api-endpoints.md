@@ -786,8 +786,60 @@ await docs.verifyField(docId, { field: 'tax', status: 'verified' })
 
 ---
 
-**Last Updated:** 2026-01-15
+---
+
+## Health Endpoint Response (Phase 03 Update)
+
+### GET /health Response Schema
+
+**Location:** `apps/api/src/routes/health.ts`
+
+**Response (200 OK):**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-01-16T12:00:00.000Z",
+  "gemini": {
+    "configured": true,
+    "model": "gemini-2.0-flash",
+    "activeModel": "gemini-2.0-flash",
+    "fallbackModels": ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+    "available": true,
+    "checkedAt": "2026-01-16T12:00:00.000Z",
+    "error": null,
+    "maxRetries": 3,
+    "maxImageSizeMB": 10
+  }
+}
+```
+
+**Field Descriptions:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Always "ok" on successful response |
+| `timestamp` | ISO8601 | Current server time (UTC) |
+| `gemini.configured` | boolean | API key present (true/false) |
+| `gemini.model` | string | Primary model from env (e.g., gemini-2.0-flash) |
+| `gemini.activeModel` | string | **Phase 03**: Currently working model (may differ from primary if fallback active) |
+| `gemini.fallbackModels` | string[] | **Phase 03**: List of fallback models in order |
+| `gemini.available` | boolean | Model validation passed during startup |
+| `gemini.checkedAt` | ISO8601 &#124; null | Last validation timestamp (null if never checked) |
+| `gemini.error` | string &#124; null | Validation error message if available=false |
+| `gemini.maxRetries` | number | Max retry attempts per model from config |
+| `gemini.maxImageSizeMB` | number | Max image size in MB (10) |
+
+**Phase 03 Changes:**
+- Added `activeModel` field to show current working model after fallback
+- Added `fallbackModels[]` array to expose fallback chain configuration
+- Model fallback auto-activates on 404 errors, cached for session
+
+**Usage:** Monitor health endpoint to detect when primary model becomes unavailable. If `activeModel` != `model`, a fallback is in use.
+
+---
+
+**Last Updated:** 2026-01-16
 **Status:** Complete & Production-Ready
-**Architecture Version:** 6.0
-**Next Phase:** Phase 03 - Multi-stage Processing & Batch Operations
+**Architecture Version:** 6.0 (Phase 03 AI Fallback Chain)
+**Next Phase:** Phase 04 - Multi-stage Processing & Batch Operations
 

@@ -32,6 +32,15 @@ const RETRYABLE_PATTERNS = [
   /service.?unavailable/i,
 ]
 
+// Model not found error patterns (triggers fallback)
+const MODEL_NOT_FOUND_PATTERNS = [
+  /404/,
+  /not found/i,
+  /model.*not.*found/i,
+  /does not exist/i,
+  /is not supported/i,
+]
+
 // Initialize client with centralized config
 const genAI = new GoogleGenerativeAI(config.ai.geminiApiKey)
 
@@ -48,6 +57,43 @@ let geminiValidationStatus: {
   available: false,
   model: config.ai.model,
   checkedAt: null,
+}
+
+// Cache for working model (updated on fallback)
+let workingModel: string | null = null
+
+/**
+ * Get the currently active model (cached working or primary)
+ */
+function getActiveModel(): string {
+  return workingModel || config.ai.model
+}
+
+/**
+ * Set the working model after successful fallback
+ */
+function setWorkingModel(model: string): void {
+  if (workingModel !== model) {
+    workingModel = model
+    console.log(`[Gemini] Switched to model: ${model}`)
+  }
+}
+
+/**
+ * Check if error indicates model doesn't exist (triggers fallback)
+ */
+function isModelNotFoundError(error: Error): boolean {
+  return MODEL_NOT_FOUND_PATTERNS.some((pattern) => pattern.test(error.message))
+}
+
+/**
+ * Sanitize error message to prevent PII exposure
+ */
+function sanitizeErrorMessage(message: string): string {
+  return message.replace(
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+    '[EMAIL]'
+  )
 }
 
 /**
@@ -165,8 +211,9 @@ function isRetryableError(error: Error): boolean {
 }
 
 /**
- * Generate content with retry logic
+ * Generate content with retry and fallback logic
  * Handles both text-only and multimodal (text + image) prompts
+ * Automatically falls back to alternative models on 404 errors
  */
 export async function generateContent(
   prompt: string,
@@ -179,66 +226,87 @@ export async function generateContent(
     }
   }
 
-  const model = genAI.getGenerativeModel({ model: config.ai.model })
+  // Build model list: active model first, then fallbacks (deduplicated)
+  const activeModel = getActiveModel()
+  const modelsToTry = [
+    activeModel,
+    ...config.ai.fallbackModels.filter((m) => m !== activeModel),
+  ]
+
   const maxRetries = config.ai.maxRetries
   const retryDelay = config.ai.retryDelayMs
 
-  let lastError: Error | null = null
-  let retries = 0
+  for (const modelName of modelsToTry) {
+    const model = genAI.getGenerativeModel({ model: modelName })
+    let lastError: Error | null = null
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      let result: GenerateContentResult
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        let result: GenerateContentResult
 
-      if (image) {
-        // Multimodal request (text + image)
-        const imagePart: Part = {
-          inlineData: {
-            data: image.data,
-            mimeType: image.mimeType,
-          },
+        if (image) {
+          // Multimodal request (text + image)
+          const imagePart: Part = {
+            inlineData: {
+              data: image.data,
+              mimeType: image.mimeType,
+            },
+          }
+          result = await model.generateContent([prompt, imagePart])
+        } else {
+          // Text-only request
+          result = await model.generateContent(prompt)
         }
-        result = await model.generateContent([prompt, imagePart])
-      } else {
-        // Text-only request
-        result = await model.generateContent(prompt)
+
+        // Success - cache working model
+        setWorkingModel(modelName)
+
+        return {
+          success: true,
+          data: result.response.text(),
+          retries: attempt,
+        }
+      } catch (error) {
+        lastError = error as Error
+
+        // Model not found - try next model immediately
+        if (isModelNotFoundError(lastError)) {
+          console.warn(`[Gemini] Model ${modelName} not found, trying fallback...`)
+          break
+        }
+
+        // Retryable error - exponential backoff
+        if (isRetryableError(lastError) && attempt < maxRetries - 1) {
+          const delay = retryDelay * Math.pow(2, attempt)
+          console.warn(`[Gemini] Retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+          await sleep(delay)
+        } else if (!isRetryableError(lastError)) {
+          // Non-retryable, non-model error - fail fast
+          break
+        }
       }
+    }
 
-      const response = result.response
-      const text = response.text()
+    // If model not found, continue to next model
+    if (lastError && isModelNotFoundError(lastError)) {
+      continue
+    }
 
+    // Other errors - return failure
+    if (lastError) {
       return {
-        success: true,
-        data: text,
-        retries: attempt,
-      }
-    } catch (error) {
-      lastError = error as Error
-      retries = attempt + 1
-
-      if (isRetryableError(lastError) && attempt < maxRetries - 1) {
-        // Exponential backoff
-        const delay = retryDelay * Math.pow(2, attempt)
-        console.warn(
-          `Gemini API error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms`
-        )
-        await sleep(delay)
-      } else if (!isRetryableError(lastError)) {
-        // Non-retryable error, fail immediately
-        break
+        success: false,
+        error: sanitizeErrorMessage(lastError.message),
+        retries: maxRetries,
       }
     }
   }
 
-  // Sanitize error message to prevent PII exposure
-  const safeError = lastError?.message
-    ? lastError.message.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
-    : 'Unknown error'
-
+  // All models failed
   return {
     success: false,
-    error: safeError,
-    retries,
+    error: 'All Gemini models unavailable',
+    retries: config.ai.maxRetries,
   }
 }
 
@@ -304,8 +372,8 @@ export async function analyzeImage<T>(
 }
 
 /**
- * Validate Gemini model availability
- * Sends minimal test request to verify model exists
+ * Validate Gemini model availability with fallback
+ * Tries primary model first, then fallbacks if 404
  * Non-blocking, caches result for health endpoint
  */
 export async function validateGeminiModel(): Promise<{
@@ -323,28 +391,57 @@ export async function validateGeminiModel(): Promise<{
     return geminiValidationStatus
   }
 
-  try {
-    const model = genAI.getGenerativeModel({ model: config.ai.model })
-    // Minimal test: count tokens (cheapest API call)
-    await model.countTokens('test')
+  // Build model list: primary first, then fallbacks
+  const modelsToTry = [
+    config.ai.model,
+    ...config.ai.fallbackModels.filter((m) => m !== config.ai.model),
+  ]
 
-    geminiValidationStatus = {
-      available: true,
-      model: config.ai.model,
-      checkedAt: new Date(),
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName })
+      // Minimal test: count tokens (cheapest API call)
+      await model.countTokens('test')
+
+      // Success - set as working model
+      setWorkingModel(modelName)
+
+      geminiValidationStatus = {
+        available: true,
+        model: modelName,
+        checkedAt: new Date(),
+      }
+      console.log(`[Gemini] Model validated: ${modelName}`)
+      return geminiValidationStatus
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Unknown error')
+
+      // Model not found - try next fallback
+      if (isModelNotFoundError(err)) {
+        console.warn(`[Gemini] Model ${modelName} not found, trying fallback...`)
+        continue
+      }
+
+      // Other error - stop trying
+      geminiValidationStatus = {
+        available: false,
+        model: modelName,
+        checkedAt: new Date(),
+        error: err.message,
+      }
+      console.warn(`[Gemini] Model validation failed: ${err.message}`)
+      return geminiValidationStatus
     }
-    console.log(`[Gemini] Model validated: ${config.ai.model}`)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    geminiValidationStatus = {
-      available: false,
-      model: config.ai.model,
-      checkedAt: new Date(),
-      error: errorMessage,
-    }
-    console.warn(`[Gemini] Model validation failed: ${errorMessage}`)
   }
 
+  // All models failed with 404
+  geminiValidationStatus = {
+    available: false,
+    model: config.ai.model,
+    checkedAt: new Date(),
+    error: 'All Gemini models unavailable',
+  }
+  console.warn('[Gemini] All models validation failed')
   return geminiValidationStatus
 }
 
@@ -354,6 +451,8 @@ export async function validateGeminiModel(): Promise<{
 export function getGeminiStatus(): {
   configured: boolean
   model: string
+  activeModel: string
+  fallbackModels: string[]
   available: boolean
   checkedAt: string | null
   error?: string
@@ -363,6 +462,8 @@ export function getGeminiStatus(): {
   return {
     configured: isGeminiConfigured,
     model: config.ai.model,
+    activeModel: getActiveModel(),
+    fallbackModels: config.ai.fallbackModels,
     available: geminiValidationStatus.available,
     checkedAt: geminiValidationStatus.checkedAt?.toISOString() || null,
     error: geminiValidationStatus.error,

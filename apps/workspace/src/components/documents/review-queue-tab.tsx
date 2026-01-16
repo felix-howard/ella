@@ -4,8 +4,16 @@
  * Each card shows thumbnail, doc type, AI confidence, and verification progress
  */
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Search, FileText, Eye, Loader2 } from 'lucide-react'
+
+// Lazy load PDF thumbnail component to reduce initial bundle size
+const LazyPdfThumbnail = lazy(() => import('./pdf-thumbnail'))
+
+/** Check if file is a PDF based on filename */
+function isPdfFile(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.pdf')
+}
 import { cn, Badge, Card } from '@ella/ui'
 import { DOC_TYPE_LABELS, AI_CONFIDENCE_THRESHOLDS } from '../../lib/constants'
 import { CompactProgressIndicator } from '../ui/progress-indicator'
@@ -139,7 +147,7 @@ function ReviewQueueCard({ doc, onClick }: ReviewQueueCardProps) {
         {/* Thumbnail */}
         <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
           {doc.rawImageId ? (
-            <DocThumbnail rawImageId={doc.rawImageId} />
+            <DocThumbnail rawImageId={doc.rawImageId} filename={doc.rawImage?.filename} />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <FileText className="w-10 h-10 text-muted-foreground" />
@@ -209,9 +217,11 @@ function ReviewQueueCard({ doc, onClick }: ReviewQueueCardProps) {
 
 /**
  * Thumbnail for document using signed URL
+ * Handles both image and PDF files with lazy-loaded PDF thumbnail
  */
-function DocThumbnail({ rawImageId }: { rawImageId: string }) {
+function DocThumbnail({ rawImageId, filename }: { rawImageId: string; filename?: string }) {
   const { data, isLoading, error } = useSignedUrl(rawImageId, { staleTime: 55 * 60 * 1000 })
+  const isPdf = filename ? isPdfFile(filename) : false
 
   if (isLoading) {
     return (
@@ -223,9 +233,29 @@ function DocThumbnail({ rawImageId }: { rawImageId: string }) {
 
   if (error || !data?.url) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-muted">
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-muted">
         <FileText className="w-8 h-8 text-muted-foreground" />
+        {filename && (
+          <span className="text-[10px] text-muted-foreground text-center px-2 truncate max-w-full">
+            {filename}
+          </span>
+        )}
       </div>
+    )
+  }
+
+  // Render PDF thumbnail using lazy-loaded component
+  if (isPdf) {
+    return (
+      <Suspense
+        fallback={
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+          </div>
+        }
+      >
+        <LazyPdfThumbnail url={data.url} />
+      </Suspense>
     )
   }
 

@@ -209,15 +209,7 @@ export function ManualClassificationModal({
 
   // Mutation for retry AI classification
   const retryMutation = useMutation({
-    mutationFn: async () => {
-      // Re-trigger classification by calling the reclassify endpoint
-      const response = await fetch(`/api/images/${image!.id}/reclassify`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-      if (!response.ok) throw new Error('Reclassify failed')
-      return response.json()
-    },
+    mutationFn: () => api.images.reclassify(image!.id),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['images', caseId] })
       const previousImages = queryClient.getQueryData(['images', caseId])

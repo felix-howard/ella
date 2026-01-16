@@ -288,6 +288,12 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    // Re-trigger AI classification for an image
+    reclassify: (id: string) =>
+      request<{ success: boolean; message: string; status: string }>(`/images/${id}/reclassify`, {
+        method: 'POST',
+      }),
+
     // Phase 02: Request document re-upload with optional SMS
     requestReupload: (id: string, data: { reason: string; fields: string[]; sendSms: boolean }) =>
       request<{ success: boolean; message: string; smsSent: boolean; smsError?: string }>(

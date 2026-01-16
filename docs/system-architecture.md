@@ -277,7 +277,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - **Deployment Note:** Server must have poppler installed (Linux: `apt-get install poppler-utils`, macOS: `brew install poppler`)
   - **Health Check:** `/health` endpoint reports `pdfSupport.popplerInstalled` status & errors
 
-- **OCR Extraction Service (Phase 02+03):** `extractDocumentData(buffer, mimeType, docType)`
+- **OCR Extraction Service (Phase 02+03, Enhanced Phase 2 Priority 1):** `extractDocumentData(buffer, mimeType, docType)`
   - **Single Image:** Direct Gemini vision analysis with confidence scoring
   - **Multi-Page PDFs (Phase 03):** Intelligent multi-page extraction flow with merging
     - Each PDF page converted to PNG via poppler (Phase 03 addition)
@@ -286,6 +286,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
     - Weighted confidence: Final confidence based on field contribution
     - Result includes: pageCount, pageConfidences[], merged data
     - Logs PDF processing details for debugging
+  - **Phase 2 Priority 1 Additions:** 3 new document types with OCR support:
+    - FORM_1099_K (Payment Card Transactions) - Square, Clover, PayPal
+    - SCHEDULE_K1 (Partnership Income) - K-1 form extraction
+    - BANK_STATEMENT (Business Cash Flow) - Bank transaction statements
 
 - **Type Extensions (Phase 02+03):**
   - `OcrExtractionResult`: Added `pageCount?`, `pageConfidences?[]` fields
@@ -293,6 +297,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Pipeline health endpoint exports `getPipelineStatus()` with PDF support flags
 
 - **Merge Logic:** Tax documents often have corrections on page 2+; algorithm prioritizes later pages while tracking per-field page origins
+- **OCR Prompts (8 total):** W2, 1099-INT, 1099-NEC, 1099-K (new), K-1 (new), Bank Statement (new), SSN/DL
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 

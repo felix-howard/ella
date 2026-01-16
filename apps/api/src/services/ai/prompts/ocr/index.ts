@@ -27,6 +27,21 @@ import {
   validateDriverLicenseData as _validateDL,
   DRIVER_LICENSE_FIELD_LABELS_VI as _DLLabels,
 } from './ssn-dl'
+import {
+  get1099KExtractionPrompt as _get1099KPrompt,
+  validate1099KData as _validate1099K,
+  FORM_1099_K_FIELD_LABELS_VI as _1099KLabels,
+} from './1099-k'
+import {
+  getScheduleK1ExtractionPrompt as _getK1Prompt,
+  validateScheduleK1Data as _validateK1,
+  SCHEDULE_K1_FIELD_LABELS_VI as _K1Labels,
+} from './k-1'
+import {
+  getBankStatementExtractionPrompt as _getBankStatementPrompt,
+  validateBankStatementData as _validateBankStatement,
+  BANK_STATEMENT_FIELD_LABELS_VI as _BankStatementLabels,
+} from './bank-statement'
 
 // Re-export W2 prompt and types
 export {
@@ -63,6 +78,30 @@ export {
 } from './ssn-dl'
 export type { SsnCardExtractedData, DriverLicenseExtractedData } from './ssn-dl'
 
+// Re-export 1099-K prompt and types
+export {
+  get1099KExtractionPrompt,
+  validate1099KData,
+  FORM_1099_K_FIELD_LABELS_VI,
+} from './1099-k'
+export type { Form1099KExtractedData } from './1099-k'
+
+// Re-export Schedule K-1 prompt and types
+export {
+  getScheduleK1ExtractionPrompt,
+  validateScheduleK1Data,
+  SCHEDULE_K1_FIELD_LABELS_VI,
+} from './k-1'
+export type { ScheduleK1ExtractedData } from './k-1'
+
+// Re-export Bank Statement prompt and types
+export {
+  getBankStatementExtractionPrompt,
+  validateBankStatementData,
+  BANK_STATEMENT_FIELD_LABELS_VI,
+} from './bank-statement'
+export type { BankStatementExtractedData } from './bank-statement'
+
 /**
  * Supported OCR document types
  */
@@ -73,6 +112,8 @@ export type OcrDocType =
   | 'FORM_1099_DIV'
   | 'FORM_1099_K'
   | 'FORM_1099_R'
+  | 'SCHEDULE_K1'
+  | 'BANK_STATEMENT'
   | 'SSN_CARD'
   | 'DRIVER_LICENSE'
 
@@ -88,6 +129,12 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _get1099IntPrompt()
     case 'FORM_1099_NEC':
       return _get1099NecPrompt()
+    case 'FORM_1099_K':
+      return _get1099KPrompt()
+    case 'SCHEDULE_K1':
+      return _getK1Prompt()
+    case 'BANK_STATEMENT':
+      return _getBankStatementPrompt()
     case 'SSN_CARD':
       return _getSsnCardPrompt()
     case 'DRIVER_LICENSE':
@@ -105,6 +152,9 @@ export function supportsOcrExtraction(docType: string): boolean {
     'W2',
     'FORM_1099_INT',
     'FORM_1099_NEC',
+    'FORM_1099_K',
+    'SCHEDULE_K1',
+    'BANK_STATEMENT',
     'SSN_CARD',
     'DRIVER_LICENSE',
   ]
@@ -122,6 +172,12 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validate1099Int(data)
     case 'FORM_1099_NEC':
       return _validate1099Nec(data)
+    case 'FORM_1099_K':
+      return _validate1099K(data)
+    case 'SCHEDULE_K1':
+      return _validateK1(data)
+    case 'BANK_STATEMENT':
+      return _validateBankStatement(data)
     case 'SSN_CARD':
       return _validateSsnCard(data)
     case 'DRIVER_LICENSE':
@@ -142,6 +198,12 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _1099IntLabels
     case 'FORM_1099_NEC':
       return _1099NecLabels
+    case 'FORM_1099_K':
+      return _1099KLabels
+    case 'SCHEDULE_K1':
+      return _K1Labels
+    case 'BANK_STATEMENT':
+      return _BankStatementLabels
     case 'SSN_CARD':
       return _SsnCardLabels
     case 'DRIVER_LICENSE':

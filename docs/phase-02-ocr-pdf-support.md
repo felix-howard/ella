@@ -246,15 +246,22 @@ const digitalDoc = await prisma.digitalDoc.upsert({
 
 ## Supported Document Types
 
-**OCR-Enabled Types:**
+**OCR-Enabled Types (8 total):**
+
+**Phase 02 Original (5 types):**
 - **W2** - Employment income (most common amendment case)
 - **FORM_1099_INT** - Interest income
 - **FORM_1099_NEC** - Contractor compensation
 - **SSN_CARD** - Social Security card
 - **DRIVER_LICENSE** - State ID
 
+**Phase 2 Priority 1 - NEW (3 types, added 2026-01-17):**
+- **FORM_1099_K** - Payment Card Transactions (Square, Clover, PayPal)
+- **SCHEDULE_K1** - Partnership Income (K-1 forms)
+- **BANK_STATEMENT** - Business Cash Flow documentation
+
 Each type has:
-- Dedicated OCR prompt (e.g., `prompts/ocr/w2.ts`)
+- Dedicated OCR prompt (e.g., `prompts/ocr/w2.ts`, `prompts/ocr/1099-k.ts`, `prompts/ocr/k-1.ts`, `prompts/ocr/bank-statement.ts`)
 - Key fields list for confidence calculation
 - Vietnamese field labels (e.g., "Tên công ty" for employer name)
 
@@ -413,7 +420,25 @@ return {
 
 ---
 
-**Last Updated:** 2026-01-16
-**Phase:** Phase 02 - OCR PDF Support (Complete)
-**Architecture Version:** 6.4.0
-**Test Coverage:** 20 tests (100% pass)
+**Last Updated:** 2026-01-17 (Phase 2 Priority 1 enhancements)
+**Phase:** Phase 02 - OCR PDF Support (Complete) + Phase 2 Priority 1 - Extended Document Types
+**Architecture Version:** 6.5.0
+**Test Coverage:** 20+ tests (100% pass)
+
+## Phase 2 Priority 1 Update (2026-01-17)
+
+**New Files Created:**
+- `apps/api/src/services/ai/prompts/ocr/1099-k.ts` - 1099-K payment card extraction
+- `apps/api/src/services/ai/prompts/ocr/k-1.ts` - K-1 partnership income extraction
+- `apps/api/src/services/ai/prompts/ocr/bank-statement.ts` - Bank statement cash flow extraction
+
+**Files Modified:**
+- `apps/api/src/services/ai/prompts/ocr/index.ts` - Routes added for new document types
+- `apps/api/src/services/ai/ocr-extractor.ts` - Key fields definitions expanded
+
+**Key Enhancements:**
+- 3 new document types now support OCR extraction
+- Payment processor support (Square, Clover, PayPal) for 1099-K
+- Partnership income flows tracked via K-1 forms
+- Business cash flow analysis via bank statements
+- All new types integrated with existing confidence scoring and multi-page PDF merge logic

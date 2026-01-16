@@ -307,6 +307,9 @@ function calculateConfidence(data: Record<string, unknown>, docType: string): nu
     W2: ['employerName', 'employeeSSN', 'wagesTipsOther', 'federalIncomeTaxWithheld'],
     FORM_1099_INT: ['payerName', 'recipientTIN', 'interestIncome'],
     FORM_1099_NEC: ['payerName', 'recipientTIN', 'nonemployeeCompensation'],
+    FORM_1099_K: ['filerName', 'payeeTIN', 'grossAmount'],
+    SCHEDULE_K1: ['partnershipName', 'partnerSSN', 'ordinaryBusinessIncome', 'selfEmploymentEarnings'],
+    BANK_STATEMENT: ['bankName', 'accountNumber', 'beginningBalance', 'endingBalance'],
     SSN_CARD: ['fullName', 'ssn'],
     DRIVER_LICENSE: ['fullName', 'licenseNumber', 'expirationDate'],
   }

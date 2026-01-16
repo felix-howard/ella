@@ -129,7 +129,7 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
 - 8 unit tests
 
-### OCR Extraction Service (Phase 02)
+### OCR Extraction Service (Phase 02 - Enhanced Phase 2 Priority 1)
 
 **Function:** `extractDocumentData(buffer, mimeType, docType): Promise<OcrExtractionResult>`
 - **Single Images:** Direct Gemini vision → JSON data + confidence score
@@ -143,9 +143,23 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 **OCR Extraction Strategy (Exclusion-Based):**
 Excludes 9 types: PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN. All other types require OCR.
 
+**Phase 2 Priority 1 - New Document Types (2026-01-17):**
+- **FORM_1099_K** - Payment Card Transactions (Square, Clover, PayPal)
+- **SCHEDULE_K1** - Partnership Income (K-1 forms)
+- **BANK_STATEMENT** - Business Cash Flow documentation
+
+**Supported OCR Prompts (8 total):**
+- `prompts/ocr/w2.ts` - W-2 employment income
+- `prompts/ocr/1099-int.ts` - Interest income
+- `prompts/ocr/1099-nec.ts` - Contractor compensation
+- `prompts/ocr/1099-k.ts` (NEW Phase 2 P1) - Payment card transactions
+- `prompts/ocr/k-1.ts` (NEW Phase 2 P1) - Partnership income
+- `prompts/ocr/bank-statement.ts` (NEW Phase 2 P1) - Business cash flow
+- `prompts/ocr/ssn-dl.ts` - SSN card & driver's license
+
 **Performance:** +500ms per page for PDFs
 
-**Testing:** 20 unit tests covering single/multi-page, merging, confidence weighting
+**Testing:** 20+ unit tests covering single/multi-page, merging, confidence weighting
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
 

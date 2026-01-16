@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-15 07:40
-> **Current Phase:** Phase 6 (AI Document Classification Testing) - 100% Complete
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes + Enhanced Portal Upload + AI Classification)
+> **Last Updated:** 2026-01-16 08:32
+> **Current Phase:** Phase 6 (AI Document Classification Testing) - 100% Complete + Bug Fixes
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes + Enhanced Portal Upload + AI Classification + Document Workflow Bug Fixes)
 
 ---
 
@@ -415,6 +415,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 3.4 | 2026-01-16 08:32 | PM | BUG FIX: Document Workflow - Documents now update immediately in all tabs after classification/verification. Fixed missing docs query invalidation in modals + extended polling hook. 2 phases, actual effort 1 hour, completed ahead of schedule. |
 | 3.3 | 2026-01-15 07:40 | PM | MILESTONE: Phase 6 AI Classification Testing & Polish complete. 28 tests (17 unit + 11 integration), 100% pass rate, 8.5/10 code review, all security hardening applied. Production-ready testing suite. |
 | 3.2 | 2026-01-14 19:05 | PM | MILESTONE: Phase 5.3 Enhanced Portal Upload complete (4/4 phases). Mobile-first upload with progress tracking, drag/drop desktop support, i18n localization. Total project: 158 tasks complete (100% done). All phases complete. |
 | 3.1 | 2026-01-14 15:54 | PM | MILESTONE: Phase 5.2 Production Gaps Fix complete (4/4 gaps). Status management, document verification, action completion, search implemented. Total project: 154 tasks complete (100% done). MVP + production fixes fully complete. |

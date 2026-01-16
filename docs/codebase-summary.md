@@ -81,9 +81,10 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 - `/clients/$clientId` - Client detail (3 tabs: Overview, Documents, Messages)
 
 **Features:**
-- 10s polling: active conversation + **client detail messages tab**
+- 10s polling: active conversation + client detail messages tab
 - Copy-to-clipboard workflow (Phase 4.1)
 - 3-tab document workflow (Phase 04 Tabs)
+- 5s polling: classification updates on Documents tab (real-time status tracking)
 
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
@@ -143,9 +144,9 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 
 ---
 
-**Last Updated:** 2026-01-15
-**Status:** Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + **Client Messages Tab** (NEW)
+**Last Updated:** 2026-01-16
+**Status:** Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + **Document Workflow Bugs Fixed**
 **Branch:** feature/enhancement
-**Architecture Version:** 6.2
+**Architecture Version:** 6.2.1
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

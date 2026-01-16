@@ -898,7 +898,7 @@ Staff Views Client Documents Tab
         ↓
 useClassificationUpdates() hook activates
         ↓
-Query: GET /cases/:id/images
+Query: GET /cases/:id/images AND GET /cases/:id/docs
         ↓
 React Query polling: every 5 seconds (only when tab active)
         ↓
@@ -928,10 +928,16 @@ Gallery UI Updates:
 ├─ Image preview refreshes
 └─ Review button toggles based on confidence
         ↓
-Invalidate Related Queries:
-├─ queryClient.invalidateQueries(['checklist', caseId])
-├─ RawImageGallery re-renders
+Invalidate Related Queries (on status changes):
+├─ CLASSIFIED/LINKED: Invalidate ['checklist', caseId]
+├─ RawImageGallery re-renders with updated status
 └─ ChecklistGrid reflects new status
+        ↓
+Hook Returns:
+├─ images: polled RawImage array (re-fetched every 5s)
+├─ docs: polled DigitalDoc array (re-fetched every 5s)
+├─ processingCount: active PROCESSING images
+└─ isPolling: enabled state
         ↓
 FloatingPanel Auto-Hides:
 └─ When processingCount === 0
@@ -946,11 +952,21 @@ Poll Stops (unsubscribe):
 - State comparison prevents duplicate notifications
 - Debounced polling (5s interval, not per-update)
 
+**Query Invalidation Strategy:**
+- Hook polls both images AND docs queries simultaneously
+- On classification status change (CLASSIFIED/LINKED):
+  - Invalidates checklist query → RawImageGallery & ChecklistGrid refresh
+  - docs array keeps in sync with latest DigitalDoc records
+  - Modal submissions (classify-review, manual-classify) also invalidate docs
+- Prevents stale data in classification/verification workflows
+
 **Components:**
-- useClassificationUpdates() - Polling hook with state tracking
+- useClassificationUpdates() - Polling hook with dual query tracking + invalidation
 - UploadProgress - Floating panel showing processing count
 - RawImageGallery - Display with PROCESSING status badge
-- Client Detail - Route that integrates polling + notifications
+- ClassificationReviewModal - Invalidates docs on approve/reject
+- ManualClassificationModal - Invalidates docs on classification
+- Client Detail - Route that integrates polling + docs tracking
 ```
 
 ## Database Schema (Phase 1.1 - Complete)

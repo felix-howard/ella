@@ -105,3 +105,11 @@ export {
   getGroupImages,
   type DuplicateDetectionResult,
 } from './duplicate-detector'
+
+// AI Error Messages - Vietnamese localization
+export {
+  getVietnameseError,
+  getActionTitle,
+  getActionPriority,
+  type AIErrorType,
+} from './ai-error-messages'

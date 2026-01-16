@@ -3,6 +3,7 @@
  * Shared types for document processing pipeline
  */
 import type { DocType, ActionType, ActionPriority } from '@ella/db'
+import type { AIErrorType } from './ai-error-messages'
 
 /**
  * Pipeline result for a single image
@@ -55,9 +56,10 @@ export interface VerifyDocsMetadata extends ActionMetadataBase {
 
 export interface AiFailedMetadata extends ActionMetadataBase {
   errorMessage?: string
+  technicalError?: string
   r2Key?: string
   attemptedAt?: string
-  errorType?: 'SERVICE_UNAVAILABLE' | 'CLASSIFICATION_FAILED' | 'NETWORK_ERROR'
+  errorType: AIErrorType
 }
 
 /**

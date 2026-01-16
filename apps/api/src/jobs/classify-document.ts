@@ -25,6 +25,11 @@ import {
   processOcrResultAtomic,
   markImageProcessing,
 } from '../services/ai/pipeline-helpers'
+import {
+  getVietnameseError,
+  getActionTitle,
+  getActionPriority,
+} from '../services/ai/ai-error-messages'
 import { generateImageHash, assignToImageGroup } from '../services/ai/duplicate-detector'
 import type { DocType } from '@ella/db'
 
@@ -76,18 +81,24 @@ export const classifyDocumentJob = inngest.createFunction(
   async ({ event, step }) => {
     const { rawImageId, caseId, r2Key, mimeType: eventMimeType } = event.data
 
-    // Step 0: Idempotency check - skip if already processed
+    // Step 0: Atomic idempotency check + mark processing (prevents race condition)
     const idempotencyCheck = await step.run('check-idempotency', async () => {
-      const image = await prisma.rawImage.findUnique({
-        where: { id: rawImageId },
-        select: { status: true },
+      // Atomic compare-and-swap: only update if status is UPLOADED
+      const updated = await prisma.rawImage.updateMany({
+        where: { id: rawImageId, status: 'UPLOADED' },
+        data: { status: 'PROCESSING' },
       })
 
-      // Already processed if not in UPLOADED status
-      if (image?.status !== 'UPLOADED') {
+      // If no rows updated, image was already processed or doesn't exist
+      if (updated.count === 0) {
+        const image = await prisma.rawImage.findUnique({
+          where: { id: rawImageId },
+          select: { status: true },
+        })
         return { skip: true, status: image?.status || 'NOT_FOUND' }
       }
-      return { skip: false, status: 'UPLOADED' }
+
+      return { skip: false, status: 'PROCESSING' }
     })
 
     // Exit early if already processed
@@ -99,11 +110,6 @@ export const classifyDocumentJob = inngest.createFunction(
         rawImageId,
       }
     }
-
-    // Mark image as processing
-    await step.run('mark-processing', async () => {
-      await markImageProcessing(rawImageId)
-    })
 
     // Step 1: Fetch file from R2 with resize for large images (skip for PDFs)
     const imageData = await step.run('fetch-image', async () => {
@@ -151,19 +157,21 @@ export const classifyDocumentJob = inngest.createFunction(
 
         // Check for service unavailability in error message
         if (!result.success && result.error && isServiceUnavailable(result.error)) {
-          // Mark for manual classification and create high-priority action
+          const errorInfo = getVietnameseError(result.error)
+
+          // Mark for manual classification and create action with Vietnamese message
           await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', 0)
           await createAction({
             caseId,
             type: 'AI_FAILED',
-            priority: 'HIGH',
-            title: 'AI không khả dụng',
-            description: 'Dịch vụ AI tạm thời không khả dụng. Vui lòng phân loại thủ công.',
+            priority: getActionPriority(errorInfo.severity),
+            title: getActionTitle(errorInfo.type),
+            description: errorInfo.message,
             metadata: {
               rawImageId,
               r2Key,
-              errorType: 'SERVICE_UNAVAILABLE',
-              errorMessage: sanitizeErrorMessage(result.error),
+              errorType: errorInfo.type,
+              technicalError: sanitizeErrorMessage(result.error),
               attemptedAt: new Date().toISOString(),
             },
           })
@@ -203,18 +211,21 @@ export const classifyDocumentJob = inngest.createFunction(
 
       // Failed classification or very low confidence → unclassified
       if (!success || confidence < LOW_CONFIDENCE) {
+        const errorInfo = getVietnameseError(error || classification.reasoning)
+
         await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', confidence)
 
-        // Create AI_FAILED action for CPA visibility
+        // Create AI_FAILED action with Vietnamese message for CPA visibility
         await createAction({
           caseId,
           type: 'AI_FAILED',
-          priority: 'NORMAL',
-          title: 'Phân loại tự động thất bại',
-          description: `Không thể phân loại tài liệu (độ tin cậy: ${Math.round(confidence * 100)}%)`,
+          priority: getActionPriority(errorInfo.severity),
+          title: getActionTitle(errorInfo.type),
+          description: errorInfo.message,
           metadata: {
             rawImageId,
-            errorMessage: sanitizeErrorMessage(error || classification.reasoning),
+            errorType: errorInfo.type,
+            technicalError: sanitizeErrorMessage(error || classification.reasoning),
             r2Key,
             attemptedAt: new Date().toISOString(),
           },

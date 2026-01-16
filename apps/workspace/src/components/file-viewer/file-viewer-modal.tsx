@@ -166,6 +166,14 @@ export function FileViewerModal({
     }
   }
 
+  // Handle backdrop click to close modal
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking directly on the backdrop (not on content)
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   if (!isOpen) return null
 
   return (
@@ -176,9 +184,10 @@ export function FileViewerModal({
       aria-modal="true"
       aria-label={`Xem file: ${filename}`}
       tabIndex={-1}
+      onClick={handleBackdropClick}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-black/50">
+      <div className="flex items-center justify-between px-4 py-3 bg-black/50" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 min-w-0">
           {fileType === 'pdf' ? (
             <FileText className="w-5 h-5 text-white flex-shrink-0" />
@@ -213,10 +222,13 @@ export function FileViewerModal({
       </div>
 
       {/* Main content area - use items-start for PDF to allow scrolling from top */}
-      <div className={cn(
-        "flex-1 overflow-auto flex justify-center p-4",
-        fileType === 'pdf' ? 'items-start pt-8' : 'items-center'
-      )}>
+      <div
+        className={cn(
+          "flex-1 overflow-auto flex justify-center p-4",
+          fileType === 'pdf' ? 'items-start pt-8' : 'items-center'
+        )}
+        onClick={e => e.stopPropagation()}
+      >
         {isLoading ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-white animate-spin" />
@@ -300,7 +312,7 @@ export function FileViewerModal({
       </div>
 
       {/* Controls bar */}
-      <div className="flex items-center justify-center gap-4 px-4 py-3 bg-black/50">
+      <div className="flex items-center justify-center gap-4 px-4 py-3 bg-black/50" onClick={e => e.stopPropagation()}>
         {/* Zoom controls */}
         <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5">
           <button
@@ -363,9 +375,9 @@ export function FileViewerModal({
       </div>
 
       {/* Keyboard hints */}
-      <div className="text-center py-2 bg-black/30">
+      <div className="text-center py-2 bg-black/30" onClick={e => e.stopPropagation()}>
         <p className="text-white/50 text-xs">
-          ESC: đóng • +/-: zoom • R: xoay • 0: reset
+          ESC: đóng • Click ngoài để đóng • +/-: zoom • R: xoay
           {fileType === 'pdf' && numPages && numPages > 1 && ' • ←/→: chuyển trang'}
         </p>
       </div>

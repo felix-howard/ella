@@ -28,7 +28,7 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { ChecklistGrid, StatusSelector } from '../../components/cases'
+import { DocumentChecklistTree, StatusSelector } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
 import { ClientMessagesTab } from '../../components/client-detail'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
@@ -598,14 +598,13 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Checklist Grid */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
+          {/* Document Checklist Tree */}
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold text-primary mb-3">
               Danh sách tài liệu cần thu thập
             </h2>
-            <ChecklistGrid
+            <DocumentChecklistTree
               items={checklistItems}
-              onItemClick={(item) => console.log('Clicked checklist item:', item.id)}
               onVerify={(item) => console.log('Verify item:', item.id)}
               enableDragDrop={true}
               onImageDrop={(imageId, targetChecklistItemId) => {

@@ -30,6 +30,30 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   UNKNOWN: 'Chưa xác định',
 }
 
+// Document type categories for tree view organization
+export const DOC_TYPE_CATEGORIES: Record<string, { label: string; docTypes: string[] }> = {
+  personal: {
+    label: 'Giấy tờ cá nhân',
+    docTypes: ['SSN_CARD', 'DRIVER_LICENSE', 'PASSPORT', 'BIRTH_CERTIFICATE'],
+  },
+  income: {
+    label: 'Thu nhập',
+    docTypes: ['W2', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA'],
+  },
+  deductions: {
+    label: 'Chi phí & Khấu trừ',
+    docTypes: ['FORM_1098', 'FORM_1098_T', 'RECEIPT', 'DAYCARE_RECEIPT'],
+  },
+  business: {
+    label: 'Doanh nghiệp',
+    docTypes: ['PROFIT_LOSS_STATEMENT', 'BUSINESS_LICENSE', 'EIN_LETTER', 'BANK_STATEMENT'],
+  },
+  other: {
+    label: 'Khác',
+    docTypes: ['OTHER', 'UNKNOWN'],
+  },
+}
+
 // Vietnamese labels for TaxCaseStatus
 export const CASE_STATUS_LABELS: Record<string, string> = {
   INTAKE: 'Tiếp nhận',

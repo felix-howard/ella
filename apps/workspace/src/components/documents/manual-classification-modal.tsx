@@ -154,6 +154,7 @@ export function ManualClassificationModal({
       toast.success(MESSAGES.CLASSIFY_SUCCESS)
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['docs', caseId] })
       onClose()
     },
     onError: (_error, _docType, context) => {

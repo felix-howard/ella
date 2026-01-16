@@ -154,7 +154,7 @@ function ClientDetailPage() {
 
   // Enable polling for real-time classification updates when on documents tab
   const isDocumentsTab = activeTab === 'documents'
-  const { images: polledImages, processingCount } = useClassificationUpdates({
+  const { images: polledImages, docs: polledDocs, processingCount } = useClassificationUpdates({
     caseId: latestCaseId,
     enabled: isDocumentsTab,
     refetchInterval: 5000,
@@ -206,7 +206,10 @@ function ClientDetailPage() {
   const rawImages = isDocumentsTab && polledImages.length > 0
     ? polledImages
     : (imagesResponse?.images ?? [])
-  const digitalDocs = docsResponse?.docs ?? []
+  // Use polled docs when on documents tab for real-time updates
+  const digitalDocs = isDocumentsTab
+    ? polledDocs
+    : (docsResponse?.docs ?? [])
 
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus

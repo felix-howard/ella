@@ -36,6 +36,15 @@ export function useClassificationUpdates({
     refetchIntervalInBackground: false, // Only poll when tab active
   })
 
+  // Docs query with polling (same interval as images)
+  const { data: docsResponse } = useQuery({
+    queryKey: ['docs', caseId],
+    queryFn: () => api.cases.getDocs(caseId!),
+    enabled: !!caseId && enabled,
+    refetchInterval: enabled ? refetchInterval : false,
+    refetchIntervalInBackground: false,
+  })
+
   /**
    * Handle image status transition notifications
    * Shows toast with appropriate message based on status and confidence
@@ -130,6 +139,7 @@ export function useClassificationUpdates({
 
   return {
     images: imagesResponse?.images || [],
+    docs: docsResponse?.docs || [],
     processingCount,
     isPolling: enabled,
   }

@@ -136,6 +136,7 @@ export function ClassificationReviewModal({
       // Invalidate to ensure data sync
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['docs', caseId] })
       onClose()
     },
     onError: (_error, _variables, context) => {

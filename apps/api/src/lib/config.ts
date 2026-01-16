@@ -46,7 +46,7 @@ export const config = {
   ai: {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     isConfigured: Boolean(process.env.GEMINI_API_KEY),
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || '3', 10),
     retryDelayMs: parseInt(process.env.GEMINI_RETRY_DELAY_MS || '1000', 10),
     batchConcurrency: parseInt(process.env.AI_BATCH_CONCURRENCY || '3', 10),

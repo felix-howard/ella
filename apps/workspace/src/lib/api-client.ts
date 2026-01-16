@@ -297,6 +297,13 @@ export const api = {
           body: JSON.stringify(data),
         }
       ),
+
+    // Rename image file (display name only)
+    rename: (id: string, filename: string) =>
+      request<{ success: boolean; id: string; filename: string }>(`/images/${id}/rename`, {
+        method: 'PATCH',
+        body: JSON.stringify({ filename }),
+      }),
   },
 
   // Messages

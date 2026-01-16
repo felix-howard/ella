@@ -32,6 +32,11 @@ const requestReuploadSchema = z.object({
   sendSms: z.boolean().default(true),
 })
 
+// Schema for renaming file
+const renameSchema = z.object({
+  filename: z.string().min(1, 'Filename is required').max(255, 'Filename too long'),
+})
+
 /**
  * PATCH /images/:id/classification - Update image classification
  * Used by CPA to approve/reject AI classification with optional type change
@@ -444,6 +449,57 @@ imagesRoute.post(
       message: 'Reupload requested',
       smsSent,
       smsError,
+    })
+  }
+)
+
+/**
+ * PATCH /images/:id/rename - Rename an image file
+ * Updates the filename in database (display name only, R2 key unchanged)
+ */
+imagesRoute.patch(
+  '/:id/rename',
+  zValidator('json', renameSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { filename } = c.req.valid('json')
+
+    // Sanitize filename - remove path separators and dangerous chars
+    const sanitizedFilename = filename
+      .replace(/[/\\:*?"<>|]/g, '_')
+      .trim()
+
+    if (!sanitizedFilename) {
+      return c.json(
+        { error: 'INVALID_FILENAME', message: 'Invalid filename' },
+        400
+      )
+    }
+
+    // Find and update the raw image
+    const rawImage = await prisma.rawImage.findUnique({
+      where: { id },
+      select: { id: true, filename: true },
+    })
+
+    if (!rawImage) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Image not found' },
+        404
+      )
+    }
+
+    // Update filename
+    const updated = await prisma.rawImage.update({
+      where: { id },
+      data: { filename: sanitizedFilename },
+      select: { id: true, filename: true },
+    })
+
+    return c.json({
+      success: true,
+      id: updated.id,
+      filename: updated.filename,
     })
   }
 )

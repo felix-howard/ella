@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-15
+**Current Date:** 2026-01-16
 **Current Branch:** feature/enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |
 | **Phase 04 Tabs** | **Tab Layout Refactor (3-Tab Workflow: Uploads, Review, Verified)** | **2026-01-15** |
 | **Phase 03 Shared** | **Shared Components (Field Verification, Copy Tracking)** | **2026-01-15** |
 | **Phase 06** | **Testing Infrastructure & Edge Case Handling** | **2026-01-15** |
@@ -88,6 +89,40 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
+## Backend Services
+
+### PDF Converter Service (Phase 01)
+
+**Location:** `apps/api/src/services/pdf/`
+
+**Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+
+Converts PDF documents to PNG images for OCR processing with strict safety limits.
+
+**Key Features:**
+- 200 DPI rendering for optimal OCR accuracy
+- Magic bytes validation + encryption detection
+- 20MB size limit, 10-page maximum per document
+- Multi-page batch conversion with page numbering
+- Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
+- Automatic temp file cleanup in finally block
+- 8 unit tests covering error scenarios
+
+**Typical Flow:**
+```
+PDF upload → Size check → Format validation → Page count query →
+Render to PNG (200 DPI) → Return page images → Cleanup temp files
+```
+
+**Performance:** ~1-2s for 3-page PDF, ~2-5s for 10-page PDF
+
+**Platform Requirements:**
+- Windows: Bundled poppler (no setup needed)
+- Linux: `apt-get install poppler-utils` (Ubuntu/Debian) or `yum install poppler-utils` (CentOS/RHEL)
+- macOS: `brew install poppler`
+
+See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
+
 ## Development Quick Start
 
 ```bash
@@ -148,8 +183,8 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 ---
 
 **Last Updated:** 2026-01-16
-**Status:** Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + Phase 02 AI Validation + **Document Workflow Bugs Fixed**
+**Status:** Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + Phase 02 AI Validation + Document Workflow
 **Branch:** feature/enhancement
-**Architecture Version:** 6.2.2
+**Architecture Version:** 6.3.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

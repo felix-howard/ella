@@ -13,6 +13,10 @@ export type AIErrorType =
   | 'TIMEOUT'
   | 'CLASSIFICATION_FAILED'
   | 'OCR_FAILED'
+  | 'PDF_INVALID'
+  | 'PDF_ENCRYPTED'
+  | 'PDF_TOO_LARGE'
+  | 'PDF_CONVERSION_FAILED'
   | 'UNKNOWN'
 
 interface ErrorMapping {
@@ -65,6 +69,30 @@ const ERROR_MAPPINGS: ErrorMapping[] = [
     type: 'TIMEOUT',
     vietnamese: 'Xử lý quá thời gian. Vui lòng thử lại.',
     severity: 'warning',
+  },
+  {
+    pattern: /pdf.*invalid|invalid.*pdf|corrupt.*pdf/i,
+    type: 'PDF_INVALID',
+    vietnamese: 'Tệp PDF không hợp lệ hoặc bị hỏng.',
+    severity: 'error',
+  },
+  {
+    pattern: /pdf.*encrypt|password.*protect/i,
+    type: 'PDF_ENCRYPTED',
+    vietnamese: 'Tệp PDF được bảo vệ bằng mật khẩu. Vui lòng gỡ mật khẩu trước khi tải lên.',
+    severity: 'error',
+  },
+  {
+    pattern: /pdf.*too.*large|pdf.*size/i,
+    type: 'PDF_TOO_LARGE',
+    vietnamese: 'Tệp PDF quá lớn (tối đa 20MB).',
+    severity: 'error',
+  },
+  {
+    pattern: /pdf.*conversion|convert.*pdf.*fail/i,
+    type: 'PDF_CONVERSION_FAILED',
+    vietnamese: 'Không thể chuyển đổi PDF. Vui lòng thử lại hoặc tải lên hình ảnh.',
+    severity: 'error',
   },
 ]
 
@@ -120,6 +148,10 @@ export function getActionTitle(errorType: AIErrorType): string {
     TIMEOUT: 'Quá thời gian xử lý',
     CLASSIFICATION_FAILED: 'Phân loại tự động thất bại',
     OCR_FAILED: 'Trích xuất dữ liệu thất bại',
+    PDF_INVALID: 'PDF không hợp lệ',
+    PDF_ENCRYPTED: 'PDF được bảo vệ',
+    PDF_TOO_LARGE: 'PDF quá lớn',
+    PDF_CONVERSION_FAILED: 'Chuyển đổi PDF thất bại',
     UNKNOWN: 'Lỗi xử lý AI',
   }
   return titles[errorType]

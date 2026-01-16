@@ -170,12 +170,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - CORS for frontend (localhost:5173, :5174)
 - Request logging via hono/logger middleware
 
-**Core Services (Phase 1.2):**
+**Core Services (Phase 1.2+):**
 
 - `checklist-generator.ts` - Generate checklist from profile & templates
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
+- `pdf/pdf-converter.ts` - PDF to PNG conversion for OCR processing (Phase 01)
 
 **SMS Service Implementation (Phase 1.2+):**
 
@@ -237,6 +238,25 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Idempotency Fix (Phase 04):**
   - Atomic compare-and-swap on `RawImage.status` to prevent race conditions
   - Single database operation prevents concurrent processing of same image
+
+**PDF Converter Service (Phase 01):**
+
+- **Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+- **Purpose:** Convert PDF documents to PNG images for OCR processing
+- **Validation:**
+  - Size limit: 20MB (prevents memory exhaustion)
+  - Magic bytes check: Validates %PDF header
+  - Page limit: 10 pages maximum per document
+  - Encryption detection: Identifies password-protected PDFs
+- **Processing:**
+  - Rendering: 200 DPI for optimal OCR accuracy
+  - Output: PNG images with page numbering
+  - Cleanup: Automatic temp file removal in finally block
+- **Error Handling:** Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES, CONVERSION_FAILED, IO_ERROR)
+- **Performance:** ~1-2s for 3-page PDF, ~2-5s for 10-page PDF
+- **Dependencies:** pdf-poppler (requires poppler-utils on Linux)
+
+See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
 
 **Unified Messaging (Phase 3.2):**
 

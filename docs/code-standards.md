@@ -191,6 +191,82 @@ export { Button, buttonVariants }
 - Customizations in local codebase
 - Config: `components.json`
 
+## PDF Converter Service (@ella/api - Phase 01)
+
+**Service Organization:**
+
+```
+apps/api/src/services/pdf/
+├── pdf-converter.ts          # Core conversion logic
+├── index.ts                  # Public exports
+└── __tests__/
+    └── pdf-converter.test.ts # Unit tests (8 tests)
+```
+
+**Key Patterns:**
+
+```typescript
+// 1. Type-safe result wrapper (success + error handling)
+export interface PdfConversionResult {
+  success: boolean
+  pages?: PdfPageImage[]
+  totalPages?: number
+  error?: string
+  errorType?: PdfErrorType
+  processingTimeMs?: number
+}
+
+// 2. Early validation pattern (fail fast, no side effects)
+if (pdfBuffer.length > MAX_PDF_SIZE_BYTES) {
+  return {
+    success: false,
+    error: PDF_ERROR_MESSAGES.TOO_LARGE,
+    errorType: 'TOO_LARGE',
+    processingTimeMs: Date.now() - startTime,
+  }
+}
+
+// 3. Magic bytes validation (before expensive processing)
+function isPdfBuffer(buffer: Buffer): boolean {
+  if (buffer.length < PDF_MAGIC_BYTES.length) return false
+  for (let i = 0; i < PDF_MAGIC_BYTES.length; i++) {
+    if (buffer[i] !== PDF_MAGIC_BYTES[i]) return false
+  }
+  return true
+}
+
+// 4. Error detection pattern (pattern matching on messages)
+function isEncryptedPdfError(error: Error): boolean {
+  const msg = error.message.toLowerCase()
+  return msg.includes('encrypt') || msg.includes('password') || msg.includes('permission')
+}
+
+// 5. Cleanup pattern (finally block for resource safety)
+try {
+  // Main processing
+  await pdf.convert(pdfPath, options)
+} catch (error) {
+  // Error handling
+  return handleError(error)
+} finally {
+  // Always cleanup
+  try {
+    await fs.rm(tempDir, { recursive: true, force: true })
+  } catch {
+    console.warn(`Failed to cleanup: ${tempDir}`)
+  }
+}
+```
+
+**Constants & Configuration:**
+
+```typescript
+const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024  // 20MB hard limit
+const MAX_PAGES = 10                          // Memory safety limit
+const RENDER_DPI = 200                        // OCR-quality rendering
+const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46]  // "%PDF"
+```
+
 ## AI Services (@ella/api - Phase 2.1)
 
 **Service Organization:**

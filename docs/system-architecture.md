@@ -239,22 +239,29 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Atomic compare-and-swap on `RawImage.status` to prevent race conditions
   - Single database operation prevents concurrent processing of same image
 
-**PDF Converter Service (Phase 01):**
+**PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
 
-- **Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-- **Purpose:** Convert PDF documents to PNG images for OCR processing
-- **Validation:**
-  - Size limit: 20MB (prevents memory exhaustion)
-  - Magic bytes check: Validates %PDF header
-  - Page limit: 10 pages maximum per document
-  - Encryption detection: Identifies password-protected PDFs
-- **Processing:**
-  - Rendering: 200 DPI for optimal OCR accuracy
-  - Output: PNG images with page numbering
-  - Cleanup: Automatic temp file removal in finally block
-- **Error Handling:** Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES, CONVERSION_FAILED, IO_ERROR)
-- **Performance:** ~1-2s for 3-page PDF, ~2-5s for 10-page PDF
-- **Dependencies:** pdf-poppler (requires poppler-utils on Linux)
+- **PDF Conversion Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+  - Converts PDF → PNG images (200 DPI) for OCR processing
+  - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
+  - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
+  - Performance: ~1-2s for 3-page, ~2-5s for 10-page PDF
+  - Auto-cleanup: Temp directories removed in finally block
+
+- **OCR Extraction Service (Phase 02):** `extractDocumentData(buffer, mimeType, docType)`
+  - **Single Image:** Direct Gemini vision analysis with confidence scoring
+  - **Multi-Page PDFs:** New extraction flow with intelligent merging
+    - Each PDF page converted to PNG
+    - Independent OCR extraction per page (field values cached)
+    - Merge strategy: Later pages override earlier values (handles amendments)
+    - Weighted confidence: Final confidence based on field contribution
+    - Result includes: pageCount, pageConfidences[], merged data
+
+- **Type Extensions (Phase 02):**
+  - `OcrExtractionResult`: Added `pageCount?`, `pageConfidences?[]` fields
+  - Supports both single images and multi-page PDFs transparently
+
+- **Merge Logic:** Tax documents often have corrections on page 2+; algorithm prioritizes later pages while tracking per-field page origins
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
 

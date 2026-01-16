@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
 | **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |
 | **Phase 04 Tabs** | **Tab Layout Refactor (3-Tab Workflow: Uploads, Review, Verified)** | **2026-01-15** |
 | **Phase 03 Shared** | **Shared Components (Field Verification, Copy Tracking)** | **2026-01-15** |
@@ -91,35 +92,36 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 ## Backend Services
 
-### PDF Converter Service (Phase 01)
+### PDF Converter Service (Phase 01) & OCR Extractor (Phase 02)
 
-**Location:** `apps/api/src/services/pdf/`
+**Locations:**
+- PDF: `apps/api/src/services/pdf/`
+- OCR: `apps/api/src/services/ai/ocr-extractor.ts`
 
-**Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-
-Converts PDF documents to PNG images for OCR processing with strict safety limits.
-
-**Key Features:**
-- 200 DPI rendering for optimal OCR accuracy
+**Phase 01 - PDF Conversion:**
+- **Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+- 200 DPI PNG rendering for optimal OCR accuracy
 - Magic bytes validation + encryption detection
-- 20MB size limit, 10-page maximum per document
-- Multi-page batch conversion with page numbering
+- 20MB size limit, 10-page maximum, auto temp cleanup
 - Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
-- Automatic temp file cleanup in finally block
-- 8 unit tests covering error scenarios
+- 8 unit tests
 
-**Typical Flow:**
-```
-PDF upload → Size check → Format validation → Page count query →
-Render to PNG (200 DPI) → Return page images → Cleanup temp files
-```
+**Phase 02 - OCR Extraction (NEW):**
+- **Function:** `extractDocumentData(buffer, mimeType, docType): Promise<OcrExtractionResult>`
+- **Single Images:** Direct Gemini vision → JSON data + confidence score
+- **Multi-Page PDFs (NEW):**
+  - Auto-converts each page to PNG
+  - Processes each page independently through OCR
+  - **Intelligent Merge:** Later pages override earlier values (handles amendments)
+  - **Weighted Confidence:** Confidence weighted by field contribution across pages
+  - Returns: `pageCount`, `pageConfidences[]`, merged `extractedData`
+  - Result types: OcrExtractionResult with page metadata
 
-**Performance:** ~1-2s for 3-page PDF, ~2-5s for 10-page PDF
+**Supported Document Types:** W2, 1099-INT, 1099-NEC, SSN_CARD, DRIVER_LICENSE
 
-**Platform Requirements:**
-- Windows: Bundled poppler (no setup needed)
-- Linux: `apt-get install poppler-utils` (Ubuntu/Debian) or `yum install poppler-utils` (CentOS/RHEL)
-- macOS: `brew install poppler`
+**Performance:** 2-5s per image, +500ms per page for PDFs
+
+**Testing:** 20 unit tests covering single/multi-page, merging, confidence weighting, Vietnamese errors
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
 
@@ -183,8 +185,8 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 ---
 
 **Last Updated:** 2026-01-16
-**Status:** Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + Phase 02 AI Validation + Document Workflow
+**Status:** Phase 02 OCR (PDF Multi-page Support) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
 **Branch:** feature/enhancement
-**Architecture Version:** 6.3.0
+**Architecture Version:** 6.4.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

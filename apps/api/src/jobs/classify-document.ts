@@ -7,7 +7,7 @@
  * 2. Fetch image from R2 (with resize for large files)
  * 3. Classify with Gemini (with error handling for unavailability)
  * 4. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 5. Detect duplicates using pHash and group similar images
+ * 5. [DISABLED] Detect duplicates using pHash (doesn't support PDFs)
  * 6. OCR extraction (if confidence >= 60% and doc type supports OCR)
  * 7. Update DB with results
  */
@@ -30,7 +30,8 @@ import {
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
-import { generateImageHash, assignToImageGroup } from '../services/ai/duplicate-detector'
+// NOTE: Duplicate detection disabled - see Step 4 comment
+// import { generateImageHash, assignToImageGroup } from '../services/ai/duplicate-detector'
 import type { DocType } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -270,30 +271,10 @@ export const classifyDocumentJob = inngest.createFunction(
     })
 
     // Step 4: Detect duplicates and group similar images
-    const grouping = await step.run('detect-duplicates', async () => {
-      // Skip grouping for unclassified images
-      if (routing.action === 'unclassified') {
-        return { grouped: false, groupId: null, imageCount: 1 }
-      }
-
-      const buffer = Buffer.from(imageData.buffer, 'base64')
-      const imageHash = await generateImageHash(buffer)
-      const validDocType = classification.docType as DocType
-
-      const result = await assignToImageGroup(
-        rawImageId,
-        caseId,
-        validDocType,
-        imageHash
-      )
-
-      return {
-        grouped: result.groupId !== '',
-        groupId: result.groupId || null,
-        isNewGroup: result.isNew,
-        imageCount: result.imageCount,
-      }
-    })
+    // NOTE: Duplicate detection is currently disabled
+    // Reason: Image hashing (pHash) doesn't support PDF files, causing job failures
+    // TODO: Re-enable when PDF page-to-image conversion is implemented for hashing
+    const grouping = { grouped: false, groupId: null, imageCount: 1 }
 
     // Step 5: OCR extraction (only if confidence >= 60% and doc type supports OCR)
     let digitalDocId: string | undefined

@@ -152,11 +152,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /webhooks/twilio/status` - Message status updates (optional tracking)
 
 **Health (1):**
-- `GET /health` - Server status check with Gemini model availability (Phase 02, Phase 03 updates)
-  - Response includes: `status`, `timestamp`, `gemini` (configured, model, activeModel, fallbackModels, available, checkedAt, error)
-  - Gemini validation runs non-blocking on startup
-  - Status cached for efficient health checks
-  - Phase 03: Added `activeModel` (current working model) and `fallbackModels[]` array
+- `GET /health` - Server status check with Gemini & PDF support (Phase 02, Phase 03)
+  - Response includes: `status`, `timestamp`, `gemini`, `pdfSupport`, `supportedFormats`
+  - **Gemini Status:**
+    - `configured` (bool), `model` (string), `available` (bool), `checkedAt` (ISO timestamp), `error` (nullable)
+    - `activeModel` (current working model) & `fallbackModels[]` array (Phase 03 Gemini fallback)
+  - **PDF Support (Phase 03 NEW):**
+    - `enabled` (bool), `maxSizeMB` (20), `maxPages` (10), `renderDpi` (200)
+    - `popplerInstalled` (bool) - Critical: must be true for PDF processing
+    - `popplerError` (nullable) - Error details if poppler unavailable
+  - **Supported Formats:** Images (JPEG, PNG, etc.) & Documents (PDF)
+  - Gemini validation runs non-blocking on startup; status cached for efficiency
 
 **Responsibilities:**
 
@@ -241,29 +247,34 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
 
-- **PDF Conversion Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-  - Converts PDF → PNG images (200 DPI) for OCR processing
-  - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
-  - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
-  - Performance: ~1-2s for 3-page, ~2-5s for 10-page PDF
-  - Auto-cleanup: Temp directories removed in finally block
+- **PDF Conversion Function (Phase 03):** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+  - Converts PDF → PNG images (200 DPI) for OCR processing via poppler-based pdf-poppler library
+  - **Poppler Dependency:** Required for PDF rendering (`pdf-poppler` npm package)
+    - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
+    - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
+    - Performance: ~1-2s for 3-page, ~2-5s for 10-page PDF
+    - Auto-cleanup: Temp directories removed in finally block
+  - **Deployment Note:** Server must have poppler installed (Linux: `apt-get install poppler-utils`, macOS: `brew install poppler`)
+  - **Health Check:** `/health` endpoint reports `pdfSupport.popplerInstalled` status & errors
 
-- **OCR Extraction Service (Phase 02):** `extractDocumentData(buffer, mimeType, docType)`
+- **OCR Extraction Service (Phase 02+03):** `extractDocumentData(buffer, mimeType, docType)`
   - **Single Image:** Direct Gemini vision analysis with confidence scoring
-  - **Multi-Page PDFs:** New extraction flow with intelligent merging
-    - Each PDF page converted to PNG
+  - **Multi-Page PDFs (Phase 03):** Intelligent multi-page extraction flow with merging
+    - Each PDF page converted to PNG via poppler (Phase 03 addition)
     - Independent OCR extraction per page (field values cached)
     - Merge strategy: Later pages override earlier values (handles amendments)
     - Weighted confidence: Final confidence based on field contribution
     - Result includes: pageCount, pageConfidences[], merged data
+    - Logs PDF processing details for debugging
 
-- **Type Extensions (Phase 02):**
+- **Type Extensions (Phase 02+03):**
   - `OcrExtractionResult`: Added `pageCount?`, `pageConfidences?[]` fields
   - Supports both single images and multi-page PDFs transparently
+  - Pipeline health endpoint exports `getPipelineStatus()` with PDF support flags
 
 - **Merge Logic:** Tax documents often have corrections on page 2+; algorithm prioritizes later pages while tracking per-field page origins
 
-See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
+See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
 **Unified Messaging (Phase 3.2):**
 
@@ -853,7 +864,7 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
-### AI Document Processing Pipeline Flow - Phase 02 Implementation
+### AI Document Processing Pipeline Flow - Phase 02+03 Implementation
 
 ```
 Client Uploads Documents via Portal
@@ -861,6 +872,8 @@ Client Uploads Documents via Portal
 POST /portal/:token/upload (multipart form)
         ↓
 1. Validate files (type, size, count ≤20)
+   - Phase 03: Supports JPEG, PNG, GIF, WebP, PDF
+   - Phase 03: PDF size ≤20MB, pages ≤10
 2. Upload each file to R2 storage
 3. Create RawImage record (status: UPLOADED)
 4. Emit inngest.send({ name: 'document/uploaded', data: {...} })
@@ -873,6 +886,7 @@ Match to classifyDocumentJob function
 Execute with:
   - 3 retries (exponential backoff)
   - 10 req/min throttle (Gemini rate limit)
+  - Phase 03: Poppler required for PDF handling
         ↓
 [DURABLE STEP 1: mark-processing]
 Update RawImage.status = PROCESSING
@@ -909,10 +923,14 @@ Confidence >= 85%:
   ├─ No action created (silent success)
   └─ Return { action: 'auto-linked', needsOcr: true/false }
         ↓
-[DURABLE STEP 5: ocr-extract] (conditional)
+[DURABLE STEP 5: ocr-extract] (conditional) - Phase 03: Multi-page PDF support
 If needsOcr && docType supports OCR:
   ├─ Decode base64 buffer
-  ├─ Call extractDocumentData() (Gemini vision + prompts)
+  ├─ Phase 03: If PDF, convert all pages to PNG via poppler
+  ├─ Call extractDocumentData() with intelligent merging (single image or multi-page PDF)
+  │  - Per-page OCR extraction with independent confidence scores
+  │  - Merge strategy: Later pages override earlier (handles amendments)
+  │  - Result includes pageCount, pageConfidences[], merged data
   ├─ Validate extracted JSON against schema
   └─ Call processOcrResultAtomic() for atomic DB update
         ↓

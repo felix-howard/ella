@@ -99,6 +99,7 @@ export interface PipelineConfig {
   maxRetries: number
   retryDelayMs: number
   batchConcurrency: number
+  pdfConcurrency: number // Lower for PDFs (memory intensive)
 }
 
 /**
@@ -108,4 +109,5 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   maxRetries: 2,
   retryDelayMs: 1000,
   batchConcurrency: 3,
+  pdfConcurrency: 1, // Process PDFs one at a time (each uses ~100MB)
 }

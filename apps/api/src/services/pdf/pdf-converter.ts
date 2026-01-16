@@ -217,3 +217,72 @@ export function getPdfErrorMessage(errorType: PdfErrorType): string {
 export function isPdfMimeType(mimeType: string): boolean {
   return mimeType === 'application/pdf'
 }
+
+/**
+ * Poppler availability status
+ */
+export interface PopplerStatus {
+  installed: boolean
+  error?: string
+  checkedAt: string
+}
+
+// Cached poppler status
+let popplerStatusCache: PopplerStatus | null = null
+
+/**
+ * Check if poppler is installed and available
+ * Result is cached for performance
+ */
+export async function checkPopplerInstalled(): Promise<PopplerStatus> {
+  // Return cached result if available
+  if (popplerStatusCache) {
+    return popplerStatusCache
+  }
+
+  try {
+    // Attempt a minimal PDF info call to verify poppler works
+    // Create a minimal valid PDF to test
+    const minimalPdf = Buffer.from(
+      '%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n' +
+        '2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n' +
+        '3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\n' +
+        'xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n' +
+        '0000000052 00000 n \n0000000101 00000 n \n' +
+        'trailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF'
+    )
+
+    const tempDir = path.join(os.tmpdir(), `ella-poppler-check-${nanoid(6)}`)
+    const testPdfPath = path.join(tempDir, 'test.pdf')
+
+    try {
+      await fs.mkdir(tempDir, { recursive: true })
+      await fs.writeFile(testPdfPath, minimalPdf)
+      await pdf.info(testPdfPath)
+
+      popplerStatusCache = {
+        installed: true,
+        checkedAt: new Date().toISOString(),
+      }
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[PDF] Poppler check failed:', msg)
+    popplerStatusCache = {
+      installed: false,
+      error: 'Poppler not installed. Install: apt-get install poppler-utils (Linux) or use bundled Windows binary.',
+      checkedAt: new Date().toISOString(),
+    }
+  }
+
+  return popplerStatusCache
+}
+
+/**
+ * Get current poppler status (cached)
+ */
+export function getPopplerStatus(): PopplerStatus | null {
+  return popplerStatusCache
+}

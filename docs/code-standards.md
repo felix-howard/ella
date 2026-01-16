@@ -191,17 +191,22 @@ export { Button, buttonVariants }
 - Customizations in local codebase
 - Config: `components.json`
 
-## PDF Converter Service (@ella/api - Phase 01)
+## PDF Converter Service (@ella/api - Phase 01+03)
 
-**Service Organization:**
+**Service Organization (Phase 03 updates):**
 
 ```
 apps/api/src/services/pdf/
-├── pdf-converter.ts          # Core conversion logic
-├── index.ts                  # Public exports
+├── pdf-converter.ts          # Core conversion logic via poppler
+├── index.ts                  # Public exports (added getPopplerStatus)
 └── __tests__/
-    └── pdf-converter.test.ts # Unit tests (8 tests)
+    └── pdf-converter.test.ts # Unit tests (8+ tests)
 ```
+
+**Poppler Dependency (Phase 03):**
+- Uses `pdf-poppler` npm package for PDF → PNG conversion
+- Server requires poppler system library: `apt-get install poppler-utils` (Linux) or `brew install poppler` (macOS)
+- Health check (`getPopplerStatus()`) validates poppler installation on startup
 
 **Key Patterns:**
 

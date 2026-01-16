@@ -212,6 +212,20 @@ docsRoute.post('/:id/ocr', async (c) => {
     return c.json({ error: 'IMAGE_ERROR', message: 'Failed to load image for processing' }, 500)
   }
 
+  // Check PDF size limit before OCR (fail fast)
+  const MAX_PDF_SIZE = 20 * 1024 * 1024 // 20MB
+  if (mimeType === 'application/pdf' && imageBuffer.length > MAX_PDF_SIZE) {
+    return c.json({
+      error: 'PDF_TOO_LARGE',
+      message: 'Tệp PDF quá lớn (tối đa 20MB).',
+    }, 413)
+  }
+
+  // Log PDF processing
+  if (mimeType === 'application/pdf') {
+    console.log(`[OCR] Processing PDF document: ${id}, size: ${imageBuffer.length} bytes`)
+  }
+
   // Run OCR extraction
   const ocrResult = await extractDocumentData(imageBuffer, mimeType, doc.docType)
 
@@ -264,6 +278,20 @@ docsRoute.post('/:id/ocr', async (c) => {
     return digitalDoc
   })
 
+  // Determine appropriate success message (Vietnamese for PDF)
+  const isPdf = mimeType === 'application/pdf'
+  let message: string
+  if (ocrResult.success) {
+    message = isPdf
+      ? `Trích xuất PDF thành công (${ocrResult.pageCount || 1} trang). Đang chờ xác minh.`
+      : 'OCR extraction completed. Awaiting verification.'
+  } else {
+    message = `Trích xuất thất bại: ${ocrResult.error}`
+  }
+
+  // Set UTF-8 charset for Vietnamese messages
+  c.header('Content-Type', 'application/json; charset=utf-8')
+
   return c.json({
     digitalDoc: {
       ...updatedDoc,
@@ -276,10 +304,12 @@ docsRoute.post('/:id/ocr', async (c) => {
       isValid: ocrResult.isValid,
       fieldLabels: ocrResult.fieldLabels,
       processingTimeMs: ocrResult.processingTimeMs,
+      // PDF-specific metadata
+      pageCount: ocrResult.pageCount,
+      pageConfidences: ocrResult.pageConfidences,
+      isPdf,
     },
-    message: ocrResult.success
-      ? 'OCR extraction completed. Awaiting verification.'
-      : `OCR extraction failed: ${ocrResult.error}`,
+    message,
   })
 })
 

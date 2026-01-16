@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { app } from './app'
 import { initializeScheduler, stopScheduler } from './services/scheduler'
 import { validateGeminiModel } from './services/ai/gemini-client'
+import { checkPopplerInstalled } from './services/pdf'
 
 const port = Number(process.env.PORT) || 3001
 
@@ -19,6 +20,16 @@ initializeScheduler()
 validateGeminiModel().then((status) => {
   if (!status.available) {
     console.warn('[Startup] Gemini model not available:', status.error)
+  }
+})
+
+// Validate Poppler installation for PDF support (non-blocking)
+checkPopplerInstalled().then((status) => {
+  if (!status.installed) {
+    console.error('[Startup] PDF support unavailable:', status.error)
+    console.error('[Startup] Install poppler: apt-get install poppler-utils (Linux)')
+  } else {
+    console.log('[Startup] PDF support enabled via poppler')
   }
 })
 

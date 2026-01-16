@@ -147,24 +147,23 @@ export async function batchClassifyDocuments(
 
 /**
  * Check if a document type needs OCR extraction
+ * Uses exclusion-based approach for easier maintenance
+ * (Exclude 7 types vs include 17+ types)
  */
 export function requiresOcrExtraction(docType: SupportedDocType | 'UNKNOWN'): boolean {
-  const ocrTypes: Array<SupportedDocType | 'UNKNOWN'> = [
-    'W2',
-    'FORM_1099_INT',
-    'FORM_1099_DIV',
-    'FORM_1099_NEC',
-    'FORM_1099_MISC',
-    'FORM_1099_K',
-    'FORM_1099_R',
-    'FORM_1099_G',
-    'FORM_1099_SSA',
-    'SSN_CARD',
-    'DRIVER_LICENSE',
-    'FORM_1098',
-    'FORM_1098_T',
+  // Types that do NOT require OCR extraction
+  const noOcrTypes: Array<SupportedDocType | 'UNKNOWN'> = [
+    'PASSPORT',           // Photo ID only, no structured data
+    'PROFIT_LOSS_STATEMENT', // Free-form business docs
+    'BUSINESS_LICENSE',   // Varies too much by jurisdiction
+    'EIN_LETTER',         // Simple letter format
+    'RECEIPT',            // Too varied to extract reliably
+    'BIRTH_CERTIFICATE',  // Only for dependent verification
+    'DAYCARE_RECEIPT',    // Varies by provider
+    'OTHER',              // Unknown format
+    'UNKNOWN',            // Unclassified
   ]
-  return ocrTypes.includes(docType)
+  return !noOcrTypes.includes(docType)
 }
 
 /**
@@ -179,11 +178,13 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     FORM_1099_INT: '1099-INT (Lãi ngân hàng)',
     FORM_1099_DIV: '1099-DIV (Cổ tức)',
     FORM_1099_NEC: '1099-NEC (Thu nhập tự do)',
-    FORM_1099_MISC: '1099-MISC',
+    FORM_1099_MISC: '1099-MISC (Thu nhập khác)',
     FORM_1099_K: '1099-K (Thu nhập thẻ)',
     FORM_1099_R: '1099-R (Tiền hưu)',
     FORM_1099_G: '1099-G (Thanh toán chính phủ)',
     FORM_1099_SSA: '1099-SSA (An sinh xã hội)',
+    SCHEDULE_K1: 'K-1 (Thu nhập công ty hợp danh)',
+    FORM_1095_A: '1095-A (Bảo hiểm sức khỏe)',
     BANK_STATEMENT: 'Sao kê ngân hàng',
     PROFIT_LOSS_STATEMENT: 'Báo cáo lời lỗ',
     BUSINESS_LICENSE: 'Giấy phép kinh doanh',

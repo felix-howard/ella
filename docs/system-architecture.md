@@ -245,6 +245,26 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Atomic compare-and-swap on `RawImage.status` to prevent race conditions
   - Single database operation prevents concurrent processing of same image
 
+**Document Classification Service (Phase 01 - Enhanced 2026-01-16):**
+
+- **Classification Function:** `classifyDocument(imageBuffer, mimeType): Promise<DocumentClassificationResult>`
+- **Prompt File:** `src/services/ai/prompts/classify.ts` - Enhanced with few-shot examples & calibration
+- **Classifier Service:** `src/services/ai/document-classifier.ts` - Batch & single classification
+- **Features:**
+  - 6 few-shot examples (W-2, SSN Card, 1099-K, 1099-INT, 1099-NEC, Driver's License)
+  - Vietnamese name handling (family name first, common surnames, ALL CAPS format)
+  - Confidence calibration rules: HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
+  - Alternative types returned when confidence <0.80
+  - Processing time: 2-5s per image
+- **Supported Document Types (24 + UNKNOWN):**
+  - ID Documents: SSN_CARD, DRIVER_LICENSE, PASSPORT
+  - Tax Income: W2, 1099-INT, 1099-DIV, 1099-NEC, 1099-MISC, 1099-K, 1099-R, 1099-G, 1099-SSA, SCHEDULE_K1
+  - Tax Credits: 1098, 1098-T, 1095-A
+  - Business: BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
+  - Other: RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
+- **Batch Classification:** `batchClassifyDocuments(images[], concurrency)` with configurable concurrency limit
+- **OCR Extraction Eligibility:** Exclusion-based - 9 types excluded (PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN), all others require OCR
+
 **PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
 
 - **PDF Conversion Function (Phase 03):** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`

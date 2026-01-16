@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
 | **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
 | **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |
 | **Phase 04 Tabs** | **Tab Layout Refactor (3-Tab Workflow: Uploads, Review, Verified)** | **2026-01-15** |
@@ -92,36 +93,59 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 ## Backend Services
 
-### PDF Converter Service (Phase 01) & OCR Extractor (Phase 02)
+### AI Classification & Document Processing
 
 **Locations:**
-- PDF: `apps/api/src/services/pdf/`
-- OCR: `apps/api/src/services/ai/ocr-extractor.ts`
+- Classification Prompt: `apps/api/src/services/ai/prompts/classify.ts`
+- Classifier Service: `apps/api/src/services/ai/document-classifier.ts`
+- OCR Extraction: `apps/api/src/services/ai/ocr-extractor.ts`
+- PDF Conversion: `apps/api/src/services/pdf/pdf-converter.ts`
 
-**Phase 01 - PDF Conversion:**
-- **Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+### Document Classification (Phase 01 - Enhanced)
+
+**Function:** `classifyDocument(imageBuffer, mimeType): Promise<DocumentClassificationResult>`
+
+**Classification Enhancements (2026-01-16):**
+- **6 Few-Shot Examples:** W-2, SSN Card, 1099-K, 1099-INT, 1099-NEC, Driver's License with confidence scores
+- **Vietnamese Name Handling:** Family name FIRST, common surnames, ALL CAPS format, middle names
+- **Confidence Calibration:** HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
+- **Alternativeypes:** Included when confidence <0.80 to help reviewers
+
+**Supported Document Types (24 + UNKNOWN):**
+- **ID:** SSN_CARD, DRIVER_LICENSE, PASSPORT
+- **Tax Income (10):** W2, FORM_1099_INT, FORM_1099_DIV, FORM_1099_NEC, FORM_1099_MISC, FORM_1099_K, FORM_1099_R, FORM_1099_G, FORM_1099_SSA, SCHEDULE_K1
+- **Tax Credits (3):** FORM_1098, FORM_1098_T, FORM_1095_A
+- **Business (4):** BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
+- **Other (4):** RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
+
+**Performance:** 2-5s per image
+
+### PDF Converter Service (Phase 01)
+
+**Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
 - 200 DPI PNG rendering for optimal OCR accuracy
 - Magic bytes validation + encryption detection
 - 20MB size limit, 10-page maximum, auto temp cleanup
 - Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
 - 8 unit tests
 
-**Phase 02 - OCR Extraction (NEW):**
-- **Function:** `extractDocumentData(buffer, mimeType, docType): Promise<OcrExtractionResult>`
+### OCR Extraction Service (Phase 02)
+
+**Function:** `extractDocumentData(buffer, mimeType, docType): Promise<OcrExtractionResult>`
 - **Single Images:** Direct Gemini vision → JSON data + confidence score
-- **Multi-Page PDFs (NEW):**
+- **Multi-Page PDFs:**
   - Auto-converts each page to PNG
   - Processes each page independently through OCR
   - **Intelligent Merge:** Later pages override earlier values (handles amendments)
   - **Weighted Confidence:** Confidence weighted by field contribution across pages
   - Returns: `pageCount`, `pageConfidences[]`, merged `extractedData`
-  - Result types: OcrExtractionResult with page metadata
 
-**Supported Document Types:** W2, 1099-INT, 1099-NEC, SSN_CARD, DRIVER_LICENSE
+**OCR Extraction Strategy (Exclusion-Based):**
+Excludes 9 types: PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN. All other types require OCR.
 
-**Performance:** 2-5s per image, +500ms per page for PDFs
+**Performance:** +500ms per page for PDFs
 
-**Testing:** 20 unit tests covering single/multi-page, merging, confidence weighting, Vietnamese errors
+**Testing:** 20 unit tests covering single/multi-page, merging, confidence weighting
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
 
@@ -185,8 +209,8 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 ---
 
 **Last Updated:** 2026-01-16
-**Status:** Phase 02 OCR (PDF Multi-page Support) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
+**Status:** Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
 **Branch:** feature/enhancement
-**Architecture Version:** 6.4.0
+**Architecture Version:** 6.5.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

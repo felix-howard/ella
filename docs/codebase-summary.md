@@ -106,6 +106,9 @@ pnpm type-check  # TypeScript
 **Auth (Phase 3):** `JWT_SECRET`, `JWT_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_DAYS`
 
 **AI (Phase 2.1):** `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_BATCH_CONCURRENCY`
+- Health endpoint reports model availability (Phase 02)
+- Startup validation runs non-blocking on server start
+- Cached status accessible via `GET /health` → `gemini` field
 
 **SMS (Phase 3.1):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 
@@ -145,8 +148,8 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 ---
 
 **Last Updated:** 2026-01-16
-**Status:** Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + **Document Workflow Bugs Fixed**
+**Status:** Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing + Client Messages Tab + Phase 02 AI Validation + **Document Workflow Bugs Fixed**
 **Branch:** feature/enhancement
-**Architecture Version:** 6.2.1
+**Architecture Version:** 6.2.2
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

@@ -65,6 +65,8 @@ isGeminiConfigured: boolean
 - Default: 3 retries, 1s base delay (1s → 2s → 4s)
 - JSON parsing & type-safe response handling
 - Works with model: `gemini-2.0-flash` (configurable via `GEMINI_MODEL` env var)
+- Startup validation: `validateGeminiModel()` checks model availability on server start (non-blocking)
+- Health status caching: `getGeminiStatus()` returns cached validation result for health checks
 
 **Environment Variables:**
 ```env
@@ -73,6 +75,19 @@ GEMINI_MODEL=gemini-2.0-flash        # Default
 GEMINI_MAX_RETRIES=3                  # Default
 GEMINI_RETRY_DELAY_MS=1000            # Default
 ```
+
+**Startup Validation (Phase 02 NEW):**
+- Server calls `validateGeminiModel()` on startup (non-blocking)
+- Validates model exists and API key works via token counting
+- Caches result in memory for health endpoint
+- Logs success/failure to console
+- Does not block server startup on failure
+
+**Health Status Check (Phase 02 NEW):**
+- `getGeminiStatus()` returns cached validation result
+- Used by `GET /health` endpoint to report AI availability
+- Includes: configured flag, model name, available flag, check timestamp, error message
+- No additional API calls needed (uses cached result)
 
 ### 2. DocumentClassifier (`apps/api/src/services/ai/document-classifier.ts`)
 

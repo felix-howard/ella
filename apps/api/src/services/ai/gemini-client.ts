@@ -38,6 +38,18 @@ const genAI = new GoogleGenerativeAI(config.ai.geminiApiKey)
 // Check if Gemini is configured
 export const isGeminiConfigured = config.ai.isConfigured
 
+// Cache for Gemini validation status
+let geminiValidationStatus: {
+  available: boolean
+  model: string
+  checkedAt: Date | null
+  error?: string
+} = {
+  available: false,
+  model: config.ai.model,
+  checkedAt: null,
+}
+
 /**
  * Response type for AI operations
  */
@@ -292,17 +304,68 @@ export async function analyzeImage<T>(
 }
 
 /**
- * Get Gemini configuration status
+ * Validate Gemini model availability
+ * Sends minimal test request to verify model exists
+ * Non-blocking, caches result for health endpoint
+ */
+export async function validateGeminiModel(): Promise<{
+  available: boolean
+  model: string
+  error?: string
+}> {
+  if (!isGeminiConfigured) {
+    geminiValidationStatus = {
+      available: false,
+      model: config.ai.model,
+      checkedAt: new Date(),
+      error: 'API key not configured',
+    }
+    return geminiValidationStatus
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: config.ai.model })
+    // Minimal test: count tokens (cheapest API call)
+    await model.countTokens('test')
+
+    geminiValidationStatus = {
+      available: true,
+      model: config.ai.model,
+      checkedAt: new Date(),
+    }
+    console.log(`[Gemini] Model validated: ${config.ai.model}`)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    geminiValidationStatus = {
+      available: false,
+      model: config.ai.model,
+      checkedAt: new Date(),
+      error: errorMessage,
+    }
+    console.warn(`[Gemini] Model validation failed: ${errorMessage}`)
+  }
+
+  return geminiValidationStatus
+}
+
+/**
+ * Get Gemini configuration and validation status for health endpoint
  */
 export function getGeminiStatus(): {
   configured: boolean
   model: string
+  available: boolean
+  checkedAt: string | null
+  error?: string
   maxRetries: number
   maxImageSizeMB: number
 } {
   return {
     configured: isGeminiConfigured,
     model: config.ai.model,
+    available: geminiValidationStatus.available,
+    checkedAt: geminiValidationStatus.checkedAt?.toISOString() || null,
+    error: geminiValidationStatus.error,
     maxRetries: config.ai.maxRetries,
     maxImageSizeMB: MAX_IMAGE_SIZE / 1024 / 1024,
   }

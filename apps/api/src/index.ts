@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server'
 import { app } from './app'
 import { initializeScheduler, stopScheduler } from './services/scheduler'
+import { validateGeminiModel } from './services/ai/gemini-client'
 
 const port = Number(process.env.PORT) || 3001
 
@@ -13,6 +14,13 @@ const server = serve({
 
 // Initialize scheduler after server starts
 initializeScheduler()
+
+// Validate Gemini model (non-blocking)
+validateGeminiModel().then((status) => {
+  if (!status.available) {
+    console.warn('[Startup] Gemini model not available:', status.error)
+  }
+})
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

@@ -154,7 +154,7 @@ function ClientDetailPage() {
 
   // Enable polling for real-time classification updates when on documents tab
   const isDocumentsTab = activeTab === 'documents'
-  const { images: polledImages, docs: polledDocs, processingCount } = useClassificationUpdates({
+  const { images: polledImages, docs: polledDocs, processingCount, extractingCount } = useClassificationUpdates({
     caseId: latestCaseId,
     enabled: isDocumentsTab,
     refetchInterval: 5000,
@@ -682,7 +682,7 @@ function ClientDetailPage() {
           )}
 
           {/* Upload Progress - shows when images are processing */}
-          <UploadProgress processingCount={processingCount} />
+          <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
       )}
 

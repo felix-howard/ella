@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type RawImage } from '../lib/api-client'
+import { api, type RawImage, type DigitalDoc } from '../lib/api-client'
 import { toast } from '../stores/toast-store'
 import { DOC_TYPE_LABELS } from '../lib/constants'
 
@@ -19,6 +19,9 @@ interface UseClassificationUpdatesOptions {
 // Track previous image states for comparison
 type ImageStatusMap = Map<string, { status: string; aiConfidence: number | null }>
 
+// Track previous doc states for OCR extraction notifications
+type DocStatusMap = Map<string, { status: string; docType: string }>
+
 export function useClassificationUpdates({
   caseId,
   enabled = true,
@@ -26,7 +29,9 @@ export function useClassificationUpdates({
 }: UseClassificationUpdatesOptions) {
   const queryClient = useQueryClient()
   const previousImagesRef = useRef<ImageStatusMap>(new Map())
+  const previousDocsRef = useRef<DocStatusMap>(new Map())
   const isInitialLoadRef = useRef(true)
+  const isInitialDocsLoadRef = useRef(true)
 
   const { data: imagesResponse } = useQuery({
     queryKey: ['images', caseId],
@@ -92,6 +97,54 @@ export function useClassificationUpdates({
     }
   }, [caseId, queryClient])
 
+  /**
+   * Handle doc OCR status transition notifications
+   * Shows toast when OCR extraction completes or fails
+   */
+  const handleDocStatusChange = useCallback((prevStatus: string | null, current: DigitalDoc) => {
+    const docLabel = current.docType
+      ? DOC_TYPE_LABELS[current.docType] || current.docType
+      : 'Tài liệu'
+
+    // New doc created (OCR just started or completed)
+    if (!prevStatus) {
+      switch (current.status) {
+        case 'PENDING':
+          // OCR is starting - no toast needed, will show in progress indicator
+          break
+        case 'EXTRACTED':
+          toast.success(`Đã trích xuất: ${docLabel}`)
+          queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+          break
+        case 'PARTIAL':
+          toast.info(`Trích xuất một phần: ${docLabel} - cần xác minh`)
+          queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+          break
+        case 'FAILED':
+          toast.error(`Trích xuất thất bại: ${docLabel}`)
+          break
+      }
+      return
+    }
+
+    // Status transition (e.g., PENDING → EXTRACTED)
+    if (prevStatus === 'PENDING') {
+      switch (current.status) {
+        case 'EXTRACTED':
+          toast.success(`Đã trích xuất: ${docLabel}`)
+          queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+          break
+        case 'PARTIAL':
+          toast.info(`Trích xuất một phần: ${docLabel} - cần xác minh`)
+          queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+          break
+        case 'FAILED':
+          toast.error(`Trích xuất thất bại: ${docLabel}`)
+          break
+      }
+    }
+  }, [caseId, queryClient])
+
   useEffect(() => {
     if (!imagesResponse?.images) return
 
@@ -124,23 +177,63 @@ export function useClassificationUpdates({
     )
   }, [imagesResponse, handleStatusChange])
 
+  // Track doc status changes for OCR extraction notifications
+  useEffect(() => {
+    if (!docsResponse?.docs) return
+
+    const currentDocs = docsResponse.docs
+    const previousDocs = previousDocsRef.current
+
+    // Skip notifications on initial load
+    if (isInitialDocsLoadRef.current) {
+      isInitialDocsLoadRef.current = false
+      previousDocsRef.current = new Map(
+        currentDocs.map((doc) => [doc.id, { status: doc.status, docType: doc.docType }])
+      )
+      return
+    }
+
+    // Check for new docs or status changes
+    for (const doc of currentDocs) {
+      const prev = previousDocs.get(doc.id)
+
+      // New doc or status changed
+      if (!prev || prev.status !== doc.status) {
+        handleDocStatusChange(prev?.status || null, doc)
+      }
+    }
+
+    // Update previous state
+    previousDocsRef.current = new Map(
+      currentDocs.map((doc) => [doc.id, { status: doc.status, docType: doc.docType }])
+    )
+  }, [docsResponse, handleDocStatusChange])
+
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       previousImagesRef.current.clear()
+      previousDocsRef.current.clear()
       isInitialLoadRef.current = true
+      isInitialDocsLoadRef.current = true
     }
   }, [])
 
-  // Count images being processed
+  // Count images being classified (PROCESSING status)
   const processingCount = imagesResponse?.images?.filter(
     (img) => img.status === 'PROCESSING'
+  ).length || 0
+
+  // Count docs being extracted (PENDING status means OCR in progress)
+  const extractingCount = docsResponse?.docs?.filter(
+    (doc) => doc.status === 'PENDING'
   ).length || 0
 
   return {
     images: imagesResponse?.images || [],
     docs: docsResponse?.docs || [],
     processingCount,
+    extractingCount,
     isPolling: enabled,
   }
 }

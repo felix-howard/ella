@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn, Button, Input } from '@ella/ui'
-import { Check, Pencil, AlertTriangle, X, Loader2 } from 'lucide-react'
+import { Check, Pencil, AlertTriangle, X } from 'lucide-react'
 
 export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable' | null
 

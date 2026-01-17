@@ -246,7 +246,7 @@ const digitalDoc = await prisma.digitalDoc.upsert({
 
 ## Supported Document Types
 
-**OCR-Enabled Types (8 total):**
+**OCR-Enabled Types (13 total):**
 
 **Phase 02 Original (5 types):**
 - **W2** - Employment income (most common amendment case)
@@ -255,13 +255,20 @@ const digitalDoc = await prisma.digitalDoc.upsert({
 - **SSN_CARD** - Social Security card
 - **DRIVER_LICENSE** - State ID
 
-**Phase 2 Priority 1 - NEW (3 types, added 2026-01-17):**
+**Phase 2 Priority 1 (3 types, added 2026-01-17):**
 - **FORM_1099_K** - Payment Card Transactions (Square, Clover, PayPal)
 - **SCHEDULE_K1** - Partnership Income (K-1 forms)
 - **BANK_STATEMENT** - Business Cash Flow documentation
 
+**Phase 3 - Extended OCR Support (5 types, added 2026-01-17):**
+- **FORM_1099_DIV** - Dividends and distributions
+- **FORM_1099_R** - Retirement distributions (IRAs, pensions, annuities)
+- **FORM_1099_SSA** - Social Security benefits
+- **FORM_1098** - Mortgage interest and property taxes
+- **FORM_1095_A** - Health insurance marketplace coverage
+
 Each type has:
-- Dedicated OCR prompt (e.g., `prompts/ocr/w2.ts`, `prompts/ocr/1099-k.ts`, `prompts/ocr/k-1.ts`, `prompts/ocr/bank-statement.ts`)
+- Dedicated OCR prompt (e.g., `prompts/ocr/w2.ts`, `prompts/ocr/1099-div.ts`, `prompts/ocr/1098.ts`)
 - Key fields list for confidence calculation
 - Vietnamese field labels (e.g., "Tên công ty" for employer name)
 
@@ -420,25 +427,35 @@ return {
 
 ---
 
-**Last Updated:** 2026-01-17 (Phase 2 Priority 1 enhancements)
-**Phase:** Phase 02 - OCR PDF Support (Complete) + Phase 2 Priority 1 - Extended Document Types
-**Architecture Version:** 6.5.0
+**Last Updated:** 2026-01-17 (Phase 3 OCR extended implementation)
+**Phase:** Phase 02 - OCR PDF Support (Complete) + Phase 2 Priority 1 - Extended Document Types + Phase 3 - Extended OCR
+**Architecture Version:** 6.6.0
 **Test Coverage:** 20+ tests (100% pass)
 
 ## Phase 2 Priority 1 Update (2026-01-17)
 
-**New Files Created:**
+**Phase 2 Priority 1 Files Created:**
 - `apps/api/src/services/ai/prompts/ocr/1099-k.ts` - 1099-K payment card extraction
 - `apps/api/src/services/ai/prompts/ocr/k-1.ts` - K-1 partnership income extraction
 - `apps/api/src/services/ai/prompts/ocr/bank-statement.ts` - Bank statement cash flow extraction
 
+## Phase 3 Update (2026-01-17)
+
+**Phase 3 Files Created:**
+- `apps/api/src/services/ai/prompts/ocr/1099-div.ts` - 1099-DIV dividends extraction
+- `apps/api/src/services/ai/prompts/ocr/1099-r.ts` - 1099-R retirement distributions extraction
+- `apps/api/src/services/ai/prompts/ocr/1099-ssa.ts` - SSA-1099 Social Security benefits extraction
+- `apps/api/src/services/ai/prompts/ocr/1098.ts` - 1098 mortgage interest extraction
+- `apps/api/src/services/ai/prompts/ocr/1095-a.ts` - 1095-A health insurance marketplace extraction
+
 **Files Modified:**
-- `apps/api/src/services/ai/prompts/ocr/index.ts` - Routes added for new document types
-- `apps/api/src/services/ai/ocr-extractor.ts` - Key fields definitions expanded
+- `apps/api/src/services/ai/prompts/ocr/index.ts` - Routes added for 8 new document types (3 Phase 2 P1 + 5 Phase 3)
+- `apps/api/src/services/ai/ocr-extractor.ts` - Key fields definitions expanded for new types
 
 **Key Enhancements:**
-- 3 new document types now support OCR extraction
-- Payment processor support (Square, Clover, PayPal) for 1099-K
-- Partnership income flows tracked via K-1 forms
-- Business cash flow analysis via bank statements
+- 8 new document types now support OCR extraction (13 total)
+- Investment income flows (dividends, retirement distributions)
+- Social Security benefits tracking
+- Mortgage interest and property tax documentation
+- Health insurance marketplace coverage validation
 - All new types integrated with existing confidence scoring and multi-page PDF merge logic

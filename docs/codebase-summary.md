@@ -148,13 +148,25 @@ Excludes 9 types: PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER,
 - **SCHEDULE_K1** - Partnership Income (K-1 forms)
 - **BANK_STATEMENT** - Business Cash Flow documentation
 
-**Supported OCR Prompts (8 total):**
+**Phase 3 - Extended OCR Support (2026-01-17):**
+- **FORM_1099_DIV** - Dividends and distributions
+- **FORM_1099_R** - Retirement distributions (IRAs, pensions, annuities)
+- **FORM_1099_SSA** - Social Security benefits
+- **FORM_1098** - Mortgage interest and property taxes
+- **FORM_1095_A** - Health insurance marketplace coverage
+
+**Supported OCR Prompts (13 total):**
 - `prompts/ocr/w2.ts` - W-2 employment income
 - `prompts/ocr/1099-int.ts` - Interest income
 - `prompts/ocr/1099-nec.ts` - Contractor compensation
-- `prompts/ocr/1099-k.ts` (NEW Phase 2 P1) - Payment card transactions
-- `prompts/ocr/k-1.ts` (NEW Phase 2 P1) - Partnership income
-- `prompts/ocr/bank-statement.ts` (NEW Phase 2 P1) - Business cash flow
+- `prompts/ocr/1099-k.ts` - Payment card transactions
+- `prompts/ocr/k-1.ts` - Partnership income
+- `prompts/ocr/bank-statement.ts` - Business cash flow
+- `prompts/ocr/1099-div.ts` (NEW Phase 3) - Dividends
+- `prompts/ocr/1099-r.ts` (NEW Phase 3) - Retirement distributions
+- `prompts/ocr/1099-ssa.ts` (NEW Phase 3) - Social Security benefits
+- `prompts/ocr/1098.ts` (NEW Phase 3) - Mortgage interest
+- `prompts/ocr/1095-a.ts` (NEW Phase 3) - Health insurance marketplace
 - `prompts/ocr/ssn-dl.ts` - SSN card & driver's license
 
 **Performance:** +500ms per page for PDFs
@@ -222,9 +234,9 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 
 ---
 
-**Last Updated:** 2026-01-16
-**Status:** Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
+**Last Updated:** 2026-01-17
+**Status:** Phase 03 OCR Extended (13 document types) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
 **Branch:** feature/enhancement
-**Architecture Version:** 6.5.0
+**Architecture Version:** 6.6.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

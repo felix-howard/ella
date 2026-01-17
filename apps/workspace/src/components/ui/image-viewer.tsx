@@ -4,7 +4,7 @@
  * PDF rendering is lazy loaded to reduce bundle size
  */
 
-import { useState, useCallback, lazy, Suspense } from 'react'
+import { useState, useCallback, useLayoutEffect, useRef, lazy, Suspense } from 'react'
 import { cn } from '@ella/ui'
 import {
   ZoomIn,
@@ -45,6 +45,17 @@ export function ImageViewer({
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Ref for scroll container to reset scroll position on load
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Reset scroll to top when image URL or zoom changes (Task 2.3)
+  // useLayoutEffect for synchronous reset to avoid visual flicker
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0
+    }
+  }, [imageUrl, zoom])
 
   const handleZoomIn = useCallback(() => {
     setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))
@@ -136,8 +147,9 @@ export function ImageViewer({
         </div>
       )}
 
-      {/* Main content area */}
-      <div className="w-full h-full flex items-center justify-center overflow-auto">
+      {/* Main content area - scrollable from top (Task 2.1) */}
+      <div ref={containerRef} className="w-full h-full overflow-auto">
+        <div className="min-w-full min-h-full flex items-start justify-center p-4">
         {error && (
           <div className="text-center p-4" role="alert">
             <p className="text-error text-sm">{error}</p>
@@ -169,12 +181,14 @@ export function ImageViewer({
               className="max-w-full max-h-full object-contain transition-transform duration-200"
               style={{
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                transformOrigin: 'top center', // Task 2.2: Scale from top to prevent cutoff
               }}
               draggable={false}
               onError={() => setError('Không thể tải hình ảnh')}
             />
           )
         )}
+        </div>
       </div>
 
       {/* PDF page navigation */}

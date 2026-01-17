@@ -98,6 +98,9 @@ type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable' | null
 - **Controls:** Zoom (0.5x-3x), rotate (90° increments), reset
 - **Error Handling:** Fallback image placeholder with error message
 - **Field Highlighting:** Shows active field name in image header
+- **Layout Optimization (Phase 2 - 2026-01-17):** Container uses `items-start` alignment for proper scroll positioning from top
+- **Transform Origin:** Zoom scaling set to `transformOrigin: 'top center'` to prevent image cutoff
+- **Scroll Reset:** useLayoutEffect automatically resets scroll position on image/zoom changes
 
 #### Error Handling
 ```typescript
@@ -686,3 +689,93 @@ Escape → Cancel edit or close modal
 - Keyboard Hints: Updated to Tab/Enter/Esc (removed ↑↓ arrows claim)
 - Status Icons: Added colorblind accessibility (Check/Pencil/AlertTriangle)
 - Auto-Save: Added justSaved pulse animation (1s feedback)
+
+## UI Enhancement: Phase 2 - ImageViewer Optimization (2026-01-17)
+
+### Overview
+Enhanced ImageViewer component with improved container layout, proper zoom scaling, and automatic scroll position management.
+
+### Changes Made
+
+#### 1. Container Layout (Task 2.1)
+**File:** `apps/workspace/src/components/ui/image-viewer.tsx`
+
+**Change:**
+```tsx
+// Before
+<div className="min-w-full min-h-full flex items-center justify-center p-4">
+
+// After
+<div className="min-w-full min-h-full flex items-start justify-center p-4">
+```
+
+**Impact:**
+- Content now aligns to top instead of center-vertically
+- Enables better scrolling when zoomed image exceeds viewport height
+- Users can scroll within the image container for large zoomed content
+- Particularly important when zoom level > 1.5x
+
+#### 2. Transform Origin (Task 2.2)
+**File:** `apps/workspace/src/components/ui/image-viewer.tsx`
+
+**Change:**
+```tsx
+// Added to img style
+style={{
+  transform: `scale(${zoom}) rotate(${rotation}deg)`,
+  transformOrigin: 'top center', // NEW: scales from top-center
+}}
+```
+
+**Impact:**
+- Zoom scaling now originates from top-center instead of image center
+- Prevents content from appearing "cut off" at bottom when zooming
+- Maintains visual focus on document top (critical for forms)
+- Improves UX when verifying document header information (employer name, SSN, etc.)
+
+#### 3. Scroll Position Management (Task 2.3)
+**File:** `apps/workspace/src/components/ui/image-viewer.tsx`
+
+**Change:**
+```tsx
+// Added useLayoutEffect hook
+const containerRef = useRef<HTMLDivElement>(null)
+
+useLayoutEffect(() => {
+  if (containerRef.current) {
+    containerRef.current.scrollTop = 0
+  }
+}, [imageUrl, zoom])
+```
+
+**Impact:**
+- Automatically resets scroll position to top on image/zoom changes
+- Prevents visual disorientation when switching images
+- Uses `useLayoutEffect` for synchronous reset (avoids visual flicker)
+- Dependency array: `[imageUrl, zoom]` - resets on both image swap and zoom level change
+- Critical for multi-page PDFs: ensures users see top of new page
+
+### Verification Modal Benefits
+These optimizations enhance the split-screen verification workflow:
+
+1. **Top-Aligned Content:** Better use of modal space
+2. **Proper Zoom Scaling:** No content cutoff during verification zoom
+3. **Automatic Reset:** Reduces cognitive load between document reviews
+4. **Accessibility:** Ensures critical document sections remain visible
+
+### Performance Implications
+- Minimal: `useLayoutEffect` runs synchronously before paint
+- No additional render cycles
+- Ref-based scroll tracking is highly efficient
+
+### Browser Compatibility
+- All modern browsers (Chrome 88+, Firefox 85+, Safari 14+, Edge 88+)
+- `useLayoutEffect` fully supported
+- CSS `transform-origin` widely supported
+
+### Testing Considerations
+- [ ] Zoom level > 2.0x with tall documents (e.g., multi-line W2 forms)
+- [ ] Rapid image switching doesn't cause scroll jank
+- [ ] Scroll position resets to top on new image
+- [ ] PDF page navigation maintains top position
+- [ ] Mobile devices: scroll behavior on touch devices

@@ -22,6 +22,9 @@ type ImageStatusMap = Map<string, { status: string; aiConfidence: number | null 
 // Track previous doc states for OCR extraction notifications
 type DocStatusMap = Map<string, { status: string; docType: string }>
 
+// Consider images "stuck" if processing for longer than this (5 minutes)
+const STUCK_THRESHOLD_MS = 5 * 60 * 1000
+
 export function useClassificationUpdates({
   caseId,
   enabled = true,
@@ -165,13 +168,23 @@ export function useClassificationUpdates({
       previousImagesRef.current = new Map(
         currentImages.map((img) => [img.id, { status: img.status, aiConfidence: img.aiConfidence }])
       )
-      // Track images that are already processing (old/stuck data to exclude from notification)
+      // Track images that are truly stuck (processing for > 5 minutes)
+      const now = Date.now()
       initialProcessingIdsRef.current = new Set(
-        currentImages.filter((img) => img.status === 'PROCESSING').map((img) => img.id)
+        currentImages
+          .filter((img) => {
+            if (img.status !== 'PROCESSING') return false
+            const updatedAt = new Date(img.updatedAt).getTime()
+            return now - updatedAt > STUCK_THRESHOLD_MS // Only mark as stuck if older than 5 min
+          })
+          .map((img) => img.id)
       )
-      // Initial load: count is 0 (don't show notification for old stuck data)
+      // Count actively processing images (not stuck) on initial load
+      const activeCount = currentImages.filter(
+        (img) => img.status === 'PROCESSING' && !initialProcessingIdsRef.current?.has(img.id)
+      ).length
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: initializing state from fetched data
-      setActiveProcessingCount(0)
+      setActiveProcessingCount(activeCount)
       return
     }
 
@@ -211,13 +224,23 @@ export function useClassificationUpdates({
       previousDocsRef.current = new Map(
         currentDocs.map((doc) => [doc.id, { status: doc.status, docType: doc.docType }])
       )
-      // Track docs that are already pending (old/stuck data to exclude from notification)
+      // Track docs that are truly stuck (pending for > 5 minutes)
+      const now = Date.now()
       initialPendingDocIdsRef.current = new Set(
-        currentDocs.filter((doc) => doc.status === 'PENDING').map((doc) => doc.id)
+        currentDocs
+          .filter((doc) => {
+            if (doc.status !== 'PENDING') return false
+            const updatedAt = new Date(doc.updatedAt).getTime()
+            return now - updatedAt > STUCK_THRESHOLD_MS // Only mark as stuck if older than 5 min
+          })
+          .map((doc) => doc.id)
       )
-      // Initial load: count is 0 (don't show notification for old stuck data)
+      // Count actively extracting docs (not stuck) on initial load
+      const activeCount = currentDocs.filter(
+        (doc) => doc.status === 'PENDING' && !initialPendingDocIdsRef.current?.has(doc.id)
+      ).length
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: initializing state from fetched data
-      setActiveExtractingCount(0)
+      setActiveExtractingCount(activeCount)
       return
     }
 

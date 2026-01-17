@@ -64,14 +64,14 @@ isGeminiConfigured: boolean
 - Exponential backoff retry on transient errors (500, 502, 503, timeout, rate limit)
 - Default: 3 retries, 1s base delay (1s → 2s → 4s)
 - JSON parsing & type-safe response handling
-- Works with model: `gemini-2.0-flash` (configurable via `GEMINI_MODEL` env var)
+- Works with model: `gemini-2.5-flash` (configurable via `GEMINI_MODEL` env var)
 - Startup validation: `validateGeminiModel()` checks model availability on server start (non-blocking)
 - Health status caching: `getGeminiStatus()` returns cached validation result for health checks
 
 **Environment Variables:**
 ```env
 GEMINI_API_KEY=<required>
-GEMINI_MODEL=gemini-2.0-flash        # Default
+GEMINI_MODEL=gemini-2.5-flash        # Default (changed from gemini-2.0-flash)
 GEMINI_MAX_RETRIES=3                  # Default
 GEMINI_RETRY_DELAY_MS=1000            # Default
 ```

@@ -13,7 +13,8 @@ import { ImageViewer } from '../ui/image-viewer'
 import { CopyableField } from '../ui/copyable-field'
 import { ProgressIndicator } from '../ui/progress-indicator'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { getFieldLabel, isExcludedField } from '../../lib/field-labels'
+import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
+import { getDocTypeFields } from '../../lib/doc-type-fields'
 import { api, type DigitalDoc } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -82,23 +83,52 @@ export function DataEntryModal({
     refetch: refetchUrl,
   } = useSignedUrl(rawImageId, { enabled: isOpen && !!rawImageId })
 
-  // Extract fields from extractedData, excluding metadata
+  // Extract fields from extractedData based on doc type
   const { fields, copiedFields } = useMemo(() => {
     const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
     const copied = isRecord(doc.copiedFields)
       ? (doc.copiedFields as Record<string, boolean>)
       : {}
 
-    // Filter out metadata fields and nested objects
-    const fieldEntries = Object.entries(extractedData).filter(
-      ([key, value]) => !isExcludedField(key) && typeof value !== 'object'
-    )
+    // Get expected fields for this document type
+    const expectedFields = getDocTypeFields(doc.docType)
+    const expectedFieldsSet = new Set(expectedFields)
+
+    // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
+    const flattenedData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(extractedData)) {
+      // Handle stateTaxInfo array - flatten first entry only
+      if (key === 'stateTaxInfo' && Array.isArray(value) && value.length > 0) {
+        const firstState = value[0]
+        if (isRecord(firstState)) {
+          if (firstState.state) flattenedData.state = firstState.state
+          if (firstState.statePayerStateNo) flattenedData.statePayerStateNo = firstState.statePayerStateNo
+          if (firstState.stateIncome != null) flattenedData.stateIncome = firstState.stateIncome
+        }
+      } else if (!isExcludedField(key) && typeof value !== 'object') {
+        flattenedData[key] = value
+      }
+    }
+
+    // Order by expected fields order for consistent display
+    const orderedFields: Array<[string, unknown]> = []
+    for (const fieldKey of expectedFields) {
+      if (fieldKey in flattenedData) {
+        orderedFields.push([fieldKey, flattenedData[fieldKey]])
+      }
+    }
+    // Add any extra extracted fields not in expected list
+    for (const [key, value] of Object.entries(flattenedData)) {
+      if (!expectedFieldsSet.has(key)) {
+        orderedFields.push([key, value])
+      }
+    }
 
     return {
-      fields: fieldEntries,
+      fields: orderedFields,
       copiedFields: copied,
     }
-  }, [doc.extractedData, doc.copiedFields])
+  }, [doc.extractedData, doc.copiedFields, doc.docType])
 
   // Calculate copy progress
   const totalFields = fields.length
@@ -286,7 +316,7 @@ export function DataEntryModal({
                   <CopyableField
                     key={key}
                     fieldKey={key}
-                    label={getFieldLabel(key)}
+                    label={getFieldLabelForDocType(key, doc.docType)}
                     value={String(value ?? '')}
                     isCopied={copiedFields[key] || false}
                     onCopy={handleCopy}

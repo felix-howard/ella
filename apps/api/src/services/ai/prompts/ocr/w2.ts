@@ -66,101 +66,94 @@ export interface W2ExtractedData {
  * Generate W2 OCR extraction prompt
  */
 export function getW2ExtractionPrompt(): string {
-  return `You are an expert OCR system for extracting data from IRS Form W-2 (Wage and Tax Statement). Extract all data from this W-2 form image accurately.
+  return `You are an OCR system. Your task is to READ and EXTRACT text from this IRS Form W-2 image.
 
-IMPORTANT: This is a tax document. Accuracy is critical. If a value is unclear or not present, use null rather than guessing.
+CRITICAL INSTRUCTIONS:
+- ONLY extract text that is ACTUALLY VISIBLE in this specific document image
+- DO NOT invent, guess, or generate any data
+- DO NOT use example or placeholder values
+- If a field is blank, empty, or unreadable, use null
+- READ the actual text from the image carefully
 
-Extract the following fields:
+FORM LAYOUT - Extract these fields by reading the actual document:
 
 EMPLOYER INFORMATION:
-- employerEIN: Box b - Employer's federal EIN (format: XX-XXXXXXX)
-- employerName: Box c - Employer's name
-- employerAddress: Box c - Full employer address
-- controlNumber: Box d - Control number (if present)
+- employerEIN: Read from Box b (format: XX-XXXXXXX)
+- employerName: Read from Box c exactly as printed
+- employerAddress: Read full address from Box c
+- controlNumber: Read from Box d if present, otherwise null
 
 EMPLOYEE INFORMATION:
-- employeeSSN: Box a - Employee's SSN (format: XXX-XX-XXXX)
-- employeeName: Box e - Employee's first name, middle initial, last name
-- employeeAddress: Box f - Employee's full address
+- employeeSSN: Read from Box a (format: XXX-XX-XXXX)
+- employeeName: Read from Box e exactly as printed
+- employeeAddress: Read full address from Box f
 
-WAGES AND TAXES (numeric values, no dollar signs or commas):
-- wagesTipsOther: Box 1
-- federalIncomeTaxWithheld: Box 2
-- socialSecurityWages: Box 3
-- socialSecurityTaxWithheld: Box 4
-- medicareWages: Box 5
-- medicareTaxWithheld: Box 6
-- socialSecurityTips: Box 7 (if present)
-- allocatedTips: Box 8 (if present)
-- dependentCareBenefits: Box 10 (if present)
-- nonQualifiedPlans: Box 11 (if present)
+WAGES AND TAXES (read the dollar amounts from each box):
+- wagesTipsOther: Read amount from Box 1
+- federalIncomeTaxWithheld: Read amount from Box 2
+- socialSecurityWages: Read amount from Box 3
+- socialSecurityTaxWithheld: Read amount from Box 4
+- medicareWages: Read amount from Box 5
+- medicareTaxWithheld: Read amount from Box 6
+- socialSecurityTips: Read from Box 7 if present
+- allocatedTips: Read from Box 8 if present
+- dependentCareBenefits: Read from Box 10 if present
+- nonQualifiedPlans: Read from Box 11 if present
 
-STATE/LOCAL TAX (may have multiple entries):
-- stateTaxInfo: Array of { state, stateId, stateWages, stateTaxWithheld }
-- localTaxInfo: Array of { localityName, localWages, localTaxWithheld }
+STATE/LOCAL TAX (Boxes 15-20):
+- stateTaxInfo: Array for each state entry
+- localTaxInfo: Array for each local entry
 
-BOX 12 CODES (may have multiple):
-- box12Codes: Array of { code, amount }
-  Common codes: D (401k), DD (healthcare), W (HSA)
+BOX 12 CODES:
+- box12Codes: Read each code letter and amount
 
 BOX 13 CHECKBOXES:
-- box13Flags: { statutoryEmployee, retirementPlan, thirdPartySickPay }
+- box13Flags: Check if each box is marked
 
-BOX 14 OTHER:
-- box14Other: Any text in Box 14
+BOX 14:
+- box14Other: Read any text in Box 14
 
 METADATA:
-- taxYear: The tax year shown on the form
-- formVariant: "W-2" or "W-2c" (corrected)
+- taxYear: Read the year from the form
+- formVariant: "W-2" or "W-2c"
 
-Respond in JSON format:
+OUTPUT FORMAT (JSON):
 {
-  "employerEIN": "XX-XXXXXXX",
-  "employerName": "Company Name",
-  "employerAddress": "123 Street, City, ST 12345",
+  "employerEIN": "[read from document]",
+  "employerName": "[read from document]",
+  "employerAddress": "[read from document]",
   "controlNumber": null,
-  "employeeSSN": "XXX-XX-XXXX",
-  "employeeName": "First M Last",
-  "employeeAddress": "456 Ave, City, ST 67890",
-  "wagesTipsOther": 50000.00,
-  "federalIncomeTaxWithheld": 7500.00,
-  "socialSecurityWages": 50000.00,
-  "socialSecurityTaxWithheld": 3100.00,
-  "medicareWages": 50000.00,
-  "medicareTaxWithheld": 725.00,
+  "employeeSSN": "[read from document]",
+  "employeeName": "[read from document]",
+  "employeeAddress": "[read from document]",
+  "wagesTipsOther": [number from Box 1],
+  "federalIncomeTaxWithheld": [number from Box 2],
+  "socialSecurityWages": [number from Box 3],
+  "socialSecurityTaxWithheld": [number from Box 4],
+  "medicareWages": [number from Box 5],
+  "medicareTaxWithheld": [number from Box 6],
   "socialSecurityTips": null,
   "allocatedTips": null,
   "dependentCareBenefits": null,
   "nonQualifiedPlans": null,
-  "stateTaxInfo": [
-    {
-      "state": "CA",
-      "stateId": "XXX-XXXX-X",
-      "stateWages": 50000.00,
-      "stateTaxWithheld": 2500.00
-    }
-  ],
+  "stateTaxInfo": [],
   "localTaxInfo": [],
-  "box12Codes": [
-    { "code": "D", "amount": 5000.00 },
-    { "code": "DD", "amount": 1200.00 }
-  ],
+  "box12Codes": [],
   "box13Flags": {
     "statutoryEmployee": false,
-    "retirementPlan": true,
+    "retirementPlan": false,
     "thirdPartySickPay": false
   },
   "box14Other": null,
-  "taxYear": 2024,
+  "taxYear": [year],
   "formVariant": "W-2"
 }
 
-Rules:
-1. All monetary values should be numbers without $ or commas
-2. Use null for empty or unclear fields, NEVER guess
-3. SSN and EIN should include dashes in correct format
-4. Extract ALL entries for multi-state or multi-local situations
-5. Box 12 can have up to 4 code/amount pairs`
+IMPORTANT REMINDERS:
+- Monetary values: numbers only (50000.00 not "$50,000.00")
+- SSN/EIN: include dashes (XXX-XX-XXXX, XX-XXXXXXX)
+- Empty fields: use null, NOT made-up values
+- READ the actual document - do not generate fake data`
 }
 
 /**

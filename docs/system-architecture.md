@@ -196,7 +196,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **AI Service: Gemini Client with Model Fallback (Phase 03):**
 
 - **Configuration (`src/lib/config.ts`):**
-  - `GEMINI_MODEL`: Primary model (default: `gemini-2.0-flash`)
+  - `GEMINI_MODEL`: Primary model (default: `gemini-2.5-flash`)
   - `GEMINI_FALLBACK_MODELS`: Comma-separated fallback list (default: `gemini-2.5-flash-lite,gemini-2.5-flash`)
   - `GEMINI_MAX_RETRIES`: Retry attempts per model (default: 3)
   - `GEMINI_RETRY_DELAY_MS`: Initial retry backoff (default: 1000ms, exponential)
@@ -1609,9 +1609,9 @@ scheduler: {
 
 ---
 
-**Last Updated:** 2026-01-15
-**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete)
-**Architecture Version:** 6.0 (Tested & Resilient)
+**Last Updated:** 2026-01-17
+**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete) + Phase 1 & 2 Debug
+**Architecture Version:** 6.1 (Tested, Resilient, Optimized)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)
@@ -1621,8 +1621,14 @@ scheduler: {
 - ✓ Gemini service unavailability detection with retry logic
 - ✓ Error message sanitization (API keys, emails, paths masked)
 - ✓ AI_FAILED action creation for CPA manual review
+**Completed Features (Phase 1 & 2 Debug - 2026-01-17):**
+- ✓ Smart stuck detection for images in PROCESSING >5 minutes
+- ✓ Modal display accuracy improved with stuck image filtering
+- ✓ Gemini model reverted to gemini-2.5-flash (more stable)
+- ✓ Progress notifications exclude stale/abandoned jobs
+
 **Completed Features (Phase 05):**
-- ✓ Classification updates hook with 5s polling
+- ✓ Classification updates hook with 5s polling + stuck detection
 - ✓ Real-time status tracking (UPLOADED → PROCESSING → CLASSIFIED/LINKED)
 - ✓ Confidence-level notifications (HIGH/MEDIUM/LOW toasts)
 - ✓ Floating status panel (UploadProgress component)

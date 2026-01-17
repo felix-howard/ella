@@ -52,58 +52,63 @@ export interface Form1099IntExtractedData {
  * Generate 1099-INT OCR extraction prompt
  */
 export function get1099IntExtractionPrompt(): string {
-  return `You are an expert OCR system for extracting data from IRS Form 1099-INT (Interest Income). Extract all data from this 1099-INT form image accurately.
+  return `You are an OCR system. Your task is to READ and EXTRACT text from this IRS Form 1099-INT image.
 
-IMPORTANT: This is a tax document. Accuracy is critical. If a value is unclear or not present, use null rather than guessing.
+CRITICAL INSTRUCTIONS:
+- ONLY extract text that is ACTUALLY VISIBLE in this specific document image
+- DO NOT invent, guess, or generate any data
+- DO NOT use example or placeholder values
+- If a field is blank, empty, or unreadable, use null
+- READ the actual text from the image carefully
 
-Extract the following fields:
+FORM LAYOUT - Extract these fields by reading the actual document:
 
-PAYER INFORMATION (Left side, top):
-- payerName: Payer's name
-- payerAddress: Payer's complete address
-- payerTIN: Payer's TIN (EIN or SSN format)
-- payerPhone: Payer's telephone number (if shown)
+PAYER SECTION (Top left box):
+- payerName: Read the payer/bank name exactly as printed
+- payerAddress: Read the complete address exactly as printed
+- payerTIN: Read from "PAYER'S TIN" (format: XX-XXXXXXX)
+- payerPhone: Read phone if present, otherwise null
 
-RECIPIENT INFORMATION (Left side, middle):
-- recipientName: Recipient's name
-- recipientAddress: Recipient's complete address
-- recipientTIN: Recipient's TIN (SSN format: XXX-XX-XXXX)
-- accountNumber: Account number (if shown)
+RECIPIENT SECTION (Left side, below payer):
+- recipientName: Read from "RECIPIENT'S name" exactly as printed
+- recipientAddress: Read the address as printed
+- recipientTIN: Read from "RECIPIENT'S TIN" (format: XXX-XX-XXXX)
+- accountNumber: Read if present, otherwise null
 
-INTEREST INCOME (Right side boxes):
-- interestIncome: Box 1 - Interest income (main amount)
-- earlyWithdrawalPenalty: Box 2 - Early withdrawal penalty
-- interestOnUSSavingsBonds: Box 3 - Interest on U.S. Savings Bonds and Treasury obligations
-- federalIncomeTaxWithheld: Box 4 - Federal income tax withheld
-- investmentExpenses: Box 5 - Investment expenses
-- foreignTaxPaid: Box 6 - Foreign tax paid
-- foreignCountry: Box 7 - Foreign country or U.S. possession
-- taxExemptInterest: Box 8 - Tax-exempt interest
-- specifiedPrivateActivityBondInterest: Box 9 - Specified private activity bond interest
-- marketDiscount: Box 10 - Market discount
-- bondPremium: Box 11 - Bond premium
-- bondPremiumOnTreasuryObligations: Box 12 - Bond premium on Treasury obligations
-- bondPremiumOnTaxExemptBond: Box 13 - Bond premium on tax-exempt bond
+INTEREST BOXES (Right side):
+- interestIncome: Read amount from Box 1
+- earlyWithdrawalPenalty: Read from Box 2 if present
+- interestOnUSSavingsBonds: Read from Box 3 if present
+- federalIncomeTaxWithheld: Read from Box 4 if present
+- investmentExpenses: Read from Box 5 if present
+- foreignTaxPaid: Read from Box 6 if present
+- foreignCountry: Read from Box 7 if present
+- taxExemptInterest: Read from Box 8 if present
+- specifiedPrivateActivityBondInterest: Read from Box 9 if present
+- marketDiscount: Read from Box 10 if present
+- bondPremium: Read from Box 11 if present
+- bondPremiumOnTreasuryObligations: Read from Box 12 if present
+- bondPremiumOnTaxExemptBond: Read from Box 13 if present
 
-STATE TAX INFORMATION (Bottom):
-- stateTaxInfo: Array of { state, stateId, stateTaxWithheld }
+STATE TAX (Boxes 14-16):
+- stateTaxInfo: Array with entries for each state listed
 
 METADATA:
-- taxYear: The tax year shown on the form
-- corrected: true if "CORRECTED" checkbox is marked
-- fatcaFilingRequirement: true if FATCA checkbox is marked
+- taxYear: Read the year shown on the form
+- corrected: true if "CORRECTED" box is checked
+- fatcaFilingRequirement: true if FATCA box is checked
 
-Respond in JSON format:
+OUTPUT FORMAT (JSON):
 {
-  "payerName": "First National Bank",
-  "payerAddress": "123 Main St, City, ST 12345",
-  "payerTIN": "XX-XXXXXXX",
+  "payerName": "[read from document]",
+  "payerAddress": "[read from document]",
+  "payerTIN": "[read from document]",
   "payerPhone": null,
-  "recipientName": "John Doe",
-  "recipientAddress": "456 Oak Ave, City, ST 67890",
-  "recipientTIN": "XXX-XX-XXXX",
-  "accountNumber": "****1234",
-  "interestIncome": 1250.50,
+  "recipientName": "[read from document]",
+  "recipientAddress": "[read from document]",
+  "recipientTIN": "[read from document]",
+  "accountNumber": null,
+  "interestIncome": [number from Box 1],
   "earlyWithdrawalPenalty": null,
   "interestOnUSSavingsBonds": null,
   "federalIncomeTaxWithheld": null,
@@ -116,25 +121,17 @@ Respond in JSON format:
   "bondPremium": null,
   "bondPremiumOnTreasuryObligations": null,
   "bondPremiumOnTaxExemptBond": null,
-  "stateTaxInfo": [
-    {
-      "state": "CA",
-      "stateId": "XXX-XXXX-X",
-      "stateTaxWithheld": 125.05
-    }
-  ],
-  "taxYear": 2024,
+  "stateTaxInfo": [],
+  "taxYear": [year],
   "corrected": false,
   "fatcaFilingRequirement": false
 }
 
-Rules:
-1. All monetary values should be numbers without $ or commas
-2. Use null for empty or unclear fields, NEVER guess
-3. SSN should include dashes: XXX-XX-XXXX
-4. EIN should include dash: XX-XXXXXXX
-5. Box 1 (interestIncome) is the most important field
-6. Most forms will only have Box 1 filled, other boxes are often empty`
+IMPORTANT REMINDERS:
+- Monetary values: numbers only (1250.50 not "$1,250.50")
+- TINs: include dashes (XX-XXXXXXX or XXX-XX-XXXX)
+- Empty fields: use null, NOT made-up values
+- READ the actual document - do not generate fake data`
 }
 
 /**

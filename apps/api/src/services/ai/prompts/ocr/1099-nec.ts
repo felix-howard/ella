@@ -41,71 +41,67 @@ export interface Form1099NecExtractedData {
  * Generate 1099-NEC OCR extraction prompt
  */
 export function get1099NecExtractionPrompt(): string {
-  return `You are an expert OCR system for extracting data from IRS Form 1099-NEC (Nonemployee Compensation). Extract all data from this 1099-NEC form image accurately.
+  return `You are an OCR system. Your task is to READ and EXTRACT text from this IRS Form 1099-NEC image.
 
-IMPORTANT: This is a tax document. Accuracy is critical. If a value is unclear or not present, use null rather than guessing.
+CRITICAL INSTRUCTIONS:
+- ONLY extract text that is ACTUALLY VISIBLE in this specific document image
+- DO NOT invent, guess, or generate any data
+- DO NOT use example or placeholder values
+- If a field is blank, empty, or unreadable, use null
+- READ the actual text from the image carefully
 
-Extract the following fields:
+FORM LAYOUT - Extract these fields by reading the actual document:
 
-PAYER INFORMATION (Left side, top):
-- payerName: Payer's name (the company/person who paid)
-- payerAddress: Payer's complete address
-- payerTIN: Payer's TIN (EIN format: XX-XXXXXXX or SSN format: XXX-XX-XXXX)
-- payerPhone: Payer's telephone number (if shown)
+PAYER SECTION (Top left box labeled "PAYER'S name, street address, city or town..."):
+- payerName: Read the payer's name exactly as printed
+- payerAddress: Read the complete address exactly as printed
+- payerTIN: Read from "PAYER'S TIN" box (format: XX-XXXXXXX)
+- payerPhone: Read phone number if present, otherwise null
 
-RECIPIENT INFORMATION (Left side, middle):
-- recipientName: Recipient's name (the person who received income)
-- recipientAddress: Recipient's complete address
-- recipientTIN: Recipient's TIN (SSN format: XXX-XX-XXXX)
-- accountNumber: Account number (if shown)
+RECIPIENT SECTION (Left side, below payer):
+- recipientName: Read from "RECIPIENT'S name" line exactly as printed
+- recipientAddress: Read the street address and city/state/ZIP as printed
+- recipientTIN: Read from "RECIPIENT'S TIN" box (format: XXX-XX-XXXX)
+- accountNumber: Read from "Account number" if present, otherwise null
 
-COMPENSATION AND TAXES (Right side boxes):
-- nonemployeeCompensation: Box 1 - Nonemployee compensation (this is the main amount - freelance/contract income)
-- payerMadeDirectSales: Box 2 - true if checkbox is marked (indicates $5,000+ in direct sales)
-- federalIncomeTaxWithheld: Box 4 - Federal income tax withheld
+NUMBERED BOXES (Right side):
+- nonemployeeCompensation: Read the dollar amount from Box 1 (number only, no $ sign)
+- payerMadeDirectSales: true if Box 2 checkbox is marked, false if not
+- federalIncomeTaxWithheld: Read amount from Box 4, or null if empty
 
-STATE TAX INFORMATION (Bottom section, may have multiple states):
-- stateTaxInfo: Array of { state, statePayerStateNo, stateIncome }
-  - state: Box 5 - State abbreviation
-  - statePayerStateNo: Box 6 - State/Payer's state ID number
-  - stateIncome: Box 7 - State income amount
+STATE SECTION (Boxes 5-7, bottom):
+- stateTaxInfo: Array with one entry per state listed:
+  - state: Read 2-letter state code from Box 5
+  - statePayerStateNo: Read ID from Box 6
+  - stateIncome: Read amount from Box 7
 
 METADATA:
-- taxYear: The tax year shown on the form
-- corrected: true if "CORRECTED" checkbox is marked
+- taxYear: Read the year shown (look for "20XX" near top)
+- corrected: true if "CORRECTED" box is checked
 
-Respond in JSON format:
+OUTPUT FORMAT (JSON):
 {
-  "payerName": "ABC Consulting LLC",
-  "payerAddress": "123 Business St, City, ST 12345",
-  "payerTIN": "XX-XXXXXXX",
-  "payerPhone": "555-123-4567",
-  "recipientName": "John Contractor",
-  "recipientAddress": "456 Home Ave, City, ST 67890",
-  "recipientTIN": "XXX-XX-XXXX",
+  "payerName": "[exact text from document]",
+  "payerAddress": "[exact text from document]",
+  "payerTIN": "[exact TIN from document]",
+  "payerPhone": null,
+  "recipientName": "[exact text from document]",
+  "recipientAddress": "[exact text from document]",
+  "recipientTIN": "[exact TIN from document]",
   "accountNumber": null,
-  "nonemployeeCompensation": 45000.00,
+  "nonemployeeCompensation": [number from Box 1],
   "payerMadeDirectSales": false,
   "federalIncomeTaxWithheld": null,
-  "stateTaxInfo": [
-    {
-      "state": "CA",
-      "statePayerStateNo": "XXX-XXXX-X",
-      "stateIncome": 45000.00
-    }
-  ],
-  "taxYear": 2024,
+  "stateTaxInfo": [],
+  "taxYear": [year],
   "corrected": false
 }
 
-Rules:
-1. All monetary values should be numbers without $ or commas
-2. Use null for empty or unclear fields, NEVER guess
-3. SSN should include dashes: XXX-XX-XXXX
-4. EIN should include dash: XX-XXXXXXX
-5. Box 1 (nonemployeeCompensation) is the most important field - this is the contractor/freelance income
-6. Box 2 is a checkbox, return true/false based on whether it's checked
-7. Most forms will only have Box 1 filled, other boxes are often empty`
+IMPORTANT REMINDERS:
+- Monetary values: numbers only (1570.00 not "$1,570.00")
+- TINs: include dashes (XX-XXXXXXX or XXX-XX-XXXX)
+- Empty fields: use null, NOT made-up values
+- READ the actual document - do not generate fake data`
 }
 
 /**

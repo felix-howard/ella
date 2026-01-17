@@ -12,7 +12,8 @@ import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { getFieldLabel, isExcludedField } from '../../lib/field-labels'
+import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
+import { getDocTypeFields } from '../../lib/doc-type-fields'
 import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -114,15 +115,18 @@ export function VerificationModal({
     [doc.extractedData]
   )
 
-  // Extract and filter fields from extractedData
+  // Extract and filter fields based on doc-type-specific fields
   const { fields, fieldVerifications } = useMemo(() => {
     const verifications = isRecord(doc.fieldVerifications)
       ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
       : {}
 
+    // Get expected fields for this document type
+    const expectedFields = getDocTypeFields(doc.docType)
+    const expectedFieldsSet = new Set(expectedFields)
+
     // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
     // Note: Multi-state forms only show first state entry. Most 1099-NEC have 1 state.
-    // To support multiple states, consider expanding UI or adding state selector.
     const flattenedData: Record<string, unknown> = {}
 
     for (const [key, value] of Object.entries(extractedData)) {
@@ -140,13 +144,26 @@ export function VerificationModal({
       }
     }
 
-    const fieldEntries = Object.entries(flattenedData)
+    // Filter to only show fields expected for this document type
+    // Order by expected fields order for consistent display
+    const orderedFields: Array<[string, unknown]> = []
+    for (const fieldKey of expectedFields) {
+      if (fieldKey in flattenedData) {
+        orderedFields.push([fieldKey, flattenedData[fieldKey]])
+      }
+    }
+    // Add any extra extracted fields not in expected list (at the end)
+    for (const [key, value] of Object.entries(flattenedData)) {
+      if (!expectedFieldsSet.has(key)) {
+        orderedFields.push([key, value])
+      }
+    }
 
     return {
-      fields: fieldEntries,
+      fields: orderedFields,
       fieldVerifications: verifications,
     }
-  }, [extractedData, doc.fieldVerifications])
+  }, [extractedData, doc.fieldVerifications, doc.docType])
 
   // Calculate progress
   const totalFields = fields.length
@@ -482,7 +499,7 @@ export function VerificationModal({
                   >
                     <FieldVerificationItem
                       fieldKey={key}
-                      label={getFieldLabel(key)}
+                      label={getFieldLabelForDocType(key, doc.docType)}
                       value={String(value ?? '')}
                       status={fieldVerifications[key] || null}
                       onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}

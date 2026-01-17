@@ -32,6 +32,7 @@ export function useClassificationUpdates({
 - Shows contextual toast notifications on status changes
 - Invalidates checklist query when images are linked
 - Memory leak prevention with cleanup on unmount
+- **Stuck detection (Phase 1 & 2 Debug):** Identifies images stuck in PROCESSING state for >5 minutes and excludes them from progress notifications
 
 **State Tracking:**
 ```typescript
@@ -234,11 +235,73 @@ toast.info(message)     // 2s auto-dismiss
 toast.error(message)    // 2s auto-dismiss
 ```
 
+## Stuck Detection (Phase 1 & 2 Debug)
+
+### Smart Stuck Image Handling
+
+The hook implements intelligent detection for images that appear stuck in PROCESSING state, preventing false progress notifications:
+
+**Threshold:** 5 minutes (300,000ms) in PROCESSING state
+
+**Detection Logic:**
+
+On initial load:
+1. Scan all images with `status === PROCESSING`
+2. Check `updatedAt` timestamp
+3. Calculate time delta: `now - updatedAt.getTime()`
+4. If delta > 5 minutes, mark as "stuck" in `initialProcessingIdsRef`
+5. Count only "active" (non-stuck) processing images
+
+**Affected Components:**
+- FloatingPanel only shows count of active (non-stuck) images
+- Auto-hides when `activeProcessingCount === 0` (ignores stuck items)
+- Progress notifications only fired for images that transition while session is active
+
+**Benefits:**
+- Prevents misleading progress indicators
+- Distinguishes between actively-processing items and stale/abandoned jobs
+- Improves modal display accuracy on page reload
+
+**Example Scenario:**
+```
+Initial load:
+  - Image A: PROCESSING since 6 minutes ago → marked stuck
+  - Image B: PROCESSING since 30 seconds ago → counted as active
+
+Result:
+  - FloatingPanel shows "1 image processing" (Image B only)
+  - User doesn't see stuck Image A in progress count
+  - When Image B completes → notification fires
+```
+
+**Code Implementation:**
+```typescript
+// Track IDs that were already processing on initial load (old/stuck data)
+const initialProcessingIdsRef = useRef<Set<string> | null>(null)
+
+// On first mount: identify stuck images
+const now = Date.now()
+initialProcessingIdsRef.current = new Set(
+  currentImages
+    .filter((img) => {
+      if (img.status !== 'PROCESSING') return false
+      const updatedAt = new Date(img.updatedAt).getTime()
+      return now - updatedAt > STUCK_THRESHOLD_MS // Only mark as stuck if older than 5 min
+    })
+    .map((img) => img.id)
+)
+
+// Compute active count (exclude initial stuck items)
+const activeCount = currentImages.filter(
+  (img) => img.status === 'PROCESSING' && !initialProcessingIdsRef.current?.has(img.id)
+).length
+```
+
 ## Files Changed
 
 | File | Type | Changes |
 |------|------|---------|
-| `apps/workspace/src/hooks/use-classification-updates.ts` | NEW | Polling hook with state tracking |
+| `apps/workspace/src/hooks/use-classification-updates.ts` | MODIFIED | Added stuck detection (Phase 1&2 Debug), improved modal display accuracy |
 | `apps/workspace/src/components/documents/upload-progress.tsx` | NEW | Floating panel component |
 | `apps/workspace/src/components/cases/raw-image-gallery.tsx` | MODIFIED | Added PROCESSING status badge |
 | `apps/workspace/src/routes/clients/$clientId.tsx` | MODIFIED | Integrated polling + components |
@@ -357,6 +420,19 @@ function ClientDetailPage() {
 
 ---
 
-**Last Updated:** 2026-01-14
-**Status:** Phase 05 Complete
-**Architecture Version:** 5.0
+**Last Updated:** 2026-01-17 (Phase 1 & 2 Debug: Stuck detection + Gemini model update)
+**Status:** Phase 05 Complete + Phase 1 & 2 Debug Enhancements
+**Architecture Version:** 5.1
+
+## Recent Updates (Phase 1 & 2 Debug)
+
+**2026-01-17 Changes:**
+1. **Stuck Detection Enhancement:** Added smart 5-minute threshold detection for images stuck in PROCESSING state
+   - Prevents misleading progress notifications
+   - Improves modal display accuracy on component mount/reload
+   - Distinguishes active vs abandoned jobs
+
+2. **Gemini Model Update:** Reverted primary model from `gemini-2.0-flash` to `gemini-2.5-flash`
+   - More stable performance for classification tasks
+   - Maintained fallback chain: `gemini-2.5-flash-lite,gemini-2.5-flash`
+   - See [Phase 2.1 - AI Document Processing Services](./phase-2.1-ai-services.md) for details

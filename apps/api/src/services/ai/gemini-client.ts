@@ -196,8 +196,9 @@ export function parseJsonResponse<T>(text: string): T | null {
 
     return JSON.parse(cleaned) as T
   } catch {
-    // Log truncated response to avoid PII exposure
-    console.error('Failed to parse JSON response, length:', text.length)
+    // Log truncated response to help debug issues
+    const preview = text.substring(0, 200)
+    console.error(`[Gemini] Failed to parse JSON response. Length: ${text.length}, Preview: ${preview}`)
     return null
   }
 }

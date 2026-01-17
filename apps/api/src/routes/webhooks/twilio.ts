@@ -62,7 +62,7 @@ twilioWebhookRoute.post('/sms', async (c) => {
   // Reconstruct original URL (handles ngrok/proxy scenarios)
   // Twilio signs using the configured webhook URL, not the internal server URL
   const forwardedProto = c.req.header('x-forwarded-proto') || 'http'
-  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3001'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3002'
   const urlPath = new URL(c.req.url).pathname
   const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
 

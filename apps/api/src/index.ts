@@ -4,7 +4,7 @@ import { initializeScheduler, stopScheduler } from './services/scheduler'
 import { validateGeminiModel } from './services/ai/gemini-client'
 import { checkPopplerInstalled } from './services/pdf'
 
-const port = Number(process.env.PORT) || 3001
+const port = Number(process.env.PORT) || 3002
 
 console.log(`API server starting on port ${port}`)
 

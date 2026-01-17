@@ -87,7 +87,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Structure:**
 
-- Entry: `src/index.ts` (serves on PORT 3001, validates Gemini on startup Phase 02)
+- Entry: `src/index.ts` (serves on PORT 3002, validates Gemini on startup Phase 02)
 - App config: `src/app.ts` (main Hono app instance & all routes)
 - Middleware: `src/middleware/error-handler.ts` (global error handling)
 - Lib: `src/lib/db.ts` (Prisma re-export), `src/lib/constants.ts` (pagination, Vietnamese labels)

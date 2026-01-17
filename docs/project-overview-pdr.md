@@ -184,7 +184,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Requirements Met:**
 
-- [x] Hono API server on PORT 3001
+- [x] Hono API server on PORT 3002
 - [x] 26 endpoints across 7 route modules (clients, cases, docs, actions, messages, portal, health)
 - [x] Request validation via Zod + @hono/zod-validator with CUID format validation
 - [x] Prisma database integration via @ella/db
@@ -201,7 +201,7 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Acceptance Criteria Met:**
 
-- [x] Server starts on PORT 3001
+- [x] Server starts on PORT 3002
 - [x] All endpoints validated via Zod (including CUID format for client IDs)
 - [x] Prisma queries typed and type-safe
 - [x] Error responses with HTTP status codes & descriptive messages
@@ -467,7 +467,7 @@ docs/
 
 1. **Verify Phase 1 Features:**
    - Start workspace dev server: `pnpm -F @ella/workspace dev` (PORT 5174)
-   - Start API server: `pnpm -F @ella/api dev` (PORT 3001)
+   - Start API server: `pnpm -F @ella/api dev` (PORT 3002)
    - Test client creation with magic link & SMS delivery
    - Verify Portal Link card in client detail view
    - Test resend SMS from workspace

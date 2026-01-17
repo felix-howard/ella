@@ -40,7 +40,7 @@
 ```
 ella/ (Monorepo - pnpm workspaces)
 ├── apps/
-│   ├── api/          # Hono backend (PORT 3001)
+│   ├── api/          # Hono backend (PORT 3002)
 │   ├── portal/       # Client upload portal (PORT 5174)
 │   └── workspace/    # Staff management UI (PORT 5173)
 ├── packages/
@@ -73,7 +73,7 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 ## Core Applications
 
 ### @ella/api
-**REST API (Hono framework, PORT 3001)** - 42+ endpoints across 8 modules with Zod validation, global error handling, OpenAPI docs.
+**REST API (Hono framework, PORT 3002)** - 42+ endpoints across 8 modules with Zod validation, global error handling, OpenAPI docs.
 
 ### @ella/portal
 **Client-facing upload portal (React, PORT 5174)** - Passwordless magic link auth, mobile-optimized (max 448px), file validation, real-time progress.

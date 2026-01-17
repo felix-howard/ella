@@ -5,7 +5,7 @@
 
 export const config = {
   // Server
-  port: parseInt(process.env.PORT || '3001', 10),
+  port: parseInt(process.env.PORT || '3002', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // CORS - comma-separated origins in env

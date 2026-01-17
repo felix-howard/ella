@@ -5,11 +5,11 @@
  */
 
 // Environment validation
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
 // Validate API URL format
 if (typeof API_BASE_URL !== 'string' || !API_BASE_URL.startsWith('http')) {
-  console.error('[API Client] Invalid VITE_API_URL. Using default: http://localhost:3001')
+  console.error('[API Client] Invalid VITE_API_URL. Using default: http://localhost:3002')
 }
 
 // Configuration

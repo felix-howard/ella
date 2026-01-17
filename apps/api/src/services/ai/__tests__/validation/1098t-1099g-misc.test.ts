@@ -1,12 +1,15 @@
 /**
- * OCR Prompts Validation Unit Tests
- * Tests validation functions for all OCR prompt types
+ * Validation Tests: 1098-T, 1099-G, 1099-MISC
+ * Education and government/miscellaneous income forms
  */
 import { describe, it, expect } from 'vitest'
-import { validate1098TData } from '../prompts/ocr/1098-t'
-import { validate1099GData } from '../prompts/ocr/1099-g'
-import { validate1099MiscData } from '../prompts/ocr/1099-misc'
+import { validate1098TData } from '../../prompts/ocr/1098-t'
+import { validate1099GData } from '../../prompts/ocr/1099-g'
+import { validate1099MiscData } from '../../prompts/ocr/1099-misc'
 
+// =============================================================================
+// 1098-T VALIDATION TESTS
+// =============================================================================
 describe('validate1098TData', () => {
   it('returns true for valid 1098-T data with all required fields', () => {
     const validData = {
@@ -99,6 +102,9 @@ describe('validate1098TData', () => {
   })
 })
 
+// =============================================================================
+// 1099-G VALIDATION TESTS
+// =============================================================================
 describe('validate1099GData', () => {
   it('returns true for valid 1099-G data with all required fields', () => {
     const validData = {
@@ -194,6 +200,9 @@ describe('validate1099GData', () => {
   })
 })
 
+// =============================================================================
+// 1099-MISC VALIDATION TESTS
+// =============================================================================
 describe('validate1099MiscData', () => {
   it('returns true for valid 1099-MISC data with rental income', () => {
     const validData = {

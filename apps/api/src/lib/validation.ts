@@ -90,3 +90,85 @@ export function pickFields<T extends Record<string, unknown>, K extends keyof T>
   }
   return result
 }
+
+/**
+ * Whitelist of valid fields per document type for verification
+ * Prevents arbitrary field injection into JSON columns
+ */
+export const VALID_DOC_FIELDS: Record<string, string[]> = {
+  W2: [
+    'employerName', 'employerEIN', 'employerAddress',
+    'employeeName', 'employeeSSN', 'employeeAddress',
+    'wages', 'federalWithholding', 'socialSecurityWages',
+    'socialSecurityTax', 'medicareWages', 'medicareTax',
+    'socialSecurityTips', 'allocatedTips', 'dependentCareBenefits',
+    'nonqualifiedPlans', 'box12a', 'box12b', 'box12c', 'box12d',
+    'statutory', 'retirementPlan', 'thirdPartySickPay',
+    'state', 'stateId', 'stateWages', 'stateTax',
+    'localWages', 'localTax', 'localityName',
+  ],
+  FORM_1099_INT: [
+    'payerName', 'payerTIN', 'payerAddress',
+    'recipientName', 'recipientTIN', 'recipientAddress',
+    'interestIncome', 'earlyWithdrawalPenalty', 'usSavingsBonds',
+    'federalTaxWithheld', 'investmentExpenses', 'foreignTaxPaid',
+    'foreignCountry', 'taxExemptInterest', 'privateBondInterest',
+    'marketDiscount', 'bondPremium', 'bondPremiumTreasury',
+    'bondPremiumTaxExempt', 'cusipNumber', 'state', 'stateId', 'stateTaxWithheld',
+  ],
+  FORM_1099_NEC: [
+    'payerName', 'payerTIN', 'payerAddress',
+    'recipientName', 'recipientTIN', 'recipientAddress',
+    'nonemployeeCompensation', 'payerMadeDirectSales',
+    'federalTaxWithheld', 'state', 'stateId', 'stateIncome', 'stateTaxWithheld',
+  ],
+  SSN_CARD: ['name', 'ssn', 'cardType'],
+  DRIVER_LICENSE: [
+    'fullName', 'firstName', 'lastName', 'middleName',
+    'dateOfBirth', 'address', 'city', 'state', 'zipCode',
+    'licenseNumber', 'expirationDate', 'issueDate',
+    'sex', 'height', 'eyeColor', 'documentDiscriminator',
+  ],
+  // Generic fields for other doc types
+  OTHER: ['rawText', 'notes'],
+  UNKNOWN: ['rawText', 'notes'],
+}
+
+/**
+ * Validate that a field name is allowed for a document type
+ * Prevents JSON injection via arbitrary field names
+ */
+export function isValidDocField(docType: string | null, fieldName: string): boolean {
+  if (!docType) return false
+
+  const validFields = VALID_DOC_FIELDS[docType]
+  if (!validFields) {
+    // For unsupported doc types, only allow generic fields
+    return VALID_DOC_FIELDS.OTHER.includes(fieldName)
+  }
+
+  return validFields.includes(fieldName)
+}
+
+/**
+ * Sanitize text input for XSS prevention
+ * Removes HTML tags and control characters, limits length
+ */
+export function sanitizeTextInput(input: string, maxLength = 500): string {
+  if (!input) return ''
+
+  return input
+    .trim()
+    .slice(0, maxLength)
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/[<>]/g, '') // Remove remaining angle brackets
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
+}
+
+/**
+ * Sanitize reupload reason for database storage
+ */
+export function sanitizeReuploadReason(reason: string): string {
+  return sanitizeTextInput(reason, 500)
+}

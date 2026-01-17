@@ -1,0 +1,548 @@
+/**
+ * VerificationModal - Split-screen modal for document field verification
+ * Left panel: Zoomable image viewer
+ * Right panel: Field verification controls with progress tracking
+ * Features: auto-save on blur, optimistic updates, keyboard shortcuts
+ */
+
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles } from 'lucide-react'
+import { cn, Badge, Button } from '@ella/ui'
+import { ImageViewer } from '../ui/image-viewer'
+import { FieldVerificationItem } from '../ui/field-verification-item'
+import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { getFieldLabel, isExcludedField } from '../../lib/field-labels'
+import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
+import { toast } from '../../stores/toast-store'
+import { useSignedUrl } from '../../hooks/use-signed-url'
+
+export interface VerificationModalProps {
+  /** Document to verify */
+  doc: DigitalDoc
+  /** Whether modal is open */
+  isOpen: boolean
+  /** Callback when modal closes */
+  onClose: () => void
+  /** Case ID for query invalidation */
+  caseId: string
+  /** Callback when re-upload request is needed */
+  onRequestReupload?: (doc: DigitalDoc, unreadableFields: string[]) => void
+}
+
+// Vietnamese toast messages
+const MESSAGES = {
+  VERIFY_SUCCESS: 'Đã xác minh trường',
+  VERIFY_ERROR: 'Lỗi xác minh trường',
+  COMPLETE_SUCCESS: 'Đã hoàn tất xác minh tài liệu',
+  COMPLETE_ERROR: 'Lỗi hoàn tất xác minh',
+  ALL_FIELDS_REQUIRED: 'Vui lòng xác minh tất cả các trường',
+  EXTRACT_SUCCESS: 'Đã trích xuất dữ liệu thành công',
+  EXTRACT_ERROR: 'Lỗi trích xuất dữ liệu',
+  EXTRACT_AI_NOT_CONFIGURED: 'AI chưa được cấu hình. Vui lòng nhập liệu thủ công.',
+  EXTRACT_RATE_LIMIT: 'Đã vượt giới hạn API. Vui lòng thử lại sau ít phút.',
+  EXTRACT_UNSUPPORTED: 'Loại tài liệu này không hỗ trợ trích xuất OCR.',
+}
+
+/**
+ * Parse OCR error message to user-friendly Vietnamese message
+ */
+function parseOcrError(message: string): string {
+  if (message.includes('429') || message.includes('quota') || message.includes('rate')) {
+    return MESSAGES.EXTRACT_RATE_LIMIT
+  }
+  if (message.includes('UNSUPPORTED_DOC_TYPE') || message.includes('does not support OCR')) {
+    return MESSAGES.EXTRACT_UNSUPPORTED
+  }
+  if (message.includes('AI not configured')) {
+    return MESSAGES.EXTRACT_AI_NOT_CONFIGURED
+  }
+  // Default short error
+  return MESSAGES.EXTRACT_ERROR
+}
+
+// Type guard helpers
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && !isNaN(value)
+}
+
+/**
+ * Validate signed URL to prevent XSS attacks
+ */
+function isValidSignedUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    const trustedHosts = [
+      '.r2.cloudflarestorage.com',
+      '.amazonaws.com',
+      '.storage.googleapis.com',
+      '.blob.core.windows.net',
+    ]
+    return trustedHosts.some((host) => parsed.hostname.endsWith(host))
+  } catch {
+    return false
+  }
+}
+
+export function VerificationModal({
+  doc,
+  isOpen,
+  onClose,
+  caseId,
+  onRequestReupload,
+}: VerificationModalProps) {
+  const queryClient = useQueryClient()
+  const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
+
+  // Get signed URL for image
+  const rawImageId = doc.rawImage?.id || doc.rawImageId
+  const {
+    data: signedUrlData,
+    isLoading: isUrlLoading,
+    error: urlError,
+    refetch: refetchUrl,
+  } = useSignedUrl(rawImageId, { enabled: isOpen && !!rawImageId })
+
+  // Memoize extracted data parsing separately for granular updates
+  const extractedData = useMemo(
+    () => (isRecord(doc.extractedData) ? doc.extractedData : {}),
+    [doc.extractedData]
+  )
+
+  // Extract and filter fields from extractedData
+  const { fields, fieldVerifications } = useMemo(() => {
+    const verifications = isRecord(doc.fieldVerifications)
+      ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
+      : {}
+
+    // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
+    // Note: Multi-state forms only show first state entry. Most 1099-NEC have 1 state.
+    // To support multiple states, consider expanding UI or adding state selector.
+    const flattenedData: Record<string, unknown> = {}
+
+    for (const [key, value] of Object.entries(extractedData)) {
+      // Handle stateTaxInfo array - flatten first entry only
+      if (key === 'stateTaxInfo' && Array.isArray(value) && value.length > 0) {
+        const firstState = value[0]
+        if (isRecord(firstState)) {
+          if (firstState.state) flattenedData.state = firstState.state
+          if (firstState.statePayerStateNo) flattenedData.statePayerStateNo = firstState.statePayerStateNo
+          if (firstState.stateIncome != null) flattenedData.stateIncome = firstState.stateIncome
+        }
+      } else if (!isExcludedField(key) && typeof value !== 'object') {
+        // Regular non-object fields
+        flattenedData[key] = value
+      }
+    }
+
+    const fieldEntries = Object.entries(flattenedData)
+
+    return {
+      fields: fieldEntries,
+      fieldVerifications: verifications,
+    }
+  }, [extractedData, doc.fieldVerifications])
+
+  // Calculate progress
+  const totalFields = fields.length
+  const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
+  const allVerified = totalFields > 0 && verifiedCount === totalFields
+  const hasUnreadable = Object.values(fieldVerifications).includes('unreadable')
+
+  // AI confidence - reuse memoized extractedData
+  const extractedConfidence = extractedData.aiConfidence
+  const aiConfidence = doc.aiConfidence ?? (isNumber(extractedConfidence) ? extractedConfidence : 0)
+  const confidencePercent = Math.round(aiConfidence * 100)
+
+  // Field verification mutation with optimistic updates
+  const verifyFieldMutation = useMutation({
+    mutationFn: (payload: { field: string; status: FieldVerificationStatus; value?: string }) =>
+      api.docs.verifyField(doc.id, payload),
+    onMutate: async ({ field, status, value }) => {
+      // Cancel in-flight queries
+      await queryClient.cancelQueries({ queryKey: ['case', caseId] })
+
+      // Snapshot previous value
+      const previousCase = queryClient.getQueryData(['case', caseId])
+
+      // Optimistically update
+      queryClient.setQueryData(['case', caseId], (old: unknown) => {
+        if (!isRecord(old)) return old
+        const digitalDocs = Array.isArray(old.digitalDocs) ? old.digitalDocs : []
+        return {
+          ...old,
+          digitalDocs: digitalDocs.map((d: unknown) => {
+            if (!isRecord(d) || d.id !== doc.id) return d
+            const currentVerifications = isRecord(d.fieldVerifications) ? d.fieldVerifications : {}
+            const currentExtracted = isRecord(d.extractedData) ? d.extractedData : {}
+            return {
+              ...d,
+              fieldVerifications: { ...currentVerifications, [field]: status },
+              extractedData: value ? { ...currentExtracted, [field]: value } : currentExtracted,
+            }
+          }),
+        }
+      })
+
+      return { previousCase }
+    },
+    onSuccess: () => {
+      // Move to next unverified field
+      const nextUnverified = fields.findIndex(
+        ([key], idx) => idx > currentFieldIndex && !fieldVerifications[key]
+      )
+      if (nextUnverified !== -1) {
+        setCurrentFieldIndex(nextUnverified)
+      }
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCase) {
+        queryClient.setQueryData(['case', caseId], context.previousCase)
+      }
+      toast.error(MESSAGES.VERIFY_ERROR)
+    },
+    onSettled: () => {
+      // Invalidate to ensure sync
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
+    },
+  })
+
+  // Complete verification mutation
+  const completeMutation = useMutation({
+    mutationFn: () => api.docs.verifyAction(doc.id, { action: 'verify' }),
+    onSuccess: () => {
+      toast.success(MESSAGES.COMPLETE_SUCCESS)
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
+      onClose()
+    },
+    onError: () => {
+      toast.error(MESSAGES.COMPLETE_ERROR)
+    },
+  })
+
+  // OCR extraction mutation
+  const extractMutation = useMutation({
+    mutationFn: () => api.docs.triggerOcr(doc.id),
+    onSuccess: (data) => {
+      if (data.aiConfigured === false) {
+        toast.error(MESSAGES.EXTRACT_AI_NOT_CONFIGURED)
+        return
+      }
+      if (data.ocrResult?.success) {
+        toast.success(`${MESSAGES.EXTRACT_SUCCESS} (${Math.round(data.ocrResult.confidence * 100)}%)`)
+      } else {
+        // Parse error message to user-friendly Vietnamese
+        const errorMsg = parseOcrError(data.message || '')
+        toast.error(errorMsg)
+      }
+      // Invalidate to refresh extracted data
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
+    },
+    onError: () => {
+      toast.error(MESSAGES.EXTRACT_ERROR)
+    },
+  })
+
+  // Handle field verification
+  const handleVerifyField = useCallback(
+    (fieldKey: string, status: FieldVerificationStatus, newValue?: string) => {
+      verifyFieldMutation.mutate({ field: fieldKey, status, value: newValue })
+    },
+    [verifyFieldMutation]
+  )
+
+  // Handle complete verification
+  const handleComplete = useCallback(() => {
+    if (!allVerified) {
+      toast.error(MESSAGES.ALL_FIELDS_REQUIRED)
+      return
+    }
+    completeMutation.mutate()
+  }, [allVerified, completeMutation])
+
+  // Handle request re-upload
+  const handleRequestReupload = useCallback(() => {
+    const unreadableFields = Object.entries(fieldVerifications)
+      .filter(([_, status]) => status === 'unreadable')
+      .map(([key]) => key)
+    onRequestReupload?.(doc, unreadableFields)
+  }, [doc, fieldVerifications, onRequestReupload])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close (only when not editing a field)
+      // When in an input, FieldVerificationItem handles Escape to cancel edit
+      if (e.key === 'Escape') {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          onClose()
+        }
+        return
+      }
+
+      // Tab to navigate fields (when not in an input)
+      if (e.key === 'Tab' && !e.shiftKey) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          const nextIndex = (currentFieldIndex + 1) % fields.length
+          setCurrentFieldIndex(nextIndex)
+        }
+      }
+
+      // Shift+Tab to navigate backwards
+      if (e.key === 'Tab' && e.shiftKey) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          const prevIndex = currentFieldIndex === 0 ? fields.length - 1 : currentFieldIndex - 1
+          setCurrentFieldIndex(prevIndex)
+        }
+      }
+
+      // Enter to complete when all verified
+      if (e.key === 'Enter' && allVerified && !completeMutation.isPending) {
+        e.preventDefault()
+        handleComplete()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose, currentFieldIndex, fields.length, allVerified, completeMutation.isPending, handleComplete])
+
+  // Reset state when modal opens
+  // Note: setState is intentional here to sync internal state with prop changes
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentFieldIndex(0)
+    }
+  }, [isOpen])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (!isOpen) return null
+
+  const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
+  const isPdf = doc.rawImage?.r2Key?.endsWith('.pdf')
+
+  // URL validation
+  const validatedUrl =
+    signedUrlData?.url && isValidSignedUrl(signedUrlData.url) ? signedUrlData.url : null
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal */}
+      <div
+        className="fixed inset-4 md:inset-8 lg:inset-12 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verification-modal-title"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-3">
+            <h2
+              id="verification-modal-title"
+              className="text-lg font-semibold text-foreground"
+            >
+              {docLabel}
+            </h2>
+            <Badge variant="outline" className="text-xs">
+              AI {confidencePercent}%
+            </Badge>
+            {doc.status === 'PARTIAL' && (
+              <Badge variant="warning" className="text-xs">
+                Thiếu dữ liệu
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => extractMutation.mutate()}
+              disabled={extractMutation.isPending}
+              className="gap-1.5"
+            >
+              {extractMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang trích xuất...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Trích xuất
+                </>
+              )}
+            </Button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content - Split view */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Left: Image Viewer */}
+          <div className="h-1/2 md:h-full md:w-1/2 border-b md:border-b-0 md:border-r border-border bg-muted/20 p-4">
+            {isUrlLoading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+              </div>
+            ) : urlError || !validatedUrl ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                <ImageOff className="w-12 h-12" />
+                <p className="text-sm">Không thể tải hình ảnh</p>
+                <Button variant="outline" size="sm" onClick={() => refetchUrl()} className="gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Thử lại
+                </Button>
+              </div>
+            ) : (
+              <ImageViewer
+                imageUrl={validatedUrl}
+                isPdf={isPdf}
+                className="w-full h-full"
+              />
+            )}
+          </div>
+
+          {/* Right: Verification Panel */}
+          <div className="h-1/2 md:h-full md:w-1/2 flex flex-col overflow-hidden">
+            {/* Status info */}
+            <div className="px-4 py-3 border-b border-border bg-muted/10">
+              <p className="text-sm text-secondary">
+                {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
+                {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
+                {doc.status === 'PENDING' && 'Đang xử lý'}
+                {doc.status === 'VERIFIED' && 'Đã xác minh'}
+              </p>
+            </div>
+
+            {/* Fields list - Scrollable (compact spacing for 8-10 fields visible) */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {fields.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+                  <p className="font-medium">Không có dữ liệu được trích xuất</p>
+                  <p className="text-xs mt-2">
+                    {aiConfidence === 0
+                      ? 'AI đang gặp sự cố. Vui lòng thử lại sau hoặc nhập liệu thủ công.'
+                      : 'Tài liệu chưa được xử lý OCR hoặc không hỗ trợ loại này.'}
+                  </p>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => extractMutation.mutate()}
+                    disabled={extractMutation.isPending}
+                    className="mt-4 gap-1.5"
+                  >
+                    {extractMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang trích xuất...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Trích xuất bằng AI
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                fields.map(([key, value], index) => (
+                  <div
+                    key={key}
+                    className={cn(
+                      index === currentFieldIndex && 'bg-primary/5 -mx-1 px-1 rounded'
+                    )}
+                  >
+                    <FieldVerificationItem
+                      fieldKey={key}
+                      label={getFieldLabel(key)}
+                      value={String(value ?? '')}
+                      status={fieldVerifications[key] || null}
+                      onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
+                      disabled={verifyFieldMutation.isPending}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer - compact */}
+            <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
+              {/* Compact progress bar */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Xác minh</span>
+                <span className="font-medium">{verifiedCount}/{totalFields}</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: totalFields > 0 ? `${(verifiedCount / totalFields) * 100}%` : '0%' }}
+                />
+              </div>
+
+              {/* Compact actions */}
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRequestReupload}
+                  disabled={!hasUnreadable || !onRequestReupload}
+                  className="text-xs"
+                >
+                  Yêu cầu tải lại
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleComplete}
+                  disabled={!allVerified || completeMutation.isPending}
+                  className="flex-1 text-xs"
+                >
+                  {completeMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Hoàn tất'
+                  )}
+                </Button>
+              </div>
+
+              {/* Keyboard hints inline */}
+              <p className="text-[10px] text-muted-foreground text-center">
+                Tab = Di chuyển • Enter = Hoàn tất • Esc = Đóng
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}

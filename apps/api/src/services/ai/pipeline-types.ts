@@ -3,6 +3,7 @@
  * Shared types for document processing pipeline
  */
 import type { DocType, ActionType, ActionPriority } from '@ella/db'
+import type { AIErrorType } from './ai-error-messages'
 
 /**
  * Pipeline result for a single image
@@ -55,6 +56,10 @@ export interface VerifyDocsMetadata extends ActionMetadataBase {
 
 export interface AiFailedMetadata extends ActionMetadataBase {
   errorMessage?: string
+  technicalError?: string
+  r2Key?: string
+  attemptedAt?: string
+  errorType: AIErrorType
 }
 
 /**
@@ -94,6 +99,7 @@ export interface PipelineConfig {
   maxRetries: number
   retryDelayMs: number
   batchConcurrency: number
+  pdfConcurrency: number // Lower for PDFs (memory intensive)
 }
 
 /**
@@ -103,4 +109,5 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   maxRetries: 2,
   retryDelayMs: 1000,
   batchConcurrency: 3,
+  pdfConcurrency: 1, // Process PDFs one at a time (each uses ~100MB)
 }

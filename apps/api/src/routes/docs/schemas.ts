@@ -56,7 +56,50 @@ export const verifyActionSchema = z.object({
   notes: z.string().optional(),
 })
 
+// Select best image from group input
+export const selectBestImageSchema = z.object({
+  imageId: z.string().min(1),
+})
+
+// Field verification status enum
+export const fieldVerificationStatusEnum = z.enum(['verified', 'edited', 'unreadable'])
+
+// Verify single field input (Phase 02)
+export const verifyFieldSchema = z.object({
+  field: z.string().min(1),
+  status: fieldVerificationStatusEnum,
+  value: z.string().optional(), // New value if edited
+})
+
+// Mark field as copied input (Phase 02)
+export const markCopiedSchema = z.object({
+  field: z.string().min(1),
+})
+
+// Complete entry input (Phase 02)
+export const completeEntrySchema = z.object({}) // Empty body, just action
+
+// Request reupload input (Phase 02)
+export const requestReuploadSchema = z.object({
+  reason: z.string().min(1),
+  fields: z.array(z.string()).min(1),
+  sendSms: z.boolean().default(true),
+})
+
+// JSON field validation schemas for database fields
+export const fieldVerificationsSchema = z.record(fieldVerificationStatusEnum)
+export const copiedFieldsSchema = z.record(z.boolean())
+export const reuploadFieldsSchema = z.array(z.string())
+
 // Type exports
 export type ClassifyDocInput = z.infer<typeof classifyDocSchema>
 export type VerifyDocInput = z.infer<typeof verifyDocSchema>
 export type VerifyActionInput = z.infer<typeof verifyActionSchema>
+export type SelectBestImageInput = z.infer<typeof selectBestImageSchema>
+export type VerifyFieldInput = z.infer<typeof verifyFieldSchema>
+export type MarkCopiedInput = z.infer<typeof markCopiedSchema>
+export type CompleteEntryInput = z.infer<typeof completeEntrySchema>
+export type RequestReuploadInput = z.infer<typeof requestReuploadSchema>
+export type FieldVerifications = z.infer<typeof fieldVerificationsSchema>
+export type CopiedFields = z.infer<typeof copiedFieldsSchema>
+export type ReuploadFields = z.infer<typeof reuploadFieldsSchema>

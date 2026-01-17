@@ -225,6 +225,9 @@ export const api = {
       request<ImagesResponse>(`/cases/${id}/images`, { params }),
 
     getDocs: (id: string) => request<DocsResponse>(`/cases/${id}/docs`),
+
+    getImageSignedUrl: (imageId: string) =>
+      request<SignedUrlResponse>(`/cases/images/${imageId}/signed-url`),
   },
 
   // Actions
@@ -247,6 +250,65 @@ export const api = {
       request<{ success: boolean; message: string }>(`/docs/${id}/verify-action`, {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+
+    // Trigger OCR extraction using Gemini AI
+    triggerOcr: (id: string) =>
+      request<OcrTriggerResponse>(`/docs/${id}/ocr`, {
+        method: 'POST',
+        timeout: 60000, // 60s timeout for AI processing
+      }),
+
+    // Phase 02: Field-level verification & entry tracking
+    verifyField: (id: string, data: { field: string; status: FieldVerificationStatus; value?: string }) =>
+      request<{ success: boolean; fieldVerifications: Record<string, string> }>(`/docs/${id}/verify-field`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    markCopied: (id: string, field: string) =>
+      request<{ success: boolean; copiedFields: Record<string, boolean> }>(`/docs/${id}/mark-copied`, {
+        method: 'POST',
+        body: JSON.stringify({ field }),
+      }),
+
+    completeEntry: (id: string) =>
+      request<{ success: boolean; message: string }>(`/docs/${id}/complete-entry`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+  },
+
+  // Raw Images
+  images: {
+    // Update classification for an image (approve/reject/change type)
+    updateClassification: (id: string, data: { docType: string; action: 'approve' | 'reject' }) =>
+      request<{ success: boolean; status: string }>(`/images/${id}/classification`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    // Re-trigger AI classification for an image
+    reclassify: (id: string) =>
+      request<{ success: boolean; message: string; status: string }>(`/images/${id}/reclassify`, {
+        method: 'POST',
+      }),
+
+    // Phase 02: Request document re-upload with optional SMS
+    requestReupload: (id: string, data: { reason: string; fields: string[]; sendSms: boolean }) =>
+      request<{ success: boolean; message: string; smsSent: boolean; smsError?: string }>(
+        `/images/${id}/request-reupload`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
+      ),
+
+    // Rename image file (display name only)
+    rename: (id: string, filename: string) =>
+      request<{ success: boolean; id: string; filename: string }>(`/images/${id}/rename`, {
+        method: 'PATCH',
+        body: JSON.stringify({ filename }),
       }),
   },
 
@@ -291,6 +353,23 @@ export type ActionType =
 export type ActionPriority = 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW'
 
 export type ChecklistItemStatus = 'MISSING' | 'HAS_RAW' | 'HAS_DIGITAL' | 'VERIFIED' | 'NOT_REQUIRED'
+
+// Phase 02: Field verification status
+export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable'
+
+// OCR trigger response
+export interface OcrTriggerResponse {
+  digitalDoc: DigitalDoc
+  ocrResult?: {
+    success: boolean
+    confidence: number
+    isValid: boolean
+    fieldLabels: Record<string, string>
+    processingTimeMs?: number
+  }
+  aiConfigured?: boolean
+  message: string
+}
 
 // Client types
 export interface Client {
@@ -411,9 +490,29 @@ export interface RawImage {
   filename: string
   r2Key: string
   status: string
+  classifiedType: string | null
+  aiConfidence: number | null
+  imageGroupId: string | null
   createdAt: string
   updatedAt: string
   checklistItem?: { template: ChecklistTemplate } | null
+  imageGroup?: ImageGroup | null
+  // Phase 01: Re-upload request tracking
+  reuploadRequested?: boolean
+  reuploadRequestedAt?: string | null
+  reuploadReason?: string | null
+  reuploadFields?: string[] | null
+}
+
+// Image group for duplicate detection
+export interface ImageGroup {
+  id: string
+  caseId: string
+  docType: string
+  bestImageId: string | null
+  images: { id: string; filename: string }[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface DigitalDoc {
@@ -423,9 +522,15 @@ export interface DigitalDoc {
   docType: string
   status: string
   extractedData: Record<string, unknown>
+  aiConfidence?: number | null
   createdAt: string
   updatedAt: string
   rawImage?: { id: string; filename: string; r2Key: string }
+  // Phase 02: Field-level verification & entry tracking
+  fieldVerifications?: Record<string, FieldVerificationStatus>
+  copiedFields?: Record<string, boolean>
+  entryCompleted?: boolean
+  entryCompletedAt?: string
 }
 
 export interface ImagesResponse {
@@ -434,6 +539,13 @@ export interface ImagesResponse {
 
 export interface DocsResponse {
   docs: DigitalDoc[]
+}
+
+export interface SignedUrlResponse {
+  id: string
+  filename: string
+  url: string
+  expiresIn: number
 }
 
 // Action types
@@ -476,6 +588,7 @@ export interface Message {
   channel: 'SMS' | 'PORTAL' | 'SYSTEM'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
+  attachmentUrls?: string[]
   createdAt: string
 }
 

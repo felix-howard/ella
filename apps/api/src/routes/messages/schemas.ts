@@ -21,7 +21,11 @@ export const listMessagesQuerySchema = z.object({
 export const listConversationsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  unreadOnly: z.coerce.boolean().optional(),
+  // z.coerce.boolean() treats string "false" as truthy! Use custom transform
+  unreadOnly: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
 })
 
 // Type exports

@@ -1,6 +1,10 @@
 /**
  * AI Document Processing Pipeline
  * Orchestrates classification, blur detection, and OCR extraction
+ *
+ * PDF Support: PDFs are converted to images internally by ocr-extractor.
+ * Classification and blur detection operate on the original image/PDF.
+ * OCR extraction handles multi-page PDFs with merged results.
  */
 import { classifyDocument, requiresOcrExtraction } from './document-classifier'
 import { detectBlur, shouldRequestResend, getResendMessage } from './blur-detector'
@@ -48,8 +52,11 @@ async function withRetry<T>(fn: () => Promise<T>, retries = config.maxRetries): 
 }
 
 /**
- * Process a single image through the AI pipeline
+ * Process a single image/PDF through the AI pipeline
  * Steps: 1. Classify → 2. Detect blur → 3. Extract OCR (if applicable)
+ *
+ * PDF Note: PDFs are converted to images internally by ocr-extractor.
+ * Classification operates on first page; OCR processes all pages and merges results.
  */
 export async function processImage(
   rawImageId: string,
@@ -112,6 +119,11 @@ export async function processImage(
 
     const docType = classResult.docType as DocType
 
+    // Log PDF classification
+    if (mimeType === 'application/pdf') {
+      console.log(`[Pipeline] PDF document ${rawImageId}: classified as ${docType}`)
+    }
+
     // Step 2: Detect blur (with retry)
     const blurResult = await withRetry(() => detectBlur(imageBuffer, mimeType))
     const needsResend = shouldRequestResend(blurResult)
@@ -157,7 +169,13 @@ export async function processImage(
     let digitalDocId: string | undefined
 
     if (requiresOcrExtraction(docType)) {
+      const startOcr = Date.now()
       ocrResult = await withRetry(() => extractDocumentData(imageBuffer, mimeType, docType))
+
+      // Log PDF OCR metrics
+      if (mimeType === 'application/pdf' && ocrResult.pageCount) {
+        console.log(`[Pipeline] PDF OCR: ${ocrResult.pageCount} pages, ${Date.now() - startOcr}ms`)
+      }
 
       const status = ocrResult.success
         ? (ocrResult.isValid ? 'EXTRACTED' : 'PARTIAL')
@@ -234,6 +252,7 @@ export async function processImage(
 
 /**
  * Process multiple images with controlled concurrency
+ * PDFs use lower concurrency due to higher memory usage (~100MB each)
  */
 export async function processImageBatch(
   images: BatchImageInput[],
@@ -241,9 +260,23 @@ export async function processImageBatch(
 ): Promise<PipelineResult[]> {
   const results: PipelineResult[] = []
 
-  // Process in chunks with controlled concurrency
-  for (let i = 0; i < images.length; i += concurrency) {
-    const chunk = images.slice(i, i + concurrency)
+  // Separate PDFs from images for different concurrency
+  const pdfs = images.filter((img) => img.mimeType === 'application/pdf')
+  const nonPdfs = images.filter((img) => img.mimeType !== 'application/pdf')
+
+  // Process non-PDFs with normal concurrency
+  for (let i = 0; i < nonPdfs.length; i += concurrency) {
+    const chunk = nonPdfs.slice(i, i + concurrency)
+    const chunkResults = await Promise.all(
+      chunk.map((img) => processImage(img.id, img.buffer, img.mimeType))
+    )
+    results.push(...chunkResults)
+  }
+
+  // Process PDFs with lower concurrency (memory intensive)
+  const pdfConcurrency = config.pdfConcurrency
+  for (let i = 0; i < pdfs.length; i += pdfConcurrency) {
+    const chunk = pdfs.slice(i, i + pdfConcurrency)
     const chunkResults = await Promise.all(
       chunk.map((img) => processImage(img.id, img.buffer, img.mimeType))
     )
@@ -260,6 +293,16 @@ export function getPipelineStatus() {
   return {
     aiConfigured: isGeminiConfigured,
     supportedDocTypes: ['W2', 'FORM_1099_INT', 'FORM_1099_NEC', 'SSN_CARD', 'DRIVER_LICENSE'],
+    supportedFormats: {
+      images: ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+      documents: ['application/pdf'],
+    },
+    pdfSupport: {
+      enabled: true,
+      maxSizeMB: 20,
+      maxPages: 10,
+      renderDpi: 200,
+    },
     config,
   }
 }

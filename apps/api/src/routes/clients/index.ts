@@ -118,9 +118,14 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
       },
     })
 
-    // Create conversation for the case
+    // Create conversation for the case with lastMessageAt set to ensure
+    // it appears in Messages tab immediately (fixes race condition with async SMS)
+    // Note: SMS will overwrite lastMessageAt with correct timestamp when message sent
     await tx.conversation.create({
-      data: { caseId: taxCase.id },
+      data: {
+        caseId: taxCase.id,
+        lastMessageAt: new Date(),
+      },
     })
 
     return { client, taxCase, profile: client.profile! }

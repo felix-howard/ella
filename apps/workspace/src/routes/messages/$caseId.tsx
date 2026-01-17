@@ -8,7 +8,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
 import { ArrowLeft, User, Phone, Globe, RefreshCw, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar } from '../../components/messaging'
-import { formatPhone, getInitials } from '../../lib/formatters'
+import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 import type { Message, TaxCaseStatus, Language } from '../../lib/api-client'
@@ -136,6 +136,8 @@ function ConversationDetailView() {
     ? CASE_STATUS_COLORS[caseData.taxCase.status]
     : undefined
 
+  const avatarColor = caseData ? getAvatarColor(caseData.client.name) : null
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -152,10 +154,14 @@ function ConversationDetailView() {
               </Link>
 
               {/* Client Info */}
-              {caseData ? (
+              {caseData && avatarColor ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center">
-                    <span className="text-sm font-medium text-primary">
+                  <div className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    avatarColor.bg,
+                    avatarColor.text
+                  )}>
+                    <span className="text-sm font-medium">
                       {getInitials(caseData.client.name)}
                     </span>
                   </div>

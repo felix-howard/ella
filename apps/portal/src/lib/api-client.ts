@@ -119,7 +119,73 @@ export const portalApi = {
   // Get portal data via magic link token
   getData: (token: string) => request<PortalData>(`/portal/${token}`),
 
-  // Upload files via magic link
+  // Upload files with progress tracking using XMLHttpRequest
+  uploadWithProgress: async (
+    token: string,
+    files: File[],
+    onProgress: (progress: number) => void
+  ): Promise<UploadResponse> => {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData()
+      files.forEach((file) => formData.append('files', file))
+
+      const xhr = new XMLHttpRequest()
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(e.loaded / e.total)
+        }
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText))
+          } catch {
+            reject(new ApiError(xhr.status, 'PARSE_ERROR', 'Invalid response'))
+          }
+        } else if (xhr.status === 429) {
+          const errInfo = ERROR_MESSAGES[429]
+          reject(new ApiError(429, errInfo.code, errInfo.vi))
+        } else {
+          const errInfo = ERROR_MESSAGES[xhr.status]
+          if (errInfo) {
+            reject(new ApiError(xhr.status, errInfo.code, errInfo.vi))
+          } else {
+            try {
+              const data = JSON.parse(xhr.responseText)
+              reject(
+                new ApiError(
+                  xhr.status,
+                  data.error || 'UPLOAD_ERROR',
+                  data.message || 'Không thể tải lên. Vui lòng thử lại.'
+                )
+              )
+            } catch {
+              reject(
+                new ApiError(
+                  xhr.status,
+                  'UPLOAD_ERROR',
+                  'Không thể tải lên. Vui lòng thử lại.'
+                )
+              )
+            }
+          }
+        }
+      }
+
+      xhr.onerror = () => {
+        reject(
+          new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.')
+        )
+      }
+
+      xhr.open('POST', `${API_BASE_URL}/portal/${token}/upload`)
+      xhr.send(formData)
+    })
+  },
+
+  // Upload files via magic link (legacy - no progress)
   upload: async (token: string, files: File[]): Promise<UploadResponse> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))

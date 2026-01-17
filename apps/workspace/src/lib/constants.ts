@@ -30,6 +30,30 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   UNKNOWN: 'Chưa xác định',
 }
 
+// Document type categories for tree view organization
+export const DOC_TYPE_CATEGORIES: Record<string, { label: string; docTypes: string[] }> = {
+  personal: {
+    label: 'Giấy tờ cá nhân',
+    docTypes: ['SSN_CARD', 'DRIVER_LICENSE', 'PASSPORT', 'BIRTH_CERTIFICATE'],
+  },
+  income: {
+    label: 'Thu nhập',
+    docTypes: ['W2', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA'],
+  },
+  deductions: {
+    label: 'Chi phí & Khấu trừ',
+    docTypes: ['FORM_1098', 'FORM_1098_T', 'RECEIPT', 'DAYCARE_RECEIPT'],
+  },
+  business: {
+    label: 'Doanh nghiệp',
+    docTypes: ['PROFIT_LOSS_STATEMENT', 'BUSINESS_LICENSE', 'EIN_LETTER', 'BANK_STATEMENT'],
+  },
+  other: {
+    label: 'Khác',
+    docTypes: ['OTHER', 'UNKNOWN'],
+  },
+}
+
 // Vietnamese labels for TaxCaseStatus
 export const CASE_STATUS_LABELS: Record<string, string> = {
   INTAKE: 'Tiếp nhận',
@@ -126,6 +150,43 @@ export const FILING_STATUS_LABELS: Record<string, string> = {
   MARRIED_FILING_SEPARATELY: 'Vợ chồng khai riêng',
   HEAD_OF_HOUSEHOLD: 'Chủ hộ',
   QUALIFYING_WIDOW: 'Góa phụ có con',
+}
+
+// AI Classification thresholds
+// Used for determining when documents need manual review
+export const AI_CONFIDENCE_THRESHOLDS = {
+  /** High confidence - auto-approve */
+  HIGH: 0.85,
+  /** Medium confidence - needs review */
+  MEDIUM: 0.60,
+} as const
+
+// AI Classification confidence level config
+// Used for confidence badges in image gallery and review workflow
+export const CONFIDENCE_LEVELS = {
+  HIGH: { min: AI_CONFIDENCE_THRESHOLDS.HIGH, label: 'Cao', color: 'text-success', bg: 'bg-success/10' },
+  MEDIUM: { min: AI_CONFIDENCE_THRESHOLDS.MEDIUM, label: 'Trung bình', color: 'text-warning', bg: 'bg-warning/10' },
+  LOW: { min: 0, label: 'Thấp', color: 'text-error', bg: 'bg-error/10' },
+} as const
+
+/**
+ * Check if classification needs manual review based on confidence
+ * @param confidence - Confidence score from 0-1
+ * @returns true if confidence is below HIGH threshold
+ */
+export function needsClassificationReview(confidence: number | null): boolean {
+  return !confidence || confidence < AI_CONFIDENCE_THRESHOLDS.HIGH
+}
+
+/**
+ * Get confidence level based on score
+ * @param confidence - Confidence score from 0-1
+ * @returns Confidence level config (HIGH, MEDIUM, or LOW)
+ */
+export function getConfidenceLevel(confidence: number | null) {
+  if (!confidence || confidence < AI_CONFIDENCE_THRESHOLDS.MEDIUM) return CONFIDENCE_LEVELS.LOW
+  if (confidence < AI_CONFIDENCE_THRESHOLDS.HIGH) return CONFIDENCE_LEVELS.MEDIUM
+  return CONFIDENCE_LEVELS.HIGH
 }
 
 // Sidebar navigation items

@@ -92,3 +92,24 @@ export {
   linkToChecklistItem,
   upsertDigitalDoc,
 } from './pipeline-helpers'
+
+// Duplicate Detection
+export {
+  generateImageHash,
+  isValidHash,
+  hammingDistance,
+  areDuplicates,
+  findDuplicateGroup,
+  assignToImageGroup,
+  selectBestImage,
+  getGroupImages,
+  type DuplicateDetectionResult,
+} from './duplicate-detector'
+
+// AI Error Messages - Vietnamese localization
+export {
+  getVietnameseError,
+  getActionTitle,
+  getActionPriority,
+  type AIErrorType,
+} from './ai-error-messages'

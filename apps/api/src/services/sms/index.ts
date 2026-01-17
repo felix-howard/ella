@@ -21,6 +21,7 @@ export {
   sendBlurryResendRequest,
   sendDocsCompleteMessage,
   sendCustomMessage,
+  sendSmsOnly,
   isSmsEnabled,
   type SendMessageResult,
 } from './message-sender'

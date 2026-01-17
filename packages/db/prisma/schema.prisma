@@ -42,6 +42,8 @@ enum DocType {
   FORM_1099_R
   FORM_1099_G
   FORM_1099_SSA
+  SCHEDULE_K1
+  FORM_1095_A
   BANK_STATEMENT
   PROFIT_LOSS_STATEMENT
   BUSINESS_LICENSE
@@ -201,6 +203,7 @@ model TaxCase {
   conversation    Conversation?
   magicLinks      MagicLink[]
   actions         Action[]
+  imageGroups     ImageGroup[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -232,6 +235,17 @@ model RawImage {
   aiConfidence    Float?
   blurScore       Float?
 
+  // Duplicate detection fields
+  imageHash       String?        // Perceptual hash (pHash) for duplicate detection
+  imageGroupId    String?
+  imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
+
+  // Re-upload request tracking
+  reuploadRequested   Boolean   @default(false)
+  reuploadRequestedAt DateTime?
+  reuploadReason      String?
+  reuploadFields      Json?     // ["ssn", "wages"] - specific unreadable fields
+
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
   digitalDoc      DigitalDoc?
@@ -243,6 +257,28 @@ model RawImage {
 
   @@index([caseId])
   @@index([status])
+  @@index([imageGroupId])
+  @@index([caseId, classifiedType])  // For duplicate detection queries
+  @@index([reuploadRequested])
+  @@index([caseId, reuploadRequested])
+}
+
+// Groups duplicate images of the same physical document
+model ImageGroup {
+  id          String     @id @default(cuid())
+  caseId      String
+  taxCase     TaxCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  docType     DocType
+  bestImageId String?    // Selected best image from group
+
+  images      RawImage[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([caseId])
+  @@index([caseId, docType])
 }
 
 model DigitalDoc {
@@ -261,6 +297,14 @@ model DigitalDoc {
   verifiedAt    DateTime?
   verifiedById  String?
 
+  // Field-level verification tracking
+  fieldVerifications Json?  // {"ssn": "verified", "wages": "edited", "address": "unreadable"}
+
+  // Copy tracking for data entry
+  copiedFields      Json?       // {"ssn": true, "wages": false}
+  entryCompleted    Boolean     @default(false)
+  entryCompletedAt  DateTime?
+
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
 
@@ -270,6 +314,8 @@ model DigitalDoc {
   @@index([caseId])
   @@index([docType])
   @@index([status])
+  @@index([entryCompleted])
+  @@index([caseId, entryCompleted])
 }
 
 model ChecklistTemplate {
@@ -335,7 +381,7 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([lastMessageAt])      // M2: Index for inbox sorting
+  @@index([lastMessageAt, createdAt]) // Composite index for inbox sorting with secondary sort
 }
 
 model Message {
@@ -380,6 +426,7 @@ model MagicLink {
 
   @@index([token])
   @@index([caseId])
+  @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
 }
 
 model Action {

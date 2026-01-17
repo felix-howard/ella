@@ -5,31 +5,37 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────┐
-│           Frontend Layer (React)                 │
-│    apps/web - User-facing web application       │
-└──────────────────┬──────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│         Frontend Layer (React)                    │
+│   apps/portal & apps/workspace                   │
+│   - Client upload portal & staff dashboard      │
+└──────────────────┬───────────────────────────────┘
                    │
                    ↓ HTTP/REST API calls
 ┌──────────────────────────────────────────────────┐
-│         Backend Layer (API Server)                │
-│  apps/api - Express/Fastify API endpoints        │
+│      Backend Layer (Hono API Server)             │
+│   apps/api/src - REST endpoints + webhooks      │
 └──────────────────┬───────────────────────────────┘
                    │
-                   ↓ Prisma ORM queries
+         ┌─────────┴──────────┐
+         ↓                    ↓
+┌─────────────────┐  ┌──────────────────────────┐
+│ Prisma ORM      │  │ Inngest Cloud Platform   │
+│ (Database)      │  │ (Background Jobs)        │
+└────────┬────────┘  └──────────┬───────────────┘
+         │                      │
+         ↓                      ↓
 ┌──────────────────────────────────────────────────┐
-│      Shared Packages (Monorepo Utilities)        │
+│     Data Layer (PostgreSQL + Job Queue)          │
+│  - Tax cases, documents, messages                │
+│  - Background job execution log                  │
+└──────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────┐
+│   Shared Packages (Monorepo Utilities)           │
 │  ├─ @ella/db - Database & Prisma client         │
 │  ├─ @ella/shared - Types & validation schemas   │
 │  └─ @ella/ui - Component library                │
-└──────────────────┬───────────────────────────────┘
-                   │
-                   ↓ Database queries
-┌──────────────────────────────────────────────────┐
-│     Data Layer (PostgreSQL)                      │
-│     - User accounts & documents                  │
-│     - Audit logs                                │
-│     - Compliance data                           │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -81,12 +87,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Structure:**
 
-- Entry: `src/index.ts` (serves on PORT 3001)
+- Entry: `src/index.ts` (serves on PORT 3001, validates Gemini on startup Phase 02)
 - App config: `src/app.ts` (main Hono app instance & all routes)
 - Middleware: `src/middleware/error-handler.ts` (global error handling)
 - Lib: `src/lib/db.ts` (Prisma re-export), `src/lib/constants.ts` (pagination, Vietnamese labels)
 - Routes: `src/routes/{clients,cases,docs,actions,messages,portal,health}/` (modular endpoints)
-- Services: `src/services/{checklist-generator,magic-link,storage}.ts` (business logic)
+- Services: `src/services/{checklist-generator,magic-link,storage,ai/gemini-client}.ts` (business logic + AI validation)
 
 **Build & Deployment:**
 
@@ -94,7 +100,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (35 total):**
+**Implemented Endpoints (36 total):**
 
 **Clients (6):**
 - `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
@@ -113,13 +119,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /cases/:id/images` - Raw images for case with pagination
 - `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
 
-**Digital Documents (6 - Phase 2 additions):**
+**Digital Documents (10 - Phase 2 + Phase 03 + Phase 04 additions):**
 - `GET /docs/:id` - Document details with extracted data
 - `POST /docs/:id/classify` - AI classify raw image to docType
 - `POST /docs/:id/ocr` - Trigger OCR for data extraction
 - `PATCH /docs/:id/verify` - Verify/edit extracted data with notes
 - `POST /docs/:id/verify-action` - Quick verify or reject action (PHASE 2 NEW)
 - `GET /cases/:id/docs` - Get digital docs for case with pagination (PHASE 2 NEW)
+- `GET /docs/groups/:groupId` - Get image group with all duplicate images (PHASE 03 NEW)
+- `POST /docs/groups/:groupId/select-best` - Select best image from duplicate group (PHASE 03 NEW)
+- `GET /docs/groups/case/:caseId` - Get all image groups for case (PHASE 03 NEW)
+
+**Raw Images (1 - Phase 04 NEW):**
+- `PATCH /images/:id/classification` - CPA review & approve/reject AI classification (PHASE 04 NEW)
 
 **Actions (2):**
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
@@ -140,7 +152,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /webhooks/twilio/status` - Message status updates (optional tracking)
 
 **Health (1):**
-- `GET /health` - Server status check
+- `GET /health` - Server status check with Gemini & PDF support (Phase 02, Phase 03)
+  - Response includes: `status`, `timestamp`, `gemini`, `pdfSupport`, `supportedFormats`
+  - **Gemini Status:**
+    - `configured` (bool), `model` (string), `available` (bool), `checkedAt` (ISO timestamp), `error` (nullable)
+    - `activeModel` (current working model) & `fallbackModels[]` array (Phase 03 Gemini fallback)
+  - **PDF Support (Phase 03 NEW):**
+    - `enabled` (bool), `maxSizeMB` (20), `maxPages` (10), `renderDpi` (200)
+    - `popplerInstalled` (bool) - Critical: must be true for PDF processing
+    - `popplerError` (nullable) - Error details if poppler unavailable
+  - **Supported Formats:** Images (JPEG, PNG, etc.) & Documents (PDF)
+  - Gemini validation runs non-blocking on startup; status cached for efficiency
 
 **Responsibilities:**
 
@@ -154,12 +176,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - CORS for frontend (localhost:5173, :5174)
 - Request logging via hono/logger middleware
 
-**Core Services (Phase 1.2):**
+**Core Services (Phase 1.2+):**
 
 - `checklist-generator.ts` - Generate checklist from profile & templates
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
+- `pdf/pdf-converter.ts` - PDF to PNG conversion for OCR processing (Phase 01)
 
 **SMS Service Implementation (Phase 1.2+):**
 
@@ -169,6 +192,118 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Resend SMS endpoint for client onboarding recovery
 - Comprehensive error codes for missing configs (NO_MAGIC_LINK, SMS_NOT_CONFIGURED, PORTAL_URL_NOT_CONFIGURED)
 - Vietnamese & English message support
+
+**AI Service: Gemini Client with Model Fallback (Phase 03):**
+
+- **Configuration (`src/lib/config.ts`):**
+  - `GEMINI_MODEL`: Primary model (default: `gemini-2.0-flash`)
+  - `GEMINI_FALLBACK_MODELS`: Comma-separated fallback list (default: `gemini-2.5-flash-lite,gemini-2.5-flash`)
+  - `GEMINI_MAX_RETRIES`: Retry attempts per model (default: 3)
+  - `GEMINI_RETRY_DELAY_MS`: Initial retry backoff (default: 1000ms, exponential)
+
+- **Model Fallback Chain (`src/services/ai/gemini-client.ts`):**
+  - Tries primary model first
+  - Auto-falls back to alternatives on 404 "model not found" errors
+  - Caches working model for session persistence
+  - Skips already-tried fallback models during request
+
+- **Functions:**
+  - `generateContent(prompt, image?)` - Text/multimodal with fallback & retries
+  - `generateJsonContent<T>(prompt, image?)` - JSON parsing with fallback
+  - `analyzeImage<T>(buffer, mimeType, prompt)` - Vision analysis with validation
+  - `validateGeminiModel()` - Startup health check with fallback validation
+  - `getGeminiStatus()` - Returns: configured, model, activeModel, fallbackModels[], available, checkedAt
+
+- **Fallback Logic:**
+  - Primary model → Fallback 1 → Fallback 2 → ... → All failed error
+  - Triggers fallback on 404/not found/does not exist/not supported patterns
+  - Retries transient errors (rate limit, timeout, 500/502/503) up to maxRetries
+  - Non-retryable errors fail immediately
+  - Successful request caches working model for future calls
+
+- **Error Patterns:**
+  - Retryable: /rate.?limit/, /timeout/, /503/, /500/, /502/, /overloaded/, /resource.?exhausted/, /quota.?exceeded/, /service.?unavailable/
+  - Model not found: /404/, /not found/, /model.*not.*found/, /does not exist/, /is not supported/
+
+**Error Localization (Phase 04):**
+
+- **Vietnamese Error Messages (`src/services/ai/ai-error-messages.ts`):**
+  - Maps technical Gemini errors to 10 error types: MODEL_NOT_FOUND, RATE_LIMIT, QUOTA_EXCEEDED, SERVICE_UNAVAILABLE, INVALID_IMAGE, IMAGE_TOO_LARGE, TIMEOUT, CLASSIFICATION_FAILED, OCR_FAILED, UNKNOWN
+  - Provides Vietnamese user-facing messages for each type with severity levels (info/warning/error)
+  - ReDoS-safe regex patterns with non-greedy quantifiers
+  - Null-safe input handling for robustness
+
+- **Action Priority Calculation:**
+  - Maps error severity → action priority (error → HIGH, warning/info → NORMAL)
+  - Enables workspace to surface critical issues first
+
+- **Error Sanitization:**
+  - Removes API keys, email addresses, file paths from error metadata before storage
+  - Prevents credential leakage in logs/database
+
+- **Idempotency Fix (Phase 04):**
+  - Atomic compare-and-swap on `RawImage.status` to prevent race conditions
+  - Single database operation prevents concurrent processing of same image
+
+**Document Classification Service (Phase 01 - Enhanced 2026-01-16):**
+
+- **Classification Function:** `classifyDocument(imageBuffer, mimeType): Promise<DocumentClassificationResult>`
+- **Prompt File:** `src/services/ai/prompts/classify.ts` - Enhanced with few-shot examples & calibration
+- **Classifier Service:** `src/services/ai/document-classifier.ts` - Batch & single classification
+- **Features:**
+  - 6 few-shot examples (W-2, SSN Card, 1099-K, 1099-INT, 1099-NEC, Driver's License)
+  - Vietnamese name handling (family name first, common surnames, ALL CAPS format)
+  - Confidence calibration rules: HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
+  - Alternative types returned when confidence <0.80
+  - Processing time: 2-5s per image
+- **Supported Document Types (27 + UNKNOWN):**
+  - ID Documents: SSN_CARD, DRIVER_LICENSE, PASSPORT
+  - Tax Income (10): W2, 1099-INT, 1099-DIV, 1099-NEC, 1099-MISC, 1099-K, 1099-R, 1099-G, 1099-SSA, SCHEDULE_K1
+  - Tax Credits (3): 1098, 1098-T, 1095-A
+  - Business (4): BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
+  - Other (4): RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
+- **Batch Classification:** `batchClassifyDocuments(images[], concurrency)` with configurable concurrency limit
+- **OCR Extraction Eligibility:** Exclusion-based - 9 types excluded (PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN), all others require OCR
+
+**PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
+
+- **PDF Conversion Function (Phase 03):** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+  - Converts PDF → PNG images (200 DPI) for OCR processing via poppler-based pdf-poppler library
+  - **Poppler Dependency:** Required for PDF rendering (`pdf-poppler` npm package)
+    - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
+    - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
+    - Performance: ~1-2s for 3-page, ~2-5s for 10-page PDF
+    - Auto-cleanup: Temp directories removed in finally block
+  - **Deployment Note:** Server must have poppler installed (Linux: `apt-get install poppler-utils`, macOS: `brew install poppler`)
+  - **Health Check:** `/health` endpoint reports `pdfSupport.popplerInstalled` status & errors
+
+- **OCR Extraction Service (Phase 02+03, Enhanced Phase 2 Priority 1):** `extractDocumentData(buffer, mimeType, docType)`
+  - **Single Image:** Direct Gemini vision analysis with confidence scoring
+  - **Multi-Page PDFs (Phase 03):** Intelligent multi-page extraction flow with merging
+    - Each PDF page converted to PNG via poppler (Phase 03 addition)
+    - Independent OCR extraction per page (field values cached)
+    - Merge strategy: Later pages override earlier values (handles amendments)
+    - Weighted confidence: Final confidence based on field contribution
+    - Result includes: pageCount, pageConfidences[], merged data
+    - Logs PDF processing details for debugging
+  - **Phase 2 Priority 1 Additions:** 3 new document types with OCR support:
+    - FORM_1099_K (Payment Card Transactions) - Square, Clover, PayPal
+    - SCHEDULE_K1 (Partnership Income) - K-1 form extraction
+    - BANK_STATEMENT (Business Cash Flow) - Bank transaction statements
+
+- **Type Extensions (Phase 02+03):**
+  - `OcrExtractionResult`: Added `pageCount?`, `pageConfidences?[]` fields
+  - Supports both single images and multi-page PDFs transparently
+  - Pipeline health endpoint exports `getPipelineStatus()` with PDF support flags
+
+- **Merge Logic:** Tax documents often have corrections on page 2+; algorithm prioritizes later pages while tracking per-field page origins
+- **OCR Prompts (16 total):**
+  - Core: W2, 1099-INT, 1099-NEC, SSN/DL
+  - Phase 2 Priority 1: 1099-K, K-1, Bank Statement
+  - Phase 3: 1099-DIV, 1099-R, 1099-SSA, 1098, 1095-A
+  - Phase 4 Priority 3: 1098-T, 1099-G, 1099-MISC
+
+See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
 **Unified Messaging (Phase 3.2):**
 
@@ -342,6 +477,193 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 - CSS output: src/styles.css
 - Utility-first styling with variants
 
+## Background Job Processing (Inngest)
+
+**Purpose:** Reliable, scalable background job execution for long-running tasks like AI document classification, OCR extraction, and batch processing.
+
+### Architecture
+
+```
+Document Upload Event
+        ↓
+POST /portal/:token/upload
+        ↓
+Create RawImage record
+        ↓
+Emit: inngest.send({ name: 'document/uploaded', data: {...} })
+        ↓
+Inngest Cloud receives event
+        ↓
+Matches event to classifyDocumentJob trigger
+        ↓
+Execute classifyDocumentJob with retry logic (3 retries)
+        ↓
+Steps (5 durable steps):
+  1. Fetch image from R2
+  2. Classify with Gemini (docType + confidence)
+  3. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
+  4. Detect duplicates via pHash & group (Phase 03)
+  5. OCR extraction if confidence >= 60%
+        ↓
+Emit: document/classification.complete event
+        ↓
+Frontend polls /messages/conversations for updates (Phase 05)
+```
+
+### Inngest Client & Configuration
+
+**Singleton Pattern (`apps/api/src/lib/inngest.ts`):**
+```typescript
+export const inngest = new Inngest({
+  id: 'ella',
+})
+```
+
+**Type-Safe Events:**
+- `document/uploaded` - Triggered on file upload
+- `document/classification.complete` - Fired on completion (Phase 05)
+
+### Inngest Route
+
+**Endpoint:** `POST/GET/PUT /api/inngest`
+
+**Responsibilities:**
+- Register all Inngest functions from `jobs/` directory
+- Handle function discovery & invocation
+- Validate signing key (prevents unauthorized triggers)
+- Serve development UI for monitoring
+- Production security: Blocks jobs if INNGEST_SIGNING_KEY missing
+
+**Configuration:**
+```typescript
+serve({
+  client: inngest,
+  functions: [classifyDocumentJob],
+  signingKey: config.inngest.signingKey || undefined,
+})
+
+// Production safety check
+if (!config.inngest.isProductionReady) {
+  return c.json({ error: 'Inngest not configured' }, 503)
+}
+```
+
+### Background Jobs - Phase 02 Implementation
+
+**classifyDocumentJob** (`apps/api/src/jobs/classify-document.ts`)
+
+**Configuration:**
+- **ID:** `classify-document`
+- **Trigger:** `document/uploaded` event
+- **Retries:** 3 (exponential backoff)
+- **Throttle:** 10 req/min (Gemini rate limit protection)
+- **Status:** Production ready
+
+**Durable Step Structure:**
+
+1. **mark-processing** - Update RawImage.status = PROCESSING
+2. **fetch-image** - Retrieve image from R2 via signed URL
+   - Returns: { buffer: base64, mimeType }
+3. **classify** - Gemini vision classification
+   - Returns: { success, docType, confidence, reasoning }
+4. **route-by-confidence** - Route by confidence thresholds
+   - < 60%: UNCLASSIFIED, create AI_FAILED action
+   - 60-85%: CLASSIFIED, create VERIFY_DOCS action
+   - >= 85%: CLASSIFIED, auto-link, no action
+   - Returns: { action, needsOcr, checklistItemId }
+5. **detect-duplicates** - Perceptual hash grouping (Phase 03)
+   - Generate 64-bit pHash from image
+   - Find existing duplicates via Hamming distance (threshold: <10 bits)
+   - Create/join ImageGroup if duplicate found
+   - Returns: { grouped, groupId, isNewGroup, imageCount }
+6. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
+   - Extract structured data with confidence score
+   - Atomic DB transaction: upsert DigitalDoc + update ChecklistItem + mark LINKED
+   - Returns: { digitalDocId }
+
+**Return Value:**
+```typescript
+{
+  rawImageId: string
+  classification: { docType: DocType, confidence: number }
+  routing: 'auto-linked' | 'needs-review' | 'unclassified'
+  grouping: {
+    grouped: boolean
+    groupId: string | null
+    imageCount: number
+  }
+  digitalDocId?: string
+}
+```
+
+### Environment Configuration
+
+**Required (Production):**
+```bash
+INNGEST_SIGNING_KEY=<generated-key>  # Validates cloud requests
+```
+
+**Optional (Local Dev):**
+```bash
+INNGEST_EVENT_KEY=<event-api-key>   # For sending events to cloud
+```
+
+**Config Structure:**
+```typescript
+inngest: {
+  eventKey: string,         // Optional: cloud event API key
+  signingKey: string,       // Required in production
+  isConfigured: boolean,    // true if eventKey set
+  isProductionReady: boolean // Enforces signingKey in prod
+}
+```
+
+### Security & Reliability (Phase 06)
+
+**Edge Case Handling:**
+- **Idempotency Check:** Skip if rawImage.status ≠ UPLOADED (prevents duplicate Inngest retries)
+- **Image Resize:** Sharp auto-downsize for files > 4MB (prevents Gemini timeout)
+- **Hard Size Limit:** 20MB buffer enforced (DoS prevention)
+- **Service Unavailability Detection:** Pattern match on "503", "overloaded", "resource exhausted" → retry with HIGH priority action
+- **Error Message Sanitization:** Remove API keys, emails, file paths from stored errors (info disclosure prevention)
+
+**Signing Key Validation:**
+- All requests from Inngest cloud validated with signing key
+- Prevents unauthorized job triggers
+- Required in production deployments
+- Optional in local development
+
+**Public Route:**
+- `/api/inngest` is intentionally public (no auth required)
+- Allows Inngest cloud to invoke jobs reliably
+- Protected by signing key, not authentication
+
+### Event Flow Integration
+
+**Document Upload Triggering Jobs:**
+```typescript
+// In portal upload route:
+await inngest.send({
+  name: 'document/uploaded',
+  data: {
+    rawImageId,
+    caseId,
+    r2Key,
+    mimeType,
+    uploadedAt: new Date().toISOString(),
+  },
+})
+```
+
+**Phase 02 Implementation Plan:**
+- Fetch image buffer from R2 via signed URL
+- Call Gemini classification with image
+- Extract document type + confidence score
+- If high confidence: Trigger OCR extraction job
+- If low confidence: Create VERIFY_DOCS action
+- Update RawImage + ChecklistItem status
+- Emit completion event for real-time frontend updates
+
 ## Data Flow
 
 ### Phase 2: Case Status Transition & Document Verification Flow
@@ -501,27 +823,57 @@ Store token in localStorage/cookie (Frontend)
 Attach token to future requests
 ```
 
-### Document Upload Flow
+### Document Upload Flow (Portal - Magic Link)
+
+**See:** [portal-enhanced-uploader.md](./portal-enhanced-uploader.md) for detailed component documentation
 
 ```
-Upload Form (Frontend)
+Client Portal (Magic Link Token)
         ↓
-Select file + metadata (validated locally)
+POST /portal/:token (validate token & fetch case data)
         ↓
-POST /api/documents (with auth header)
+User selects files via:
+├─ Mobile: Camera capture or Gallery picker
+└─ Desktop: Drag & drop or click to browse
         ↓
-Validate request (Zod from @ella/shared)
+EnhancedUploader validates files:
+├─ Type: JPEG, PNG, GIF, WebP, PDF
+├─ Size: ≤ 10MB each
+└─ Count: ≤ 20 files per batch
         ↓
-Check authorization
+File preview grid shows selected files
         ↓
-Store file (to storage service - future)
+User clicks Upload button
         ↓
-Create Document record (Prisma)
+XHR-based upload with progress tracking:
+├─ onprogress fires real-time updates (0-100%)
+├─ Progress bar & overlay on each file
+└─ All files uploaded as single batch
         ↓
-Return document data (apiResponseSchema)
+POST /portal/:token/upload (multipart/form-data)
         ↓
-Update frontend state (show in list)
+Backend validates token + file integrity
+        ↓
+Create RawImage records (status: UPLOADED)
+        ↓
+Return UploadResponse { uploaded, images[], message }
+        ↓
+Frontend shows success state:
+├─ Checkmark overlay on completed files
+├─ Success page with upload count
+└─ Option to upload more or return to status
+        ↓
+On error (network or server):
+├─ Network errors: Auto-retry (up to 2 retries, exponential backoff)
+├─ Server errors: Show error message, allow manual retry
+└─ File state marked as 'error' with visual indicator
 ```
+
+**Retry Logic:**
+- Only retries on transient network errors (`NETWORK_ERROR`, status 0)
+- Server errors (429, 500, etc.) are not retried
+- Max 2 automatic retries before user intervention
+- User can manually retry after error
 
 ### Compliance Check Flow
 
@@ -541,85 +893,213 @@ Send emails (via notification service - future)
 Log audit trail (Prisma)
 ```
 
-### AI Document Processing Pipeline Flow (Phase 2.1 & 2.2)
+### AI Document Processing Pipeline Flow - Phase 02+03 Implementation
 
 ```
 Client Uploads Documents via Portal
         ↓
 POST /portal/:token/upload (multipart form)
         ↓
-Validate files (type, size, count)
+1. Validate files (type, size, count ≤20)
+   - Phase 03: Supports JPEG, PNG, GIF, WebP, PDF
+   - Phase 03: PDF size ≤20MB, pages ≤10
+2. Upload each file to R2 storage
+3. Create RawImage record (status: UPLOADED)
+4. Emit inngest.send({ name: 'document/uploaded', data: {...} })
+5. Return { uploaded: N, aiProcessing: true, ... }
         ↓
-Upload to R2 storage (Cloudflare)
+[Inngest Cloud Processing]
+Receive document/uploaded event batch
         ↓
-Create RawImage records (status: UPLOADED)
+Match to classifyDocumentJob function
+Execute with:
+  - 3 retries (exponential backoff)
+  - 10 req/min throttle (Gemini rate limit)
+  - Phase 03: Poppler required for PDF handling
         ↓
-[PIPELINE STAGE 1: Classification]
-        ├─ analyzeImage() with classify prompt
-        ├─ Gemini vision identifies document type
-        ├─ Returns { docType, confidence }
-        └─ Update RawImage.classifiedType & aiConfidence
+[DURABLE STEP 1: mark-processing]
+Update RawImage.status = PROCESSING
         ↓
-[PIPELINE STAGE 2: Auto-Linking to Checklist] (Phase 2.2)
-        ├─ linkToChecklistItem(rawImageId, caseId, docType)
-        ├─ Search ChecklistItem by (caseId, template.docType)
-        ├─ If found: Link RawImage ↔ ChecklistItem
-        ├─ Update ChecklistItem.status: MISSING → HAS_RAW
-        ├─ Increment ChecklistItem.receivedCount
-        └─ RawImage.status: CLASSIFIED → LINKED
+[DURABLE STEP 2: fetch-image]
+├─ Generate signed R2 URL (1hr expiry)
+├─ Fetch image via HTTP
+├─ Base64 encode for step durability
+└─ Return { buffer, mimeType }
         ↓
-[PIPELINE STAGE 3: Blur Detection]
-        ├─ analyzeImage() with blur-check prompt
-        ├─ Gemini assesses sharpness (0-100 scale)
-        ├─ Returns { blurScore, issues }
-        └─ If blurry (>70): Create BLURRY_DETECTED action
+[DURABLE STEP 3: classify]
+├─ Decode base64 buffer
+├─ Call classifyDocument() (Gemini vision)
+├─ Extract { docType, confidence, reasoning }
+└─ Return classification result
         ↓
-[PIPELINE STAGE 4: OCR Extraction] (if document supports it)
-        ├─ getOcrPromptForDocType(docType)
-        ├─ analyzeImage() with form-specific prompt
-        ├─ Extract & validate structured data
-        ├─ Calculate confidence from key fields
-        └─ Prepare data for atomic transaction
+[DURABLE STEP 4: route-by-confidence]
+Confidence < 60%:
+  ├─ Update RawImage.status = UNCLASSIFIED
+  ├─ Create AI_FAILED action (NORMAL priority)
+  └─ Return { action: 'unclassified', needsOcr: false }
         ↓
-[Atomic Transaction] (Phase 2.2)
-        ├─ Upsert DigitalDoc with extracted fields
-        ├─ Update ChecklistItem.status: HAS_RAW → HAS_DIGITAL
-        ├─ Mark RawImage.status: LINKED
-        ├─ All 3 operations in single transaction (ACID)
-        └─ No partial states possible
+Confidence 60-85%:
+  ├─ Update RawImage.status = CLASSIFIED
+  ├─ Link to ChecklistItem (auto-link)
+  ├─ Create VERIFY_DOCS action (NORMAL priority)
+  │  Title: "Xác minh phân loại"
+  │  Description: "{DocType}: {Confidence}% - cần xác minh"
+  └─ Return { action: 'needs-review', needsOcr: true/false }
         ↓
-[Action Creation Rules]
-        ├─ AI_FAILED → Classification or extraction error
-        ├─ BLURRY_DETECTED → Image quality issue (blur >70)
-        ├─ VERIFY_DOCS → OCR confidence <0.85 or invalid data
-        └─ Actions appear in workspace queue
+Confidence >= 85%:
+  ├─ Update RawImage.status = CLASSIFIED
+  ├─ Link to ChecklistItem (auto-link)
+  ├─ No action created (silent success)
+  └─ Return { action: 'auto-linked', needsOcr: true/false }
+        ↓
+[DURABLE STEP 5: ocr-extract] (conditional) - Phase 03: Multi-page PDF support
+If needsOcr && docType supports OCR:
+  ├─ Decode base64 buffer
+  ├─ Phase 03: If PDF, convert all pages to PNG via poppler
+  ├─ Call extractDocumentData() with intelligent merging (single image or multi-page PDF)
+  │  - Per-page OCR extraction with independent confidence scores
+  │  - Merge strategy: Later pages override earlier (handles amendments)
+  │  - Result includes pageCount, pageConfidences[], merged data
+  ├─ Validate extracted JSON against schema
+  └─ Call processOcrResultAtomic() for atomic DB update
+        ↓
+[Atomic Transaction]
+All-or-nothing commit:
+  ├─ Upsert DigitalDoc with extracted fields
+  ├─ Update ChecklistItem.status = HAS_DIGITAL
+  ├─ Mark RawImage.status = LINKED
+  └─ No partial states possible
+        ↓
+[Action Creation Summary]
+AI_FAILED → Classification failed (confidence < 60%)
+  ├─ Priority: NORMAL
+  ├─ Title: "Phân loại tự động thất bại"
+  └─ Metadata: error message, confidence, r2Key
+        ↓
+VERIFY_DOCS → Medium confidence (60-85%) OR OCR validation needed
+  ├─ Priority: NORMAL
+  ├─ Title: "Xác minh phân loại" or "Xác minh dữ liệu OCR"
+  └─ Metadata: docType, confidence, checklistItemId
+        ↓
+(None) → Auto-linked (confidence >= 85%)
+  └─ Silent success, document processing complete
         ↓
 [Portal Status Update]
-        ├─ Client sees uploaded documents
-        ├─ Blurry documents flagged for resend
-        ├─ Verified documents marked as received
-        └─ Real-time checklist progress (MISSING/HAS_RAW/HAS_DIGITAL)
+Real-time checklist reflects:
+  ├─ Received: Classified & verified documents
+  ├─ Blurry: Images flagged for resend (future blur detection)
+  └─ Missing: Still-needed documents
+        ↓
+[Workspace Action Queue]
+Staff views actions:
+  ├─ AI_FAILED → Manual classification required
+  ├─ VERIFY_DOCS → Review auto-classification
+  └─ HIGH priority for issues, NORMAL for review
 
-**Checklist Status Lifecycle:**
-- MISSING: Initial state (no docs received)
-- HAS_RAW: Raw image received (classification success)
-- HAS_DIGITAL: Digital doc created (OCR extraction success)
-- VERIFIED: Manually verified by staff (future action)
+**Error Handling:**
+Transient errors (timeout, rate limit, 500/502/503):
+  └─ Auto-retry up to 3 times (1s → 2s → 4s backoff)
+        ↓
+Non-transient errors (invalid format, missing API key):
+  └─ Single attempt, create AI_FAILED action
+        ↓
+Validation errors (OCR confidence < 0.85):
+  └─ No retry, create VERIFY_DOCS action
 
-**Retry Strategy:**
-- Transient errors (timeout, rate limit, 500/502/503)
-- Exponential backoff: 1s → 2s → 4s (default: 3 retries)
-- Non-transient: Single attempt, create AI_FAILED action
+**Concurrency & Performance:**
+- Inngest throttle: 10 jobs/min (Gemini protection)
+- Per-image steps: Sequential (classify → route → ocr → atomic)
+- Batch uploads: Each image independent job
+- Total time/image: 2-5s (varies with Gemini latency)
 
-**Concurrency Control:**
-- Batch processing: 3 images parallel (tuned for Gemini rate limits)
-- Per-image: Sequential stages (classify → blur → ocr → atomic commit)
-- Atomic transactions prevent race conditions on concurrent uploads
+**Supported Document Types for OCR (16 total):**
+- Core: W2, 1099-INT, 1099-NEC, SSN_CARD, DRIVER_LICENSE
+- Phase 2 Priority 1: 1099-K, SCHEDULE_K1, BANK_STATEMENT
+- Phase 3: 1099-DIV, 1099-R, 1099-SSA, FORM_1098, FORM_1095_A
+- Phase 4 Priority 3: FORM_1098_T, FORM_1099_G, FORM_1099_MISC
+```
+
+### Real-Time Updates & Notifications Flow - Phase 05 Implementation
+
+```
+Staff Views Client Documents Tab
+        ↓
+useClassificationUpdates() hook activates
+        ↓
+Query: GET /cases/:id/images AND GET /cases/:id/docs
+        ↓
+React Query polling: every 5 seconds (only when tab active)
+        ↓
+Image States Tracked:
+├─ UPLOADED → Processing initiated
+├─ PROCESSING → AI classification running
+├─ CLASSIFIED → AI complete (show confidence)
+├─ LINKED → Auto-linked to checklist
+├─ UNCLASSIFIED → Low confidence (<60%)
+└─ BLURRY → Quality issues detected
+        ↓
+Compare current state vs previous state
+        ↓
+Status Change Detected:
+├─ UPLOADED → PROCESSING: Show FloatingPanel "Đang xử lý N ảnh..."
+├─ PROCESSING → CLASSIFIED:
+│  ├─ HIGH (85%+): toast.success("W2 (95%)")
+│  ├─ MEDIUM (60-85%): toast.info("Cần xác minh: 1099-NEC (72%)")
+│  └─ LOW (<60%): toast.info("Độ tin cậy thấp")
+├─ PROCESSING → LINKED: toast.success("Đã liên kết: W2")
+├─ PROCESSING → UNCLASSIFIED: toast.info("Cần xem xét: filename")
+└─ PROCESSING → BLURRY: toast.error("Ảnh mờ: filename")
+        ↓
+Gallery UI Updates:
+├─ PROCESSING badge appears (Loader2 icon, animated)
+├─ Confidence badge shows (HIGH/MEDIUM/LOW color)
+├─ Image preview refreshes
+└─ Review button toggles based on confidence
+        ↓
+Invalidate Related Queries (on status changes):
+├─ CLASSIFIED/LINKED: Invalidate ['checklist', caseId]
+├─ RawImageGallery re-renders with updated status
+└─ ChecklistGrid reflects new status
+        ↓
+Hook Returns:
+├─ images: polled RawImage array (re-fetched every 5s)
+├─ docs: polled DigitalDoc array (re-fetched every 5s)
+├─ processingCount: active PROCESSING images
+└─ isPolling: enabled state
+        ↓
+FloatingPanel Auto-Hides:
+└─ When processingCount === 0
+        ↓
+Poll Stops (unsubscribe):
+└─ When documents tab inactive or component unmounts
+
+**Performance Notes:**
+- refetchIntervalInBackground: false (battery/bandwidth friendly)
+- Skip notifications on initial mount (prevents noise)
+- Memory cleanup: previousImagesRef.clear() on unmount
+- State comparison prevents duplicate notifications
+- Debounced polling (5s interval, not per-update)
+
+**Query Invalidation Strategy:**
+- Hook polls both images AND docs queries simultaneously
+- On classification status change (CLASSIFIED/LINKED):
+  - Invalidates checklist query → RawImageGallery & ChecklistGrid refresh
+  - docs array keeps in sync with latest DigitalDoc records
+  - Modal submissions (classify-review, manual-classify) also invalidate docs
+- Prevents stale data in classification/verification workflows
+
+**Components:**
+- useClassificationUpdates() - Polling hook with dual query tracking + invalidation
+- UploadProgress - Floating panel showing processing count
+- RawImageGallery - Display with PROCESSING status badge
+- ClassificationReviewModal - Invalidates docs on approve/reject
+- ManualClassificationModal - Invalidates docs on classification
+- Client Detail - Route that integrates polling + docs tracking
 ```
 
 ## Database Schema (Phase 1.1 - Complete)
 
-**Core Models (12):**
+**Core Models (13):**
 
 ```
 Staff - Authentication & authorization
@@ -640,18 +1120,28 @@ ClientProfile - Tax situation questionnaire
 
 TaxCase - Per-client per-year tax filing
 ├── clientId, taxYear, status (INTAKE→FILED), taxTypes[]
-├── rawImages, digitalDocs, checklistItems (1:many)
+├── rawImages, digitalDocs, checklistItems, imageGroups (1:many)
 ├── conversation, magicLinks, actions (1:many)
 ├── Timestamps: lastContactAt, entryCompletedAt, filedAt
 
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
 ├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
+├── imageHash (pHash for duplicates), imageGroupId (duplicate grouping)
 ├── uploadedVia (SMS|PORTAL|SYSTEM)
+├── reuploadRequested Boolean, reuploadRequestedAt DateTime (Phase 01)
+├── reuploadReason String?, reuploadFields Json? (Phase 01)
 
-DigitalDoc - Extracted/verified documents
+ImageGroup - Duplicate document grouping (Phase 03)
+├── caseId, docType, bestImageId (selected best image)
+├── images (1:many RawImage), timestamps
+
+DigitalDoc - Extracted/verified documents (Phase 01-B: Entry Workflow)
 ├── caseId, rawImageId, docType, status (PENDING→VERIFIED)
 ├── extractedData (JSON), aiConfidence, verifiedById
+├── fieldVerifications Json? - field-level verification status (Phase 01)
+├── copiedFields Json? - copy tracking for data entry (Phase 01)
+├── entryCompleted Boolean, entryCompletedAt DateTime? (Phase 01)
 ├── checklistItemId (optional linking)
 
 ChecklistTemplate - Tax form requirements
@@ -1051,36 +1541,107 @@ scheduler: {
 - Expired token cleanup: Automatic maintenance job
 - No token data in logs
 
-## Testing Architecture
+## Testing Architecture (Phase 06)
 
-**Unit Testing:**
+### Unit Testing
 
-- Test individual functions/components
-- Mock Prisma queries
-- Schema validation tests
+**Document Classifier Tests (17 tests)**
+- Classification accuracy (W2, 1099-INT, 1099-NEC, etc.)
+- Low confidence handling (< 60%)
+- Unsupported mime type validation
+- Gemini API failure recovery
+- Batch classification with concurrency
 
-**Integration Testing:**
+**Document Pipeline Tests (11 tests)**
+- Image resizing for files > 4MB
+- Confidence-based routing (auto-link, review, unclassified)
+- Idempotency checks (prevent duplicate processing)
+- Duplicate detection via pHash
+- OCR extraction conditional logic
 
-- Test API endpoints
-- Real database (test database)
-- Authentication flow
-- Error scenarios
+### Testing Infrastructure
 
-**E2E Testing:**
+**Vitest Configuration:**
+- Environment: Node.js
+- Pattern: `src/**/__tests__/**/*.test.ts`
+- Coverage: Services + Jobs (excludes prompts)
+- Timeout: 30s (for Gemini simulations)
 
-- Test complete user workflows
-- Frontend + Backend + Database
-- Real browser (Playwright/Cypress - future)
+**Mocking Strategy:**
+- Mock Inngest, Prisma, R2 storage, Gemini API
+- Mock sharp for image processing
+- Mock duplicate detector service
+- Type-safe mocks with vi.mocked()
 
-**Test Data:**
+### Test Coverage
+
+| Module | Tests | Focus |
+|--------|-------|-------|
+| document-classifier | 8 | Classification, error handling, batch ops |
+| ocr-extractor | 3 | Field extraction, validation, confidence |
+| duplicate-detector | 2 | pHash generation, group assignment |
+| classify-document job | 11 | Workflow integration, edge cases, retry logic |
+
+### Integration Testing
+
+**Classify-Document Job Tests:**
+- Full pipeline flow: fetch → classify → route → duplicate detect → OCR
+- Image resize handling for 4MB+ files
+- Idempotency on duplicate events
+- Gemini service unavailability detection
+- Atomic transaction verification
+- Action creation for failed classifications
+
+**Error Scenarios Covered:**
+- Missing images in R2
+- Corrupted/invalid image data
+- Gemini rate limiting (503, overloaded)
+- Image size violations (20MB hard limit)
+- Duplicate event processing (Inngest retries)
+- OCR validation failures
+
+### Test Data
 
 - Seed scripts for consistent data
 - Transaction rollback per test
 - Isolated test database
+- Mock image buffers (JPEG magic bytes)
 
 ---
 
-**Last Updated:** 2026-01-14 14:25
-**Phase:** 2 - Make It Usable (Complete) + 3.2 - Unified Inbox & Conversation Management (Complete)
-**Architecture Version:** 3.2
-**Next Phase:** 2.1 Advanced - Document Upload Batch Processing
+**Last Updated:** 2026-01-15
+**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete)
+**Architecture Version:** 6.0 (Tested & Resilient)
+**Completed Features (Phase 06):**
+- ✓ Vitest unit testing setup for AI services
+- ✓ Integration tests for classify-document job (17 tests total)
+- ✓ Idempotency checks for Inngest duplicate events
+- ✓ Image resize for files >4MB using sharp (prevents Gemini timeout)
+- ✓ 20MB hard size limit enforcement (DoS prevention)
+- ✓ Gemini service unavailability detection with retry logic
+- ✓ Error message sanitization (API keys, emails, paths masked)
+- ✓ AI_FAILED action creation for CPA manual review
+**Completed Features (Phase 05):**
+- ✓ Classification updates hook with 5s polling
+- ✓ Real-time status tracking (UPLOADED → PROCESSING → CLASSIFIED/LINKED)
+- ✓ Confidence-level notifications (HIGH/MEDIUM/LOW toasts)
+- ✓ Floating status panel (UploadProgress component)
+- ✓ PROCESSING image overlay in gallery
+- ✓ Tab-aware polling (stops when inactive, battery-friendly)
+- ✓ Automatic checklist refresh on image linking
+- ✓ Memory leak prevention (cleanup on unmount)
+- ✓ Initial load noise prevention
+- ✓ State comparison to prevent duplicate notifications
+**Completed Features (Phase 04):**
+- ✓ Confidence-level system (HIGH/MEDIUM/LOW with thresholds)
+- ✓ Confidence badges in image gallery
+- ✓ Classification review modal for CPA verification
+- ✓ Approve/reject workflow with optimistic updates
+- ✓ XSS-safe signed URL validation
+- ✓ Atomic database transactions (RawImage + ChecklistItem + DigitalDoc)
+- ✓ BLURRY_DETECTED action creation on rejection
+- ✓ Keyboard shortcuts (Enter/Esc)
+- ✓ Toast notifications (success/error)
+- ✓ React Query integration with cache invalidation
+- ✓ 21 supported document types in selector
+**Next Phase:** Phase 05.1 - WebSocket Real-time (Replace Polling)

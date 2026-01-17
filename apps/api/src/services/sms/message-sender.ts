@@ -113,6 +113,7 @@ export async function sendDocsCompleteMessage(
 
 /**
  * Send custom message (for staff-initiated messages)
+ * NOTE: This creates a message record - use sendSmsOnly if record already exists
  */
 export async function sendCustomMessage(
   caseId: string,
@@ -120,6 +121,33 @@ export async function sendCustomMessage(
   content: string
 ): Promise<SendMessageResult> {
   return sendAndRecordMessage(caseId, clientPhone, content, undefined)
+}
+
+/**
+ * Send SMS only without creating a message record
+ * Use this when the message record is already created (e.g., by API route)
+ * Returns the Twilio SID and status for updating the existing record
+ */
+export async function sendSmsOnly(
+  phone: string,
+  content: string
+): Promise<{ success: boolean; sid?: string; status?: string; error?: string }> {
+  if (!isTwilioConfigured()) {
+    return { success: false, error: 'SMS_NOT_CONFIGURED' }
+  }
+
+  const formattedPhone = formatPhoneToE164(phone)
+  const result = await sendSms({
+    to: formattedPhone,
+    body: content,
+  })
+
+  return {
+    success: result.success,
+    sid: result.sid,
+    status: result.status,
+    error: result.error,
+  }
 }
 
 /**

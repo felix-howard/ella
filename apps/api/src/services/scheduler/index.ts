@@ -1,14 +1,23 @@
 /**
  * Scheduler Service - Cron job management
  * Phase 3: Scheduled Reminders
+ * Phase 4: PDF temp file cleanup
  */
 import cron, { type ScheduledTask } from 'node-cron'
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import * as os from 'os'
 import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import { sendBatchMissingReminders } from '../sms/notification-service'
 import { isSmsEnabled } from '../sms/message-sender'
 
 let reminderTask: ScheduledTask | null = null
+let cleanupTask: ScheduledTask | null = null
+
+// PDF temp file cleanup constants
+const CLEANUP_CRON = '0 2 * * *' // Daily at 2am
+const MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 /**
  * Initialize scheduler with daily jobs
@@ -30,6 +39,13 @@ export function initializeScheduler() {
     console.log('[Scheduler] SMS reminders disabled - Twilio not configured')
   }
 
+  // PDF temp file cleanup job (always enabled)
+  console.log(`[Scheduler] Starting PDF temp cleanup job: ${CLEANUP_CRON}`)
+  cleanupTask = cron.schedule(CLEANUP_CRON, async () => {
+    console.log('[Scheduler] Running PDF temp cleanup job...')
+    await cleanupOrphanedPdfDirs()
+  })
+
   console.log('[Scheduler] Scheduler initialized successfully')
 }
 
@@ -40,6 +56,10 @@ export function stopScheduler() {
   if (reminderTask) {
     reminderTask.stop()
     reminderTask = null
+  }
+  if (cleanupTask) {
+    cleanupTask.stop()
+    cleanupTask = null
   }
   console.log('[Scheduler] Stopped all jobs')
 }
@@ -118,11 +138,58 @@ export function getSchedulerStatus(): {
   smsEnabled: boolean
   cronSchedule: string
   reminderRunning: boolean
+  cleanupRunning: boolean
 } {
   return {
     enabled: config.scheduler.enabled,
     smsEnabled: isSmsEnabled(),
     cronSchedule: config.scheduler.reminderCron,
     reminderRunning: reminderTask !== null,
+    cleanupRunning: cleanupTask !== null,
   }
+}
+
+/**
+ * Cleanup orphaned PDF temp directories
+ * Removes ella-pdf-* dirs older than 24 hours
+ */
+async function cleanupOrphanedPdfDirs(): Promise<{ cleaned: number; errors: number }> {
+  const tempDir = os.tmpdir()
+  let cleaned = 0
+  let errors = 0
+
+  try {
+    const entries = await fs.readdir(tempDir, { withFileTypes: true })
+    const now = Date.now()
+
+    for (const entry of entries) {
+      // Only process ella-pdf-* directories
+      if (!entry.isDirectory() || !entry.name.startsWith('ella-pdf-')) {
+        continue
+      }
+
+      const dirPath = path.join(tempDir, entry.name)
+
+      try {
+        const stats = await fs.stat(dirPath)
+        const age = now - stats.mtimeMs
+
+        // Remove if older than 24 hours
+        if (age > MAX_AGE_MS) {
+          await fs.rm(dirPath, { recursive: true, force: true })
+          cleaned++
+          console.log(`[Cleanup] Removed orphaned PDF dir: ${entry.name}`)
+        }
+      } catch (err) {
+        errors++
+        console.warn(`[Cleanup] Failed to process ${entry.name}:`, err)
+      }
+    }
+  } catch (err) {
+    console.error('[Cleanup] Failed to read temp directory:', err)
+    errors++
+  }
+
+  console.log(`[Cleanup] Completed: ${cleaned} cleaned, ${errors} errors`)
+  return { cleaned, errors }
 }

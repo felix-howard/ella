@@ -9,9 +9,11 @@ import { clientsRoute } from './routes/clients'
 import { casesRoute } from './routes/cases'
 import { actionsRoute } from './routes/actions'
 import { docsRoute } from './routes/docs'
+import { imagesRoute } from './routes/images'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
 import { twilioWebhookRoute } from './routes/webhooks'
+import { inngestRoute } from './routes/inngest'
 
 const app = new OpenAPIHono()
 
@@ -35,12 +37,14 @@ app.use('*', clerkMiddleware())
 app.route('/health', healthRoute)
 app.route('/portal', portalRoute)
 app.route('/webhooks/twilio', twilioWebhookRoute)
+app.route('/api/inngest', inngestRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)
 app.use('/cases/*', authMiddleware)
 app.use('/actions/*', authMiddleware)
 app.use('/docs/*', authMiddleware)
+app.use('/images/*', authMiddleware)
 app.use('/messages/*', authMiddleware)
 
 // Routes
@@ -48,6 +52,7 @@ app.route('/clients', clientsRoute)
 app.route('/cases', casesRoute)
 app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
+app.route('/images', imagesRoute)
 app.route('/messages', messagesRoute)
 
 // OpenAPI documentation

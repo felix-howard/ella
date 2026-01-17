@@ -9,13 +9,14 @@ import { config } from '../../lib/config'
 // Maximum image size in bytes (10MB)
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
-// Image magic numbers for format validation
-const IMAGE_MAGIC_NUMBERS: Record<string, number[]> = {
+// File magic numbers for format validation (images + PDF)
+const FILE_MAGIC_NUMBERS: Record<string, number[]> = {
   'image/jpeg': [0xff, 0xd8, 0xff],
   'image/png': [0x89, 0x50, 0x4e, 0x47],
   'image/webp': [0x52, 0x49, 0x46, 0x46], // RIFF header
   'image/heic': [0x00, 0x00, 0x00], // ftyp box start
   'image/heif': [0x00, 0x00, 0x00],
+  'application/pdf': [0x25, 0x50, 0x44, 0x46], // %PDF
 }
 
 // Retryable HTTP status codes and error patterns
@@ -31,11 +32,69 @@ const RETRYABLE_PATTERNS = [
   /service.?unavailable/i,
 ]
 
+// Model not found error patterns (triggers fallback)
+const MODEL_NOT_FOUND_PATTERNS = [
+  /404/,
+  /not found/i,
+  /model.*not.*found/i,
+  /does not exist/i,
+  /is not supported/i,
+]
+
 // Initialize client with centralized config
 const genAI = new GoogleGenerativeAI(config.ai.geminiApiKey)
 
 // Check if Gemini is configured
 export const isGeminiConfigured = config.ai.isConfigured
+
+// Cache for Gemini validation status
+let geminiValidationStatus: {
+  available: boolean
+  model: string
+  checkedAt: Date | null
+  error?: string
+} = {
+  available: false,
+  model: config.ai.model,
+  checkedAt: null,
+}
+
+// Cache for working model (updated on fallback)
+let workingModel: string | null = null
+
+/**
+ * Get the currently active model (cached working or primary)
+ */
+function getActiveModel(): string {
+  return workingModel || config.ai.model
+}
+
+/**
+ * Set the working model after successful fallback
+ */
+function setWorkingModel(model: string): void {
+  if (workingModel !== model) {
+    workingModel = model
+    console.log(`[Gemini] Switched to model: ${model}`)
+  }
+}
+
+/**
+ * Check if error indicates model doesn't exist (triggers fallback)
+ */
+function isModelNotFoundError(error: Error): boolean {
+  return MODEL_NOT_FOUND_PATTERNS.some((pattern) => pattern.test(error.message))
+}
+
+/**
+ * Sanitize error message to prevent PII exposure
+ */
+function sanitizeErrorMessage(message: string): string {
+  return message.replace(
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+    '[EMAIL]'
+  )
+}
 
 /**
  * Response type for AI operations
@@ -63,10 +122,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Validate image buffer format using magic numbers
+ * Validate file buffer format using magic numbers (images + PDF)
  */
-function validateImageFormat(buffer: Buffer, expectedMimeType: string): boolean {
-  const magicBytes = IMAGE_MAGIC_NUMBERS[expectedMimeType]
+function validateFileFormat(buffer: Buffer, expectedMimeType: string): boolean {
+  const magicBytes = FILE_MAGIC_NUMBERS[expectedMimeType]
   if (!magicBytes) {
     // Unknown format, allow it to pass (Gemini will reject if invalid)
     return true
@@ -82,7 +141,7 @@ function validateImageFormat(buffer: Buffer, expectedMimeType: string): boolean 
 }
 
 /**
- * Validate image buffer size and format
+ * Validate file buffer size and format (images + PDF)
  */
 export function validateImageBuffer(
   buffer: Buffer,
@@ -93,15 +152,15 @@ export function validateImageBuffer(
     const sizeMB = (buffer.length / 1024 / 1024).toFixed(2)
     return {
       valid: false,
-      error: `Image size (${sizeMB}MB) exceeds maximum allowed (10MB)`,
+      error: `File size (${sizeMB}MB) exceeds maximum allowed (10MB)`,
     }
   }
 
-  // Check format
-  if (!validateImageFormat(buffer, mimeType)) {
+  // Check format using magic bytes
+  if (!validateFileFormat(buffer, mimeType)) {
     return {
       valid: false,
-      error: `Image buffer does not match expected format: ${mimeType}`,
+      error: `File buffer does not match expected format: ${mimeType}`,
     }
   }
 
@@ -152,8 +211,9 @@ function isRetryableError(error: Error): boolean {
 }
 
 /**
- * Generate content with retry logic
+ * Generate content with retry and fallback logic
  * Handles both text-only and multimodal (text + image) prompts
+ * Automatically falls back to alternative models on 404 errors
  */
 export async function generateContent(
   prompt: string,
@@ -166,66 +226,87 @@ export async function generateContent(
     }
   }
 
-  const model = genAI.getGenerativeModel({ model: config.ai.model })
+  // Build model list: active model first, then fallbacks (deduplicated)
+  const activeModel = getActiveModel()
+  const modelsToTry = [
+    activeModel,
+    ...config.ai.fallbackModels.filter((m) => m !== activeModel),
+  ]
+
   const maxRetries = config.ai.maxRetries
   const retryDelay = config.ai.retryDelayMs
 
-  let lastError: Error | null = null
-  let retries = 0
+  for (const modelName of modelsToTry) {
+    const model = genAI.getGenerativeModel({ model: modelName })
+    let lastError: Error | null = null
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      let result: GenerateContentResult
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        let result: GenerateContentResult
 
-      if (image) {
-        // Multimodal request (text + image)
-        const imagePart: Part = {
-          inlineData: {
-            data: image.data,
-            mimeType: image.mimeType,
-          },
+        if (image) {
+          // Multimodal request (text + image)
+          const imagePart: Part = {
+            inlineData: {
+              data: image.data,
+              mimeType: image.mimeType,
+            },
+          }
+          result = await model.generateContent([prompt, imagePart])
+        } else {
+          // Text-only request
+          result = await model.generateContent(prompt)
         }
-        result = await model.generateContent([prompt, imagePart])
-      } else {
-        // Text-only request
-        result = await model.generateContent(prompt)
+
+        // Success - cache working model
+        setWorkingModel(modelName)
+
+        return {
+          success: true,
+          data: result.response.text(),
+          retries: attempt,
+        }
+      } catch (error) {
+        lastError = error as Error
+
+        // Model not found - try next model immediately
+        if (isModelNotFoundError(lastError)) {
+          console.warn(`[Gemini] Model ${modelName} not found, trying fallback...`)
+          break
+        }
+
+        // Retryable error - exponential backoff
+        if (isRetryableError(lastError) && attempt < maxRetries - 1) {
+          const delay = retryDelay * Math.pow(2, attempt)
+          console.warn(`[Gemini] Retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+          await sleep(delay)
+        } else if (!isRetryableError(lastError)) {
+          // Non-retryable, non-model error - fail fast
+          break
+        }
       }
+    }
 
-      const response = result.response
-      const text = response.text()
+    // If model not found, continue to next model
+    if (lastError && isModelNotFoundError(lastError)) {
+      continue
+    }
 
+    // Other errors - return failure
+    if (lastError) {
       return {
-        success: true,
-        data: text,
-        retries: attempt,
-      }
-    } catch (error) {
-      lastError = error as Error
-      retries = attempt + 1
-
-      if (isRetryableError(lastError) && attempt < maxRetries - 1) {
-        // Exponential backoff
-        const delay = retryDelay * Math.pow(2, attempt)
-        console.warn(
-          `Gemini API error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms`
-        )
-        await sleep(delay)
-      } else if (!isRetryableError(lastError)) {
-        // Non-retryable error, fail immediately
-        break
+        success: false,
+        error: sanitizeErrorMessage(lastError.message),
+        retries: maxRetries,
       }
     }
   }
 
-  // Sanitize error message to prevent PII exposure
-  const safeError = lastError?.message
-    ? lastError.message.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]')
-    : 'Unknown error'
-
+  // All models failed
   return {
     success: false,
-    error: safeError,
-    retries,
+    error: 'All Gemini models unavailable',
+    retries: config.ai.maxRetries,
   }
 }
 
@@ -291,17 +372,101 @@ export async function analyzeImage<T>(
 }
 
 /**
- * Get Gemini configuration status
+ * Validate Gemini model availability with fallback
+ * Tries primary model first, then fallbacks if 404
+ * Non-blocking, caches result for health endpoint
+ */
+export async function validateGeminiModel(): Promise<{
+  available: boolean
+  model: string
+  error?: string
+}> {
+  if (!isGeminiConfigured) {
+    geminiValidationStatus = {
+      available: false,
+      model: config.ai.model,
+      checkedAt: new Date(),
+      error: 'API key not configured',
+    }
+    return geminiValidationStatus
+  }
+
+  // Build model list: primary first, then fallbacks
+  const modelsToTry = [
+    config.ai.model,
+    ...config.ai.fallbackModels.filter((m) => m !== config.ai.model),
+  ]
+
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName })
+      // Minimal test: count tokens (cheapest API call)
+      await model.countTokens('test')
+
+      // Success - set as working model
+      setWorkingModel(modelName)
+
+      geminiValidationStatus = {
+        available: true,
+        model: modelName,
+        checkedAt: new Date(),
+      }
+      console.log(`[Gemini] Model validated: ${modelName}`)
+      return geminiValidationStatus
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error('Unknown error')
+
+      // Model not found - try next fallback
+      if (isModelNotFoundError(err)) {
+        console.warn(`[Gemini] Model ${modelName} not found, trying fallback...`)
+        continue
+      }
+
+      // Other error - stop trying
+      geminiValidationStatus = {
+        available: false,
+        model: modelName,
+        checkedAt: new Date(),
+        error: err.message,
+      }
+      console.warn(`[Gemini] Model validation failed: ${err.message}`)
+      return geminiValidationStatus
+    }
+  }
+
+  // All models failed with 404
+  geminiValidationStatus = {
+    available: false,
+    model: config.ai.model,
+    checkedAt: new Date(),
+    error: 'All Gemini models unavailable',
+  }
+  console.warn('[Gemini] All models validation failed')
+  return geminiValidationStatus
+}
+
+/**
+ * Get Gemini configuration and validation status for health endpoint
  */
 export function getGeminiStatus(): {
   configured: boolean
   model: string
+  activeModel: string
+  fallbackModels: string[]
+  available: boolean
+  checkedAt: string | null
+  error?: string
   maxRetries: number
   maxImageSizeMB: number
 } {
   return {
     configured: isGeminiConfigured,
     model: config.ai.model,
+    activeModel: getActiveModel(),
+    fallbackModels: config.ai.fallbackModels,
+    available: geminiValidationStatus.available,
+    checkedAt: geminiValidationStatus.checkedAt?.toISOString() || null,
+    error: geminiValidationStatus.error,
     maxRetries: config.ai.maxRetries,
     maxImageSizeMB: MAX_IMAGE_SIZE / 1024 / 1024,
   }

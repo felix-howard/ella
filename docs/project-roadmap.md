@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-14 15:54
-> **Current Phase:** Phase 5 (Production Gaps Fix) - Phase 2 Core Workflow 100% Complete
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes)
+> **Last Updated:** 2026-01-17 12:52
+> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI)
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement
 
 ---
 
@@ -20,6 +20,8 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - Phase 4.1 (Copy-to-Clipboard Workflow): ✅ COMPLETE (5/5 tasks done) - as of 2026-01-14 08:00
 - Phase 4.2 (Side-by-Side Document Viewer): ✅ COMPLETE (4/4 tasks done) - as of 2026-01-14 08:11
 - **Phase 5.2 (Core Workflow - Production Gaps):** ✅ COMPLETE (Status Management, Document Verification, Action Completion, Search) - as of 2026-01-14 15:54
+- **Phase 5.3 (Enhanced Portal Upload):** ✅ COMPLETE (4/4 phases: API progress tracking, i18n strings, enhanced uploader component, upload page integration) - as of 2026-01-14 19:05
+- **Phase 6 (AI Classification Testing & Polish):** ✅ COMPLETE (28 tests, 100% pass rate, all security hardening) - as of 2026-01-15 07:40
 
 ---
 
@@ -76,16 +78,93 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 
 ---
 
-### Phase 5: Production Gaps Fix - 100% Complete ✅
-**Completion Date:** 2026-01-14 15:54
-**Deliverable:** Complete core workflow with status management, document verification, actions, and search
+### Phase 5: Production Gaps Fix & Enhancements - 100% Complete ✅
+**Overall Completion Date:** 2026-01-14 19:05
+**Deliverable:** Complete core workflow with status management, document verification, actions, search, and enhanced portal upload
 
 | Gap | Task | Status | Completion | Priority |
 |-----|------|--------|-----------|----------|
-| #6 | Case Status Management | ✅ DONE | 2026-01-14 | HIGH |
-| #7 | Document Verification Workflow | ✅ DONE | 2026-01-14 | HIGH |
-| #8 | Action Completion | ✅ DONE | 2026-01-14 | HIGH |
-| #9 | Basic Search (Name/Phone) | ✅ DONE | 2026-01-14 | MEDIUM |
+| #6 | Case Status Management | ✅ DONE | 2026-01-14 15:54 | HIGH |
+| #7 | Document Verification Workflow | ✅ DONE | 2026-01-14 15:54 | HIGH |
+| #8 | Action Completion | ✅ DONE | 2026-01-14 15:54 | HIGH |
+| #9 | Basic Search (Name/Phone) | ✅ DONE | 2026-01-14 15:54 | MEDIUM |
+| #10 | Enhanced Portal Upload | ✅ DONE | 2026-01-14 19:05 | MEDIUM |
+
+**Phase 5.3 (Enhanced Portal Upload):**
+- Phase 1: API Client Progress Callback ✅ 2026-01-14 19:05
+- Phase 2: i18n Strings for UI ✅ 2026-01-14 19:05
+- Phase 3: Enhanced Uploader Component ✅ 2026-01-14 19:05
+- Phase 4: Upload Page Integration ✅ 2026-01-14 19:05
+
+---
+
+### Phase 6: AI Document Classification Testing & Polish - 100% Complete ✅
+**Completion Date:** 2026-01-15 07:40
+**Deliverable:** Comprehensive testing, security hardening, edge case handling for AI classification pipeline
+
+| Component | Status | Completion | Priority |
+|-----------|--------|-----------|----------|
+| Unit Tests (Document Classifier) | ✅ DONE | 2026-01-15 07:40 | HIGH |
+| Integration Tests (Classification Job) | ✅ DONE | 2026-01-15 07:40 | HIGH |
+| Gemini Unavailability Handling | ✅ DONE | 2026-01-15 07:40 | HIGH |
+| Large File Handling (Image Resize) | ✅ DONE | 2026-01-15 07:40 | HIGH |
+| Idempotency Check (Duplicate Events) | ✅ DONE | 2026-01-15 07:40 | MEDIUM |
+| Security Hardening (20MB Buffer Limit) | ✅ DONE | 2026-01-15 07:40 | HIGH |
+| Error Message Sanitization | ✅ DONE | 2026-01-15 07:40 | HIGH |
+
+**Test Results:**
+- 28 total tests (17 unit + 11 integration)
+- 100% pass rate (28/28 passing)
+- Execution time: 946ms
+- Code coverage: >95%
+
+---
+
+### Phase 7: Enhanced Gemini AI Features - In Progress (29% Complete) ⏳
+**Started:** 2026-01-16 22:56
+**Target Completion:** 2026-01-17 (Phase 5 pending)
+**Deliverable:** Expanded AI OCR for 15+ tax document types, optimized classification
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Tests |
+|-------|-----------|--------|-----------|-------|
+| 7.1 | Classification Enhancement | ✅ DONE | 2026-01-16 | 15/15 passing |
+| 7.2 | Priority 1 OCR (1099-K, K-1, Bank) | ✅ DONE | 2026-01-17 00:10 | 32/32 passing |
+| 7.3 | Priority 2 OCR (1099-DIV/R/SSA, 1098, 1095-A) | ✅ DONE | 2026-01-17 08:15 | 41/41 passing |
+| 7.4 | Priority 3 OCR (1098-T, 1099-G, 1099-MISC) | ✅ DONE | 2026-01-17 00:50 | 88/88 passing |
+| 7.5 | Testing & Validation Suite | ⏳ PENDING | - | - |
+
+**Completion Summary:**
+- Classification with few-shot examples + Vietnamese name handling: Complete
+- OCR prompts for 11 tax document types (1098-T, 1099-G, 1099-MISC, 1099-K, K-1, Bank Statement, 1099-DIV, 1099-R, 1099-SSA, 1098, 1095-A): Complete
+- Total validation tests: 88/88 passing
+- TypeScript: Clean
+- Code review: 10/10
+- Actual effort: 10h (20h estimated)
+
+---
+
+### Enhancement Track: Verification Modal UI Enhancement - 50% Complete ⏳
+**Started:** 2026-01-17 11:09
+**Target Completion:** 2026-01-17
+**Deliverable:** Improved OCR verification modal with compact fields, fixed document viewer, and enhanced 1099-NEC support
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Code Review |
+|-------|-----------|--------|-----------|------------|
+| 1 | Compact Field Verification Component | ✅ DONE | 2026-01-17 | 9/10 |
+| 2 | Fix Document Viewer Scroll Issues | ✅ DONE | 2026-01-17 | 9/10 |
+| 3 | Update 1099-NEC Field Coverage | ⏳ PENDING | - | - |
+| 4 | Optimize Verification Modal Layout | ⏳ PENDING | - | - |
+| 5 | Handle Nested Fields (stateTaxInfo) | ⏳ PENDING | - | - |
+
+**Completion Summary (Phase 1-2):**
+- Inline field layout with compact design: Complete
+- Icon-only action buttons with hover states: Complete
+- Document viewer scroll fixes (transform origin, top alignment, scroll-to-top): Complete
+- Files modified: 2 (field-verification-item.tsx, image-viewer.tsx)
+- TypeScript: Clean
+- Integration: Staff Workspace verification modal
 
 ---
 
@@ -219,8 +298,9 @@ Core Models:
 | 4.2 | 4 | 4 | 0 | 0 | 100% ✅ |
 | **Phase 4** | **9** | **9** | **0** | **0** | **100%** ✅ |
 | 5.2 (Gaps) | 4 | 4 | 0 | 0 | 100% ✅ |
-| **Phase 5.2** | **4** | **4** | **0** | **0** | **100%** ✅ |
-| **Total** | **154** | **154** | **0** | **0** | **100%** ✅ |
+| 5.3 (Enhanced Upload) | 4 | 4 | 0 | 0 | 100% ✅ |
+| **Phase 5** | **8** | **8** | **0** | **0** | **100%** ✅ |
+| **Total** | **158** | **158** | **0** | **0** | **100%** ✅ |
 
 ### Code Quality Metrics
 | Component | Type Check | Lint | Build | Code Review | Notes |
@@ -236,6 +316,7 @@ Core Models:
 ## Implementation Reports
 
 ### Recent Reports (Last 7 Days)
+- **project-manager-260114-enhanced-portal-upload.md** - Phase 5.3 Enhanced Portal Upload completion (4/4 phases: API progress, i18n, component, integration) - 2026-01-14 19:05
 - **project-manager-260114-phase-5-2-core-workflow.md** - Phase 5.2 Production Gaps Fix completion (Status Management, Document Verification, Actions, Search) - 2026-01-14 15:54
 - **project-manager-260113-phase-2-2-completion.md** - Phase 2.2 Dynamic Checklist System completion (All 4 tasks, 8.5/10)
 - **project-manager-260113-phase-2-1-completion.md** - Phase 2.1 AI Document Processing completion (All 13 tasks)
@@ -382,6 +463,10 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 3.5 | 2026-01-17 12:52 | PM | ENHANCEMENT TRACK: Verification Modal UI Enhancement - Phase 1-2 complete (50% overall). Compact field layout + document viewer scroll fixes implemented. 9/10 code review. Phases 3-5 pending. |
+| 3.4 | 2026-01-16 08:32 | PM | BUG FIX: Document Workflow - Documents now update immediately in all tabs after classification/verification. Fixed missing docs query invalidation in modals + extended polling hook. 2 phases, actual effort 1 hour, completed ahead of schedule. |
+| 3.3 | 2026-01-15 07:40 | PM | MILESTONE: Phase 6 AI Classification Testing & Polish complete. 28 tests (17 unit + 11 integration), 100% pass rate, 8.5/10 code review, all security hardening applied. Production-ready testing suite. |
+| 3.2 | 2026-01-14 19:05 | PM | MILESTONE: Phase 5.3 Enhanced Portal Upload complete (4/4 phases). Mobile-first upload with progress tracking, drag/drop desktop support, i18n localization. Total project: 158 tasks complete (100% done). All phases complete. |
 | 3.1 | 2026-01-14 15:54 | PM | MILESTONE: Phase 5.2 Production Gaps Fix complete (4/4 gaps). Status management, document verification, action completion, search implemented. Total project: 154 tasks complete (100% done). MVP + production fixes fully complete. |
 | 3.0 | 2026-01-14 08:11 | PM | MILESTONE: All 150 tasks complete (100% done). Phase 3 complete (12/12). Phase 4 complete (9/9). Project completion: 100%. MVP feature set fully implemented ahead of schedule. |
 | 2.1 | 2026-01-13 23:45 | PM | Phase 2.2 complete (4/4 tasks), Phase 2 now 100% done, overall 88% complete. Ahead of schedule. |

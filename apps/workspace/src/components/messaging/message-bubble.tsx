@@ -3,9 +3,9 @@
  * Shows message content with direction-based styling and channel indicator
  */
 
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { cn } from '@ella/ui'
-import { Phone, Globe, Bot } from 'lucide-react'
+import { Phone, Globe, Bot, ImageOff } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 
@@ -65,7 +65,22 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         )}
       >
         {/* Message content - sanitized */}
-        <p className="text-sm whitespace-pre-wrap break-words">{safeContent}</p>
+        {safeContent && (
+          <p className="text-sm whitespace-pre-wrap break-words">{safeContent}</p>
+        )}
+
+        {/* Attachment images */}
+        {message.attachmentUrls && message.attachmentUrls.length > 0 && (
+          <div className={cn('flex flex-wrap gap-2', safeContent && 'mt-2')}>
+            {message.attachmentUrls.map((url, index) => (
+              <MessageAttachment
+                key={index}
+                url={url}
+                isOutbound={isOutbound}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Footer with channel and time */}
         <div
@@ -84,6 +99,56 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     </div>
   )
 })
+
+/**
+ * Message attachment image with loading and error states
+ */
+function MessageAttachment({ url, isOutbound }: { url: string; isOutbound: boolean }) {
+  const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  if (error) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center w-[150px] h-[100px] rounded',
+          isOutbound ? 'bg-white/10' : 'bg-muted'
+        )}
+      >
+        <ImageOff className="w-6 h-6 text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative">
+      {loading && (
+        <div
+          className={cn(
+            'absolute inset-0 flex items-center justify-center rounded',
+            isOutbound ? 'bg-white/10' : 'bg-muted'
+          )}
+        >
+          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-50" />
+        </div>
+      )}
+      <img
+        src={url}
+        alt="Attachment"
+        className={cn(
+          'max-w-[200px] max-h-[200px] rounded object-cover cursor-pointer hover:opacity-90 transition-opacity',
+          loading && 'invisible'
+        )}
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setLoading(false)
+          setError(true)
+        }}
+        onClick={() => window.open(url, '_blank')}
+      />
+    </div>
+  )
+}
 
 /**
  * Typing indicator for when staff is composing

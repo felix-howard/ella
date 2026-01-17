@@ -1,8 +1,10 @@
 /**
  * Checklist Grid Component - Visual cards showing document checklist status
- * Displays checklist items with status badges and quick actions
+ * Displays checklist items with status badges, thumbnail strips, and quick actions
+ * Supports drag & drop for moving images between checklist items
  */
 
+import { useState } from 'react'
 import { cn } from '@ella/ui'
 import {
   Check,
@@ -11,6 +13,9 @@ import {
   AlertCircle,
   MoreHorizontal,
   Eye,
+  Loader2,
+  GripVertical,
+  Plus,
 } from 'lucide-react'
 import {
   DOC_TYPE_LABELS,
@@ -18,13 +23,16 @@ import {
   CHECKLIST_STATUS_COLORS,
   UI_TEXT,
 } from '../../lib/constants'
-import type { ChecklistItem, ChecklistItemStatus } from '../../lib/api-client'
+import { useSignedUrl } from '../../hooks/use-signed-url'
+import type { ChecklistItem, ChecklistItemStatus, RawImage } from '../../lib/api-client'
 
 interface ChecklistGridProps {
   items: ChecklistItem[]
   isLoading?: boolean
   onItemClick?: (item: ChecklistItem) => void
   onVerify?: (item: ChecklistItem) => void
+  onImageDrop?: (imageId: string, targetChecklistItemId: string) => void
+  enableDragDrop?: boolean
 }
 
 // Icon mapping for each status
@@ -36,7 +44,16 @@ const STATUS_ICONS: Record<ChecklistItemStatus, typeof Check> = {
   NOT_REQUIRED: MoreHorizontal,
 }
 
-export function ChecklistGrid({ items, isLoading, onItemClick, onVerify }: ChecklistGridProps) {
+export function ChecklistGrid({
+  items,
+  isLoading,
+  onItemClick,
+  onVerify,
+  onImageDrop,
+  enableDragDrop = false,
+}: ChecklistGridProps) {
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
+
   if (isLoading) {
     return <ChecklistGridSkeleton />
   }
@@ -53,6 +70,27 @@ export function ChecklistGrid({ items, isLoading, onItemClick, onVerify }: Check
   // Group by status for better overview (available for future grouped view)
   const _groupedItems = groupByStatus(items)
 
+  // Handle drag over checklist item
+  const handleDragOver = (e: React.DragEvent, itemId: string) => {
+    if (!enableDragDrop) return
+    e.preventDefault()
+    setDragOverItemId(itemId)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverItemId(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetItemId: string) => {
+    if (!enableDragDrop) return
+    e.preventDefault()
+    setDragOverItemId(null)
+    const imageId = e.dataTransfer.getData('imageId')
+    if (imageId && onImageDrop) {
+      onImageDrop(imageId, targetItemId)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
@@ -66,6 +104,11 @@ export function ChecklistGrid({ items, isLoading, onItemClick, onVerify }: Check
             item={item}
             onClick={() => onItemClick?.(item)}
             onVerify={() => onVerify?.(item)}
+            enableDragDrop={enableDragDrop}
+            isDragOver={dragOverItemId === item.id}
+            onDragOver={(e) => handleDragOver(e, item.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, item.id)}
           />
         ))}
       </div>
@@ -77,23 +120,42 @@ interface ChecklistCardProps {
   item: ChecklistItem
   onClick?: () => void
   onVerify?: () => void
+  enableDragDrop?: boolean
+  isDragOver?: boolean
+  onDragOver?: (e: React.DragEvent) => void
+  onDragLeave?: () => void
+  onDrop?: (e: React.DragEvent) => void
 }
 
-function ChecklistCard({ item, onClick, onVerify }: ChecklistCardProps) {
+function ChecklistCard({
+  item,
+  onClick,
+  onVerify,
+  enableDragDrop,
+  isDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: ChecklistCardProps) {
   const status = item.status as ChecklistItemStatus
   const colors = CHECKLIST_STATUS_COLORS[status] || { bg: 'bg-muted', text: 'text-muted-foreground' }
   const Icon = STATUS_ICONS[status] || FileText
   const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
   const canVerify = status === 'HAS_DIGITAL' || status === 'HAS_RAW'
+  const hasImages = (item.rawImages?.length || 0) > 0
 
   return (
     <div
       className={cn(
         'group relative bg-card rounded-xl border p-4 transition-all',
         'hover:shadow-md hover:border-primary/30',
-        onClick && 'cursor-pointer'
+        onClick && 'cursor-pointer',
+        isDragOver && 'border-primary border-2 bg-primary/5'
       )}
       onClick={onClick}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {/* Status Indicator */}
       <div className="flex items-start justify-between mb-3">
@@ -116,17 +178,35 @@ function ChecklistCard({ item, onClick, onVerify }: ChecklistCardProps) {
         {docLabel}
       </h4>
 
-      {/* Linked items count */}
-      {(item.rawImages?.length || item.digitalDocs?.length) ? (
+      {/* Thumbnail Strip - Show images for this checklist item */}
+      {hasImages && (
+        <div className="mt-2 mb-2">
+          <ThumbnailStrip
+            images={item.rawImages || []}
+            enableDragDrop={enableDragDrop}
+          />
+        </div>
+      )}
+
+      {/* Linked items count (shown when no thumbnails) */}
+      {!hasImages && (item.digitalDocs?.length) ? (
         <p className="text-xs text-muted-foreground">
-          {item.rawImages?.length ? `${item.rawImages.length} ảnh` : ''}
-          {item.rawImages?.length && item.digitalDocs?.length ? ' • ' : ''}
-          {item.digitalDocs?.length ? `${item.digitalDocs.length} tài liệu` : ''}
+          {item.digitalDocs.length} tài liệu
         </p>
       ) : null}
 
+      {/* Drop zone indicator */}
+      {isDragOver && (
+        <div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-xl pointer-events-none">
+          <div className="flex items-center gap-2 text-primary font-medium text-sm">
+            <Plus className="w-4 h-4" />
+            Thả ảnh vào đây
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions - Show on hover */}
-      {canVerify && (
+      {canVerify && !isDragOver && (
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -141,6 +221,99 @@ function ChecklistCard({ item, onClick, onVerify }: ChecklistCardProps) {
         >
           <Eye className="w-3.5 h-3.5" />
         </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Thumbnail Strip - Shows small image previews for multi-page documents
+ */
+interface ThumbnailStripProps {
+  images: RawImage[]
+  enableDragDrop?: boolean
+  maxVisible?: number
+}
+
+function ThumbnailStrip({ images, enableDragDrop, maxVisible = 4 }: ThumbnailStripProps) {
+  const visibleImages = images.slice(0, maxVisible)
+  const hiddenCount = images.length - maxVisible
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {visibleImages.map((image) => (
+        <ThumbnailItem
+          key={image.id}
+          image={image}
+          enableDragDrop={enableDragDrop}
+        />
+      ))}
+      {hiddenCount > 0 && (
+        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
+          +{hiddenCount}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Single draggable thumbnail
+ */
+interface ThumbnailItemProps {
+  image: RawImage
+  enableDragDrop?: boolean
+}
+
+function ThumbnailItem({ image, enableDragDrop }: ThumbnailItemProps) {
+  const { data: signedUrlData, isLoading } = useSignedUrl(image.id, {
+    staleTime: 55 * 60 * 1000,
+  })
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!enableDragDrop) return
+    e.dataTransfer.setData('imageId', image.id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const isPdf = image.filename?.toLowerCase().endsWith('.pdf')
+
+  return (
+    <div
+      draggable={enableDragDrop}
+      onDragStart={handleDragStart}
+      className={cn(
+        'relative w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0',
+        'border border-border',
+        enableDragDrop && 'cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-primary/50'
+      )}
+      title={image.filename}
+    >
+      {isLoading ? (
+        <div className="w-full h-full flex items-center justify-center">
+          <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
+        </div>
+      ) : isPdf ? (
+        <div className="w-full h-full flex items-center justify-center bg-red-50">
+          <FileText className="w-4 h-4 text-red-500" />
+        </div>
+      ) : signedUrlData?.url ? (
+        <img
+          src={signedUrlData.url}
+          alt={image.filename}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+
+      {/* Drag handle indicator */}
+      {enableDragDrop && (
+        <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+          <GripVertical className="w-3 h-3 text-white" />
+        </div>
       )}
     </div>
   )

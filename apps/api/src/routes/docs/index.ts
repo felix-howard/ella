@@ -5,15 +5,26 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import { classifyDocSchema, verifyDocSchema, verifyActionSchema } from './schemas'
+import {
+  classifyDocSchema,
+  verifyDocSchema,
+  verifyActionSchema,
+  selectBestImageSchema,
+  verifyFieldSchema,
+  markCopiedSchema,
+  completeEntrySchema,
+} from './schemas'
 import {
   extractDocumentData,
   needsManualVerification,
   isGeminiConfigured,
   supportsOcrExtraction,
+  selectBestImage,
+  getGroupImages,
 } from '../../services/ai'
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
+import { isValidDocField } from '../../lib/validation'
 
 const docsRoute = new Hono()
 
@@ -201,6 +212,20 @@ docsRoute.post('/:id/ocr', async (c) => {
     return c.json({ error: 'IMAGE_ERROR', message: 'Failed to load image for processing' }, 500)
   }
 
+  // Check PDF size limit before OCR (fail fast)
+  const MAX_PDF_SIZE = 20 * 1024 * 1024 // 20MB
+  if (mimeType === 'application/pdf' && imageBuffer.length > MAX_PDF_SIZE) {
+    return c.json({
+      error: 'PDF_TOO_LARGE',
+      message: 'Tệp PDF quá lớn (tối đa 20MB).',
+    }, 413)
+  }
+
+  // Log PDF processing
+  if (mimeType === 'application/pdf') {
+    console.log(`[OCR] Processing PDF document: ${id}, size: ${imageBuffer.length} bytes`)
+  }
+
   // Run OCR extraction
   const ocrResult = await extractDocumentData(imageBuffer, mimeType, doc.docType)
 
@@ -253,6 +278,20 @@ docsRoute.post('/:id/ocr', async (c) => {
     return digitalDoc
   })
 
+  // Determine appropriate success message (Vietnamese for PDF)
+  const isPdf = mimeType === 'application/pdf'
+  let message: string
+  if (ocrResult.success) {
+    message = isPdf
+      ? `Trích xuất PDF thành công (${ocrResult.pageCount || 1} trang). Đang chờ xác minh.`
+      : 'OCR extraction completed. Awaiting verification.'
+  } else {
+    message = `Trích xuất thất bại: ${ocrResult.error}`
+  }
+
+  // Set UTF-8 charset for Vietnamese messages
+  c.header('Content-Type', 'application/json; charset=utf-8')
+
   return c.json({
     digitalDoc: {
       ...updatedDoc,
@@ -265,10 +304,12 @@ docsRoute.post('/:id/ocr', async (c) => {
       isValid: ocrResult.isValid,
       fieldLabels: ocrResult.fieldLabels,
       processingTimeMs: ocrResult.processingTimeMs,
+      // PDF-specific metadata
+      pageCount: ocrResult.pageCount,
+      pageConfidences: ocrResult.pageConfidences,
+      isPdf,
     },
-    message: ocrResult.success
-      ? 'OCR extraction completed. Awaiting verification.'
-      : `OCR extraction failed: ${ocrResult.error}`,
+    message,
   })
 })
 
@@ -383,6 +424,121 @@ docsRoute.patch('/:id/verify', zValidator('json', verifyDocSchema), async (c) =>
   })
 })
 
+// ============================================
+// FIELD-LEVEL VERIFICATION & ENTRY TRACKING (Phase 02)
+// ============================================
+
+// POST /docs/:id/verify-field - Verify single field
+docsRoute.post('/:id/verify-field', zValidator('json', verifyFieldSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field, status, value } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions (read-modify-write atomicity)
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist for the document type
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing fieldVerifications (not overwrite)
+    const fieldVerifications = (doc.fieldVerifications as Record<string, string>) || {}
+    fieldVerifications[field] = status
+
+    // If edited, update extractedData with new value
+    const extractedData = (doc.extractedData as Record<string, unknown>) || {}
+    if (status === 'edited' && value !== undefined) {
+      extractedData[field] = value
+    }
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: {
+        fieldVerifications,
+        extractedData: extractedData as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+      },
+    })
+
+    return { success: true, fieldVerifications }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/mark-copied - Track field copied for clipboard workflow
+docsRoute.post('/:id/mark-copied', zValidator('json', markCopiedSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing copiedFields
+    const copiedFields = (doc.copiedFields as Record<string, boolean>) || {}
+    copiedFields[field] = true
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: { copiedFields },
+    })
+
+    return { success: true, copiedFields }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/complete-entry - Mark entry complete
+docsRoute.post('/:id/complete-entry', zValidator('json', completeEntrySchema), async (c) => {
+  const id = c.req.param('id')
+
+  const doc = await prisma.digitalDoc.findUnique({ where: { id } })
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  await prisma.digitalDoc.update({
+    where: { id },
+    data: {
+      entryCompleted: true,
+      entryCompletedAt: new Date(),
+    },
+  })
+
+  return c.json({ success: true, message: 'Entry marked complete' })
+})
+
 /**
  * Generate placeholder extracted data based on doc type
  * This will be replaced by actual Gemini OCR in Phase 2
@@ -427,5 +583,93 @@ function generatePlaceholderExtractedData(docType: DocType): Record<string, unkn
       }
   }
 }
+
+// ============================================
+// IMAGE GROUP ENDPOINTS
+// ============================================
+
+// GET /docs/groups/:groupId - Get image group with all images
+docsRoute.get('/groups/:groupId', async (c) => {
+  const groupId = c.req.param('groupId')
+
+  const group = await getGroupImages(groupId)
+
+  if (!group) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image group not found' }, 404)
+  }
+
+  return c.json({
+    ...group,
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+    images: group.images.map((img) => ({
+      ...img,
+      createdAt: img.createdAt.toISOString(),
+    })),
+  })
+})
+
+// POST /docs/groups/:groupId/select-best - Select the best image from a group
+docsRoute.post(
+  '/groups/:groupId/select-best',
+  zValidator('json', selectBestImageSchema),
+  async (c) => {
+    const groupId = c.req.param('groupId')
+    const { imageId } = c.req.valid('json')
+
+    try {
+      await selectBestImage(groupId, imageId)
+
+      return c.json({
+        success: true,
+        message: 'Best image selected',
+        groupId,
+        bestImageId: imageId,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('does not belong')) {
+        return c.json(
+          { error: 'INVALID_IMAGE', message: error.message },
+          400
+        )
+      }
+      throw error
+    }
+  }
+)
+
+// GET /docs/groups/case/:caseId - Get all image groups for a case
+docsRoute.get('/groups/case/:caseId', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  const groups = await prisma.imageGroup.findMany({
+    where: { caseId },
+    include: {
+      images: {
+        select: {
+          id: true,
+          r2Key: true,
+          filename: true,
+          aiConfidence: true,
+          blurScore: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return c.json(
+    groups.map((group) => ({
+      ...group,
+      createdAt: group.createdAt.toISOString(),
+      updatedAt: group.updatedAt.toISOString(),
+      images: group.images.map((img) => ({
+        ...img,
+        createdAt: img.createdAt.toISOString(),
+      })),
+    }))
+  )
+})
 
 export { docsRoute }

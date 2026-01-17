@@ -28,8 +28,10 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { ChecklistGrid, RawImageGallery, DigitalDocTable, StatusSelector } from '../../components/cases'
-import { VerificationPanel } from '../../components/documents'
+import { DocumentChecklistTree, StatusSelector } from '../../components/cases'
+import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
+import { ClientMessagesTab } from '../../components/client-detail'
+import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
   CHECKLIST_STATUS_COLORS,
@@ -38,8 +40,8 @@ import {
   LANGUAGE_LABELS,
   UI_TEXT,
 } from '../../lib/constants'
-import { formatPhone, getInitials, copyToClipboard } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type ChecklistItemStatus } from '../../lib/api-client'
+import { formatPhone, getInitials, copyToClipboard, getAvatarColor } from '../../lib/formatters'
+import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -53,6 +55,17 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
+  const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
+  const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  const [dataEntryDoc, setDataEntryDoc] = useState<DigitalDoc | null>(null)
+  const [isDataEntryModalOpen, setIsDataEntryModalOpen] = useState(false)
+  const [reuploadImage, setReuploadImage] = useState<RawImage | null>(null)
+  const [reuploadFields, setReuploadFields] = useState<string[]>([])
+  const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false)
 
   // Error code to Vietnamese message mapping
   const SMS_ERROR_MESSAGES: Record<string, string> = {
@@ -78,6 +91,28 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error('Lỗi kết nối, vui lòng thử lại')
+    },
+  })
+
+  // Mutation for moving image to different checklist item (drag & drop)
+  const moveImageMutation = useMutation({
+    mutationFn: async ({ imageId, targetChecklistItemId }: { imageId: string; targetChecklistItemId: string }) => {
+      const response = await fetch(`/api/images/${imageId}/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ targetChecklistItemId }),
+      })
+      if (!response.ok) throw new Error('Move failed')
+      return response.json()
+    },
+    onSuccess: () => {
+      toast.success('Đã di chuyển ảnh thành công')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi di chuyển ảnh')
     },
   })
 
@@ -115,6 +150,14 @@ function ClientDetailPage() {
     queryKey: ['docs', latestCaseId],
     queryFn: () => api.cases.getDocs(latestCaseId!),
     enabled: !!latestCaseId,
+  })
+
+  // Enable polling for real-time classification updates when on documents tab
+  const isDocumentsTab = activeTab === 'documents'
+  const { images: polledImages, docs: polledDocs, processingCount, extractingCount } = useClassificationUpdates({
+    caseId: latestCaseId,
+    enabled: isDocumentsTab,
+    refetchInterval: 5000,
   })
 
   // Loading state
@@ -159,8 +202,14 @@ function ClientDetailPage() {
   }
 
   const checklistItems = checklistResponse?.items ?? []
-  const rawImages = imagesResponse?.images ?? []
-  const digitalDocs = docsResponse?.docs ?? []
+  // Use polled images when on documents tab for real-time updates
+  const rawImages = isDocumentsTab && polledImages.length > 0
+    ? polledImages
+    : (imagesResponse?.images ?? [])
+  // Use polled docs when on documents tab for real-time updates
+  const digitalDocs = isDocumentsTab
+    ? polledDocs
+    : (docsResponse?.docs ?? [])
 
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus
@@ -173,7 +222,74 @@ function ClientDetailPage() {
     }
   }
 
+  // Handler for opening classification review modal
+  const handleReviewClassification = (image: RawImage) => {
+    setReviewImage(image)
+    setIsReviewModalOpen(true)
+  }
+
+  const handleCloseReviewModal = () => {
+    setIsReviewModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setReviewImage(null), 200)
+  }
+
+  // Handler for opening manual classification modal
+  const handleManualClassify = (image: RawImage) => {
+    setClassifyImage(image)
+    setIsClassifyModalOpen(true)
+  }
+
+  const handleCloseClassifyModal = () => {
+    setIsClassifyModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setClassifyImage(null), 200)
+  }
+
+  // Handler for opening verification modal
+  const handleVerifyDoc = (doc: DigitalDoc) => {
+    setVerifyDoc(doc)
+    setIsVerifyModalOpen(true)
+  }
+
+  const handleCloseVerifyModal = () => {
+    setIsVerifyModalOpen(false)
+    // Small delay before clearing to avoid flash
+    setTimeout(() => setVerifyDoc(null), 200)
+  }
+
+  // Handler for re-upload request from verification modal
+  const handleRequestReupload = (doc: DigitalDoc, unreadableFields: string[]) => {
+    // Find the raw image associated with this doc
+    const rawImage = rawImages.find(img => img.id === doc.rawImageId)
+    if (rawImage) {
+      setReuploadImage(rawImage)
+      setReuploadFields(unreadableFields)
+      setIsReuploadModalOpen(true)
+    }
+  }
+
+  const handleCloseReuploadModal = () => {
+    setIsReuploadModalOpen(false)
+    setTimeout(() => {
+      setReuploadImage(null)
+      setReuploadFields([])
+    }, 200)
+  }
+
+  // Handler for data entry modal
+  const handleDataEntry = (doc: DigitalDoc) => {
+    setDataEntryDoc(doc)
+    setIsDataEntryModalOpen(true)
+  }
+
+  const handleCloseDataEntryModal = () => {
+    setIsDataEntryModalOpen(false)
+    setTimeout(() => setDataEntryDoc(null), 200)
+  }
+
   const { clients: clientsText } = UI_TEXT
+  const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
@@ -195,8 +311,12 @@ function ClientDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
-              <span className="text-primary font-bold text-xl">
+            <div className={cn(
+              'w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0',
+              avatarColor.bg,
+              avatarColor.text
+            )}>
+              <span className="font-bold text-xl">
                 {getInitials(client.name)}
               </span>
             </div>
@@ -478,68 +598,102 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Document Verification Panel */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Xác minh tài liệu
+          {/* Document Checklist Tree */}
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold text-primary mb-3">
+              Danh sách tài liệu cần thu thập
             </h2>
-            <VerificationPanel
-              documents={digitalDocs}
-              onRefresh={() => {
-                queryClient.invalidateQueries({ queryKey: ['docs', latestCaseId] })
-                queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+            <DocumentChecklistTree
+              items={checklistItems}
+              onVerify={(item) => console.log('Verify item:', item.id)}
+              enableDragDrop={true}
+              onImageDrop={(imageId, targetChecklistItemId) => {
+                moveImageMutation.mutate({ imageId, targetChecklistItemId })
               }}
             />
           </div>
 
-          {/* Checklist Grid */}
+          {/* Document Workflow Tabs - New 3-tab layout */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h2 className="text-lg font-semibold text-primary mb-4">
-              Danh sách tài liệu cần thu thập
+              Quy trình xử lý tài liệu
             </h2>
-            <ChecklistGrid
-              items={checklistItems}
-              onItemClick={(item) => console.log('Clicked checklist item:', item.id)}
-              onVerify={(item) => console.log('Verify item:', item.id)}
+            <DocumentWorkflowTabs
+              caseId={latestCaseId || ''}
+              rawImages={rawImages}
+              digitalDocs={digitalDocs}
+              onClassifyImage={handleManualClassify}
+              onReviewClassification={handleReviewClassification}
+              onVerifyDoc={handleVerifyDoc}
+              onDataEntry={handleDataEntry}
             />
           </div>
 
-          {/* Raw Images Gallery */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Ảnh đã tải lên ({rawImages.length})
-            </h2>
-            <RawImageGallery
-              images={rawImages}
-              onImageClick={(img) => console.log('Clicked image:', img.id)}
-              onClassify={(img) => console.log('Classify image:', img.id)}
+          {/* Classification Review Modal */}
+          {latestCaseId && (
+            <ClassificationReviewModal
+              image={reviewImage}
+              isOpen={isReviewModalOpen}
+              onClose={handleCloseReviewModal}
+              caseId={latestCaseId}
             />
-          </div>
+          )}
 
-          {/* Digital Docs Table */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Tài liệu đã trích xuất ({digitalDocs.length})
-            </h2>
-            <DigitalDocTable
-              docs={digitalDocs}
-              onDocClick={(doc) => console.log('Clicked doc:', doc.id)}
-              onVerify={(doc) => console.log('Verify doc:', doc.id)}
+          {/* Manual Classification Modal */}
+          {latestCaseId && (
+            <ManualClassificationModal
+              image={classifyImage}
+              isOpen={isClassifyModalOpen}
+              onClose={handleCloseClassifyModal}
+              caseId={latestCaseId}
             />
-          </div>
+          )}
+
+          {/* Verification Modal (Phase 05) */}
+          {latestCaseId && verifyDoc && (
+            <VerificationModal
+              doc={verifyDoc}
+              isOpen={isVerifyModalOpen}
+              onClose={handleCloseVerifyModal}
+              caseId={latestCaseId}
+              onRequestReupload={handleRequestReupload}
+            />
+          )}
+
+          {/* Data Entry Modal (Phase 06) */}
+          {latestCaseId && dataEntryDoc && (
+            <DataEntryModal
+              doc={dataEntryDoc}
+              isOpen={isDataEntryModalOpen}
+              onClose={handleCloseDataEntryModal}
+              caseId={latestCaseId}
+            />
+          )}
+
+          {/* Re-upload Request Modal (Phase 06) */}
+          {latestCaseId && reuploadImage && (
+            <ReUploadRequestModal
+              image={reuploadImage}
+              unreadableFields={reuploadFields}
+              isOpen={isReuploadModalOpen}
+              onClose={handleCloseReuploadModal}
+              caseId={latestCaseId}
+            />
+          )}
+
+          {/* Upload Progress - shows when images are processing */}
+          <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
       )}
 
       {activeTab === 'messages' && (
-        <div className="bg-card rounded-xl border border-border p-6">
-          <div className="text-center py-12">
-            <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-            <h3 className="font-medium text-foreground mb-1">Tin nhắn với khách hàng</h3>
-            <p className="text-sm text-muted-foreground">
-              Chức năng này sẽ được triển khai trong các nhiệm vụ tiếp theo (1.3.28-1.3.32)
-            </p>
-          </div>
-        </div>
+        <ClientMessagesTab
+          clientId={clientId}
+          caseId={latestCaseId}
+          clientName={client.name}
+          clientPhone={client.phone}
+          isActive={activeTab === 'messages'}
+        />
       )}
     </PageContainer>
   )

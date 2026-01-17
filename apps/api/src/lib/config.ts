@@ -46,7 +46,14 @@ export const config = {
   ai: {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     isConfigured: Boolean(process.env.GEMINI_API_KEY),
-    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    // Fallback models tried in order if primary fails with 404
+    fallbackModels: (
+      process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.5-flash-lite,gemini-2.5-flash'
+    )
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean),
     maxRetries: parseInt(process.env.GEMINI_MAX_RETRIES || '3', 10),
     retryDelayMs: parseInt(process.env.GEMINI_RETRY_DELAY_MS || '1000', 10),
     batchConcurrency: parseInt(process.env.AI_BATCH_CONCURRENCY || '3', 10),
@@ -77,6 +84,19 @@ export const config = {
   scheduler: {
     enabled: process.env.SCHEDULER_ENABLED === 'true',
     reminderCron: process.env.REMINDER_CRON || '0 2 * * *', // 2 AM UTC = 9 PM EST
+  },
+
+  // Inngest Configuration
+  // Note: signingKey REQUIRED in production for security
+  inngest: {
+    eventKey: process.env.INNGEST_EVENT_KEY || '',
+    signingKey: process.env.INNGEST_SIGNING_KEY || '',
+    isConfigured: Boolean(process.env.INNGEST_EVENT_KEY),
+    // Production requires signing key to prevent unauthorized job triggers
+    isProductionReady:
+      process.env.NODE_ENV === 'production'
+        ? Boolean(process.env.INNGEST_SIGNING_KEY)
+        : true,
   },
 } as const
 

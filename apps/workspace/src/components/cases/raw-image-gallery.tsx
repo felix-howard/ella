@@ -1,10 +1,12 @@
 /**
  * Raw Image Gallery Component - Displays uploaded images with status indicators
  * Shows image thumbnails, status badges, and quick actions
+ * Uses FileViewerModal for full-screen viewing with PDF support
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, memo } from 'react'
 import { cn } from '@ella/ui'
+import { Document, Page, pdfjs } from 'react-pdf'
 import {
   Image as ImageIcon,
   Eye,
@@ -12,22 +14,32 @@ import {
   CheckCircle,
   Clock,
   HelpCircle,
-  X,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
+  Loader2,
+  FileText,
 } from 'lucide-react'
-import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { DOC_TYPE_LABELS, getConfidenceLevel } from '../../lib/constants'
+import { FileViewerModal } from '../file-viewer'
+import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { RawImage } from '../../lib/api-client'
 
+// Set up PDF.js worker - using unpkg which serves npm packages directly
+// This ensures exact version match with the bundled pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
+/** Check if file is a PDF based on filename */
+function isPdfFile(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.pdf')
+}
+
 // Image status types
-type ImageStatus = 'UPLOADED' | 'CLASSIFIED' | 'LINKED' | 'BLURRY' | 'UNCLASSIFIED'
+type ImageStatus = 'UPLOADED' | 'PROCESSING' | 'CLASSIFIED' | 'LINKED' | 'BLURRY' | 'UNCLASSIFIED'
 
 interface RawImageGalleryProps {
   images: RawImage[]
   isLoading?: boolean
   onImageClick?: (image: RawImage) => void
   onClassify?: (image: RawImage) => void
+  onReviewClassification?: (image: RawImage) => void
 }
 
 // Status configuration for UI display
@@ -42,6 +54,12 @@ const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
     icon: Clock,
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
+  },
+  PROCESSING: {
+    label: 'Đang phân loại',
+    icon: Loader2,
+    color: 'text-primary',
+    bgColor: 'bg-primary-light',
   },
   CLASSIFIED: {
     label: 'Đã phân loại',
@@ -69,9 +87,15 @@ const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
   },
 }
 
-export function RawImageGallery({ images, isLoading, onImageClick, onClassify }: RawImageGalleryProps) {
+export function RawImageGallery({ images, isLoading, onImageClick, onClassify, onReviewClassification }: RawImageGalleryProps) {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)
+
+  // Fetch signed URL when an image is selected
+  const { data: signedUrlData, isLoading: isUrlLoading, error: urlError } = useSignedUrl(
+    selectedImage?.id ?? null,
+    { enabled: viewerOpen && !!selectedImage }
+  )
 
   const handleImageClick = (image: RawImage) => {
     setSelectedImage(image)
@@ -81,7 +105,8 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
 
   const closeViewer = () => {
     setViewerOpen(false)
-    setSelectedImage(null)
+    // Small delay before clearing selected to avoid flash
+    setTimeout(() => setSelectedImage(null), 200)
   }
 
   if (isLoading) {
@@ -131,18 +156,20 @@ export function RawImageGallery({ images, isLoading, onImageClick, onClassify }:
             image={image}
             onClick={() => handleImageClick(image)}
             onClassify={() => onClassify?.(image)}
+            onReviewClassification={() => onReviewClassification?.(image)}
           />
         ))}
       </div>
 
-      {/* Image Viewer Modal - key forces remount on image change to reset zoom/rotation */}
-      {viewerOpen && selectedImage && (
-        <ImageViewer
-          key={selectedImage.id}
-          image={selectedImage}
-          onClose={closeViewer}
-        />
-      )}
+      {/* File Viewer Modal */}
+      <FileViewerModal
+        url={signedUrlData?.url ?? null}
+        filename={selectedImage?.filename ?? ''}
+        isOpen={viewerOpen}
+        onClose={closeViewer}
+        isLoading={isUrlLoading}
+        error={urlError ? (urlError as Error).message : null}
+      />
     </div>
   )
 }
@@ -179,52 +206,75 @@ interface ImageCardProps {
   image: RawImage
   onClick: () => void
   onClassify?: () => void
+  onReviewClassification?: () => void
 }
 
-function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
+/**
+ * Memoized ImageCard to prevent unnecessary re-renders during polling
+ * Only re-renders when image data or callbacks change
+ */
+const ImageCard = memo(function ImageCard({ image, onClick, onClassify, onReviewClassification }: ImageCardProps) {
   const status = image.status as ImageStatus
   const config = IMAGE_STATUS_CONFIG[status] || IMAGE_STATUS_CONFIG.UPLOADED
   const Icon = config.icon
-  const docType = image.checklistItem?.template?.docType
+  const docType = image.classifiedType || image.checklistItem?.template?.docType
   const docLabel = docType ? DOC_TYPE_LABELS[docType] : null
   const needsClassify = status === 'UPLOADED' || status === 'UNCLASSIFIED'
+  const isProcessing = status === 'PROCESSING'
 
-  // TODO: Replace placeholder with signed R2 URL when storage service is implemented (Phase INF.4)
-  // Security note: Never expose raw R2 keys in production - use time-limited signed URLs
-  const imageUrl = image.r2Key
-    ? `https://placeholder.pics/svg/200x150/DEDEDE/555555/${encodeURIComponent(image.filename.slice(0, 10))}`
-    : null
+  // Confidence badge - show for classified images
+  const showConfidenceBadge = status === 'CLASSIFIED' && image.aiConfidence !== null
+  const confidenceLevel = showConfidenceBadge ? getConfidenceLevel(image.aiConfidence) : null
+
+  // Show review button for medium/low confidence classified images
+  const needsReview = status === 'CLASSIFIED' && image.aiConfidence !== null && image.aiConfidence < 0.85
 
   return (
     <div
-      className="group relative bg-card rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      className={cn(
+        'group relative bg-card rounded-xl border overflow-hidden cursor-pointer hover:shadow-md transition-shadow',
+        isProcessing && 'animate-pulse'
+      )}
       onClick={onClick}
     >
-      {/* Image Thumbnail */}
+      {/* Image Thumbnail - Shows placeholder until clicked */}
       <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={image.filename}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-muted-foreground" />
+        <ImageThumbnail imageId={image.id} filename={image.filename} />
+
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              <span className="text-xs text-muted-foreground">Đang phân loại...</span>
+            </div>
           </div>
         )}
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <Eye className="w-6 h-6 text-white" />
-        </div>
+        {/* Hover Overlay - hidden during processing */}
+        {!isProcessing && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Eye className="w-6 h-6 text-white" />
+          </div>
+        )}
 
-        {/* Status Badge */}
+        {/* Confidence Badge - Top Left */}
+        {showConfidenceBadge && confidenceLevel && (
+          <div className={cn(
+            'absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium',
+            confidenceLevel.bg,
+            confidenceLevel.color
+          )}>
+            {Math.round(image.aiConfidence! * 100)}%
+          </div>
+        )}
+
+        {/* Status Badge - Top Right */}
         <div className={cn(
           'absolute top-2 right-2 p-1 rounded-md',
           config.bgColor
         )}>
-          <Icon className={cn('w-3.5 h-3.5', config.color)} />
+          <Icon className={cn('w-3.5 h-3.5', config.color, isProcessing && 'animate-spin')} />
         </div>
       </div>
 
@@ -253,150 +303,112 @@ function ImageCard({ image, onClick, onClassify }: ImageCardProps) {
               Phân loại
             </button>
           )}
+          {needsReview && onReviewClassification && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onReviewClassification()
+              }}
+              className="text-xs text-warning hover:text-warning/80"
+            >
+              Xác minh
+            </button>
+          )}
         </div>
       </div>
     </div>
   )
-}
+})
 
-interface ImageViewerProps {
-  image: RawImage
-  onClose: () => void
-}
+/**
+ * Thumbnail that fetches signed URL on demand
+ * Handles both images and PDFs
+ */
+function ImageThumbnail({ imageId, filename }: { imageId: string; filename: string }) {
+  // Fetch signed URL for thumbnail (with longer stale time since thumbnails rarely change)
+  const { data, isLoading, error } = useSignedUrl(imageId, { staleTime: 55 * 60 * 1000 })
+  const isPdf = isPdfFile(filename)
 
-function ImageViewer({ image, onClose }: ImageViewerProps) {
-  const [zoom, setZoom] = useState(1)
-  const [rotation, setRotation] = useState(0)
-  const containerRef = useRef<HTMLDivElement>(null)
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+      </div>
+    )
+  }
 
-  // Note: State resets automatically via key prop on parent mount
+  if (error || !data?.url) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+        {isPdf ? (
+          <FileText className="w-8 h-8 text-muted-foreground" />
+        ) : (
+          <ImageIcon className="w-8 h-8 text-muted-foreground" />
+        )}
+        <span className="text-[10px] text-muted-foreground text-center px-2 truncate max-w-full">
+          {filename.slice(0, 15)}
+        </span>
+      </div>
+    )
+  }
 
-  // Keyboard navigation handler
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        onClose()
-        break
-      case '+':
-      case '=':
-        setZoom((z) => Math.min(3, z + 0.25))
-        break
-      case '-':
-        setZoom((z) => Math.max(0.5, z - 0.25))
-        break
-      case 'r':
-      case 'R':
-        setRotation((r) => (r + 90) % 360)
-        break
-      case '0':
-        setZoom(1)
-        setRotation(0)
-        break
-    }
-  }, [onClose])
-
-  // Add keyboard event listener and focus trap
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    // Focus the container for keyboard events
-    containerRef.current?.focus()
-
-    // Prevent body scroll when modal is open
-    const originalOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = originalOverflow
-    }
-  }, [handleKeyDown])
-
-  // TODO: Replace placeholder with signed R2 URL when storage service is implemented
-  // This is a temporary solution for development/demo purposes
-  const imageUrl = image.r2Key
-    ? `https://placeholder.pics/svg/800x600/DEDEDE/555555/${encodeURIComponent(image.filename.slice(0, 15))}`
-    : null
+  // For PDF files, render first page as thumbnail
+  if (isPdf) {
+    return <PdfThumbnail url={data.url} />
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Xem ảnh: ${image.filename}`}
-      tabIndex={-1}
-    >
-      {/* Close Button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-        aria-label="Đóng"
+    <img
+      src={data.url}
+      alt={filename}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  )
+}
+
+/**
+ * PDF Thumbnail - Renders first page of PDF as a small preview
+ */
+function PdfThumbnail({ url }: { url: string }) {
+  const [hasError, setHasError] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  if (hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-muted">
+        <FileText className="w-8 h-8 text-red-400" />
+        <span className="text-[10px] text-muted-foreground text-center px-2">PDF</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-white overflow-hidden">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+        </div>
+      )}
+      <Document
+        file={url}
+        onLoadSuccess={() => setIsLoading(false)}
+        onLoadError={() => {
+          setHasError(true)
+          setIsLoading(false)
+        }}
+        loading={null}
+        className="flex items-center justify-center"
       >
-        <X className="w-6 h-6 text-white" />
-      </button>
-
-      {/* Controls */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/10 rounded-full p-2">
-        <button
-          onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Thu nhỏ (phím -)"
-          title="Thu nhỏ (phím -)"
-        >
-          <ZoomOut className="w-5 h-5 text-white" />
-        </button>
-        <span className="text-white text-sm px-2 min-w-[4rem] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Phóng to (phím +)"
-          title="Phóng to (phím +)"
-        >
-          <ZoomIn className="w-5 h-5 text-white" />
-        </button>
-        <div className="w-px h-6 bg-white/20 mx-2" />
-        <button
-          onClick={() => setRotation((r) => (r + 90) % 360)}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Xoay (phím R)"
-          title="Xoay (phím R)"
-        >
-          <RotateCw className="w-5 h-5 text-white" />
-        </button>
-      </div>
-
-      {/* Keyboard Hints */}
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white/50 text-xs">
-        ESC: đóng • +/-: zoom • R: xoay • 0: reset
-      </div>
-
-      {/* Image Info */}
-      <div className="absolute top-4 left-4 text-white">
-        <p className="font-medium">{image.filename}</p>
-        <p className="text-sm text-white/70">
-          {IMAGE_STATUS_CONFIG[image.status as ImageStatus]?.label || image.status}
-        </p>
-      </div>
-
-      {/* Main Image */}
-      <div className="max-w-[90vw] max-h-[80vh] overflow-hidden">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={image.filename}
-            className="max-w-full max-h-full object-contain transition-transform"
-            style={{
-              transform: `scale(${zoom}) rotate(${rotation}deg)`,
-            }}
-          />
-        ) : (
-          <div className="w-96 h-72 bg-muted/20 flex items-center justify-center rounded-xl">
-            <ImageIcon className="w-16 h-16 text-white/50" />
-          </div>
-        )}
-      </div>
+        <Page
+          pageNumber={1}
+          width={180}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          loading={null}
+          className="shadow-sm"
+        />
+      </Document>
     </div>
   )
 }

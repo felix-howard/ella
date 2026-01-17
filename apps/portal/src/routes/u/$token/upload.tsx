@@ -1,21 +1,21 @@
 /**
  * Upload Page
- * Main document upload flow with image picker
- * Shows preview, handles upload, and displays success/error states
+ * Main document upload flow with enhanced uploader
+ * Mobile-first UI with progress tracking
  */
 import { useState, useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@ella/ui'
-import { portalApi, type PortalData, ApiError } from '../../../lib/api-client'
+import { portalApi, type PortalData } from '../../../lib/api-client'
 import { getText, type Language } from '../../../lib/i18n'
-import { ImagePicker } from '../../../components/upload/image-picker'
+import { EnhancedUploader } from '../../../components/upload/enhanced-uploader'
 
 export const Route = createFileRoute('/u/$token/upload')({
   component: UploadPage,
 })
 
-type PageState = 'loading' | 'select' | 'uploading' | 'success' | 'error'
+type PageState = 'loading' | 'select' | 'success' | 'error'
 
 function UploadPage() {
   const params = Route.useParams()
@@ -24,7 +24,6 @@ function UploadPage() {
 
   const [pageState, setPageState] = useState<PageState>('loading')
   const [data, setData] = useState<PortalData | null>(null)
-  const [files, setFiles] = useState<File[]>([])
   const [uploadedCount, setUploadedCount] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -34,38 +33,21 @@ function UploadPage() {
   // Load portal data to validate token
   useEffect(() => {
     async function loadData() {
+      console.log('Upload page: Loading data for token', token)
       try {
         const result = await portalApi.getData(token)
+        console.log('Upload page: Data loaded, setting pageState to select')
         setData(result)
         setPageState('select')
-      } catch {
+      } catch (err) {
+        console.log('Upload page: Error loading data, redirecting', err)
         navigate({ to: '/u/$token', params: { token } })
       }
     }
     loadData()
   }, [token, navigate])
 
-  // Handle file upload
-  async function handleUpload() {
-    if (files.length === 0) return
-
-    setPageState('uploading')
-    setErrorMessage('')
-
-    try {
-      const result = await portalApi.upload(token, files)
-      setUploadedCount(result.uploaded)
-      setPageState('success')
-      setFiles([])
-    } catch (err) {
-      setPageState('error')
-      if (err instanceof ApiError) {
-        setErrorMessage(err.message)
-      } else {
-        setErrorMessage(t.errorUploading)
-      }
-    }
-  }
+  console.log('Upload page render:', { pageState, hasData: !!data })
 
   // Handle navigation
   function handleBack() {
@@ -114,55 +96,20 @@ function UploadPage() {
 
       {/* Content */}
       <main className="flex-1 flex flex-col p-6">
-        {/* Selection state */}
+        {/* Selection state - EnhancedUploader handles file selection + upload */}
         {pageState === 'select' && (
-          <>
-            <div className="mb-4">
-              <p className="text-sm text-muted-foreground text-center">
-                {t.selectPhotos}
-              </p>
-            </div>
-
-            <ImagePicker
-              files={files}
-              onFilesChange={setFiles}
-              language={language}
-              disabled={false}
-            />
-
-            {/* Upload button */}
-            {files.length > 0 && (
-              <div className="mt-auto pt-6 space-y-3">
-                <Button
-                  className="w-full h-14 text-base gap-2 rounded-2xl"
-                  onClick={handleUpload}
-                >
-                  <Upload className="w-5 h-5" />
-                  {t.upload} ({files.length})
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => setFiles([])}
-                >
-                  {t.cancel}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Uploading state */}
-        {pageState === 'uploading' && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-              <p className="text-lg font-medium text-foreground">{t.uploading}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {files.length} {t.selectedFiles}
-              </p>
-            </div>
-          </div>
+          <EnhancedUploader
+            token={token}
+            language={language}
+            onUploadComplete={(result) => {
+              setUploadedCount(result.uploaded)
+              setPageState('success')
+            }}
+            onError={(message) => {
+              setErrorMessage(message)
+              setPageState('error')
+            }}
+          />
         )}
 
         {/* Success state */}

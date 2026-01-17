@@ -43,6 +43,11 @@ export const UI_TEXT = {
     backToHome: 'Quay lại trang chủ',
     removeFile: 'Xóa file',
     processing: 'Đang xử lý...',
+    dragDropHere: 'Kéo thả file vào đây',
+    clickToBrowse: 'hoặc click để chọn',
+    fileTooLarge: 'File quá lớn (tối đa 10MB)',
+    invalidFileType: 'Chỉ chấp nhận ảnh (JPEG, PNG) và PDF',
+    maxFilesReached: 'Chỉ có thể thêm {count} file nữa',
   },
   EN: {
     welcome: 'Hello',
@@ -81,6 +86,11 @@ export const UI_TEXT = {
     backToHome: 'Back to Home',
     removeFile: 'Remove file',
     processing: 'Processing...',
+    dragDropHere: 'Drag and drop files here',
+    clickToBrowse: 'or click to browse',
+    fileTooLarge: 'File too large (max 10MB)',
+    invalidFileType: 'Only images (JPEG, PNG) and PDF accepted',
+    maxFilesReached: 'Can only add {count} more files',
   },
 }
 

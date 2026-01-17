@@ -86,4 +86,8 @@ ck.md
 
 # Gemini CLI settings (symlink to .claude/.mcp.json)
 .gemini/settings.json
-.claude/settings.bak.json
+.claude/settings.bak.json# Temporary and generated files
+.claude/active-plan
+*DOCUMENTATION_UPDATE_SUMMARY*
+*repomix-output*
+nul

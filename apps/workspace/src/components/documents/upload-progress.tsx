@@ -1,8 +1,10 @@
 /**
  * Upload Progress Component - Floating panel showing processing status
  * Displays when images are being classified or docs are being extracted by AI
+ * Auto-hides after 30 seconds of no change to handle stuck processing states
  */
 
+import { useState, useEffect, useRef } from 'react'
 import { Sparkles, FileSearch } from 'lucide-react'
 
 interface UploadProgressProps {
@@ -10,9 +12,51 @@ interface UploadProgressProps {
   extractingCount?: number
 }
 
+// Hide notification after this many seconds of unchanged counts
+const STALE_TIMEOUT_MS = 30000
+
 export function UploadProgress({ processingCount, extractingCount = 0 }: UploadProgressProps) {
-  // Don't render if nothing is processing
-  if (processingCount === 0 && extractingCount === 0) return null
+  const [isStale, setIsStale] = useState(false)
+  const prevCountsRef = useRef({ processing: 0, extracting: 0 })
+  const staleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const totalCount = processingCount + extractingCount
+
+  // Reset staleness when counts change
+  useEffect(() => {
+    const prevTotal = prevCountsRef.current.processing + prevCountsRef.current.extracting
+    const currentTotal = totalCount
+
+    // If counts changed (including going to 0), reset staleness
+    if (currentTotal !== prevTotal) {
+      setIsStale(false)
+
+      // Clear existing timeout
+      if (staleTimeoutRef.current) {
+        clearTimeout(staleTimeoutRef.current)
+        staleTimeoutRef.current = null
+      }
+
+      // Start new timeout only if we have processing items
+      if (currentTotal > 0) {
+        staleTimeoutRef.current = setTimeout(() => {
+          setIsStale(true)
+        }, STALE_TIMEOUT_MS)
+      }
+    }
+
+    prevCountsRef.current = { processing: processingCount, extracting: extractingCount }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (staleTimeoutRef.current) {
+        clearTimeout(staleTimeoutRef.current)
+      }
+    }
+  }, [processingCount, extractingCount, totalCount])
+
+  // Don't render if nothing is processing or if state is stale
+  if (totalCount === 0 || isStale) return null
 
   return (
     <div className="fixed bottom-20 right-6 w-80 bg-card rounded-xl border shadow-lg p-4 z-50">

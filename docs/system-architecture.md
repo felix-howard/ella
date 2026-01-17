@@ -256,12 +256,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Confidence calibration rules: HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
   - Alternative types returned when confidence <0.80
   - Processing time: 2-5s per image
-- **Supported Document Types (24 + UNKNOWN):**
+- **Supported Document Types (27 + UNKNOWN):**
   - ID Documents: SSN_CARD, DRIVER_LICENSE, PASSPORT
-  - Tax Income: W2, 1099-INT, 1099-DIV, 1099-NEC, 1099-MISC, 1099-K, 1099-R, 1099-G, 1099-SSA, SCHEDULE_K1
-  - Tax Credits: 1098, 1098-T, 1095-A
-  - Business: BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
-  - Other: RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
+  - Tax Income (10): W2, 1099-INT, 1099-DIV, 1099-NEC, 1099-MISC, 1099-K, 1099-R, 1099-G, 1099-SSA, SCHEDULE_K1
+  - Tax Credits (3): 1098, 1098-T, 1095-A
+  - Business (4): BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
+  - Other (4): RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
 - **Batch Classification:** `batchClassifyDocuments(images[], concurrency)` with configurable concurrency limit
 - **OCR Extraction Eligibility:** Exclusion-based - 9 types excluded (PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN), all others require OCR
 
@@ -297,7 +297,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - Pipeline health endpoint exports `getPipelineStatus()` with PDF support flags
 
 - **Merge Logic:** Tax documents often have corrections on page 2+; algorithm prioritizes later pages while tracking per-field page origins
-- **OCR Prompts (8 total):** W2, 1099-INT, 1099-NEC, 1099-K (new), K-1 (new), Bank Statement (new), SSN/DL
+- **OCR Prompts (16 total):**
+  - Core: W2, 1099-INT, 1099-NEC, SSN/DL
+  - Phase 2 Priority 1: 1099-K, K-1, Bank Statement
+  - Phase 3: 1099-DIV, 1099-R, 1099-SSA, 1098, 1095-A
+  - Phase 4 Priority 3: 1098-T, 1099-G, 1099-MISC
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
@@ -1008,13 +1012,11 @@ Validation errors (OCR confidence < 0.85):
 - Batch uploads: Each image independent job
 - Total time/image: 2-5s (varies with Gemini latency)
 
-**Supported Document Types for OCR:**
-- W2 (employment income)
-- 1099-INT (interest income)
-- 1099-NEC (contractor compensation)
-- SSN_CARD (Social Security card)
-- DRIVER_LICENSE (state ID)
-- Future (Phase 3.1): 1099-DIV, 1099-K, 1099-R
+**Supported Document Types for OCR (16 total):**
+- Core: W2, 1099-INT, 1099-NEC, SSN_CARD, DRIVER_LICENSE
+- Phase 2 Priority 1: 1099-K, SCHEDULE_K1, BANK_STATEMENT
+- Phase 3: 1099-DIV, 1099-R, 1099-SSA, FORM_1098, FORM_1095_A
+- Phase 4 Priority 3: FORM_1098_T, FORM_1099_G, FORM_1099_MISC
 ```
 
 ### Real-Time Updates & Notifications Flow - Phase 05 Implementation

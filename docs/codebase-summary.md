@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
 | **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
 | **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
 | **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |
@@ -155,18 +156,26 @@ Excludes 9 types: PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER,
 - **FORM_1098** - Mortgage interest and property taxes
 - **FORM_1095_A** - Health insurance marketplace coverage
 
-**Supported OCR Prompts (13 total):**
+**Phase 4 Priority 3 - OCR Expansion (2026-01-17 NEW):**
+- **FORM_1098_T** - Tuition statements, education credits
+- **FORM_1099_G** - Government payments, unemployment compensation
+- **FORM_1099_MISC** - Miscellaneous income (rents, royalties, other)
+
+**Supported OCR Prompts (16 total):**
 - `prompts/ocr/w2.ts` - W-2 employment income
 - `prompts/ocr/1099-int.ts` - Interest income
 - `prompts/ocr/1099-nec.ts` - Contractor compensation
 - `prompts/ocr/1099-k.ts` - Payment card transactions
 - `prompts/ocr/k-1.ts` - Partnership income
 - `prompts/ocr/bank-statement.ts` - Business cash flow
-- `prompts/ocr/1099-div.ts` (NEW Phase 3) - Dividends
-- `prompts/ocr/1099-r.ts` (NEW Phase 3) - Retirement distributions
-- `prompts/ocr/1099-ssa.ts` (NEW Phase 3) - Social Security benefits
-- `prompts/ocr/1098.ts` (NEW Phase 3) - Mortgage interest
-- `prompts/ocr/1095-a.ts` (NEW Phase 3) - Health insurance marketplace
+- `prompts/ocr/1099-div.ts` - Dividends
+- `prompts/ocr/1099-r.ts` - Retirement distributions
+- `prompts/ocr/1099-ssa.ts` - Social Security benefits
+- `prompts/ocr/1098.ts` - Mortgage interest
+- `prompts/ocr/1095-a.ts` - Health insurance marketplace
+- `prompts/ocr/1098-t.ts` (NEW Phase 4 P3) - Education credits
+- `prompts/ocr/1099-g.ts` (NEW Phase 4 P3) - Government payments
+- `prompts/ocr/1099-misc.ts` (NEW Phase 4 P3) - Miscellaneous income
 - `prompts/ocr/ssn-dl.ts` - SSN card & driver's license
 
 **Performance:** +500ms per page for PDFs
@@ -235,8 +244,8 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 ---
 
 **Last Updated:** 2026-01-17
-**Status:** Phase 03 OCR Extended (13 document types) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
+**Status:** Phase 04 Priority 3 OCR (16 document types) + Phase 03 OCR Extended (13) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
 **Branch:** feature/enhancement
-**Architecture Version:** 6.6.0
+**Architecture Version:** 6.7.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

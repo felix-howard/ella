@@ -67,6 +67,21 @@ import {
   validate1095AData as _validate1095A,
   FORM_1095_A_FIELD_LABELS_VI as _1095ALabels,
 } from './1095-a'
+import {
+  get1098TExtractionPrompt as _get1098TPrompt,
+  validate1098TData as _validate1098T,
+  FORM_1098_T_FIELD_LABELS_VI as _1098TLabels,
+} from './1098-t'
+import {
+  get1099GExtractionPrompt as _get1099GPrompt,
+  validate1099GData as _validate1099G,
+  FORM_1099_G_FIELD_LABELS_VI as _1099GLabels,
+} from './1099-g'
+import {
+  get1099MiscExtractionPrompt as _get1099MiscPrompt,
+  validate1099MiscData as _validate1099Misc,
+  FORM_1099_MISC_FIELD_LABELS_VI as _1099MiscLabels,
+} from './1099-misc'
 
 // Re-export W2 prompt and types
 export {
@@ -167,6 +182,30 @@ export {
 } from './1095-a'
 export type { Form1095AExtractedData } from './1095-a'
 
+// Re-export 1098-T prompt and types
+export {
+  get1098TExtractionPrompt,
+  validate1098TData,
+  FORM_1098_T_FIELD_LABELS_VI,
+} from './1098-t'
+export type { Form1098TExtractedData } from './1098-t'
+
+// Re-export 1099-G prompt and types
+export {
+  get1099GExtractionPrompt,
+  validate1099GData,
+  FORM_1099_G_FIELD_LABELS_VI,
+} from './1099-g'
+export type { Form1099GExtractedData } from './1099-g'
+
+// Re-export 1099-MISC prompt and types
+export {
+  get1099MiscExtractionPrompt,
+  validate1099MiscData,
+  FORM_1099_MISC_FIELD_LABELS_VI,
+} from './1099-misc'
+export type { Form1099MiscExtractedData } from './1099-misc'
+
 /**
  * Supported OCR document types
  */
@@ -178,7 +217,10 @@ export type OcrDocType =
   | 'FORM_1099_K'
   | 'FORM_1099_R'
   | 'FORM_1099_SSA'
+  | 'FORM_1099_G'
+  | 'FORM_1099_MISC'
   | 'FORM_1098'
+  | 'FORM_1098_T'
   | 'FORM_1095_A'
   | 'SCHEDULE_K1'
   | 'BANK_STATEMENT'
@@ -209,6 +251,12 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _get1098Prompt()
     case 'FORM_1095_A':
       return _get1095APrompt()
+    case 'FORM_1098_T':
+      return _get1098TPrompt()
+    case 'FORM_1099_G':
+      return _get1099GPrompt()
+    case 'FORM_1099_MISC':
+      return _get1099MiscPrompt()
     case 'SCHEDULE_K1':
       return _getK1Prompt()
     case 'BANK_STATEMENT':
@@ -234,7 +282,10 @@ export function supportsOcrExtraction(docType: string): boolean {
     'FORM_1099_DIV',
     'FORM_1099_R',
     'FORM_1099_SSA',
+    'FORM_1099_G',
+    'FORM_1099_MISC',
     'FORM_1098',
+    'FORM_1098_T',
     'FORM_1095_A',
     'SCHEDULE_K1',
     'BANK_STATEMENT',
@@ -267,6 +318,12 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validate1098(data)
     case 'FORM_1095_A':
       return _validate1095A(data)
+    case 'FORM_1098_T':
+      return _validate1098T(data)
+    case 'FORM_1099_G':
+      return _validate1099G(data)
+    case 'FORM_1099_MISC':
+      return _validate1099Misc(data)
     case 'SCHEDULE_K1':
       return _validateK1(data)
     case 'BANK_STATEMENT':
@@ -303,6 +360,12 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _1098Labels
     case 'FORM_1095_A':
       return _1095ALabels
+    case 'FORM_1098_T':
+      return _1098TLabels
+    case 'FORM_1099_G':
+      return _1099GLabels
+    case 'FORM_1099_MISC':
+      return _1099MiscLabels
     case 'SCHEDULE_K1':
       return _K1Labels
     case 'BANK_STATEMENT':

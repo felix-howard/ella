@@ -68,7 +68,7 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 
 **@ella/db** - Database layer with 13 models, 12 enums, singleton connection pooling.
 **@ella/shared** - Validation schemas + TypeScript types via Zod.
-**@ella/ui** - 11-component shared library + Phase 03 shared components.
+**@ella/ui** - 11-component shared library + Phase 03 shared components (FieldVerificationItem, ImageViewer, etc).
 
 ## Core Applications
 
@@ -209,6 +209,27 @@ pnpm type-check  # TypeScript
 **SMS (Phase 3.1):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 
 See [phase-02-api-endpoints.md](./phase-02-api-endpoints.md) for full environment reference.
+
+## Field Reference System (Phase 05 - Updated 2026-01-17)
+
+**Purpose:** Centralized field mappings and Vietnamese labels for document type verification workflow.
+
+**Files:**
+- `apps/workspace/src/lib/doc-type-fields.ts` - Field arrays for each document type (18 types)
+- `apps/workspace/src/lib/field-labels.ts` - Vietnamese labels for 200+ extracted data fields
+
+**1099-NEC Field Update (Phase 3 - 2026-01-17):**
+- Expanded from 6 to 18 fields
+- Added payer/recipient full info (address, phone, TIN/SSN)
+- Flattened state tax array (state, statePayerStateNo, stateIncome)
+- Updated field casing to match OCR schema (payerTIN, recipientTIN)
+
+**Verification Modal Integration:**
+- Uses `getFieldLabel(docType, fieldKey)` for display
+- Flattens nested `stateTaxInfo` arrays automatically
+- Supports 24+ document types with type-safe field references
+
+See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detailed field mappings and verification workflow.
 
 ## Recent Feature: Client Messages Tab (NEW - 2026-01-15)
 

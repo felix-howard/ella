@@ -108,23 +108,45 @@ export function VerificationModal({
     refetch: refetchUrl,
   } = useSignedUrl(rawImageId, { enabled: isOpen && !!rawImageId })
 
+  // Memoize extracted data parsing separately for granular updates
+  const extractedData = useMemo(
+    () => (isRecord(doc.extractedData) ? doc.extractedData : {}),
+    [doc.extractedData]
+  )
+
   // Extract and filter fields from extractedData
   const { fields, fieldVerifications } = useMemo(() => {
-    const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
     const verifications = isRecord(doc.fieldVerifications)
       ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
       : {}
 
-    // Filter out metadata fields
-    const fieldEntries = Object.entries(extractedData).filter(
-      ([key]) => !isExcludedField(key) && typeof extractedData[key] !== 'object'
-    )
+    // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
+    // Note: Multi-state forms only show first state entry. Most 1099-NEC have 1 state.
+    // To support multiple states, consider expanding UI or adding state selector.
+    const flattenedData: Record<string, unknown> = {}
+
+    for (const [key, value] of Object.entries(extractedData)) {
+      // Handle stateTaxInfo array - flatten first entry only
+      if (key === 'stateTaxInfo' && Array.isArray(value) && value.length > 0) {
+        const firstState = value[0]
+        if (isRecord(firstState)) {
+          if (firstState.state) flattenedData.state = firstState.state
+          if (firstState.statePayerStateNo) flattenedData.statePayerStateNo = firstState.statePayerStateNo
+          if (firstState.stateIncome != null) flattenedData.stateIncome = firstState.stateIncome
+        }
+      } else if (!isExcludedField(key) && typeof value !== 'object') {
+        // Regular non-object fields
+        flattenedData[key] = value
+      }
+    }
+
+    const fieldEntries = Object.entries(flattenedData)
 
     return {
       fields: fieldEntries,
       fieldVerifications: verifications,
     }
-  }, [doc.extractedData, doc.fieldVerifications])
+  }, [extractedData, doc.fieldVerifications])
 
   // Calculate progress
   const totalFields = fields.length
@@ -132,8 +154,7 @@ export function VerificationModal({
   const allVerified = totalFields > 0 && verifiedCount === totalFields
   const hasUnreadable = Object.values(fieldVerifications).includes('unreadable')
 
-  // AI confidence
-  const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
+  // AI confidence - reuse memoized extractedData
   const extractedConfidence = extractedData.aiConfidence
   const aiConfidence = doc.aiConfidence ?? (isNumber(extractedConfidence) ? extractedConfidence : 0)
   const confidencePercent = Math.round(aiConfidence * 100)

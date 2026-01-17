@@ -46,11 +46,27 @@ export const DOC_TYPE_FIELDS: Record<string, string[]> = {
   ],
 
   FORM_1099_NEC: [
+    // Payer info
     'payerName',
-    'payerTin',
+    'payerAddress',
+    'payerTIN',
+    'payerPhone',
+    // Recipient info
     'recipientName',
-    'recipientSsn',
-    'nonemployeeCompensation',
+    'recipientAddress',
+    'recipientTIN',
+    'accountNumber',
+    // Boxes
+    'nonemployeeCompensation', // Box 1
+    'payerMadeDirectSales', // Box 2
+    'federalIncomeTaxWithheld', // Box 4
+    // State info (flattened from stateTaxInfo)
+    'state', // Box 5
+    'statePayerStateNo', // Box 6
+    'stateIncome', // Box 7
+    // Metadata
+    'taxYear',
+    'corrected',
   ],
 
   FORM_1099_MISC: [

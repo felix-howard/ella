@@ -44,11 +44,27 @@ const FORM_1099_DIV_FIELDS: Record<string, string> = {
 
 // 1099-NEC form fields
 const FORM_1099_NEC_FIELDS: Record<string, string> = {
-  payerName: 'Tên người trả',
-  payerTin: 'TIN người trả',
-  nonemployeeCompensation: 'Thu nhập 1099',
-  recipientSsn: 'SSN người nhận',
-  recipientName: 'Tên người nhận',
+  // Payer info
+  payerName: 'Người trả tiền',
+  payerAddress: 'Địa chỉ người trả',
+  payerTIN: 'TIN người trả',
+  payerPhone: 'SĐT người trả',
+  // Recipient info
+  recipientName: 'Người nhận',
+  recipientAddress: 'Địa chỉ người nhận',
+  recipientTIN: 'SSN người nhận',
+  accountNumber: 'Số tài khoản',
+  // Boxes
+  nonemployeeCompensation: 'Box 1 - Thu nhập',
+  payerMadeDirectSales: 'Box 2 - Bán hàng >$5K',
+  federalIncomeTaxWithheld: 'Box 4 - Thuế LB khấu trừ',
+  // State info (flattened)
+  state: 'Box 5 - Tiểu bang',
+  statePayerStateNo: 'Box 6 - ID tiểu bang',
+  stateIncome: 'Box 7 - Thu nhập TB',
+  // Metadata
+  taxYear: 'Năm thuế',
+  corrected: 'Đã sửa',
 }
 
 // 1099-MISC form fields

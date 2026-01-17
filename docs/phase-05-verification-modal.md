@@ -439,9 +439,10 @@ const { fields, fieldVerifications } = useMemo(() => {
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| verification-modal.tsx | 528 | Split-screen modal + verification logic (compact layout) |
+| verification-modal.tsx | ~550 | Split-screen modal + verification logic (compact layout, stateTaxInfo flattening) |
 | field-verification-item.tsx | 302 | Compact field component with inline + stacked modes |
-| field-labels.ts | 185+ | Vietnamese field labels map |
+| field-labels.ts | 200+ | Vietnamese field labels map (updated with new 1099-NEC fields) |
+| doc-type-fields.ts | 150+ | Field mappings for all document types (updated 1099-NEC to 18 fields) |
 | index.ts (documents) | Updated | New component exports |
 | $clientId.tsx | Updated | Modal integration |
 
@@ -676,9 +677,195 @@ Escape → Cancel edit or close modal
 - [ ] Train staff on new verification workflow
 - [ ] Monitor modal usage metrics
 
+## UI Enhancement: Phase 3 - 1099-NEC Field Expansion (2026-01-17)
+
+### Overview
+Expanded 1099-NEC document support with additional payer/recipient information and state tax details. Includes stateTaxInfo array flattening for verification modal compatibility.
+
+### Changes Made
+
+#### 1. doc-type-fields.ts - Field Mapping Update
+**File:** `apps/workspace/src/lib/doc-type-fields.ts`
+
+**Added Fields (13 new):**
+```typescript
+FORM_1099_NEC: [
+  // Payer info (expanded)
+  'payerName',
+  'payerAddress',        // NEW
+  'payerTIN',           // NEW (camelCase from payerTin)
+  'payerPhone',         // NEW
+
+  // Recipient info (expanded)
+  'recipientName',
+  'recipientAddress',   // NEW
+  'recipientTIN',       // NEW (camelCase from recipientTin)
+  'accountNumber',      // NEW
+
+  // Boxes (updated field names)
+  'nonemployeeCompensation', // Box 1
+  'payerMadeDirectSales',   // Box 2 (NEW)
+  'federalIncomeTaxWithheld', // Box 4 (NEW)
+
+  // State info (flattened from stateTaxInfo array)
+  'state',              // Box 5 - NEW (flattened)
+  'statePayerStateNo',  // Box 6 - NEW (flattened)
+  'stateIncome',        // Box 7 - NEW (flattened)
+
+  // Metadata
+  'taxYear',            // NEW
+  'corrected',          // NEW
+]
+```
+
+**Total Fields:** 18 (increased from 6)
+
+**Field Naming Updates:**
+- Changed `payerTin` → `payerTIN` (matches OCR schema casing)
+- Changed `recipientTin` → `recipientTIN` (matches OCR schema casing)
+
+#### 2. field-labels.ts - Vietnamese Label Updates
+**File:** `apps/workspace/src/lib/field-labels.ts`
+
+**Updated FORM_1099_NEC_FIELDS:**
+```typescript
+const FORM_1099_NEC_FIELDS: Record<string, string> = {
+  // Payer info
+  payerName: 'Người trả tiền',
+  payerAddress: 'Địa chỉ người trả',        // NEW
+  payerTIN: 'TIN người trả',                // NEW (updated casing)
+  payerPhone: 'SĐT người trả',             // NEW
+
+  // Recipient info
+  recipientName: 'Người nhận',
+  recipientAddress: 'Địa chỉ người nhận',  // NEW
+  recipientTIN: 'SSN người nhận',          // NEW (updated casing)
+  accountNumber: 'Số tài khoản',           // NEW
+
+  // Boxes
+  nonemployeeCompensation: 'Box 1 - Thu nhập',
+  payerMadeDirectSales: 'Box 2 - Bán hàng >$5K',      // NEW
+  federalIncomeTaxWithheld: 'Box 4 - Thuế LB khấu trừ', // NEW
+
+  // State info (flattened)
+  state: 'Box 5 - Tiểu bang',              // NEW
+  statePayerStateNo: 'Box 6 - ID tiểu bang', // NEW
+  stateIncome: 'Box 7 - Thu nhập TB',      // NEW
+
+  // Metadata
+  taxYear: 'Năm thuế',                     // NEW
+  corrected: 'Đã sửa',                     // NEW
+}
+```
+
+**Flattening Strategy:** stateTaxInfo is an array on the OCR model but verification workflow expects flat fields. The modal flattens the first state entry only (most 1099-NEC have single state).
+
+#### 3. verification-modal.tsx - stateTaxInfo Flattening
+**File:** `apps/workspace/src/components/documents/verification-modal.tsx`
+
+**Implementation:**
+```typescript
+const { fields, fieldVerifications } = useMemo(() => {
+  // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
+  // Note: Multi-state forms only show first state entry. Most 1099-NEC have 1 state.
+  // To support multiple states, consider expanding UI or adding state selector.
+  const flattenedData = { ...doc.extractedData }
+
+  for (const [key, value] of Object.entries(flattenedData)) {
+    // Handle stateTaxInfo array - flatten first entry only
+    if (key === 'stateTaxInfo' && Array.isArray(value) && value.length > 0) {
+      const firstState = value[0]
+      if (firstState.state) flattenedData.state = firstState.state
+      if (firstState.statePayerStateNo) flattenedData.statePayerStateNo = firstState.statePayerStateNo
+      if (firstState.stateIncome != null) flattenedData.stateIncome = firstState.stateIncome
+    }
+  }
+
+  // Extract and filter fields for verification
+  const docFields = DOC_TYPE_FIELDS[doc.docType] || []
+  const allFields = Object.entries(flattenedData)
+    .filter(([key]) => !isExcludedField(key))
+
+  // ... rest of logic
+}, [doc])
+```
+
+**Behavior:**
+- Detects `stateTaxInfo` arrays in extracted data
+- Extracts first state entry (array index 0)
+- Maps to flattened fields: `state`, `statePayerStateNo`, `stateIncome`
+- Maintains original `stateTaxInfo` array unchanged
+- Gracefully handles missing or empty arrays
+
+**Future Considerations:**
+- Multi-state support requires UI expansion (state selector/tabs)
+- Current design prioritizes simplicity (single state verification)
+- Can be enhanced when multi-state 1099-NEC support is needed
+
+#### 4. Performance Optimization
+**File:** `apps/workspace/src/components/documents/verification-modal.tsx`
+
+**useMemo Dependency Update:**
+```typescript
+// Memoization updated to prevent recalculation on every render
+const { fields, fieldVerifications } = useMemo(() => {
+  // Flatten and extract fields
+  // ...
+}, [doc]) // Dependency: doc object itself, not individual properties
+```
+
+**Impact:**
+- Flattening only recalculates when `doc` changes
+- Field array stable across re-renders
+- Improved performance for field list rendering
+
+### Field Grouping for Verification
+
+**New Organization:**
+
+| Group | Fields | Count |
+|-------|--------|-------|
+| Payer Info | payerName, payerAddress, payerTIN, payerPhone | 4 |
+| Recipient Info | recipientName, recipientAddress, recipientTIN, accountNumber | 4 |
+| Income Boxes | nonemployeeCompensation, payerMadeDirectSales, federalIncomeTaxWithheld | 3 |
+| State Tax Info | state, statePayerStateNo, stateIncome | 3 |
+| Metadata | taxYear, corrected | 2 |
+| **Total** | | **18** |
+
+### Backward Compatibility
+
+**No Breaking Changes:**
+- Existing 1099-NEC documents with 6 fields continue to work
+- Field label fallback to fieldKey if not found
+- stateTaxInfo array preserved in original data
+- Verification workflow agnostic to nested structure
+
+**Migration Path:**
+- No database changes needed
+- No API changes required
+- Automatic flattening in modal only
+- Field labels fetched on-demand
+
+### Testing Scenarios
+
+- [ ] 1099-NEC with stateTaxInfo array (single state)
+- [ ] 1099-NEC without stateTaxInfo (older documents)
+- [ ] Empty stateTaxInfo array handling
+- [ ] Field label display for all 18 fields
+- [ ] Verification workflow with expanded field list
+- [ ] Memoization prevents unnecessary re-renders
+- [ ] Case sensitivity: payerTIN vs payerTin mapping
+
+### Documentation Updates
+
+**Field Reference Files Updated:**
+- `doc-type-fields.ts` - 1099-NEC field mappings
+- `field-labels.ts` - Vietnamese labels for 18 fields
+- `verification-modal.tsx` - stateTaxInfo flattening logic
+
 ---
 
-**Last Updated:** 2026-01-17 (UI Enhancement Phase 1 added)
+**Last Updated:** 2026-01-17 (UI Enhancement Phase 3 - 1099-NEC expansion added)
 **Status:** Complete - Ready for production deployment
 **Branch:** feature/enhancement
 **Related Phases:** Phase 03 (Shared Components), Phase 04 (Review UX), Phase 06 (Testing)

@@ -11,7 +11,6 @@ import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles } from 'lucide
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
-import { ProgressIndicator } from '../ui/progress-indicator'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabel, isExcludedField } from '../../lib/field-labels'
 import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
@@ -421,8 +420,8 @@ export function VerificationModal({
               </p>
             </div>
 
-            {/* Fields list - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Fields list - Scrollable (compact spacing for 8-10 fields visible) */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
               {fields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
@@ -457,8 +456,7 @@ export function VerificationModal({
                   <div
                     key={key}
                     className={cn(
-                      'transition-all',
-                      index === currentFieldIndex && 'ring-2 ring-primary ring-offset-2 rounded-lg'
+                      index === currentFieldIndex && 'bg-primary/5 -mx-1 px-1 rounded'
                     )}
                   >
                     <FieldVerificationItem
@@ -474,44 +472,51 @@ export function VerificationModal({
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-4 py-3 border-t border-border bg-muted/10 space-y-3">
-              {/* Progress */}
-              <ProgressIndicator
-                current={verifiedCount}
-                total={totalFields}
-                label="Tiến độ xác minh"
-              />
+            {/* Footer - compact */}
+            <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
+              {/* Compact progress bar */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Xác minh</span>
+                <span className="font-medium">{verifiedCount}/{totalFields}</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: totalFields > 0 ? `${(verifiedCount / totalFields) * 100}%` : '0%' }}
+                />
+              </div>
 
-              {/* Actions */}
+              {/* Compact actions */}
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant="ghost"
+                  size="sm"
                   onClick={handleRequestReupload}
                   disabled={!hasUnreadable || !onRequestReupload}
-                  className="flex-1"
+                  className="text-xs"
                 >
-                  Yêu cầu tải lại ảnh
+                  Yêu cầu tải lại
                 </Button>
                 <Button
+                  size="sm"
                   onClick={handleComplete}
                   disabled={!allVerified || completeMutation.isPending}
-                  className="flex-1"
+                  className="flex-1 text-xs"
                 >
                   {completeMutation.isPending ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                       Đang lưu...
                     </>
                   ) : (
-                    'Hoàn tất xác minh'
+                    'Hoàn tất'
                   )}
                 </Button>
               </div>
 
-              {/* Keyboard hints */}
-              <p className="text-xs text-muted-foreground text-center">
-                Tab = Trường tiếp theo • Enter = Hoàn tất • Esc = Đóng
+              {/* Keyboard hints inline */}
+              <p className="text-[10px] text-muted-foreground text-center">
+                Tab = Di chuyển • Enter = Hoàn tất • Esc = Đóng
               </p>
             </div>
           </div>

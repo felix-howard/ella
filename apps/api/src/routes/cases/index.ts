@@ -239,8 +239,12 @@ casesRoute.get('/:id/checklist', async (c) => {
     where: { caseId: id },
     include: {
       template: true,
-      rawImages: { take: 5 },
-      digitalDocs: { take: 5 },
+      rawImages: {
+        orderBy: { createdAt: 'desc' },  // Most recent images first
+      },
+      digitalDocs: {
+        orderBy: { createdAt: 'desc' },  // Most recent docs first
+      },
     },
     orderBy: { template: { sortOrder: 'asc' } },
   })

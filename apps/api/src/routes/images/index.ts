@@ -64,13 +64,20 @@ imagesRoute.patch(
     if (action === 'approve') {
       // Approve classification - update type and link to checklist
       const result = await prisma.$transaction(async (tx) => {
-        // Find matching checklist item
-        const checklistItem = await tx.checklistItem.findFirst({
+        // Find matching checklist items, prefer ones with existing images to group docs together
+        const checklistItems = await tx.checklistItem.findMany({
           where: {
             caseId: rawImage.caseId,
             template: { docType: docType as DocType },
           },
+          include: {
+            _count: { select: { rawImages: true } },
+          },
+          orderBy: { template: { sortOrder: 'asc' } },
         })
+
+        // Prefer item with existing images, otherwise first by sortOrder
+        const checklistItem = checklistItems.find(item => item._count.rawImages > 0) || checklistItems[0] || null
 
         // Update raw image with approved classification
         const updatedImage = await tx.rawImage.update({

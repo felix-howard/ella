@@ -17,6 +17,12 @@ if (!config.inngest.isProductionReady) {
   console.error('[Inngest] Background jobs are DISABLED until signing key is configured.')
 }
 
+// Determine serve URL based on environment
+const serveHost = process.env.INNGEST_SERVE_HOST || `http://localhost:${config.port}`
+const servePath = '/api/inngest'
+
+console.log(`[Inngest] Serve endpoint configured at ${serveHost}${servePath}`)
+
 // Inngest serve endpoint - handles function discovery, invocation, and dev UI
 // Signing key validates requests from Inngest cloud (required in production)
 inngestRoute.on(
@@ -36,6 +42,8 @@ inngestRoute.on(
     client: inngest,
     functions: [classifyDocumentJob],
     signingKey: config.inngest.signingKey || undefined,
+    serveHost,
+    servePath,
   })
 )
 

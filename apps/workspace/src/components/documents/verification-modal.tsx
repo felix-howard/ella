@@ -166,10 +166,6 @@ export function VerificationModal({
     }
   }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications])
 
-  // Calculate progress
-  const totalFields = fields.length
-  const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
-
   // AI confidence - reuse memoized extractedData
   const extractedConfidence = extractedData.aiConfidence
   const aiConfidence = doc.aiConfidence ?? (isNumber(extractedConfidence) ? extractedConfidence : 0)
@@ -510,25 +506,13 @@ export function VerificationModal({
             </div>
 
             {/* Footer - compact */}
-            <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
-              {/* Compact progress bar */}
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Đã chỉnh sửa</span>
-                <span className="font-medium">{verifiedCount}/{totalFields}</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: totalFields > 0 ? `${(verifiedCount / totalFields) * 100}%` : '0%' }}
-                />
-              </div>
-
+            <div className="px-3 py-2 border-t border-border bg-muted/10">
               {/* Complete button */}
               <Button
                 size="sm"
                 onClick={handleComplete}
                 disabled={completeMutation.isPending}
-                className="w-full text-xs"
+                className="w-full"
               >
                 {completeMutation.isPending ? (
                   <>
@@ -539,11 +523,6 @@ export function VerificationModal({
                   'Hoàn tất'
                 )}
               </Button>
-
-              {/* Keyboard hints inline */}
-              <p className="text-[10px] text-muted-foreground text-center">
-                Tab = Di chuyển • Enter = Hoàn tất • Esc = Đóng
-              </p>
             </div>
           </div>
         </div>

@@ -162,7 +162,7 @@ export function FieldVerificationItem({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              className="flex-1 h-7 text-sm py-0 px-2"
+              className="flex-1 h-7 text-sm py-0 px-2 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
               inputSize="sm"
             />
             <button
@@ -220,7 +220,7 @@ export function FieldVerificationItem({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="flex-1 h-8 text-sm"
+            className="flex-1 h-8 text-sm focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
             inputSize="sm"
           />
           <Button

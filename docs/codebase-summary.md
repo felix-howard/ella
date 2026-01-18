@@ -121,14 +121,19 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 **Performance:** 2-5s per image
 
-### PDF Converter Service (Phase 01)
+### PDF Converter Service (Phase 01 - Enhanced Phase 3)
 
 **Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-- 200 DPI PNG rendering for optimal OCR accuracy
+- 200 DPI PNG rendering for optimal OCR & classification accuracy
 - Magic bytes validation + encryption detection
 - 20MB size limit, 10-page maximum, auto temp cleanup
 - Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
-- 8 unit tests
+
+**Phase 3 Enhancement (2026-01-17):**
+- Now used in classification pipeline (Step 2: fetch-image)
+- PDF first page converted to PNG before Gemini classification
+- Solves API compatibility - Gemini may reject raw PDF input
+- Matches OCR extractor behavior for consistency
 
 ### OCR Extraction Service (Phase 02 - Enhanced Phase 2 Priority 1)
 

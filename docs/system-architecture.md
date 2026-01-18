@@ -265,10 +265,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Batch Classification:** `batchClassifyDocuments(images[], concurrency)` with configurable concurrency limit
 - **OCR Extraction Eligibility:** Exclusion-based - 9 types excluded (PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN), all others require OCR
 
-**PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
+**PDF Converter Service & Classification Pipeline (Phase 01-03):**
 
-- **PDF Conversion Function (Phase 03):** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-  - Converts PDF → PNG images (200 DPI) for OCR processing via poppler-based pdf-poppler library
+- **PDF Conversion Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+  - Converts PDF → PNG images (200 DPI) via poppler-based pdf-poppler library
+  - **Dual Usage:**
+    - Classification: First page only, used before Gemini classification (Phase 3 fix)
+    - OCR: All pages extracted, used for field data extraction
   - **Poppler Dependency:** Required for PDF rendering (`pdf-poppler` npm package)
     - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
     - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)

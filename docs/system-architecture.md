@@ -52,6 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - 10 main pages (/, /actions, /clients, /cases, /messages, etc.)
   - 27 components (6 feature areas + 7 messaging)
   - Real-time polling for live updates
+  - Client detail: 2-tab layout (Overview, Documents) + Header messaging button
 - File-based routing via TanStack Router (`src/routes/*`)
 - Auto-generated route tree (`routeTree.gen.ts`)
 
@@ -70,7 +71,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Document upload interface (portal)
 - Unified message inbox with split-view (workspace)
 - Dashboard with compliance status
-- Client/case management with messaging
+- Client/case management with messaging (inline "Tin nhắn" header button with unread badge)
 - Action queue with priority grouping
 - Accessibility: ARIA labels, semantic HTML
 
@@ -137,9 +138,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
 - `GET/PATCH /actions/:id` - Action details & mark complete
 
-**Messages (4, Phase 3.2):**
+**Messages (5, Phase 3.2 + UX Enhancement):**
 - `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
 - `GET /messages/:caseId` - Conversation history (SMS/portal/system) with auto-reset unread
+- `GET /messages/:caseId/unread` - Fetch unread count for specific case (efficient single-case query)
 - `POST /messages/send` - Create message, support SMS/PORTAL/SYSTEM channels
 - `POST /messages/remind/:caseId` - Send missing docs reminder to specific case
 
@@ -308,13 +310,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
-**Unified Messaging (Phase 3.2):**
+**Unified Messaging (Phase 3.2 + UX Enhancement):**
 
 - `messages/` routes handle conversation listing, message history, and sending
 - Conversation auto-creation with upsert pattern (prevents race conditions)
 - Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM stored in database
-- Unread count tracking per conversation
+- Unread count tracking per conversation with efficient per-case query
 - Real-time updates via polling (30s inbox, 10s active)
+- Client detail header: "Tin nhắn" button with unread badge (queries `/messages/:caseId/unread`)
 
 **Future Services:**
 
@@ -756,10 +759,29 @@ Case returns to WAITING_DOCS or IN_PROGRESS
 - Clear user feedback via toast notifications
 - Debounced search prevents API overload
 
-### Unified Inbox & Messaging Flow (Phase 3.2)
+### Unified Inbox & Messaging Flow (Phase 3.2 + UX Enhancement)
 
 ```
-Staff Views Unified Inbox (/messages)
+Staff Views Client Detail Page (/clients/$clientId)
+        ↓
+Client Detail Header shows:
+├─ Client profile info (name, phone, email)
+├─ SMS status badge
+├─ Case status selector
+├─ Edit button
+└─ "Tin nhắn" button with unread badge
+        ↓
+GET /messages/:caseId/unread (30s cache)
+        ↓
+Fetch unread count: { caseId, unreadCount }
+        ↓
+Display badge on button if unreadCount > 0
+        ↓
+Staff clicks "Tin nhắn" button → Navigate to /messages/$caseId
+        ↓
+---
+        ↓
+Alternative: Staff Views Unified Inbox (/messages)
         ↓
 GET /messages/conversations (30s polling)
         ↓

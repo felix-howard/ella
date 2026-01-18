@@ -1,6 +1,6 @@
 /**
  * Client Detail Page - Shows client info with tabbed sections
- * Tabs: Overview, Documents, Messages
+ * Tabs: Overview, Documents | Messages accessible via header button
  */
 
 import { useState } from 'react'
@@ -30,7 +30,6 @@ import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { DocumentChecklistTree, StatusSelector } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
-import { ClientMessagesTab } from '../../components/client-detail'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   CHECKLIST_STATUS_LABELS,
@@ -48,7 +47,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'documents' | 'messages'
+type TabType = 'overview' | 'documents'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
@@ -137,6 +136,15 @@ function ClientDetailPage() {
     queryFn: () => api.cases.getChecklist(latestCaseId!),
     enabled: !!latestCaseId,
   })
+
+  // Fetch unread count for the specific case
+  const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError } = useQuery({
+    queryKey: ['unread-count', latestCaseId],
+    queryFn: () => api.messages.getUnreadCount(latestCaseId!),
+    enabled: !!latestCaseId,
+    staleTime: 30000, // Cache for 30s
+  })
+  const unreadCount = unreadData?.unreadCount ?? 0
 
   // Fetch raw images for the latest case
   const { data: imagesResponse } = useQuery({
@@ -293,7 +301,6 @@ function ClientDetailPage() {
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
-    { id: 'messages', label: clientsText.tabs.messages, icon: MessageSquare },
   ]
 
   return (
@@ -365,6 +372,24 @@ function ClientDetailPage() {
                   queryClient.invalidateQueries({ queryKey: ['client', clientId] })
                 }}
               />
+            )}
+            {/* Message Button with Unread Badge */}
+            {latestCaseId && (
+              <Link
+                to="/messages/$caseId"
+                params={{ caseId: latestCaseId }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium text-foreground"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Tin nhắn</span>
+                {isUnreadLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                ) : !isUnreadError && unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-destructive text-white rounded-full min-w-[1.25rem] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
             )}
             <button
               className="p-2 rounded-lg border border-border hover:bg-muted transition-colors"
@@ -684,16 +709,6 @@ function ClientDetailPage() {
           {/* Upload Progress - shows when images are processing */}
           <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
-      )}
-
-      {activeTab === 'messages' && (
-        <ClientMessagesTab
-          clientId={clientId}
-          caseId={latestCaseId}
-          clientName={client.name}
-          clientPhone={client.phone}
-          isActive={activeTab === 'messages'}
-        />
       )}
     </PageContainer>
   )

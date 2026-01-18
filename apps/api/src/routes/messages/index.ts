@@ -100,6 +100,21 @@ messagesRoute.get(
   }
 )
 
+// GET /messages/:caseId/unread - Get unread count for a specific case
+messagesRoute.get('/:caseId/unread', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  const conversation = await prisma.conversation.findUnique({
+    where: { caseId },
+    select: { unreadCount: true },
+  })
+
+  return c.json({
+    caseId,
+    unreadCount: conversation?.unreadCount ?? 0,
+  })
+})
+
 // GET /messages/:caseId - Get conversation for case
 messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), async (c) => {
   const caseId = c.req.param('caseId')

@@ -325,6 +325,10 @@ export const api = {
     // Unified inbox - list all conversations
     listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
       request<ConversationsResponse>('/messages/conversations', { params }),
+
+    // Get unread count for a specific case
+    getUnreadCount: (caseId: string) =>
+      request<{ caseId: string; unreadCount: number }>(`/messages/${caseId}/unread`),
   },
 }
 

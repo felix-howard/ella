@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-16
-**Current Branch:** feature/enhancement
+**Current Date:** 2026-01-18
+**Current Branch:** feature/more-enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
 | **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
 | **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
 | **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
@@ -82,13 +83,14 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 **Staff management dashboard (React, PORT 5173)** - Vietnamese-first UI, Zustand state, 20+ components, real-time polling.
 
 **Pages:**
-- `/clients/$clientId` - Client detail (3 tabs: Overview, Documents, Messages)
+- `/clients/$clientId` - Client detail (2 tabs: Overview, Documents + Header "Tin nhắn" button with unread badge)
 
 **Features:**
-- 10s polling: active conversation + client detail messages tab
+- 10s polling: active conversation
 - Copy-to-clipboard workflow (Phase 4.1)
 - 3-tab document workflow (Phase 04 Tabs)
 - 5s polling: classification updates on Documents tab (real-time status tracking)
+- Efficient unread count fetching via `/messages/:caseId/unread` endpoint (30s cache)
 
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 

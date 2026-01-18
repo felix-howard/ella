@@ -20,6 +20,7 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
+import { refreshAttachmentUrls } from '../../services/sms/mms-media-handler'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
 const messagesRoute = new Hono()
@@ -148,17 +149,34 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
     })
   }
 
+  // Refresh signed URLs for messages with attachments (URLs expire after 1 hour)
+  const messagesWithRefreshedUrls = await Promise.all(
+    messages.map(async (m) => {
+      // If message has R2 keys, generate fresh signed URLs
+      if (m.attachmentR2Keys && m.attachmentR2Keys.length > 0) {
+        const freshUrls = await refreshAttachmentUrls(m.attachmentR2Keys)
+        return {
+          ...m,
+          attachmentUrls: freshUrls,
+          createdAt: m.createdAt.toISOString(),
+          updatedAt: m.updatedAt.toISOString(),
+        }
+      }
+      return {
+        ...m,
+        createdAt: m.createdAt.toISOString(),
+        updatedAt: m.updatedAt.toISOString(),
+      }
+    })
+  )
+
   return c.json({
     conversation: {
       ...conversation,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
     },
-    messages: messages.map((m) => ({
-      ...m,
-      createdAt: m.createdAt.toISOString(),
-      updatedAt: m.updatedAt.toISOString(),
-    })),
+    messages: messagesWithRefreshedUrls,
     pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })

@@ -190,7 +190,7 @@ export async function processIncomingMessage(
     create: { caseId: latestCase.id },
   })
 
-  // Create message record (with attachmentUrls if media present)
+  // Create message record (with attachments if media present)
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -199,6 +199,7 @@ export async function processIncomingMessage(
       content,
       twilioSid,
       attachmentUrls: mmsResult.attachmentUrls,
+      attachmentR2Keys: mmsResult.attachmentR2Keys,
     },
   })
 

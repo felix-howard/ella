@@ -396,7 +396,8 @@ model Message {
   twilioSid      String?          @unique
   twilioStatus   String?
 
-  attachmentUrls String[]
+  attachmentUrls  String[]
+  attachmentR2Keys String[]  // Permanent R2 keys for refreshing expired URLs
 
   isSystem       Boolean          @default(false)
   templateUsed   String?

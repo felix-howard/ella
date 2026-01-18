@@ -13,6 +13,7 @@ const MAX_MEDIA_COUNT = 10 // Twilio supports up to 10 media items
 
 export interface MmsMediaResult {
   attachmentUrls: string[]
+  attachmentR2Keys: string[]  // Permanent keys for refreshing expired URLs
   rawImageIds: string[]
   errors: string[]
 }
@@ -28,6 +29,7 @@ export async function processMmsMedia(
 ): Promise<MmsMediaResult> {
   const result: MmsMediaResult = {
     attachmentUrls: [],
+    attachmentR2Keys: [],
     rawImageIds: [],
     errors: [],
   }
@@ -111,6 +113,7 @@ export async function processMmsMedia(
 
       result.rawImageIds.push(rawImage.id)
       result.attachmentUrls.push(uploadResult.url)
+      result.attachmentR2Keys.push(r2Key)
 
       // Queue AI classification
       if (isGeminiConfigured) {

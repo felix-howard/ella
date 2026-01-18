@@ -17,6 +17,9 @@ interface HeaderProps {
 export function Header({ title, showSearch = true, actions }: HeaderProps) {
   const { globalSearch, setGlobalSearch, sidebarCollapsed } = useUIStore()
 
+  // Temporarily hidden - remove this line to show header again
+  return null
+
   return (
     <header
       className={cn(

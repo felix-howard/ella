@@ -10,12 +10,13 @@ import {
   CheckSquare,
   Users,
   MessageSquare,
+  Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
 } from 'lucide-react'
-import { cn, EllaLogoDark, EllaArrow } from '@ella/ui'
-import { useUIStore } from '../../stores/ui-store'
+import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
+import { useUIStore, useTheme } from '../../stores/ui-store'
 import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 
@@ -25,15 +26,20 @@ const navItemsWithIcons = [
   { path: '/actions', label: NAV_ITEMS[1].label, icon: CheckSquare },
   { path: '/clients', label: NAV_ITEMS[2].label, icon: Users },
   { path: '/messages', label: NAV_ITEMS[3].label, icon: MessageSquare },
+  { path: '/settings', label: NAV_ITEMS[4].label, icon: Settings },
 ] as const
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
+  const { theme } = useTheme()
   const routerState = useRouterState()
   const navigate = useNavigate()
   const currentPath = routerState.location.pathname
   const { signOut } = useClerk()
   const { user } = useUser()
+
+  // Select logo based on theme
+  const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
   // Get user initials from Clerk user data
   const userInitials = user?.firstName && user?.lastName
@@ -73,7 +79,7 @@ export function Sidebar() {
       <div className="h-16 flex items-center justify-center px-4 border-b border-border">
         {!sidebarCollapsed && (
           <Link to="/">
-            <img src={EllaLogoDark} alt="ella.tax" className="h-8 object-contain" />
+            <img src={logo} alt="ella.tax" className="h-8 object-contain" />
           </Link>
         )}
         {sidebarCollapsed && (

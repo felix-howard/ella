@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { Sidebar, Header } from '../components/layout'
 import { ErrorBoundary } from '../components/error-boundary'
 import { ToastContainer } from '../components/ui/toast-container'
+import { useTheme } from '../stores/ui-store'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -15,6 +16,16 @@ function RootLayout() {
   const routerState = useRouterState()
   const navigate = useNavigate()
   const isLoginPage = routerState.location.pathname === '/login'
+  const { theme } = useTheme()
+
+  // Apply theme class on mount and when theme changes
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [theme])
 
   useEffect(() => {
     if (isLoaded && !isSignedIn && !isLoginPage) {

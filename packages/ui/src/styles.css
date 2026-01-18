@@ -59,11 +59,11 @@
   --sidebar-collapsed-width: 64px;
 }
 
-/* Dark mode variant */
+/* Dark mode variant - activates with .dark class on html/body */
 @variant dark (&:where(.dark, .dark *));
 
-@theme {
-  /* Dark mode colors */
+/* Dark mode color overrides - only applied when .dark class is present */
+.dark {
   --color-background: #0F172A;
   --color-foreground: #F1F5F9;
   --color-card: #1E293B;
@@ -74,6 +74,7 @@
   --color-muted-foreground: #94A3B8;
   --color-border: #334155;
   --color-input: #334155;
+  --color-primary-light: #065F46;
 }
 
 /* Base layer */

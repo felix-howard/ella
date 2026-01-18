@@ -1,12 +1,14 @@
 /**
  * Login page for Ella Workspace
  * Custom styled login matching Ella's mint green design
+ * Supports both light and dark themes
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useSignIn, useAuth } from '@clerk/clerk-react'
 import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import { EllaLogoDark } from '@ella/ui'
+import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
+import { useTheme } from '../stores/ui-store'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -16,6 +18,7 @@ function LoginPage() {
   const { isSignedIn, isLoaded } = useAuth()
   const { signIn, setActive } = useSignIn()
   const navigate = useNavigate()
+  const { theme } = useTheme()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,6 +29,9 @@ function LoginPage() {
   // 2FA state
   const [needs2FA, setNeeds2FA] = useState(false)
   const [twoFactorCode, setTwoFactorCode] = useState('')
+
+  // Select logo based on theme
+  const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
   // Redirect to home if already signed in
   useEffect(() => {
@@ -105,18 +111,18 @@ function LoginPage() {
   // Show loading while checking auth state
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-[#1a1f2e] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1f2e] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
       {/* Logo */}
       <div className="mb-10">
         <img
-          src={EllaLogoDark}
+          src={logo}
           alt="ella.tax"
           className="h-10 object-contain"
         />
@@ -128,7 +134,7 @@ function LoginPage() {
           // 2FA Verification Form
           <form onSubmit={handle2FASubmit} className="space-y-0">
             <div className="text-center mb-6">
-              <p className="text-gray-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Nhập mã xác thực đã gửi đến email của bạn
               </p>
             </div>
@@ -142,14 +148,14 @@ function LoginPage() {
                 placeholder="Nhập mã từ email"
                 required
                 autoFocus
-                className="w-full px-4 py-4 bg-[#2d3446] text-white placeholder-gray-400 rounded-lg focus:outline-none text-center text-2xl tracking-widest"
+                className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest"
                 disabled={isLoading}
               />
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="mt-3 text-sm text-red-400 text-center">
+              <div className="mt-3 text-sm text-error text-center">
                 {error}
               </div>
             )}
@@ -197,7 +203,7 @@ function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
                   required
-                  className="w-full px-4 py-4 bg-[#2d3446] text-white placeholder-gray-400 rounded-t-lg border-b border-[#3d4556] focus:outline-none autofill:bg-[#2d3446] autofill:text-white [&:-webkit-autofill]:bg-[#2d3446] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#2d3446_inset]"
+                  className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                   disabled={isLoading}
                 />
               </div>
@@ -210,13 +216,13 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Mật khẩu"
                   required
-                  className="w-full px-4 py-4 bg-[#2d3446] text-white placeholder-gray-400 rounded-b-lg focus:outline-none pr-12 autofill:bg-[#2d3446] autofill:text-white [&:-webkit-autofill]:bg-[#2d3446] [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#2d3446_inset]"
+                  className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -225,7 +231,7 @@ function LoginPage() {
 
               {/* Error Message */}
               {error && (
-                <div className="mt-3 text-sm text-red-400 text-center">
+                <div className="mt-3 text-sm text-error text-center">
                   {error}
                 </div>
               )}

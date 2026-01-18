@@ -195,6 +195,7 @@ export const NAV_ITEMS = [
   { path: '/actions', label: 'Việc cần làm', icon: 'CheckSquare' },
   { path: '/clients', label: 'Khách hàng', icon: 'Users' },
   { path: '/messages', label: 'Tin nhắn', icon: 'MessageSquare' },
+  { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
 ] as const
 
 // Common UI text
@@ -303,5 +304,14 @@ export const UI_TEXT = {
   staff: {
     defaultName: 'Nhân viên',
     defaultEmail: 'staff@ella.app',
+  },
+
+  // Settings
+  settings: {
+    title: 'Cài đặt',
+    appearance: 'Giao diện',
+    theme: 'Chế độ màu',
+    lightMode: 'Sáng',
+    darkMode: 'Tối',
   },
 }

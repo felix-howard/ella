@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
@@ -21,6 +22,11 @@ import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
 import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
+    | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/messages'
+    | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -161,6 +173,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
+  SettingsRoute: typeof SettingsRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
@@ -171,6 +184,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/messages': {
       id: '/messages'
       path: '/messages'
@@ -269,6 +289,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
+  SettingsRoute: SettingsRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
   ActionsIndexRoute: ActionsIndexRoute,

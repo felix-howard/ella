@@ -1,6 +1,6 @@
 /**
- * Message Bubble - Individual message display component
- * Shows message content with direction-based styling and channel indicator
+ * Message Bubble - Modern chat UI component
+ * Inspired by WhatsApp, iMessage, Telegram for clean visual design
  */
 
 import { memo, useState } from 'react'
@@ -26,6 +26,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const isSystem = message.channel === 'SYSTEM'
   const channelInfo = CHANNEL_INFO[message.channel]
   const ChannelIcon = channelInfo.icon
+  const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
 
   // Format time
   const time = new Date(message.createdAt).toLocaleTimeString('vi-VN', {
@@ -35,6 +36,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
 
   // Sanitize content to prevent XSS
   const safeContent = sanitizeText(message.content)
+  const hasText = safeContent && safeContent.trim().length > 0
+  const isImageOnly = hasAttachments && !hasText
 
   // System messages have centered, muted style
   if (isSystem) {
@@ -49,51 +52,96 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     )
   }
 
+  // Image-only message - clean modern style without card wrapper
+  if (isImageOnly) {
+    return (
+      <div
+        className={cn(
+          'flex flex-col w-full gap-1',
+          isOutbound ? 'items-end' : 'items-start'
+        )}
+      >
+        {/* Images displayed standalone */}
+        <div className="flex flex-col gap-1.5 max-w-[280px]">
+          {message.attachmentUrls!.map((url, index) => (
+            <MessageImage
+              key={index}
+              url={url}
+              isOutbound={isOutbound}
+              isStandalone
+            />
+          ))}
+        </div>
+
+        {/* Metadata below image */}
+        <div
+          className={cn(
+            'flex items-center gap-1.5 text-[10px] text-muted-foreground px-1',
+            isOutbound && 'flex-row-reverse'
+          )}
+        >
+          <ChannelIcon className="w-3 h-3" />
+          <span>{channelInfo.label}</span>
+          {showTime && <span>{time}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  // Text message (with optional images)
   return (
     <div
       className={cn(
-        'flex w-full',
-        isOutbound ? 'justify-end' : 'justify-start'
+        'flex flex-col w-full gap-1',
+        isOutbound ? 'items-end' : 'items-start'
       )}
     >
       <div
         className={cn(
-          'max-w-[75%] rounded-2xl px-4 py-2.5',
+          'max-w-[75%] overflow-hidden',
+          // Modern bubble shape with chat tail
           isOutbound
-            ? 'bg-primary text-white rounded-br-md'
-            : 'bg-card border border-border text-foreground rounded-bl-md'
+            ? 'rounded-[20px] rounded-br-[6px]'
+            : 'rounded-[20px] rounded-bl-[6px]',
+          // Colors - card style for text messages
+          isOutbound
+            ? 'bg-primary text-white'
+            : 'bg-card border border-border text-foreground'
         )}
       >
-        {/* Message content - sanitized */}
-        {safeContent && (
-          <p className="text-sm whitespace-pre-wrap break-words">{safeContent}</p>
-        )}
-
-        {/* Attachment images */}
-        {message.attachmentUrls && message.attachmentUrls.length > 0 && (
-          <div className={cn('flex flex-wrap gap-2', safeContent && 'mt-2')}>
-            {message.attachmentUrls.map((url, index) => (
-              <MessageAttachment
+        {/* Images at top, edge-to-edge within bubble */}
+        {hasAttachments && (
+          <div className="flex flex-col">
+            {message.attachmentUrls!.map((url, index) => (
+              <MessageImage
                 key={index}
                 url={url}
                 isOutbound={isOutbound}
+                isStandalone={false}
               />
             ))}
           </div>
         )}
 
-        {/* Footer with channel and time */}
-        <div
-          className={cn(
-            'flex items-center gap-2 mt-1.5 text-[10px]',
-            isOutbound ? 'text-white/70 justify-end' : 'text-muted-foreground'
+        {/* Text content with padding */}
+        <div className="px-3.5 py-2">
+          {hasText && (
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+              {safeContent}
+            </p>
           )}
-        >
-          <div className="flex items-center gap-1">
-            <ChannelIcon className="w-3 h-3" />
+
+          {/* Inline metadata */}
+          <div
+            className={cn(
+              'flex items-center gap-1.5 mt-1 text-[10px]',
+              isOutbound ? 'text-white/60 justify-end' : 'text-muted-foreground'
+            )}
+          >
+            <ChannelIcon className="w-2.5 h-2.5" />
             <span>{channelInfo.label}</span>
+            {showTime && <span>{time}</span>}
           </div>
-          {showTime && <span>{time}</span>}
         </div>
       </div>
     </div>
@@ -101,43 +149,58 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
 })
 
 /**
- * Message attachment image with loading and error states
+ * Modern image attachment with loading/error states
+ * - Standalone: No wrapper, just image with rounded corners and shadow
+ * - Inline: Edge-to-edge within bubble
  */
-function MessageAttachment({ url, isOutbound }: { url: string; isOutbound: boolean }) {
+interface MessageImageProps {
+  url: string
+  isOutbound: boolean
+  isStandalone?: boolean
+}
+
+function MessageImage({ url, isOutbound, isStandalone = false }: MessageImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Error state
   if (error) {
     return (
       <div
         className={cn(
-          'flex items-center justify-center w-[150px] h-[100px] rounded',
-          isOutbound ? 'bg-white/10' : 'bg-muted'
+          'flex items-center justify-center bg-muted/50',
+          isStandalone
+            ? 'w-[200px] h-[140px] rounded-2xl'
+            : 'w-full h-[140px]'
         )}
       >
-        <ImageOff className="w-6 h-6 text-muted-foreground" />
+        <ImageOff className="w-8 h-8 text-muted-foreground/50" />
       </div>
     )
   }
 
   return (
-    <div className="relative">
+    <div className={cn('relative overflow-hidden', isStandalone && 'rounded-2xl shadow-sm')}>
+      {/* Loading skeleton */}
       {loading && (
         <div
           className={cn(
-            'absolute inset-0 flex items-center justify-center rounded',
-            isOutbound ? 'bg-white/10' : 'bg-muted'
+            'absolute inset-0 flex items-center justify-center bg-muted/30',
+            isStandalone && 'rounded-2xl'
           )}
         >
-          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-50" />
+          <div className="w-6 h-6 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
         </div>
       )}
       <img
         src={url}
         alt="Attachment"
         className={cn(
-          'max-w-[200px] max-h-[200px] rounded object-cover cursor-pointer hover:opacity-90 transition-opacity',
-          loading && 'invisible'
+          'cursor-pointer transition-all duration-200 hover:brightness-95',
+          isStandalone
+            ? 'max-w-[280px] max-h-[280px] w-auto h-auto object-cover'
+            : 'w-full max-h-[300px] object-cover',
+          loading && 'opacity-0'
         )}
         onLoad={() => setLoading(false)}
         onError={() => {

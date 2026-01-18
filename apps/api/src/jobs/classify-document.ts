@@ -17,7 +17,7 @@ import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
 import { fetchImageBuffer } from '../services/storage'
 import { classifyDocument, requiresOcrExtraction } from '../services/ai'
-import { convertPdfToImages, isPdfMimeType } from '../services/pdf/pdf-converter'
+import { isPdfMimeType } from '../services/pdf/pdf-converter'
 import { extractDocumentData } from '../services/ai/ocr-extractor'
 import {
   updateRawImageStatus,
@@ -113,7 +113,8 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     }
 
-    // Step 1: Fetch file from R2 with resize for large images (skip for PDFs)
+    // Step 1: Fetch file from R2 with resize for large images
+    // PDFs are sent directly to Gemini (native PDF support for better accuracy)
     const imageData = await step.run('fetch-image', async () => {
       const result = await fetchImageBuffer(r2Key)
       if (!result) {
@@ -130,7 +131,7 @@ export const classifyDocumentJob = inngest.createFunction(
       let mimeType = result.mimeType || eventMimeType
       let wasResized = false
 
-      // Only resize images (not PDFs) - PDFs are converted below
+      // Only resize large images (not PDFs) - Gemini reads PDFs natively
       const isPdf = isPdfMimeType(mimeType)
       if (!isPdf && buffer.length > MAX_IMAGE_SIZE) {
         console.log(`[classify-document] Resizing large image: ${(buffer.length / 1024 / 1024).toFixed(2)}MB`)
@@ -142,19 +143,10 @@ export const classifyDocumentJob = inngest.createFunction(
         wasResized = true
       }
 
-      // Convert PDF to PNG for classification (Gemini may reject raw PDF)
+      // PDFs: Send directly to Gemini (no conversion needed)
+      // Gemini 2.0/2.5 Flash has native PDF support with better accuracy
       if (isPdf) {
-        console.log(`[classify-document] Converting PDF to PNG for classification`)
-        const conversionResult = await convertPdfToImages(buffer)
-
-        if (!conversionResult.success || !conversionResult.pages?.length) {
-          throw new Error(`PDF conversion failed: ${conversionResult.error || 'No pages converted'}`)
-        }
-
-        // Use first page for classification
-        buffer = conversionResult.pages[0].buffer
-        mimeType = 'image/png'
-        console.log(`[classify-document] PDF converted - using page 1 of ${conversionResult.totalPages}`)
+        console.log(`[classify-document] Using native PDF reading (no conversion)`)
       }
 
       // Store as base64 for step durability (Inngest serializes step results)
@@ -293,6 +285,7 @@ export const classifyDocumentJob = inngest.createFunction(
     const grouping = { grouped: false, groupId: null, imageCount: 1 }
 
     // Step 5: OCR extraction (only if confidence >= 60% and doc type supports OCR)
+    // Gemini 2.5 reads PDFs directly for better accuracy
     let digitalDocId: string | undefined
     if (routing.needsOcr) {
       digitalDocId = await step.run('ocr-extract', async () => {

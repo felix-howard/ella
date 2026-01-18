@@ -3,7 +3,7 @@
  * Renders messages in chronological order with date separators
  */
 
-import { useEffect, useRef, useMemo, useLayoutEffect } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { MessageBubble, TypingIndicator } from './message-bubble'
@@ -58,22 +58,32 @@ export function MessageThread({
     }
   }, [messages.length])
 
-  // Instant scroll to bottom on initial load (no animation)
-  useLayoutEffect(() => {
-    if (messages.length > 0 && !hasScrolledInitialRef.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      hasScrolledInitialRef.current = true
-      prevMessagesLengthRef.current = messages.length
-    }
-  }, [messages.length])
-
-  // Smooth scroll to bottom on new messages (after initial load)
+  // Scroll to bottom - handles both initial load and new messages
   useEffect(() => {
-    if (
-      hasScrolledInitialRef.current &&
-      messages.length > prevMessagesLengthRef.current
-    ) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) return
+
+    const scrollToBottom = (instant: boolean) => {
+      if (bottomRef.current) {
+        bottomRef.current.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
+      }
+    }
+
+    // Initial load - use requestAnimationFrame to ensure DOM is ready
+    if (!hasScrolledInitialRef.current) {
+      // Double RAF ensures layout is complete
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(true)
+          hasScrolledInitialRef.current = true
+          prevMessagesLengthRef.current = messages.length
+        })
+      })
+      return
+    }
+
+    // New messages added - smooth scroll
+    if (messages.length > prevMessagesLengthRef.current) {
+      scrollToBottom(false)
     }
     prevMessagesLengthRef.current = messages.length
   }, [messages.length])

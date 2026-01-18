@@ -49,11 +49,15 @@ export function ImageViewer({
   // Ref for scroll container to reset scroll position on load
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Reset scroll to top when image URL or zoom changes (Task 2.3)
+  // Reset scroll position when image URL changes or zoom resets to 1
   // useLayoutEffect for synchronous reset to avoid visual flicker
   useLayoutEffect(() => {
     if (containerRef.current) {
-      containerRef.current.scrollTop = 0
+      // Only reset scroll when going back to 100% or loading new image
+      if (zoom <= 1) {
+        containerRef.current.scrollTop = 0
+        containerRef.current.scrollLeft = 0
+      }
     }
   }, [imageUrl, zoom])
 
@@ -147,9 +151,15 @@ export function ImageViewer({
         </div>
       )}
 
-      {/* Main content area - scrollable from top (Task 2.1) */}
+      {/* Main content area - scrollable in both directions when zoomed */}
       <div ref={containerRef} className="w-full h-full overflow-auto">
-        <div className="min-w-full min-h-full flex items-start justify-center p-4">
+        <div
+          className={cn(
+            'min-w-full min-h-full flex p-4',
+            // Center only when not zoomed, allow scroll from top-left when zoomed
+            zoom <= 1 ? 'items-center justify-center' : 'items-start justify-start'
+          )}
+        >
         {error && (
           <div className="text-center p-4" role="alert">
             <p className="text-error text-sm">{error}</p>
@@ -181,7 +191,8 @@ export function ImageViewer({
               className="max-w-full max-h-full object-contain transition-transform duration-200"
               style={{
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                transformOrigin: 'top center', // Task 2.2: Scale from top to prevent cutoff
+                // Use top-left origin when zoomed for proper scroll, center when not zoomed
+                transformOrigin: zoom > 1 ? 'top left' : 'center',
               }}
               draggable={false}
               onError={() => setError('Không thể tải hình ảnh')}

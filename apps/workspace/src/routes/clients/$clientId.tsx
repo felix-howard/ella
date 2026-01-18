@@ -530,7 +530,6 @@ function ClientDetailPage() {
               isOpen={isVerifyModalOpen}
               onClose={handleCloseVerifyModal}
               caseId={latestCaseId}
-              onRequestReupload={handleRequestReupload}
             />
           )}
 

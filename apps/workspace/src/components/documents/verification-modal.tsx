@@ -27,8 +27,6 @@ export interface VerificationModalProps {
   onClose: () => void
   /** Case ID for query invalidation */
   caseId: string
-  /** Callback when re-upload request is needed */
-  onRequestReupload?: (doc: DigitalDoc, unreadableFields: string[]) => void
 }
 
 // Vietnamese toast messages
@@ -95,7 +93,6 @@ export function VerificationModal({
   isOpen,
   onClose,
   caseId,
-  onRequestReupload,
 }: VerificationModalProps) {
   const queryClient = useQueryClient()
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
@@ -172,8 +169,6 @@ export function VerificationModal({
   // Calculate progress
   const totalFields = fields.length
   const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
-  const allVerified = totalFields > 0 && verifiedCount === totalFields
-  const hasUnreadable = Object.values(fieldVerifications).includes('unreadable')
 
   // AI confidence - reuse memoized extractedData
   const extractedConfidence = extractedData.aiConfidence
@@ -286,22 +281,10 @@ export function VerificationModal({
     [verifyFieldMutation]
   )
 
-  // Handle complete verification
+  // Handle complete verification - auto-verifies all remaining fields
   const handleComplete = useCallback(() => {
-    if (!allVerified) {
-      toast.error(MESSAGES.ALL_FIELDS_REQUIRED)
-      return
-    }
     completeMutation.mutate()
-  }, [allVerified, completeMutation])
-
-  // Handle request re-upload
-  const handleRequestReupload = useCallback(() => {
-    const unreadableFields = Object.entries(fieldVerifications)
-      .filter(([_, status]) => status === 'unreadable')
-      .map(([key]) => key)
-    onRequestReupload?.(doc, unreadableFields)
-  }, [doc, fieldVerifications, onRequestReupload])
+  }, [completeMutation])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -338,16 +321,19 @@ export function VerificationModal({
         }
       }
 
-      // Enter to complete when all verified
-      if (e.key === 'Enter' && allVerified && !completeMutation.isPending) {
-        e.preventDefault()
-        handleComplete()
+      // Enter to complete
+      if (e.key === 'Enter' && !completeMutation.isPending) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          handleComplete()
+        }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, currentFieldIndex, fields.length, allVerified, completeMutation.isPending, handleComplete])
+  }, [isOpen, onClose, currentFieldIndex, fields.length, completeMutation.isPending, handleComplete])
 
   // Reset state when modal opens or doc changes
   // Note: setState is intentional here to sync internal state with prop changes
@@ -527,7 +513,7 @@ export function VerificationModal({
             <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
               {/* Compact progress bar */}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Xác minh</span>
+                <span className="text-muted-foreground">Đã chỉnh sửa</span>
                 <span className="font-medium">{verifiedCount}/{totalFields}</span>
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -537,33 +523,22 @@ export function VerificationModal({
                 />
               </div>
 
-              {/* Compact actions */}
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRequestReupload}
-                  disabled={!hasUnreadable || !onRequestReupload}
-                  className="text-xs"
-                >
-                  Yêu cầu tải lại
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleComplete}
-                  disabled={!allVerified || completeMutation.isPending}
-                  className="flex-1 text-xs"
-                >
-                  {completeMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                      Đang lưu...
-                    </>
-                  ) : (
-                    'Hoàn tất'
-                  )}
-                </Button>
-              </div>
+              {/* Complete button */}
+              <Button
+                size="sm"
+                onClick={handleComplete}
+                disabled={completeMutation.isPending}
+                className="w-full text-xs"
+              >
+                {completeMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  'Hoàn tất'
+                )}
+              </Button>
 
               {/* Keyboard hints inline */}
               <p className="text-[10px] text-muted-foreground text-center">

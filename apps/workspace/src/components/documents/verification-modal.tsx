@@ -99,6 +99,8 @@ export function VerificationModal({
 }: VerificationModalProps) {
   const queryClient = useQueryClient()
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
+  // Local state for instant optimistic UI updates (doesn't wait for query refetch)
+  const [localVerifications, setLocalVerifications] = useState<Record<string, FieldVerificationStatus>>({})
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
@@ -117,9 +119,11 @@ export function VerificationModal({
 
   // Extract and filter fields based on doc-type-specific fields
   const { fields, fieldVerifications } = useMemo(() => {
-    const verifications = isRecord(doc.fieldVerifications)
+    // Merge server state with local optimistic state (local takes precedence for instant feedback)
+    const serverVerifications = isRecord(doc.fieldVerifications)
       ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
       : {}
+    const verifications = { ...serverVerifications, ...localVerifications }
 
     // Get expected fields for this document type
     const expectedFields = getDocTypeFields(doc.docType)
@@ -163,7 +167,7 @@ export function VerificationModal({
       fields: orderedFields,
       fieldVerifications: verifications,
     }
-  }, [extractedData, doc.fieldVerifications, doc.docType])
+  }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications])
 
   // Calculate progress
   const totalFields = fields.length
@@ -181,13 +185,17 @@ export function VerificationModal({
     mutationFn: (payload: { field: string; status: FieldVerificationStatus; value?: string }) =>
       api.docs.verifyField(doc.id, payload),
     onMutate: async ({ field, status, value }) => {
+      // Instant local state update for immediate UI feedback
+      setLocalVerifications((prev) => ({ ...prev, [field]: status }))
+
       // Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey: ['case', caseId] })
 
       // Snapshot previous value
       const previousCase = queryClient.getQueryData(['case', caseId])
+      const previousLocalVerifications = { ...localVerifications }
 
-      // Optimistically update
+      // Optimistically update query cache too
       queryClient.setQueryData(['case', caseId], (old: unknown) => {
         if (!isRecord(old)) return old
         const digitalDocs = Array.isArray(old.digitalDocs) ? old.digitalDocs : []
@@ -206,7 +214,7 @@ export function VerificationModal({
         }
       })
 
-      return { previousCase }
+      return { previousCase, previousLocalVerifications }
     },
     onSuccess: () => {
       // Move to next unverified field
@@ -217,12 +225,16 @@ export function VerificationModal({
         setCurrentFieldIndex(nextUnverified)
       }
     },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
+    onError: (_error, variables, context) => {
+      // Rollback local state on error
+      if (context?.previousLocalVerifications) {
+        setLocalVerifications(context.previousLocalVerifications)
+      }
+      // Rollback query cache on error
       if (context?.previousCase) {
         queryClient.setQueryData(['case', caseId], context.previousCase)
       }
-      toast.error(MESSAGES.VERIFY_ERROR)
+      toast.error(`${MESSAGES.VERIFY_ERROR}: ${variables.field}`)
     },
     onSettled: () => {
       // Invalidate to ensure sync
@@ -337,14 +349,15 @@ export function VerificationModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose, currentFieldIndex, fields.length, allVerified, completeMutation.isPending, handleComplete])
 
-  // Reset state when modal opens
+  // Reset state when modal opens or doc changes
   // Note: setState is intentional here to sync internal state with prop changes
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setCurrentFieldIndex(0)
+      setLocalVerifications({}) // Clear local optimistic state for fresh doc
     }
-  }, [isOpen])
+  }, [isOpen, doc.id])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null

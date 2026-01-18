@@ -14,10 +14,9 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
-import { cn, Badge } from '@ella/ui'
+import { cn } from '@ella/ui'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { copyToClipboard, sanitizeText } from '../../lib/formatters'
-import { CompactProgressIndicator } from '../ui/progress-indicator'
 import type { DigitalDoc } from '../../lib/api-client'
 
 export interface VerifiedTabProps {
@@ -87,10 +86,9 @@ export function VerifiedTab({
       <div className="bg-card rounded-xl border overflow-hidden">
         {/* Table Header */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
-          <div className="col-span-4">Loại tài liệu</div>
-          <div className="col-span-3">Ngày xác minh</div>
-          <div className="col-span-3">Tiến độ nhập</div>
-          <div className="col-span-2 text-right">Thao tác</div>
+          <div className="col-span-5">Loại tài liệu</div>
+          <div className="col-span-4">Ngày xác minh</div>
+          <div className="col-span-3 text-right">Thao tác</div>
         </div>
 
         {/* Table Body */}
@@ -142,19 +140,12 @@ function VerifiedDocRow({
   const isRecord = (val: unknown): val is Record<string, unknown> =>
     typeof val === 'object' && val !== null && !Array.isArray(val)
 
-  // Calculate entry progress (copied fields / total fields)
+  // Get extracted data for expanded view
   const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
-  const copiedFields = isRecord(doc.copiedFields)
-    ? (doc.copiedFields as Record<string, boolean>)
-    : {}
   const dataFields = Object.keys(extractedData).filter(
     (k) => !['aiConfidence', 'rawText'].includes(k)
   )
   const totalFields = dataFields.length
-  const copiedCount = dataFields.filter((f) => copiedFields[f]).length
-
-  // Entry completion status
-  const entryCompleted = doc.entryCompleted ?? false
 
   return (
     <div className="group">
@@ -167,7 +158,7 @@ function VerifiedDocRow({
         onClick={onToggle}
       >
         {/* Document Type */}
-        <div className="col-span-12 md:col-span-4 flex items-center gap-3">
+        <div className="col-span-12 md:col-span-5 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-success/10">
             <FileText className="w-4 h-4 text-success" />
           </div>
@@ -182,31 +173,13 @@ function VerifiedDocRow({
         </div>
 
         {/* Verified Date */}
-        <div className="col-span-6 md:col-span-3 text-sm text-muted-foreground">
+        <div className="col-span-6 md:col-span-4 text-sm text-muted-foreground">
           {verifiedDate}
         </div>
 
-        {/* Entry Progress */}
-        <div className="col-span-6 md:col-span-3">
-          {entryCompleted ? (
-            <Badge variant="success" className="text-xs">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Đã nhập xong
-            </Badge>
-          ) : totalFields > 0 ? (
-            <CompactProgressIndicator
-              current={copiedCount}
-              total={totalFields}
-              ariaLabel="Tiến độ nhập liệu"
-            />
-          ) : (
-            <span className="text-xs text-muted-foreground">Không có dữ liệu</span>
-          )}
-        </div>
-
         {/* Actions */}
-        <div className="hidden md:flex col-span-2 justify-end items-center gap-2">
-          {onDataEntry && !entryCompleted && (
+        <div className="col-span-6 md:col-span-3 flex justify-end items-center gap-2">
+          {onDataEntry && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -242,7 +215,7 @@ function VerifiedDocRow({
           <div className="ml-11 p-4 bg-muted/30 rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-foreground">Dữ liệu đã trích xuất</h4>
-              {onDataEntry && !entryCompleted && (
+              {onDataEntry && (
                 <button
                   onClick={onDataEntry}
                   className="md:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white"
@@ -256,27 +229,16 @@ function VerifiedDocRow({
               {dataFields.map((field) => {
                 const value = extractedData[field]
                 const formattedValue = formatFieldValue(value)
-                const isCopied = copiedFields[field] ?? false
                 const fieldId = `${doc.id}-${field}`
 
                 return (
                   <div
                     key={field}
-                    className={cn(
-                      'flex items-center justify-between py-1.5 border-b border-border last:border-0',
-                      isCopied && 'bg-success/5'
-                    )}
+                    className="flex items-center justify-between py-1.5 border-b border-border last:border-0"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm text-muted-foreground truncate">
-                        {formatFieldLabel(field)}
-                      </span>
-                      {isCopied && (
-                        <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                          Đã copy
-                        </Badge>
-                      )}
-                    </div>
+                    <span className="text-sm text-muted-foreground truncate">
+                      {formatFieldLabel(field)}
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
                         {formattedValue || '—'}
@@ -350,30 +312,26 @@ export function VerifiedTabSkeleton() {
       <div className="bg-card rounded-xl border overflow-hidden">
         {/* Header */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b">
+          <div className="col-span-5 h-4 bg-muted rounded animate-pulse" />
           <div className="col-span-4 h-4 bg-muted rounded animate-pulse" />
           <div className="col-span-3 h-4 bg-muted rounded animate-pulse" />
-          <div className="col-span-3 h-4 bg-muted rounded animate-pulse" />
-          <div className="col-span-2 h-4 bg-muted rounded animate-pulse" />
         </div>
 
         {/* Rows */}
         <div className="divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="grid grid-cols-12 gap-4 px-4 py-3 items-center">
-              <div className="col-span-12 md:col-span-4 flex items-center gap-3">
+              <div className="col-span-12 md:col-span-5 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-muted animate-pulse" />
                 <div className="space-y-1.5">
                   <div className="w-24 h-4 bg-muted rounded animate-pulse" />
                   <div className="w-32 h-3 bg-muted rounded animate-pulse" />
                 </div>
               </div>
-              <div className="col-span-6 md:col-span-3">
-                <div className="w-16 h-4 bg-muted rounded animate-pulse" />
+              <div className="col-span-6 md:col-span-4">
+                <div className="w-20 h-4 bg-muted rounded animate-pulse" />
               </div>
-              <div className="col-span-6 md:col-span-3">
-                <div className="w-20 h-5 bg-muted rounded-full animate-pulse" />
-              </div>
-              <div className="hidden md:flex col-span-2 justify-end gap-2">
+              <div className="col-span-6 md:col-span-3 flex justify-end gap-2">
                 <div className="w-16 h-7 bg-muted rounded-lg animate-pulse" />
                 <div className="w-7 h-7 bg-muted rounded-lg animate-pulse" />
               </div>

@@ -1,12 +1,12 @@
 /**
- * CopyableField - Field component for copy tracking (OltPro data entry)
- * Displays field value with copy-to-clipboard button and persisted checkbox
- * Used for tracking which fields have been copied to external systems
+ * CopyableField - Compact field component for copy-to-clipboard
+ * Shows label + value inline with a copy button
+ * Displays checkmark briefly after copying (in-session only, not persisted)
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { cn, Button } from '@ella/ui'
-import { Copy, Check, CheckCircle2, Circle } from 'lucide-react'
+import { cn } from '@ella/ui'
+import { Copy, Check } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 
 export interface CopyableFieldProps {
@@ -16,10 +16,10 @@ export interface CopyableFieldProps {
   label: string
   /** Current value to copy */
   value: string
-  /** Whether field has been copied (persisted state) */
+  /** Whether field has been copied (in-session state) */
   isCopied?: boolean
   /** Callback when field is copied */
-  onCopy: (fieldKey: string) => void
+  onCopy?: (fieldKey: string) => void
   /** Whether field is disabled */
   disabled?: boolean
   /** Additional CSS classes */
@@ -38,7 +38,7 @@ export function CopyableField({
   const [justCopied, setJustCopied] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cleanup timeout on unmount to prevent memory leak
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -53,7 +53,7 @@ export function CopyableField({
     try {
       await navigator.clipboard.writeText(value)
       setJustCopied(true)
-      onCopy(fieldKey)
+      onCopy?.(fieldKey)
 
       // Clear previous timeout if any
       if (timeoutRef.current) {
@@ -66,64 +66,49 @@ export function CopyableField({
         timeoutRef.current = null
       }, 2000)
     } catch (err) {
-      // User feedback on clipboard failure
       console.error('Failed to copy to clipboard:', err)
       toast.error('Không thể sao chép. Vui lòng thử lại.')
     }
   }, [disabled, value, fieldKey, onCopy])
 
+  // Show check if just copied or marked as copied this session
+  const showCheck = justCopied || isCopied
+
   return (
     <div
       className={cn(
-        'flex items-center justify-between p-3 border rounded-lg transition-colors',
-        isCopied ? 'border-primary/50 bg-primary-light/20' : 'border-border bg-card',
+        'flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors',
         disabled && 'opacity-60',
         className
       )}
       data-field-key={fieldKey}
     >
-      {/* Label and value */}
-      <div className="flex-1 min-w-0 mr-3">
-        <div className="text-xs text-secondary mb-0.5">{label}</div>
-        <div className="font-medium text-foreground truncate">
-          {value || <span className="text-muted-foreground italic">Trống</span>}
-        </div>
-      </div>
+      {/* Label */}
+      <span className="text-sm text-secondary min-w-[120px] flex-shrink-0">{label}:</span>
 
-      {/* Copy button and status indicator */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleCopy}
-          disabled={disabled || !value}
-          className={cn('h-8 w-8 p-0', justCopied && 'text-primary')}
-          aria-label={justCopied ? 'Đã sao chép' : 'Sao chép'}
-          title={justCopied ? 'Đã sao chép' : 'Sao chép'}
-        >
-          {justCopied ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
-        </Button>
+      {/* Value */}
+      <span className="flex-1 text-sm font-medium text-foreground truncate">
+        {value || <span className="text-muted-foreground italic">Trống</span>}
+      </span>
 
-        {/* Persisted copy status indicator */}
-        <div
-          className={cn(
-            'transition-colors',
-            isCopied ? 'text-primary' : 'text-muted-foreground'
-          )}
-          aria-label={isCopied ? 'Đã sao chép' : 'Chưa sao chép'}
-          title={isCopied ? 'Đã sao chép' : 'Chưa sao chép'}
-        >
-          {isCopied ? (
-            <CheckCircle2 className="h-5 w-5" />
-          ) : (
-            <Circle className="h-5 w-5" />
-          )}
-        </div>
-      </div>
+      {/* Copy button */}
+      <button
+        onClick={handleCopy}
+        disabled={disabled || !value}
+        className={cn(
+          'p-1.5 rounded hover:bg-muted transition-colors flex-shrink-0',
+          showCheck ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+          (disabled || !value) && 'opacity-50 cursor-not-allowed'
+        )}
+        aria-label={showCheck ? 'Đã sao chép' : 'Sao chép'}
+        title={showCheck ? 'Đã sao chép' : 'Nhấn để sao chép'}
+      >
+        {showCheck ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <Copy className="h-4 w-4" />
+        )}
+      </button>
     </div>
   )
 }

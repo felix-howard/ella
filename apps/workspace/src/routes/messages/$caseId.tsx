@@ -248,6 +248,7 @@ function ConversationDetailView() {
           isSending={isSending}
           clientName={caseData.client.name}
           clientPhone={caseData.client.phone}
+          clientId={caseData.client.id}
           defaultChannel="SMS"
         />
       )}

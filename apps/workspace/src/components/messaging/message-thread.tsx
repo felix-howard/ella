@@ -3,7 +3,7 @@
  * Renders messages in chronological order with date separators
  */
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useLayoutEffect } from 'react'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { MessageBubble, TypingIndicator } from './message-bubble'
@@ -24,6 +24,8 @@ export function MessageThread({
 }: MessageThreadProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const prevMessagesLengthRef = useRef(0)
+  const hasScrolledInitialRef = useRef(false)
 
   // Group messages by date for date separators
   const groupedMessages = useMemo(() => {
@@ -48,9 +50,32 @@ export function MessageThread({
     return groups
   }, [messages])
 
-  // Auto-scroll to bottom on new messages
+  // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) {
+      hasScrolledInitialRef.current = false
+      prevMessagesLengthRef.current = 0
+    }
+  }, [messages.length])
+
+  // Instant scroll to bottom on initial load (no animation)
+  useLayoutEffect(() => {
+    if (messages.length > 0 && !hasScrolledInitialRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      hasScrolledInitialRef.current = true
+      prevMessagesLengthRef.current = messages.length
+    }
+  }, [messages.length])
+
+  // Smooth scroll to bottom on new messages (after initial load)
+  useEffect(() => {
+    if (
+      hasScrolledInitialRef.current &&
+      messages.length > prevMessagesLengthRef.current
+    ) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevMessagesLengthRef.current = messages.length
   }, [messages.length])
 
   // Loading state

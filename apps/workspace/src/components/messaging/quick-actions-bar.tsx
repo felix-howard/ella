@@ -5,9 +5,10 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { cn } from '@ella/ui'
-import { Send, Smile, FileText, Phone, ImageIcon } from 'lucide-react'
+import { Send, Smile, FileText, Link2 } from 'lucide-react'
 import { TemplatePicker, type MessageTemplate } from './template-picker'
 import { stripHtmlTags } from '../../lib/formatters'
+import { api } from '../../lib/api-client'
 
 export interface QuickActionsBarProps {
   onSend: (message: string, channel: 'SMS' | 'PORTAL') => void
@@ -15,6 +16,7 @@ export interface QuickActionsBarProps {
   disabled?: boolean
   clientName?: string
   clientPhone?: string
+  clientId?: string
   defaultChannel?: 'SMS' | 'PORTAL'
 }
 
@@ -24,11 +26,12 @@ export function QuickActionsBar({
   disabled,
   clientName,
   clientPhone,
+  clientId,
   defaultChannel = 'SMS',
 }: QuickActionsBarProps) {
   const [message, setMessage] = useState('')
-  const [channel, setChannel] = useState<'SMS' | 'PORTAL'>(defaultChannel)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [isLoadingPortalLink, setIsLoadingPortalLink] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-resize textarea
@@ -40,17 +43,38 @@ export function QuickActionsBar({
     }
   }, [message])
 
-  // Handle send - sanitize input before sending
+  // Handle send - sanitize input before sending (always SMS)
   const handleSend = () => {
     const trimmed = stripHtmlTags(message).trim()
     if (!trimmed || isSending || disabled) return
 
-    onSend(trimmed, channel)
+    onSend(trimmed, 'SMS')
     setMessage('')
 
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+    }
+  }
+
+  // Insert portal link into message
+  const handleInsertPortalLink = async () => {
+    if (!clientId || isLoadingPortalLink) return
+
+    setIsLoadingPortalLink(true)
+    try {
+      const clientData = await api.clients.get(clientId)
+      if (clientData.portalUrl) {
+        const portalUrl = clientData.portalUrl
+        setMessage((prev) => prev ? `${prev}\n${portalUrl}` : portalUrl)
+        textareaRef.current?.focus()
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to get portal link:', error)
+      }
+    } finally {
+      setIsLoadingPortalLink(false)
     }
   }
 
@@ -74,44 +98,6 @@ export function QuickActionsBar({
   return (
     <>
       <div className="border-t border-border bg-card px-4 py-3">
-        {/* Channel selector */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-muted-foreground">Gửi qua:</span>
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            <button
-              onClick={() => setChannel('SMS')}
-              disabled={!clientPhone}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                channel === 'SMS'
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground',
-                !clientPhone && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              <Phone className="w-3 h-3" />
-              SMS
-            </button>
-            <button
-              onClick={() => setChannel('PORTAL')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                channel === 'PORTAL'
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <ImageIcon className="w-3 h-3" />
-              Portal
-            </button>
-          </div>
-          {channel === 'SMS' && clientPhone && (
-            <span className="text-xs text-muted-foreground ml-2">
-              → {clientPhone}
-            </span>
-          )}
-        </div>
-
         {/* Input area */}
         <div className="flex items-end gap-2">
           {/* Quick action buttons */}
@@ -140,6 +126,25 @@ export function QuickActionsBar({
             >
               <Smile className="w-5 h-5" />
             </button>
+            {clientId && (
+              <button
+                onClick={handleInsertPortalLink}
+                disabled={isLoadingPortalLink}
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  'text-muted-foreground hover:text-foreground hover:bg-muted',
+                  isLoadingPortalLink && 'opacity-50 cursor-wait'
+                )}
+                aria-label="Chèn link portal"
+                title="Chèn link portal"
+              >
+                {isLoadingPortalLink ? (
+                  <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                ) : (
+                  <Link2 className="w-5 h-5" />
+                )}
+              </button>
+            )}
           </div>
 
           {/* Text input */}
@@ -181,11 +186,6 @@ export function QuickActionsBar({
             )}
           </button>
         </div>
-
-        {/* Hint */}
-        <p className="text-[10px] text-muted-foreground mt-2 text-right">
-          Enter để gửi • Shift+Enter xuống dòng
-        </p>
       </div>
 
       {/* Template picker modal */}

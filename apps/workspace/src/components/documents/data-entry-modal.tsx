@@ -5,7 +5,7 @@
  * Features: clipboard copy, persisted copy state, reset/complete functionality
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, RotateCcw } from 'lucide-react'
 import { Badge, Button } from '@ella/ui'
@@ -73,6 +73,8 @@ export function DataEntryModal({
 }: DataEntryModalProps) {
   const queryClient = useQueryClient()
   const [isResetting, setIsResetting] = useState(false)
+  // Local state for instant optimistic UI updates (doesn't wait for query refetch)
+  const [localCopiedFields, setLocalCopiedFields] = useState<Record<string, boolean>>({})
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
@@ -86,9 +88,11 @@ export function DataEntryModal({
   // Extract fields from extractedData based on doc type
   const { fields, copiedFields } = useMemo(() => {
     const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
-    const copied = isRecord(doc.copiedFields)
+    // Merge server state with local optimistic state (local takes precedence for instant feedback)
+    const serverCopied = isRecord(doc.copiedFields)
       ? (doc.copiedFields as Record<string, boolean>)
       : {}
+    const copied = { ...serverCopied, ...localCopiedFields }
 
     // Get expected fields for this document type
     const expectedFields = getDocTypeFields(doc.docType)
@@ -128,7 +132,7 @@ export function DataEntryModal({
       fields: orderedFields,
       copiedFields: copied,
     }
-  }, [doc.extractedData, doc.copiedFields, doc.docType])
+  }, [doc.extractedData, doc.copiedFields, doc.docType, localCopiedFields])
 
   // Calculate copy progress
   const totalFields = fields.length
@@ -139,13 +143,17 @@ export function DataEntryModal({
   const markCopiedMutation = useMutation({
     mutationFn: (field: string) => api.docs.markCopied(doc.id, field),
     onMutate: async (field) => {
+      // Instant local state update for immediate UI feedback
+      setLocalCopiedFields((prev) => ({ ...prev, [field]: true }))
+
       // Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey: ['case', caseId] })
 
-      // Snapshot previous value
+      // Snapshot previous values
       const previousCase = queryClient.getQueryData(['case', caseId])
+      const previousLocalCopied = { ...localCopiedFields }
 
-      // Optimistically update
+      // Optimistically update query cache too
       queryClient.setQueryData(['case', caseId], (old: unknown) => {
         if (!isRecord(old)) return old
         const digitalDocs = Array.isArray(old.digitalDocs) ? old.digitalDocs : []
@@ -162,14 +170,18 @@ export function DataEntryModal({
         }
       })
 
-      return { previousCase }
+      return { previousCase, previousLocalCopied }
     },
-    onError: (_error, _field, context) => {
-      // Rollback on error
+    onError: (_error, field, context) => {
+      // Rollback local state on error
+      if (context?.previousLocalCopied) {
+        setLocalCopiedFields(context.previousLocalCopied)
+      }
+      // Rollback query cache on error
       if (context?.previousCase) {
         queryClient.setQueryData(['case', caseId], context.previousCase)
       }
-      toast.error(MESSAGES.COPY_ERROR)
+      toast.error(`${MESSAGES.COPY_ERROR}: ${field}`)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['case', caseId] })
@@ -201,6 +213,8 @@ export function DataEntryModal({
   const handleReset = useCallback(async () => {
     setIsResetting(true)
     try {
+      // Clear local optimistic state
+      setLocalCopiedFields({})
       // Reset by marking all copied fields as not copied
       // Note: API should support bulk reset, but for now we'll do it client-side
       // and invalidate the query to get fresh state
@@ -221,6 +235,13 @@ export function DataEntryModal({
     }
     completeEntryMutation.mutate()
   }, [allCopied, completeEntryMutation])
+
+  // Reset local state when modal opens or doc changes
+  useEffect(() => {
+    if (isOpen) {
+      setLocalCopiedFields({}) // Clear local optimistic state for fresh doc
+    }
+  }, [isOpen, doc.id])
 
   if (!isOpen) return null
 

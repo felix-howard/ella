@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { cn } from '@ella/ui'
-import { Send, Smile, FileText, Link2 } from 'lucide-react'
+import { Send, FileText, Link2 } from 'lucide-react'
 import { TemplatePicker, type MessageTemplate } from './template-picker'
 import { stripHtmlTags } from '../../lib/formatters'
 import { api } from '../../lib/api-client'
@@ -97,11 +97,11 @@ export function QuickActionsBar({
 
   return (
     <>
-      <div className="border-t border-border bg-card px-4 py-3">
-        {/* Input area */}
-        <div className="flex items-end gap-2">
+      <div className="border-t border-border bg-card px-3 py-2">
+        {/* Input area - vertically centered */}
+        <div className="flex items-center gap-2">
           {/* Quick action buttons */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <button
               onClick={() => setShowTemplates(true)}
               className={cn(
@@ -111,20 +111,7 @@ export function QuickActionsBar({
               aria-label="Chọn mẫu tin nhắn"
               title="Mẫu tin nhắn"
             >
-              <FileText className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => {
-                // TODO: Implement emoji picker
-              }}
-              className={cn(
-                'p-2 rounded-lg transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}
-              aria-label="Thêm emoji"
-              title="Emoji"
-            >
-              <Smile className="w-5 h-5" />
+              <FileText className="w-[18px] h-[18px]" />
             </button>
             {clientId && (
               <button
@@ -139,16 +126,16 @@ export function QuickActionsBar({
                 title="Chèn link portal"
               >
                 {isLoadingPortalLink ? (
-                  <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                  <div className="w-[18px] h-[18px] border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
                 ) : (
-                  <Link2 className="w-5 h-5" />
+                  <Link2 className="w-[18px] h-[18px]" />
                 )}
               </button>
             )}
           </div>
 
           {/* Text input */}
-          <div className="flex-1 relative">
+          <div className="flex-1">
             <textarea
               ref={textareaRef}
               value={message}
@@ -158,9 +145,9 @@ export function QuickActionsBar({
               disabled={disabled}
               rows={1}
               className={cn(
-                'w-full px-4 py-2.5 rounded-xl border border-border bg-muted',
+                'w-full px-3 py-2 rounded-lg border border-border bg-muted',
                 'resize-none overflow-hidden',
-                'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary',
+                'focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary',
                 'text-sm text-foreground placeholder:text-muted-foreground',
                 'disabled:opacity-50 disabled:cursor-not-allowed'
               )}
@@ -172,7 +159,7 @@ export function QuickActionsBar({
             onClick={handleSend}
             disabled={!canSend}
             className={cn(
-              'p-3 rounded-xl transition-colors',
+              'p-2 rounded-lg transition-colors',
               canSend
                 ? 'bg-primary text-white hover:bg-primary-dark'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -180,9 +167,9 @@ export function QuickActionsBar({
             aria-label="Gửi tin nhắn"
           >
             {isSending ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-[18px] h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-[18px] h-[18px]" />
             )}
           </button>
         </div>

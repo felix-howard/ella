@@ -30,6 +30,26 @@ interface DocumentChecklistTreeProps {
   onVerify?: (item: ChecklistItem) => void
   onImageDrop?: (imageId: string, targetChecklistItemId: string) => void
   enableDragDrop?: boolean
+  /** Hide internal header (progress circle + dots) when shown externally */
+  showHeader?: boolean
+}
+
+/** Calculate checklist progress percentage */
+export function calculateChecklistProgress(items: ChecklistItem[]): number {
+  const total = items.filter(i => i.status !== 'NOT_REQUIRED').length
+  const verified = items.filter(i => i.status === 'VERIFIED').length
+  return total > 0 ? Math.round((verified / total) * 100) : 0
+}
+
+/** Get status counts for progress dots */
+export function getChecklistStatusCounts(items: ChecklistItem[]) {
+  return {
+    verified: items.filter(i => i.status === 'VERIFIED').length,
+    hasDigital: items.filter(i => i.status === 'HAS_DIGITAL').length,
+    hasRaw: items.filter(i => i.status === 'HAS_RAW').length,
+    missing: items.filter(i => i.status === 'MISSING').length,
+    notRequired: items.filter(i => i.status === 'NOT_REQUIRED').length,
+  }
 }
 
 // Status dot component - minimal indicator
@@ -52,7 +72,7 @@ function StatusDot({ status }: { status: ChecklistItemStatus }) {
 }
 
 // Progress dots for header - shows distribution
-function ProgressDots({ items }: { items: ChecklistItem[] }) {
+export function ProgressDots({ items }: { items: ChecklistItem[] }) {
   const counts = useMemo(() => ({
     verified: items.filter(i => i.status === 'VERIFIED').length,
     hasDigital: items.filter(i => i.status === 'HAS_DIGITAL').length,
@@ -77,6 +97,7 @@ export function DocumentChecklistTree({
   onVerify,
   onImageDrop,
   enableDragDrop = false,
+  showHeader = true,
 }: DocumentChecklistTreeProps) {
   // File viewer modal state
   const [viewerFile, setViewerFile] = useState<{ imageId: string; filename: string } | null>(null)
@@ -138,22 +159,24 @@ export function DocumentChecklistTree({
 
   return (
     <div className="space-y-2">
-      {/* Simplified header */}
-      <div className="flex items-center justify-between px-2 py-2 border-b border-border">
-        <div className="flex items-center gap-3">
-          {/* Progress circle */}
-          <div className="relative w-10 h-10">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
-              <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${progress * 0.88} 100`} className="text-primary" />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-foreground">{progress}%</span>
+      {/* Simplified header - conditionally rendered */}
+      {showHeader && (
+        <div className="flex items-center justify-between px-2 py-2 border-b border-border">
+          <div className="flex items-center gap-3">
+            {/* Progress circle */}
+            <div className="relative w-10 h-10">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${progress * 0.88} 100`} className="text-primary" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-foreground">{progress}%</span>
+              </div>
             </div>
+            <ProgressDots items={items} />
           </div>
-          <ProgressDots items={items} />
         </div>
-      </div>
+      )}
 
       {/* Category tree */}
       <div className="divide-y divide-border/50">

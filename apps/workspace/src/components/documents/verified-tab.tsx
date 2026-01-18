@@ -4,19 +4,12 @@
  * Each row shows doc type, verification date, entry progress, and actions
  */
 
-import { useState } from 'react'
 import {
   FileText,
   CheckCircle,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Check,
 } from 'lucide-react'
-import { cn } from '@ella/ui'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { copyToClipboard, sanitizeText } from '../../lib/formatters'
 import type { DigitalDoc } from '../../lib/api-client'
 
 export interface VerifiedTabProps {
@@ -34,20 +27,6 @@ export function VerifiedTab({
 }: VerifiedTabProps) {
   // caseId reserved for future batch export operations
   void _caseId
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
-
-  const handleCopy = async (value: string, fieldId: string) => {
-    const success = await copyToClipboard(value)
-    if (success) {
-      setCopiedField(fieldId)
-      setTimeout(() => setCopiedField(null), 2000)
-    }
-  }
-
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id)
-  }
 
   if (isLoading) {
     return <VerifiedTabSkeleton />
@@ -97,10 +76,6 @@ export function VerifiedTab({
             <VerifiedDocRow
               key={doc.id}
               doc={doc}
-              isExpanded={expandedId === doc.id}
-              onToggle={() => toggleExpand(doc.id)}
-              onCopy={handleCopy}
-              copiedField={copiedField}
               onDataEntry={() => onDataEntry?.(doc)}
             />
           ))}
@@ -112,19 +87,11 @@ export function VerifiedTab({
 
 interface VerifiedDocRowProps {
   doc: DigitalDoc
-  isExpanded: boolean
-  onToggle: () => void
-  onCopy: (value: string, fieldId: string) => void
-  copiedField: string | null
   onDataEntry?: () => void
 }
 
 function VerifiedDocRow({
   doc,
-  isExpanded,
-  onToggle,
-  onCopy,
-  copiedField,
   onDataEntry,
 }: VerifiedDocRowProps) {
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
@@ -136,167 +103,43 @@ function VerifiedDocRow({
       })
     : '—'
 
-  // Type guard for safe Record extraction
-  const isRecord = (val: unknown): val is Record<string, unknown> =>
-    typeof val === 'object' && val !== null && !Array.isArray(val)
-
-  // Get extracted data for expanded view
-  const extractedData = isRecord(doc.extractedData) ? doc.extractedData : {}
-  const dataFields = Object.keys(extractedData).filter(
-    (k) => !['aiConfidence', 'rawText'].includes(k)
-  )
-  const totalFields = dataFields.length
-
   return (
-    <div className="group">
-      {/* Main Row */}
-      <div
-        className={cn(
-          'grid grid-cols-12 gap-4 px-4 py-3 items-center cursor-pointer',
-          'hover:bg-muted/30 transition-colors'
-        )}
-        onClick={onToggle}
-      >
-        {/* Document Type */}
-        <div className="col-span-12 md:col-span-5 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-success/10">
-            <FileText className="w-4 h-4 text-success" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-medium text-foreground text-sm truncate">{docLabel}</p>
-            {doc.rawImage?.filename && (
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                {doc.rawImage.filename}
-              </p>
-            )}
-          </div>
+    <div className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors">
+      {/* Document Type */}
+      <div className="col-span-12 md:col-span-5 flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-success/10">
+          <FileText className="w-4 h-4 text-success" />
         </div>
-
-        {/* Verified Date */}
-        <div className="col-span-6 md:col-span-4 text-sm text-muted-foreground">
-          {verifiedDate}
-        </div>
-
-        {/* Actions */}
-        <div className="col-span-6 md:col-span-3 flex justify-end items-center gap-2">
-          {onDataEntry && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDataEntry()
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
-              aria-label="Mở Data Entry"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Nhập liệu
-            </button>
+        <div className="min-w-0">
+          <p className="font-medium text-foreground text-sm truncate">{docLabel}</p>
+          {doc.rawImage?.filename && (
+            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+              {doc.rawImage.filename}
+            </p>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-            aria-label={isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            )}
-          </button>
         </div>
       </div>
 
-      {/* Expanded Content - Extracted Data */}
-      {isExpanded && totalFields > 0 && (
-        <div className="px-4 pb-4 pt-0">
-          <div className="ml-11 p-4 bg-muted/30 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-foreground">Dữ liệu đã trích xuất</h4>
-              {onDataEntry && (
-                <button
-                  onClick={onDataEntry}
-                  className="md:hidden inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Nhập liệu
-                </button>
-              )}
-            </div>
-            <div className="space-y-2">
-              {dataFields.map((field) => {
-                const value = extractedData[field]
-                const formattedValue = formatFieldValue(value)
-                const fieldId = `${doc.id}-${field}`
+      {/* Verified Date */}
+      <div className="col-span-6 md:col-span-4 text-sm text-muted-foreground">
+        {verifiedDate}
+      </div>
 
-                return (
-                  <div
-                    key={field}
-                    className="flex items-center justify-between py-1.5 border-b border-border last:border-0"
-                  >
-                    <span className="text-sm text-muted-foreground truncate">
-                      {formatFieldLabel(field)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                        {formattedValue || '—'}
-                      </span>
-                      {formattedValue && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onCopy(formattedValue, fieldId)
-                          }}
-                          className="p-1 rounded hover:bg-muted transition-colors"
-                          aria-label={`Copy ${field}`}
-                        >
-                          {copiedField === fieldId ? (
-                            <Check className="w-3.5 h-3.5 text-success" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Actions */}
+      <div className="col-span-6 md:col-span-3 flex justify-end items-center">
+        {onDataEntry && (
+          <button
+            onClick={onDataEntry}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+            aria-label="Mở Data Entry"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Nhập liệu
+          </button>
+        )}
+      </div>
     </div>
   )
-}
-
-/**
- * Format field label from camelCase to readable format
- */
-function formatFieldLabel(key: string): string {
-  return key
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (str) => str.toUpperCase())
-    .trim()
-}
-
-/**
- * Format field value for display with XSS protection
- * Uses DOMParser-based sanitization to properly handle HTML entities
- */
-function formatFieldValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return ''
-  }
-  let result: string
-  if (typeof value === 'number') {
-    result = value >= 100 ? `$${value.toLocaleString()}` : String(value)
-  } else {
-    result = String(value)
-  }
-  // Use proper XSS sanitization from formatters
-  return sanitizeText(result)
 }
 
 /**

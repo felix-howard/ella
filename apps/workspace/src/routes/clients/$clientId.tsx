@@ -25,7 +25,7 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { DocumentChecklistTree, StatusSelector } from '../../components/cases'
+import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
@@ -474,13 +474,29 @@ function ClientDetailPage() {
         <div className="space-y-6">
           {/* Document Checklist Tree */}
           <div className="bg-card rounded-xl border border-border p-4">
-            <h2 className="text-base font-semibold text-primary mb-3">
-              Danh sách tài liệu cần thu thập
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-primary">
+                Danh sách tài liệu cần thu thập
+              </h2>
+              <div className="flex items-center gap-3">
+                {/* Progress circle */}
+                <div className="relative w-8 h-8">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${calculateChecklistProgress(checklistItems) * 0.88} 100`} className="text-primary" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-foreground">{calculateChecklistProgress(checklistItems)}%</span>
+                  </div>
+                </div>
+                <ProgressDots items={checklistItems} />
+              </div>
+            </div>
             <DocumentChecklistTree
               items={checklistItems}
               onVerify={(item) => console.log('Verify item:', item.id)}
               enableDragDrop={true}
+              showHeader={false}
               onImageDrop={(imageId, targetChecklistItemId) => {
                 moveImageMutation.mutate({ imageId, targetChecklistItemId })
               }}

@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3 Checklist** | **Checklist Generator Fix - intakeAnswers priority, dynamic counts, 15 tests** | **2026-01-19** |
 | **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
 | **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
 | **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
@@ -96,6 +97,25 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
 ## Backend Services
+
+### Checklist Generator Service (Phase 3 - Enhanced)
+
+**Location:** `apps/api/src/services/checklist-generator.ts`
+
+**Key Features:**
+- **ConditionContext:** Combines legacy profile fields + dynamic intakeAnswers JSON
+- **Priority System:** intakeAnswers checked first, fallback to profile fields (prevents data conflicts)
+- **Condition Evaluation:** AND logic across multiple keys, JSON size limit (10KB DoS protection)
+- **Dynamic Counts:** w2Count, rentalPropertyCount, k1Count read from intakeAnswers
+- **Defaults:** Bank statements 12 months, others template expectedCount or 1
+- **Type Validation:** intakeAnswers validated as plain object (rejects arrays/primitives)
+- **Refresh Flow:** Preserves VERIFIED items, re-evaluates MISSING items on profile updates
+
+**Functions:**
+- `generateChecklist(caseId, taxTypes[], profile)` - Create checklist items from templates
+- `refreshChecklist(caseId)` - Re-evaluate MISSING items after profile/intakeAnswers change
+
+**Unit Tests (15):** Condition evaluation, intakeAnswers priority, AND logic, count mappings, invalid JSON, DoS protection, refresh flow
 
 ### AI Classification & Document Processing
 
@@ -293,8 +313,8 @@ See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionn
 ---
 
 **Last Updated:** 2026-01-19
-**Status:** Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 document types) + Phase 03 OCR Extended (13) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
+**Status:** Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 6.8.0
+**Architecture Version:** 6.8.1 (Phase 3 Checklist Enhanced)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

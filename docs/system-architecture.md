@@ -180,11 +180,28 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Core Services (Phase 1.2+):**
 
-- `checklist-generator.ts` - Generate checklist from profile & templates
+- `checklist-generator.ts` - Generate checklist from profile & templates (Phase 3: intakeAnswers priority)
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 - `pdf/pdf-converter.ts` - PDF to PNG conversion for OCR processing (Phase 01)
+
+**Checklist Generator Service (Phase 3 - Enhanced):**
+
+- **ConditionContext Interface:** Combines legacy profile fields + dynamic intakeAnswers (new)
+- **Condition Evaluation:** Checks intakeAnswers first, falls back to profile fields
+  - Prevents mismatches between questionnaire answers & legacy data
+  - Supports AND logic across multiple conditions
+  - JSON size limit: 10KB (DoS protection)
+- **Expected Count Logic:** Uses intake answers for dynamic counts
+  - W2: `w2Count` from intakeAnswers
+  - Rental Property: `rentalPropertyCount` from intakeAnswers
+  - Schedule K1: `k1Count` from intakeAnswers
+  - Bank Statements: 12 months default
+  - Fallback: template `expectedCount` or 1
+- **intakeAnswers Validation:** Type-checked at runtime (must be plain object, not array)
+- **Refresh Flow:** Preserves verified items, re-evaluates MISSING items only
+- **15 Unit Tests:** Condition evaluation, AND logic, fallback behavior, invalid JSON, DoS protection
 
 **SMS Service Implementation (Phase 1.2+):**
 

@@ -22,9 +22,10 @@ import {
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
+import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 
-const casesRoute = new Hono()
+const casesRoute = new Hono<{ Variables: AuthVariables }>()
 
 // GET /cases - List all cases with filters
 casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
@@ -421,12 +422,12 @@ casesRoute.get('/images/:imageId/file', async (c) => {
 // ============================================
 
 // POST /cases/:id/checklist/items - Add manual checklist item
-// SECURITY NOTE: userId tracking requires auth middleware integration (planned for future)
 casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchema), async (c) => {
   const caseId = c.req.param('id')
   const { docType, reason, expectedCount } = c.req.valid('json')
-  // TODO(auth): Get userId from auth middleware when Clerk integration is complete
-  const userId = null
+  // Get staffId from auth context (authMiddleware ensures user exists)
+  const user = c.get('user') as AuthUser | undefined
+  const staffId = user?.staffId || null
 
   // Verify case exists
   const taxCase = await prisma.taxCase.findUnique({
@@ -469,7 +470,7 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
       status: 'MISSING',
       expectedCount: expectedCount ?? 1,
       isManuallyAdded: true,
-      addedById: userId,
+      addedById: staffId,
       addedReason: reason,
     },
     include: {
@@ -482,12 +483,12 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
 })
 
 // PATCH /cases/:id/checklist/items/:itemId/skip - Skip checklist item
-// SECURITY NOTE: userId tracking requires auth middleware integration (planned for future)
 casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChecklistItemSchema), async (c) => {
   const { id: caseId, itemId } = c.req.param()
   const { reason } = c.req.valid('json')
-  // TODO(auth): Get userId from auth middleware when Clerk integration is complete
-  const userId = null
+  // Get staffId from auth context (authMiddleware ensures user exists)
+  const user = c.get('user') as AuthUser | undefined
+  const staffId = user?.staffId || null
 
   // Verify item exists and belongs to case
   const item = await prisma.checklistItem.findFirst({
@@ -504,7 +505,7 @@ casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChe
     data: {
       status: 'NOT_REQUIRED',
       skippedAt: new Date(),
-      skippedById: userId,
+      skippedById: staffId,
       skippedReason: reason,
     },
     include: {

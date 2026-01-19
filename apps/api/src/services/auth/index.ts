@@ -6,6 +6,7 @@ import { prisma } from '../../lib/db'
 
 export interface AuthUser {
   id: string // Clerk user ID
+  staffId: string | null // Staff table ID (for foreign keys)
   email: string
   name: string
   role: string

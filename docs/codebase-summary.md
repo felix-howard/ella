@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 5 Admin Settings** | **Admin Settings Polish - JSON validation, size limits, 29 tests** | **2026-01-19** |
 | **Phase 4 Checklist Display** | **3-Tier Checklist, Staff Overrides, 4 new API endpoints, 3 components** | **2026-01-19** |
 | **Phase 3 Checklist** | **Checklist Generator Fix - intakeAnswers priority, dynamic counts, 15 tests** | **2026-01-19** |
 | **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
@@ -330,6 +331,33 @@ See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionn
 
 See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhancement.md) for full details.
 
+## Recent Feature: Phase 5 Admin Settings Polish (NEW - 2026-01-19)
+
+**Location:** `apps/api/src/routes/admin/`
+
+**Validators (2 new):**
+1. **jsonStringSchema** - Validates JSON strings with 2000 char size limit (DoS protection)
+2. **conditionJsonSchema** - Validates condition objects: `{ key: boolean | string | number }` (rejects arrays/primitives)
+
+**API Endpoints (3 modules):**
+- Intake Questions CRUD: `GET/POST/PUT/DELETE /admin/intake-questions`
+- Checklist Templates CRUD: `GET/POST/PUT/DELETE /admin/checklist-templates`
+- Doc Type Library CRUD: `GET/POST/PUT/DELETE /admin/doc-type-library`
+
+**Test Suite (29 tests):**
+- 8 intake question tests (filtering, CRUD, invalid JSON)
+- 5 checklist template tests (CRUD, preserve immutable fields)
+- 3 doc type library tests (CRUD with aliases/keywords)
+- 13 schema validation tests (JSON format, size limits, type safety)
+
+**Admin UI Tabs (4):**
+- Appearance - UI theme settings
+- Checklist - Checklist template management
+- Questions - Intake question management
+- Doc Library - Document type library management
+
+See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for full details.
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -350,8 +378,8 @@ See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhanc
 ---
 
 **Last Updated:** 2026-01-19
-**Status:** Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
+**Status:** Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 6.9.0 (Phase 4 Checklist Display)
+**Architecture Version:** 7.0.0 (Phase 5 Admin Settings Polish)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

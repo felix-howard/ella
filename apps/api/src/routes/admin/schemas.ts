@@ -8,6 +8,54 @@ import { z } from 'zod'
 const TaxTypeEnum = z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])
 const FieldTypeEnum = z.enum(['BOOLEAN', 'SELECT', 'NUMBER', 'TEXT'])
 
+/**
+ * JSON string validator with size limit
+ * Validates that string is valid JSON and within size limit
+ */
+const jsonStringSchema = z
+  .string()
+  .max(2000, 'JSON too large (max 2000 chars)')
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true // Empty is valid
+      try {
+        JSON.parse(val)
+        return true
+      } catch {
+        return false
+      }
+    },
+    { message: 'Invalid JSON format' }
+  )
+  .optional()
+
+/**
+ * Condition JSON validator
+ * Validates condition object structure: { key: boolean | string | number }
+ */
+const conditionJsonSchema = z
+  .string()
+  .max(2000, 'Condition too large (max 2000 chars)')
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true
+      try {
+        const parsed = JSON.parse(val)
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          return false
+        }
+        // Validate all values are boolean, string, or number
+        return Object.values(parsed).every(
+          (v) => typeof v === 'boolean' || typeof v === 'string' || typeof v === 'number'
+        )
+      } catch {
+        return false
+      }
+    },
+    { message: 'Invalid condition format. Expected JSON object with boolean/string/number values' }
+  )
+  .optional()
+
 // ============================================
 // INTAKE QUESTIONS SCHEMAS
 // ============================================
@@ -33,8 +81,8 @@ export const createIntakeQuestionSchema = z.object({
   hintVi: z.string().max(300).optional(),
   hintEn: z.string().max(300).optional(),
   fieldType: FieldTypeEnum,
-  options: z.string().optional(), // JSON string
-  condition: z.string().optional(), // JSON string
+  options: jsonStringSchema, // Validated JSON string for SELECT options
+  condition: conditionJsonSchema, // Validated condition JSON
   section: z.string().min(1).max(50),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
@@ -57,7 +105,7 @@ export const listChecklistTemplatesQuerySchema = z.object({
 
 export const createChecklistTemplateSchema = z.object({
   taxType: TaxTypeEnum,
-  docType: z.string().min(1), // DocType enum value
+  docType: z.string().min(1).max(50), // DocType enum value with size limit
   labelVi: z.string().min(1).max(200),
   labelEn: z.string().min(1).max(200),
   descriptionVi: z.string().max(500).optional(),
@@ -65,9 +113,9 @@ export const createChecklistTemplateSchema = z.object({
   hintVi: z.string().max(300).optional(),
   hintEn: z.string().max(300).optional(),
   isRequired: z.boolean().default(true),
-  condition: z.string().optional(), // JSON string
+  condition: conditionJsonSchema, // Validated condition JSON
   category: z.string().min(1).max(50),
-  expectedCount: z.number().int().min(1).default(1),
+  expectedCount: z.number().int().min(1).max(100).default(1),
   sortOrder: z.number().int().min(0).default(0),
 })
 
@@ -100,8 +148,8 @@ export const createDocTypeLibrarySchema = z.object({
   descriptionVi: z.string().max(500).optional(),
   descriptionEn: z.string().max(500).optional(),
   category: z.string().min(1).max(50),
-  aliases: z.array(z.string()).default([]),
-  keywords: z.array(z.string()).default([]),
+  aliases: z.array(z.string().max(100)).max(50).default([]), // Max 50 aliases, each max 100 chars
+  keywords: z.array(z.string().max(100)).max(50).default([]), // Max 50 keywords, each max 100 chars
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 })

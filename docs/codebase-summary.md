@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-18
+**Current Date:** 2026-01-19
 **Current Branch:** feature/more-enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
 | **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
 | **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
 | **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
@@ -252,6 +253,26 @@ See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detai
 
 See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full details.
 
+## Recent Feature: Dynamic Intake Questionnaire (NEW - 2026-01-19)
+
+**Location:** `apps/workspace/src/components/clients/`
+
+**Components (3 new):**
+1. **IntakeQuestion** (~314 LOC) - Individual question renderer with 4 field types (TEXT, NUMBER, BOOLEAN, SELECT), XSS sanitization (500 char limit + HTML tag stripping), conditional visibility, number bounds (0-99)
+2. **IntakeSection** (~52 LOC) - Collapsible section grouper with smooth animations, 16 semantic categories
+3. **MultiSectionIntakeForm** (~290 LOC) - Form orchestrator fetching from API, groups questions by section, handles dependent field clearing
+
+**Backend Integration:**
+- API Endpoint: `GET /clients/intake-questions?taxTypes=[]` - Returns questions grouped by section
+- Updated: `POST /clients` accepts `intakeAnswers: Record<string, any>` (max 200 keys)
+- Storage: `ClientProfile.intakeAnswers` JSON field (flexible schema)
+
+**API Client Types:**
+- `FieldType` = 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT'
+- `IntakeQuestion` interface with section, sortOrder, options (JSON string), condition (JSON string)
+
+See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionnaire-redesign.md) for full details.
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -271,9 +292,9 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 
 ---
 
-**Last Updated:** 2026-01-17
-**Status:** Phase 04 Priority 3 OCR (16 document types) + Phase 03 OCR Extended (13) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page) + Phase 01 PDF Converter + Phase 04 Tabs + Phase 03 Shared + Phase 06 Testing
-**Branch:** feature/enhancement
-**Architecture Version:** 6.7.0
+**Last Updated:** 2026-01-19
+**Status:** Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 document types) + Phase 03 OCR Extended (13) + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
+**Branch:** feature/more-enhancement
+**Architecture Version:** 6.8.0
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

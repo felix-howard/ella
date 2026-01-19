@@ -694,6 +694,7 @@ export interface CreateClientInput {
     taxTypes: TaxType[]
     taxYear: number
     filingStatus?: string
+    // Legacy fields for backward compatibility
     hasW2?: boolean
     hasBankAccount?: boolean
     hasInvestments?: boolean
@@ -708,6 +709,8 @@ export interface CreateClientInput {
     hasEmployees?: boolean
     hasContractors?: boolean
     has1099K?: boolean
+    // NEW: Full intake answers JSON
+    intakeAnswers?: Record<string, boolean | number | string>
   }
 }
 

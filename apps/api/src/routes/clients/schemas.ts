@@ -15,7 +15,7 @@ export const clientProfileSchema = z.object({
     .min(1, 'At least one tax type required'),
   taxYear: z.number().int().min(2020).max(2030),
 
-  // 1040 questions
+  // 1040 questions (legacy fields for backward compatibility)
   filingStatus: z.string().optional(),
   hasW2: z.boolean().default(false),
   hasBankAccount: z.boolean().default(false),
@@ -36,6 +36,21 @@ export const clientProfileSchema = z.object({
   hasEmployees: z.boolean().default(false),
   hasContractors: z.boolean().default(false),
   has1099K: z.boolean().default(false),
+
+  // NEW: Full intake answers JSON (stores all dynamic question answers)
+  // Validation: max 200 keys, strings max 500 chars, numbers 0-99
+  intakeAnswers: z.record(
+    z.union([
+      z.boolean(),
+      z.number().min(0).max(99),
+      z.string().max(500),
+    ])
+  )
+    .optional()
+    .refine(
+      (val) => !val || Object.keys(val).length <= 200,
+      { message: 'Too many intake answers (max 200)' }
+    ),
 })
 
 // Create client input

@@ -123,6 +123,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         language: clientData.language as Language,
         profile: {
           create: {
+            // Legacy fields for backward compatibility
             filingStatus: profile.filingStatus,
             hasW2: profile.hasW2,
             hasBankAccount: profile.hasBankAccount,
@@ -138,6 +139,8 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
             hasEmployees: profile.hasEmployees,
             hasContractors: profile.hasContractors,
             has1099K: profile.has1099K,
+            // NEW: Store full intake answers JSON
+            intakeAnswers: profile.intakeAnswers ?? {},
           },
         },
       },

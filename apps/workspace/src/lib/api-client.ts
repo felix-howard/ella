@@ -330,6 +330,94 @@ export const api = {
     getUnreadCount: (caseId: string) =>
       request<{ caseId: string; unreadCount: number }>(`/messages/${caseId}/unread`),
   },
+
+  // Admin - Configuration management
+  admin: {
+    // Intake Questions
+    intakeQuestions: {
+      list: (params?: { taxType?: TaxType; section?: string; isActive?: boolean }) =>
+        request<{ data: IntakeQuestion[] }>('/admin/intake-questions', { params }),
+
+      get: (id: string) => request<IntakeQuestion>(`/admin/intake-questions/${id}`),
+
+      create: (data: CreateIntakeQuestionInput) =>
+        request<IntakeQuestion>('/admin/intake-questions', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateIntakeQuestionInput) =>
+        request<IntakeQuestion>(`/admin/intake-questions/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/intake-questions/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Checklist Templates
+    checklistTemplates: {
+      list: (params?: { taxType?: TaxType; category?: string }) =>
+        request<{ data: ChecklistTemplate[] }>('/admin/checklist-templates', { params }),
+
+      get: (id: string) => request<ChecklistTemplate>(`/admin/checklist-templates/${id}`),
+
+      create: (data: CreateChecklistTemplateInput) =>
+        request<ChecklistTemplate>('/admin/checklist-templates', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateChecklistTemplateInput) =>
+        request<ChecklistTemplate>(`/admin/checklist-templates/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/checklist-templates/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Doc Type Library
+    docTypeLibrary: {
+      list: (params?: { category?: string; isActive?: boolean; search?: string }) =>
+        request<{ data: DocTypeLibraryItem[] }>('/admin/doc-type-library', { params }),
+
+      get: (id: string) => request<DocTypeLibraryItem>(`/admin/doc-type-library/${id}`),
+
+      create: (data: CreateDocTypeLibraryInput) =>
+        request<DocTypeLibraryItem>('/admin/doc-type-library', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateDocTypeLibraryInput) =>
+        request<DocTypeLibraryItem>(`/admin/doc-type-library/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/doc-type-library/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Utility endpoints
+    getSections: () => request<{ data: string[] }>('/admin/sections'),
+    getCategories: () => request<{ data: string[] }>('/admin/categories'),
+  },
+
+  // Client intake questions (public endpoint for forms)
+  getIntakeQuestions: (taxTypes: TaxType[]) =>
+    request<{ data: IntakeQuestion[] }>('/clients/intake-questions', {
+      params: { taxTypes: taxTypes.join(',') },
+    }),
 }
 
 // Type definitions
@@ -716,3 +804,128 @@ export interface ConversationsResponse {
     totalPages: number
   }
 }
+
+// Admin types - Intake Questions
+export type FieldType = 'BOOLEAN' | 'SELECT' | 'NUMBER' | 'TEXT'
+
+export interface IntakeQuestion {
+  id: string
+  questionKey: string
+  taxTypes: TaxType[]
+  labelVi: string
+  labelEn: string
+  hintVi: string | null
+  hintEn: string | null
+  fieldType: FieldType
+  options: string | null // JSON string
+  condition: string | null // JSON string
+  section: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateIntakeQuestionInput {
+  questionKey: string
+  taxTypes: TaxType[]
+  labelVi: string
+  labelEn: string
+  hintVi?: string
+  hintEn?: string
+  fieldType: FieldType
+  options?: string
+  condition?: string
+  section: string
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateIntakeQuestionInput = Partial<CreateIntakeQuestionInput>
+
+// Admin types - Checklist Templates
+export interface ChecklistTemplate {
+  id: string
+  taxType: TaxType
+  docType: string
+  labelVi: string
+  labelEn: string
+  descriptionVi: string | null
+  descriptionEn: string | null
+  hintVi: string | null
+  hintEn: string | null
+  isRequired: boolean
+  condition: string | null // JSON string
+  category: string
+  expectedCount: number
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  docTypeLibrary?: {
+    code: string
+    labelVi: string
+    labelEn: string
+  } | null
+}
+
+export interface CreateChecklistTemplateInput {
+  taxType: TaxType
+  docType: string
+  labelVi: string
+  labelEn: string
+  descriptionVi?: string
+  descriptionEn?: string
+  hintVi?: string
+  hintEn?: string
+  isRequired?: boolean
+  condition?: string
+  category: string
+  expectedCount?: number
+  sortOrder?: number
+}
+
+export interface UpdateChecklistTemplateInput {
+  labelVi?: string
+  labelEn?: string
+  descriptionVi?: string
+  descriptionEn?: string
+  hintVi?: string
+  hintEn?: string
+  isRequired?: boolean
+  condition?: string
+  category?: string
+  expectedCount?: number
+  sortOrder?: number
+}
+
+// Admin types - Doc Type Library
+export interface DocTypeLibraryItem {
+  id: string
+  code: string
+  labelVi: string
+  labelEn: string
+  descriptionVi: string | null
+  descriptionEn: string | null
+  category: string
+  aliases: string[]
+  keywords: string[]
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateDocTypeLibraryInput {
+  code: string
+  labelVi: string
+  labelEn: string
+  descriptionVi?: string
+  descriptionEn?: string
+  category: string
+  aliases?: string[]
+  keywords?: string[]
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>

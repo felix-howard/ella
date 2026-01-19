@@ -1,7 +1,7 @@
 # Ella - Project Overview & Product Development Requirements
 
 **Current Phase:** 1 - Foundation & API Complete
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-19
 
 ## Project Vision
 
@@ -57,6 +57,62 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - `packages/db/prisma/seed.ts` - Checklist template seeder (25 records)
 - Updated package.json with seed script
 - Proper migrations via Prisma CLI
+
+### Phase 1.2: Schema & Data Foundation (COMPLETED)
+
+**Status:** Completed 2026-01-19
+
+**Objective:** Implement dynamic intake questionnaire storage and type system without requiring schema migrations
+
+**Requirements Met:**
+
+- [x] Added `intakeAnswers Json` field to `ClientProfile` model
+- [x] Created comprehensive `IntakeAnswers` TypeScript interface (100+ fields)
+- [x] Implemented Zod validation schema with 50KB size limit
+- [x] Built type guards and parser functions for safe handling
+- [x] Organized questions by 14 semantic categories
+
+**Functional Features:**
+
+- Dynamic intake questionnaire responses stored as JSON key-value pairs
+- No schema migration needed when adding new questions
+- Type-safe parsing via TypeScript interface and Zod validation
+- Security: Size limit prevents DoS attacks, type constraints enforce validity
+- Support for boolean, number, and string value types
+- Extensible via dynamic key support for future questions
+
+**Field Coverage:**
+
+- Client Status (3): `isNewClient`, `hasIrsNotice`, `hasIdentityTheft`
+- Life Changes (5): address, marital, new child, home purchase, business start
+- Income Categories (18): W2, self-employment, banking, retirement, rental, K-1
+- Dependents (5): children count, daycare, ages 17-24, other dependents
+- Tax Deductions (6): mortgage, property tax, charity, medical, student loans
+- Credits (3): energy, EV, adoption
+- Foreign (3): accounts, income, tax paid
+- Business (24): sole proprietor + entity details
+- Tax Info (3): tax year, filing status, refund method
+
+**Deliverables:**
+
+- `packages/shared/src/types/intake-answers.ts` - Interface + helpers (206 lines)
+- `packages/shared/src/schemas/index.ts` - Zod schema with validation (50KB limit)
+- `packages/db/prisma/schema.prisma` - Updated ClientProfile model
+- `docs/phase-1-schema-data-foundation.md` - Complete documentation
+
+**Technical Specs:**
+
+- JSON Storage: Default empty object (`{}`) prevents nulls
+- Validation: Zod schema enforces `record<string, boolean | number | string>`
+- Size Limit: 50KB maximum to prevent JSON DoS
+- Type Safety: Full TypeScript interface + runtime guards
+- Database: No migrations required for existing records
+
+**Backward Compatibility:**
+
+- Existing ClientProfiles unaffected until first update
+- Default empty object ensures no null reference issues
+- Adding questions automatic (update IntakeQuestion, interface optional)
 
 ### Phase 2: Package Setup (COMPLETED)
 

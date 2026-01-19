@@ -6,10 +6,18 @@
 
 // All supported document types matching the DocType enum in schema
 export const SUPPORTED_DOC_TYPES = [
+  // Personal / Identity
   'SSN_CARD',
   'DRIVER_LICENSE',
   'PASSPORT',
+  'BIRTH_CERTIFICATE',
+  'ITIN_LETTER',
+
+  // Employment Income
   'W2',
+  'W2G',
+
+  // 1099 Series - Various Income
   'FORM_1099_INT',
   'FORM_1099_DIV',
   'FORM_1099_NEC',
@@ -18,18 +26,66 @@ export const SUPPORTED_DOC_TYPES = [
   'FORM_1099_R',
   'FORM_1099_G',
   'FORM_1099_SSA',
+  'FORM_1099_B',
+  'FORM_1099_S',
+  'FORM_1099_C',
+  'FORM_1099_SA',
+  'FORM_1099_Q',
+
+  // K-1 Forms (Pass-through income)
   'SCHEDULE_K1',
+  'SCHEDULE_K1_1065',
+  'SCHEDULE_K1_1120S',
+  'SCHEDULE_K1_1041',
+
+  // Health Insurance
   'FORM_1095_A',
+  'FORM_1095_B',
+  'FORM_1095_C',
+  'FORM_5498_SA',
+
+  // Education
+  'FORM_1098_T',
+  'FORM_1098_E',
+
+  // Deductions / Credits
+  'FORM_1098',
+  'FORM_8332',
+
+  // Business Documents
   'BANK_STATEMENT',
   'PROFIT_LOSS_STATEMENT',
+  'BALANCE_SHEET',
   'BUSINESS_LICENSE',
   'EIN_LETTER',
-  'FORM_1098',
-  'FORM_1098_T',
+  'ARTICLES_OF_INCORPORATION',
+  'OPERATING_AGREEMENT',
+  'PAYROLL_REPORT',
+  'DEPRECIATION_SCHEDULE',
+  'VEHICLE_MILEAGE_LOG',
+
+  // Receipts & Supporting Docs
   'RECEIPT',
-  'BIRTH_CERTIFICATE',
   'DAYCARE_RECEIPT',
+  'CHARITY_RECEIPT',
+  'MEDICAL_RECEIPT',
+  'PROPERTY_TAX_STATEMENT',
+  'ESTIMATED_TAX_PAYMENT',
+
+  // Prior Year / IRS
+  'PRIOR_YEAR_RETURN',
+  'IRS_NOTICE',
+
+  // Crypto
+  'CRYPTO_STATEMENT',
+
+  // Foreign
+  'FOREIGN_BANK_STATEMENT',
+  'FOREIGN_TAX_STATEMENT',
+
+  // Other
   'OTHER',
+  'UNKNOWN',
 ] as const
 
 export type SupportedDocType = (typeof SUPPORTED_DOC_TYPES)[number]

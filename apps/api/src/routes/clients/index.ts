@@ -23,6 +23,42 @@ import type { TaxType, Language } from '@ella/db'
 
 const clientsRoute = new Hono()
 
+// GET /clients/intake-questions - Get intake questions for selected tax types
+// This is used by the client creation form to dynamically load questions
+clientsRoute.get('/intake-questions', async (c) => {
+  const taxTypesParam = c.req.query('taxTypes')
+
+  // Parse tax types from query string (comma-separated)
+  const taxTypes = taxTypesParam
+    ? taxTypesParam.split(',').filter((t) => ['FORM_1040', 'FORM_1120S', 'FORM_1065'].includes(t))
+    : ['FORM_1040'] // Default to individual form
+
+  // Fetch active questions that apply to any of the selected tax types
+  const questions = await prisma.intakeQuestion.findMany({
+    where: {
+      isActive: true,
+      taxTypes: { hasSome: taxTypes as TaxType[] },
+    },
+    orderBy: [{ section: 'asc' }, { sortOrder: 'asc' }],
+    select: {
+      id: true,
+      questionKey: true,
+      taxTypes: true,
+      labelVi: true,
+      labelEn: true,
+      hintVi: true,
+      hintEn: true,
+      fieldType: true,
+      options: true,
+      condition: true,
+      section: true,
+      sortOrder: true,
+    },
+  })
+
+  return c.json({ data: questions })
+})
+
 // GET /clients - List all clients with pagination
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
   const { page, limit, search, status } = c.req.valid('query')

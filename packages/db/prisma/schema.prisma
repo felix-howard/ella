@@ -200,6 +200,8 @@ model Staff {
   lastLoginAt   DateTime?
 
   actions   Action[]  @relation("AssignedStaff")
+  addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
+  skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -432,6 +434,16 @@ model ChecklistItem {
   digitalDocs DigitalDoc[]
 
   notes       String?
+
+  // Staff override fields
+  isManuallyAdded  Boolean   @default(false)
+  addedById        String?
+  addedBy          Staff?    @relation("AddedChecklistItems", fields: [addedById], references: [id])
+  addedReason      String?
+  skippedAt        DateTime?
+  skippedById      String?
+  skippedBy        Staff?    @relation("SkippedChecklistItems", fields: [skippedById], references: [id])
+  skippedReason    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

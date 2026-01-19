@@ -101,7 +101,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (36 total):**
+**Implemented Endpoints (40 total - Phase 4 NEW: +4 checklist endpoints):**
+
+**Checklist Management (4 - Phase 4 NEW):**
+- `POST /cases/:id/checklist/items` - Add manual checklist item (staff override)
+- `PATCH /cases/:id/checklist/items/:itemId/skip` - Skip item (mark NOT_REQUIRED)
+- `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item
+- `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
 
 **Clients (6):**
 - `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
@@ -335,6 +341,29 @@ See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Pha
 - Unread count tracking per conversation with efficient per-case query
 - Real-time updates via polling (30s inbox, 10s active)
 - Client detail header: "Tin nhắn" button with unread badge (queries `/messages/:caseId/unread`)
+
+**Checklist Display Enhancement (Phase 4 - NEW):**
+
+- **Staff Override Capabilities:**
+  - Add manual checklist items: `POST /cases/:id/checklist/items`
+  - Skip/unskip items: `PATCH /cases/:id/checklist/items/:itemId/skip`, `unskip`
+  - Update item notes: `PATCH /cases/:id/checklist/items/:itemId/notes`
+
+- **Database Schema Extensions:**
+  - ChecklistItem: `isManuallyAdded`, `addedById`, `addedReason`, `skippedAt`, `skippedById`, `skippedReason`
+  - Staff: Relations to track `AddedChecklistItems`, `SkippedChecklistItems` for audit trail
+  - Composite index `[caseId, status]` for efficient checklist queries
+
+- **Frontend Components (Phase 4 NEW):**
+  - `ChecklistProgress` - Progress bar showing completion % & status breakdown
+  - `TieredChecklist` - 3-tier display (Required/Applicable/Optional) with staff actions
+  - `AddChecklistItemModal` - Staff form to add items with validation
+  - Constants: `checklist-tier-constants.ts` - Tier colors, labels (Vietnamese-first)
+
+- **Tier Categorization Logic:**
+  - Required: `template.isRequired=true` AND no condition
+  - Applicable: Template has conditional logic (matched vs intake answers)
+  - Optional: `template.isRequired=false` AND no condition
 
 **Future Services:**
 

@@ -15,10 +15,13 @@ import {
   listCasesQuerySchema,
   listImagesQuerySchema,
   listDocsQuerySchema,
+  addChecklistItemSchema,
+  skipChecklistItemSchema,
+  updateChecklistItemNotesSchema,
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
-import type { TaxType, TaxCaseStatus, RawImageStatus } from '@ella/db'
+import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 
 const casesRoute = new Hono()
@@ -245,6 +248,8 @@ casesRoute.get('/:id/checklist', async (c) => {
       digitalDocs: {
         orderBy: { createdAt: 'desc' },  // Most recent docs first
       },
+      addedBy: { select: { id: true, name: true } },
+      skippedBy: { select: { id: true, name: true } },
     },
     orderBy: { template: { sortOrder: 'asc' } },
   })
@@ -254,6 +259,7 @@ casesRoute.get('/:id/checklist', async (c) => {
     hasRaw: items.filter((i) => i.status === 'HAS_RAW').length,
     hasDigital: items.filter((i) => i.status === 'HAS_DIGITAL').length,
     verified: items.filter((i) => i.status === 'VERIFIED').length,
+    notRequired: items.filter((i) => i.status === 'NOT_REQUIRED').length,
     total: items.length,
   }
 
@@ -408,6 +414,167 @@ casesRoute.get('/images/:imageId/file', async (c) => {
     console.error('[File Proxy] Failed to fetch file:', imageId, error)
     return c.json({ error: 'PROXY_ERROR', message: 'Failed to proxy file' }, 500)
   }
+})
+
+// ============================================
+// CHECKLIST ITEM STAFF OVERRIDE ENDPOINTS
+// ============================================
+
+// POST /cases/:id/checklist/items - Add manual checklist item
+// SECURITY NOTE: userId tracking requires auth middleware integration (planned for future)
+casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchema), async (c) => {
+  const caseId = c.req.param('id')
+  const { docType, reason, expectedCount } = c.req.valid('json')
+  // TODO(auth): Get userId from auth middleware when Clerk integration is complete
+  const userId = null
+
+  // Verify case exists
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id: caseId },
+    select: { id: true },
+  })
+
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Find template for this docType (use first matching template)
+  const template = await prisma.checklistTemplate.findFirst({
+    where: { docType: docType as DocType },
+  })
+
+  if (!template) {
+    return c.json({ error: 'INVALID_DOC_TYPE', message: 'No template found for this document type' }, 400)
+  }
+
+  // Check if item already exists for this case+template
+  const existingItem = await prisma.checklistItem.findUnique({
+    where: {
+      caseId_templateId: {
+        caseId,
+        templateId: template.id,
+      },
+    },
+  })
+
+  if (existingItem) {
+    return c.json({ error: 'DUPLICATE', message: 'Checklist item already exists for this document type' }, 409)
+  }
+
+  // Create the checklist item
+  const item = await prisma.checklistItem.create({
+    data: {
+      caseId,
+      templateId: template.id,
+      status: 'MISSING',
+      expectedCount: expectedCount ?? 1,
+      isManuallyAdded: true,
+      addedById: userId,
+      addedReason: reason,
+    },
+    include: {
+      template: true,
+      addedBy: { select: { id: true, name: true } },
+    },
+  })
+
+  return c.json({ data: item }, 201)
+})
+
+// PATCH /cases/:id/checklist/items/:itemId/skip - Skip checklist item
+// SECURITY NOTE: userId tracking requires auth middleware integration (planned for future)
+casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChecklistItemSchema), async (c) => {
+  const { id: caseId, itemId } = c.req.param()
+  const { reason } = c.req.valid('json')
+  // TODO(auth): Get userId from auth middleware when Clerk integration is complete
+  const userId = null
+
+  // Verify item exists and belongs to case
+  const item = await prisma.checklistItem.findFirst({
+    where: { id: itemId, caseId },
+  })
+
+  if (!item) {
+    return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
+  }
+
+  // Update item to NOT_REQUIRED
+  const updatedItem = await prisma.checklistItem.update({
+    where: { id: itemId },
+    data: {
+      status: 'NOT_REQUIRED',
+      skippedAt: new Date(),
+      skippedById: userId,
+      skippedReason: reason,
+    },
+    include: {
+      template: true,
+      skippedBy: { select: { id: true, name: true } },
+    },
+  })
+
+  return c.json({ data: updatedItem })
+})
+
+// PATCH /cases/:id/checklist/items/:itemId/unskip - Restore skipped item
+casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
+  const { id: caseId, itemId } = c.req.param()
+
+  // Verify item exists and belongs to case
+  const item = await prisma.checklistItem.findFirst({
+    where: { id: itemId, caseId },
+  })
+
+  if (!item) {
+    return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
+  }
+
+  if (item.status !== 'NOT_REQUIRED') {
+    return c.json({ error: 'INVALID_STATE', message: 'Item is not skipped' }, 400)
+  }
+
+  // Determine new status based on existing files
+  const fileCount = await prisma.rawImage.count({
+    where: { checklistItemId: itemId },
+  })
+  const newStatus = fileCount > 0 ? 'HAS_RAW' : 'MISSING'
+
+  // Restore item
+  const updatedItem = await prisma.checklistItem.update({
+    where: { id: itemId },
+    data: {
+      status: newStatus,
+      skippedAt: null,
+      skippedById: null,
+      skippedReason: null,
+    },
+    include: { template: true },
+  })
+
+  return c.json({ data: updatedItem })
+})
+
+// PATCH /cases/:id/checklist/items/:itemId/notes - Update item notes
+casesRoute.patch('/:id/checklist/items/:itemId/notes', zValidator('json', updateChecklistItemNotesSchema), async (c) => {
+  const { id: caseId, itemId } = c.req.param()
+  const { notes } = c.req.valid('json')
+
+  // Verify item exists and belongs to case
+  const item = await prisma.checklistItem.findFirst({
+    where: { id: itemId, caseId },
+  })
+
+  if (!item) {
+    return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
+  }
+
+  const updatedItem = await prisma.checklistItem.update({
+    where: { id: itemId },
+    data: { notes },
+    include: { template: true },
+  })
+
+  return c.json({ data: updatedItem })
 })
 
 export { casesRoute }

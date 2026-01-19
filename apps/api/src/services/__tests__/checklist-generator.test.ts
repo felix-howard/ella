@@ -366,7 +366,7 @@ describe('generateChecklist', () => {
 
     // intakeAnswers is array instead of object - should not crash
     const profile = createMockProfile({
-      intakeAnswers: ['invalid', 'array'] as unknown as Record<string, unknown>,
+      intakeAnswers: ['invalid', 'array'] as unknown as ClientProfile['intakeAnswers'],
     })
     await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
 

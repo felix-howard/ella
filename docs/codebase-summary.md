@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 4 Checklist Display** | **3-Tier Checklist, Staff Overrides, 4 new API endpoints, 3 components** | **2026-01-19** |
 | **Phase 3 Checklist** | **Checklist Generator Fix - intakeAnswers priority, dynamic counts, 15 tests** | **2026-01-19** |
 | **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
 | **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
@@ -293,6 +294,42 @@ See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full det
 
 See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionnaire-redesign.md) for full details.
 
+## Recent Feature: Phase 4 Checklist Display Enhancement (NEW - 2026-01-19)
+
+**Location:** `apps/workspace/src/components/cases/`
+
+**Components (3 new):**
+1. **ChecklistProgress** (~50 LOC) - Visual progress bar showing completion %, status breakdown (Missing, Has Raw, Has Digital, Verified, Not Required)
+2. **TieredChecklist** (~350+ LOC) - Main 3-tier checklist (Required/Applicable/Optional) with staff actions (skip, unskip, view, add notes), file preview integration, expandable sections
+3. **AddChecklistItemModal** (~140 LOC) - Form modal for staff to add manual items, document type dropdown, optional reason (500 char), expected count (1-99)
+
+**API Endpoints (4 new):**
+- `POST /cases/:id/checklist/items` - Add manual checklist item
+- `PATCH /cases/:id/checklist/items/:itemId/skip` - Skip item (mark NOT_REQUIRED)
+- `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item (smart status inference)
+- `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
+
+**Database Schema Updates:**
+- ChecklistItem: Added `isManuallyAdded`, `addedById`, `addedReason`, `skippedAt`, `skippedById`, `skippedReason` fields
+- Staff: Added relations to track AddedChecklistItems, SkippedChecklistItems
+- Composite index: `[caseId, status]` for efficient queries
+
+**Constants Library:**
+- `checklist-tier-constants.ts` - CHECKLIST_TIERS (3 tiers with Vietnamese labels + colors), CHECKLIST_STATUS_DISPLAY (5 statuses)
+
+**Tier Categorization Logic:**
+- Required: `isRequired=true` AND no condition
+- Applicable: Has conditional logic
+- Optional: `isRequired=false` AND no condition
+
+**API Client Methods:**
+- `addChecklistItem(caseId, data)` - POST new item
+- `skipChecklistItem(caseId, itemId, reason)` - PATCH skip
+- `unskipChecklistItem(caseId, itemId)` - PATCH unskip (auto-infers status)
+- `updateChecklistItemNotes(caseId, itemId, notes)` - PATCH notes
+
+See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhancement.md) for full details.
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -313,8 +350,8 @@ See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionn
 ---
 
 **Last Updated:** 2026-01-19
-**Status:** Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
+**Status:** Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 6.8.1 (Phase 3 Checklist Enhanced)
+**Architecture Version:** 6.9.0 (Phase 4 Checklist Display)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

@@ -7,3 +7,6 @@ export { DocumentChecklistTree, DocumentChecklistTreeSkeleton, calculateChecklis
 export { RawImageGallery, RawImageGallerySkeleton } from './raw-image-gallery'
 export { DigitalDocTable, DigitalDocTableSkeleton } from './digital-doc-table'
 export { StatusSelector } from './status-selector'
+export { ChecklistProgress } from './checklist-progress'
+export { TieredChecklist, TieredChecklistSkeleton } from './tiered-checklist'
+export { AddChecklistItemModal } from './add-checklist-item-modal'

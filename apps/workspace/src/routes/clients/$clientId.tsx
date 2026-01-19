@@ -25,7 +25,7 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots } from '../../components/cases'
+import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
@@ -60,6 +60,7 @@ function ClientDetailPage() {
   const [reuploadImage, setReuploadImage] = useState<RawImage | null>(null)
   const [reuploadFields, setReuploadFields] = useState<string[]>([])
   const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false)
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
 
   // Mutation for moving image to different checklist item (drag & drop)
   const moveImageMutation = useMutation({
@@ -80,6 +81,46 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error('Lỗi khi di chuyển ảnh')
+    },
+  })
+
+  // Mutation for adding checklist item
+  const addChecklistItemMutation = useMutation({
+    mutationFn: (data: { docType: string; reason?: string; expectedCount?: number }) =>
+      api.cases.addChecklistItem(latestCaseId!, data),
+    onSuccess: () => {
+      toast.success('Đã thêm mục mới vào checklist')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      setIsAddItemModalOpen(false)
+    },
+    onError: () => {
+      toast.error('Lỗi khi thêm mục')
+    },
+  })
+
+  // Mutation for skipping checklist item
+  const skipChecklistItemMutation = useMutation({
+    mutationFn: ({ itemId, reason }: { itemId: string; reason: string }) =>
+      api.cases.skipChecklistItem(latestCaseId!, itemId, reason),
+    onSuccess: () => {
+      toast.success('Đã bỏ qua mục')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi bỏ qua mục')
+    },
+  })
+
+  // Mutation for unskipping checklist item
+  const unskipChecklistItemMutation = useMutation({
+    mutationFn: (itemId: string) =>
+      api.cases.unskipChecklistItem(latestCaseId!, itemId),
+    onSuccess: () => {
+      toast.success('Đã khôi phục mục')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi khôi phục mục')
     },
   })
 
@@ -472,36 +513,37 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Document Checklist Tree */}
+          {/* Tiered Checklist */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-primary">
                 Danh sách tài liệu cần thu thập
               </h2>
-              <div className="flex items-center gap-3">
-                {/* Progress circle */}
-                <div className="relative w-8 h-8">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
-                    <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${calculateChecklistProgress(checklistItems) * 0.88} 100`} className="text-primary" />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-foreground">{calculateChecklistProgress(checklistItems)}%</span>
-                  </div>
-                </div>
-                <ProgressDots items={checklistItems} />
-              </div>
             </div>
-            <DocumentChecklistTree
+            <TieredChecklist
               items={checklistItems}
-              onVerify={(item) => console.log('Verify item:', item.id)}
-              enableDragDrop={true}
-              showHeader={false}
-              onImageDrop={(imageId, targetChecklistItemId) => {
-                moveImageMutation.mutate({ imageId, targetChecklistItemId })
+              isStaffView={true}
+              onAddItem={() => setIsAddItemModalOpen(true)}
+              onSkip={(itemId, reason) => skipChecklistItemMutation.mutate({ itemId, reason })}
+              onUnskip={(itemId) => unskipChecklistItemMutation.mutate(itemId)}
+              onVerify={(item) => {
+                // Find doc for this checklist item
+                const doc = digitalDocs.find(d => d.rawImageId && item.rawImages?.some(img => img.id === d.rawImageId))
+                if (doc) {
+                  handleVerifyDoc(doc)
+                }
               }}
             />
           </div>
+
+          {/* Add Checklist Item Modal */}
+          <AddChecklistItemModal
+            isOpen={isAddItemModalOpen}
+            onClose={() => setIsAddItemModalOpen(false)}
+            onSubmit={(data) => addChecklistItemMutation.mutate(data)}
+            existingDocTypes={checklistItems.map(item => item.template?.docType).filter(Boolean) as string[]}
+            isSubmitting={addChecklistItemMutation.isPending}
+          />
 
           {/* Document Workflow Tabs - New 3-tab layout */}
           <div className="bg-card rounded-xl border border-border p-6">

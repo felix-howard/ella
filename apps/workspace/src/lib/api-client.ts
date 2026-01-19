@@ -221,6 +221,33 @@ export const api = {
     getChecklist: (id: string) =>
       request<ChecklistResponse>(`/cases/${id}/checklist`),
 
+    // Add manual checklist item
+    addChecklistItem: (id: string, data: { docType: string; reason?: string; expectedCount?: number }) =>
+      request<{ data: ChecklistItem }>(`/cases/${id}/checklist/items`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Skip checklist item
+    skipChecklistItem: (caseId: string, itemId: string, reason: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/skip`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason }),
+      }),
+
+    // Unskip checklist item (restore from NOT_REQUIRED)
+    unskipChecklistItem: (caseId: string, itemId: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/unskip`, {
+        method: 'PATCH',
+      }),
+
+    // Update checklist item notes
+    updateChecklistItemNotes: (caseId: string, itemId: string, notes: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/notes`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notes }),
+      }),
+
     getImages: (id: string, params?: { status?: string }) =>
       request<ImagesResponse>(`/cases/${id}/images`, { params }),
 
@@ -559,9 +586,21 @@ export interface ChecklistItem {
   caseId: string
   templateId: string
   status: ChecklistItemStatus
+  expectedCount: number
+  receivedCount: number
+  notes: string | null
   template: ChecklistTemplate
   rawImages?: RawImage[]
   digitalDocs?: DigitalDoc[]
+  // Staff override fields
+  isManuallyAdded: boolean
+  addedById: string | null
+  addedBy?: { id: string; name: string } | null
+  addedReason: string | null
+  skippedAt: string | null
+  skippedById: string | null
+  skippedBy?: { id: string; name: string } | null
+  skippedReason: string | null
 }
 
 export interface ChecklistResponse {

@@ -12,8 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UTokenRouteImport } from './routes/u/$token'
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
-import { Route as UTokenUploadRouteImport } from './routes/u/$token/upload'
-import { Route as UTokenStatusRouteImport } from './routes/u/$token/status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,55 +28,28 @@ const UTokenIndexRoute = UTokenIndexRouteImport.update({
   path: '/',
   getParentRoute: () => UTokenRoute,
 } as any)
-const UTokenUploadRoute = UTokenUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
-  getParentRoute: () => UTokenRoute,
-} as any)
-const UTokenStatusRoute = UTokenStatusRouteImport.update({
-  id: '/status',
-  path: '/status',
-  getParentRoute: () => UTokenRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/u/$token': typeof UTokenRouteWithChildren
-  '/u/$token/status': typeof UTokenStatusRoute
-  '/u/$token/upload': typeof UTokenUploadRoute
   '/u/$token/': typeof UTokenIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/u/$token/status': typeof UTokenStatusRoute
-  '/u/$token/upload': typeof UTokenUploadRoute
   '/u/$token': typeof UTokenIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/u/$token': typeof UTokenRouteWithChildren
-  '/u/$token/status': typeof UTokenStatusRoute
-  '/u/$token/upload': typeof UTokenUploadRoute
   '/u/$token/': typeof UTokenIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/u/$token'
-    | '/u/$token/status'
-    | '/u/$token/upload'
-    | '/u/$token/'
+  fullPaths: '/' | '/u/$token' | '/u/$token/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/u/$token/status' | '/u/$token/upload' | '/u/$token'
-  id:
-    | '__root__'
-    | '/'
-    | '/u/$token'
-    | '/u/$token/status'
-    | '/u/$token/upload'
-    | '/u/$token/'
+  to: '/' | '/u/$token'
+  id: '__root__' | '/' | '/u/$token' | '/u/$token/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -109,32 +80,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UTokenIndexRouteImport
       parentRoute: typeof UTokenRoute
     }
-    '/u/$token/upload': {
-      id: '/u/$token/upload'
-      path: '/upload'
-      fullPath: '/u/$token/upload'
-      preLoaderRoute: typeof UTokenUploadRouteImport
-      parentRoute: typeof UTokenRoute
-    }
-    '/u/$token/status': {
-      id: '/u/$token/status'
-      path: '/status'
-      fullPath: '/u/$token/status'
-      preLoaderRoute: typeof UTokenStatusRouteImport
-      parentRoute: typeof UTokenRoute
-    }
   }
 }
 
 interface UTokenRouteChildren {
-  UTokenStatusRoute: typeof UTokenStatusRoute
-  UTokenUploadRoute: typeof UTokenUploadRoute
   UTokenIndexRoute: typeof UTokenIndexRoute
 }
 
 const UTokenRouteChildren: UTokenRouteChildren = {
-  UTokenStatusRoute: UTokenStatusRoute,
-  UTokenUploadRoute: UTokenUploadRoute,
   UTokenIndexRoute: UTokenIndexRoute,
 }
 

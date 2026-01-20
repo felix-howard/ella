@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-20 21:24 ICT
-> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete) + Section-Edit Modals (100% COMPLETE)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement + 100% Section-Edit Modals
+> **Last Updated:** 2026-01-20 22:40 ICT
+> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete) + Section-Edit Modals (100% COMPLETE) + Phase 7.1 Twilio Voice Calls (In Progress)
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement + 100% Section-Edit Modals + Voice Calling (Phase 01 Complete)
 
 ---
 
@@ -190,6 +190,29 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - Test coverage: 42/42 passing (100%)
 - Code quality: 9.5/10
 - Branch: feature/more-enhancement
+
+---
+
+### Phase 7.1: Twilio Voice Calls - In Progress (33% Complete) ⏳
+**Started:** 2026-01-20 22:30
+**Target Completion:** 2026-01-22
+**Deliverable:** Browser-based voice calling with auto-recording, integrated into /messages page
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Tests | Notes |
+|-------|-----------|--------|-----------|-------|-------|
+| 7.1.1 | Backend Voice API | ✅ DONE | 2026-01-20 22:40 | 54/54 passing | Token generation, TwiML routing, webhooks, recording storage |
+| 7.1.2 | Frontend Call UI | ⏳ PENDING | - | - | Twilio SDK init, useVoiceCall hook, CallButton, ActiveCallModal |
+| 7.1.3 | Recording Playback | ⏳ PENDING | - | - | AudioPlayer component, message integration |
+
+**Completion Summary (Phase 7.1.1):**
+- Backend infrastructure complete: token generation (VoiceGrant), TwiML webhooks, recording callbacks
+- Database schema extended: MessageChannel.CALL enum, callSid, recordingUrl, recordingDuration, callStatus fields
+- All 3 webhook endpoints secured: signature validation + rate limiting
+- Test suite: 54 voice tests (100% pass rate)
+- Code quality: 8/10 review score
+- Security hardening: API key validation, signature validation, rate limiting, input validation
+- Production ready for Phase 7.1.2 frontend implementation
 
 ---
 
@@ -522,6 +545,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |
 | 3.9 | 2026-01-20 21:24 | PM | ENHANCEMENT TRACK: Section-Edit Modals - 100% COMPLETE (Phase 05 Testing & Polish Done). 91 total tests (22 profile-update + 22 audit-logger), 100% pass rate. Security fixes: prototype pollution blocklist, XSS sanitization. Code review 9/10. All 5 phases complete, ready for merge. |
 | 3.8 | 2026-01-20 20:45 | PM | ENHANCEMENT TRACK: Section-Edit Modals - Phase 04 Complete (80% overall). Checklist recalculation integration: query invalidation, cascade cleanup, toast feedback, loading state. Profile updates trigger refreshChecklist & cascadeCleanupOnFalse. Phase 05 (testing & polish) pending. |
 | 3.7 | 2026-01-20 19:45 | PM | ENHANCEMENT TRACK: Section-Edit Modals - Phase 03 Complete (60% overall). QuickEditModal for name/phone/email with E.164 + RFC 5322 validation. InfoRow edit icons, accessibility (role="alert", keyboard support). Phases 04-05 pending. |

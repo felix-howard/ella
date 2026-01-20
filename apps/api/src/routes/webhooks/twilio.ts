@@ -1,6 +1,6 @@
 /**
  * Twilio Webhook Route
- * Handles incoming SMS messages from Twilio
+ * Handles incoming SMS messages and voice call webhooks from Twilio
  */
 import { Hono } from 'hono'
 import {
@@ -9,6 +9,9 @@ import {
   generateTwimlResponse,
   type TwilioIncomingMessage,
 } from '../../services/sms'
+import { generateTwimlVoiceResponse, generateEmptyTwimlResponse } from '../../services/voice'
+import { config } from '../../lib/config'
+import { prisma } from '../../lib/db'
 
 const twilioWebhookRoute = new Hono()
 
@@ -163,5 +166,241 @@ twilioWebhookRoute.post('/status', async (c) => {
   // For now, just acknowledge
   return c.json({ received: true })
 })
+
+// ============================================
+// VOICE WEBHOOKS
+// ============================================
+
+/**
+ * POST /webhooks/twilio/voice - Handle outbound call connection
+ * Returns TwiML instructions for call routing with recording
+ */
+twilioWebhookRoute.post('/voice', async (c) => {
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return c.text('Rate limit exceeded', 429)
+  }
+
+  // Get Twilio signature for validation
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  const formData = await c.req.parseBody()
+
+  // Validate signature
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn('[Voice Webhook] Signature validation failed:', validationResult.error)
+    return c.text('Forbidden', 403)
+  }
+
+  // Extract call parameters from Twilio
+  const to = formData.To as string
+  const from = formData.From as string
+  const callSid = formData.CallSid as string
+
+  console.log(`[Voice Webhook] Outbound call ${callSid}: ${from} -> ${to}`)
+
+  // Generate TwiML response with recording enabled
+  const twiml = generateTwimlVoiceResponse({
+    to,
+    callerId: config.twilio.phoneNumber,
+    record: true,
+    recordingStatusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/recording`,
+    recordingStatusCallbackEvent: ['completed'],
+    statusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/status`,
+    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+  })
+
+  return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
+})
+
+// Max recording duration (Twilio limit is 4 hours = 14400s)
+const MAX_RECORDING_DURATION = 14400
+
+/**
+ * POST /webhooks/twilio/voice/recording - Handle recording completion
+ * Stores recording URL in the call message
+ *
+ * Twilio Retry Behavior:
+ * - Retries up to 3 times on 5xx errors
+ * - Exponential backoff: 0s, 15s, 30s
+ * - 200/204 response = success, no retry
+ */
+twilioWebhookRoute.post('/voice/recording', async (c) => {
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return c.json({ error: 'Rate limit exceeded' }, 429)
+  }
+
+  // Signature validation (SECURITY: prevents fake recording injection)
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  const formData = await c.req.parseBody()
+
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn('[Recording Webhook] Signature validation failed:', validationResult.error)
+    return c.text('Forbidden', 403)
+  }
+
+  const recordingSid = formData.RecordingSid as string
+  const recordingUrl = formData.RecordingUrl as string
+  const callSid = formData.CallSid as string
+  const recordingStatus = formData.RecordingStatus as string
+
+  // Validate and clamp duration
+  const rawDuration = parseInt(formData.RecordingDuration as string || '0', 10)
+  const recordingDuration = Math.min(Math.max(rawDuration, 0), MAX_RECORDING_DURATION)
+
+  if (rawDuration <= 0) {
+    console.warn('[Recording Webhook] Invalid duration:', formData.RecordingDuration)
+  }
+
+  console.log(`[Recording Webhook] ${recordingSid}: ${recordingStatus}, duration: ${recordingDuration}s`)
+
+  if (recordingStatus !== 'completed') {
+    return c.json({ received: true, processed: false })
+  }
+
+  try {
+    // Transaction for atomic find + update
+    const result = await prisma.$transaction(async (tx) => {
+      const callMessage = await tx.message.findFirst({
+        where: { callSid },
+      })
+
+      if (!callMessage) return null
+
+      return await tx.message.update({
+        where: { id: callMessage.id },
+        data: {
+          recordingUrl: `${recordingUrl}.mp3`,
+          recordingDuration,
+          content: `Cuộc gọi (${formatDuration(recordingDuration)})`,
+        },
+      })
+    })
+
+    if (!result) {
+      console.warn(`[Recording Webhook] No message found for callSid: ${callSid}`)
+      return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
+    }
+
+    console.log(`[Recording Webhook] Updated message ${result.id} with recording`)
+    return c.json({ received: true, processed: true })
+  } catch (error) {
+    console.error('[Recording Webhook] Error:', error)
+    // Return 500 to trigger Twilio retry
+    return c.json({ error: 'Processing failed' }, 500)
+  }
+})
+
+/**
+ * POST /webhooks/twilio/voice/status - Handle call status updates
+ * Updates call status in message record
+ */
+twilioWebhookRoute.post('/voice/status', async (c) => {
+  // Rate limiting
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return c.json({ error: 'Rate limit exceeded' }, 429)
+  }
+
+  // Signature validation (SECURITY: prevents status spoofing)
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  const formData = await c.req.parseBody()
+
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn('[Voice Status] Signature validation failed:', validationResult.error)
+    return c.text('Forbidden', 403)
+  }
+
+  const callSid = formData.CallSid as string
+  const callStatus = formData.CallStatus as string
+  const callDuration = formData.CallDuration as string | undefined
+
+  console.log(`[Voice Status] ${callSid}: ${callStatus}${callDuration ? `, duration: ${callDuration}s` : ''}`)
+
+  // Update call message status for terminal states
+  const terminalStatuses = ['completed', 'busy', 'no-answer', 'failed', 'canceled']
+  if (terminalStatuses.includes(callStatus)) {
+    try {
+      const updateResult = await prisma.message.updateMany({
+        where: { callSid },
+        data: {
+          callStatus,
+          // Update content with status if call failed/missed
+          ...(callStatus !== 'completed' && {
+            content: getCallStatusMessage(callStatus),
+          }),
+        },
+      })
+
+      if (updateResult.count === 0) {
+        console.warn(`[Voice Status] No message found for callSid: ${callSid}`)
+        return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
+      }
+
+      return c.json({ received: true, processed: true, count: updateResult.count })
+    } catch (error) {
+      console.error('[Voice Status] Update error:', error)
+      // Return 500 to trigger Twilio retry
+      return c.json({ error: 'UPDATE_FAILED' }, 500)
+    }
+  }
+
+  return c.json({ received: true })
+})
+
+/**
+ * Format duration in seconds to mm:ss
+ */
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+/**
+ * Get Vietnamese message for call status
+ */
+function getCallStatusMessage(status: string): string {
+  const messages: Record<string, string> = {
+    'busy': 'Cuộc gọi - Máy bận',
+    'no-answer': 'Cuộc gọi - Không trả lời',
+    'failed': 'Cuộc gọi - Thất bại',
+    'canceled': 'Cuộc gọi - Đã hủy',
+  }
+  return messages[status] || `Cuộc gọi - ${status}`
+}
 
 export { twilioWebhookRoute }

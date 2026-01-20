@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01 Voice API** | **Token generation (VoiceGrant); TwiML call routing; call message tracking; recording + status webhooks; E.164 phone validation; Twilio signature validation** | **2026-01-20** |
 | **Phase 03 Quick-Edit Icons** | **QuickEditModal component; personal info quick-edit (name, phone, email); wrapper pattern for fresh state; field-specific validation (E.164 phone, RFC 5322 email); accessibility (ARIA, keyboard shortcuts)** | **2026-01-20** |
 | **Phase 02 Section Edit Modal** | **intake-form-config.ts (95+ fields, 18 sections); SectionEditModal component; api.clients.updateProfile(); ClientOverviewSections enhanced with edit icons** | **2026-01-20** |
 | **Phase 05 Testing & Validation** | **Checklist Generator: 16 new tests (count-based, research scenarios, fallback, performance); Classification: 64 doc types, comprehensive validation** | **2026-01-20** |
@@ -121,6 +122,64 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
 ## Backend Services
+
+### Voice API Service (Phase 01 - NEW)
+
+**Location:** `apps/api/src/services/voice/`, `apps/api/src/routes/voice/`, `apps/api/src/routes/webhooks/twilio.ts`
+
+**Purpose:** Browser-based outbound voice calling with Twilio Client SDK, recording, and call tracking.
+
+**Core Services:**
+- **Token Generator** (`token-generator.ts`) - JWT tokens with VoiceGrant for staff identities (1-hour TTL, outbound only)
+- **TwiML Generator** (`twiml-generator.ts`) - XML response for call routing + recording + status callbacks
+- **Voice Routes** (`routes/voice/index.ts`) - 4 endpoints for token, status, call creation, CallSid update
+- **Voice Webhooks** (`routes/webhooks/twilio.ts`) - 3 webhooks for call routing, recording completion, status updates
+
+**API Endpoints:**
+- `POST /voice/token` - Generate voice access token (auth required), returns `{ token, expiresIn, identity }`
+- `GET /voice/status` - Check voice feature availability, returns `{ available, features: { outbound, recording, inbound } }`
+- `POST /voice/calls` - Create call record + message placeholder, body `{ caseId, toPhone }`, returns `{ messageId, conversationId, toPhone, clientName }`
+- `PATCH /voice/calls/:messageId` - Update message with Twilio CallSid, body `{ callSid }`, returns `{ success, messageId, callSid }`
+
+**Webhooks:**
+- `POST /webhooks/twilio/voice` - Call routing (returns TwiML with Dial + recording config)
+- `POST /webhooks/twilio/voice/recording` - Recording completion (stores recordingUrl, recordingDuration, updates content)
+- `POST /webhooks/twilio/voice/status` - Call status updates (completed, busy, no-answer, failed, canceled)
+
+**Database Schema Extensions (Message model):**
+- `callSid: String?` - Twilio call identifier
+- `recordingUrl: String?` - S3-compatible MP3 URL (Twilio CDN)
+- `recordingDuration: Int?` - Recording length in seconds
+- `callStatus: String?` - Terminal state: completed, no-answer, busy, failed, canceled
+
+**Configuration (config.ts):**
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` - SMS credentials (reused)
+- `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` - Voice API credentials (NEW)
+- `TWILIO_TWIML_APP_SID` - TwiML application for call routing (NEW)
+- `TWILIO_WEBHOOK_BASE_URL` - Callback URL base for webhooks (NEW)
+- `voiceConfigured` - Boolean flag: requires all 4 voice env vars + 3 SMS env vars
+
+**Security:**
+- Staff identity validation (non-empty staffId required for token)
+- Webhook signature validation (Twilio HMAC verification)
+- Rate limiting (60 req/min per IP for webhooks)
+- Call recording enabled by default (compliance)
+- XSS-safe TwiML generation (XML escaping)
+
+**Call Flow:**
+1. Frontend requests `POST /voice/token` → Gets JWT with VoiceGrant
+2. Frontend initiates call with `POST /voice/calls` → Creates Message (status='initiated')
+3. Twilio callback to `POST /webhooks/twilio/voice` → Returns TwiML (includes recording config)
+4. Call connects, recording starts
+5. Recording completes → `POST /webhooks/twilio/voice/recording` → Stores recordingUrl + duration
+6. Call terminates → `POST /webhooks/twilio/voice/status` → Updates callStatus (terminal state)
+
+**Error Handling:**
+- `VOICE_NOT_CONFIGURED` (503) - Voice deps missing
+- `UNAUTHORIZED` (401) - No staffId in JWT
+- `CASE_NOT_FOUND` (404) - Invalid caseId
+- `MESSAGE_NOT_FOUND` (404) - CallSid not in system
+- Twilio retry on 5xx: exponential backoff (0s, 15s, 30s)
 
 ### Audit Logger Service (Phase 01 - NEW)
 
@@ -893,8 +952,8 @@ interface QuickEditModalProps {
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention, 44 new tests) + Phase 04 Checklist Recalculation (UpdateProfileResponse, query invalidation) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist tests, 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, operators)
+**Status:** Phase 01 Voice API (Token generation, TwiML call routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention, 44 new tests) + Phase 04 Checklist Recalculation (UpdateProfileResponse, query invalidation) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist tests, 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, operators)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.0.0 (Phase 05 Security - Hardened profile updates with XSS sanitization + prototype pollution prevention, 44 comprehensive unit tests)
+**Architecture Version:** 8.1.0 (Phase 01 Voice API - Browser-based calling with Twilio Client SDK, call recording, webhook management, secure token generation)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

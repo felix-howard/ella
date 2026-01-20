@@ -24,7 +24,6 @@ import {
   linkToChecklistItem,
   createAction,
   processOcrResultAtomic,
-  markImageProcessing,
 } from '../services/ai/pipeline-helpers'
 import {
   getVietnameseError,

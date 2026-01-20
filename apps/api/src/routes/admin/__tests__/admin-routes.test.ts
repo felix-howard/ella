@@ -246,7 +246,6 @@ describe('Admin Intake Questions API', () => {
 
 describe('Admin Checklist Templates API', () => {
   const mockFindMany = vi.mocked(prisma.checklistTemplate.findMany)
-  const mockFindUnique = vi.mocked(prisma.checklistTemplate.findUnique)
   const mockCreate = vi.mocked(prisma.checklistTemplate.create)
   const mockUpdate = vi.mocked(prisma.checklistTemplate.update)
   const mockDelete = vi.mocked(prisma.checklistTemplate.delete)

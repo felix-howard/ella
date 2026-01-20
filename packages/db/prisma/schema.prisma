@@ -221,6 +221,7 @@ model Staff {
   actions   Action[]  @relation("AssignedStaff")
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
+  auditLogs AuditLog[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -620,4 +621,32 @@ model DocTypeLibrary {
 
   @@index([category])
   @@index([isActive])
+}
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+// Entity types that can be audited
+enum AuditEntityType {
+  CLIENT
+  CLIENT_PROFILE
+  TAX_CASE
+}
+
+// Audit log for tracking field-level changes
+model AuditLog {
+  id          String          @id @default(cuid())
+  entityType  AuditEntityType
+  entityId    String          // clientId, profileId, or caseId
+  field       String          // Field name that was changed
+  oldValue    Json?           // Previous value (null for new fields)
+  newValue    Json?           // New value (null for deleted fields)
+  changedById String?         // Staff who made the change
+  changedBy   Staff?          @relation(fields: [changedById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@index([changedById])
+  @@index([createdAt])
 }

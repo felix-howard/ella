@@ -13,13 +13,21 @@ import { sanitizeSearchInput, pickFields } from '../../lib/validation'
 import {
   createClientSchema,
   updateClientSchema,
+  updateProfileSchema,
   listClientsQuerySchema,
   clientIdParamSchema,
   cascadeCleanupSchema,
 } from './schemas'
-import { generateChecklist, cascadeCleanupOnFalse } from '../../services/checklist-generator'
+import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
+import {
+  logProfileChanges,
+  computeIntakeAnswersDiff,
+  computeProfileFieldDiff,
+} from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
 
 const clientsRoute = new Hono()
@@ -411,6 +419,137 @@ clientsRoute.patch(
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
     })
+  }
+)
+
+// PATCH /clients/:id/profile - Update client profile (intakeAnswers + filingStatus)
+// Supports partial updates - merges with existing intakeAnswers
+//
+// Security Notes:
+// - Input validation via Zod (key format, value types, max counts)
+// - Audit values stored as JSON - frontend MUST escape when rendering to prevent XSS
+// - Consider adding rate limiting middleware (e.g., 10 req/min per client) in production
+// - Audit log retention: IRS requires 7 years - implement scheduled cleanup job
+clientsRoute.patch(
+  '/:id/profile',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', updateProfileSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
+
+    try {
+      // Fetch current profile with client's active tax case
+      const client = await prisma.client.findUnique({
+        where: { id },
+        include: {
+          profile: true,
+          taxCases: {
+            where: { status: { not: 'FILED' } },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      })
+
+      if (!client) {
+        return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+      }
+
+      if (!client.profile) {
+        return c.json({ error: 'NO_PROFILE', message: 'Client has no profile' }, 400)
+      }
+
+      const currentProfile = client.profile
+      const currentIntakeAnswers = (currentProfile.intakeAnswers as Record<string, unknown>) || {}
+      const activeCaseId = client.taxCases[0]?.id
+
+      // Merge intakeAnswers (partial update)
+      const mergedIntakeAnswers = body.intakeAnswers
+        ? { ...currentIntakeAnswers, ...body.intakeAnswers }
+        : currentIntakeAnswers
+
+      // Compute diffs for audit logging
+      const intakeChanges = body.intakeAnswers
+        ? computeIntakeAnswersDiff(currentIntakeAnswers, mergedIntakeAnswers)
+        : []
+      const profileChanges = computeProfileFieldDiff(currentProfile, body)
+      const allChanges = [...intakeChanges, ...profileChanges]
+
+      // Build update data with proper Prisma types
+      const updateData: Prisma.ClientProfileUpdateInput = {}
+      if (body.intakeAnswers) {
+        updateData.intakeAnswers = mergedIntakeAnswers as Prisma.InputJsonValue
+      }
+      if (body.filingStatus !== undefined) {
+        updateData.filingStatus = body.filingStatus
+      }
+
+      // Skip if no changes
+      if (Object.keys(updateData).length === 0) {
+        return c.json({
+          profile: currentProfile,
+          checklistRefreshed: false,
+          cascadeCleanup: { triggeredBy: [] },
+        })
+      }
+
+      // Update profile
+      const updatedProfile = await prisma.clientProfile.update({
+        where: { clientId: id },
+        data: updateData,
+      })
+
+      // Detect boolean fields that changed to false (for cascade cleanup)
+      const changedToFalse: string[] = []
+      if (body.intakeAnswers) {
+        for (const [key, newValue] of Object.entries(body.intakeAnswers)) {
+          const oldValue = currentIntakeAnswers[key]
+          if (oldValue === true && newValue === false) {
+            changedToFalse.push(key)
+          }
+        }
+      }
+
+      // Cascade cleanup for each boolean that changed to false (parallel execution)
+      if (changedToFalse.length > 0) {
+        await Promise.all(
+          changedToFalse.map((key) => cascadeCleanupOnFalse(id, key, activeCaseId))
+        )
+      }
+
+      // Refresh checklist if there's an active case and intakeAnswers changed
+      let checklistRefreshed = false
+      if (activeCaseId && body.intakeAnswers) {
+        await refreshChecklist(activeCaseId)
+        checklistRefreshed = true
+      }
+
+      // Log changes asynchronously (non-blocking)
+      // Note: staffId can be extracted from auth context in future
+      if (allChanges.length > 0) {
+        logProfileChanges(id, allChanges).catch((err) => {
+          console.error('[Profile Update] Failed to log changes:', err)
+        })
+      }
+
+      return c.json({
+        profile: {
+          ...updatedProfile,
+          createdAt: updatedProfile.createdAt.toISOString(),
+          updatedAt: updatedProfile.updatedAt.toISOString(),
+        },
+        checklistRefreshed,
+        cascadeCleanup: { triggeredBy: changedToFalse },
+      })
+    } catch (error) {
+      console.error('[Profile Update] Error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      return c.json(
+        { error: 'PROFILE_UPDATE_FAILED', message: errorMessage },
+        500
+      )
+    }
   }
 )
 

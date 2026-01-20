@@ -109,11 +109,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item
 - `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
 
-**Clients (6):**
+**Clients (7 - Phase 01 NEW: +1 profile endpoint):**
 - `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
 - `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
 - `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
+- `PATCH /clients/:id/profile` - Update client profile (intakeAnswers + filingStatus) with audit logging (PHASE 01 NEW)
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
@@ -191,6 +192,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 - `pdf/pdf-converter.ts` - PDF to PNG conversion for OCR processing (Phase 01)
+- `audit-logger.ts` - Field-level change tracking for compliance & audit trails (Phase 01 NEW)
 
 **Checklist Generator Service (Phase 3 - Enhanced):**
 
@@ -208,6 +210,90 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **intakeAnswers Validation:** Type-checked at runtime (must be plain object, not array)
 - **Refresh Flow:** Preserves verified items, re-evaluates MISSING items only
 - **15 Unit Tests:** Condition evaluation, AND logic, fallback behavior, invalid JSON, DoS protection
+
+**Audit Logger Service (Phase 01 - NEW):**
+
+**Location:** `apps/api/src/services/audit-logger.ts`
+
+**Purpose:** Field-level change tracking for compliance, audit trails, and data governance (IRS 7-year retention requirement).
+
+**Key Features:**
+- Non-blocking async logging (doesn't slow down API responses via fire-and-forget pattern)
+- Batch insert for efficiency (Prisma createMany)
+- Field-level granularity (tracks individual field changes, not entire records)
+- Support for nested JSON fields (intakeAnswers partial updates)
+- Staff attribution (tracks who made changes and when)
+- Error resilience with structured logging
+
+**Core Functions:**
+
+1. **logProfileChanges(clientId, changes[], staffId?)** - Log profile field changes asynchronously
+   - `changes`: Array of `{ field, oldValue, newValue }`
+   - Converts to AuditLog entries with CLIENT_PROFILE entity type
+   - Handles Prisma.JsonNull for explicit null values
+   - Fires as background task (non-blocking)
+
+2. **computeIntakeAnswersDiff(oldAnswers, newAnswers)** - Compute changes for intake answers
+   - Optimized: Only compares keys in newAnswers (partial update pattern)
+   - Returns only changed fields with old/new values
+   - Uses JSON.stringify for deep equality on primitives
+
+3. **computeProfileFieldDiff(oldProfile, newProfile)** - Compute direct profile field changes
+   - Currently handles filingStatus field
+   - Extensible to other scalar fields (e.g., businessName, ein)
+   - Type-safe field comparison
+
+**Integration with PATCH /clients/:id/profile:**
+- Before database update: Compute all changes (intakeAnswers + direct fields)
+- If changes exist: Log asynchronously via logProfileChanges()
+- Response includes audit metadata
+- No changes = no logging (efficiency optimization)
+
+**Database Schema (AuditLog Model):**
+```
+id: cuid (primary key)
+entityType: enum (CLIENT_PROFILE, CLIENT, TAX_CASE) - tracks entity type
+entityId: string - references client/profile/case ID
+field: string - field name that changed (e.g., "intakeAnswers.w2Count")
+oldValue: Json? - previous value (null for new fields)
+newValue: Json? - new value (null for deleted fields)
+changedById: string? - Staff ID who made change
+changedBy: Staff relation - join to staff for attribution
+createdAt: timestamp - when change was logged
+
+Indexes:
+- (entityType, entityId) - efficient queries by entity
+- (changedById) - audit by staff member
+- (createdAt) - time-based queries, audit retention cleanup
+```
+
+**Error Handling:**
+- Catches Prisma errors and logs with structured format
+- Includes field names (for debugging) but excludes values (privacy)
+- Non-critical: Audit log failures don't fail API requests
+- Production: Consider sending critical errors to monitoring service (Sentry, DataDog)
+
+**Usage Example:**
+```typescript
+// In PATCH /clients/:id/profile endpoint
+const intakeChanges = computeIntakeAnswersDiff(oldAnswers, newAnswers)
+const profileChanges = computeProfileFieldDiff(oldProfile, newProfile)
+const allChanges = [...intakeChanges, ...profileChanges]
+
+// Log asynchronously (fire-and-forget)
+if (allChanges.length > 0) {
+  logProfileChanges(clientId, allChanges, staffId).catch(err => {
+    console.error('Audit logging failed:', err)
+    // Don't throw - API response already sent
+  })
+}
+```
+
+**Compliance Considerations:**
+- IRS 7-year record retention: Implement scheduled cleanup job
+- Field masking: PII never stored in audit logs (values are audit records, not compliance records)
+- Staff attribution: Enables user activity tracking for compliance audits
+- Atomic updates: All changes for single request logged together
 
 **SMS Service Implementation (Phase 1.2+):**
 
@@ -1170,12 +1256,19 @@ Poll Stops (unsubscribe):
 
 ## Database Schema (Phase 1.1 - Complete)
 
-**Core Models (13):**
+**Core Models (14 - Phase 01 NEW: +1 AuditLog model):**
 
 ```
+AuditLog - Compliance & audit trail (Phase 01 NEW)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE)
+├── entityId, field, oldValue, newValue (Json)
+├── changedById (optional), createdAt
+├── Indexes: (entityType, entityId), (changedById), (createdAt)
+
 Staff - Authentication & authorization
 ├── id, email (@unique), name, role (ADMIN|STAFF|CPA)
 ├── avatarUrl, isActive, timestamps
+├── auditLogs (1:many AuditLog)
 
 Client - Tax client management
 ├── id, name, phone (@unique), email, language (VI|EN)

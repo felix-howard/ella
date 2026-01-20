@@ -99,8 +99,39 @@ export const cascadeCleanupSchema = z.object({
   caseId: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid case ID format').optional(),
 })
 
+// Regex for valid intakeAnswer keys: alphanumeric, underscores, starts with letter
+// Prevents prototype pollution and ensures clean key names
+const VALID_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
+
+// Update client profile input (for PATCH /clients/:id/profile)
+// Supports partial updates to intakeAnswers (merges with existing)
+export const updateProfileSchema = z.object({
+  // Direct profile field
+  filingStatus: z.string().optional(),
+
+  // Partial intakeAnswers update (merged with existing, not replaced)
+  // Validation: strings max 500 chars, numbers 0-9999, keys must be alphanumeric
+  intakeAnswers: z.record(
+    z.union([
+      z.boolean(),
+      z.number().min(0).max(9999),
+      z.string().max(500),
+    ])
+  )
+    .optional()
+    .refine(
+      (val) => !val || Object.keys(val).length <= 200,
+      { message: 'Too many intake answers (max 200)' }
+    )
+    .refine(
+      (val) => !val || Object.keys(val).every((key) => VALID_KEY_PATTERN.test(key)),
+      { message: 'Invalid intake answer key format (must be alphanumeric, start with letter, max 64 chars)' }
+    ),
+})
+
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>
 export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>

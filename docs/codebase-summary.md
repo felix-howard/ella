@@ -84,7 +84,7 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 ## Core Applications
 
 ### @ella/api
-**REST API (Hono framework, PORT 3002)** - 42+ endpoints across 8 modules with Zod validation, global error handling, OpenAPI docs.
+**REST API (Hono framework, PORT 3002)** - 43+ endpoints across 8 modules with Zod validation, global error handling, OpenAPI docs, audit logging (Phase 01 NEW).
 
 ### @ella/portal
 **Client-facing upload portal (React, PORT 5174)** - Passwordless magic link auth, mobile-optimized (max 448px), file validation, real-time progress.
@@ -119,6 +119,27 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
 ## Backend Services
+
+### Audit Logger Service (Phase 01 - NEW)
+
+**Location:** `apps/api/src/services/audit-logger.ts`
+
+**Purpose:** Field-level change tracking for compliance audits and data governance.
+
+**Core Functions:**
+- `logProfileChanges(clientId, changes[], staffId?)` - Async batch logging of field changes
+- `computeIntakeAnswersDiff(oldAnswers, newAnswers)` - Diff computation for intake answers
+- `computeProfileFieldDiff(oldProfile, newProfile)` - Direct field change detection
+
+**Features:**
+- Non-blocking: Fires as background task (doesn't slow API responses)
+- Field-level: Tracks individual changes, not entire records
+- Staff attribution: Tracks who made changes and when
+- Error resilient: Failures don't fail API requests
+
+**Database:** AuditLog model with entityType (CLIENT_PROFILE|CLIENT|TAX_CASE), field names, old/new values, staff attribution
+
+**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates
 
 ### Checklist Generator Service (Phase 01 Condition System - UPGRADED)
 

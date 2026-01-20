@@ -15,8 +15,6 @@ import {
   MessageSquare,
   User,
   Pencil,
-  Copy,
-  Check,
   AlertCircle,
   RefreshCw,
   Loader2,
@@ -28,14 +26,12 @@ import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Butt
 import { PageContainer } from '../../components/layout'
 import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
+import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
-  TAX_TYPE_LABELS,
-  FILING_STATUS_LABELS,
-  LANGUAGE_LABELS,
   UI_TEXT,
 } from '../../lib/constants'
-import { formatPhone, getInitials, copyToClipboard, getAvatarColor } from '../../lib/formatters'
+import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
@@ -51,7 +47,6 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
   const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -247,14 +242,6 @@ function ClientDetailPage() {
 
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus
-
-  const handleCopy = async (text: string, field: string) => {
-    const success = await copyToClipboard(text)
-    if (success) {
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    }
-  }
 
   // Handler for opening classification review modal
   const handleReviewClassification = (image: RawImage) => {
@@ -468,72 +455,7 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Profile Info Card */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">{clientsText.personalInfo}</h2>
-            <div className="space-y-3">
-              <InfoRow
-                label={UI_TEXT.form.clientName}
-                value={client.name}
-                onCopy={() => handleCopy(client.name, 'name')}
-                copied={copiedField === 'name'}
-              />
-              <InfoRow
-                label={UI_TEXT.form.phone}
-                value={formatPhone(client.phone)}
-                onCopy={() => handleCopy(client.phone, 'phone')}
-                copied={copiedField === 'phone'}
-              />
-              {client.email && (
-                <InfoRow
-                  label={UI_TEXT.form.email}
-                  value={client.email}
-                  onCopy={() => handleCopy(client.email!, 'email')}
-                  copied={copiedField === 'email'}
-                />
-              )}
-              <InfoRow
-                label={UI_TEXT.form.language}
-                value={LANGUAGE_LABELS[client.language]}
-              />
-              {client.profile?.filingStatus && (
-                <InfoRow
-                  label={UI_TEXT.form.filingStatus}
-                  value={FILING_STATUS_LABELS[client.profile.filingStatus] || client.profile.filingStatus}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Tax Profile Card */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">{clientsText.taxProfile}</h2>
-            <div className="space-y-3">
-              <InfoRow
-                label={UI_TEXT.form.taxYear}
-                value={latestCase?.taxYear?.toString() || '—'}
-              />
-              <InfoRow
-                label={UI_TEXT.form.taxTypes}
-                value={latestCase?.taxTypes.map((t) => TAX_TYPE_LABELS[t]).join(', ') || '—'}
-              />
-              <InfoRow label="Có W2" value={client.profile?.hasW2 ? 'Có' : 'Không'} />
-              <InfoRow
-                label="Con dưới 17 tuổi"
-                value={client.profile?.hasKidsUnder17 ? `Có (${client.profile.numKidsUnder17})` : 'Không'}
-              />
-              <InfoRow
-                label="Trả tiền Daycare"
-                value={client.profile?.paysDaycare ? 'Có' : 'Không'}
-              />
-              <InfoRow
-                label="Tự kinh doanh"
-                value={client.profile?.hasSelfEmployment ? 'Có' : 'Không'}
-              />
-            </div>
-          </div>
-        </div>
+        <ClientOverviewSections client={client} />
       )}
 
       {activeTab === 'documents' && (
@@ -680,35 +602,4 @@ function ClientDetailPage() {
   )
 }
 
-// Info row component with optional copy button
-interface InfoRowProps {
-  label: string
-  value: string
-  onCopy?: () => void
-  copied?: boolean
-}
-
-function InfoRow({ label, value, onCopy, copied }: InfoRowProps) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{value}</span>
-        {onCopy && (
-          <button
-            onClick={onCopy}
-            className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label={`Copy ${label}`}
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-success" />
-            ) : (
-              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
 

@@ -74,7 +74,7 @@ function MessagesLayout() {
   return (
     <div
       className={cn(
-        'fixed inset-0 pt-16 flex bg-background transition-all duration-300',
+        'fixed inset-0 flex bg-background transition-all duration-300',
         sidebarCollapsed ? 'pl-16' : 'pl-60'
       )}
     >

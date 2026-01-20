@@ -21,21 +21,26 @@ import {
 } from '../../lib/intake-form-config'
 import type { ClientDetail } from '../../lib/api-client'
 import { SectionEditModal } from './section-edit-modal'
+import { QuickEditModal, type QuickEditField } from './quick-edit-modal'
 
 interface ClientOverviewSectionsProps {
   client: ClientDetail
 }
 
+// Personal info fields that support quick-edit
+const QUICK_EDIT_FIELDS: QuickEditField[] = ['name', 'phone', 'email']
+
 export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
+  const [quickEditField, setQuickEditField] = useState<QuickEditField | null>(null)
   // All sections expanded by default - initialize with all section keys
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     return new Set(Object.keys(SECTION_CONFIG))
   })
 
   const profile = client.profile
-  const intakeAnswers = profile?.intakeAnswers || {}
+  const intakeAnswers = useMemo(() => profile?.intakeAnswers || {}, [profile?.intakeAnswers])
   const latestCase = client.taxCases?.[0]
 
   // Handle copy to clipboard
@@ -81,7 +86,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
           : String(value)
       case 'number':
         return typeof value === 'number' ? value.toLocaleString() : String(value)
-      case 'select':
+      case 'select': {
         // Look up display label for select values
         const selectLabels = SELECT_LABELS[key]
         if (selectLabels && typeof value === 'string') {
@@ -92,6 +97,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
           return FILING_STATUS_LABELS[value as keyof typeof FILING_STATUS_LABELS] || value
         }
         return String(value)
+      }
       default:
         return String(value)
     }
@@ -99,16 +105,22 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
 
   // Group intake answers by section
   const sectionData = useMemo(() => {
-    const sections: Record<string, Array<{ key: string; label: string; value: string; rawValue: unknown }>> = {}
+    const sections: Record<string, Array<{ key: string; label: string; value: string; rawValue: unknown; editable?: boolean }>> = {}
 
     // Add personal info section (from client directly)
+    // name, phone, email are quick-editable via QuickEditModal
     sections.personal_info = [
-      { key: 'name', label: UI_TEXT.form.clientName, value: client.name, rawValue: client.name },
-      { key: 'phone', label: UI_TEXT.form.phone, value: client.phone, rawValue: client.phone },
+      { key: 'name', label: UI_TEXT.form.clientName, value: client.name, rawValue: client.name, editable: true },
+      { key: 'phone', label: UI_TEXT.form.phone, value: client.phone, rawValue: client.phone, editable: true },
     ]
-    if (client.email) {
-      sections.personal_info.push({ key: 'email', label: UI_TEXT.form.email, value: client.email, rawValue: client.email })
-    }
+    // Always include email row (show edit icon even if empty)
+    sections.personal_info.push({
+      key: 'email',
+      label: UI_TEXT.form.email,
+      value: client.email || '—',
+      rawValue: client.email || '',
+      editable: true,
+    })
     sections.personal_info.push({
       key: 'language',
       label: UI_TEXT.form.language,
@@ -271,6 +283,12 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
                           : undefined
                       }
                       copied={copiedField === item.key}
+                      editable={item.editable}
+                      onEdit={
+                        item.editable && QUICK_EDIT_FIELDS.includes(item.key as QuickEditField)
+                          ? () => setQuickEditField(item.key as QuickEditField)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -289,24 +307,52 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
           client={client}
         />
       )}
+
+      {/* Quick Edit Modal for personal info fields */}
+      {quickEditField && (
+        <QuickEditModal
+          isOpen={!!quickEditField}
+          onClose={() => setQuickEditField(null)}
+          field={quickEditField}
+          currentValue={
+            quickEditField === 'name' ? client.name :
+            quickEditField === 'phone' ? client.phone :
+            quickEditField === 'email' ? (client.email || '') :
+            ''
+          }
+          clientId={client.id}
+        />
+      )}
     </div>
   )
 }
 
-// Info row component with optional copy button
+// Info row component with optional copy and edit buttons
 interface InfoRowProps {
   label: string
   value: string
   onCopy?: () => void
   copied?: boolean
+  editable?: boolean
+  onEdit?: () => void
 }
 
-function InfoRow({ label, value, onCopy, copied }: InfoRowProps) {
+function InfoRow({ label, value, onCopy, copied, editable, onEdit }: InfoRowProps) {
   return (
     <div className="flex items-center justify-between py-3 first:pt-4">
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-foreground">{value}</span>
+        {/* Edit button - subtle, appears on hover */}
+        {editable && onEdit && (
+          <button
+            onClick={onEdit}
+            className="p-1 rounded hover:bg-muted transition-colors opacity-50 hover:opacity-100"
+            aria-label={`Chỉnh sửa ${label}`}
+          >
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+        )}
         {onCopy && (
           <button
             onClick={onCopy}

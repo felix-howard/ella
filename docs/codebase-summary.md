@@ -761,7 +761,31 @@ interface QuickEditModalProps {
 - Button disabled states: opacity-50, cursor-not-allowed
 - Vietnamese labels and UI text throughout
 
-## Recent Feature: Phase 04 Checklist Recalculation Integration (NEW - 2026-01-20)
+## Recent Feature: Phase 05 Security Enhancements (NEW - 2026-01-20)
+
+**Location:** `apps/api/src/routes/clients/schemas.ts` | `apps/api/src/routes/clients/index.ts`
+
+**Security Hardening (2 areas):**
+
+1. **Prototype Pollution Prevention (DANGEROUS_KEYS)**
+   - **File:** `apps/api/src/routes/clients/schemas.ts` (lines 106-119)
+   - **Blocklist:** 10 dangerous keys: `__proto__`, `constructor`, `prototype`, `toString`, `valueOf`, `hasOwnProperty`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`
+   - **Validation:** `updateProfileSchema` includes `.refine()` check via `DANGEROUS_KEYS.has(key)`
+   - **Error Message:** "Reserved key name not allowed (potential prototype pollution)"
+   - **Scope:** Applies to `intakeAnswers` partial updates in `PATCH /clients/:id/profile`
+
+2. **XSS Prevention for String Values**
+   - **File:** `apps/api/src/routes/clients/index.ts` (lines 467-476)
+   - **Implementation:** Sanitizes all string values in intakeAnswers via `sanitizeTextInput(value, 500)`
+   - **Defense Layer:** Backend sanitization + frontend escaping (defense-in-depth)
+   - **Function:** Applies to each string entry during profile update before merge
+   - **Example:** `"<script>alert('xss')</script>"` → sanitized before storage
+
+**Additional Tests Added (Phase 05):**
+- **profile-update.test.ts** (22 tests) - Tests PATCH /clients/:id/profile endpoint with XSS/injection payloads
+- **audit-logger.test.ts** (22 tests) - Validates audit logging of profile changes
+
+## Recent Feature: Phase 04 Checklist Recalculation Integration (UPDATED - 2026-01-20)
 
 **Location:** `apps/workspace/src/lib/api-client.ts` | `apps/workspace/src/components/clients/section-edit-modal.tsx`
 
@@ -779,6 +803,7 @@ interface QuickEditModalProps {
   - Pattern: Optimistic UI + server-driven refresh status (avoids unnecessary re-queries)
 - **Query Invalidation Pattern:** React Query `invalidateQueries()` ensures stale checklist data refreshed on next fetch
 - **User Feedback:** Two-tier toast system: main success + optional info toast for cascade events
+- **Integration with Phase 05 Security:** Works seamlessly with XSS sanitization and prototype pollution prevention
 
 ## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
 
@@ -868,8 +893,8 @@ interface QuickEditModalProps {
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 04 Checklist Recalculation Integration (UpdateProfileResponse, query invalidation pattern) + Phase 03 Quick-Edit Icons (QuickEditModal, wrapper pattern, field validation, accessibility) + Phase 02 Section Edit Modal (intake-form-config.ts, SectionEditModal, edit icons) + Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
+**Status:** Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention, 44 new tests) + Phase 04 Checklist Recalculation (UpdateProfileResponse, query invalidation) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist tests, 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, operators)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.9.0 (Phase 04 Checklist Recalculation - Server-driven refresh on profile updates with cascade cleanup feedback)
+**Architecture Version:** 8.0.0 (Phase 05 Security - Hardened profile updates with XSS sanitization + prototype pollution prevention, 44 comprehensive unit tests)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

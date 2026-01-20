@@ -103,6 +103,21 @@ export const cascadeCleanupSchema = z.object({
 // Prevents prototype pollution and ensures clean key names
 const VALID_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
 
+// Dangerous keys that could pollute Object prototype - must be explicitly blocked
+// Even if they match VALID_KEY_PATTERN, these should never be accepted as keys
+const DANGEROUS_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'toString',
+  'valueOf',
+  'hasOwnProperty',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+])
+
 // Update client profile input (for PATCH /clients/:id/profile)
 // Supports partial updates to intakeAnswers (merges with existing)
 export const updateProfileSchema = z.object({
@@ -126,6 +141,10 @@ export const updateProfileSchema = z.object({
     .refine(
       (val) => !val || Object.keys(val).every((key) => VALID_KEY_PATTERN.test(key)),
       { message: 'Invalid intake answer key format (must be alphanumeric, start with letter, max 64 chars)' }
+    )
+    .refine(
+      (val) => !val || Object.keys(val).every((key) => !DANGEROUS_KEYS.has(key)),
+      { message: 'Reserved key name not allowed (potential prototype pollution)' }
     ),
 })
 

@@ -9,7 +9,7 @@ import {
   getPaginationParams,
   buildPaginationResponse,
 } from '../../lib/constants'
-import { sanitizeSearchInput, pickFields } from '../../lib/validation'
+import { sanitizeSearchInput, sanitizeTextInput, pickFields } from '../../lib/validation'
 import {
   createClientSchema,
   updateClientSchema,
@@ -464,13 +464,24 @@ clientsRoute.patch(
       const currentIntakeAnswers = (currentProfile.intakeAnswers as Record<string, unknown>) || {}
       const activeCaseId = client.taxCases[0]?.id
 
+      // Sanitize string values in intakeAnswers to prevent XSS
+      // Note: Frontend MUST also escape when rendering for defense-in-depth
+      const sanitizedIntakeAnswers = body.intakeAnswers
+        ? Object.fromEntries(
+            Object.entries(body.intakeAnswers).map(([key, value]) => [
+              key,
+              typeof value === 'string' ? sanitizeTextInput(value, 500) : value,
+            ])
+          )
+        : undefined
+
       // Merge intakeAnswers (partial update)
-      const mergedIntakeAnswers = body.intakeAnswers
-        ? { ...currentIntakeAnswers, ...body.intakeAnswers }
+      const mergedIntakeAnswers = sanitizedIntakeAnswers
+        ? { ...currentIntakeAnswers, ...sanitizedIntakeAnswers }
         : currentIntakeAnswers
 
-      // Compute diffs for audit logging
-      const intakeChanges = body.intakeAnswers
+      // Compute diffs for audit logging (using sanitized values)
+      const intakeChanges = sanitizedIntakeAnswers
         ? computeIntakeAnswersDiff(currentIntakeAnswers, mergedIntakeAnswers)
         : []
       const profileChanges = computeProfileFieldDiff(currentProfile, body)
@@ -478,7 +489,7 @@ clientsRoute.patch(
 
       // Build update data with proper Prisma types
       const updateData: Prisma.ClientProfileUpdateInput = {}
-      if (body.intakeAnswers) {
+      if (sanitizedIntakeAnswers) {
         updateData.intakeAnswers = mergedIntakeAnswers as Prisma.InputJsonValue
       }
       if (body.filingStatus !== undefined) {
@@ -502,8 +513,8 @@ clientsRoute.patch(
 
       // Detect boolean fields that changed to false (for cascade cleanup)
       const changedToFalse: string[] = []
-      if (body.intakeAnswers) {
-        for (const [key, newValue] of Object.entries(body.intakeAnswers)) {
+      if (sanitizedIntakeAnswers) {
+        for (const [key, newValue] of Object.entries(sanitizedIntakeAnswers)) {
           const oldValue = currentIntakeAnswers[key]
           if (oldValue === true && newValue === false) {
             changedToFalse.push(key)
@@ -520,7 +531,7 @@ clientsRoute.patch(
 
       // Refresh checklist if there's an active case and intakeAnswers changed
       let checklistRefreshed = false
-      if (activeCaseId && body.intakeAnswers) {
+      if (activeCaseId && sanitizedIntakeAnswers) {
         await refreshChecklist(activeCaseId)
         checklistRefreshed = true
       }

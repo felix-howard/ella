@@ -373,6 +373,426 @@ describe('generateChecklist', () => {
     // Should not create items when intakeAnswers is invalid
     expect(mockCreateMany).not.toHaveBeenCalled()
   })
+
+  // ============================================
+  // Phase 01: Compound AND/OR Conditions Tests
+  // ============================================
+
+  it('evaluates compound AND condition - all pass', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'AND',
+          conditions: [
+            { key: 'hasSelfEmployment', value: true },
+            { key: 'hasBusinessVehicle', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasSelfEmployment: true, hasBusinessVehicle: true },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates compound AND condition - one fails', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'AND',
+          conditions: [
+            { key: 'hasSelfEmployment', value: true },
+            { key: 'hasBusinessVehicle', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasSelfEmployment: true, hasBusinessVehicle: false },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).not.toHaveBeenCalled()
+  })
+
+  it('evaluates compound OR condition - first passes', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'OR',
+          conditions: [
+            { key: 'hasForeignIncome', value: true },
+            { key: 'hasForeignAccounts', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasForeignIncome: true, hasForeignAccounts: false },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates compound OR condition - second passes', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'OR',
+          conditions: [
+            { key: 'hasForeignIncome', value: true },
+            { key: 'hasForeignAccounts', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasForeignIncome: false, hasForeignAccounts: true },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates compound OR condition - all fail', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'OR',
+          conditions: [
+            { key: 'hasForeignIncome', value: true },
+            { key: 'hasForeignAccounts', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasForeignIncome: false, hasForeignAccounts: false },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).not.toHaveBeenCalled()
+  })
+
+  // ============================================
+  // Phase 01: Simple Condition with Operators
+  // ============================================
+
+  it('evaluates simple condition with === operator (default)', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'hasW2', value: true }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasW2: true },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with !== operator', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'filingStatus', value: 'SINGLE', operator: '!==' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { filingStatus: 'MARRIED' },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with > operator', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'foreignBalance', value: 10000, operator: '>' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { foreignBalance: 15000 },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with > operator - fails when equal', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'foreignBalance', value: 10000, operator: '>' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+
+    const profile = createMockProfile({
+      intakeAnswers: { foreignBalance: 10000 },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).not.toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with >= operator', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'numKidsUnder17', value: 2, operator: '>=' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { numKidsUnder17: 2 },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with < operator', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'income', value: 50000, operator: '<' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { income: 30000 },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates simple condition with <= operator', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({ key: 'age', value: 65, operator: '<=' }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    const profile = createMockProfile({
+      intakeAnswers: { age: 65 },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  // ============================================
+  // Phase 01: Nested Conditions (2-3 levels)
+  // ============================================
+
+  it('evaluates nested conditions (2 levels)', async () => {
+    // Example: (hasSelfEmployment AND hasBusinessVehicle) OR hasForeignIncome
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'OR',
+          conditions: [
+            {
+              type: 'AND',
+              conditions: [
+                { key: 'hasSelfEmployment', value: true },
+                { key: 'hasBusinessVehicle', value: true },
+              ],
+            },
+            { key: 'hasForeignIncome', value: true },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    // First branch passes (both AND conditions true)
+    const profile = createMockProfile({
+      intakeAnswers: { hasSelfEmployment: true, hasBusinessVehicle: true, hasForeignIncome: false },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  it('evaluates nested conditions (3 levels)', async () => {
+    // Complex: ((A AND B) OR (C AND D)) AND E
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'AND',
+          conditions: [
+            {
+              type: 'OR',
+              conditions: [
+                {
+                  type: 'AND',
+                  conditions: [
+                    { key: 'hasW2', value: true },
+                    { key: 'hasKidsUnder17', value: true },
+                  ],
+                },
+                {
+                  type: 'AND',
+                  conditions: [
+                    { key: 'hasSelfEmployment', value: true },
+                    { key: 'hasHomeOffice', value: true },
+                  ],
+                },
+              ],
+            },
+            { key: 'filingStatus', value: 'MARRIED', operator: '!==' },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+    mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+    // Second OR branch passes (self-employment + home office), and final AND passes (not MARRIED)
+    const profile = createMockProfile({
+      intakeAnswers: {
+        hasW2: false,
+        hasKidsUnder17: false,
+        hasSelfEmployment: true,
+        hasHomeOffice: true,
+        filingStatus: 'SINGLE',
+      },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).toHaveBeenCalled()
+  })
+
+  // ============================================
+  // Phase 01: Depth Limit Exceeded
+  // ============================================
+
+  it('rejects condition exceeding max depth (3 levels)', async () => {
+    // Create 4 levels deep (exceeds max of 3)
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'AND',
+          conditions: [
+            {
+              type: 'OR',
+              conditions: [
+                {
+                  type: 'AND',
+                  conditions: [
+                    {
+                      type: 'OR', // 4th level - should fail
+                      conditions: [
+                        { key: 'hasW2', value: true },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasW2: true },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    // Should skip template when depth exceeded
+    expect(mockCreateMany).not.toHaveBeenCalled()
+  })
+
+  // ============================================
+  // Phase 01: Empty Conditions Array
+  // ============================================
+
+  it('rejects compound condition with empty conditions array', async () => {
+    const templates = [
+      createMockTemplate({
+        id: 'template-1',
+        isRequired: false,
+        condition: JSON.stringify({
+          type: 'AND',
+          conditions: [],
+        }),
+      }),
+    ]
+    mockFindMany.mockResolvedValueOnce(templates)
+
+    const profile = createMockProfile({
+      intakeAnswers: { hasW2: true },
+    })
+    await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+    expect(mockCreateMany).not.toHaveBeenCalled()
+  })
 })
 
 describe('refreshChecklist', () => {

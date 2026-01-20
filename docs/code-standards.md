@@ -95,6 +95,61 @@ export const prisma =
   })
 ```
 
+## Condition Types & Evaluation (@ella/shared - Phase 01)
+
+**Location:** `packages/shared/src/types/condition.ts` + `apps/api/src/services/checklist-generator.ts`
+
+**Three Condition Formats:**
+
+```typescript
+// 1. Legacy flat (implicit AND)
+{ hasW2: true, hasSelfEmployment: true }
+
+// 2. Simple with optional operator
+{ key: 'foreignBalance', value: 10000, operator: '>' }
+
+// 3. Compound AND/OR (nested)
+{
+  type: 'AND',
+  conditions: [
+    { key: 'hasChildren', value: true },
+    { type: 'OR', conditions: [
+      { key: 'hasW2', value: true },
+      { key: 'hasSelfEmployment', value: true }
+    ]}
+  ]
+}
+```
+
+**Type Guards (exported from @ella/shared):**
+- `isSimpleCondition(obj)` - Has `key`, `value` (no `type`)
+- `isCompoundCondition(obj)` - Has `type: 'AND' | 'OR'` + `conditions[]`
+- `isLegacyCondition(obj)` - Plain object (no `key`, no `type`)
+- `isValidOperator(op)` - Validates: ===, !==, >, <, >=, <=
+
+**Comparison Operators (for numeric & equality):**
+- `===` - Strict equality (default)
+- `!==` - Strict inequality
+- `>`, `<`, `>=`, `<=` - Numeric comparison (requires both operands number)
+
+**Recursion Limits:**
+- Max JSON size: 10KB (DoS protection)
+- Max nesting depth: 3 levels (stack overflow prevention)
+- Invalid conditions return `false` (skipped)
+
+**Cascade Cleanup Pattern:**
+```typescript
+// When parent answer toggles false → auto-delete dependent answers
+POST /clients/:id/cascade-cleanup
+{ changedKey: 'hasChildren', caseId?: 'c...' }
+
+// Returns:
+{
+  deletedAnswers: ['childAge', 'schoolName'], // From intakeAnswers
+  deletedItems: 2 // MISSING checklist items with failed conditions
+}
+```
+
 ## Shared Types & Validation (@ella/shared)
 
 **Zod Schema Patterns:**

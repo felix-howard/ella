@@ -38,11 +38,11 @@ export const clientProfileSchema = z.object({
   has1099K: z.boolean().default(false),
 
   // NEW: Full intake answers JSON (stores all dynamic question answers)
-  // Validation: max 200 keys, strings max 500 chars, numbers 0-99
+  // Validation: max 200 keys, strings max 500 chars, numbers 0-9999 (to allow years)
   intakeAnswers: z.record(
     z.union([
       z.boolean(),
-      z.number().min(0).max(99),
+      z.number().min(0).max(9999),
       z.string().max(500),
     ])
   )
@@ -93,7 +93,14 @@ export const listClientsQuerySchema = z.object({
     .optional(),
 })
 
+// Cascade cleanup input
+export const cascadeCleanupSchema = z.object({
+  changedKey: z.string().min(1, 'Changed key is required'),
+  caseId: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid case ID format').optional(),
+})
+
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
 export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>
+export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>

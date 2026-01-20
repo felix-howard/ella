@@ -140,10 +140,13 @@ export function MultiSectionIntakeForm({
   const questions = data?.data || []
 
   // Handle answer change
+  // NOTE: For editing existing clients, use api.clients.cascadeCleanup() to sync
+  // backend intakeAnswers and checklist items when parent answer changes to false.
+  // This UI-side cleanup only affects local state during client creation.
   const handleChange = (key: string, value: unknown) => {
     const newAnswers = { ...answers, [key]: value }
 
-    // Clear dependent values when parent changes to false
+    // Clear dependent values when parent changes to false (UI-side only)
     if (value === false) {
       // Clear child questions that depend on this field
       questions.forEach((q) => {

@@ -3,9 +3,20 @@
  * Generates dynamic checklists based on client profile answers
  *
  * Phase 3: Updated to read from intakeAnswers JSON with fallback to legacy profile fields
+ * Phase 01 Upgrade: Added compound AND/OR conditions, numeric operators, cascading cleanup
  */
 import { prisma } from '../lib/db'
 import type { TaxType, ClientProfile, ChecklistTemplate, Prisma } from '@ella/db'
+import {
+  isSimpleCondition,
+  isCompoundCondition,
+  isLegacyCondition,
+  isValidOperator,
+  type Condition,
+  type SimpleCondition,
+  type CompoundCondition,
+  type ComparisonOperator,
+} from '@ella/shared'
 
 /**
  * Context for evaluating checklist conditions
@@ -29,6 +40,8 @@ interface ConditionContext {
   }
   // Dynamic intake answers (primary source)
   intakeAnswers: Record<string, unknown>
+  // Method to get value from context (intakeAnswers first, fallback to profile)
+  get: (key: string) => unknown
 }
 
 /**
@@ -45,6 +58,9 @@ const MAX_CONDITION_SIZE = 10 * 1024
 
 /** Default bank statement count (months) */
 const BANK_STATEMENT_DEFAULT_COUNT = 12
+
+/** Max recursion depth for compound conditions (prevent stack overflow) */
+const MAX_CONDITION_DEPTH = 3
 
 /**
  * Generate checklist items for a tax case based on tax types and client profile
@@ -102,7 +118,7 @@ export async function generateChecklist(
 
 /**
  * Evaluate a condition JSON string against context
- * Checks intakeAnswers first, then falls back to legacy profile fields
+ * Supports legacy flat, simple with operators, and compound AND/OR formats
  */
 function evaluateCondition(
   conditionJson: string | null,
@@ -121,35 +137,150 @@ function evaluateCondition(
   }
 
   try {
-    const conditions = JSON.parse(conditionJson) as Record<string, unknown>
+    const condition = JSON.parse(conditionJson) as Condition
 
-    for (const [key, expectedValue] of Object.entries(conditions)) {
-      // Check intakeAnswers first (primary source)
-      let actualValue = context.intakeAnswers[key]
-
-      // Fallback to legacy profile fields
-      if (actualValue === undefined) {
-        actualValue = context.profile[key as keyof typeof context.profile]
-      }
-
-      // Key not found in either source = condition not met
-      if (actualValue === undefined) {
-        console.log(
-          `[Checklist] Condition key "${key}" not found for template ${templateId}. Skipping.`
-        )
-        return false
-      }
-
-      // Strict equality check
-      if (actualValue !== expectedValue) {
-        return false
-      }
-    }
-
-    return true // All conditions matched
+    // Evaluate with depth tracking
+    return evaluateConditionRecursive(condition, context, templateId, 0)
   } catch (error) {
     console.error(`[Checklist] Failed to parse condition for template ${templateId}:`, error)
     return false // Invalid JSON = skip
+  }
+}
+
+/**
+ * Recursive condition evaluator with depth limit
+ * Handles all three condition formats
+ */
+function evaluateConditionRecursive(
+  condition: Condition,
+  context: ConditionContext,
+  templateId: string,
+  depth: number
+): boolean {
+  // Depth limit check to prevent stack overflow
+  if (depth > MAX_CONDITION_DEPTH) {
+    console.error(`[Checklist] Condition depth exceeded (max ${MAX_CONDITION_DEPTH}) for template ${templateId}`)
+    return false
+  }
+
+  // Handle compound conditions (AND/OR)
+  if (isCompoundCondition(condition)) {
+    return evaluateCompoundCondition(condition, context, templateId, depth)
+  }
+
+  // Handle simple conditions with operators
+  if (isSimpleCondition(condition)) {
+    return evaluateSimpleCondition(condition, context, templateId)
+  }
+
+  // Handle legacy flat conditions (implicit AND)
+  if (isLegacyCondition(condition)) {
+    return evaluateLegacyCondition(condition, context, templateId)
+  }
+
+  console.error(`[Checklist] Unknown condition format for template ${templateId}`)
+  return false
+}
+
+/**
+ * Evaluate compound AND/OR conditions
+ */
+function evaluateCompoundCondition(
+  condition: CompoundCondition,
+  context: ConditionContext,
+  templateId: string,
+  depth: number
+): boolean {
+  const { type, conditions } = condition
+
+  if (!conditions || conditions.length === 0) {
+    console.warn(`[Checklist] Empty conditions array for template ${templateId}`)
+    return false
+  }
+
+  if (type === 'AND') {
+    return conditions.every((c) => evaluateConditionRecursive(c, context, templateId, depth + 1))
+  }
+
+  if (type === 'OR') {
+    return conditions.some((c) => evaluateConditionRecursive(c, context, templateId, depth + 1))
+  }
+
+  return false
+}
+
+/**
+ * Evaluate simple condition with optional comparison operator
+ */
+function evaluateSimpleCondition(
+  condition: SimpleCondition,
+  context: ConditionContext,
+  templateId: string
+): boolean {
+  const { key, value: expectedValue, operator = '===' } = condition
+
+  // Validate operator
+  if (!isValidOperator(operator)) {
+    console.error(`[Checklist] Invalid operator "${operator}" for template ${templateId}`)
+    return false
+  }
+
+  const actualValue = context.get(key)
+
+  // Key not found = condition not met
+  if (actualValue === undefined) {
+    console.log(`[Checklist] Condition key "${key}" not found for template ${templateId}. Skipping.`)
+    return false
+  }
+
+  return compare(actualValue, expectedValue, operator)
+}
+
+/**
+ * Evaluate legacy flat conditions (implicit AND between all keys)
+ */
+function evaluateLegacyCondition(
+  condition: Record<string, unknown>,
+  context: ConditionContext,
+  templateId: string
+): boolean {
+  for (const [key, expectedValue] of Object.entries(condition)) {
+    const actualValue = context.get(key)
+
+    // Key not found = condition not met
+    if (actualValue === undefined) {
+      console.log(`[Checklist] Condition key "${key}" not found for template ${templateId}. Skipping.`)
+      return false
+    }
+
+    // Strict equality check for legacy format
+    if (actualValue !== expectedValue) {
+      return false
+    }
+  }
+
+  return true // All conditions matched
+}
+
+/**
+ * Compare two values using the specified operator
+ */
+function compare(actual: unknown, expected: unknown, operator: ComparisonOperator): boolean {
+  switch (operator) {
+    case '===':
+      return actual === expected
+    case '!==':
+      return actual !== expected
+    case '>':
+      return typeof actual === 'number' && typeof expected === 'number' && actual > expected
+    case '<':
+      return typeof actual === 'number' && typeof expected === 'number' && actual < expected
+    case '>=':
+      return typeof actual === 'number' && typeof expected === 'number' && actual >= expected
+    case '<=':
+      return typeof actual === 'number' && typeof expected === 'number' && actual <= expected
+    default:
+      return false
   }
 }
 
@@ -191,23 +322,143 @@ function parseIntakeAnswers(value: unknown): Record<string, unknown> {
  * Build condition context from client profile
  */
 function buildConditionContext(profile: ClientProfile): ConditionContext {
-  return {
-    profile: {
-      hasW2: profile.hasW2,
-      hasBankAccount: profile.hasBankAccount,
-      hasInvestments: profile.hasInvestments,
-      hasKidsUnder17: profile.hasKidsUnder17,
-      numKidsUnder17: profile.numKidsUnder17,
-      paysDaycare: profile.paysDaycare,
-      hasKids17to24: profile.hasKids17to24,
-      hasSelfEmployment: profile.hasSelfEmployment,
-      hasRentalProperty: profile.hasRentalProperty,
-      hasEmployees: profile.hasEmployees,
-      hasContractors: profile.hasContractors,
-      has1099K: profile.has1099K,
-    },
-    intakeAnswers: parseIntakeAnswers(profile.intakeAnswers),
+  const intakeAnswers = parseIntakeAnswers(profile.intakeAnswers)
+  const legacyProfile = {
+    hasW2: profile.hasW2,
+    hasBankAccount: profile.hasBankAccount,
+    hasInvestments: profile.hasInvestments,
+    hasKidsUnder17: profile.hasKidsUnder17,
+    numKidsUnder17: profile.numKidsUnder17,
+    paysDaycare: profile.paysDaycare,
+    hasKids17to24: profile.hasKids17to24,
+    hasSelfEmployment: profile.hasSelfEmployment,
+    hasRentalProperty: profile.hasRentalProperty,
+    hasEmployees: profile.hasEmployees,
+    hasContractors: profile.hasContractors,
+    has1099K: profile.has1099K,
   }
+
+  return {
+    profile: legacyProfile,
+    intakeAnswers,
+    // Lookup: intakeAnswers first, then legacy profile
+    get: (key: string): unknown => {
+      if (key in intakeAnswers) {
+        return intakeAnswers[key]
+      }
+      return legacyProfile[key as keyof typeof legacyProfile]
+    },
+  }
+}
+
+/**
+ * Cascade cleanup when parent answer changes to false
+ * Deletes dependent answers from intakeAnswers and MISSING checklist items
+ * @param clientId - Client ID
+ * @param changedKey - The key that changed to false
+ * @param caseId - Optional case ID to update checklist
+ */
+export async function cascadeCleanupOnFalse(
+  clientId: string,
+  changedKey: string,
+  caseId?: string
+): Promise<{ deletedAnswers: string[]; deletedItems: number }> {
+  // Get client profile
+  const profile = await prisma.clientProfile.findUnique({
+    where: { clientId },
+  })
+
+  if (!profile) {
+    throw new Error(`Profile not found for client ${clientId}`)
+  }
+
+  const intakeAnswers = parseIntakeAnswers(profile.intakeAnswers)
+  const deletedAnswers: string[] = []
+
+  // Get intake questions to find dependencies
+  const questions = await prisma.intakeQuestion.findMany({
+    where: { isActive: true },
+    select: { questionKey: true, condition: true },
+  })
+
+  // Find questions that depend on the changed key
+  for (const question of questions) {
+    if (!question.condition) continue
+
+    try {
+      const condition = JSON.parse(question.condition) as Record<string, unknown>
+
+      // Check if condition references the changed key (legacy format: { key: value })
+      if (changedKey in condition && intakeAnswers[question.questionKey] !== undefined) {
+        deletedAnswers.push(question.questionKey)
+        delete intakeAnswers[question.questionKey]
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  // Update profile with cleaned intakeAnswers
+  if (deletedAnswers.length > 0) {
+    await prisma.clientProfile.update({
+      where: { clientId },
+      data: { intakeAnswers: intakeAnswers as Prisma.InputJsonValue },
+    })
+    console.log(`[Checklist] Cascade cleanup: deleted answers [${deletedAnswers.join(', ')}] for client ${clientId}`)
+  }
+
+  // Delete MISSING checklist items with failed conditions if caseId provided
+  let deletedItems = 0
+  if (caseId) {
+    const result = await refreshChecklistCascade(caseId)
+    deletedItems = result.deleted
+  }
+
+  return { deletedAnswers, deletedItems }
+}
+
+/**
+ * Refresh checklist with cascade - deletes MISSING items that no longer match conditions
+ * @param caseId - Tax case ID
+ */
+async function refreshChecklistCascade(caseId: string): Promise<{ deleted: number }> {
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id: caseId },
+    include: {
+      client: { include: { profile: true } },
+      checklistItems: {
+        where: { status: 'MISSING' },
+        include: { template: true },
+      },
+    },
+  })
+
+  if (!taxCase?.client?.profile) {
+    return { deleted: 0 }
+  }
+
+  const context = buildConditionContext(taxCase.client.profile)
+  const itemsToDelete: string[] = []
+
+  // Check each MISSING item to see if its condition still passes
+  for (const item of taxCase.checklistItems) {
+    if (!item.template.condition) continue
+
+    const passes = evaluateCondition(item.template.condition, context, item.templateId)
+    if (!passes) {
+      itemsToDelete.push(item.id)
+    }
+  }
+
+  // Delete items that no longer match conditions
+  if (itemsToDelete.length > 0) {
+    await prisma.checklistItem.deleteMany({
+      where: { id: { in: itemsToDelete } },
+    })
+    console.log(`[Checklist] Cascade deleted ${itemsToDelete.length} MISSING items for case ${caseId}`)
+  }
+
+  return { deleted: itemsToDelete.length }
 }
 
 /**

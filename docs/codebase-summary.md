@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01 Condition System** | **Compound AND/OR conditions, numeric operators, cascade cleanup (31 tests)** | **2026-01-20** |
 | **Phase 2 Portal UI** | **Portal Redesign - MissingDocsList, SimpleUploader, consolidated single-page** | **2026-01-20** |
 | **Phase 5 Admin Settings** | **Admin Settings Polish - JSON validation, size limits, 29 tests** | **2026-01-19** |
 | **Phase 4 Checklist Display** | **3-Tier Checklist, Staff Overrides, 4 new API endpoints, 3 components** | **2026-01-19** |
@@ -114,6 +115,46 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
 ## Backend Services
+
+### Checklist Generator Service (Phase 01 Condition System - UPGRADED)
+
+**Location:** `apps/api/src/services/checklist-generator.ts` (~500 LOC)
+
+**Phase 01 Upgrade (2026-01-20):**
+- **Condition Types Framework** - 3-format support: legacy flat, simple with operators, compound AND/OR
+- **Compound Conditions** - Type: AND/OR with nested conditions array, max depth 3 (prevents stack overflow)
+- **Numeric Operators** - ===, !==, >, <, >=, <= for numeric/equality comparisons (legacy format had only strict equality)
+- **Type Guards** - `isSimpleCondition()`, `isCompoundCondition()`, `isLegacyCondition()`, `isValidOperator()` in `@ella/shared`
+- **Recursion Safe** - Depth tracking prevents DoS via deeply nested conditions
+- **Cascade Cleanup API** - `POST /clients/:id/cascade-cleanup` endpoint auto-cleans dependent answers when parent toggles false
+
+**New Cascade Cleanup Endpoint:**
+- Accepts: `{ changedKey: string, caseId?: string }`
+- Deletes dependent intake answers from `intakeAnswers` JSON
+- Removes MISSING checklist items with failed conditions (if caseId provided)
+- Returns: `{ deletedAnswers: string[], deletedItems: number }`
+- Prevents orphaned conditional data (e.g., if hasChildren=false, childAge answers deleted)
+
+**Condition Evaluation Flow:**
+1. Parse JSON (10KB max size limit for DoS protection)
+2. Dispatch to handler based on type (compound, simple, legacy)
+3. Compound: Recursive evaluation of AND/OR with depth tracking
+4. Simple: Operator comparison (actualValue vs expectedValue)
+5. Legacy: Implicit AND across all key-value pairs (backward compatible)
+
+**Test Suite (31 new tests):**
+- 8 compound AND/OR logic tests
+- 6 numeric operator tests (>, <, >=, <=, ===, !==)
+- 5 cascade cleanup tests (dependency detection, orphaned data)
+- 4 depth limit tests (recursion prevention)
+- 3 legacy format tests (backward compatibility)
+- 2 type guard tests
+- 3 edge cases (invalid JSON, missing keys, empty conditions)
+
+**Key Constants:**
+- `MAX_CONDITION_SIZE` = 10KB (JSON string limit)
+- `MAX_CONDITION_DEPTH` = 3 (max nesting levels)
+- `COUNT_MAPPINGS` - Maps doc type to intake answer count key (w2Count, rentalPropertyCount, k1Count)
 
 ### Checklist Generator Service (Phase 3 - Enhanced)
 
@@ -393,8 +434,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
+**Status:** Phase 01 Condition System (AND/OR compound, numeric operators, cascade cleanup, 31 tests) + Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.1.0 (Phase 3 Portal Toast Integration)
+**Architecture Version:** 7.2.0 (Phase 01 Condition System Upgrade)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

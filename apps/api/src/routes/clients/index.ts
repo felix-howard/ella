@@ -15,8 +15,9 @@ import {
   updateClientSchema,
   listClientsQuerySchema,
   clientIdParamSchema,
+  cascadeCleanupSchema,
 } from './schemas'
-import { generateChecklist } from '../../services/checklist-generator'
+import { generateChecklist, cascadeCleanupOnFalse } from '../../services/checklist-generator'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
 import type { TaxType, Language } from '@ella/db'
@@ -410,6 +411,34 @@ clientsRoute.patch(
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
     })
+  }
+)
+
+// POST /clients/:id/cascade-cleanup - Cascade cleanup when parent answer changes to false
+clientsRoute.post(
+  '/:id/cascade-cleanup',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', cascadeCleanupSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { changedKey, caseId } = c.req.valid('json')
+
+    try {
+      const result = await cascadeCleanupOnFalse(id, changedKey, caseId)
+
+      return c.json({
+        success: true,
+        deletedAnswers: result.deletedAnswers,
+        deletedItems: result.deletedItems,
+      })
+    } catch (error) {
+      console.error('[Cascade Cleanup] Error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      return c.json(
+        { success: false, error: 'CASCADE_CLEANUP_FAILED', message: errorMessage },
+        500
+      )
+    }
   }
 )
 

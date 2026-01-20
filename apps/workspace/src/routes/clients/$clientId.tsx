@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -21,9 +21,10 @@ import {
   RefreshCw,
   Loader2,
   Link2,
+  Trash2,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
-import { cn } from '@ella/ui'
+import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
@@ -46,8 +47,10 @@ type TabType = 'overview' | 'documents'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
@@ -121,6 +124,20 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error('Lỗi khi khôi phục mục')
+    },
+  })
+
+  // Mutation for deleting client
+  const deleteClientMutation = useMutation({
+    mutationFn: () => api.clients.delete(clientId),
+    onSuccess: () => {
+      toast.success('Đã xóa khách hàng thành công')
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      navigate({ to: '/clients' })
+    },
+    onError: () => {
+      toast.error('Lỗi khi xóa khách hàng')
+      setIsDeleteModalOpen(false)
     },
   })
 
@@ -410,6 +427,14 @@ function ClientDetailPage() {
             >
               <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
+            <button
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="p-1.5 rounded-lg border border-destructive/30 hover:bg-destructive/10 transition-colors"
+              aria-label="Xóa khách hàng"
+              title="Xóa khách hàng"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+            </button>
           </div>
         </div>
       </div>
@@ -616,6 +641,41 @@ function ClientDetailPage() {
           <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
       )}
+
+      {/* Delete Client Confirmation Modal */}
+      <Modal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+        <ModalHeader>
+          <ModalTitle>Xóa khách hàng</ModalTitle>
+          <ModalDescription>
+            Bạn có chắc chắn muốn xóa khách hàng <strong>{client.name}</strong>?
+          </ModalDescription>
+        </ModalHeader>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            className="px-6"
+            onClick={() => setIsDeleteModalOpen(false)}
+            disabled={deleteClientMutation.isPending}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="destructive"
+            className="px-6"
+            onClick={() => deleteClientMutation.mutate()}
+            disabled={deleteClientMutation.isPending}
+          >
+            {deleteClientMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Đang xóa...
+              </>
+            ) : (
+              'Xóa khách hàng'
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </PageContainer>
   )
 }

@@ -8,6 +8,22 @@ export type Pagination = z.infer<typeof paginationSchema>
 export type { IntakeAnswers } from './intake-answers'
 export { isIntakeAnswers, parseIntakeAnswers, validateIntakeAnswers } from './intake-answers'
 
+// Condition types for checklist template evaluation
+export type {
+  ComparisonOperator,
+  SimpleCondition,
+  CompoundCondition,
+  LegacyCondition,
+  Condition,
+} from './condition'
+export {
+  isSimpleCondition,
+  isCompoundCondition,
+  isLegacyCondition,
+  isValidOperator,
+  parseCondition,
+} from './condition'
+
 // Common utility types
 export type ApiResponse<T> = {
   success: boolean

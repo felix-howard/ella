@@ -197,6 +197,13 @@ export const api = {
         `/clients/${id}/resend-sms`,
         { method: 'POST' }
       ),
+
+    // Cascade cleanup when parent answer changes to false
+    cascadeCleanup: (id: string, data: { changedKey: string; caseId?: string }) =>
+      request<{ success: boolean; deletedAnswers: string[]; deletedItems: number }>(
+        `/clients/${id}/cascade-cleanup`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
   },
 
   // Tax Cases

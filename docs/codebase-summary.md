@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 03 Checklist Templates** | **+13 new templates (92 total), 9 new DocTypes (60+ total), home_sale/credits/energy categories, Vietnamese labels** | **2026-01-20** |
 | **Phase 02 Intake Expansion** | **+70 missing CPA questions, new sections (prior_year, filing), React.memo optimization** | **2026-01-20** |
 | **Phase 01 Condition System** | **Compound AND/OR conditions, numeric operators, cascade cleanup (31 tests)** | **2026-01-20** |
 | **Phase 2 Portal UI** | **Portal Redesign - MissingDocsList, SimpleUploader, consolidated single-page** | **2026-01-20** |
@@ -157,6 +158,56 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - `MAX_CONDITION_DEPTH` = 3 (max nesting levels)
 - `COUNT_MAPPINGS` - Maps doc type to intake answer count key (w2Count, rentalPropertyCount, k1Count)
 
+### Checklist Generator Service (Phase 03 - Expanded Templates)
+
+**Location:** `packages/db/prisma/seed-checklist-templates.ts` | `apps/api/src/services/checklist-generator.ts`
+
+**New Phase 03 DocTypes (9 additions, 60+ total types):**
+- `EV_PURCHASE_AGREEMENT` - Electric vehicle purchase documentation (tax credits)
+- `ENERGY_CREDIT_INVOICE` - Solar, insulation, home energy improvements
+- `CLOSING_DISCLOSURE` - HUD closing statement (home sale)
+- `FORM_8332` - Release of claim to exemption
+- `BALANCE_SHEET` - Business financial statements
+- `ARTICLES_OF_INCORPORATION` - Business formation docs
+- `OPERATING_AGREEMENT` - Business operating agreements
+- `MORTGAGE_POINTS_STATEMENT` - Deductible mortgage points
+- `EXTENSION_PAYMENT_PROOF` - Form 4868 / prior year extension
+
+**Checklist Templates Expansion:**
+- **New Count:** 92 templates (Phase 03 +13 new)
+- **New Categories:** home_sale, credits (energy), business_formation
+- **Template Categories (22 types):**
+  - personal (5): SSN, DL, passport, birth cert, ITIN
+  - employment (2): W2, W2G
+  - income_1099 (10): INT, DIV, NEC, MISC, K, R, G, SSA, B, S, C, SA, Q
+  - k1 (4): K1, K1_1065, K1_1120S, K1_1041
+  - health (4): 1095-A/B/C, 5498-SA
+  - education (2): 1098-T, 1098-E
+  - deductions (3): 1098, 8332, mortgage_points
+  - business (6): bank statement, P&L, balance sheet, business license, EIN, payroll
+  - receipts (6): generic, daycare, charity, medical, property tax, estimated tax
+  - home_sale (2): closing disclosure, lease agreement (NEW)
+  - credits (2): EV purchase, energy invoice (NEW)
+  - prior_year (2): prior return, extension proof (NEW)
+  - foreign (4): bank statement, tax statement, FBAR, 8938
+  - crypto (1): crypto statement
+  - business_formation (3): articles, operating agreement (NEW)
+
+**COUNT_MAPPINGS Expansion:**
+```typescript
+const COUNT_MAPPINGS = {
+  W2: 'w2Count',
+  SCHEDULE_K1: 'k1Count',
+  SCHEDULE_K1_1065: 'k1Count',
+  SCHEDULE_K1_1120S: 'k1Count',
+  SCHEDULE_K1_1041: 'k1Count',
+  RENTAL_STATEMENT: 'rentalPropertyCount'
+}
+```
+
+**Vietnamese Labels (All 92 templates):**
+Each template includes `labelVi`, `descriptionVi`, `hintVi` for full i18n support.
+
 ### Checklist Generator Service (Phase 3 - Enhanced)
 
 **Location:** `apps/api/src/services/checklist-generator.ts`
@@ -194,12 +245,14 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - **Confidence Calibration:** HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
 - **Alternativeypes:** Included when confidence <0.80 to help reviewers
 
-**Supported Document Types (24 + UNKNOWN):**
-- **ID:** SSN_CARD, DRIVER_LICENSE, PASSPORT
-- **Tax Income (10):** W2, FORM_1099_INT, FORM_1099_DIV, FORM_1099_NEC, FORM_1099_MISC, FORM_1099_K, FORM_1099_R, FORM_1099_G, FORM_1099_SSA, SCHEDULE_K1
-- **Tax Credits (3):** FORM_1098, FORM_1098_T, FORM_1095_A
-- **Business (4):** BANK_STATEMENT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER
-- **Other (4):** RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER
+**Supported Document Types (60+ types + UNKNOWN):**
+Includes: ID (3), Employment (2), 1099-Series (13), K-1 (4), Health (4), Education (2), Deductions (2), Business (10), Receipts (6), Home Sale (2), Credits (2), Prior Year (2), Foreign (4), Crypto (1), Other (2).
+
+**Phase 03 Additions (9 new):**
+EV_PURCHASE_AGREEMENT, ENERGY_CREDIT_INVOICE, CLOSING_DISCLOSURE, FORM_8332, BALANCE_SHEET, ARTICLES_OF_INCORPORATION, OPERATING_AGREEMENT, MORTGAGE_POINTS_STATEMENT, EXTENSION_PAYMENT_PROOF.
+
+**Vietnamese Classification Labels (Phase 03):**
+All 60+ DocTypes now have Vietnamese labels in classifier service for bilingual support.
 
 **Performance:** 2-5s per image
 
@@ -467,8 +520,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 02 Intake Expansion (+70 CPA questions, new sections, React.memo) + Phase 01 Condition System (AND/OR compound, numeric operators, cascade cleanup, 31 tests) + Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
+**Status:** Phase 03 Checklist Templates (+13 templates, 92 total; 9 new DocTypes, 60+ total; home_sale/credits/energy categories) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators, cascade cleanup) + Phase 5 Admin Settings (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints) + OCR Expansion (16 types)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.3.0 (Phase 02 Intake Expansion - Questions & Performance)
+**Architecture Version:** 7.4.0 (Phase 03 Checklist Templates Expansion - 92 templates, 60+ DocTypes)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

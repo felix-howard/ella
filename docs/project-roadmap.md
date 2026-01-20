@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-17 12:52
-> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement
+> **Last Updated:** 2026-01-20 14:20
+> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete)
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement
 
 ---
 
@@ -165,6 +165,31 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - Files modified: 2 (field-verification-item.tsx, image-viewer.tsx)
 - TypeScript: Clean
 - Integration: Staff Workspace verification modal
+
+---
+
+### Intake Enhancement Track: Tax Client Intake & Checklist System - 60% Complete ⏳
+**Started:** 2026-01-20 11:04
+**Target Completion:** 2026-01-21
+**Deliverable:** Enhanced intake questionnaire & checklist generation system with 70+ new questions, compound AND/OR condition logic, and 35+ new checklist templates
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Tests | Code Review |
+|-------|-----------|--------|-----------|-------|------------|
+| 1 | Condition System Upgrade | ✅ DONE | 2026-01-20 | All passing | - |
+| 2 | Intake Questions Expansion | ✅ DONE | 2026-01-20 | All passing | - |
+| 3 | Checklist Templates Expansion | ✅ DONE | 2026-01-20 | 42/42 passing | 9.5/10 |
+| 4 | UX Improvements | ⏳ PENDING | - | - | - |
+| 5 | Testing & Validation | ⏳ PENDING | - | - | - |
+
+**Completion Summary (Phase 1-3):**
+- Added compound AND/OR condition logic with support for numeric operators
+- Expanded intake questions from ~70 to ~140 (70+ new questions)
+- Added 9 new DocType enums + 13 new checklist templates
+- Total seeded templates: 92 (up from ~65)
+- Test coverage: 42/42 passing (100%)
+- Code quality: 9.5/10
+- Branch: feature/more-enhancement
 
 ---
 
@@ -463,6 +488,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 3.6 | 2026-01-20 14:20 | PM | ENHANCEMENT TRACK: Intake System Enhancement - Phase 03 Complete (60% overall). Added 9 DocTypes, 13 templates, seeded 92 total (up from 65). Compound AND/OR conditions implemented. 42/42 tests passing (9.5/10 code review). Phases 04-05 pending. |
 | 3.5 | 2026-01-17 12:52 | PM | ENHANCEMENT TRACK: Verification Modal UI Enhancement - Phase 1-2 complete (50% overall). Compact field layout + document viewer scroll fixes implemented. 9/10 code review. Phases 3-5 pending. |
 | 3.4 | 2026-01-16 08:32 | PM | BUG FIX: Document Workflow - Documents now update immediately in all tabs after classification/verification. Fixed missing docs query invalidation in modals + extended polling hook. 2 phases, actual effort 1 hour, completed ahead of schedule. |
 | 3.3 | 2026-01-15 07:40 | PM | MILESTONE: Phase 6 AI Classification Testing & Polish complete. 28 tests (17 unit + 11 integration), 100% pass rate, 8.5/10 code review, all security hardening applied. Production-ready testing suite. |

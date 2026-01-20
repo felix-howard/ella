@@ -1,13 +1,15 @@
 /**
  * Conversation Detail View - Shows message thread for a specific case
  * Used within the unified inbox split view
+ * Includes voice calling integration via Twilio SDK
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
 import { ArrowLeft, User, Phone, Globe, RefreshCw, ExternalLink } from 'lucide-react'
-import { MessageThread, QuickActionsBar } from '../../components/messaging'
+import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
+import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
@@ -31,6 +33,10 @@ function ConversationDetailView() {
   } | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const prevCaseIdRef = useRef<string>(caseId)
+
+  // Voice call state
+  const [voiceState, voiceActions] = useVoiceCall()
+  const [showCallModal, setShowCallModal] = useState(false)
 
   // Fetch messages
   const fetchMessages = useCallback(async (silent = false) => {
@@ -132,6 +138,23 @@ function ConversationDetailView() {
     fetchMessages(true)
   }
 
+  // Handle call button click
+  const handleCallClick = useCallback(() => {
+    if (caseData?.client.phone) {
+      setShowCallModal(true)
+      voiceActions.initiateCall(caseData.client.phone, caseId)
+    }
+  }, [caseData, caseId, voiceActions])
+
+  // Auto-close modal when call ends
+  useEffect(() => {
+    if (voiceState.callState === 'idle' && showCallModal) {
+      // Delay close to show completion state
+      const timer = setTimeout(() => setShowCallModal(false), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [voiceState.callState, showCallModal])
+
   const statusColors = caseData?.taxCase
     ? CASE_STATUS_COLORS[caseData.taxCase.status]
     : undefined
@@ -206,6 +229,13 @@ function ConversationDetailView() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {/* Voice Call Button */}
+              <CallButton
+                isAvailable={voiceState.isAvailable}
+                isLoading={voiceState.isLoading}
+                callState={voiceState.callState}
+                onClick={handleCallClick}
+              />
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
@@ -250,6 +280,22 @@ function ConversationDetailView() {
           clientPhone={caseData.client.phone}
           clientId={caseData.client.id}
           defaultChannel="SMS"
+        />
+      )}
+
+      {/* Active Call Modal */}
+      {showCallModal && caseData && (
+        <ActiveCallModal
+          isOpen={showCallModal}
+          callState={voiceState.callState}
+          isMuted={voiceState.isMuted}
+          duration={voiceState.duration}
+          clientName={caseData.client.name}
+          clientPhone={formatPhone(caseData.client.phone)}
+          error={voiceState.error}
+          onEndCall={voiceActions.endCall}
+          onToggleMute={voiceActions.toggleMute}
+          onClose={() => setShowCallModal(false)}
         />
       )}
     </div>

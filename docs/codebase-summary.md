@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 Voice Calls** | **Browser-based calling (Twilio Client SDK); phone icon button; active call modal with mute/end; duration timer; microphone permission check; token refresh; error sanitization; CALL channel in messages** | **2026-01-20** |
 | **Phase 01 Voice API** | **Token generation (VoiceGrant); TwiML call routing; call message tracking; recording + status webhooks; E.164 phone validation; Twilio signature validation** | **2026-01-20** |
 | **Phase 03 Quick-Edit Icons** | **QuickEditModal component; personal info quick-edit (name, phone, email); wrapper pattern for fresh state; field-specific validation (E.164 phone, RFC 5322 email); accessibility (ARIA, keyboard shortcuts)** | **2026-01-20** |
 | **Phase 02 Section Edit Modal** | **intake-form-config.ts (95+ fields, 18 sections); SectionEditModal component; api.clients.updateProfile(); ClientOverviewSections enhanced with edit icons** | **2026-01-20** |
@@ -180,6 +181,86 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - `CASE_NOT_FOUND` (404) - Invalid caseId
 - `MESSAGE_NOT_FOUND` (404) - CallSid not in system
 - Twilio retry on 5xx: exponential backoff (0s, 15s, 30s)
+
+### Frontend Voice Calling (Phase 02 - NEW)
+
+**Location:** `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/`
+
+**Purpose:** Browser-based outbound voice calling with Twilio Client SDK, featuring active call modal, mute/end controls, duration timer, and microphone permission checks.
+
+**SDK Loader (`twilio-sdk-loader.ts` - NEW):**
+- Lazy-loads Twilio SDK from CDN (https://sdk.twilio.com/js/client/releases/2.3.0/twilio.js)
+- Provides type definitions for `TwilioDeviceInstance`, `TwilioCall`, `TwilioCallEvent`
+- Caches loaded SDK to prevent duplicate requests
+- Returns type-safe Twilio Device class
+
+**Voice Call Hook (`use-voice-call.ts` - NEW):**
+- **State:** isAvailable, isLoading, callState (idle|connecting|ringing|connected|disconnecting|error), isMuted, duration, error
+- **Actions:** initiateCall(toPhone, caseId), endCall(), toggleMute()
+- **Features:**
+  - Auto-loads Twilio SDK and fetches voice token on mount
+  - Microphone permission check before initiating calls (getUserMedia)
+  - Token refresh mechanism (5-min buffer before expiry)
+  - Duration timer (increments every 1s during connected state)
+  - Event listeners for ringing, accept, disconnect, cancel, error
+  - Proper cleanup on unmount (device destroy, listeners removal, timer clear)
+  - Vietnamese error messages with sanitization (removes technical details)
+
+**Call Button Component (`call-button.tsx` - NEW):**
+- Phone icon button in conversation header
+- Shows loading spinner during SDK load
+- Disabled during active calls or if voice unavailable
+- Green pulsing icon during active call
+- Vietnamese aria labels and tooltips
+- Accessible (role, aria-label, aria-hidden for icons)
+
+**Active Call Modal (`active-call-modal.tsx` - NEW):**
+- Shows during connected call state
+- Displays: client name, phone number, call duration (HH:MM:SS)
+- Controls: Mute button (with visual indicator), End call button
+- Focus trap to prevent interaction with page during call
+- Backdrop click blocked during active call
+- Escape key closes modal but doesn't disconnect call
+- Vietnamese UI text
+
+**Message Bubble Enhancement (`message-bubble.tsx` - MODIFIED):**
+- Added CALL channel support (PhoneCall icon, label "Cuộc gọi", green color)
+- Messages with channel='CALL' display as voice call records
+- Shows call duration if available
+
+**Integration with Messaging (`messages/$caseId.tsx` - MODIFIED):**
+- Integrated voice calling via useVoiceCall() hook
+- Call button added to conversation header
+- Active call modal conditionally rendered
+- Call button click opens phone input or initiates call directly
+
+**API Integration:**
+- `POST /voice/token` - Get access token for Twilio Device
+- `POST /voice/calls` - Create message record + mark call initiated
+- `GET /voice/status` - Check if voice feature available on backend
+
+**Error Handling:**
+- Microphone permission denied → "Bạn cần cấp quyền microphone để gọi điện"
+- Device not found → "Không tìm thấy microphone"
+- Network errors → "Lỗi kết nối mạng"
+- Token refresh failure → "Không thể làm mới phiên gọi. Vui lòng tải lại trang"
+- All technical errors sanitized to user-friendly Vietnamese messages
+
+**Security:**
+- Microphone permission checked before each call
+- Token validation with 5-min buffer (prevents expired tokens mid-call)
+- No sensitive data in error messages
+- Call records tracked in database (call message channel)
+
+**Features:**
+- Browser-based calling (no app installation needed)
+- Mute/unmute during call
+- Call duration tracking (real-time counter)
+- Microphone access verification
+- Token auto-refresh before expiry
+- Focus trap modal (prevents page interaction)
+- Accessibility: ARIA labels, keyboard shortcuts (ESC to close)
+- Vietnamese-first UI (all labels, tooltips, error messages)
 
 ### Audit Logger Service (Phase 01 - NEW)
 
@@ -952,8 +1033,8 @@ interface QuickEditModalProps {
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 01 Voice API (Token generation, TwiML call routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention, 44 new tests) + Phase 04 Checklist Recalculation (UpdateProfileResponse, query invalidation) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist tests, 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, operators)
+**Status:** Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.1.0 (Phase 01 Voice API - Browser-based calling with Twilio Client SDK, call recording, webhook management, secure token generation)
+**Architecture Version:** 8.2.0 (Phase 02 Voice Calls - Browser-based calling with Twilio Client SDK, active call modal, mute/end/timer controls, microphone permission checks, token refresh management)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

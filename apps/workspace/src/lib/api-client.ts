@@ -372,6 +372,26 @@ export const api = {
       request<{ caseId: string; unreadCount: number }>(`/messages/${caseId}/unread`),
   },
 
+  // Voice Calls
+  voice: {
+    // Get voice token for Twilio SDK
+    getToken: () =>
+      request<VoiceTokenResponse>('/voice/token', {
+        method: 'POST',
+      }),
+
+    // Check voice availability
+    getStatus: () =>
+      request<VoiceStatusResponse>('/voice/status'),
+
+    // Create call record (before initiating call via SDK)
+    createCall: (data: { caseId: string; toPhone: string }) =>
+      request<CreateCallResponse>('/voice/calls', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  },
+
   // Admin - Configuration management
   admin: {
     // Intake Questions
@@ -732,11 +752,16 @@ export interface ActionsGroupedResponse {
 export interface Message {
   id: string
   conversationId: string
-  channel: 'SMS' | 'PORTAL' | 'SYSTEM'
+  channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
   attachmentUrls?: string[]
   createdAt: string
+  // Call-specific fields (only for CALL channel)
+  callSid?: string
+  recordingUrl?: string
+  recordingDuration?: number
+  callStatus?: string
 }
 
 // Input types
@@ -1002,3 +1027,23 @@ export interface CreateDocTypeLibraryInput {
 }
 
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
+
+// Voice API types
+export interface VoiceTokenResponse {
+  token: string
+  expiresIn: number
+  identity: string
+}
+
+export interface VoiceStatusResponse {
+  available: boolean
+  features: {
+    outbound: boolean
+    recording: boolean
+  }
+}
+
+export interface CreateCallResponse {
+  message: Message
+  conversationId: string
+}

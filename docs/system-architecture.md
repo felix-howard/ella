@@ -419,14 +419,24 @@ if (allChanges.length > 0) {
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
-**Unified Messaging (Phase 3.2 + UX Enhancement):**
+**Unified Messaging (Phase 3.2 + UX Enhancement + Phase 02 Voice Calls):**
 
 - `messages/` routes handle conversation listing, message history, and sending
 - Conversation auto-creation with upsert pattern (prevents race conditions)
-- Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM stored in database
+- Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM/CALL stored in database
 - Unread count tracking per conversation with efficient per-case query
 - Real-time updates via polling (30s inbox, 10s active)
 - Client detail header: "Tin nhắn" button with unread badge (queries `/messages/:caseId/unread`)
+- Browser-based voice calling via Twilio Client SDK (Phase 02 Voice Calls - NEW):
+  - Phone icon button in conversation header
+  - Active call modal with mute/end controls and duration timer
+  - Microphone permission check before calls
+  - Token refresh mechanism (5-min buffer before expiry)
+  - Call state tracking (idle → connecting → ringing → connected → disconnecting)
+  - Duration timer (increments 1s/sec during connected state)
+  - CALL channel in message bubbles with PhoneCall icon
+  - Vietnamese error messages with sanitization
+  - Focus trap modal (prevents page interaction during calls)
 
 **Checklist Display Enhancement (Phase 4 - NEW):**
 

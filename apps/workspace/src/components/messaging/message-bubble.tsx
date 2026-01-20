@@ -5,7 +5,7 @@
 
 import { memo, useState } from 'react'
 import { cn } from '@ella/ui'
-import { Phone, Globe, Bot, ImageOff } from 'lucide-react'
+import { Phone, Globe, Bot, ImageOff, PhoneCall } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 
@@ -19,6 +19,7 @@ const CHANNEL_INFO = {
   SMS: { icon: Phone, label: 'SMS', color: 'text-primary' },
   PORTAL: { icon: Globe, label: 'Portal', color: 'text-accent' },
   SYSTEM: { icon: Bot, label: 'Hệ thống', color: 'text-muted-foreground' },
+  CALL: { icon: PhoneCall, label: 'Cuộc gọi', color: 'text-green-600' },
 } as const
 
 export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {

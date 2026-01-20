@@ -20,3 +20,9 @@ export type { ConversationListProps } from './conversation-list'
 
 export { ConversationListItem } from './conversation-list-item'
 export type { ConversationListItemProps } from './conversation-list-item'
+
+export { CallButton } from './call-button'
+export type { CallButtonProps } from './call-button'
+
+export { ActiveCallModal } from './active-call-modal'
+export type { ActiveCallModalProps } from './active-call-modal'

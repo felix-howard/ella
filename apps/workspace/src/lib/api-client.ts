@@ -207,7 +207,7 @@ export const api = {
 
     // Update client profile (intakeAnswers + filingStatus)
     updateProfile: (id: string, data: UpdateProfileInput) =>
-      request<ClientProfile>(`/clients/${id}/profile`, {
+      request<UpdateProfileResponse>(`/clients/${id}/profile`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
@@ -786,6 +786,15 @@ export interface UpdateClientInput {
 export interface UpdateProfileInput {
   filingStatus?: string
   intakeAnswers?: Record<string, boolean | number | string>
+}
+
+// Response from profile update (includes checklist refresh status)
+export interface UpdateProfileResponse {
+  profile: ClientProfile
+  checklistRefreshed: boolean
+  cascadeCleanup: {
+    triggeredBy: string[]
+  }
 }
 
 export interface CreateCaseInput {

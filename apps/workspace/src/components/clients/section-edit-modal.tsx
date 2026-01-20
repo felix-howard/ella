@@ -51,12 +51,29 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
     }
   }, [isOpen, client.profile, sectionFields])
 
+  // Get active case ID for checklist invalidation
+  const activeCaseId = client.taxCases?.find(tc => tc.status !== 'FILED')?.id
+
   // Mutation for saving
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProfileInput) => api.clients.updateProfile(client.id, data),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Invalidate client data
       queryClient.invalidateQueries({ queryKey: ['client', client.id] })
+
+      // Invalidate checklist if refreshed
+      if (activeCaseId && response.checklistRefreshed) {
+        queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
+      }
+
+      // Show success message
       toast.success('Cập nhật thành công')
+
+      // Show additional info if checklist was updated due to cascade cleanup
+      if (response.checklistRefreshed && response.cascadeCleanup?.triggeredBy?.length > 0) {
+        toast.info('Checklist đã được cập nhật theo thay đổi')
+      }
+
       onClose()
     },
     onError: (err) => {
@@ -188,7 +205,7 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
             {updateMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Đang lưu...
+                {activeCaseId ? 'Đang lưu và cập nhật checklist...' : 'Đang lưu...'}
               </>
             ) : (
               'Lưu thay đổi'

@@ -26,3 +26,6 @@ export type { CallButtonProps } from './call-button'
 
 export { ActiveCallModal } from './active-call-modal'
 export type { ActiveCallModalProps } from './active-call-modal'
+
+export { AudioPlayer } from './audio-player'
+export type { AudioPlayerProps } from './audio-player'

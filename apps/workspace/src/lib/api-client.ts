@@ -390,6 +390,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    // Get recording audio URL (returns full URL for <audio> src)
+    getRecordingAudioUrl: (recordingSid: string) =>
+      `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
   },
 
   // Admin - Configuration management

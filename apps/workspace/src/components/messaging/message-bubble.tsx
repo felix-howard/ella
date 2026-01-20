@@ -5,9 +5,10 @@
 
 import { memo, useState } from 'react'
 import { cn } from '@ella/ui'
-import { Phone, Globe, Bot, ImageOff, PhoneCall } from 'lucide-react'
+import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
+import { AudioPlayer } from './audio-player'
 
 export interface MessageBubbleProps {
   message: Message
@@ -21,6 +22,39 @@ const CHANNEL_INFO = {
   SYSTEM: { icon: Bot, label: 'Hệ thống', color: 'text-muted-foreground' },
   CALL: { icon: PhoneCall, label: 'Cuộc gọi', color: 'text-green-600' },
 } as const
+
+// Call status info for different call outcomes
+function getCallStatusInfo(status?: string): {
+  icon: React.ReactNode
+  label: string
+  color: string
+} {
+  switch (status) {
+    case 'completed':
+      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Hoàn thành', color: 'text-green-600' }
+    case 'busy':
+      return { icon: <PhoneOff className="w-4 h-4" />, label: 'Bận', color: 'text-yellow-600' }
+    case 'no-answer':
+      return { icon: <PhoneMissed className="w-4 h-4" />, label: 'Không bắt máy', color: 'text-orange-600' }
+    case 'failed':
+    case 'canceled':
+      return { icon: <PhoneOff className="w-4 h-4" />, label: 'Thất bại', color: 'text-destructive' }
+    case 'initiated':
+    case 'ringing':
+      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang gọi...', color: 'text-blue-600' }
+    case 'in-progress':
+      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang kết nối', color: 'text-green-600' }
+    default:
+      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Cuộc gọi', color: 'text-muted-foreground' }
+  }
+}
+
+// Format call duration as M:SS
+function formatCallDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
 
 export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {
   const isOutbound = message.direction === 'OUTBOUND'
@@ -48,6 +82,54 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <Bot className="w-3 h-3" />
           <span>{safeContent}</span>
           {showTime && <span className="ml-1">• {time}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  // Call messages with special styling and audio player
+  if (message.channel === 'CALL') {
+    const callStatusInfo = getCallStatusInfo(message.callStatus)
+    const hasRecording = message.recordingUrl && message.callStatus === 'completed'
+    // Extract recording SID from URL (format: .../Recordings/RE.../...)
+    const recordingSid = message.recordingUrl?.match(/RE[0-9a-fA-F]{32}/)?.[0]
+
+    return (
+      <div className={cn('flex flex-col w-full gap-1', isOutbound ? 'items-end' : 'items-start')}>
+        <div
+          className={cn(
+            'max-w-[320px] w-full overflow-hidden',
+            'rounded-[20px]',
+            isOutbound ? 'rounded-br-[6px]' : 'rounded-bl-[6px]',
+            isOutbound ? 'bg-primary/10' : 'bg-card border border-border'
+          )}
+        >
+          <div className="px-4 py-3">
+            {/* Call header with icon and status */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className={callStatusInfo.color}>{callStatusInfo.icon}</span>
+              <span className="text-sm font-medium">{callStatusInfo.label}</span>
+              {message.recordingDuration && message.recordingDuration > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  ({formatCallDuration(message.recordingDuration)})
+                </span>
+              )}
+            </div>
+
+            {/* Audio player if recording exists */}
+            {hasRecording && recordingSid && (
+              <AudioPlayer
+                recordingSid={recordingSid}
+                duration={message.recordingDuration}
+                className="mt-2"
+              />
+            )}
+
+            {/* Timestamp */}
+            <div className="flex justify-end mt-2">
+              <span className="text-xs text-muted-foreground">{time}</span>
+            </div>
+          </div>
         </div>
       </div>
     )

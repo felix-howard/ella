@@ -185,4 +185,131 @@ voiceRoutes.patch(
   }
 )
 
+/**
+ * Helper to verify user has access to a recording via message ownership
+ */
+async function verifyRecordingAccess(recordingSid: string): Promise<boolean> {
+  // Find message with this recording URL
+  const message = await prisma.message.findFirst({
+    where: {
+      recordingUrl: { contains: recordingSid },
+      channel: 'CALL',
+    },
+    select: { id: true },
+  })
+  // Return true if recording exists in our database (staff made this call)
+  return !!message
+}
+
+/**
+ * GET /voice/recordings/:recordingSid - Get recording metadata
+ * Returns recording info for frontend
+ */
+voiceRoutes.get('/recordings/:recordingSid', async (c) => {
+  if (!isVoiceConfigured()) {
+    return c.json({ error: 'VOICE_NOT_CONFIGURED', message: 'Voice calling not available' }, 503)
+  }
+
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  const recordingSid = c.req.param('recordingSid')
+
+  // Validate Recording SID format (RE + 32 hex chars)
+  if (!/^RE[0-9a-fA-F]{32}$/.test(recordingSid)) {
+    return c.json({ error: 'INVALID_RECORDING_SID' }, 400)
+  }
+
+  try {
+    // Verify user has access to this recording
+    const hasAccess = await verifyRecordingAccess(recordingSid)
+    if (!hasAccess) {
+      return c.json({ error: 'RECORDING_NOT_FOUND' }, 404)
+    }
+
+    // Return the proxied audio URL path
+    return c.json({
+      recordingSid,
+      audioUrl: `/voice/recordings/${recordingSid}/audio`,
+    })
+  } catch (error) {
+    console.error('[Recording] Fetch error:', error)
+    return c.json({ error: 'RECORDING_FETCH_FAILED' }, 500)
+  }
+})
+
+/**
+ * GET /voice/recordings/:recordingSid/audio - Proxy recording audio
+ * Streams audio through backend to avoid exposing Twilio credentials
+ */
+voiceRoutes.get('/recordings/:recordingSid/audio', async (c) => {
+  if (!isVoiceConfigured()) {
+    return c.json({ error: 'VOICE_NOT_CONFIGURED' }, 503)
+  }
+
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  const recordingSid = c.req.param('recordingSid')
+
+  if (!/^RE[0-9a-fA-F]{32}$/.test(recordingSid)) {
+    return c.json({ error: 'INVALID_RECORDING_SID' }, 400)
+  }
+
+  try {
+    // Verify user has access to this recording
+    const hasAccess = await verifyRecordingAccess(recordingSid)
+    if (!hasAccess) {
+      return c.json({ error: 'RECORDING_NOT_FOUND' }, 404)
+    }
+
+    const { accountSid, authToken } = await import('../../lib/config').then((m) => m.config.twilio)
+
+    // Fetch from Twilio with auth
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${recordingSid}.mp3`
+
+    const response = await fetch(twilioUrl, {
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+      },
+      redirect: 'follow',
+    })
+
+    if (!response.ok) {
+      console.error('[Recording Proxy] Twilio error:', response.status, response.statusText)
+      return c.json({ error: 'RECORDING_NOT_FOUND' }, 404)
+    }
+
+    // Stream response body directly (memory efficient)
+    if (!response.body) {
+      return c.json({ error: 'RECORDING_STREAM_FAILED' }, 500)
+    }
+
+    const headers = new Headers({
+      'Content-Type': 'audio/mpeg',
+      'Cache-Control': 'private, max-age=3600',
+    })
+
+    // Forward content-length if available
+    const contentLength = response.headers.get('content-length')
+    if (contentLength) {
+      headers.set('Content-Length', contentLength)
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers,
+    })
+  } catch (error) {
+    // Sanitize error to avoid logging sensitive data (Twilio credentials)
+    const errMsg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[Recording Proxy] Error:', errMsg)
+    return c.json({ error: 'RECORDING_PROXY_FAILED' }, 500)
+  }
+})
+
 export { voiceRoutes }

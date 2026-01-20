@@ -247,6 +247,23 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     // Foreign
     FOREIGN_BANK_STATEMENT: 'Sao kê ngân hàng nước ngoài',
     FOREIGN_TAX_STATEMENT: 'Chứng từ thuế nước ngoài',
+    FBAR_SUPPORT_DOCS: 'Tài liệu hỗ trợ FBAR',
+    FORM_8938: 'Form 8938 (FATCA)',
+
+    // Real Estate / Home Sale
+    CLOSING_DISCLOSURE: 'Closing Disclosure',
+    LEASE_AGREEMENT: 'Hợp đồng thuê nhà',
+
+    // Credits / Energy
+    EV_PURCHASE_AGREEMENT: 'Hợp đồng mua xe điện',
+    ENERGY_CREDIT_INVOICE: 'Hóa đơn năng lượng xanh',
+
+    // Additional Business Docs
+    FORM_W9_ISSUED: 'W-9 đã thu',
+    MORTGAGE_POINTS_STATEMENT: 'Điểm mortgage',
+
+    // Prior Year Extension
+    EXTENSION_PAYMENT_PROOF: 'Bằng chứng extension',
 
     // Other
     OTHER: 'Khác',

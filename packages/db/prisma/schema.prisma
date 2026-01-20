@@ -106,6 +106,23 @@ enum DocType {
   // Foreign
   FOREIGN_BANK_STATEMENT
   FOREIGN_TAX_STATEMENT
+  FBAR_SUPPORT_DOCS          // FBAR supporting documents
+  FORM_8938                  // FATCA foreign financial assets
+
+  // Real Estate / Home Sale
+  CLOSING_DISCLOSURE         // HUD closing statement
+  LEASE_AGREEMENT            // Rental lease contracts
+
+  // Credits / Energy
+  EV_PURCHASE_AGREEMENT      // Electric vehicle purchase docs
+  ENERGY_CREDIT_INVOICE      // Solar, insulation, etc.
+
+  // Additional Business Docs
+  FORM_W9_ISSUED             // W-9s collected from contractors
+  MORTGAGE_POINTS_STATEMENT  // Points paid on mortgage
+
+  // Prior Year Extension
+  EXTENSION_PAYMENT_PROOF    // Form 4868 / payment confirmation
 
   // Other
   OTHER

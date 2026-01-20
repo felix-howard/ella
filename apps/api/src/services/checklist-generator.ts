@@ -46,11 +46,18 @@ interface ConditionContext {
 
 /**
  * Mapping of doc types to intake answer count keys
+ * Phase 03: Added mappings for lease agreements, property tax, and 1099-NEC
  */
 const COUNT_MAPPINGS: Record<string, string> = {
   W2: 'w2Count',
   RENTAL_STATEMENT: 'rentalPropertyCount',
   SCHEDULE_K1: 'k1Count',
+  SCHEDULE_K1_1065: 'k1Count',
+  SCHEDULE_K1_1120S: 'k1Count',
+  SCHEDULE_K1_1041: 'k1Count',
+  LEASE_AGREEMENT: 'rentalPropertyCount',
+  PROPERTY_TAX_STATEMENT: 'rentalPropertyCount',
+  FORM_1099_NEC: 'num1099NECReceived',
 }
 
 /** Max condition JSON size (10KB) to prevent DoS */

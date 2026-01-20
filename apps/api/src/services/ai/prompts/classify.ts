@@ -82,6 +82,23 @@ export const SUPPORTED_DOC_TYPES = [
   // Foreign
   'FOREIGN_BANK_STATEMENT',
   'FOREIGN_TAX_STATEMENT',
+  'FBAR_SUPPORT_DOCS',
+  'FORM_8938',
+
+  // Real Estate / Home Sale
+  'CLOSING_DISCLOSURE',
+  'LEASE_AGREEMENT',
+
+  // Credits / Energy
+  'EV_PURCHASE_AGREEMENT',
+  'ENERGY_CREDIT_INVOICE',
+
+  // Additional Business Docs
+  'FORM_W9_ISSUED',
+  'MORTGAGE_POINTS_STATEMENT',
+
+  // Prior Year Extension
+  'EXTENSION_PAYMENT_PROOF',
 
   // Other
   'OTHER',

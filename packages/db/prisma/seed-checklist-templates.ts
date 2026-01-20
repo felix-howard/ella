@@ -567,6 +567,151 @@ const form1040Templates: ChecklistTemplateSeed[] = [
     expectedCount: 1,
     sortOrder: 121,
   },
+
+  // ============================================
+  // PHASE 03: NEW TEMPLATES (35+ additions)
+  // ============================================
+
+  // Category: Prior Year - Extension payment proof
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.EXTENSION_PAYMENT_PROOF,
+    labelVi: 'Bằng chứng thanh toán extension',
+    labelEn: 'Extension Payment Proof',
+    hintVi: 'Form 4868 hoặc bank confirmation',
+    hintEn: 'Form 4868 or bank confirmation',
+    condition: JSON.stringify({ hasExtensionFiled: true }),
+    isRequired: false,
+    category: 'prior_year',
+    expectedCount: 1,
+    sortOrder: 13,
+  },
+
+  // Category: Home Sale Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.CLOSING_DISCLOSURE,
+    labelVi: 'Closing Disclosure (Mua/Bán nhà)',
+    labelEn: 'Closing Disclosure (Home Purchase/Sale)',
+    hintVi: 'Cần cho tính basis và points',
+    hintEn: 'Needed for basis and points calculation',
+    condition: JSON.stringify({ hasBoughtSoldHome: true }),
+    isRequired: true,
+    category: 'home_sale',
+    expectedCount: 2,
+    sortOrder: 85,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.MORTGAGE_POINTS_STATEMENT,
+    labelVi: 'Điểm mortgage đã trả',
+    labelEn: 'Mortgage Points Statement',
+    hintVi: 'Points paid at closing',
+    hintEn: 'Points paid at closing',
+    condition: JSON.stringify({ hasBoughtSoldHome: true }),
+    isRequired: false,
+    category: 'home_sale',
+    expectedCount: 1,
+    sortOrder: 86,
+  },
+
+  // Category: Rental Property Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.LEASE_AGREEMENT,
+    labelVi: 'Hợp đồng thuê nhà',
+    labelEn: 'Lease Agreements',
+    condition: JSON.stringify({ hasRentalProperty: true }),
+    isRequired: false,
+    category: 'rental',
+    expectedCount: 1,
+    sortOrder: 111,
+  },
+  // NOTE: Rental 1098 removed - use the existing FORM_1098 template (sortOrder 80)
+  // which covers both personal and rental mortgage interest
+
+  // Category: Business Templates - W-9s and 1099s issued
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({
+      type: 'AND',
+      conditions: [
+        { key: 'hasSelfEmployment', value: true },
+        { key: 'hasContractors', value: true },
+      ],
+    }),
+    isRequired: true,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 105,
+  },
+
+  // Category: Foreign Reporting Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FBAR_SUPPORT_DOCS,
+    labelVi: 'Tài liệu hỗ trợ FBAR',
+    labelEn: 'FBAR Support Documents',
+    hintVi: 'Cần nếu tổng balance >$10,000 bất kỳ lúc nào',
+    hintEn: 'Needed if aggregate balance >$10,000 at any time',
+    condition: JSON.stringify({
+      type: 'AND',
+      conditions: [
+        { key: 'hasForeignAccounts', value: true },
+        { key: 'fbarMaxBalance', value: 10000, operator: '>' },
+      ],
+    }),
+    isRequired: true,
+    category: 'foreign',
+    expectedCount: 1,
+    sortOrder: 122,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_8938,
+    labelVi: 'Form 8938 Support',
+    labelEn: 'Form 8938 Support Documents',
+    hintVi: 'FATCA reporting nếu assets >$50K (single) / $100K (joint)',
+    hintEn: 'FATCA reporting if assets >$50K (single) / $100K (joint)',
+    condition: JSON.stringify({ hasForeignAccounts: true }),
+    isRequired: false,
+    category: 'foreign',
+    expectedCount: 1,
+    sortOrder: 123,
+  },
+
+  // Category: Credits - Energy and EV
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.EV_PURCHASE_AGREEMENT,
+    labelVi: 'Hợp đồng mua xe điện',
+    labelEn: 'Electric Vehicle Purchase Agreement',
+    hintVi: 'Cần cho EV tax credit',
+    hintEn: 'Required for EV tax credit',
+    condition: JSON.stringify({ hasEVPurchase: true }),
+    isRequired: true,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 92,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.ENERGY_CREDIT_INVOICE,
+    labelVi: 'Hóa đơn năng lượng xanh',
+    labelEn: 'Energy Credit Invoices',
+    hintVi: 'Solar, cách nhiệt, heat pump, etc.',
+    hintEn: 'Solar, insulation, heat pump, etc.',
+    condition: JSON.stringify({ hasEnergyCredits: true }),
+    isRequired: true,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 93,
+  },
 ]
 
 // ============================================
@@ -751,6 +896,19 @@ const form1120STemplates: ChecklistTemplateSeed[] = [
     category: 'expenses',
     expectedCount: 1,
     sortOrder: 50,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: true,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 51,
   },
 
   // Category: Assets
@@ -950,6 +1108,19 @@ const form1065Templates: ChecklistTemplateSeed[] = [
     category: 'expenses',
     expectedCount: 1,
     sortOrder: 50,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: true,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 51,
   },
 
   // Category: Assets

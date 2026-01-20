@@ -192,12 +192,22 @@ export function MultiSectionIntakeForm({
   }, [questionsBySection])
 
   // Parse options from JSON string
+  // Handles both formats: { label } and { labelVi, labelEn }
   const parseOptions = (
     optionsJson: string | null
   ): { value: string; label: string }[] => {
     if (!optionsJson) return []
     try {
-      return JSON.parse(optionsJson)
+      const parsed = JSON.parse(optionsJson) as Array<{
+        value: string | number
+        label?: string
+        labelVi?: string
+        labelEn?: string
+      }>
+      return parsed.map((opt) => ({
+        value: String(opt.value),
+        label: opt.label || opt.labelVi || opt.labelEn || String(opt.value),
+      }))
     } catch (error) {
       console.warn('[IntakeForm] Failed to parse options JSON:', optionsJson, error)
       return []

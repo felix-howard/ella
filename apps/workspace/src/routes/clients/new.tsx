@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight, Check, User, FileText, Loader2 } from 'lucide-re
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { MultiSectionIntakeForm } from '../../components/clients/multi-section-intake-form'
+import { CustomSelect } from '../../components/ui/custom-select'
 import { UI_TEXT, LANGUAGE_LABELS } from '../../lib/constants'
 import { formatPhone } from '../../lib/formatters'
 import { api, type Language, type TaxType } from '../../lib/api-client'
@@ -564,22 +565,13 @@ function ProfileStep({
           Tình trạng hôn nhân
           <span className="text-error ml-1">*</span>
         </label>
-        <select
+        <CustomSelect
           value={taxSelection.filingStatus || ''}
-          onChange={(e) => onTaxSelectionChange({ filingStatus: e.target.value })}
-          className={cn(
-            'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-            errors?.filingStatus ? 'border-error' : 'border-border'
-          )}
-        >
-          <option value="">Chọn tình trạng...</option>
-          {FILING_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => onTaxSelectionChange({ filingStatus: value })}
+          options={FILING_STATUS_OPTIONS}
+          placeholder="Chọn tình trạng..."
+          error={!!errors?.filingStatus}
+        />
         {errors?.filingStatus && <p className="text-sm text-error">{errors.filingStatus}</p>}
       </div>
 

@@ -23,11 +23,11 @@ export function IntakeSection({
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 bg-muted/50 hover:bg-muted transition-colors"
+        className="w-full flex items-center justify-between p-4 bg-muted/50 hover:bg-muted transition-colors rounded-t-lg"
         aria-expanded={isOpen}
       >
         <div className="text-left">

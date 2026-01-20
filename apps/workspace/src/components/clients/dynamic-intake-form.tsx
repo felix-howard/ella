@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
 import { HelpCircle, Loader2 } from 'lucide-react'
 import { api, type TaxType, type IntakeQuestion, type FieldType } from '../../lib/api-client'
+import { CustomSelect } from '../ui/custom-select'
 
 // Section labels for Vietnamese display
 const SECTION_LABELS: Record<string, string> = {
@@ -179,10 +180,20 @@ function DynamicQuestion({ question, value, onChange, error }: DynamicQuestionPr
 }
 
 // Parse options from JSON string
+// Handles both formats: { label } and { labelVi, labelEn }
 function parseOptions(optionsJson: string | null): { value: string; label: string }[] {
   if (!optionsJson) return []
   try {
-    return JSON.parse(optionsJson)
+    const parsed = JSON.parse(optionsJson) as Array<{
+      value: string | number
+      label?: string
+      labelVi?: string
+      labelEn?: string
+    }>
+    return parsed.map((opt) => ({
+      value: String(opt.value),
+      label: opt.label || opt.labelVi || opt.labelEn || String(opt.value),
+    }))
   } catch {
     return []
   }
@@ -268,22 +279,13 @@ function SelectQuestion({ label, value, onChange, options, hint, error }: Select
           {hint}
         </p>
       )}
-      <select
+      <CustomSelect
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-          error ? 'border-error' : 'border-border'
-        )}
-      >
-        <option value="">Chọn...</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options}
+        placeholder="Chọn..."
+        error={!!error}
+      />
       {error && <p className="text-sm text-error">{error}</p>}
     </div>
   )

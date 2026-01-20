@@ -75,6 +75,8 @@
   --color-border: #334155;
   --color-input: #334155;
   --color-primary-light: #065F46;
+  /* Enable dark mode for native form controls (select dropdowns, etc.) */
+  color-scheme: dark;
 }
 
 /* Base layer */
@@ -85,6 +87,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+  }
+  /* Fix native select dropdown text visibility in dark mode */
+  select option {
+    background-color: white;
+    color: #1E293B;
   }
 }
 

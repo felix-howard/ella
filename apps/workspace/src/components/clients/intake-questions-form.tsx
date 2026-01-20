@@ -6,6 +6,7 @@
 import { cn } from '@ella/ui'
 import { HelpCircle } from 'lucide-react'
 import type { TaxType } from '../../lib/api-client'
+import { CustomSelect } from '../ui/custom-select'
 
 // Profile form data type
 export interface IntakeFormData {
@@ -130,22 +131,13 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
         {/* Filing Status */}
         <FormRow>
           <FormLabel required>Tình trạng hôn nhân</FormLabel>
-          <select
+          <CustomSelect
             value={data.filingStatus || ''}
-            onChange={(e) => handleChange('filingStatus', e.target.value)}
-            className={cn(
-              'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              errors?.filingStatus ? 'border-error' : 'border-border'
-            )}
-          >
-            <option value="">Chọn tình trạng...</option>
-            {FILING_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => handleChange('filingStatus', value)}
+            options={FILING_STATUS_OPTIONS}
+            placeholder="Chọn tình trạng..."
+            error={!!errors?.filingStatus}
+          />
           {errors?.filingStatus && <FormError>{errors.filingStatus}</FormError>}
         </FormRow>
       </FormSection>

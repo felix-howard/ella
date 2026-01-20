@@ -43,13 +43,13 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           {...props}
         >
           {placeholder && (
-            <option value="" disabled>
+            <option value="" disabled style={{ backgroundColor: 'white', color: '#1E293B' }}>
               {placeholder}
             </option>
           )}
           {options
             ? options.map((option) => (
-                <option key={option.value} value={option.value} disabled={option.disabled}>
+                <option key={option.value} value={option.value} disabled={option.disabled} style={{ backgroundColor: 'white', color: '#1E293B' }}>
                   {option.label}
                 </option>
               ))

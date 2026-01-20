@@ -8,11 +8,10 @@ import { getText, type Language } from '../../lib/i18n'
 
 interface WelcomeHeaderProps {
   clientName: string
-  taxYear: number
   language: Language
 }
 
-export function WelcomeHeader({ clientName, taxYear, language }: WelcomeHeaderProps) {
+export function WelcomeHeader({ clientName, language }: WelcomeHeaderProps) {
   const t = getText(language)
 
   return (
@@ -23,15 +22,9 @@ export function WelcomeHeader({ clientName, taxYear, language }: WelcomeHeaderPr
       </div>
 
       {/* Greeting */}
-      <h1 className="text-2xl font-semibold text-foreground mb-1">
+      <h1 className="text-2xl font-semibold text-foreground">
         {t.welcome}, <span className="text-accent">{clientName}</span>!
       </h1>
-
-      {/* Tax Year Badge */}
-      <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-primary/10 rounded-full">
-        <span className="text-sm text-muted-foreground">{t.taxYear}</span>
-        <span className="text-sm font-semibold text-primary">{taxYear}</span>
-      </div>
     </header>
   )
 }

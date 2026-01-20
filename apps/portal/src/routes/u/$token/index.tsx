@@ -138,38 +138,13 @@ function PortalPage() {
     return <ErrorView error={error} onRetry={handleReload} language={language} />
   }
 
-  // Success state - Phase 2 components
+  // Success state - Phase 3 simplified layout
   return (
     <div className="flex-1 flex flex-col">
-      <WelcomeHeader
-        clientName={data.client.name}
-        taxYear={data.taxCase.taxYear}
-        language={language}
-      />
+      <WelcomeHeader clientName={data.client.name} language={language} />
 
-      {/* Stats summary */}
-      <div className="px-6 py-4" role="region" aria-label={language === 'VI' ? 'Thống kê' : 'Statistics'}>
-        <div className="flex justify-center gap-6">
-          <StatBadge
-            label={t.received}
-            value={data.stats.verified}
-            variant="success"
-          />
-          <StatBadge
-            label={t.missing}
-            value={data.stats.missing}
-            variant={data.stats.missing > 0 ? 'warning' : 'muted'}
-          />
-        </div>
-      </div>
-
-      {/* Missing docs list */}
-      <div className="flex-1 px-6 py-4">
-        <MissingDocsList docs={data.checklist.missing} language={language} />
-      </div>
-
-      {/* Simple upload button - always visible */}
-      <div className="px-6 py-6 border-t border-border">
+      {/* Upload button - primary action at top */}
+      <div className="px-6 py-6">
         <SimpleUploader
           token={token}
           language={language}
@@ -178,37 +153,17 @@ function PortalPage() {
         />
       </div>
 
+      {/* Missing docs list */}
+      <div className="flex-1 px-6 py-4">
+        <MissingDocsList docs={data.checklist.missing} language={language} />
+      </div>
+
       {/* Footer */}
       <footer className="px-6 py-4 text-center">
         <p className="text-xs text-muted-foreground">
           Ella Tax Document System
         </p>
       </footer>
-    </div>
-  )
-}
-
-// Color mappings for stat badges (memoized outside component to avoid recreation)
-const STAT_BADGE_COLORS = {
-  success: 'bg-primary/10 text-primary',
-  warning: 'bg-warning/10 text-warning',
-  muted: 'bg-muted text-muted-foreground',
-} as const
-
-// Stats badge component
-function StatBadge({
-  label,
-  value,
-  variant,
-}: {
-  label: string
-  value: number
-  variant: 'success' | 'warning' | 'muted'
-}) {
-  return (
-    <div className={`px-4 py-2 rounded-full ${STAT_BADGE_COLORS[variant]}`} role="status">
-      <span className="text-lg font-semibold">{value}</span>
-      <span className="ml-2 text-sm">{label}</span>
     </div>
   )
 }

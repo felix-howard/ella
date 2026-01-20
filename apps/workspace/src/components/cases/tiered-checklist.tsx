@@ -20,10 +20,11 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { CHECKLIST_TIERS, CHECKLIST_STATUS_DISPLAY, type ChecklistTierKey } from '../../lib/checklist-tier-constants'
-import { DOC_TYPE_LABELS, CHECKLIST_STATUS_LABELS } from '../../lib/constants'
+import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import { FileViewerModal } from '../file-viewer/file-viewer-modal'
 import { ChecklistProgress } from './checklist-progress'
+import { SkipItemModal } from './skip-item-modal'
 import type { ChecklistItem, ChecklistItemStatus, ChecklistTemplate, RawImage } from '../../lib/api-client'
 
 interface TieredChecklistProps {
@@ -39,6 +40,18 @@ interface TieredChecklistProps {
 
 export interface ChecklistItemWithTier extends ChecklistItem {
   tier: ChecklistTierKey
+}
+
+// Context label mappings for multi-entity doc types
+const CONTEXT_LABEL_MAPPINGS: Record<string, { countKey: string; labelPrefix: string }> = {
+  RENTAL_STATEMENT: { countKey: 'rentalPropertyCount', labelPrefix: 'Bất động sản' },
+  RENTAL_PL: { countKey: 'rentalPropertyCount', labelPrefix: 'Bất động sản' },
+  LEASE_AGREEMENT: { countKey: 'rentalPropertyCount', labelPrefix: 'Bất động sản' },
+  SCHEDULE_K1: { countKey: 'k1Count', labelPrefix: 'K-1' },
+  SCHEDULE_K1_1065: { countKey: 'k1Count', labelPrefix: 'K-1' },
+  SCHEDULE_K1_1120S: { countKey: 'k1Count', labelPrefix: 'K-1' },
+  SCHEDULE_K1_1041: { countKey: 'k1Count', labelPrefix: 'K-1' },
+  W2: { countKey: 'w2Count', labelPrefix: 'W-2' },
 }
 
 /**
@@ -88,6 +101,9 @@ export function TieredChecklist({
   // File viewer modal state
   const [viewerFile, setViewerFile] = useState<{ imageId: string; filename: string } | null>(null)
 
+  // Skip modal state
+  const [skipItem, setSkipItem] = useState<{ id: string; label: string } | null>(null)
+
   // Group items by tier
   const groupedItems = useMemo(() => groupItemsByTier(items), [items])
 
@@ -111,6 +127,19 @@ export function TieredChecklist({
 
   const handleOpenFile = (imageId: string, filename: string) => {
     setViewerFile({ imageId, filename })
+  }
+
+  // Handler for opening skip modal
+  const handleOpenSkipModal = (itemId: string, itemLabel: string) => {
+    setSkipItem({ id: itemId, label: itemLabel })
+  }
+
+  // Handler for submitting skip with reason
+  const handleSkipSubmit = (reason: string) => {
+    if (skipItem && onSkip) {
+      onSkip(skipItem.id, reason)
+    }
+    setSkipItem(null)
   }
 
   return (
@@ -138,7 +167,7 @@ export function TieredChecklist({
             tier={tierConfig}
             items={tierItems}
             isStaffView={isStaffView}
-            onSkip={onSkip}
+            onSkip={handleOpenSkipModal}
             onUnskip={onUnskip}
             onVerify={onVerify}
             onViewNotes={onViewNotes}
@@ -146,6 +175,14 @@ export function TieredChecklist({
           />
         )
       })}
+
+      {/* Skip item modal */}
+      <SkipItemModal
+        isOpen={!!skipItem}
+        onClose={() => setSkipItem(null)}
+        onSubmit={handleSkipSubmit}
+        itemLabel={skipItem?.label}
+      />
 
       {/* File viewer modal */}
       {viewerFile && (
@@ -195,7 +232,7 @@ interface TierSectionProps {
   tier: TierConfig
   items: ChecklistItem[]
   isStaffView?: boolean
-  onSkip?: (itemId: string, reason: string) => void
+  onSkip?: (itemId: string, itemLabel: string) => void
   onUnskip?: (itemId: string) => void
   onVerify?: (item: ChecklistItem) => void
   onViewNotes?: (item: ChecklistItem) => void
@@ -271,7 +308,7 @@ function TierSection({
 interface ChecklistItemRowProps {
   item: ChecklistItem
   isStaffView?: boolean
-  onSkip?: (itemId: string, reason: string) => void
+  onSkip?: (itemId: string, itemLabel: string) => void
   onUnskip?: (itemId: string) => void
   onVerify?: (item: ChecklistItem) => void
   onViewNotes?: (item: ChecklistItem) => void
@@ -302,6 +339,22 @@ function ChecklistItemRow({
   const expectedCount = item.expectedCount || 1
   const receivedCount = item.receivedCount || 0
   const needsMore = expectedCount > 1 && receivedCount < expectedCount
+
+  // Context label for multi-entity items (e.g., "Rental #1", "K-1 #2")
+  // Note: Context is shown when expectedCount > 1 for multi-entity doc types
+  const contextLabel = useMemo(() => {
+    const docType = item.template?.docType
+    if (!docType) return null
+
+    const mapping = CONTEXT_LABEL_MAPPINGS[docType]
+    if (!mapping) return null
+
+    // Only show context if expectedCount > 1 (multi-entity)
+    if (expectedCount <= 1) return null
+
+    // Show the label prefix to indicate this is a multi-entity item
+    return mapping.labelPrefix
+  }, [item.template?.docType, expectedCount])
 
   return (
     <div className={cn(
@@ -338,13 +391,20 @@ function ChecklistItemRow({
           {status === 'NOT_REQUIRED' && <Minus className={cn('w-3.5 h-3.5', statusConfig.color)} />}
         </span>
 
-        {/* Doc type label */}
-        <span className={cn(
-          'text-sm flex-1 truncate',
-          isSkipped ? 'text-muted-foreground line-through' : 'text-foreground'
-        )}>
-          {docLabel}
-        </span>
+        {/* Doc type label with context */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className={cn(
+            'text-sm truncate',
+            isSkipped ? 'text-muted-foreground line-through' : 'text-foreground'
+          )}>
+            {docLabel}
+          </span>
+          {contextLabel && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
+              {contextLabel}
+            </span>
+          )}
+        </div>
 
         {/* Badges */}
         {isManuallyAdded && (
@@ -383,12 +443,10 @@ function ChecklistItemRow({
             )}
             {!isSkipped && onSkip && (
               <button
-                onClick={() => {
-                  const reason = prompt('Lý do bỏ qua:')
-                  if (reason) onSkip(item.id, reason)
-                }}
+                onClick={() => onSkip(item.id, docLabel)}
                 className="p-1 rounded hover:bg-warning/10"
                 title="Bỏ qua"
+                aria-label={`Bỏ qua ${docLabel}`}
               >
                 <SkipForward className="w-4 h-4 text-warning" />
               </button>

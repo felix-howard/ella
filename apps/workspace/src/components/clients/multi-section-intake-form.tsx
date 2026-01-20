@@ -10,6 +10,7 @@ import { HelpCircle, Loader2 } from 'lucide-react'
 import { api, type TaxType, type IntakeQuestion as IntakeQuestionType } from '../../lib/api-client'
 import { IntakeSection } from './intake-section'
 import { IntakeQuestion } from './intake-question'
+import { IntakeProgress } from './intake-progress'
 
 // Section configuration with Vietnamese labels and descriptions
 const SECTION_CONFIG: Record<
@@ -129,6 +130,21 @@ const SECTION_ORDER = [
   'assets',
   'state',
 ]
+
+// Section trigger mappings: which answer keys trigger section auto-expand
+const SECTION_TRIGGERS: Record<string, string[]> = {
+  business: ['hasSelfEmployment'],
+  dependents: ['hasKidsUnder17', 'hasKids17to24', 'hasOtherDependents'],
+  health: ['hasMarketplaceCoverage', 'hasHSA'],
+  deductions: ['hasMortgage', 'hasPropertyTax', 'hasCharitableDonations', 'hasMedicalExpenses'],
+  credits: ['hasEnergyCredits', 'hasEVCredit', 'hasAdoptionExpenses'],
+  foreign: ['hasForeignAccounts', 'hasForeignIncome'],
+  prior_year: ['hasExtensionFiled', 'estimatedTaxPaid'],
+  entity_info: ['hasSelfEmployment'],
+  ownership: ['hasOwnershipChanges'],
+  expenses: ['businessHasEmployees', 'businessHasContractors'],
+  assets: ['hasAssetPurchases', 'hasAssetDisposals'],
+}
 
 interface MultiSectionIntakeFormProps {
   taxTypes: TaxType[]
@@ -251,6 +267,31 @@ export function MultiSectionIntakeForm({
     })
   }
 
+  // Track which sections have answers
+  const sectionsWithAnswers = useMemo(() => {
+    const sections = new Set<string>()
+    questions.forEach(q => {
+      if (answers[q.questionKey] !== undefined && answers[q.questionKey] !== '') {
+        sections.add(q.section || 'other')
+      }
+    })
+    return sections
+  }, [questions, answers])
+
+  // Smart section auto-expand: open if has answers or relevant triggers are true
+  const getSectionDefaultOpen = (section: string): boolean => {
+    // Check static config default
+    const config = SECTION_CONFIG[section]
+    if (config?.defaultOpen) return true
+
+    // Open if section already has answers
+    if (sectionsWithAnswers.has(section)) return true
+
+    // Open if parent trigger is true (e.g., business section when hasSelfEmployment)
+    const triggers = SECTION_TRIGGERS[section] || []
+    return triggers.some(key => answers[key] === true)
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -272,6 +313,9 @@ export function MultiSectionIntakeForm({
 
   return (
     <div className="space-y-4">
+      {/* Progress indicator */}
+      <IntakeProgress questions={questions} answers={answers} />
+
       {orderedSections.map((section) => {
         const sectionQuestions = questionsBySection[section]
         if (!sectionQuestions || !hasVisibleQuestions(sectionQuestions)) {
@@ -289,7 +333,7 @@ export function MultiSectionIntakeForm({
             key={section}
             title={config.title}
             description={config.description}
-            defaultOpen={config.defaultOpen}
+            defaultOpen={getSectionDefaultOpen(section)}
           >
             {sectionQuestions.map((q) => (
               <IntakeQuestion

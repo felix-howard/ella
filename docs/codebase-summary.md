@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 Section Edit Modal** | **intake-form-config.ts (95+ fields, 18 sections); SectionEditModal component; api.clients.updateProfile(); ClientOverviewSections enhanced with edit icons** | **2026-01-20** |
 | **Phase 05 Testing & Validation** | **Checklist Generator: 16 new tests (count-based, research scenarios, fallback, performance); Classification: 64 doc types, comprehensive validation** | **2026-01-20** |
 | **Phase 04 UX Improvements** | **IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave hook** | **2026-01-20** |
 | **Phase 03 Checklist Templates** | **+13 new templates (92 total), 9 new DocTypes (60+ total), home_sale/credits/energy categories, Vietnamese labels** | **2026-01-20** |
@@ -631,6 +632,56 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 - Type constraints (string docType, number confidence 0-1, string reasoning)
 - Null/undefined rejection
 
+## Recent Feature: Phase 02 Section Edit Modal (NEW - 2026-01-20)
+
+**Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/lib/`
+
+**New Files:**
+1. **intake-form-config.ts** - Centralized intake form configuration
+   - `SECTION_CONFIG` - 18 sections with Vietnamese labels (personal_info, prior_year, filing, etc.)
+   - `FIELD_CONFIG` - 95+ fields with labels, sections, formats, and options
+   - `SELECT_LABELS` - Display labels for enum values (homeOfficeMethod, accountingMethod, etc.)
+   - `NON_EDITABLE_SECTIONS` - Read-only sections (personal_info, tax_info)
+   - Helper: `formatToFieldType()` - Converts format type to IntakeQuestion fieldType
+
+2. **SectionEditModal** (~200 LOC) - Modal component for editing section data
+   - Props: `isOpen`, `onClose`, `sectionKey`, `client`
+   - Features: Re-uses IntakeQuestion component, dirty tracking, Escape key handling
+   - Integration: Uses `api.clients.updateProfile()` for saving
+   - UX: Toast notifications, error display, submit button disabled during save
+   - Supports all field types: BOOLEAN, NUMBER, CURRENCY, NUMBER_INPUT, SELECT, TEXT
+
+3. **api-client.ts** - Added new method
+   - `updateProfile(clientId, data: UpdateProfileInput)` - PATCH /clients/:id/profile
+   - Input: `{ intakeAnswers: Record<string, boolean|number|string> }`
+
+**ClientOverviewSections** - Enhanced with edit capability
+- Added edit icons next to section titles (Pencil icon)
+- Integrates SectionEditModal for field editing
+- State: `editingSectionKey` tracks active editing modal
+- Click handler: Opens modal for that section
+
+**Usage Pattern:**
+```typescript
+const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
+// In section header:
+<button onClick={() => setEditingSectionKey(sectionKey)}>
+  <Pencil className="w-4 h-4" />
+</button>
+// Render modal:
+<SectionEditModal
+  isOpen={editingSectionKey === sectionKey}
+  onClose={() => setEditingSectionKey(null)}
+  sectionKey={editingSectionKey || ''}
+  client={client}
+/>
+```
+
+**Integration with Audit Logging:**
+- Section edits trigger `PATCH /clients/:id/profile` endpoint
+- Backend logs all field changes via audit logger service (Phase 01)
+- Staff attribution tracked automatically
+
 ## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
 
 **Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/components/cases/` | `apps/workspace/src/hooks/`
@@ -719,8 +770,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
+**Status:** Phase 02 Section Edit Modal (intake-form-config.ts, SectionEditModal, edit icons) + Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.6.0 (Phase 05 Testing & Validation - Comprehensive test coverage for checklist generation & document classification)
+**Architecture Version:** 7.7.0 (Phase 02 Section Edit Modal - Centralized intake form config + modal editing with audit logging)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

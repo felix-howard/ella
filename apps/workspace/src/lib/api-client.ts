@@ -204,6 +204,13 @@ export const api = {
         `/clients/${id}/cascade-cleanup`,
         { method: 'POST', body: JSON.stringify(data) }
       ),
+
+    // Update client profile (intakeAnswers + filingStatus)
+    updateProfile: (id: string, data: UpdateProfileInput) =>
+      request<ClientProfile>(`/clients/${id}/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
   },
 
   // Tax Cases
@@ -773,6 +780,12 @@ export interface UpdateClientInput {
   phone?: string
   email?: string | null
   language?: Language
+}
+
+// Update client profile (intakeAnswers + filingStatus)
+export interface UpdateProfileInput {
+  filingStatus?: string
+  intakeAnswers?: Record<string, boolean | number | string>
 }
 
 export interface CreateCaseInput {

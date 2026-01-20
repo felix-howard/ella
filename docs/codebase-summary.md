@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 03 Voice Recording Playback** | **Recording endpoints with proxy auth; AudioPlayer component (lazy-load, seek, time); message-bubble integration; RecordingSid validation; memory-efficient streaming** | **2026-01-20** |
 | **Phase 02 Voice Calls** | **Browser-based calling (Twilio Client SDK); phone icon button; active call modal with mute/end; duration timer; microphone permission check; token refresh; error sanitization; CALL channel in messages** | **2026-01-20** |
 | **Phase 01 Voice API** | **Token generation (VoiceGrant); TwiML call routing; call message tracking; recording + status webhooks; E.164 phone validation; Twilio signature validation** | **2026-01-20** |
 | **Phase 03 Quick-Edit Icons** | **QuickEditModal component; personal info quick-edit (name, phone, email); wrapper pattern for fresh state; field-specific validation (E.164 phone, RFC 5322 email); accessibility (ARIA, keyboard shortcuts)** | **2026-01-20** |
@@ -124,143 +125,84 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 ## Backend Services
 
-### Voice API Service (Phase 01 - NEW)
+### Voice API Service (Phase 01-03)
 
 **Location:** `apps/api/src/services/voice/`, `apps/api/src/routes/voice/`, `apps/api/src/routes/webhooks/twilio.ts`
 
-**Purpose:** Browser-based outbound voice calling with Twilio Client SDK, recording, and call tracking.
+**See [voice-api-guide.md](./voice-api-guide.md) for detailed documentation.**
 
-**Core Services:**
-- **Token Generator** (`token-generator.ts`) - JWT tokens with VoiceGrant for staff identities (1-hour TTL, outbound only)
-- **TwiML Generator** (`twiml-generator.ts`) - XML response for call routing + recording + status callbacks
-- **Voice Routes** (`routes/voice/index.ts`) - 4 endpoints for token, status, call creation, CallSid update
-- **Voice Webhooks** (`routes/webhooks/twilio.ts`) - 3 webhooks for call routing, recording completion, status updates
+**Quick Summary:**
+- Phase 01: Backend token generation, TwiML routing, recording webhooks
+- Phase 02: Frontend browser calling, Twilio Client SDK, active call modal
+- Phase 03: Recording playback endpoints, AudioPlayer component, secure proxy
 
-**API Endpoints:**
-- `POST /voice/token` - Generate voice access token (auth required), returns `{ token, expiresIn, identity }`
-- `GET /voice/status` - Check voice feature availability, returns `{ available, features: { outbound, recording, inbound } }`
-- `POST /voice/calls` - Create call record + message placeholder, body `{ caseId, toPhone }`, returns `{ messageId, conversationId, toPhone, clientName }`
-- `PATCH /voice/calls/:messageId` - Update message with Twilio CallSid, body `{ callSid }`, returns `{ success, messageId, callSid }`
+**Endpoints (6 total):**
+- `POST /voice/token` - Get access token (returns JWT with VoiceGrant)
+- `GET /voice/status` - Check availability (returns feature flags)
+- `POST /voice/calls` - Create call message (returns messageId)
+- `PATCH /voice/calls/:messageId` - Update with CallSid
+- `GET /voice/recordings/:recordingSid` - Recording metadata (auth required)
+- `GET /voice/recordings/:recordingSid/audio` - Proxy stream (Twilio auth, no client exposure)
 
-**Webhooks:**
-- `POST /webhooks/twilio/voice` - Call routing (returns TwiML with Dial + recording config)
-- `POST /webhooks/twilio/voice/recording` - Recording completion (stores recordingUrl, recordingDuration, updates content)
-- `POST /webhooks/twilio/voice/status` - Call status updates (completed, busy, no-answer, failed, canceled)
+**Webhooks (3 total):**
+- `POST /webhooks/twilio/voice` - Call routing (returns TwiML)
+- `POST /webhooks/twilio/voice/recording` - Recording completion callback
+- `POST /webhooks/twilio/voice/status` - Call status updates
 
-**Database Schema Extensions (Message model):**
-- `callSid: String?` - Twilio call identifier
-- `recordingUrl: String?` - S3-compatible MP3 URL (Twilio CDN)
-- `recordingDuration: Int?` - Recording length in seconds
-- `callStatus: String?` - Terminal state: completed, no-answer, busy, failed, canceled
-
-**Configuration (config.ts):**
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` - SMS credentials (reused)
-- `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` - Voice API credentials (NEW)
-- `TWILIO_TWIML_APP_SID` - TwiML application for call routing (NEW)
-- `TWILIO_WEBHOOK_BASE_URL` - Callback URL base for webhooks (NEW)
-- `voiceConfigured` - Boolean flag: requires all 4 voice env vars + 3 SMS env vars
-
-**Security:**
-- Staff identity validation (non-empty staffId required for token)
-- Webhook signature validation (Twilio HMAC verification)
-- Rate limiting (60 req/min per IP for webhooks)
-- Call recording enabled by default (compliance)
-- XSS-safe TwiML generation (XML escaping)
-
-**Call Flow:**
-1. Frontend requests `POST /voice/token` → Gets JWT with VoiceGrant
-2. Frontend initiates call with `POST /voice/calls` → Creates Message (status='initiated')
-3. Twilio callback to `POST /webhooks/twilio/voice` → Returns TwiML (includes recording config)
-4. Call connects, recording starts
-5. Recording completes → `POST /webhooks/twilio/voice/recording` → Stores recordingUrl + duration
-6. Call terminates → `POST /webhooks/twilio/voice/status` → Updates callStatus (terminal state)
-
-**Error Handling:**
-- `VOICE_NOT_CONFIGURED` (503) - Voice deps missing
-- `UNAUTHORIZED` (401) - No staffId in JWT
-- `CASE_NOT_FOUND` (404) - Invalid caseId
-- `MESSAGE_NOT_FOUND` (404) - CallSid not in system
-- Twilio retry on 5xx: exponential backoff (0s, 15s, 30s)
+**Key Features:**
+- Staff JWT auth (microphone permission checks, token 5-min buffer)
+- RecordingSid format validation (RE + 32 hex)
+- Database access control (only staff-created recordings)
+- Memory-efficient streaming (no full buffering)
+- HTTP caching 3600s for repeated plays
+- Vietnamese-first error messages
 
 ### Frontend Voice Calling (Phase 02 - NEW)
 
 **Location:** `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/`
 
-**Purpose:** Browser-based outbound voice calling with Twilio Client SDK, featuring active call modal, mute/end controls, duration timer, and microphone permission checks.
+**Components (5):**
+1. **SDK Loader** - Lazy-loads CDN SDK, provides types, caches instance
+2. **useVoiceCall Hook** - Manages Device, call state, token refresh (5-min buffer), microphone checks, duration timer
+3. **CallButton** - Phone icon, shows spinner on load, disabled during active calls
+4. **ActiveCallModal** - Shows during call, displays duration, mute/end controls, focus trap
+5. **Message Bubble** - Added CALL channel support, displays call history
 
-**SDK Loader (`twilio-sdk-loader.ts` - NEW):**
-- Lazy-loads Twilio SDK from CDN (https://sdk.twilio.com/js/client/releases/2.3.0/twilio.js)
-- Provides type definitions for `TwilioDeviceInstance`, `TwilioCall`, `TwilioCallEvent`
-- Caches loaded SDK to prevent duplicate requests
-- Returns type-safe Twilio Device class
+**Key Features:**
+- Microphone permission check via getUserMedia
+- Token auto-refresh 5 min before expiry
+- Duration timer updates 1/sec during connected state
+- Error messages sanitized to Vietnamese UI text
+- Proper cleanup on unmount (device destroy, listeners removed, timers cleared)
 
-**Voice Call Hook (`use-voice-call.ts` - NEW):**
-- **State:** isAvailable, isLoading, callState (idle|connecting|ringing|connected|disconnecting|error), isMuted, duration, error
-- **Actions:** initiateCall(toPhone, caseId), endCall(), toggleMute()
-- **Features:**
-  - Auto-loads Twilio SDK and fetches voice token on mount
-  - Microphone permission check before initiating calls (getUserMedia)
-  - Token refresh mechanism (5-min buffer before expiry)
-  - Duration timer (increments every 1s during connected state)
-  - Event listeners for ringing, accept, disconnect, cancel, error
-  - Proper cleanup on unmount (device destroy, listeners removal, timer clear)
-  - Vietnamese error messages with sanitization (removes technical details)
+### Voice Recording Playback (Phase 03 - NEW)
 
-**Call Button Component (`call-button.tsx` - NEW):**
-- Phone icon button in conversation header
-- Shows loading spinner during SDK load
-- Disabled during active calls or if voice unavailable
-- Green pulsing icon during active call
-- Vietnamese aria labels and tooltips
-- Accessible (role, aria-label, aria-hidden for icons)
+**Location:** `apps/api/src/routes/voice/index.ts` (2 endpoints) | `apps/workspace/src/components/messaging/audio-player.tsx` (player component)
 
-**Active Call Modal (`active-call-modal.tsx` - NEW):**
-- Shows during connected call state
-- Displays: client name, phone number, call duration (HH:MM:SS)
-- Controls: Mute button (with visual indicator), End call button
-- Focus trap to prevent interaction with page during call
-- Backdrop click blocked during active call
-- Escape key closes modal but doesn't disconnect call
-- Vietnamese UI text
+**Backend:**
+- `GET /voice/recordings/:recordingSid` - Metadata + proxied audio URL (auth required)
+- `GET /voice/recordings/:recordingSid/audio` - MP3 streaming proxy (Twilio credentials server-side)
 
-**Message Bubble Enhancement (`message-bubble.tsx` - MODIFIED):**
-- Added CALL channel support (PhoneCall icon, label "Cuộc gọi", green color)
-- Messages with channel='CALL' display as voice call records
-- Shows call duration if available
+**Frontend AudioPlayer:**
+- Lazy loads audio on first play (not on render)
+- Play/pause toggle, seek bar, time display (M:SS format)
+- Error handling with Vietnamese messages
+- Proper cleanup on unmount (no memory leaks)
 
-**Integration with Messaging (`messages/$caseId.tsx` - MODIFIED):**
-- Integrated voice calling via useVoiceCall() hook
-- Call button added to conversation header
-- Active call modal conditionally rendered
-- Call button click opens phone input or initiates call directly
-
-**API Integration:**
-- `POST /voice/token` - Get access token for Twilio Device
-- `POST /voice/calls` - Create message record + mark call initiated
-- `GET /voice/status` - Check if voice feature available on backend
-
-**Error Handling:**
-- Microphone permission denied → "Bạn cần cấp quyền microphone để gọi điện"
-- Device not found → "Không tìm thấy microphone"
-- Network errors → "Lỗi kết nối mạng"
-- Token refresh failure → "Không thể làm mới phiên gọi. Vui lòng tải lại trang"
-- All technical errors sanitized to user-friendly Vietnamese messages
+**Message Integration:**
+- Embedded in CALL channel messages (if recordingUrl present)
+- Call status badges (completed/busy/no-answer/failed with color coding)
+- Duration display converted from recordingDuration seconds
 
 **Security:**
-- Microphone permission checked before each call
-- Token validation with 5-min buffer (prevents expired tokens mid-call)
-- No sensitive data in error messages
-- Call records tracked in database (call message channel)
+- RecordingSid format validation (RE + 32 hex)
+- Database lookup verifies staff access
+- Twilio auth proxy (credentials never exposed to frontend)
 
-**Features:**
-- Browser-based calling (no app installation needed)
-- Mute/unmute during call
-- Call duration tracking (real-time counter)
-- Microphone access verification
-- Token auto-refresh before expiry
-- Focus trap modal (prevents page interaction)
-- Accessibility: ARIA labels, keyboard shortcuts (ESC to close)
-- Vietnamese-first UI (all labels, tooltips, error messages)
+**Performance:**
+- Lazy loading: Saves bandwidth for non-played recordings
+- Streaming: No buffering (memory efficient)
+- HTTP cache: 3600s for repeated plays
 
 ### Audit Logger Service (Phase 01 - NEW)
 
@@ -825,105 +767,19 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ## Recent Feature: Phase 03 Quick-Edit Icons (NEW - 2026-01-20)
 
-**Location:** `apps/workspace/src/components/clients/`
-
-**New Component: QuickEditModal** (~260 LOC)
-- **Purpose:** Mini modal for inline editing of personal info fields (name, phone, email)
-- **File:** `apps/workspace/src/components/clients/quick-edit-modal.tsx`
-
-**Features:**
-- **Wrapper Pattern:** Component wrapper ensures fresh state on each open (no stale form data)
-  - Parent checks `isOpen` prop, returns null if false
-  - Inner component `QuickEditModalContent` mounts/unmounts with modal
-  - Effect: `useState` initializes to fresh values each time modal opens
-- **Field-Specific Validation:**
-  - **Name:** 2-100 characters, required
-  - **Phone:** US E.164 format (+1 + 10 digits), required, example: +14155551234
-  - **Email:** RFC 5322 compliant pattern, optional but validated if provided, max 254 chars
-- **Accessibility:**
-  - `role="dialog"`, `aria-modal="true"`, `aria-labelledby`
-  - Error messages with `role="alert"`
-  - Keyboard shortcuts: Enter (save), Escape (close)
-  - Global escape listener for reliable key handling
-  - Auto-focus input on modal open (50ms delay for browser focus)
-- **UX Polish:**
-  - Input auto-focus on mount (focus timer with cleanup)
-  - Format hint for phone field (Vietnamese: "Định dạng: +1 và 10 số")
-  - Save button disabled if no changes
-  - Loading state: Spinner + "Đang lưu..." text while saving
-  - All buttons disabled during submission
-  - Toast notifications: Success message with field label
-  - Backdrop click closes modal (when not saving)
-
-**API Integration:**
-- Uses `api.clients.update(clientId, data)` endpoint (existing)
-- Input type: `UpdateClientInput` with `{ name?, phone?, email? }`
-- Email can be null (empty string → null for optional field)
-
-**State Management:**
-- React Query mutation for update request
-- Automatic cache invalidation via `queryClient.invalidateQueries(['client', clientId])`
-- Error state displayed in modal with clear messaging
-
-**Integration with ClientOverviewSections:**
-- Personal info section marked with `editable: true` for name, phone, email rows
-- Quick edit icons shown as pencil buttons next to field values
-- Click handler: `setQuickEditField(fieldName)` opens modal
-- Modal receives current value, client ID, field name as props
-- On close: `setQuickEditField(null)` hides modal
-
-**Type Definitions:**
-```typescript
-export type QuickEditField = 'name' | 'phone' | 'email'
-
-interface QuickEditModalProps {
-  isOpen: boolean
-  onClose: () => void
-  field: QuickEditField
-  currentValue: string
-  clientId: string
-}
-```
-
-**Validation Rules (Field-Specific):**
-- **Phone E.164:** Regex `/^\+1\d{10}$/` (business requirement: US-based tax services)
-- **Email RFC 5322:** Simplified pattern supporting common cases, full DNS validation not required
-- **Name length:** Enforced at input and validation layers (2-100 chars)
-- Whitespace trimmed before validation and save
-
-**Styling:**
-- Fixed position overlay with black/50 backdrop
-- Compact modal: max-width 28rem (448px), responsive with mx-4 margin
-- Dialog with rounded-xl corners, shadow-xl depth
-- Header/body/footer sections with consistent spacing (p-4)
-- Border separators between sections
-- Focus ring on input: ring-primary/50 with smooth transitions
-- Button disabled states: opacity-50, cursor-not-allowed
-- Vietnamese labels and UI text throughout
+**QuickEditModal** - Mini modal for inline editing (name, phone, email)
+- Wrapper pattern ensures fresh state on each open
+- Field-specific validation: Name (2-100), Phone (E.164 +1+10 digits), Email (RFC 5322)
+- Accessibility: ARIA labels, keyboard shortcuts (Enter/Escape), auto-focus
+- API: Uses `api.clients.update()` with React Query cache invalidation
+- Styling: Fixed overlay, compact max-width 448px, disabled button states
 
 ## Recent Feature: Phase 05 Security Enhancements (NEW - 2026-01-20)
 
-**Location:** `apps/api/src/routes/clients/schemas.ts` | `apps/api/src/routes/clients/index.ts`
+**2 Security Hardening Areas:**
 
-**Security Hardening (2 areas):**
-
-1. **Prototype Pollution Prevention (DANGEROUS_KEYS)**
-   - **File:** `apps/api/src/routes/clients/schemas.ts` (lines 106-119)
-   - **Blocklist:** 10 dangerous keys: `__proto__`, `constructor`, `prototype`, `toString`, `valueOf`, `hasOwnProperty`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`
-   - **Validation:** `updateProfileSchema` includes `.refine()` check via `DANGEROUS_KEYS.has(key)`
-   - **Error Message:** "Reserved key name not allowed (potential prototype pollution)"
-   - **Scope:** Applies to `intakeAnswers` partial updates in `PATCH /clients/:id/profile`
-
-2. **XSS Prevention for String Values**
-   - **File:** `apps/api/src/routes/clients/index.ts` (lines 467-476)
-   - **Implementation:** Sanitizes all string values in intakeAnswers via `sanitizeTextInput(value, 500)`
-   - **Defense Layer:** Backend sanitization + frontend escaping (defense-in-depth)
-   - **Function:** Applies to each string entry during profile update before merge
-   - **Example:** `"<script>alert('xss')</script>"` → sanitized before storage
-
-**Additional Tests Added (Phase 05):**
-- **profile-update.test.ts** (22 tests) - Tests PATCH /clients/:id/profile endpoint with XSS/injection payloads
-- **audit-logger.test.ts** (22 tests) - Validates audit logging of profile changes
+1. **Prototype Pollution Prevention:** DANGEROUS_KEYS blocklist (__proto__, constructor, prototype, etc.) validated in updateProfileSchema
+2. **XSS Prevention:** All string values sanitized via `sanitizeTextInput(value, 500)` before merge
 
 ## Recent Feature: Phase 04 Checklist Recalculation Integration (UPDATED - 2026-01-20)
 
@@ -947,71 +803,16 @@ interface QuickEditModalProps {
 
 ## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
 
-**Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/components/cases/` | `apps/workspace/src/hooks/`
+**Location:** `apps/workspace/src/components/` | `apps/workspace/src/hooks/`
 
-**Components (6 new + 1 hook):**
-
-### IntakeProgress (~75 LOC)
-- **Path:** `apps/workspace/src/components/clients/intake-progress.tsx`
-- **Purpose:** Visual progress indicator for intake form completion
-- **Props:** `questions[]`, `answers` object
-- **Features:** Calculates % of visible (conditional) questions answered, shows `answered/total (%)` with progress bar
-- **Condition Evaluation:** Supports legacy flat object + simple `key:value` format
-
-### IntakeRepeater (~390 LOC)
-- **Path:** `apps/workspace/src/components/clients/intake-repeater.tsx`
-- **Purpose:** Repeater component for count-based intake fields (rental properties, K-1s, W-2s)
-- **Props:** `countKey`, `itemLabel`, `labelVi`, `maxItems`, `fields[]`, `answers`, `onChange`
-- **Features:** Renders N blocks based on count (e.g., 3 rentals = 3 property blocks), XSS sanitization for text fields, separate field input components
-- **Field Types:** TEXT, NUMBER, BOOLEAN, SELECT with Vietnamese labels
-- **Export:** `REPEATER_CONFIGS` (pre-built rental/k1/w2 configurations)
-
-### MultiSectionIntakeForm Smart Auto-Expand (~360 LOC)
-- **Path:** `apps/workspace/src/components/clients/multi-section-intake-form.tsx`
-- **Updates:** Enhanced section auto-expand logic
-- **SECTION_TRIGGERS:** Record mapping section name → answer keys that trigger auto-expand
-  - `business` → `['hasSelfEmployment']`
-  - `dependents` → `['hasKidsUnder17', 'hasKids17to24', 'hasOtherDependents']`
-  - `health` → `['hasMarketplaceCoverage', 'hasHSA']`
-  - `deductions` → `['hasMortgage', 'hasPropertyTax', 'hasCharitableDonations', 'hasMedicalExpenses']`
-  - `credits` → `['hasEnergyCredits', 'hasEVCredit', 'hasAdoptionExpenses']`
-  - `foreign` → `['hasForeignAccounts', 'hasForeignIncome']`
-  - `prior_year` → `['hasExtensionFiled', 'estimatedTaxPaid']`
-- **getSectionDefaultOpen():** Returns true if (1) section config defaultOpen, (2) section has answers, or (3) trigger key is true
-
-### TieredChecklist Context Labels (~350 LOC)
-- **Path:** `apps/workspace/src/components/cases/tiered-checklist.tsx`
-- **Updates:** Added `CONTEXT_LABEL_MAPPINGS` for multi-entity doc types
-- **Mapping:** Maps DocType → `{ countKey, labelPrefix }`
-  - `RENTAL_STATEMENT`, `RENTAL_PL`, `LEASE_AGREEMENT` → countKey: `rentalPropertyCount`, labelPrefix: `'Bất động sản'`
-  - `SCHEDULE_K1*` (4 variants) → countKey: `k1Count`, labelPrefix: `'K-1'`
-  - `W2` → countKey: `w2Count`, labelPrefix: `'W-2'`
-- **Usage:** Displays context badge (e.g., "W-2 #1") for items with `expectedCount > 1`
-
-### SaveIndicator & SavedBadge (~135 LOC)
-- **Path:** `apps/workspace/src/components/clients/save-indicator.tsx`
-- **SaveIndicator Props:** `isSaving`, `isPending`, `error`, `position` (fixed|inline)
-- **States:** Saving spinner → "Đang lưu..." | Pending pulse → "Chờ lưu..." | Error alert → "Lỗi: {message}"
-- **Position:** Fixed (bottom-right, z-50) or inline (flow with content)
-- **SavedBadge:** Brief "Đã lưu" confirmation badge with check icon, auto-hide via CSS animation
-
-### SkipItemModal (~105 LOC)
-- **Path:** `apps/workspace/src/components/cases/skip-item-modal.tsx`
-- **Purpose:** Modal for entering skip reason (replaces JS prompt() for UX)
-- **Props:** `isOpen`, `onClose`, `onSubmit`, `itemLabel`, `isSubmitting`
-- **Features:** Textarea (500 char limit, auto-focus), validation (reason required), submit disabled when empty
-- **Vietnamese:** Title "Bỏ qua mục", placeholder with example, hint text
-
-### useDebouncedSave Hook (~135 LOC)
-- **Path:** `apps/workspace/src/hooks/use-debounced-save.ts`
-- **Options:** `delay` (default 1500ms), `onSave(data): Promise<void>`, `onSuccess`, `onError`, `enabled`
-- **Returns:** `{ save, saveNow, cancel, isSaving, isPending, error }`
-- **Behavior:**
-  - `save(data)` → Debounced, updates `isPending` while waiting
-  - `saveNow(data)` → Immediate (cancels pending debounce)
-  - `cancel()` → Clear pending save
-  - Handles unmount cleanup to prevent memory leaks
-  - Tracks save errors in `error` state
+**6 Components + 1 Hook:**
+- **IntakeProgress** - Visual progress bar for intake form completion %
+- **IntakeRepeater** - Count-based repeater blocks (rental properties, K-1s, W-2s) with XSS sanitization
+- **MultiSectionIntakeForm** - Smart auto-expand logic via SECTION_TRIGGERS mapping
+- **TieredChecklist** - Context label mappings for multi-entity doc types (rental/K1/W2 badges)
+- **SaveIndicator** - Saving/pending/error status with fixed|inline positioning
+- **SkipItemModal** - Reason textarea modal for checklist item skip
+- **useDebouncedSave Hook** - Debounced save with saveNow immediate action, unmount cleanup
 
 ## Design System
 
@@ -1033,8 +834,8 @@ interface QuickEditModalProps {
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
+**Status:** Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.2.0 (Phase 02 Voice Calls - Browser-based calling with Twilio Client SDK, active call modal, mute/end/timer controls, microphone permission checks, token refresh management)
+**Architecture Version:** 8.3.0 (Phase 03 Voice Recording Playback - Recording endpoints with proxy auth, AudioPlayer component lazy-load/seek/time display, message-bubble CALL channel integration with status badges, RecordingSid validation, memory-efficient streaming)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

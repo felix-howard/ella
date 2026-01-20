@@ -793,6 +793,470 @@ describe('generateChecklist', () => {
 
     expect(mockCreateMany).not.toHaveBeenCalled()
   })
+
+  // ============================================
+  // Phase 05: Count-based Items
+  // ============================================
+
+  describe('count-based items', () => {
+    it('uses rentalPropertyCount for RENTAL_STATEMENT expectedCount', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'RENTAL_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasRentalProperty: true, rentalPropertyCount: 3 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            templateId: 'template-1',
+            expectedCount: 3,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+
+    it('uses rentalPropertyCount for LEASE_AGREEMENT expectedCount', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'LEASE_AGREEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasRentalProperty: true, rentalPropertyCount: 2 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            expectedCount: 2,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+
+    it('uses k1Count for SCHEDULE_K1 expectedCount', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'SCHEDULE_K1',
+          isRequired: false,
+          condition: JSON.stringify({ hasK1Income: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasK1Income: true, k1Count: 4 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            expectedCount: 4,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+
+    it('uses num1099NECReceived for FORM_1099_NEC expectedCount', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'FORM_1099_NEC',
+          isRequired: false,
+          condition: JSON.stringify({ has1099NECReceived: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { has1099NECReceived: true, num1099NECReceived: 5 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            expectedCount: 5,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+
+    it('uses template default when count not provided', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'RENTAL_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+          expectedCount: 1,
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasRentalProperty: true },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            expectedCount: 1,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+
+    it('ignores zero or negative count values', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          docType: 'W2',
+          isRequired: false,
+          condition: JSON.stringify({ hasW2: true }),
+          expectedCount: 1,
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasW2: true, w2Count: 0 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            expectedCount: 1,
+          }),
+        ],
+        skipDuplicates: true,
+      })
+    })
+  })
+
+  // ============================================
+  // Phase 05: Research-based Test Scenarios
+  // ============================================
+
+  describe('research-based scenarios', () => {
+    it('Simple W2 employee: includes SSN, ID, W2', async () => {
+      const templates = [
+        createMockTemplate({ id: 'ssn', docType: 'SSN_CARD', isRequired: true }),
+        createMockTemplate({ id: 'id', docType: 'ID_CARD', isRequired: true }),
+        createMockTemplate({
+          id: 'w2',
+          docType: 'W2',
+          isRequired: false,
+          condition: JSON.stringify({ hasW2: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 3 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasW2: true, w2Count: 2, filingStatus: 'SINGLE' },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ templateId: 'ssn' }),
+          expect.objectContaining({ templateId: 'id' }),
+          expect.objectContaining({ templateId: 'w2', expectedCount: 2 }),
+        ]),
+        skipDuplicates: true,
+      })
+    })
+
+    it('Self-employed with vehicle: includes mileage log with compound condition', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'mileage',
+          docType: 'MILEAGE_LOG',
+          isRequired: false,
+          condition: JSON.stringify({
+            type: 'AND',
+            conditions: [
+              { key: 'hasSelfEmployment', value: true },
+              { key: 'hasBusinessVehicle', value: true },
+            ],
+          }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasSelfEmployment: true, hasBusinessVehicle: true },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ templateId: 'mileage' })],
+        skipDuplicates: true,
+      })
+    })
+
+    it('Foreign accounts above threshold: includes FBAR docs', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'fbar',
+          docType: 'FBAR_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({
+            type: 'AND',
+            conditions: [
+              { key: 'hasForeignAccounts', value: true },
+              { key: 'fbarMaxBalance', value: 10000, operator: '>' },
+            ],
+          }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasForeignAccounts: true, fbarMaxBalance: 15000 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ templateId: 'fbar' })],
+        skipDuplicates: true,
+      })
+    })
+
+    it('Foreign accounts below threshold: excludes FBAR docs', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'fbar',
+          docType: 'FBAR_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({
+            type: 'AND',
+            conditions: [
+              { key: 'hasForeignAccounts', value: true },
+              { key: 'fbarMaxBalance', value: 10000, operator: '>' },
+            ],
+          }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasForeignAccounts: true, fbarMaxBalance: 5000 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).not.toHaveBeenCalled()
+    })
+
+    it('Multiple rental properties: sets correct expectedCount', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'lease',
+          docType: 'LEASE_AGREEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+        }),
+        createMockTemplate({
+          id: 'rental-stmt',
+          docType: 'RENTAL_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+        }),
+        createMockTemplate({
+          id: 'prop-tax',
+          docType: 'PROPERTY_TAX_STATEMENT',
+          isRequired: false,
+          condition: JSON.stringify({ hasRentalProperty: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 3 })
+
+      const profile = createMockProfile({
+        intakeAnswers: { hasRentalProperty: true, rentalPropertyCount: 3 },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ templateId: 'lease', expectedCount: 3 }),
+          expect.objectContaining({ templateId: 'rental-stmt', expectedCount: 3 }),
+          expect.objectContaining({ templateId: 'prop-tax', expectedCount: 3 }),
+        ]),
+        skipDuplicates: true,
+      })
+    })
+  })
+
+  // ============================================
+  // Phase 05: Profile Fallback Tests
+  // ============================================
+
+  describe('profile fallback behavior', () => {
+    it('uses intakeAnswers when key exists in both sources', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          isRequired: false,
+          condition: JSON.stringify({ hasW2: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      // intakeAnswers: true, legacy profile: false -> should use intakeAnswers
+      const profile = createMockProfile({
+        hasW2: false,
+        intakeAnswers: { hasW2: true },
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalled()
+    })
+
+    it('uses legacy profile when key only exists in profile', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          isRequired: false,
+          condition: JSON.stringify({ hasSelfEmployment: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      const profile = createMockProfile({
+        hasSelfEmployment: true,
+        intakeAnswers: {},
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).toHaveBeenCalled()
+    })
+
+    it('returns false when key exists in neither source', async () => {
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          isRequired: false,
+          condition: JSON.stringify({ hasUnknownField: true }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+
+      const profile = createMockProfile({
+        intakeAnswers: {},
+      })
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+
+      expect(mockCreateMany).not.toHaveBeenCalled()
+    })
+  })
+
+  // ============================================
+  // Phase 05: Performance Tests
+  // ============================================
+
+  describe('performance', () => {
+    it('handles 100 templates efficiently', async () => {
+      // Generate 100 templates with various condition types
+      const templates = Array.from({ length: 100 }, (_, i) => {
+        const conditionTypes = [
+          JSON.stringify({ hasW2: true }),
+          JSON.stringify({ type: 'AND', conditions: [{ key: 'hasW2', value: true }, { key: 'hasBankAccount', value: true }] }),
+          JSON.stringify({ type: 'OR', conditions: [{ key: 'hasW2', value: true }, { key: 'hasSelfEmployment', value: true }] }),
+          JSON.stringify({ key: 'income', value: 50000, operator: '>' }),
+          null,
+        ]
+        return createMockTemplate({
+          id: `template-${i}`,
+          isRequired: i % 5 === 0,
+          condition: conditionTypes[i % conditionTypes.length],
+        })
+      })
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 50 })
+
+      const profile = createMockProfile({
+        hasW2: true,
+        hasBankAccount: true,
+        intakeAnswers: { hasW2: true, hasBankAccount: true, hasSelfEmployment: false, income: 75000 },
+      })
+
+      const start = performance.now()
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+      const duration = performance.now() - start
+
+      // Should complete in under 100ms for 100 templates
+      expect(duration).toBeLessThan(100)
+      expect(mockCreateMany).toHaveBeenCalled()
+    })
+
+    it('handles deeply nested OR with many conditions', async () => {
+      // Create OR with 10 conditions
+      const templates = [
+        createMockTemplate({
+          id: 'template-1',
+          isRequired: false,
+          condition: JSON.stringify({
+            type: 'OR',
+            conditions: Array.from({ length: 10 }, (_, i) => ({
+              key: `condition${i}`,
+              value: true,
+            })),
+          }),
+        }),
+      ]
+      mockFindMany.mockResolvedValueOnce(templates)
+      mockCreateMany.mockResolvedValueOnce({ count: 1 })
+
+      // Only last condition is true
+      const profile = createMockProfile({
+        intakeAnswers: { condition9: true },
+      })
+
+      const start = performance.now()
+      await generateChecklist('case-1', ['FORM_1040' as TaxType], profile)
+      const duration = performance.now() - start
+
+      expect(duration).toBeLessThan(50)
+      expect(mockCreateMany).toHaveBeenCalled()
+    })
+  })
 })
 
 describe('refreshChecklist', () => {

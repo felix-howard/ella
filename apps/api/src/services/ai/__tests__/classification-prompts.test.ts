@@ -373,7 +373,7 @@ describe('SUPPORTED_DOC_TYPES', () => {
   })
 
   it('has correct total count of document types', () => {
-    // Should have 24 total document types (based on classify.ts)
-    expect(SUPPORTED_DOC_TYPES.length).toBe(24)
+    // Phase 03/04: Expanded to 64 document types for comprehensive intake coverage
+    expect(SUPPORTED_DOC_TYPES.length).toBe(64)
   })
 })

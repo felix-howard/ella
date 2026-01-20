@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 Intake Expansion** | **+70 missing CPA questions, new sections (prior_year, filing), React.memo optimization** | **2026-01-20** |
 | **Phase 01 Condition System** | **Compound AND/OR conditions, numeric operators, cascade cleanup (31 tests)** | **2026-01-20** |
 | **Phase 2 Portal UI** | **Portal Redesign - MissingDocsList, SimpleUploader, consolidated single-page** | **2026-01-20** |
 | **Phase 5 Admin Settings** | **Admin Settings Polish - JSON validation, size limits, 29 tests** | **2026-01-19** |
@@ -331,25 +332,57 @@ See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detai
 
 See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full details.
 
-## Recent Feature: Dynamic Intake Questionnaire (NEW - 2026-01-19)
+## Recent Feature: Phase 02 Intake Questions Expansion (NEW - 2026-01-20)
 
-**Location:** `apps/workspace/src/components/clients/`
+**Location:** `packages/shared/src/types/intake-answers.ts` | `packages/db/prisma/seed-intake-questions.ts` | `apps/workspace/src/components/clients/`
 
-**Components (3 new):**
-1. **IntakeQuestion** (~314 LOC) - Individual question renderer with 4 field types (TEXT, NUMBER, BOOLEAN, SELECT), XSS sanitization (500 char limit + HTML tag stripping), conditional visibility, number bounds (0-99)
-2. **IntakeSection** (~52 LOC) - Collapsible section grouper with smooth animations, 16 semantic categories
-3. **MultiSectionIntakeForm** (~290 LOC) - Form orchestrator fetching from API, groups questions by section, handles dependent field clearing
+**Scope: +70 Missing CPA Questions from PDF Guides**
 
-**Backend Integration:**
-- API Endpoint: `GET /clients/intake-questions?taxTypes=[]` - Returns questions grouped by section
-- Updated: `POST /clients` accepts `intakeAnswers: Record<string, any>` (max 200 keys)
-- Storage: `ClientProfile.intakeAnswers` JSON field (flexible schema)
+**IntakeAnswers Type Expansion (~40 new fields):**
 
-**API Client Types:**
-- `FieldType` = 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT'
-- `IntakeQuestion` interface with section, sortOrder, options (JSON string), condition (JSON string)
+New categories:
+- **Prior Year / Filing (7):** hasExtensionFiled, estimatedTaxPaid, estimatedTaxAmountTotal, estimatedTaxPaidQ1-Q4, priorYearAGI
+- **Income - Employment (3):** w2Count, has1099NEC, num1099Types, hasJuryDutyPay
+- **Home Sale (5):** homeSaleGrossProceeds, homeSaleGain, monthsLivedInHome, homeOfficeSqFt, homeOfficeMethod (SIMPLIFIED|REGULAR)
+- **Rental Income (4):** rentalPropertyCount, rentalMonthsRented, rentalPersonalUseDays, k1Count
+- **Dependents (4):** numDependentsCTC, daycareAmount, childcareProviderName, childcareProviderEIN
+- **Deductions (5):** helocInterestPurpose (HOME_IMPROVEMENT|OTHER), noncashDonationValue, medicalMileage, hasCasualtyLoss
+- **Credits (3):** energyCreditInvoice, hasRDCredit
+- **Foreign (4):** fbarMaxBalance, feieResidencyStartDate, feieResidencyEndDate, foreignGiftValue
 
-See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionnaire-redesign.md) for full details.
+**New Form Sections (18 total, 2 new):**
+- `prior_year` - Extension, estimated tax payments by quarter, prior year AGI
+- `filing` - Delivery preference (EMAIL|MAIL|PICKUP), refund routing details
+
+**Seed Data Expansion (116 total questions, +50):**
+- Form 1040 base questions (filing status, refund method, tax year)
+- Prior year section (7 questions with conditional visibility)
+- Filing/delivery section (3 questions)
+- Estimated tax Q1-Q4 breakdown (conditional on estimatedTaxPaid=true)
+- All sections now include Vietnamese labels + hints
+
+**Component Optimization:**
+- **IntakeQuestion** - Added React.memo for performance with 100+ questions
+  - Prevents unnecessary re-renders on form value changes
+  - Memoization key: questionKey, fieldType, fieldValue changes
+  - Comment: "Memoized for performance with 100+ questions"
+- Export pattern: `export const IntakeQuestion = memo(function IntakeQuestion({...}))`
+
+**Numeric Validation Enhancements:**
+- Estimated tax Q1-Q4 hints specify: "Nhập giá trị từ 0 - 99,999,999" (input 0 - 99,999,999)
+- Number fields constrained via fieldType validation (0-99 internally for age/count fields)
+
+**Validation Schema Updates (@ella/shared):**
+- intakeAnswersSchema now validates 40+ optional fields
+- Size limit: 50KB JSON string (intake answers)
+- Type constraints: boolean | number | string | undefined
+
+**Backward Compatibility:**
+- Dynamic [key: string] property in IntakeAnswers interface allows custom fields
+- parseIntakeAnswers() safe-parses JSON with fallback to empty object
+- Condition evaluation supports legacy format (Phase 01 compatible)
+
+See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionnaire-redesign.md) for form details.
 
 ## Recent Feature: Phase 4 Checklist Display Enhancement (NEW - 2026-01-19)
 
@@ -434,8 +467,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 01 Condition System (AND/OR compound, numeric operators, cascade cleanup, 31 tests) + Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
+**Status:** Phase 02 Intake Expansion (+70 CPA questions, new sections, React.memo) + Phase 01 Condition System (AND/OR compound, numeric operators, cascade cleanup, 31 tests) + Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.2.0 (Phase 01 Condition System Upgrade)
+**Architecture Version:** 7.3.0 (Phase 02 Intake Expansion - Questions & Performance)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

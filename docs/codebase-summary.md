@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 05 Testing & Validation** | **Checklist Generator: 16 new tests (count-based, research scenarios, fallback, performance); Classification: 64 doc types, comprehensive validation** | **2026-01-20** |
 | **Phase 04 UX Improvements** | **IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave hook** | **2026-01-20** |
 | **Phase 03 Checklist Templates** | **+13 new templates (92 total), 9 new DocTypes (60+ total), home_sale/credits/energy categories, Vietnamese labels** | **2026-01-20** |
 | **Phase 02 Intake Expansion** | **+70 missing CPA questions, new sections (prior_year, filing), React.memo optimization** | **2026-01-20** |
@@ -501,7 +502,115 @@ See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhanc
 
 See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for full details.
 
-## Recent Feature: Phase 04 UX Improvements (NEW - 2026-01-20)
+## Recent Feature: Phase 05 Testing & Validation (NEW - 2026-01-20)
+
+**Location:** `apps/api/src/services/__tests__/` | `apps/api/src/services/ai/__tests__/`
+
+**Test Coverage Summary:**
+
+### Checklist Generator Tests (Phase 05 Expansion - 16 NEW)
+**File:** `apps/api/src/services/__tests__/checklist-generator.test.ts` (~1,310 LOC)
+**Framework:** Vitest with Prisma mocking
+**Total Tests:** 46 tests across 3 describe blocks
+
+**New Phase 05 Test Categories:**
+
+1. **Count-Based Items (5 tests)** - Dynamic document counts from intake answers
+   - `rentalPropertyCount` for RENTAL_STATEMENT, LEASE_AGREEMENT
+   - `k1Count` for SCHEDULE_K1 variants
+   - `num1099NECReceived` for FORM_1099_NEC
+   - Template default fallback when count not provided
+   - Zero/negative count rejection
+
+2. **Research-Based Scenarios (5 tests)** - Real-world tax situations
+   - Simple W2 employee: SSN, ID, W2 documents
+   - Self-employed with vehicle: Mileage log + compound conditions
+   - Foreign accounts above FBAR threshold (>$10,000)
+   - Foreign accounts below threshold (excluded)
+   - Multiple rental properties: Sets expectedCount correctly
+
+3. **Profile Fallback Behavior (3 tests)** - Priority resolution
+   - intakeAnswers takes priority over legacy profile fields
+   - Fallback to profile when key not in intakeAnswers
+   - Returns false when key in neither source
+
+4. **Performance Tests (2 tests)**
+   - 100 templates with various condition types (<100ms)
+   - Deeply nested OR with 10 conditions (<50ms)
+
+5. **Prior Tests (31):** Condition evaluation, AND/OR logic, operators, nested conditions, depth limits, etc.
+
+**Mock Setup:**
+- Mocked `prisma.checklistTemplate.findMany()`, `prisma.checklistItem.createMany()`, `prisma.taxCase.findUnique()`
+- Helper: `createMockProfile()`, `createMockTemplate()` factories
+
+**Key Test Insights:**
+- Tests validate intakeAnswers as primary data source
+- Confirms count-based items (w2Count=3 → 3 expected W-2s)
+- Validates compound AND/OR condition evaluation (max depth 3)
+- Performance baseline: <100ms for 100 templates
+
+### Classification Prompt Tests (Phase 05 Expansion - DOC TYPE COUNT: 24 → 64)
+**File:** `apps/api/src/services/ai/__tests__/classification-prompts.test.ts` (~380 LOC)
+**Framework:** Vitest
+**Total Tests:** 32 tests across 3 describe blocks
+
+**Test Structure:**
+
+1. **Few-Shot Examples (6 tests)**
+   - W-2 Form with title & wage boxes
+   - SSN Card
+   - 1099-K payment card
+   - 1099-INT interest income
+   - 1099-NEC contractor income
+   - Driver License
+
+2. **Vietnamese Name Handling (3 tests)**
+   - Includes VIETNAMESE NAME HANDLING section
+   - Lists common surnames (Nguyen, Tran, Le, Pham)
+   - Explains family name FIRST convention
+
+3. **Confidence Calibration (4 tests)**
+   - HIGH: 0.85-0.95
+   - MEDIUM: 0.60-0.84
+   - LOW: <0.60
+   - Never > 0.95 guidance
+
+4. **Document Types (7 tests)**
+   - All major categories (ID, TAX FORMS, BUSINESS)
+   - All 1099 variants (INT, DIV, NEC, MISC, K, R, G, SSA)
+   - ID types (SSN_CARD, DRIVER_LICENSE, PASSPORT)
+   - Deduction forms (1098, 1098_T, 1095_A)
+   - Business docs (BANK_STATEMENT, SCHEDULE_K1)
+
+5. **JSON Response Format (2 tests)**
+   - Specifies JSON format requirement
+   - Includes docType, confidence, reasoning, alternativeTypes
+
+6. **Classification Rules (2 tests)**
+   - 1099 variant verification
+   - CORRECTED checkbox detection
+
+7. **Validation Tests (8 tests)**
+   - Valid classification results
+   - Results with alternativeTypes
+   - UNKNOWN docType handling
+   - Confidence boundary tests (0, 1)
+   - Invalid results (wrong type, out-of-range confidence)
+   - Missing required fields (docType, confidence, reasoning)
+
+**SUPPORTED_DOC_TYPES Count Update:**
+- **Phase 04/03:** 24 types → **Phase 05:** 64 types (COMPREHENSIVE INTAKE COVERAGE)
+- Test verifies exact count: `expect(SUPPORTED_DOC_TYPES.length).toBe(64)`
+- Includes: ID (3), Income Forms (10), K-1 (4), Deductions (3), Business (4), Receipts (6), Home Sale (2), Credits (2), Prior Year (2), Foreign (4), Crypto (1), Other (2)
+
+**Validation Schema:**
+- Type safety via TypeScript enums
+- Field presence checks (docType, confidence, reasoning required)
+- Type constraints (string docType, number confidence 0-1, string reasoning)
+- Null/undefined rejection
+
+## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
 
 **Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/components/cases/` | `apps/workspace/src/hooks/`
 
@@ -589,8 +698,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 04 UX Improvements (IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave) + Phase 03 Checklist Templates (+13 templates, 92 total; 9 new DocTypes, 60+ total) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators, cascade cleanup) + Phase 5 Admin Settings (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
+**Status:** Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.5.0 (Phase 04 UX Improvements - 6 components + 1 hook for intake/checklist UX)
+**Architecture Version:** 7.6.0 (Phase 05 Testing & Validation - Comprehensive test coverage for checklist generation & document classification)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

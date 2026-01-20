@@ -526,6 +526,8 @@ export interface ClientProfile {
   hasEmployees: boolean
   hasContractors: boolean
   has1099K: boolean
+  // Full intake answers JSON from dynamic intake form
+  intakeAnswers?: Record<string, boolean | number | string | undefined>
 }
 
 export interface ClientDetail extends Client {

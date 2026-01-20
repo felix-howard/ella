@@ -20,6 +20,8 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   BOOLEAN: 'Có/Không',
   SELECT: 'Chọn',
   NUMBER: 'Số',
+  NUMBER_INPUT: 'Số (nhập)',
+  CURRENCY: 'Tiền tệ',
   TEXT: 'Văn bản',
 }
 

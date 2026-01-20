@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-20 14:20
-> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement
+> **Last Updated:** 2026-01-20 20:45
+> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete) + Section-Edit Modals (80% complete)
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement + 80% Section-Edit Modals
 
 ---
 
@@ -190,6 +190,36 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - Test coverage: 42/42 passing (100%)
 - Code quality: 9.5/10
 - Branch: feature/more-enhancement
+
+---
+
+### Section-Edit Modals Enhancement Track - 80% Complete ⏳
+**Started:** 2026-01-20 18:00
+**Target Completion:** 2026-01-20
+**Deliverable:** Enable inline editing of client personal info with quick-edit modal, full audit trail, and validation
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Code Review |
+|-------|-----------|--------|-----------|------------|
+| 1 | Backend API + Audit Logging Schema | ✅ DONE | 2026-01-20 19:50 | - |
+| 2 | Section Edit Modal Component | ✅ DONE | 2026-01-20 19:50 | - |
+| 3 | Quick-Edit Icons for Personal Info | ✅ DONE | 2026-01-20 19:45 | - |
+| 4 | Checklist Recalculation Integration | ✅ DONE | 2026-01-20 20:45 | Approved |
+| 5 | Testing & Polish | ⏳ PENDING | - | - |
+
+**Completion Summary (Phase 1-4):**
+- Backend PATCH endpoints for profile + intakeAnswers with Zod validation
+- SectionEditModal component reusing existing IntakeQuestion components
+- AuditLog table with field-level change tracking
+- QuickEditModal component for name/phone/email with E.164 + RFC 5322 validation
+- InfoRow updated with edit icons (pencil) appearing on hover
+- Frontend query invalidation on profile update (client + checklist queries)
+- Toast feedback for checklist changes (success, info, error)
+- Loading state with checklist message during update
+- Cascade cleanup for dependent answers when boolean fields change to false
+- TypeScript: Clean
+- Lint: Pass
+- Branch: feature/section-edit-modals
 
 ---
 
@@ -488,6 +518,8 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 3.8 | 2026-01-20 20:45 | PM | ENHANCEMENT TRACK: Section-Edit Modals - Phase 04 Complete (80% overall). Checklist recalculation integration: query invalidation, cascade cleanup, toast feedback, loading state. Profile updates trigger refreshChecklist & cascadeCleanupOnFalse. Phase 05 (testing & polish) pending. |
+| 3.7 | 2026-01-20 19:45 | PM | ENHANCEMENT TRACK: Section-Edit Modals - Phase 03 Complete (60% overall). QuickEditModal for name/phone/email with E.164 + RFC 5322 validation. InfoRow edit icons, accessibility (role="alert", keyboard support). Phases 04-05 pending. |
 | 3.6 | 2026-01-20 14:20 | PM | ENHANCEMENT TRACK: Intake System Enhancement - Phase 03 Complete (60% overall). Added 9 DocTypes, 13 templates, seeded 92 total (up from 65). Compound AND/OR conditions implemented. 42/42 tests passing (9.5/10 code review). Phases 04-05 pending. |
 | 3.5 | 2026-01-17 12:52 | PM | ENHANCEMENT TRACK: Verification Modal UI Enhancement - Phase 1-2 complete (50% overall). Compact field layout + document viewer scroll fixes implemented. 9/10 code review. Phases 3-5 pending. |
 | 3.4 | 2026-01-16 08:32 | PM | BUG FIX: Document Workflow - Documents now update immediately in all tabs after classification/verification. Fixed missing docs query invalidation in modals + extended polling hook. 2 phases, actual effort 1 hour, completed ahead of schedule. |

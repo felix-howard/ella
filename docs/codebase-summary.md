@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 03 Quick-Edit Icons** | **QuickEditModal component; personal info quick-edit (name, phone, email); wrapper pattern for fresh state; field-specific validation (E.164 phone, RFC 5322 email); accessibility (ARIA, keyboard shortcuts)** | **2026-01-20** |
 | **Phase 02 Section Edit Modal** | **intake-form-config.ts (95+ fields, 18 sections); SectionEditModal component; api.clients.updateProfile(); ClientOverviewSections enhanced with edit icons** | **2026-01-20** |
 | **Phase 05 Testing & Validation** | **Checklist Generator: 16 new tests (count-based, research scenarios, fallback, performance); Classification: 64 doc types, comprehensive validation** | **2026-01-20** |
 | **Phase 04 UX Improvements** | **IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave hook** | **2026-01-20** |
@@ -682,6 +683,103 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 - Backend logs all field changes via audit logger service (Phase 01)
 - Staff attribution tracked automatically
 
+## Recent Feature: Phase 03 Quick-Edit Icons (NEW - 2026-01-20)
+
+**Location:** `apps/workspace/src/components/clients/`
+
+**New Component: QuickEditModal** (~260 LOC)
+- **Purpose:** Mini modal for inline editing of personal info fields (name, phone, email)
+- **File:** `apps/workspace/src/components/clients/quick-edit-modal.tsx`
+
+**Features:**
+- **Wrapper Pattern:** Component wrapper ensures fresh state on each open (no stale form data)
+  - Parent checks `isOpen` prop, returns null if false
+  - Inner component `QuickEditModalContent` mounts/unmounts with modal
+  - Effect: `useState` initializes to fresh values each time modal opens
+- **Field-Specific Validation:**
+  - **Name:** 2-100 characters, required
+  - **Phone:** US E.164 format (+1 + 10 digits), required, example: +14155551234
+  - **Email:** RFC 5322 compliant pattern, optional but validated if provided, max 254 chars
+- **Accessibility:**
+  - `role="dialog"`, `aria-modal="true"`, `aria-labelledby`
+  - Error messages with `role="alert"`
+  - Keyboard shortcuts: Enter (save), Escape (close)
+  - Global escape listener for reliable key handling
+  - Auto-focus input on modal open (50ms delay for browser focus)
+- **UX Polish:**
+  - Input auto-focus on mount (focus timer with cleanup)
+  - Format hint for phone field (Vietnamese: "Định dạng: +1 và 10 số")
+  - Save button disabled if no changes
+  - Loading state: Spinner + "Đang lưu..." text while saving
+  - All buttons disabled during submission
+  - Toast notifications: Success message with field label
+  - Backdrop click closes modal (when not saving)
+
+**API Integration:**
+- Uses `api.clients.update(clientId, data)` endpoint (existing)
+- Input type: `UpdateClientInput` with `{ name?, phone?, email? }`
+- Email can be null (empty string → null for optional field)
+
+**State Management:**
+- React Query mutation for update request
+- Automatic cache invalidation via `queryClient.invalidateQueries(['client', clientId])`
+- Error state displayed in modal with clear messaging
+
+**Integration with ClientOverviewSections:**
+- Personal info section marked with `editable: true` for name, phone, email rows
+- Quick edit icons shown as pencil buttons next to field values
+- Click handler: `setQuickEditField(fieldName)` opens modal
+- Modal receives current value, client ID, field name as props
+- On close: `setQuickEditField(null)` hides modal
+
+**Type Definitions:**
+```typescript
+export type QuickEditField = 'name' | 'phone' | 'email'
+
+interface QuickEditModalProps {
+  isOpen: boolean
+  onClose: () => void
+  field: QuickEditField
+  currentValue: string
+  clientId: string
+}
+```
+
+**Validation Rules (Field-Specific):**
+- **Phone E.164:** Regex `/^\+1\d{10}$/` (business requirement: US-based tax services)
+- **Email RFC 5322:** Simplified pattern supporting common cases, full DNS validation not required
+- **Name length:** Enforced at input and validation layers (2-100 chars)
+- Whitespace trimmed before validation and save
+
+**Styling:**
+- Fixed position overlay with black/50 backdrop
+- Compact modal: max-width 28rem (448px), responsive with mx-4 margin
+- Dialog with rounded-xl corners, shadow-xl depth
+- Header/body/footer sections with consistent spacing (p-4)
+- Border separators between sections
+- Focus ring on input: ring-primary/50 with smooth transitions
+- Button disabled states: opacity-50, cursor-not-allowed
+- Vietnamese labels and UI text throughout
+
+## Recent Feature: Phase 04 Checklist Recalculation Integration (NEW - 2026-01-20)
+
+**Location:** `apps/workspace/src/lib/api-client.ts` | `apps/workspace/src/components/clients/section-edit-modal.tsx`
+
+**API Response Enhancement:**
+- **UpdateProfileResponse Interface** - New response type for profile update endpoint (POST /clients/:id/profile)
+  - `profile: ClientProfile` - Updated client profile
+  - `checklistRefreshed: boolean` - Indicates if checklist was regenerated
+  - `cascadeCleanup.triggeredBy: string[]` - Field keys that triggered cascade cleanup
+  - Backend handles: Evaluates conditions on intakeAnswers change, regenerates checklist items, cascades cleanup of dependent answers
+
+**Frontend Integration:**
+- **SectionEditModal** - Enhanced with checklist query invalidation
+  - onSuccess handler: Invalidates `['checklist', activeCaseId]` query when `response.checklistRefreshed=true`
+  - Toast feedback: Shows "Checklist đã được cập nhật theo thay đổi" if cascade cleanup triggered
+  - Pattern: Optimistic UI + server-driven refresh status (avoids unnecessary re-queries)
+- **Query Invalidation Pattern:** React Query `invalidateQueries()` ensures stale checklist data refreshed on next fetch
+- **User Feedback:** Two-tier toast system: main success + optional info toast for cascade events
+
 ## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
 
 **Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/components/cases/` | `apps/workspace/src/hooks/`
@@ -770,8 +868,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 02 Section Edit Modal (intake-form-config.ts, SectionEditModal, edit icons) + Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
+**Status:** Phase 04 Checklist Recalculation Integration (UpdateProfileResponse, query invalidation pattern) + Phase 03 Quick-Edit Icons (QuickEditModal, wrapper pattern, field validation, accessibility) + Phase 02 Section Edit Modal (intake-form-config.ts, SectionEditModal, edit icons) + Phase 05 Testing & Validation (46 checklist generator tests, 32 classification tests, 64 doc types) + Phase 04 UX Improvements (6 components + 1 hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators) + Phase 5 Admin Settings (29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.7.0 (Phase 02 Section Edit Modal - Centralized intake form config + modal editing with audit logging)
+**Architecture Version:** 7.9.0 (Phase 04 Checklist Recalculation - Server-driven refresh on profile updates with cascade cleanup feedback)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

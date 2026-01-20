@@ -4,6 +4,7 @@
  */
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { ErrorBoundary } from '../components/error-boundary'
+import { ToastContainer } from '../components/toast-container'
 
 export const Route = createRootRoute({
   component: PortalLayout,
@@ -18,6 +19,7 @@ function PortalLayout() {
           <Outlet />
         </ErrorBoundary>
       </div>
+      <ToastContainer />
     </div>
   )
 }

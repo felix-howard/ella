@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-19
+**Current Date:** 2026-01-20
 **Current Branch:** feature/more-enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 2 Portal UI** | **Portal Redesign - MissingDocsList, SimpleUploader, consolidated single-page** | **2026-01-20** |
 | **Phase 5 Admin Settings** | **Admin Settings Polish - JSON validation, size limits, 29 tests** | **2026-01-19** |
 | **Phase 4 Checklist Display** | **3-Tier Checklist, Staff Overrides, 4 new API endpoints, 3 components** | **2026-01-19** |
 | **Phase 3 Checklist** | **Checklist Generator Fix - intakeAnswers priority, dynamic counts, 15 tests** | **2026-01-19** |
@@ -82,6 +83,20 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 
 ### @ella/portal
 **Client-facing upload portal (React, PORT 5174)** - Passwordless magic link auth, mobile-optimized (max 448px), file validation, real-time progress.
+
+**Phase 2 Redesign (2026-01-20):**
+- **MissingDocsList** - Clean list of required documents with XSS sanitization
+- **SimpleUploader** - Single big button native file picker (no drag-drop)
+- **Consolidated Route** - `/u/$token/` single-page experience (removed `/upload`, `/status` routes)
+- **i18n Enhanced** - New strings: docsNeeded, tapToUpload, uploadedSuccess, noDocsNeeded
+
+**Phase 3 Toast Integration (2026-01-20):**
+- **toastStore** (lib) - Lightweight toast notifications using useSyncExternalStore (no Zustand dependency), max 3 visible, deduplication (500ms window), SSR-safe, 3s auto-dismiss for success, 5s for errors
+- **ToastContainer** (component) - Mobile pill design at bottom center, stacking animation (scale/opacity for older toasts), icons: Check/X/Info, manual dismiss button
+- **Integration** - SimpleUploader uses `toast.success()` / `toast.error()` for upload feedback, ToastContainer mounted in `__root.tsx` layout
+- **Types:** success (mint), error (red), info (dark)
+
+See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed component docs.
 
 ### @ella/workspace
 **Staff management dashboard (React, PORT 5173)** - Vietnamese-first UI, Zustand state, 20+ components, real-time polling.
@@ -377,9 +392,9 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 
 ---
 
-**Last Updated:** 2026-01-19
-**Status:** Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types) + Phase 03 OCR Extended + Phase 01 Classification Enhancement + Phase 02 OCR (PDF Multi-page)
+**Last Updated:** 2026-01-20
+**Status:** Phase 3 Toast Integration (Portal notifications) + Phase 5 Admin Settings Polish (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, Staff Overrides, 4 endpoints) + Phase 3 Checklist Generator Fix + Phase 2.0 Questionnaire (Dynamic Intake) + Phase 04 Priority 3 OCR (16 types)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.0.0 (Phase 5 Admin Settings Polish)
+**Architecture Version:** 7.1.0 (Phase 3 Portal Toast Integration)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

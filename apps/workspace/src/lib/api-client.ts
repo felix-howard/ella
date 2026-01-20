@@ -855,7 +855,7 @@ export interface ConversationsResponse {
 }
 
 // Admin types - Intake Questions
-export type FieldType = 'BOOLEAN' | 'SELECT' | 'NUMBER' | 'TEXT'
+export type FieldType = 'BOOLEAN' | 'SELECT' | 'NUMBER' | 'NUMBER_INPUT' | 'CURRENCY' | 'TEXT'
 
 export interface IntakeQuestion {
   id: string

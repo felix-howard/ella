@@ -62,6 +62,22 @@ export const IntakeQuestion = memo(function IntakeQuestion({
           value={(value as number) ?? 0}
           onChange={(val) => onChange(questionKey, val)}
         />
+      ) : fieldType === 'CURRENCY' ? (
+        <CurrencyQuestion
+          questionKey={questionKey}
+          label={label}
+          hint={hint}
+          value={(value as number) ?? 0}
+          onChange={(val) => onChange(questionKey, val)}
+        />
+      ) : fieldType === 'NUMBER_INPUT' ? (
+        <NumberInputQuestion
+          questionKey={questionKey}
+          label={label}
+          hint={hint}
+          value={(value as number) ?? undefined}
+          onChange={(val) => onChange(questionKey, val)}
+        />
       ) : fieldType === 'SELECT' ? (
         <SelectQuestion
           questionKey={questionKey}
@@ -213,6 +229,120 @@ function NumberQuestion({
           +
         </button>
       </div>
+    </div>
+  )
+}
+
+// Currency Question - for monetary values (estimated tax, AGI, etc.)
+interface CurrencyQuestionProps {
+  questionKey: string
+  label: string
+  hint?: string | null
+  value: number
+  onChange: (value: number) => void
+}
+
+// Format number with commas for display
+function formatCurrency(value: number): string {
+  if (!value && value !== 0) return ''
+  return value.toLocaleString('en-US')
+}
+
+// Parse formatted string back to number
+function parseCurrency(value: string): number {
+  const cleaned = value.replace(/[^0-9]/g, '')
+  return parseInt(cleaned, 10) || 0
+}
+
+function CurrencyQuestion({
+  questionKey,
+  label,
+  hint,
+  value,
+  onChange,
+}: CurrencyQuestionProps) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={questionKey}
+        className="block text-sm font-medium text-foreground"
+      >
+        {label}
+      </label>
+      {hint && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          {hint}
+        </p>
+      )}
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+          $
+        </span>
+        <input
+          id={questionKey}
+          type="text"
+          inputMode="numeric"
+          value={value ? formatCurrency(value) : ''}
+          onChange={(e) => onChange(parseCurrency(e.target.value))}
+          placeholder="0"
+          className={cn(
+            'w-full pl-7 pr-3 py-2.5 rounded-lg border bg-card text-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+            'border-border'
+          )}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Number Input Question - for larger numbers that need typing (sq ft, mileage, etc.)
+interface NumberInputQuestionProps {
+  questionKey: string
+  label: string
+  hint?: string | null
+  value: number | undefined
+  onChange: (value: number) => void
+}
+
+function NumberInputQuestion({
+  questionKey,
+  label,
+  hint,
+  value,
+  onChange,
+}: NumberInputQuestionProps) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={questionKey}
+        className="block text-sm font-medium text-foreground"
+      >
+        {label}
+      </label>
+      {hint && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <HelpCircle className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          {hint}
+        </p>
+      )}
+      <input
+        id={questionKey}
+        type="number"
+        inputMode="numeric"
+        value={value ?? ''}
+        onChange={(e) => {
+          const val = e.target.value
+          onChange(val === '' ? 0 : parseInt(val, 10) || 0)
+        }}
+        placeholder="0"
+        className={cn(
+          'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
+          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+          'border-border'
+        )}
+      />
     </div>
   )
 }

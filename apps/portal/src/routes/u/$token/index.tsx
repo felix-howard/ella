@@ -1,15 +1,17 @@
 /**
  * Portal Landing Page - Single Page Experience
  * Consolidated view: welcome + missing docs + upload
- * Phase 1: Route consolidation (upload/status routes removed)
+ * Phase 2: UI components (MissingDocsList + SimpleUploader)
  */
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
-import { portalApi, type PortalData, ApiError } from '../../../lib/api-client'
+import { portalApi, type PortalData, type UploadResponse, ApiError } from '../../../lib/api-client'
 import { getText, type Language } from '../../../lib/i18n'
 import { WelcomeHeader } from '../../../components/landing/welcome-header'
+import { MissingDocsList } from '../../../components/missing-docs-list'
+import { SimpleUploader } from '../../../components/simple-uploader'
 
 export const Route = createFileRoute('/u/$token/')({
   component: PortalPage,
@@ -90,6 +92,31 @@ function PortalPage() {
       })
   }, [token])
 
+  // Upload complete handler - refresh data to update missing docs list
+  const handleUploadComplete = useCallback(
+    (_result: UploadResponse) => {
+      // Refresh data to get updated checklist
+      portalApi
+        .getData(token)
+        .then((newData) => {
+          if (isMountedRef.current) {
+            setData(newData)
+          }
+        })
+        .catch((err) => {
+          // Log error but don't crash - upload succeeded, refresh failed
+          console.error('Failed to refresh data after upload:', err)
+        })
+    },
+    [token]
+  )
+
+  // Upload error handler - SimpleUploader handles UI display
+  const handleUploadError = useCallback((message: string) => {
+    // Log for debugging - SimpleUploader shows the error toast
+    console.error('Upload error:', message)
+  }, [])
+
   // Loading state
   if (state === 'loading') {
     return (
@@ -111,7 +138,7 @@ function PortalPage() {
     return <ErrorView error={error} onRetry={handleReload} language={language} />
   }
 
-  // Success state - TODO: Phase 2 will add MissingDocsList and SimpleUploader here
+  // Success state - Phase 2 components
   return (
     <div className="flex-1 flex flex-col">
       <WelcomeHeader
@@ -120,7 +147,7 @@ function PortalPage() {
         language={language}
       />
 
-      {/* Stats summary - temporary until Phase 2 components */}
+      {/* Stats summary */}
       <div className="px-6 py-4" role="region" aria-label={language === 'VI' ? 'Thống kê' : 'Statistics'}>
         <div className="flex justify-center gap-6">
           <StatBadge
@@ -136,25 +163,19 @@ function PortalPage() {
         </div>
       </div>
 
-      {/* Placeholder for Phase 2: MissingDocsList component */}
-      {data.checklist.missing.length > 0 && (
-        <div className="flex-1 px-6 py-4" role="region" aria-label={language === 'VI' ? 'Tài liệu cần gửi' : 'Documents Needed'}>
-          <h2 className="text-lg font-semibold mb-3">{language === 'VI' ? 'Tài liệu cần gửi' : 'Documents Needed'}</h2>
-          <ul className="space-y-2" role="list">
-            {data.checklist.missing.map((doc) => (
-              <li key={doc.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
-                <span className="text-sm">{doc.labelVi}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Missing docs list */}
+      <div className="flex-1 px-6 py-4">
+        <MissingDocsList docs={data.checklist.missing} language={language} />
+      </div>
 
-      {/* Placeholder for Phase 2: SimpleUploader component */}
+      {/* Simple upload button - always visible */}
       <div className="px-6 py-6 border-t border-border">
-        <p className="text-sm text-muted-foreground text-center mb-4">
-          {language === 'VI' ? 'Upload component sẽ được thêm ở Phase 2' : 'Upload component will be added in Phase 2'}
-        </p>
+        <SimpleUploader
+          token={token}
+          language={language}
+          onUploadComplete={handleUploadComplete}
+          onError={handleUploadError}
+        />
       </div>
 
       {/* Footer */}

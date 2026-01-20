@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 04 UX Improvements** | **IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave hook** | **2026-01-20** |
 | **Phase 03 Checklist Templates** | **+13 new templates (92 total), 9 new DocTypes (60+ total), home_sale/credits/energy categories, Vietnamese labels** | **2026-01-20** |
 | **Phase 02 Intake Expansion** | **+70 missing CPA questions, new sections (prior_year, filing), React.memo optimization** | **2026-01-20** |
 | **Phase 01 Condition System** | **Compound AND/OR conditions, numeric operators, cascade cleanup (31 tests)** | **2026-01-20** |
@@ -500,6 +501,74 @@ See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhanc
 
 See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for full details.
 
+## Recent Feature: Phase 04 UX Improvements (NEW - 2026-01-20)
+
+**Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/components/cases/` | `apps/workspace/src/hooks/`
+
+**Components (6 new + 1 hook):**
+
+### IntakeProgress (~75 LOC)
+- **Path:** `apps/workspace/src/components/clients/intake-progress.tsx`
+- **Purpose:** Visual progress indicator for intake form completion
+- **Props:** `questions[]`, `answers` object
+- **Features:** Calculates % of visible (conditional) questions answered, shows `answered/total (%)` with progress bar
+- **Condition Evaluation:** Supports legacy flat object + simple `key:value` format
+
+### IntakeRepeater (~390 LOC)
+- **Path:** `apps/workspace/src/components/clients/intake-repeater.tsx`
+- **Purpose:** Repeater component for count-based intake fields (rental properties, K-1s, W-2s)
+- **Props:** `countKey`, `itemLabel`, `labelVi`, `maxItems`, `fields[]`, `answers`, `onChange`
+- **Features:** Renders N blocks based on count (e.g., 3 rentals = 3 property blocks), XSS sanitization for text fields, separate field input components
+- **Field Types:** TEXT, NUMBER, BOOLEAN, SELECT with Vietnamese labels
+- **Export:** `REPEATER_CONFIGS` (pre-built rental/k1/w2 configurations)
+
+### MultiSectionIntakeForm Smart Auto-Expand (~360 LOC)
+- **Path:** `apps/workspace/src/components/clients/multi-section-intake-form.tsx`
+- **Updates:** Enhanced section auto-expand logic
+- **SECTION_TRIGGERS:** Record mapping section name → answer keys that trigger auto-expand
+  - `business` → `['hasSelfEmployment']`
+  - `dependents` → `['hasKidsUnder17', 'hasKids17to24', 'hasOtherDependents']`
+  - `health` → `['hasMarketplaceCoverage', 'hasHSA']`
+  - `deductions` → `['hasMortgage', 'hasPropertyTax', 'hasCharitableDonations', 'hasMedicalExpenses']`
+  - `credits` → `['hasEnergyCredits', 'hasEVCredit', 'hasAdoptionExpenses']`
+  - `foreign` → `['hasForeignAccounts', 'hasForeignIncome']`
+  - `prior_year` → `['hasExtensionFiled', 'estimatedTaxPaid']`
+- **getSectionDefaultOpen():** Returns true if (1) section config defaultOpen, (2) section has answers, or (3) trigger key is true
+
+### TieredChecklist Context Labels (~350 LOC)
+- **Path:** `apps/workspace/src/components/cases/tiered-checklist.tsx`
+- **Updates:** Added `CONTEXT_LABEL_MAPPINGS` for multi-entity doc types
+- **Mapping:** Maps DocType → `{ countKey, labelPrefix }`
+  - `RENTAL_STATEMENT`, `RENTAL_PL`, `LEASE_AGREEMENT` → countKey: `rentalPropertyCount`, labelPrefix: `'Bất động sản'`
+  - `SCHEDULE_K1*` (4 variants) → countKey: `k1Count`, labelPrefix: `'K-1'`
+  - `W2` → countKey: `w2Count`, labelPrefix: `'W-2'`
+- **Usage:** Displays context badge (e.g., "W-2 #1") for items with `expectedCount > 1`
+
+### SaveIndicator & SavedBadge (~135 LOC)
+- **Path:** `apps/workspace/src/components/clients/save-indicator.tsx`
+- **SaveIndicator Props:** `isSaving`, `isPending`, `error`, `position` (fixed|inline)
+- **States:** Saving spinner → "Đang lưu..." | Pending pulse → "Chờ lưu..." | Error alert → "Lỗi: {message}"
+- **Position:** Fixed (bottom-right, z-50) or inline (flow with content)
+- **SavedBadge:** Brief "Đã lưu" confirmation badge with check icon, auto-hide via CSS animation
+
+### SkipItemModal (~105 LOC)
+- **Path:** `apps/workspace/src/components/cases/skip-item-modal.tsx`
+- **Purpose:** Modal for entering skip reason (replaces JS prompt() for UX)
+- **Props:** `isOpen`, `onClose`, `onSubmit`, `itemLabel`, `isSubmitting`
+- **Features:** Textarea (500 char limit, auto-focus), validation (reason required), submit disabled when empty
+- **Vietnamese:** Title "Bỏ qua mục", placeholder with example, hint text
+
+### useDebouncedSave Hook (~135 LOC)
+- **Path:** `apps/workspace/src/hooks/use-debounced-save.ts`
+- **Options:** `delay` (default 1500ms), `onSave(data): Promise<void>`, `onSuccess`, `onError`, `enabled`
+- **Returns:** `{ save, saveNow, cancel, isSaving, isPending, error }`
+- **Behavior:**
+  - `save(data)` → Debounced, updates `isPending` while waiting
+  - `saveNow(data)` → Immediate (cancels pending debounce)
+  - `cancel()` → Clear pending save
+  - Handles unmount cleanup to prevent memory leaks
+  - Tracks save errors in `error` state
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -520,8 +589,8 @@ See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for fu
 ---
 
 **Last Updated:** 2026-01-20
-**Status:** Phase 03 Checklist Templates (+13 templates, 92 total; 9 new DocTypes, 60+ total; home_sale/credits/energy categories) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators, cascade cleanup) + Phase 5 Admin Settings (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints) + OCR Expansion (16 types)
+**Status:** Phase 04 UX Improvements (IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave) + Phase 03 Checklist Templates (+13 templates, 92 total; 9 new DocTypes, 60+ total) + Phase 02 Intake Expansion (+70 CPA questions) + Phase 01 Condition System (AND/OR, numeric operators, cascade cleanup) + Phase 5 Admin Settings (JSON validation, 29 tests) + Phase 4 Checklist Display (3-Tier, 4 endpoints)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 7.4.0 (Phase 03 Checklist Templates Expansion - 92 templates, 60+ DocTypes)
+**Architecture Version:** 7.5.0 (Phase 04 UX Improvements - 6 components + 1 hook for intake/checklist UX)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

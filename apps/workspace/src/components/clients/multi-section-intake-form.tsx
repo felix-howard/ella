@@ -6,7 +6,6 @@
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { cn } from '@ella/ui'
 import { HelpCircle, Loader2 } from 'lucide-react'
 import { api, type TaxType, type IntakeQuestion as IntakeQuestionType } from '../../lib/api-client'
 import { IntakeSection } from './intake-section'
@@ -25,6 +24,11 @@ const SECTION_CONFIG: Record<
   identity: {
     title: 'Nhận dạng',
     description: 'Thông tin cá nhân',
+    defaultOpen: false,
+  },
+  prior_year: {
+    title: 'Năm trước & Extension',
+    description: 'Estimated tax, extension, AGI năm trước',
     defaultOpen: false,
   },
   life_changes: {
@@ -48,7 +52,7 @@ const SECTION_CONFIG: Record<
     defaultOpen: false,
   },
   deductions: {
-    title: 'Khấu trừ & tín dụng',
+    title: 'Khấu trừ',
     description: 'Mortgage, từ thiện, y tế, v.v.',
     defaultOpen: false,
   },
@@ -59,12 +63,17 @@ const SECTION_CONFIG: Record<
   },
   foreign: {
     title: 'Thu nhập nước ngoài',
-    description: 'Tài khoản và thuế nước ngoài',
+    description: 'Tài khoản, FBAR, FEIE',
     defaultOpen: false,
   },
   business: {
     title: 'Thông tin doanh nghiệp',
     description: 'Cho kinh doanh cá nhân',
+    defaultOpen: false,
+  },
+  filing: {
+    title: 'Giao nhận tờ khai',
+    description: 'Delivery preference, notes',
     defaultOpen: false,
   },
   entity_info: {
@@ -79,7 +88,7 @@ const SECTION_CONFIG: Record<
   },
   expenses: {
     title: 'Chi phí kinh doanh',
-    description: 'Nhân viên, contractors, v.v.',
+    description: 'Nhân viên, contractors, officer compensation',
     defaultOpen: false,
   },
   assets: {
@@ -104,6 +113,7 @@ const SECTION_ORDER = [
   'tax_info',
   'client_status',
   'identity',
+  'prior_year',
   'life_changes',
   'income',
   'dependents',
@@ -112,6 +122,7 @@ const SECTION_ORDER = [
   'credits',
   'foreign',
   'business',
+  'filing',
   'entity_info',
   'ownership',
   'expenses',
@@ -139,10 +150,10 @@ export function MultiSectionIntakeForm({
 
   const questions = data?.data || []
 
-  // Handle answer change
-  // NOTE: For editing existing clients, use api.clients.cascadeCleanup() to sync
-  // backend intakeAnswers and checklist items when parent answer changes to false.
-  // This UI-side cleanup only affects local state during client creation.
+  // Handle answer change with UI-side cascade cleanup
+  // This removes dependent answers when parent toggles to false (e.g., hasW2 -> w2Count)
+  // For existing clients, the backend performs deeper cleanup via cascade logic
+  // when intakeAnswers are saved via the API (see api.clients.update)
   const handleChange = (key: string, value: unknown) => {
     const newAnswers = { ...answers, [key]: value }
 

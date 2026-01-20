@@ -1,8 +1,10 @@
 /**
  * IntakeQuestion - Dynamic question component for intake forms
  * Renders appropriate input based on fieldType with conditional visibility
+ * Uses React.memo for performance with 100+ questions
  */
 
+import { memo } from 'react'
 import { cn } from '@ella/ui'
 import { HelpCircle } from 'lucide-react'
 import type { FieldType } from '../../lib/api-client'
@@ -25,7 +27,8 @@ interface IntakeQuestionProps {
   answers: Record<string, unknown>
 }
 
-export function IntakeQuestion({
+// Memoized for performance with 100+ questions
+export const IntakeQuestion = memo(function IntakeQuestion({
   questionKey,
   label,
   hint,
@@ -79,7 +82,7 @@ export function IntakeQuestion({
       ) : null}
     </div>
   )
-}
+})
 
 // Boolean/Toggle Question
 interface BooleanQuestionProps {

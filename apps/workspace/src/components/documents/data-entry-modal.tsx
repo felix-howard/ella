@@ -254,9 +254,9 @@ export function DataEntryModal({
         aria-hidden="true"
       />
 
-      {/* Modal - almost fullscreen */}
+      {/* Modal - large but not too wide */}
       <div
-        className="fixed inset-2 md:inset-3 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        className="fixed inset-y-2 inset-x-4 md:inset-y-3 md:inset-x-[10%] lg:inset-x-[15%] z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="data-entry-modal-title"

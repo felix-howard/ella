@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, AlertTriangle, Building2, User, DollarSign, MapPin, FileText, Calendar, Hash } from 'lucide-react'
 import { Badge, cn } from '@ella/ui'
 import { CopyableField } from '../ui/copyable-field'
@@ -245,18 +246,19 @@ export function DataEntryModal({
 
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
 
-  return (
+  // Use portal to render at document.body level to avoid stacking context issues
+  return createPortal(
     <>
-      {/* Backdrop */}
+      {/* Backdrop - covers entire viewport */}
       <div
-        className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal - large but not too wide */}
       <div
-        className="fixed inset-y-2 inset-x-4 md:inset-y-3 md:inset-x-[10%] lg:inset-x-[15%] z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        className="fixed inset-y-2 inset-x-4 md:inset-y-3 md:inset-x-[10%] lg:inset-x-[15%] z-[100] flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="data-entry-modal-title"
@@ -377,6 +379,7 @@ export function DataEntryModal({
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

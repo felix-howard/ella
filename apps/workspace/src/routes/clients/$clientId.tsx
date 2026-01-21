@@ -20,6 +20,7 @@ import {
   Loader2,
   Link2,
   Trash2,
+  ClipboardList,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
@@ -47,7 +48,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'documents'
+type TabType = 'overview' | 'documents' | 'data-entry'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
@@ -258,6 +259,7 @@ function ClientDetailPage() {
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
+    { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
   ]
 
   return (
@@ -437,17 +439,6 @@ function ClientDetailPage() {
             isSubmitting={addChecklistItemMutation.isPending}
           />
 
-          {/* Data Entry Section - shows verified docs for copying to OltPro */}
-          <div className="bg-card rounded-xl border border-border p-4">
-            <h2 className="text-base font-semibold text-primary mb-3">
-              Nhập liệu
-            </h2>
-            <DataEntryTab
-              docs={digitalDocs}
-              caseId={latestCaseId || ''}
-            />
-          </div>
-
           {/* Manual Classification Modal */}
           {latestCaseId && (
             <ManualClassificationModal
@@ -471,6 +462,13 @@ function ClientDetailPage() {
           {/* Upload Progress - shows when images are processing */}
           <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
+      )}
+
+      {activeTab === 'data-entry' && (
+        <DataEntryTab
+          docs={digitalDocs}
+          caseId={latestCaseId || ''}
+        />
       )}
 
       {/* Delete Client Confirmation Modal */}

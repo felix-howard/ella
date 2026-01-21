@@ -10,6 +10,7 @@ import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/consta
 import { isGeminiConfigured } from '../../services/ai'
 import { uploadFile, generateFileKey } from '../../services/storage'
 import { inngest } from '../../lib/inngest'
+import { updateLastActivity } from '../../services/activity-tracker'
 
 const portalRoute = new Hono()
 
@@ -184,6 +185,11 @@ portalRoute.post('/:token/upload', async (c) => {
   // Send all Inngest events in batch for efficiency
   if (inngestEvents.length > 0) {
     await inngest.send(inngestEvents)
+  }
+
+  // Update case activity timestamp (client uploaded documents)
+  if (createdImages.length > 0) {
+    await updateLastActivity(caseId)
   }
 
   // Create manual review action only if AI is not configured

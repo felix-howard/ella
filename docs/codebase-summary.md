@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 2 API Changes (Actionable Status)** | **3 case status endpoints; enhanced GET /clients with sort/actionCounts; ComputedStatus + ActionCounts types; activity tracking service; 23 tests** | **2026-01-21** |
 | **Phase 1 Database & Backend (Actionable Status)** | **TaxCase isInReview/isFiled flags; lastActivityAt tracking; computeStatus() priority system; calculateStaleDays() detection; updateLastActivity() service; ActionCounts types; 23 comprehensive tests** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |

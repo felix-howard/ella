@@ -4,7 +4,7 @@
  * PDF rendering is lazy loaded to reduce bundle size
  */
 
-import { useState, useCallback, useLayoutEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useCallback, useLayoutEffect, useRef, useEffect, lazy, Suspense } from 'react'
 import { cn } from '@ella/ui'
 import {
   ZoomIn,
@@ -91,6 +91,28 @@ export function ImageViewer({
       setCurrentPage((p) => Math.min(numPages, p + 1))
     }
   }, [numPages])
+
+  // Ctrl+scroll wheel zoom handler
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only zoom when Ctrl (or Cmd on Mac) is pressed
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        // deltaY negative = scroll up = zoom in, positive = scroll down = zoom out
+        if (e.deltaY < 0) {
+          setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))
+        } else {
+          setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))
+        }
+      }
+    }
+
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => container.removeEventListener('wheel', handleWheel)
+  }, [])
 
   // Empty state
   if (!imageUrl) {

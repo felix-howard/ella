@@ -1,15 +1,14 @@
 /**
- * Chatbox Header - Header with client name and minimize/close controls
- * Facebook Messenger-style header with gradient background
+ * Chatbox Header - Header with client name and close controls
+ * Facebook Messenger-style header with dark background for readability
  */
 
 import { cn } from '@ella/ui'
-import { Minus, X, Phone } from 'lucide-react'
+import { X, Phone } from 'lucide-react'
 
 export interface ChatboxHeaderProps {
   clientName: string
   clientPhone?: string
-  onMinimize: () => void
   onClose: () => void
   onCall?: () => void
   className?: string
@@ -18,7 +17,6 @@ export interface ChatboxHeaderProps {
 export function ChatboxHeader({
   clientName,
   clientPhone,
-  onMinimize,
   onClose,
   onCall,
   className,
@@ -27,15 +25,15 @@ export function ChatboxHeader({
     <div
       className={cn(
         'flex items-center justify-between px-4 py-3',
-        'bg-gradient-to-r from-primary to-primary-dark',
+        'bg-slate-800 dark:bg-slate-900',
         'rounded-t-xl',
         className
       )}
     >
       {/* Client info */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-semibold text-sm">
+        <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+          <span className="text-primary font-semibold text-sm">
             {clientName.charAt(0).toUpperCase()}
           </span>
         </div>
@@ -44,7 +42,7 @@ export function ChatboxHeader({
             {clientName}
           </h3>
           {clientPhone && (
-            <p className="text-white/70 text-xs truncate">
+            <p className="text-slate-400 text-xs truncate">
               {clientPhone}
             </p>
           )}
@@ -53,7 +51,7 @@ export function ChatboxHeader({
 
       {/* Action buttons */}
       <div className="flex items-center gap-1">
-        {/* Call button - optional */}
+        {/* Call button */}
         {onCall && (
           <button
             onClick={onCall}
@@ -64,16 +62,6 @@ export function ChatboxHeader({
             <Phone className="w-4 h-4 text-white" />
           </button>
         )}
-
-        {/* Minimize */}
-        <button
-          onClick={onMinimize}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Thu nhỏ hộp chat"
-          title="Thu nhỏ"
-        >
-          <Minus className="w-4 h-4 text-white" />
-        </button>
 
         {/* Close */}
         <button

@@ -27,12 +27,17 @@ export function MessageThread({
   const prevMessagesLengthRef = useRef(0)
   const hasScrolledInitialRef = useRef(false)
 
-  // Group messages by date for date separators
+  // Group messages by date for date separators (sorted oldest first)
   const groupedMessages = useMemo(() => {
+    // Sort messages by createdAt ascending (oldest first)
+    const sortedMessages = [...messages].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+
     const groups: { date: string; messages: Message[] }[] = []
     let currentDate = ''
 
-    messages.forEach((message) => {
+    sortedMessages.forEach((message) => {
       const messageDate = new Date(message.createdAt).toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',

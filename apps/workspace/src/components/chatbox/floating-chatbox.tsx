@@ -102,12 +102,12 @@ export function FloatingChatbox({
             'animate-in slide-in-from-bottom-4 fade-in duration-200'
           )}
         >
-          {/* Header - minimize now just closes */}
+          {/* Header with call and close buttons */}
           <ChatboxHeader
             clientName={clientName}
             clientPhone={clientPhone}
-            onMinimize={handleClose}
             onClose={handleClose}
+            onCall={clientPhone ? () => window.open(`tel:${clientPhone}`) : undefined}
           />
 
           {/* Message thread */}

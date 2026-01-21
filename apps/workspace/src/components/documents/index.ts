@@ -24,5 +24,8 @@ export { ReUploadRequestModal, type ReUploadRequestModalProps } from './reupload
 // Unclassified Docs Card (Phase: Document Tab UX Redesign)
 export { UnclassifiedDocsCard, type UnclassifiedDocsCardProps } from './unclassified-docs-card'
 
+// Data Entry Tab (Phase 03: Document Tab UX Redesign)
+export { DataEntryTab, DataEntryTabSkeleton, type DataEntryTabProps } from './data-entry-tab'
+
 // Note: PdfThumbnail is lazy-loaded internally and should not be exported directly
 // to ensure proper code-splitting of the react-pdf library (~150KB)

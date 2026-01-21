@@ -224,11 +224,26 @@ model Staff {
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
   auditLogs AuditLog[]
+  presence  StaffPresence?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@index([clerkId])
+}
+
+// Staff presence tracking for inbound call routing
+model StaffPresence {
+  id        String   @id @default(cuid())
+  staffId   String   @unique
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  isOnline  Boolean  @default(false)
+  deviceId  String?  // Twilio device identity: staff_{staffId}
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isOnline])
 }
 
 model Client {

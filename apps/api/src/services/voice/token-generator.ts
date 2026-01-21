@@ -21,7 +21,7 @@ export interface VoiceTokenResult {
 
 /**
  * Generate Twilio Access Token with VoiceGrant for browser-based calls
- * Token allows outbound calls only (no incoming)
+ * Token allows both outbound and inbound calls
  */
 export function generateVoiceToken(options: VoiceTokenOptions): VoiceTokenResult {
   if (!config.twilio.voiceConfigured) {
@@ -35,7 +35,7 @@ export function generateVoiceToken(options: VoiceTokenOptions): VoiceTokenResult
 
   const voiceGrant = new VoiceGrant({
     outgoingApplicationSid: config.twilio.twimlAppSid,
-    incomingAllow: false, // Staff-initiated calls only, no incoming
+    incomingAllow: true, // Enable incoming calls to browser
   })
 
   const token = new AccessToken(

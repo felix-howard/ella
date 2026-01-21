@@ -1,12 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-21
-**Current Branch:** feature/more-enhancement
+**Current Branch:** feature/enhance-call
+**Latest Phase:** Phase 01 Backend Foundation - Inbound Call Handling
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
 | **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |

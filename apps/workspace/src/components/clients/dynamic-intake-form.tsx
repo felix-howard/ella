@@ -7,7 +7,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
 import { HelpCircle, Loader2 } from 'lucide-react'
-import { api, type TaxType, type IntakeQuestion, type FieldType } from '../../lib/api-client'
+import { api, type TaxType, type IntakeQuestion } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
 
 // Section labels for Vietnamese display

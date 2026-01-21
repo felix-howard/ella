@@ -67,6 +67,7 @@ export function IntakeQuestionModal({ isOpen, onClose, question }: IntakeQuestio
   // Reset form when question changes
   useEffect(() => {
     if (question) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally loading form data
       setFormData({
         questionKey: question.questionKey,
         taxTypes: question.taxTypes,

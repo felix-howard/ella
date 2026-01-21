@@ -249,3 +249,61 @@ export type DuplicateDetectionResult = {
   isNew: boolean
   imageCount: number
 }
+
+/**
+ * Result of pre-classification duplicate check
+ */
+export interface DuplicateCheckResult {
+  isDuplicate: boolean
+  matchedImageId: string | null
+  groupId: string | null
+  hammingDistance: number | null
+}
+
+/**
+ * Find duplicate in case BEFORE classification (any hash match, regardless of docType)
+ * Used to skip AI classification for duplicate uploads
+ * @returns match info if duplicate found
+ */
+export async function findDuplicateInCase(
+  caseId: string,
+  newImageHash: string,
+  excludeImageId: string
+): Promise<DuplicateCheckResult> {
+  // Get all images in case with hashes (any status except DUPLICATE)
+  const existingImages = await prisma.rawImage.findMany({
+    where: {
+      caseId,
+      imageHash: { not: null },
+      id: { not: excludeImageId },
+      status: { not: 'DUPLICATE' }, // Don't match against other duplicates
+    },
+    select: {
+      id: true,
+      imageHash: true,
+      imageGroupId: true,
+    },
+  })
+
+  // Check each for duplicate match
+  for (const existing of existingImages) {
+    if (existing.imageHash && isValidHash(existing.imageHash) && isValidHash(newImageHash)) {
+      const distance = hammingDistance(newImageHash, existing.imageHash)
+      if (distance < DUPLICATE_THRESHOLD) {
+        return {
+          isDuplicate: true,
+          matchedImageId: existing.id,
+          groupId: existing.imageGroupId,
+          hammingDistance: distance,
+        }
+      }
+    }
+  }
+
+  return {
+    isDuplicate: false,
+    matchedImageId: null,
+    groupId: null,
+    hammingDistance: null,
+  }
+}

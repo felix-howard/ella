@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
-import { cn } from '@ella/ui'
 import { api, type TaxType, type ChecklistTemplate, type CreateChecklistTemplateInput } from '../../lib/api-client'
 
 const TAX_TYPE_OPTIONS: { value: TaxType; label: string }[] = [
@@ -61,6 +60,7 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
   // Reset form when template changes
   useEffect(() => {
     if (template) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally loading form data
       setFormData({
         taxType: template.taxType,
         docType: template.docType,
@@ -107,7 +107,7 @@ export function ChecklistTemplateModal({ isOpen, onClose, template, defaultTaxTy
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (isEditing) {
-      const { taxType, docType, ...updateData } = formData
+      const { taxType: _taxType, docType: _docType, ...updateData } = formData
       updateMutation.mutate(updateData)
     } else {
       createMutation.mutate(formData)

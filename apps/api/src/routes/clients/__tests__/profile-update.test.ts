@@ -73,7 +73,7 @@ describe('PATCH /clients/:id/profile', () => {
   const mockRefreshChecklist = vi.mocked(refreshChecklist)
   const mockLogChanges = vi.mocked(logProfileChanges)
   const mockComputeIntakeDiff = vi.mocked(computeIntakeAnswersDiff)
-  const mockComputeProfileDiff = vi.mocked(computeProfileFieldDiff)
+  const _mockComputeProfileDiff = vi.mocked(computeProfileFieldDiff)
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -274,7 +274,7 @@ describe('PATCH /clients/:id/profile', () => {
     })
 
     it('should not refresh checklist when only filingStatus changes', async () => {
-      const client = createMockClient({
+      const _client = createMockClient({
         profile: { intakeAnswers: { hasW2: true }, filingStatus: 'SINGLE' },
         taxCases: [{ id: 'case-1', status: 'INTAKE' }],
       })

@@ -26,9 +26,9 @@ export function QuickActionsBar({
   isSending,
   disabled,
   clientName,
-  clientPhone,
+  clientPhone: _clientPhone,
   clientId,
-  defaultChannel = 'SMS',
+  defaultChannel: _defaultChannel = 'SMS',
   autoFocus,
 }: QuickActionsBarProps) {
   const [message, setMessage] = useState('')

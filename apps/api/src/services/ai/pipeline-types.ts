@@ -26,6 +26,13 @@ export interface PipelineResult {
     hasData: boolean
     confidence: number
   }
+  /** Duplicate detection result (pre-classification) */
+  duplicateDetection?: {
+    isDuplicate: boolean
+    matchedImageId?: string
+    groupId?: string
+    similarity?: number // Hamming distance
+  }
   digitalDocId?: string
   actionsCreated: string[]
   error?: string

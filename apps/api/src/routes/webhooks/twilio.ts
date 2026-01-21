@@ -9,7 +9,7 @@ import {
   generateTwimlResponse,
   type TwilioIncomingMessage,
 } from '../../services/sms'
-import { generateTwimlVoiceResponse, generateEmptyTwimlResponse } from '../../services/voice'
+import { generateTwimlVoiceResponse } from '../../services/voice'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
 

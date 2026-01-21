@@ -48,6 +48,7 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
   // Reset form when docType changes
   useEffect(() => {
     if (docType) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally loading form data
       setFormData({
         code: docType.code,
         labelVi: docType.labelVi,
@@ -94,7 +95,7 @@ export function DocTypeModal({ isOpen, onClose, docType }: DocTypeModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (isEditing) {
-      const { code, ...updateData } = formData
+      const { code: _code, ...updateData } = formData
       updateMutation.mutate(updateData)
     } else {
       createMutation.mutate(formData)

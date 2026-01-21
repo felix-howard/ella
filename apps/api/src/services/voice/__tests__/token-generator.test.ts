@@ -2,7 +2,7 @@
  * Twilio Voice Token Generator Unit Tests
  * Tests: generateVoiceToken(), isVoiceConfigured()
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock the config module
 vi.mock('../../../lib/config', () => ({

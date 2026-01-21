@@ -242,7 +242,7 @@ interface MessageImageProps {
   isStandalone?: boolean
 }
 
-function MessageImage({ url, isOutbound, isStandalone = false }: MessageImageProps) {
+function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: MessageImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
 

@@ -110,7 +110,7 @@ interface BooleanQuestionProps {
 }
 
 function BooleanQuestion({
-  questionKey,
+  questionKey: _questionKey,
   label,
   hint,
   checked,

@@ -86,6 +86,7 @@ export function DataEntryModal({
   // Reset state when modal opens or doc changes
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally resetting state
       setCopiedFields({})
     }
   }, [isOpen, doc.id])

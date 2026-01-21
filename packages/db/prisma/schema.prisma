@@ -136,6 +136,7 @@ enum RawImageStatus {
   LINKED
   BLURRY
   UNCLASSIFIED
+  DUPLICATE
 }
 
 enum DigitalDocStatus {

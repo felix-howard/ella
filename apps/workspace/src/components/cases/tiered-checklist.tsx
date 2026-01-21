@@ -259,7 +259,7 @@ function CategorySection({
   const style = CATEGORY_STYLES[categoryKey]
 
   // Calculate category stats
-  const stats = useMemo(() => {
+  const _stats = useMemo(() => {
     const active = items.filter(i => i.status !== 'NOT_REQUIRED')
     const received = active.filter(i => ['HAS_RAW', 'HAS_DIGITAL', 'VERIFIED'].includes(i.status))
     return { total: active.length, received: received.length }
@@ -333,7 +333,7 @@ function ChecklistItemRow({
   onSkip,
   onUnskip,
   onDocVerify,
-  onViewNotes,
+  onViewNotes: _onViewNotes,
 }: ChecklistItemRowProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const status = item.status as ChecklistItemStatus
@@ -341,7 +341,7 @@ function ChecklistItemRow({
   const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
   const isSkipped = status === 'NOT_REQUIRED'
   const isManuallyAdded = item.isManuallyAdded
-  const hasNotes = item.notes || item.addedReason || item.skippedReason
+  const _hasNotes = item.notes || item.addedReason || item.skippedReason
 
   // Count info for multi-doc items
   const expectedCount = item.expectedCount || 1

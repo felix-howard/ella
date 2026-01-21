@@ -45,6 +45,7 @@ export function SectionEditModal({ isOpen, onClose, sectionKey, client }: Sectio
         }
       })
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally loading form data
       setLocalAnswers(initialValues)
       setError(null)
       setIsDirty(false)

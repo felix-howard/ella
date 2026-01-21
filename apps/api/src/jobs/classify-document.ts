@@ -5,9 +5,9 @@
  * Workflow:
  * 1. Idempotency check (skip if already processed)
  * 2. Fetch image from R2 (with resize for large files)
- * 3. Classify with Gemini (with error handling for unavailability)
- * 4. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 5. [DISABLED] Detect duplicates using pHash (doesn't support PDFs)
+ * 3. Check for duplicates (pHash) - skip AI if duplicate found
+ * 4. Classify with Gemini (with error handling for unavailability)
+ * 5. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
  * 6. OCR extraction (if confidence >= 60% and doc type supports OCR)
  * 7. Update DB with results
  */
@@ -24,14 +24,14 @@ import {
   linkToChecklistItem,
   createAction,
   processOcrResultAtomic,
+  markImageDuplicate,
 } from '../services/ai/pipeline-helpers'
 import {
   getVietnameseError,
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
-// NOTE: Duplicate detection disabled - see Step 4 comment
-// import { generateImageHash, assignToImageGroup } from '../services/ai/duplicate-detector'
+import { generateImageHash, findDuplicateInCase } from '../services/ai/duplicate-detector'
 import type { DocType } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -80,7 +80,7 @@ export const classifyDocumentJob = inngest.createFunction(
   },
   { event: 'document/uploaded' },
   async ({ event, step }) => {
-    const { rawImageId, caseId, r2Key, mimeType: eventMimeType } = event.data
+    const { rawImageId, caseId, r2Key, mimeType: eventMimeType, skipDuplicateCheck } = event.data
 
     // Step 0: Atomic idempotency check + mark processing (prevents race condition)
     const idempotencyCheck = await step.run('check-idempotency', async () => {
@@ -153,8 +153,78 @@ export const classifyDocumentJob = inngest.createFunction(
         buffer: buffer.toString('base64'),
         mimeType,
         wasResized,
+        isPdf,
       }
     })
+
+    // Step 1.5: Check for duplicates BEFORE AI classification (cost saving)
+    // Skip if: 1) flag set (classify-anyway), 2) PDF (pHash doesn't work well), 3) was resized
+    interface DuplicateCheckStepResult {
+      isDuplicate: boolean
+      skipped: boolean
+      imageHash: string | null
+      matchedImageId: string | null
+      groupId: string | null
+      hammingDistance: number | null
+    }
+
+    const duplicateCheck = await step.run('check-duplicate', async (): Promise<DuplicateCheckStepResult> => {
+      // Skip duplicate check if requested (classify-anyway endpoint)
+      if (skipDuplicateCheck) {
+        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
+      }
+
+      // Skip for PDFs - pHash works on images only
+      if (imageData.isPdf) {
+        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
+      }
+
+      try {
+        const buffer = Buffer.from(imageData.buffer, 'base64')
+        const imageHash = await generateImageHash(buffer)
+
+        // Check for duplicates in this case
+        const result = await findDuplicateInCase(caseId, imageHash, rawImageId)
+
+        if (result.isDuplicate) {
+          // Mark as duplicate and store hash
+          await markImageDuplicate(rawImageId, imageHash, result.groupId, result.matchedImageId)
+
+          return {
+            isDuplicate: true,
+            skipped: false,
+            imageHash,
+            matchedImageId: result.matchedImageId,
+            groupId: result.groupId,
+            hammingDistance: result.hammingDistance,
+          }
+        }
+
+        // Not a duplicate - store hash for future comparisons
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: { imageHash },
+        })
+
+        return { isDuplicate: false, skipped: false, imageHash, matchedImageId: null, groupId: null, hammingDistance: null }
+      } catch (error) {
+        // Hash generation failed - continue to classification
+        console.warn(`[classify-document] Hash generation failed for ${rawImageId}:`, error)
+        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
+      }
+    })
+
+    // Early return if duplicate found - skip AI classification (cost saving)
+    if (duplicateCheck.isDuplicate) {
+      return {
+        rawImageId,
+        duplicateDetected: true,
+        matchedImageId: duplicateCheck.matchedImageId,
+        groupId: duplicateCheck.groupId,
+        hammingDistance: duplicateCheck.hammingDistance,
+        wasResized: imageData.wasResized,
+      }
+    }
 
     // Step 2: Classify with Gemini (with service unavailability handling)
     const classification = await step.run('classify', async () => {
@@ -277,13 +347,7 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     })
 
-    // Step 4: Detect duplicates and group similar images
-    // NOTE: Duplicate detection is currently disabled
-    // Reason: Image hashing (pHash) doesn't support PDF files, causing job failures
-    // TODO: Re-enable when PDF page-to-image conversion is implemented for hashing
-    const grouping = { grouped: false, groupId: null, imageCount: 1 }
-
-    // Step 5: OCR extraction (only if confidence >= 60% and doc type supports OCR)
+    // Step 4: OCR extraction (only if confidence >= 60% and doc type supports OCR)
     // Gemini 2.5 reads PDFs directly for better accuracy
     let digitalDocId: string | undefined
     if (routing.needsOcr) {
@@ -325,10 +389,9 @@ export const classifyDocumentJob = inngest.createFunction(
         confidence: classification.confidence,
       },
       routing: routing.action,
-      grouping: {
-        grouped: grouping.grouped,
-        groupId: grouping.groupId,
-        imageCount: grouping.imageCount,
+      duplicateCheck: {
+        checked: !duplicateCheck.skipped,
+        imageHash: duplicateCheck.imageHash,
       },
       digitalDocId,
       wasResized: imageData.wasResized,

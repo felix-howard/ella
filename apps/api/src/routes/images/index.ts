@@ -10,6 +10,7 @@ import { inngest } from '../../lib/inngest'
 import { DOC_TYPE_LABELS_VI } from '../../lib/constants'
 import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
+import { deleteFile } from '../../services/storage'
 import type { DocType, ChecklistItemStatus, RawImageStatus, Language } from '@ella/db'
 
 const imagesRoute = new Hono()
@@ -510,5 +511,78 @@ imagesRoute.patch(
     })
   }
 )
+
+/**
+ * DELETE /images/:id - Delete a raw image (for duplicates)
+ * Removes from R2 storage and database
+ */
+imagesRoute.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+
+  const image = await prisma.rawImage.findUnique({
+    where: { id },
+    select: { id: true, status: true, r2Key: true, caseId: true },
+  })
+
+  if (!image) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  // Delete from R2 storage
+  await deleteFile(image.r2Key)
+
+  // Delete from database
+  await prisma.rawImage.delete({ where: { id } })
+
+  return c.json({ success: true, message: 'Image deleted' })
+})
+
+/**
+ * POST /images/:id/classify-anyway - Force classification on duplicate
+ * Resets status to UPLOADED and triggers classification pipeline
+ * with skipDuplicateCheck flag to avoid re-detecting as duplicate
+ */
+imagesRoute.post('/:id/classify-anyway', async (c) => {
+  const id = c.req.param('id')
+
+  const image = await prisma.rawImage.findUnique({
+    where: { id },
+    select: { id: true, status: true, caseId: true, r2Key: true, mimeType: true },
+  })
+
+  if (!image) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  if (image.status !== 'DUPLICATE') {
+    return c.json(
+      { error: 'INVALID_STATUS', message: 'Image is not a duplicate' },
+      400
+    )
+  }
+
+  // Reset to UPLOADED so pipeline will process it
+  await prisma.rawImage.update({
+    where: { id },
+    data: {
+      status: 'UPLOADED' as RawImageStatus,
+      imageGroupId: null, // Remove from duplicate group
+    },
+  })
+
+  // Trigger classification via Inngest with skipDuplicateCheck flag
+  await inngest.send({
+    name: 'document/uploaded',
+    data: {
+      rawImageId: id,
+      caseId: image.caseId,
+      r2Key: image.r2Key,
+      mimeType: image.mimeType || 'application/octet-stream',
+      skipDuplicateCheck: true, // Skip duplicate check on re-classification
+    },
+  })
+
+  return c.json({ success: true, message: 'Classification started' })
+})
 
 export { imagesRoute }

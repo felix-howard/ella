@@ -191,6 +191,26 @@ export async function markImageUnclassified(rawImageId: string) {
 }
 
 /**
+ * Mark image as duplicate and store hash
+ * Called when pre-classification duplicate check finds a match
+ */
+export async function markImageDuplicate(
+  rawImageId: string,
+  imageHash: string,
+  groupId: string | null,
+  _matchedImageId: string | null // Kept for future use (e.g., logging, linking)
+): Promise<void> {
+  await prisma.rawImage.update({
+    where: { id: rawImageId },
+    data: {
+      status: 'DUPLICATE' as RawImageStatus,
+      imageHash,
+      imageGroupId: groupId,
+    },
+  })
+}
+
+/**
  * Update checklist item status to HAS_DIGITAL after successful OCR extraction
  * This is the status transition: HAS_RAW → HAS_DIGITAL
  */

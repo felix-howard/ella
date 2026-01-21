@@ -108,12 +108,12 @@ export function FieldVerificationItem({
     [handleSaveEdit, handleCancelEdit]
   )
 
-  const handleVerify = useCallback(() => {
+  const _handleVerify = useCallback(() => {
     if (disabled) return
     onVerify('verified')
   }, [disabled, onVerify])
 
-  const handleMarkUnreadable = useCallback(() => {
+  const _handleMarkUnreadable = useCallback(() => {
     if (disabled) return
     onVerify('unreadable')
   }, [disabled, onVerify])

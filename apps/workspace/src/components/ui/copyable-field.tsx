@@ -76,39 +76,53 @@ export function CopyableField({
 
   return (
     <div
+      onClick={!disabled && value ? handleCopy : undefined}
       className={cn(
-        'flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors',
+        'group flex items-center gap-2 py-1.5 px-2.5 rounded transition-colors duration-150',
+        !disabled && value && 'cursor-pointer hover:bg-muted/30',
         disabled && 'opacity-60',
         className
       )}
       data-field-key={fieldKey}
     >
       {/* Label */}
-      <span className="text-sm text-secondary min-w-[120px] flex-shrink-0">{label}:</span>
-
-      {/* Value */}
-      <span className="flex-1 text-sm font-medium text-foreground truncate">
-        {value || <span className="text-muted-foreground italic">Trống</span>}
+      <span className="text-xs text-muted-foreground min-w-[130px] flex-shrink-0">
+        {label}:
       </span>
 
-      {/* Copy button */}
-      <button
-        onClick={handleCopy}
-        disabled={disabled || !value}
-        className={cn(
-          'p-1.5 rounded hover:bg-muted transition-colors flex-shrink-0',
-          showCheck ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-          (disabled || !value) && 'opacity-50 cursor-not-allowed'
-        )}
-        aria-label={showCheck ? 'Đã sao chép' : 'Sao chép'}
-        title={showCheck ? 'Đã sao chép' : 'Nhấn để sao chép'}
-      >
-        {showCheck ? (
-          <Check className="h-4 w-4" />
-        ) : (
-          <Copy className="h-4 w-4" />
-        )}
-      </button>
+      {/* Value + Copy button together */}
+      <span className={cn(
+        'text-sm font-semibold',
+        value ? 'text-foreground' : 'text-muted-foreground/50 italic'
+      )}>
+        {value || 'Trống'}
+      </span>
+
+      {/* Copy button - close to value */}
+      {value && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleCopy()
+          }}
+          disabled={disabled}
+          className={cn(
+            'flex items-center p-1 rounded transition-colors',
+            showCheck
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground',
+            disabled && 'opacity-50 cursor-not-allowed'
+          )}
+          aria-label={showCheck ? 'Đã sao chép' : 'Sao chép'}
+          title={showCheck ? 'Đã sao chép' : 'Nhấn để sao chép'}
+        >
+          {showCheck ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </button>
+      )}
     </div>
   )
 }

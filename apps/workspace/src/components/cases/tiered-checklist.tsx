@@ -22,7 +22,7 @@ import { CATEGORY_STYLES, SIMPLIFIED_STATUS_DISPLAY, type CategoryKey } from '..
 import { DOC_TYPE_LABELS, DOC_TYPE_CATEGORIES } from '../../lib/constants'
 import { ChecklistProgress } from './checklist-progress'
 import { SkipItemModal } from './skip-item-modal'
-import type { ChecklistItem, ChecklistItemStatus, ChecklistTemplate } from '../../lib/api-client'
+import type { ChecklistItem, ChecklistItemStatus } from '../../lib/api-client'
 
 interface TieredChecklistProps {
   items: ChecklistItem[]

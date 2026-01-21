@@ -24,8 +24,14 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { DocumentChecklistTree, StatusSelector, calculateChecklistProgress, ProgressDots, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
-import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
+import { StatusSelector, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
+import {
+  ManualClassificationModal,
+  UploadProgress,
+  VerificationModal,
+  UnclassifiedDocsCard,
+  DataEntryTab,
+} from '../../components/documents'
 import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
@@ -47,40 +53,11 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
-  const [dataEntryDoc, setDataEntryDoc] = useState<DigitalDoc | null>(null)
-  const [isDataEntryModalOpen, setIsDataEntryModalOpen] = useState(false)
-  const [reuploadImage, setReuploadImage] = useState<RawImage | null>(null)
-  const [reuploadFields, setReuploadFields] = useState<string[]>([])
-  const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-
-  // Mutation for moving image to different checklist item (drag & drop)
-  const moveImageMutation = useMutation({
-    mutationFn: async ({ imageId, targetChecklistItemId }: { imageId: string; targetChecklistItemId: string }) => {
-      const response = await fetch(`/api/images/${imageId}/move`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ targetChecklistItemId }),
-      })
-      if (!response.ok) throw new Error('Move failed')
-      return response.json()
-    },
-    onSuccess: () => {
-      toast.success('Đã di chuyển ảnh thành công')
-      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
-      queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
-    },
-    onError: () => {
-      toast.error('Lỗi khi di chuyển ảnh')
-    },
-  })
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -243,18 +220,6 @@ function ClientDetailPage() {
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus
 
-  // Handler for opening classification review modal
-  const handleReviewClassification = (image: RawImage) => {
-    setReviewImage(image)
-    setIsReviewModalOpen(true)
-  }
-
-  const handleCloseReviewModal = () => {
-    setIsReviewModalOpen(false)
-    // Small delay before clearing to avoid flash
-    setTimeout(() => setReviewImage(null), 200)
-  }
-
   // Handler for opening manual classification modal
   const handleManualClassify = (image: RawImage) => {
     setClassifyImage(image)
@@ -277,36 +242,6 @@ function ClientDetailPage() {
     setIsVerifyModalOpen(false)
     // Small delay before clearing to avoid flash
     setTimeout(() => setVerifyDoc(null), 200)
-  }
-
-  // Handler for re-upload request from verification modal
-  const handleRequestReupload = (doc: DigitalDoc, unreadableFields: string[]) => {
-    // Find the raw image associated with this doc
-    const rawImage = rawImages.find(img => img.id === doc.rawImageId)
-    if (rawImage) {
-      setReuploadImage(rawImage)
-      setReuploadFields(unreadableFields)
-      setIsReuploadModalOpen(true)
-    }
-  }
-
-  const handleCloseReuploadModal = () => {
-    setIsReuploadModalOpen(false)
-    setTimeout(() => {
-      setReuploadImage(null)
-      setReuploadFields([])
-    }, 200)
-  }
-
-  // Handler for data entry modal
-  const handleDataEntry = (doc: DigitalDoc) => {
-    setDataEntryDoc(doc)
-    setIsDataEntryModalOpen(true)
-  }
-
-  const handleCloseDataEntryModal = () => {
-    setIsDataEntryModalOpen(false)
-    setTimeout(() => setDataEntryDoc(null), 200)
   }
 
   const { clients: clientsText } = UI_TEXT
@@ -460,7 +395,13 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Tiered Checklist */}
+          {/* Card A: Unclassified Docs - shows when unclassified images exist */}
+          <UnclassifiedDocsCard
+            rawImages={rawImages}
+            onClassify={handleManualClassify}
+          />
+
+          {/* Card B: Category-based Checklist */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-primary">
@@ -492,31 +433,16 @@ function ClientDetailPage() {
             isSubmitting={addChecklistItemMutation.isPending}
           />
 
-          {/* Document Workflow Tabs - New 3-tab layout */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Quy trình xử lý tài liệu
+          {/* Data Entry Section - shows verified docs for copying to OltPro */}
+          <div className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold text-primary mb-3">
+              Nhập liệu
             </h2>
-            <DocumentWorkflowTabs
+            <DataEntryTab
+              docs={digitalDocs}
               caseId={latestCaseId || ''}
-              rawImages={rawImages}
-              digitalDocs={digitalDocs}
-              onClassifyImage={handleManualClassify}
-              onReviewClassification={handleReviewClassification}
-              onVerifyDoc={handleVerifyDoc}
-              onDataEntry={handleDataEntry}
             />
           </div>
-
-          {/* Classification Review Modal */}
-          {latestCaseId && (
-            <ClassificationReviewModal
-              image={reviewImage}
-              isOpen={isReviewModalOpen}
-              onClose={handleCloseReviewModal}
-              caseId={latestCaseId}
-            />
-          )}
 
           {/* Manual Classification Modal */}
           {latestCaseId && (
@@ -534,27 +460,6 @@ function ClientDetailPage() {
               doc={verifyDoc}
               isOpen={isVerifyModalOpen}
               onClose={handleCloseVerifyModal}
-              caseId={latestCaseId}
-            />
-          )}
-
-          {/* Data Entry Modal (Phase 06) */}
-          {latestCaseId && dataEntryDoc && (
-            <DataEntryModal
-              doc={dataEntryDoc}
-              isOpen={isDataEntryModalOpen}
-              onClose={handleCloseDataEntryModal}
-              caseId={latestCaseId}
-            />
-          )}
-
-          {/* Re-upload Request Modal (Phase 06) */}
-          {latestCaseId && reuploadImage && (
-            <ReUploadRequestModal
-              image={reuploadImage}
-              unreadableFields={reuploadFields}
-              isOpen={isReuploadModalOpen}
-              onClose={handleCloseReuploadModal}
               caseId={latestCaseId}
             />
           )}

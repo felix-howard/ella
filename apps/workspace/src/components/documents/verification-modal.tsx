@@ -418,7 +418,7 @@ export function VerificationModal({
         {/* Content - Split view (60/40 for better document viewing) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left: Image Viewer - Larger space for document */}
-          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/30 p-2">
+          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/30">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />

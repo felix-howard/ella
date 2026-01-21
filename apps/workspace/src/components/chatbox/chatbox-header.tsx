@@ -5,7 +5,7 @@
 
 import { cn } from '@ella/ui'
 import { X, Phone } from 'lucide-react'
-import { getInitials, getAvatarColor } from '../../lib/formatters'
+import { getInitials, getAvatarColor, formatPhone } from '../../lib/formatters'
 
 export interface ChatboxHeaderProps {
   clientName: string
@@ -46,7 +46,7 @@ export function ChatboxHeader({
           </h3>
           {clientPhone && (
             <p className="text-slate-400 text-xs truncate">
-              {clientPhone}
+              {formatPhone(clientPhone)}
             </p>
           )}
         </div>

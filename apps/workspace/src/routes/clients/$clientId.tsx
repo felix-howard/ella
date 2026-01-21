@@ -14,7 +14,6 @@ import {
   FileText,
   MessageSquare,
   User,
-  Pencil,
   AlertCircle,
   RefreshCw,
   Loader2,
@@ -354,12 +353,6 @@ function ClientDetailPage() {
                 )}
               </Link>
             )}
-            <button
-              className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
-              aria-label={UI_TEXT.edit}
-            >
-              <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
             <button
               onClick={() => setIsDeleteModalOpen(true)}
               className="p-1.5 rounded-lg border border-destructive/30 hover:bg-destructive/10 transition-colors"

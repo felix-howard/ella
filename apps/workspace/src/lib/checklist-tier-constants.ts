@@ -71,17 +71,14 @@ export const SIMPLIFIED_STATUS_DISPLAY = {
 
 /**
  * Border styles for document thumbnails based on DigitalDoc.status
- * Used to visually indicate verification status at a glance
- * Uses border-2 (2px) for clear visual differentiation without being too heavy
- * Note: hover:border-primary/50 removed to preserve status indication on hover
+ * Subtle visual indication - only verified gets colored border, others use muted border
  */
 export const DOC_STATUS_BORDER_STYLES = {
-  PENDING: 'border-2 border-dashed border-gray-400 dark:border-gray-500',
-  EXTRACTED: 'border-2 border-amber-500 dark:border-amber-400',
-  VERIFIED: 'border-2 border-emerald-500 dark:border-emerald-400',
-  // PARTIAL = extraction partially successful (some fields extracted)
-  PARTIAL: 'border-2 border-red-500 dark:border-red-400',
-  FAILED: 'border-2 border-red-500 dark:border-red-400',
+  PENDING: 'border border-border',
+  EXTRACTED: 'border border-border',
+  VERIFIED: 'border border-emerald-500/50 dark:border-emerald-400/50',
+  PARTIAL: 'border border-border',
+  FAILED: 'border border-border',
 } as const
 
 export type DocStatusKey = keyof typeof DOC_STATUS_BORDER_STYLES

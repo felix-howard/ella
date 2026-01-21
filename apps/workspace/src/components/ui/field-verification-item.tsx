@@ -151,7 +151,7 @@ export function FieldVerificationItem({
         )}
 
         {/* Label */}
-        <span className="text-xs text-secondary flex-shrink-0 min-w-[80px]">{label}:</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0 min-w-[80px]">{label}:</span>
 
         {/* Value / Edit input */}
         {isEditing ? (
@@ -203,7 +203,7 @@ export function FieldVerificationItem({
       onClick={!isEditing && !disabled ? handleStartEdit : undefined}
     >
       {/* Label */}
-      <div className="text-xs text-secondary mb-1 flex items-center justify-between">
+      <div className="text-xs text-muted-foreground mb-1 flex items-center justify-between">
         <span>{label}</span>
         {/* Edit icon - visible on hover */}
         {!isEditing && !disabled && (

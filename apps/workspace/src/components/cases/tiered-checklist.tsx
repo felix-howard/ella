@@ -16,7 +16,6 @@ import {
   Check,
   Circle,
   Minus,
-  MessageSquare,
 } from 'lucide-react'
 import {
   CATEGORY_STYLES,
@@ -273,9 +272,6 @@ function CategorySection({
         <span className={cn('text-sm font-semibold flex-1', style.color)}>
           {label}
         </span>
-        <span className={cn('text-xs font-medium', style.color)}>
-          {stats.received}/{stats.total}
-        </span>
       </button>
 
       {/* Category content */}
@@ -440,43 +436,27 @@ function ChecklistItemRow({
         </div>
       )}
 
-      {/* Action buttons row */}
-      {(hasNotes || isStaffView) && (
+      {/* Action buttons row - Staff actions */}
+      {isStaffView && (
         <div className="flex items-center gap-1 px-3 pb-2 justify-end">
-          {/* Notes indicator */}
-          {hasNotes && (
+          {!isSkipped && onSkip && (
             <button
-              onClick={(e) => { e.stopPropagation(); onViewNotes?.(item) }}
-              className="p-1 rounded hover:bg-muted"
-              title="Xem ghi chú"
+              onClick={(e) => { e.stopPropagation(); onSkip(item.id, docLabel) }}
+              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
+              title="Bỏ qua"
+              aria-label={`Bỏ qua ${docLabel}`}
             >
-              <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+              <SkipForward className="w-4 h-4 text-muted-foreground hover:text-foreground" />
             </button>
           )}
-
-          {/* Staff actions - subtle, only visible on row hover */}
-          {isStaffView && (
-            <>
-              {!isSkipped && onSkip && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onSkip(item.id, docLabel) }}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
-                  title="Bỏ qua"
-                  aria-label={`Bỏ qua ${docLabel}`}
-                >
-                  <SkipForward className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                </button>
-              )}
-              {isSkipped && onUnskip && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onUnskip(item.id) }}
-                  className="p-1 rounded hover:bg-primary/10"
-                  title="Khôi phục"
-                >
-                  <RotateCcw className="w-4 h-4 text-primary" />
-                </button>
-              )}
-            </>
+          {isSkipped && onUnskip && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onUnskip(item.id) }}
+              className="p-1 rounded hover:bg-primary/10"
+              title="Khôi phục"
+            >
+              <RotateCcw className="w-4 h-4 text-primary" />
+            </button>
           )}
         </div>
       )}

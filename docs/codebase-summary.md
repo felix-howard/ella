@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
 | **Phase 01 Unclassified Docs Card** | **Grid display of UPLOADED/UNCLASSIFIED documents, responsive 4/3/2 col layout, lazy PDF thumbnails, signed URL caching, empty state** | **2026-01-21** |
 | **Phase 03 Voice Recording Playback** | **Recording endpoints with proxy auth; AudioPlayer component (lazy-load, seek, time); message-bubble integration; RecordingSid validation; memory-efficient streaming** | **2026-01-20** |
 | **Phase 02 Voice Calls** | **Browser-based calling (Twilio Client SDK); phone icon button; active call modal with mute/end; duration timer; microphone permission check; token refresh; error sanitization; CALL channel in messages** | **2026-01-20** |

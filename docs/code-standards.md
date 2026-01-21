@@ -246,6 +246,83 @@ export { Button, buttonVariants }
 - Customizations in local codebase
 - Config: `components.json`
 
+## Category-Based Grouping Pattern (Phase 02+)
+
+**Use Case:** TieredChecklist, DocumentGrid, or any list component organizing items by category.
+
+**Pattern:**
+
+```typescript
+// 1. Define categories with visual metadata
+export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
+  personal: { icon: '👤', color: 'text-purple-600', bgColor: 'bg-purple-500/5', borderColor: 'border-purple-500/20' },
+  income: { icon: '💰', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
+  business: { icon: '🏢', color: 'text-blue-600', bgColor: 'bg-blue-500/5', borderColor: 'border-blue-500/20' },
+  other: { icon: '📎', color: 'text-gray-600', bgColor: 'bg-gray-500/5', borderColor: 'border-gray-500/20' },
+}
+
+// 2. Grouping helper
+function groupItemsByCategory<T>(items: T[], mapFn: (item: T) => CategoryKey): CategoryGroup<T>[] {
+  const groups: Record<string, T[]> = {}
+  for (const item of items) {
+    const category = mapFn(item)
+    if (!groups[category]) groups[category] = []
+    groups[category].push(item)
+  }
+
+  // Return in definition order, skip empty
+  return Object.keys(CATEGORY_STYLES)
+    .map(key => ({
+      key: key as CategoryKey,
+      items: groups[key] || []
+    }))
+    .filter(g => g.items.length > 0)
+}
+
+// 3. Section component with collapse/expand
+function CategorySection({ category, items }: { category: CategoryKey; items: T[] }) {
+  const [isExpanded, setIsExpanded] = useState(true)
+  const style = CATEGORY_STYLES[category]
+
+  return (
+    <div className={cn('rounded-lg border', style.borderColor)}>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn('w-full flex items-center gap-2 px-3 py-2.5', style.bgColor)}
+      >
+        {isExpanded ? <ChevronDown /> : <ChevronRight />}
+        <span>{style.icon}</span>
+        <span className={cn('font-semibold', style.color)}>Category Label</span>
+      </button>
+      {isExpanded && (
+        <div className="divide-y">
+          {items.map(item => <ItemRow key={item.id} item={item} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 4. Use in main component
+const categoryGroups = useMemo(() => groupItemsByCategory(items, item => item.category), [items])
+
+return (
+  <div className="space-y-4">
+    {categoryGroups.map(group => (
+      <CategorySection key={group.key} category={group.key} items={group.items} />
+    ))}
+  </div>
+)
+```
+
+**Benefits:**
+- Scalable: Add categories by updating CATEGORY_STYLES constant
+- Maintainable: Single source of truth for category metadata
+- Performant: Grouping memoized, collapse state local to section
+- Accessible: Semantic buttons, ARIA labels on actions
+
+**Examples:** TieredChecklist (5 doc categories), DocumentGrid (status categories)
+
 ## PDF Converter Service (@ella/api - Phase 01+03)
 
 **Service Organization (Phase 03 updates):**
@@ -1559,6 +1636,7 @@ await cleanupExpiredTokens()
 
 ---
 
-**Last Updated:** 2026-01-14 16:36
-**Phase:** 3 (Production Ready - Auth System) + 4.1 (Copy-to-Clipboard Workflow Complete)
-**Standards Version:** 1.5
+**Last Updated:** 2026-01-21 11:37
+**Phase:** Phase 02 Document Tab UX Redesign (Category Checklist) + Phase 01 Unclassified Docs Card
+**Standards Version:** 1.6
+**Added:** Category-Based Grouping Pattern (reusable for list-based components)

@@ -15,6 +15,7 @@ export { ReUploadRequestModal, type ReUploadRequestModalProps } from './reupload
 
 // Document Tab UX Redesign components
 export { UnclassifiedDocsCard, type UnclassifiedDocsCardProps } from './unclassified-docs-card'
+export { DuplicateDocsCard, type DuplicateDocsCardProps } from './duplicate-docs-card'
 export { DataEntryTab, DataEntryTabSkeleton, type DataEntryTabProps } from './data-entry-tab'
 
 // Note: PdfThumbnail is lazy-loaded internally and should not be exported directly

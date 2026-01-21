@@ -351,6 +351,18 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ filename }),
       }),
+
+    // Delete a raw image (for duplicates)
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/images/${id}`, {
+        method: 'DELETE',
+      }),
+
+    // Force classification on duplicate image (bypass duplicate check)
+    classifyAnyway: (id: string) =>
+      request<{ success: boolean; message: string }>(`/images/${id}/classify-anyway`, {
+        method: 'POST',
+      }),
   },
 
   // Messages

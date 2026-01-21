@@ -104,6 +104,10 @@ export function useClassificationUpdates({
       case 'BLURRY':
         toast.error(`Ảnh mờ: ${current.filename}`)
         break
+
+      case 'DUPLICATE':
+        toast.info(`Tài liệu trùng lặp: ${current.filename}`)
+        break
     }
   }, [caseId, queryClient])
 

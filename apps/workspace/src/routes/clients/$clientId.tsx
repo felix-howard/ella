@@ -30,6 +30,7 @@ import {
   UploadProgress,
   VerificationModal,
   UnclassifiedDocsCard,
+  DuplicateDocsCard,
   DataEntryTab,
 } from '../../components/documents'
 import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
@@ -399,7 +400,15 @@ function ClientDetailPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Card A: Unclassified Docs - shows when unclassified images exist */}
+          {/* Card A: Duplicate Docs - shows when duplicates exist */}
+          <DuplicateDocsCard
+            rawImages={rawImages}
+            onRefresh={() => {
+              queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
+            }}
+          />
+
+          {/* Card B: Unclassified Docs - shows when unclassified images exist */}
           <UnclassifiedDocsCard
             rawImages={rawImages}
             onClassify={handleManualClassify}

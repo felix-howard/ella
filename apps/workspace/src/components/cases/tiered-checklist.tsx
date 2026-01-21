@@ -454,17 +454,17 @@ function ChecklistItemRow({
             </button>
           )}
 
-          {/* Staff actions */}
+          {/* Staff actions - subtle, only visible on row hover */}
           {isStaffView && (
             <>
               {!isSkipped && onSkip && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onSkip(item.id, docLabel) }}
-                  className="p-1 rounded hover:bg-warning/10"
+                  className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
                   title="Bỏ qua"
                   aria-label={`Bỏ qua ${docLabel}`}
                 >
-                  <SkipForward className="w-4 h-4 text-warning" />
+                  <SkipForward className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                 </button>
               )}
               {isSkipped && onUnskip && (

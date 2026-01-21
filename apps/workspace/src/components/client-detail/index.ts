@@ -3,5 +3,4 @@
  * Components used within the client detail page
  */
 
-export { ClientMessagesTab } from './client-messages-tab'
-export type { ClientMessagesTabProps } from './client-messages-tab'
+// ClientMessagesTab removed - messages now accessible via header button

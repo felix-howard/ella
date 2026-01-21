@@ -8,11 +8,11 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight, Check, User, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { IntakeQuestionsForm, getDefaultIntakeFormData } from '../../components/clients/intake-questions-form'
-import type { IntakeFormData } from '../../components/clients/intake-questions-form'
+import { MultiSectionIntakeForm } from '../../components/clients/multi-section-intake-form'
+import { CustomSelect } from '../../components/ui/custom-select'
 import { UI_TEXT, LANGUAGE_LABELS } from '../../lib/constants'
 import { formatPhone } from '../../lib/formatters'
-import { api, type Language } from '../../lib/api-client'
+import { api, type Language, type TaxType } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/new')({
   component: CreateClientPage,
@@ -28,9 +28,16 @@ interface BasicInfoData {
   language: Language
 }
 
+// Tax info that must be selected before dynamic questions load
+interface TaxSelection {
+  taxYear: number
+  taxTypes: TaxType[]
+  filingStatus: string
+}
+
 interface FormErrors {
   basic?: Partial<Record<keyof BasicInfoData, string>>
-  profile?: Partial<Record<keyof IntakeFormData, string>>
+  taxSelection?: Partial<Record<keyof TaxSelection, string>>
 }
 
 function CreateClientPage() {
@@ -47,7 +54,16 @@ function CreateClientPage() {
     email: '',
     language: 'VI',
   })
-  const [profileData, setProfileData] = useState<IntakeFormData>(getDefaultIntakeFormData())
+
+  // Tax selection (shown at top of profile step)
+  const [taxSelection, setTaxSelection] = useState<TaxSelection>({
+    taxYear: 2025,
+    taxTypes: ['FORM_1040'],
+    filingStatus: '',
+  })
+
+  // Dynamic intake answers from MultiSectionIntakeForm
+  const [intakeAnswers, setIntakeAnswers] = useState<Record<string, unknown>>({})
 
   // Step indicators
   const steps = [
@@ -83,17 +99,17 @@ function CreateClientPage() {
   }
 
   const validateProfile = (): boolean => {
-    const newErrors: Partial<Record<keyof IntakeFormData, string>> = {}
+    const newErrors: Partial<Record<keyof TaxSelection, string>> = {}
 
-    if (!profileData.taxTypes.length) {
+    if (!taxSelection.taxTypes.length) {
       newErrors.taxTypes = 'Vui lòng chọn ít nhất một loại tờ khai'
     }
 
-    if (!profileData.filingStatus) {
+    if (!taxSelection.filingStatus) {
       newErrors.filingStatus = 'Vui lòng chọn tình trạng hôn nhân'
     }
 
-    setErrors((prev) => ({ ...prev, profile: newErrors }))
+    setErrors((prev) => ({ ...prev, taxSelection: newErrors }))
     return Object.keys(newErrors).length === 0
   }
 
@@ -122,29 +138,39 @@ function CreateClientPage() {
       const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
       const formattedPhone = `+1${cleanedPhone}`
 
+      // Combine tax selection with dynamic intake answers
+      const allAnswers = {
+        ...intakeAnswers,
+        taxYear: taxSelection.taxYear,
+        filingStatus: taxSelection.filingStatus,
+      }
+
       const response = await api.clients.create({
         name: basicInfo.name.trim(),
         phone: formattedPhone,
         email: basicInfo.email || undefined,
         language: basicInfo.language,
         profile: {
-          taxYear: profileData.taxYear,
-          taxTypes: profileData.taxTypes,
-          filingStatus: profileData.filingStatus,
-          hasW2: profileData.hasW2,
-          hasBankAccount: profileData.hasBankAccount,
-          hasInvestments: profileData.hasInvestments,
-          hasKidsUnder17: profileData.hasKidsUnder17,
-          numKidsUnder17: profileData.numKidsUnder17,
-          paysDaycare: profileData.paysDaycare,
-          hasKids17to24: profileData.hasKids17to24,
-          hasSelfEmployment: profileData.hasSelfEmployment,
-          hasRentalProperty: profileData.hasRentalProperty,
-          businessName: profileData.businessName || undefined,
-          ein: profileData.ein || undefined,
-          hasEmployees: profileData.hasEmployees,
-          hasContractors: profileData.hasContractors,
-          has1099K: profileData.has1099K,
+          taxYear: taxSelection.taxYear,
+          taxTypes: taxSelection.taxTypes,
+          filingStatus: taxSelection.filingStatus,
+          // Legacy fields for backward compatibility (also saved in intakeAnswers)
+          hasW2: (intakeAnswers.hasW2 as boolean) ?? false,
+          hasBankAccount: (intakeAnswers.hasBankAccount as boolean) ?? false,
+          hasInvestments: (intakeAnswers.hasInvestments as boolean) ?? false,
+          hasKidsUnder17: (intakeAnswers.hasKidsUnder17 as boolean) ?? false,
+          numKidsUnder17: (intakeAnswers.numKidsUnder17 as number) ?? 0,
+          paysDaycare: (intakeAnswers.paysDaycare as boolean) ?? false,
+          hasKids17to24: (intakeAnswers.hasKids17to24 as boolean) ?? false,
+          hasSelfEmployment: (intakeAnswers.hasSelfEmployment as boolean) ?? false,
+          hasRentalProperty: (intakeAnswers.hasRentalProperty as boolean) ?? false,
+          businessName: (intakeAnswers.businessName as string) || undefined,
+          ein: (intakeAnswers.ein as string) || undefined,
+          hasEmployees: (intakeAnswers.hasEmployees as boolean) ?? false,
+          hasContractors: (intakeAnswers.hasContractors as boolean) ?? false,
+          has1099K: (intakeAnswers.has1099K as boolean) ?? false,
+          // NEW: Full intake answers JSON
+          intakeAnswers: allAnswers,
         },
       })
 
@@ -246,10 +272,14 @@ function CreateClientPage() {
 
           {/* Step 2: Profile/Intake Questions */}
           {currentStep === 'profile' && (
-            <IntakeQuestionsForm
-              data={profileData}
-              onChange={(updates) => setProfileData((prev) => ({ ...prev, ...updates }))}
-              errors={errors.profile}
+            <ProfileStep
+              taxSelection={taxSelection}
+              onTaxSelectionChange={(updates) =>
+                setTaxSelection((prev) => ({ ...prev, ...updates }))
+              }
+              intakeAnswers={intakeAnswers}
+              onIntakeAnswersChange={setIntakeAnswers}
+              errors={errors.taxSelection}
             />
           )}
 
@@ -425,6 +455,140 @@ function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Profile Step - Tax selection + Dynamic intake form
+// Filing status options
+const FILING_STATUS_OPTIONS = [
+  { value: 'SINGLE', label: 'Độc thân' },
+  { value: 'MARRIED_FILING_JOINTLY', label: 'Vợ chồng khai chung' },
+  { value: 'MARRIED_FILING_SEPARATELY', label: 'Vợ chồng khai riêng' },
+  { value: 'HEAD_OF_HOUSEHOLD', label: 'Chủ hộ' },
+  { value: 'QUALIFYING_WIDOW', label: 'Góa phụ có con' },
+]
+
+// Tax type options
+const TAX_TYPE_OPTIONS: { value: TaxType; label: string; description: string }[] = [
+  { value: 'FORM_1040', label: '1040 (Cá nhân)', description: 'Tờ khai thuế cá nhân' },
+  { value: 'FORM_1120S', label: '1120S (S-Corp)', description: 'Tờ khai thuế S-Corporation' },
+  { value: 'FORM_1065', label: '1065 (Partnership)', description: 'Tờ khai thuế hợp danh' },
+]
+
+// Available tax years
+const TAX_YEARS = [2025, 2024, 2023]
+
+interface ProfileStepProps {
+  taxSelection: TaxSelection
+  onTaxSelectionChange: (data: Partial<TaxSelection>) => void
+  intakeAnswers: Record<string, unknown>
+  onIntakeAnswersChange: (answers: Record<string, unknown>) => void
+  errors?: Partial<Record<keyof TaxSelection, string>>
+}
+
+function ProfileStep({
+  taxSelection,
+  onTaxSelectionChange,
+  intakeAnswers,
+  onIntakeAnswersChange,
+  errors,
+}: ProfileStepProps) {
+  const handleTaxTypeToggle = (taxType: TaxType) => {
+    const current = taxSelection.taxTypes || []
+    const updated = current.includes(taxType)
+      ? current.filter((t) => t !== taxType)
+      : [...current, taxType]
+    onTaxSelectionChange({ taxTypes: updated })
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-lg font-semibold text-primary mb-4">Hồ sơ thuế</h2>
+
+      {/* Tax Year */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-foreground">
+          Năm thuế
+          <span className="text-error ml-1">*</span>
+        </label>
+        <div className="flex gap-2">
+          {TAX_YEARS.map((year) => (
+            <button
+              key={year}
+              type="button"
+              onClick={() => onTaxSelectionChange({ taxYear: year })}
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                taxSelection.taxYear === year
+                  ? 'bg-primary text-white'
+                  : 'bg-muted text-foreground hover:bg-muted/80'
+              )}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tax Types */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-foreground">
+          Loại tờ khai
+          <span className="text-error ml-1">*</span>
+        </label>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {TAX_TYPE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleTaxTypeToggle(option.value)}
+              className={cn(
+                'p-3 rounded-lg border-2 text-left transition-colors',
+                taxSelection.taxTypes?.includes(option.value)
+                  ? 'border-primary bg-primary-light'
+                  : 'border-border hover:border-primary/50'
+              )}
+            >
+              <span className="font-medium text-foreground text-sm">{option.label}</span>
+              <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+            </button>
+          ))}
+        </div>
+        {errors?.taxTypes && <p className="text-sm text-error">{errors.taxTypes}</p>}
+      </div>
+
+      {/* Filing Status */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-foreground">
+          Tình trạng hôn nhân
+          <span className="text-error ml-1">*</span>
+        </label>
+        <CustomSelect
+          value={taxSelection.filingStatus || ''}
+          onChange={(value) => onTaxSelectionChange({ filingStatus: value })}
+          options={FILING_STATUS_OPTIONS}
+          placeholder="Chọn tình trạng..."
+          error={!!errors?.filingStatus}
+        />
+        {errors?.filingStatus && <p className="text-sm text-error">{errors.filingStatus}</p>}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border my-6" />
+
+      {/* Dynamic Intake Questions */}
+      <div className="space-y-2">
+        <h3 className="text-base font-medium text-foreground">Câu hỏi chi tiết</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Trả lời các câu hỏi sau để chúng tôi có thể tạo danh sách tài liệu cần thiết
+        </p>
+        <MultiSectionIntakeForm
+          taxTypes={taxSelection.taxTypes}
+          answers={intakeAnswers}
+          onChange={onIntakeAnswersChange}
+        />
       </div>
     </div>
   )

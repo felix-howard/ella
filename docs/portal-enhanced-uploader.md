@@ -181,7 +181,7 @@ interface ValidationError {
 
 ## Integration in Upload Page
 
-Route: `apps/portal/src/routes/u/$token/upload.tsx`
+Route: `apps/portal/src/routes/u/$token/index.tsx` (Phase 1: Route Consolidation)
 
 **Flow:**
 1. Page loads and validates token via `portalApi.getData(token)`
@@ -192,9 +192,9 @@ Route: `apps/portal/src/routes/u/$token/upload.tsx`
 6. Retry → Returns to file selection state
 
 **State Management:**
-- `pageState`: 'loading' | 'select' | 'success' | 'error'
-- `uploadedCount`: Number of successfully uploaded files
-- `errorMessage`: Last error from uploader
+- `pageState`: 'loading' | 'success' | 'error'
+- `data`: Portal data (client, case, missing docs)
+- `error`: Error details if token invalid or data fetch fails
 
 ## Performance Considerations
 

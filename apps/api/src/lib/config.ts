@@ -5,7 +5,7 @@
 
 export const config = {
   // Server
-  port: parseInt(process.env.PORT || '3001', 10),
+  port: parseInt(process.env.PORT || '3002', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // CORS - comma-separated origins in env
@@ -59,8 +59,9 @@ export const config = {
     batchConcurrency: parseInt(process.env.AI_BATCH_CONCURRENCY || '3', 10),
   },
 
-  // Twilio SMS Configuration
+  // Twilio Configuration (SMS + Voice)
   twilio: {
+    // Core credentials (SMS + Voice)
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
@@ -68,6 +69,18 @@ export const config = {
       process.env.TWILIO_ACCOUNT_SID &&
         process.env.TWILIO_AUTH_TOKEN &&
         process.env.TWILIO_PHONE_NUMBER
+    ),
+    // Voice-specific configuration
+    apiKeySid: process.env.TWILIO_API_KEY_SID || '',
+    apiKeySecret: process.env.TWILIO_API_KEY_SECRET || '',
+    twimlAppSid: process.env.TWILIO_TWIML_APP_SID || '',
+    webhookBaseUrl: process.env.TWILIO_WEBHOOK_BASE_URL || '',
+    voiceConfigured: Boolean(
+      process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_API_KEY_SID &&
+        process.env.TWILIO_API_KEY_SECRET &&
+        process.env.TWILIO_TWIML_APP_SID
     ),
   },
 

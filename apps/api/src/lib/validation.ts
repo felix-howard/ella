@@ -117,10 +117,12 @@ export const VALID_DOC_FIELDS: Record<string, string[]> = {
     'bondPremiumTaxExempt', 'cusipNumber', 'state', 'stateId', 'stateTaxWithheld',
   ],
   FORM_1099_NEC: [
-    'payerName', 'payerTIN', 'payerAddress',
-    'recipientName', 'recipientTIN', 'recipientAddress',
+    'payerName', 'payerTIN', 'payerAddress', 'payerPhone',
+    'recipientName', 'recipientTIN', 'recipientAddress', 'accountNumber',
     'nonemployeeCompensation', 'payerMadeDirectSales',
-    'federalTaxWithheld', 'state', 'stateId', 'stateIncome', 'stateTaxWithheld',
+    'federalIncomeTaxWithheld', 'federalTaxWithheld', // Both names for compatibility
+    'state', 'stateId', 'statePayerStateNo', 'stateIncome', 'stateTaxWithheld',
+    'taxYear', 'corrected',
   ],
   SSN_CARD: ['name', 'ssn', 'cardType'],
   DRIVER_LICENSE: [

@@ -1,10 +1,10 @@
 /**
  * Client Detail Page - Shows client info with tabbed sections
- * Tabs: Overview, Documents, Messages
+ * Tabs: Overview, Documents | Messages accessible via header button
  */
 
-import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState, useCallback } from 'react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -14,105 +14,104 @@ import {
   FileText,
   MessageSquare,
   User,
-  ChevronRight,
-  Pencil,
-  Copy,
-  Check,
   AlertCircle,
   RefreshCw,
   Loader2,
-  Send,
   Link2,
-  ExternalLink,
+  Trash2,
+  ClipboardList,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
-import { cn } from '@ella/ui'
+import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { DocumentChecklistTree, StatusSelector } from '../../components/cases'
-import { DocumentWorkflowTabs, ClassificationReviewModal, ManualClassificationModal, UploadProgress, VerificationModal, DataEntryModal, ReUploadRequestModal } from '../../components/documents'
-import { ClientMessagesTab } from '../../components/client-detail'
+import { StatusSelector, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
+import {
+  ManualClassificationModal,
+  UploadProgress,
+  VerificationModal,
+  UnclassifiedDocsCard,
+  DataEntryTab,
+} from '../../components/documents'
+import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
+import { FloatingChatbox } from '../../components/chatbox'
+import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
-  CHECKLIST_STATUS_LABELS,
-  CHECKLIST_STATUS_COLORS,
-  TAX_TYPE_LABELS,
-  FILING_STATUS_LABELS,
-  LANGUAGE_LABELS,
   UI_TEXT,
 } from '../../lib/constants'
-import { formatPhone, getInitials, copyToClipboard, getAvatarColor } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type ChecklistItemStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'documents' | 'messages'
+type TabType = 'overview' | 'documents' | 'data-entry'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
-  const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [reviewImage, setReviewImage] = useState<RawImage | null>(null)
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
-  const [dataEntryDoc, setDataEntryDoc] = useState<DigitalDoc | null>(null)
-  const [isDataEntryModalOpen, setIsDataEntryModalOpen] = useState(false)
-  const [reuploadImage, setReuploadImage] = useState<RawImage | null>(null)
-  const [reuploadFields, setReuploadFields] = useState<string[]>([])
-  const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false)
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
 
-  // Error code to Vietnamese message mapping
-  const SMS_ERROR_MESSAGES: Record<string, string> = {
-    NO_MAGIC_LINK: 'Không có magic link khả dụng',
-    SMS_NOT_CONFIGURED: 'Twilio chưa được cấu hình',
-    PORTAL_URL_NOT_CONFIGURED: 'PORTAL_URL chưa được cấu hình',
-    SMS_SEND_FAILED: 'Không thể gửi SMS',
-    SMS_SEND_ERROR: 'Lỗi khi gửi SMS',
-  }
-
-  // Mutation for resending SMS
-  const resendSmsMutation = useMutation({
-    mutationFn: () => api.clients.resendSms(clientId),
-    onSuccess: (result) => {
-      if (result.success) {
-        toast.success('Đã gửi lại SMS thành công')
-      } else {
-        const errorMessage = result.error
-          ? SMS_ERROR_MESSAGES[result.error] || result.error
-          : 'Không thể gửi SMS'
-        toast.error(errorMessage)
-      }
+  // Mutation for adding checklist item
+  const addChecklistItemMutation = useMutation({
+    mutationFn: (data: { docType: string; reason?: string; expectedCount?: number }) =>
+      api.cases.addChecklistItem(latestCaseId!, data),
+    onSuccess: () => {
+      toast.success('Đã thêm mục mới vào checklist')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      setIsAddItemModalOpen(false)
     },
     onError: () => {
-      toast.error('Lỗi kết nối, vui lòng thử lại')
+      toast.error('Lỗi khi thêm mục')
     },
   })
 
-  // Mutation for moving image to different checklist item (drag & drop)
-  const moveImageMutation = useMutation({
-    mutationFn: async ({ imageId, targetChecklistItemId }: { imageId: string; targetChecklistItemId: string }) => {
-      const response = await fetch(`/api/images/${imageId}/move`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ targetChecklistItemId }),
-      })
-      if (!response.ok) throw new Error('Move failed')
-      return response.json()
-    },
+  // Mutation for skipping checklist item
+  const skipChecklistItemMutation = useMutation({
+    mutationFn: ({ itemId, reason }: { itemId: string; reason: string }) =>
+      api.cases.skipChecklistItem(latestCaseId!, itemId, reason),
     onSuccess: () => {
-      toast.success('Đã di chuyển ảnh thành công')
+      toast.success('Đã bỏ qua mục')
       queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
-      queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
     },
     onError: () => {
-      toast.error('Lỗi khi di chuyển ảnh')
+      toast.error('Lỗi khi bỏ qua mục')
+    },
+  })
+
+  // Mutation for unskipping checklist item
+  const unskipChecklistItemMutation = useMutation({
+    mutationFn: (itemId: string) =>
+      api.cases.unskipChecklistItem(latestCaseId!, itemId),
+    onSuccess: () => {
+      toast.success('Đã khôi phục mục')
+      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi khôi phục mục')
+    },
+  })
+
+  // Mutation for deleting client
+  const deleteClientMutation = useMutation({
+    mutationFn: () => api.clients.delete(clientId),
+    onSuccess: () => {
+      toast.success('Đã xóa khách hàng thành công')
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      navigate({ to: '/clients' })
+    },
+    onError: () => {
+      toast.error('Lỗi khi xóa khách hàng')
+      setIsDeleteModalOpen(false)
     },
   })
 
@@ -137,6 +136,22 @@ function ClientDetailPage() {
     queryFn: () => api.cases.getChecklist(latestCaseId!),
     enabled: !!latestCaseId,
   })
+
+  // Fetch unread count for the specific case
+  const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
+    queryKey: ['unread-count', latestCaseId],
+    queryFn: () => api.messages.getUnreadCount(latestCaseId!),
+    enabled: !!latestCaseId,
+    staleTime: 30000, // Cache for 30s
+  })
+  const unreadCount = unreadData?.unreadCount ?? 0
+
+  // Callback to refetch unread count when chatbox sends/receives messages
+  // Memoized and debounced to prevent race conditions
+  const handleUnreadChange = useCallback(() => {
+    // Small debounce to allow server to update before refetching
+    setTimeout(() => refetchUnread(), 500)
+  }, [refetchUnread])
 
   // Fetch raw images for the latest case
   const { data: imagesResponse } = useQuery({
@@ -214,26 +229,6 @@ function ClientDetailPage() {
   const latestCase = client.taxCases[0]
   const caseStatus = latestCase?.status as TaxCaseStatus
 
-  const handleCopy = async (text: string, field: string) => {
-    const success = await copyToClipboard(text)
-    if (success) {
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    }
-  }
-
-  // Handler for opening classification review modal
-  const handleReviewClassification = (image: RawImage) => {
-    setReviewImage(image)
-    setIsReviewModalOpen(true)
-  }
-
-  const handleCloseReviewModal = () => {
-    setIsReviewModalOpen(false)
-    // Small delay before clearing to avoid flash
-    setTimeout(() => setReviewImage(null), 200)
-  }
-
   // Handler for opening manual classification modal
   const handleManualClassify = (image: RawImage) => {
     setClassifyImage(image)
@@ -258,42 +253,12 @@ function ClientDetailPage() {
     setTimeout(() => setVerifyDoc(null), 200)
   }
 
-  // Handler for re-upload request from verification modal
-  const handleRequestReupload = (doc: DigitalDoc, unreadableFields: string[]) => {
-    // Find the raw image associated with this doc
-    const rawImage = rawImages.find(img => img.id === doc.rawImageId)
-    if (rawImage) {
-      setReuploadImage(rawImage)
-      setReuploadFields(unreadableFields)
-      setIsReuploadModalOpen(true)
-    }
-  }
-
-  const handleCloseReuploadModal = () => {
-    setIsReuploadModalOpen(false)
-    setTimeout(() => {
-      setReuploadImage(null)
-      setReuploadFields([])
-    }, 200)
-  }
-
-  // Handler for data entry modal
-  const handleDataEntry = (doc: DigitalDoc) => {
-    setDataEntryDoc(doc)
-    setIsDataEntryModalOpen(true)
-  }
-
-  const handleCloseDataEntryModal = () => {
-    setIsDataEntryModalOpen(false)
-    setTimeout(() => setDataEntryDoc(null), 200)
-  }
-
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
-    { id: 'messages', label: clientsText.tabs.messages, icon: MessageSquare },
+    { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
   ]
 
   return (
@@ -342,19 +307,8 @@ function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Status Badges & Edit */}
-          <div className="flex items-center gap-3">
-            {/* SMS Status Badge */}
-            <span
-              className={cn(
-                'text-xs font-medium px-2.5 py-1 rounded-full',
-                client.smsEnabled
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-              )}
-            >
-              {client.smsEnabled ? 'SMS Bật' : 'SMS Tắt'}
-            </span>
+          {/* Status & Actions */}
+          <div className="flex items-center gap-2">
             {/* Case Status Selector */}
             {latestCase && (
               <StatusSelector
@@ -366,11 +320,46 @@ function ClientDetailPage() {
                 }}
               />
             )}
+
+            {/* Portal Link - Open button only */}
+            {client.portalUrl && (
+              <a
+                href={client.portalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                title="Mở link portal"
+              >
+                <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Portal</span>
+              </a>
+            )}
+
+            {/* Message Button with Unread Badge */}
+            {latestCaseId && (
+              <Link
+                to="/messages/$caseId"
+                params={{ caseId: latestCaseId }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-foreground"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Tin nhắn</span>
+                {isUnreadLoading ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                ) : !isUnreadError && unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-destructive text-white rounded-full min-w-[1.25rem] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <button
-              className="p-2 rounded-lg border border-border hover:bg-muted transition-colors"
-              aria-label={UI_TEXT.edit}
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="p-1.5 rounded-lg border border-destructive/30 hover:bg-destructive/10 transition-colors"
+              aria-label="Xóa khách hàng"
+              title="Xóa khách hàng"
             >
-              <Pencil className="w-4 h-4 text-muted-foreground" />
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
             </button>
           </div>
         </div>
@@ -405,239 +394,43 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Profile Info Card */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">{clientsText.personalInfo}</h2>
-            <div className="space-y-3">
-              <InfoRow
-                label={UI_TEXT.form.clientName}
-                value={client.name}
-                onCopy={() => handleCopy(client.name, 'name')}
-                copied={copiedField === 'name'}
-              />
-              <InfoRow
-                label={UI_TEXT.form.phone}
-                value={formatPhone(client.phone)}
-                onCopy={() => handleCopy(client.phone, 'phone')}
-                copied={copiedField === 'phone'}
-              />
-              {client.email && (
-                <InfoRow
-                  label={UI_TEXT.form.email}
-                  value={client.email}
-                  onCopy={() => handleCopy(client.email!, 'email')}
-                  copied={copiedField === 'email'}
-                />
-              )}
-              <InfoRow
-                label={UI_TEXT.form.language}
-                value={LANGUAGE_LABELS[client.language]}
-              />
-              {client.profile?.filingStatus && (
-                <InfoRow
-                  label={UI_TEXT.form.filingStatus}
-                  value={FILING_STATUS_LABELS[client.profile.filingStatus] || client.profile.filingStatus}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Tax Profile Card */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">{clientsText.taxProfile}</h2>
-            <div className="space-y-3">
-              <InfoRow
-                label={UI_TEXT.form.taxYear}
-                value={latestCase?.taxYear?.toString() || '—'}
-              />
-              <InfoRow
-                label={UI_TEXT.form.taxTypes}
-                value={latestCase?.taxTypes.map((t) => TAX_TYPE_LABELS[t]).join(', ') || '—'}
-              />
-              <InfoRow label="Có W2" value={client.profile?.hasW2 ? 'Có' : 'Không'} />
-              <InfoRow
-                label="Con dưới 17 tuổi"
-                value={client.profile?.hasKidsUnder17 ? `Có (${client.profile.numKidsUnder17})` : 'Không'}
-              />
-              <InfoRow
-                label="Trả tiền Daycare"
-                value={client.profile?.paysDaycare ? 'Có' : 'Không'}
-              />
-              <InfoRow
-                label="Tự kinh doanh"
-                value={client.profile?.hasSelfEmployment ? 'Có' : 'Không'}
-              />
-            </div>
-          </div>
-
-          {/* Portal Link Card */}
-          <div className="bg-card rounded-xl border border-border p-6 lg:col-span-2">
-            <h2 className="text-lg font-semibold text-primary mb-4 flex items-center gap-2">
-              <Link2 className="w-5 h-5" aria-hidden="true" />
-              Link Portal
-            </h2>
-            {client.portalUrl ? (
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Link cho khách hàng tải tài liệu
-                    </p>
-                    <p className="text-sm font-mono text-foreground truncate">
-                      {client.portalUrl}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleCopy(client.portalUrl!, 'portalUrl')}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
-                        copiedField === 'portalUrl'
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                          : 'bg-background text-foreground border-border hover:bg-muted'
-                      )}
-                    >
-                      {copiedField === 'portalUrl' ? (
-                        <>
-                          <Check className="w-4 h-4" aria-hidden="true" />
-                          Đã copy
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" aria-hidden="true" />
-                          Copy Link
-                        </>
-                      )}
-                    </button>
-                    <a
-                      href={client.portalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                      Mở
-                    </a>
-                    <button
-                      onClick={() => resendSmsMutation.mutate()}
-                      disabled={resendSmsMutation.isPending || !client.smsEnabled}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
-                        client.smsEnabled
-                          ? 'bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                          : 'bg-muted text-muted-foreground cursor-not-allowed'
-                      )}
-                      title={!client.smsEnabled ? 'Twilio chưa được cấu hình' : undefined}
-                    >
-                      {resendSmsMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                          Đang gửi...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" aria-hidden="true" />
-                          Gửi lại SMS
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 bg-muted/30 rounded-lg">
-                <Link2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">Không có magic link khả dụng</p>
-              </div>
-            )}
-          </div>
-
-          {/* Checklist Summary */}
-          <div className="bg-card rounded-xl border border-border p-6 lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-primary">{clientsText.checklistTitle}</h2>
-              <button
-                onClick={() => {
-                  // TODO: Navigate to /cases/:id/verify when route is created
-                  alert('Chức năng xem chi tiết sẽ được triển khai ở task 1.3.16-1.3.18')
-                }}
-                className="flex items-center gap-1 text-sm text-primary hover:text-primary-dark"
-              >
-                <span>{UI_TEXT.actions.viewDetail}</span>
-                <ChevronRight className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {checklistItems.map((item) => {
-                const status = item.status as ChecklistItemStatus
-                const colors = CHECKLIST_STATUS_COLORS[status]
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border"
-                  >
-                    <span className="text-sm text-foreground">{item.template?.labelVi || 'Tài liệu'}</span>
-                    <span
-                      className={cn(
-                        'text-xs font-medium px-2 py-1 rounded-full',
-                        colors?.bg || 'bg-muted',
-                        colors?.text || 'text-muted-foreground'
-                      )}
-                    >
-                      {CHECKLIST_STATUS_LABELS[status]}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <ClientOverviewSections client={client} />
       )}
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          {/* Document Checklist Tree */}
+          {/* Card A: Unclassified Docs - shows when unclassified images exist */}
+          <UnclassifiedDocsCard
+            rawImages={rawImages}
+            onClassify={handleManualClassify}
+          />
+
+          {/* Card B: Category-based Checklist */}
           <div className="bg-card rounded-xl border border-border p-4">
-            <h2 className="text-base font-semibold text-primary mb-3">
-              Danh sách tài liệu cần thu thập
-            </h2>
-            <DocumentChecklistTree
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-primary">
+                Danh sách tài liệu cần thu thập
+              </h2>
+            </div>
+            <TieredChecklist
               items={checklistItems}
-              onVerify={(item) => console.log('Verify item:', item.id)}
-              enableDragDrop={true}
-              onImageDrop={(imageId, targetChecklistItemId) => {
-                moveImageMutation.mutate({ imageId, targetChecklistItemId })
-              }}
-            />
-          </div>
-
-          {/* Document Workflow Tabs - New 3-tab layout */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="text-lg font-semibold text-primary mb-4">
-              Quy trình xử lý tài liệu
-            </h2>
-            <DocumentWorkflowTabs
-              caseId={latestCaseId || ''}
-              rawImages={rawImages}
               digitalDocs={digitalDocs}
-              onClassifyImage={handleManualClassify}
-              onReviewClassification={handleReviewClassification}
-              onVerifyDoc={handleVerifyDoc}
-              onDataEntry={handleDataEntry}
+              isStaffView={true}
+              onAddItem={() => setIsAddItemModalOpen(true)}
+              onSkip={(itemId, reason) => skipChecklistItemMutation.mutate({ itemId, reason })}
+              onUnskip={(itemId) => unskipChecklistItemMutation.mutate(itemId)}
+              onDocVerify={handleVerifyDoc}
             />
           </div>
 
-          {/* Classification Review Modal */}
-          {latestCaseId && (
-            <ClassificationReviewModal
-              image={reviewImage}
-              isOpen={isReviewModalOpen}
-              onClose={handleCloseReviewModal}
-              caseId={latestCaseId}
-            />
-          )}
+          {/* Add Checklist Item Modal */}
+          <AddChecklistItemModal
+            isOpen={isAddItemModalOpen}
+            onClose={() => setIsAddItemModalOpen(false)}
+            onSubmit={(data) => addChecklistItemMutation.mutate(data)}
+            existingDocTypes={checklistItems.map(item => item.template?.docType).filter(Boolean) as string[]}
+            isSubmitting={addChecklistItemMutation.isPending}
+          />
 
           {/* Manual Classification Modal */}
           {latestCaseId && (
@@ -656,28 +449,6 @@ function ClientDetailPage() {
               isOpen={isVerifyModalOpen}
               onClose={handleCloseVerifyModal}
               caseId={latestCaseId}
-              onRequestReupload={handleRequestReupload}
-            />
-          )}
-
-          {/* Data Entry Modal (Phase 06) */}
-          {latestCaseId && dataEntryDoc && (
-            <DataEntryModal
-              doc={dataEntryDoc}
-              isOpen={isDataEntryModalOpen}
-              onClose={handleCloseDataEntryModal}
-              caseId={latestCaseId}
-            />
-          )}
-
-          {/* Re-upload Request Modal (Phase 06) */}
-          {latestCaseId && reuploadImage && (
-            <ReUploadRequestModal
-              image={reuploadImage}
-              unreadableFields={reuploadFields}
-              isOpen={isReuploadModalOpen}
-              onClose={handleCloseReuploadModal}
-              caseId={latestCaseId}
             />
           )}
 
@@ -686,48 +457,69 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {activeTab === 'messages' && (
-        <ClientMessagesTab
-          clientId={clientId}
-          caseId={latestCaseId}
-          clientName={client.name}
-          clientPhone={client.phone}
-          isActive={activeTab === 'messages'}
+      {activeTab === 'data-entry' && (
+        <DataEntryTab
+          docs={digitalDocs}
+          caseId={latestCaseId || ''}
         />
+      )}
+
+      {/* Delete Client Confirmation Modal */}
+      <Modal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+        <ModalHeader>
+          <ModalTitle>Xóa khách hàng</ModalTitle>
+          <ModalDescription>
+            Bạn có chắc chắn muốn xóa khách hàng <strong>{client.name}</strong>?
+          </ModalDescription>
+        </ModalHeader>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            className="px-6"
+            onClick={() => setIsDeleteModalOpen(false)}
+            disabled={deleteClientMutation.isPending}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="destructive"
+            className="px-6"
+            onClick={() => deleteClientMutation.mutate()}
+            disabled={deleteClientMutation.isPending}
+          >
+            {deleteClientMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Đang xóa...
+              </>
+            ) : (
+              'Xóa khách hàng'
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
+      {latestCaseId && !isUnreadError && (
+        <ErrorBoundary
+          fallback={
+            <div className="fixed bottom-6 right-6 z-50 text-xs text-muted-foreground">
+              Chatbox không khả dụng
+            </div>
+          }
+        >
+          <FloatingChatbox
+            caseId={latestCaseId}
+            clientName={client.name}
+            clientPhone={client.phone}
+            clientId={clientId}
+            unreadCount={isUnreadLoading ? 0 : unreadCount}
+            onUnreadChange={handleUnreadChange}
+          />
+        </ErrorBoundary>
       )}
     </PageContainer>
   )
 }
 
-// Info row component with optional copy button
-interface InfoRowProps {
-  label: string
-  value: string
-  onCopy?: () => void
-  copied?: boolean
-}
-
-function InfoRow({ label, value, onCopy, copied }: InfoRowProps) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{value}</span>
-        {onCopy && (
-          <button
-            onClick={onCopy}
-            className="p-1 rounded hover:bg-muted transition-colors"
-            aria-label={`Copy ${label}`}
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-success" />
-            ) : (
-              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
 

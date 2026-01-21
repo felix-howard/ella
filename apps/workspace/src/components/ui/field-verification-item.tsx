@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn, Button, Input } from '@ella/ui'
-import { Check, Pencil, AlertTriangle, X, Loader2 } from 'lucide-react'
+import { Check, Pencil, AlertTriangle, X } from 'lucide-react'
 
 export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable' | null
 
@@ -118,7 +118,7 @@ export function FieldVerificationItem({
     onVerify('unreadable')
   }, [disabled, onVerify])
 
-  // Compact mode: inline layout with icon-only hover buttons
+  // Compact mode: inline layout with click-to-edit
   if (compact) {
     return (
       <div
@@ -127,9 +127,11 @@ export function FieldVerificationItem({
           status ? STATUS_STYLES[status] : 'border-border bg-card hover:bg-muted/30',
           justSaved && 'border-primary/50 bg-primary/10',
           disabled && 'opacity-60',
+          !isEditing && !disabled && 'cursor-pointer',
           className
         )}
         data-field-key={fieldKey}
+        onClick={!isEditing && !disabled ? handleStartEdit : undefined}
       >
         {/* Status indicator with icon for colorblind accessibility */}
         {status && (
@@ -149,18 +151,18 @@ export function FieldVerificationItem({
         )}
 
         {/* Label */}
-        <span className="text-xs text-secondary flex-shrink-0 min-w-[80px]">{label}:</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0 min-w-[80px]">{label}:</span>
 
         {/* Value / Edit input */}
         {isEditing ? (
-          <div className="flex-1 flex gap-1 items-center">
+          <div className="flex-1 flex gap-1 items-center" onClick={(e) => e.stopPropagation()}>
             <Input
               ref={inputRef}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              className="flex-1 h-7 text-sm py-0 px-2"
+              className="flex-1 h-7 text-sm py-0 px-2 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
               inputSize="sm"
             />
             <button
@@ -177,63 +179,48 @@ export function FieldVerificationItem({
           </span>
         )}
 
-        {/* Icon-only action buttons - visible on hover when not verified and not editing */}
-        {!isEditing && !status && !disabled && (
+        {/* Edit icon - visible on hover when not editing */}
+        {!isEditing && !disabled && (
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={handleVerify}
-              className="p-1 rounded hover:bg-primary/10"
-              title="Đúng"
-              aria-label="Xác minh đúng"
-            >
-              <Check className="w-3.5 h-3.5 text-primary" />
-            </button>
-            <button
-              onClick={handleStartEdit}
-              className="p-1 rounded hover:bg-blue-500/10"
-              title="Sửa"
-              aria-label="Sửa giá trị"
-            >
-              <Pencil className="w-3.5 h-3.5 text-blue-500" />
-            </button>
-            <button
-              onClick={handleMarkUnreadable}
-              className="p-1 rounded hover:bg-error/10"
-              title="Không đọc được"
-              aria-label="Đánh dấu không đọc được"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-error" />
-            </button>
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </div>
         )}
       </div>
     )
   }
 
-  // Non-compact mode: original stacked layout (kept for backwards compatibility)
+  // Non-compact mode: stacked layout with click-to-edit
   return (
     <div
       className={cn(
-        'p-3 border rounded-lg transition-colors',
-        status ? STATUS_STYLES[status] : 'border-border bg-card',
+        'group p-3 border rounded-lg transition-colors',
+        status ? STATUS_STYLES[status] : 'border-border bg-card hover:bg-muted/30',
         disabled && 'opacity-60',
+        !isEditing && !disabled && 'cursor-pointer',
         className
       )}
       data-field-key={fieldKey}
+      onClick={!isEditing && !disabled ? handleStartEdit : undefined}
     >
       {/* Label */}
-      <div className="text-xs text-secondary mb-1">{label}</div>
+      <div className="text-xs text-muted-foreground mb-1 flex items-center justify-between">
+        <span>{label}</span>
+        {/* Edit icon - visible on hover */}
+        {!isEditing && !disabled && (
+          <Pencil className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
 
       {/* Value / Edit input */}
       {isEditing ? (
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
           <Input
             ref={inputRef}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="flex-1 h-8 text-sm"
+            className="flex-1 h-8 text-sm focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
             inputSize="sm"
           />
           <Button
@@ -249,39 +236,6 @@ export function FieldVerificationItem({
       ) : (
         <div className="font-medium text-foreground">
           {value || <span className="text-muted-foreground italic">Trống</span>}
-        </div>
-      )}
-
-      {/* Action buttons - show only when not verified and not editing */}
-      {!isEditing && !status && !disabled && (
-        <div className="flex gap-2 mt-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleVerify}
-            className="h-7 text-xs"
-          >
-            <Check className="h-3 w-3 mr-1" />
-            Đúng
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleStartEdit}
-            className="h-7 text-xs"
-          >
-            <Pencil className="h-3 w-3 mr-1" />
-            Sửa
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleMarkUnreadable}
-            className="h-7 text-xs text-error hover:text-error"
-          >
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Không đọc được
-          </Button>
         </div>
       )}
 

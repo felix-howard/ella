@@ -61,6 +61,7 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   // Set user in context
   c.set('user', {
     id: auth.userId,
+    staffId: staff?.id || null, // Staff table ID for foreign keys
     email: staff?.email || '',
     name: staff?.name || 'Unknown',
     role: staff?.role || 'STAFF',
@@ -83,6 +84,7 @@ export const optionalAuthMiddleware = createMiddleware<{ Variables: Partial<Auth
     if (staff && staff.isActive) {
       c.set('user', {
         id: auth.userId,
+        staffId: staff.id, // Staff table ID for foreign keys
         email: staff.email,
         name: staff.name,
         role: staff.role,

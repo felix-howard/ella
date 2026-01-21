@@ -18,3 +18,13 @@ export const apiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
     data: dataSchema.optional(),
     error: z.string().optional(),
   })
+
+// IntakeAnswers validation schema with size limit (max 50KB to prevent DoS)
+const MAX_INTAKE_ANSWERS_SIZE = 50 * 1024 // 50KB
+
+export const intakeAnswersSchema = z
+  .record(z.union([z.boolean(), z.number(), z.string()]))
+  .refine(
+    (data) => JSON.stringify(data).length <= MAX_INTAKE_ANSWERS_SIZE,
+    { message: `Intake answers exceeds maximum size of ${MAX_INTAKE_ANSWERS_SIZE / 1024}KB` }
+  )

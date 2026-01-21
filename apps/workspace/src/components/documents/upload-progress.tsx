@@ -4,7 +4,7 @@
  * Auto-hides after 30 seconds of no change to handle stuck processing states
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Sparkles, FileSearch } from 'lucide-react'
 
 interface UploadProgressProps {
@@ -17,43 +17,31 @@ const STALE_TIMEOUT_MS = 30000
 
 export function UploadProgress({ processingCount, extractingCount = 0 }: UploadProgressProps) {
   const [isStale, setIsStale] = useState(false)
-  const prevCountsRef = useRef({ processing: 0, extracting: 0 })
-  const staleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const totalCount = processingCount + extractingCount
 
-  // Reset staleness when counts change
+  // Single effect that manages staleness timeout
+  // Depends on totalCount - when it changes, effect re-runs and resets timer
   useEffect(() => {
-    const prevTotal = prevCountsRef.current.processing + prevCountsRef.current.extracting
-    const currentTotal = totalCount
+    // Reset staleness immediately when effect runs (counts changed)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: resetting state when dependency changes
+    setIsStale(false)
 
-    // If counts changed (including going to 0), reset staleness
-    if (currentTotal !== prevTotal) {
-      setIsStale(false)
-
-      // Clear existing timeout
-      if (staleTimeoutRef.current) {
-        clearTimeout(staleTimeoutRef.current)
-        staleTimeoutRef.current = null
-      }
-
-      // Start new timeout only if we have processing items
-      if (currentTotal > 0) {
-        staleTimeoutRef.current = setTimeout(() => {
-          setIsStale(true)
-        }, STALE_TIMEOUT_MS)
-      }
+    // No timeout needed if nothing is processing
+    if (totalCount === 0) {
+      return
     }
 
-    prevCountsRef.current = { processing: processingCount, extracting: extractingCount }
+    // Start staleness timeout
+    const timeoutId = setTimeout(() => {
+      setIsStale(true)
+    }, STALE_TIMEOUT_MS)
 
-    // Cleanup timeout on unmount
+    // Cleanup on unmount or when totalCount changes
     return () => {
-      if (staleTimeoutRef.current) {
-        clearTimeout(staleTimeoutRef.current)
-      }
+      clearTimeout(timeoutId)
     }
-  }, [processingCount, extractingCount, totalCount])
+  }, [totalCount])
 
   // Don't render if nothing is processing or if state is stale
   if (totalCount === 0 || isStale) return null

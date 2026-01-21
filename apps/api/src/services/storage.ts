@@ -30,6 +30,7 @@ const isR2Configured =
 
 /**
  * Upload a file to R2 storage
+ * Returns the R2 key and a signed download URL
  */
 export async function uploadFile(
   key: string,
@@ -37,20 +38,38 @@ export async function uploadFile(
   contentType: string
 ): Promise<{ key: string; url: string | null }> {
   if (!isR2Configured) {
-    console.warn('R2 not configured, skipping upload for key:', key)
+    console.warn('[Storage] R2 not configured, skipping upload for key:', key)
     return { key, url: null }
   }
 
-  await s3Client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-    })
-  )
+  try {
+    console.log(`[Storage] Uploading to R2: ${key} (${body.length} bytes, ${contentType})`)
 
-  return { key, url: await getSignedDownloadUrl(key) }
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      })
+    )
+
+    console.log(`[Storage] Upload successful: ${key}`)
+
+    // Generate signed URL for immediate access
+    const url = await getSignedDownloadUrl(key)
+    if (!url) {
+      console.error(`[Storage] Failed to generate signed URL for: ${key}`)
+      return { key, url: null }
+    }
+
+    console.log(`[Storage] Generated signed URL for: ${key}`)
+    return { key, url }
+  } catch (error) {
+    console.error(`[Storage] Upload failed for key: ${key}`, error)
+    // Re-throw to let caller handle the error
+    throw error
+  }
 }
 
 /**

@@ -24,13 +24,20 @@ export function MessageThread({
 }: MessageThreadProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const prevMessagesLengthRef = useRef(0)
+  const hasScrolledInitialRef = useRef(false)
 
-  // Group messages by date for date separators
+  // Group messages by date for date separators (sorted oldest first)
   const groupedMessages = useMemo(() => {
+    // Sort messages by createdAt ascending (oldest first)
+    const sortedMessages = [...messages].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+
     const groups: { date: string; messages: Message[] }[] = []
     let currentDate = ''
 
-    messages.forEach((message) => {
+    sortedMessages.forEach((message) => {
       const messageDate = new Date(message.createdAt).toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
@@ -48,9 +55,42 @@ export function MessageThread({
     return groups
   }, [messages])
 
-  // Auto-scroll to bottom on new messages
+  // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) {
+      hasScrolledInitialRef.current = false
+      prevMessagesLengthRef.current = 0
+    }
+  }, [messages.length])
+
+  // Scroll to bottom - handles both initial load and new messages
+  useEffect(() => {
+    if (messages.length === 0) return
+
+    const scrollToBottom = (instant: boolean) => {
+      if (bottomRef.current) {
+        bottomRef.current.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
+      }
+    }
+
+    // Initial load - use requestAnimationFrame to ensure DOM is ready
+    if (!hasScrolledInitialRef.current) {
+      // Double RAF ensures layout is complete
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(true)
+          hasScrolledInitialRef.current = true
+          prevMessagesLengthRef.current = messages.length
+        })
+      })
+      return
+    }
+
+    // New messages added - smooth scroll
+    if (messages.length > prevMessagesLengthRef.current) {
+      scrollToBottom(false)
+    }
+    prevMessagesLengthRef.current = messages.length
   }, [messages.length])
 
   // Loading state

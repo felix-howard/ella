@@ -1,18 +1,25 @@
 /**
  * MMS Media Handler
  * Downloads media from Twilio MMS, uploads to R2, creates RawImage records
+ *
+ * IMPORTANT: Twilio media URLs expire in ~4 hours. This handler:
+ * 1. Downloads media from Twilio immediately (with Basic Auth)
+ * 2. Uploads to Cloudflare R2 for permanent storage
+ * 3. Stores both signed R2 URLs and R2 keys for URL refresh
  */
 import { prisma } from '../../lib/db'
+import { config } from '../../lib/config'
 import { inngest } from '../../lib/inngest'
-import { uploadFile, generateFileKey, getSignedDownloadUrl } from '../storage'
+import { uploadFile, generateFileKey, getSignedDownloadUrl, getStorageStatus } from '../storage'
 import { isGeminiConfigured } from '../ai'
 import type { TwilioIncomingMessage } from './webhook-handler'
 
-const MEDIA_DOWNLOAD_TIMEOUT = 10000 // 10s timeout for Twilio URL fetch
+const MEDIA_DOWNLOAD_TIMEOUT = 15000 // 15s timeout for Twilio URL fetch (increased from 10s)
 const MAX_MEDIA_COUNT = 10 // Twilio supports up to 10 media items
 
 export interface MmsMediaResult {
   attachmentUrls: string[]
+  attachmentR2Keys: string[]  // Permanent keys for refreshing expired URLs
   rawImageIds: string[]
   errors: string[]
 }
@@ -28,6 +35,7 @@ export async function processMmsMedia(
 ): Promise<MmsMediaResult> {
   const result: MmsMediaResult = {
     attachmentUrls: [],
+    attachmentR2Keys: [],
     rawImageIds: [],
     errors: [],
   }
@@ -37,7 +45,17 @@ export async function processMmsMedia(
     return result
   }
 
+  // Check R2 configuration upfront
+  const storageStatus = getStorageStatus()
+  if (!storageStatus.configured) {
+    console.error('[MMS] CRITICAL: R2 storage is NOT configured! Media will not be persisted.')
+    console.error('[MMS] Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in environment')
+    result.errors.push('R2 storage not configured - media cannot be persisted')
+    return result
+  }
+
   console.log(`[MMS] Processing ${numMedia} media items for case ${caseId}`)
+  console.log(`[MMS] R2 bucket: ${storageStatus.bucket}, endpoint: ${storageStatus.endpoint}`)
 
   // Collect Inngest events to send in batch
   const inngestEvents: Array<{
@@ -111,6 +129,7 @@ export async function processMmsMedia(
 
       result.rawImageIds.push(rawImage.id)
       result.attachmentUrls.push(uploadResult.url)
+      result.attachmentR2Keys.push(r2Key)
 
       // Queue AI classification
       if (isGeminiConfigured) {
@@ -162,6 +181,12 @@ export async function processMmsMedia(
     }
   }
 
+  // Log summary
+  console.log(`[MMS] Processing complete for case ${caseId}:`)
+  console.log(`[MMS]   - Success: ${result.rawImageIds.length}/${numMedia}`)
+  console.log(`[MMS]   - R2 Keys stored: ${result.attachmentR2Keys.length}`)
+  console.log(`[MMS]   - URLs generated: ${result.attachmentUrls.length}`)
+
   if (result.errors.length > 0) {
     console.warn(`[MMS] Completed with ${result.errors.length} errors:`, result.errors)
   }
@@ -170,35 +195,55 @@ export async function processMmsMedia(
 }
 
 /**
- * Download media from Twilio URL with timeout
- * Twilio URLs expire in a few hours, so we must download immediately
+ * Download media from Twilio URL with timeout and authentication
+ * Twilio URLs expire in ~4 hours, so we must download immediately
+ *
+ * Uses Basic Auth with Twilio Account SID and Auth Token for secure access
  */
 async function downloadFromTwilioUrl(url: string, timeout: number): Promise<Buffer | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
+  // Build Basic Auth header using Twilio credentials
+  const headers: Record<string, string> = {}
+  if (config.twilio.accountSid && config.twilio.authToken) {
+    const authString = `${config.twilio.accountSid}:${config.twilio.authToken}`
+    const base64Auth = Buffer.from(authString).toString('base64')
+    headers['Authorization'] = `Basic ${base64Auth}`
+    console.log('[MMS] Using Twilio Basic Auth for media download')
+  } else {
+    console.warn('[MMS] Twilio credentials not configured - attempting download without auth')
+  }
+
   try {
+    console.log(`[MMS] Downloading from Twilio: ${url.substring(0, 80)}...`)
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: {
-        // Twilio may require auth for media URLs in some cases
-        // Basic auth with Account SID and Auth Token if needed
-      },
+      headers,
     })
 
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      console.error(`[MMS] Twilio URL returned ${response.status}: ${url}`)
+      console.error(`[MMS] Twilio URL returned ${response.status} ${response.statusText}: ${url}`)
+      // Log response body for debugging
+      try {
+        const errorText = await response.text()
+        console.error(`[MMS] Error response: ${errorText.substring(0, 200)}`)
+      } catch {
+        // Ignore error reading response
+      }
       return null
     }
 
     const arrayBuffer = await response.arrayBuffer()
-    return Buffer.from(arrayBuffer)
+    const buffer = Buffer.from(arrayBuffer)
+    console.log(`[MMS] Downloaded ${buffer.length} bytes from Twilio`)
+    return buffer
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error(`[MMS] Download timeout (${timeout}ms): ${url}`)
+      console.error(`[MMS] Download timeout after ${timeout}ms: ${url}`)
     } else {
       console.error(`[MMS] Download failed: ${url}`, error)
     }
@@ -227,12 +272,33 @@ function getExtensionFromMimeType(mimeType: string): string {
 
 /**
  * Refresh signed URLs for attachments (used when displaying messages)
+ * Generates fresh pre-signed URLs from permanent R2 keys
  */
 export async function refreshAttachmentUrls(r2Keys: string[]): Promise<string[]> {
-  const urls: string[] = []
-  for (const key of r2Keys) {
-    const url = await getSignedDownloadUrl(key)
-    if (url) urls.push(url)
+  if (!r2Keys || r2Keys.length === 0) {
+    return []
   }
+
+  const urls: string[] = []
+  const errors: string[] = []
+
+  for (const key of r2Keys) {
+    try {
+      const url = await getSignedDownloadUrl(key)
+      if (url) {
+        urls.push(url)
+      } else {
+        errors.push(`Failed to refresh URL for key: ${key}`)
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error'
+      errors.push(`Error refreshing ${key}: ${errMsg}`)
+    }
+  }
+
+  if (errors.length > 0) {
+    console.warn(`[MMS] URL refresh errors (${errors.length}/${r2Keys.length}):`, errors)
+  }
+
   return urls
 }

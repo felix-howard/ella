@@ -6,7 +6,7 @@ declare module 'pdf-poppler' {
   export interface Options {
     /** Output format: 'png', 'jpeg', 'tiff', 'ppm' */
     format?: 'png' | 'jpeg' | 'tiff' | 'ppm'
-    /** Scale/DPI for rendering (default 150) */
+    /** Scale to fit within NxN pixel box (uses pdftocairo -scale-to, default 1024) */
     scale?: number
     /** Output directory path */
     out_dir?: string

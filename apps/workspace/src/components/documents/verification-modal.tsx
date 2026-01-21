@@ -12,7 +12,8 @@ import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { getFieldLabel, isExcludedField } from '../../lib/field-labels'
+import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
+import { getDocTypeFields } from '../../lib/doc-type-fields'
 import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -26,8 +27,6 @@ export interface VerificationModalProps {
   onClose: () => void
   /** Case ID for query invalidation */
   caseId: string
-  /** Callback when re-upload request is needed */
-  onRequestReupload?: (doc: DigitalDoc, unreadableFields: string[]) => void
 }
 
 // Vietnamese toast messages
@@ -94,10 +93,11 @@ export function VerificationModal({
   isOpen,
   onClose,
   caseId,
-  onRequestReupload,
 }: VerificationModalProps) {
   const queryClient = useQueryClient()
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
+  // Local state for instant optimistic UI updates (doesn't wait for query refetch)
+  const [localVerifications, setLocalVerifications] = useState<Record<string, FieldVerificationStatus>>({})
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
@@ -114,15 +114,20 @@ export function VerificationModal({
     [doc.extractedData]
   )
 
-  // Extract and filter fields from extractedData
+  // Extract and filter fields based on doc-type-specific fields
   const { fields, fieldVerifications } = useMemo(() => {
-    const verifications = isRecord(doc.fieldVerifications)
+    // Merge server state with local optimistic state (local takes precedence for instant feedback)
+    const serverVerifications = isRecord(doc.fieldVerifications)
       ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
       : {}
+    const verifications = { ...serverVerifications, ...localVerifications }
+
+    // Get expected fields for this document type
+    const expectedFields = getDocTypeFields(doc.docType)
+    const expectedFieldsSet = new Set(expectedFields)
 
     // Flatten nested objects (e.g., stateTaxInfo array for 1099-NEC)
     // Note: Multi-state forms only show first state entry. Most 1099-NEC have 1 state.
-    // To support multiple states, consider expanding UI or adding state selector.
     const flattenedData: Record<string, unknown> = {}
 
     for (const [key, value] of Object.entries(extractedData)) {
@@ -140,19 +145,26 @@ export function VerificationModal({
       }
     }
 
-    const fieldEntries = Object.entries(flattenedData)
+    // Filter to only show fields expected for this document type
+    // Order by expected fields order for consistent display
+    const orderedFields: Array<[string, unknown]> = []
+    for (const fieldKey of expectedFields) {
+      if (fieldKey in flattenedData) {
+        orderedFields.push([fieldKey, flattenedData[fieldKey]])
+      }
+    }
+    // Add any extra extracted fields not in expected list (at the end)
+    for (const [key, value] of Object.entries(flattenedData)) {
+      if (!expectedFieldsSet.has(key)) {
+        orderedFields.push([key, value])
+      }
+    }
 
     return {
-      fields: fieldEntries,
+      fields: orderedFields,
       fieldVerifications: verifications,
     }
-  }, [extractedData, doc.fieldVerifications])
-
-  // Calculate progress
-  const totalFields = fields.length
-  const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
-  const allVerified = totalFields > 0 && verifiedCount === totalFields
-  const hasUnreadable = Object.values(fieldVerifications).includes('unreadable')
+  }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications])
 
   // AI confidence - reuse memoized extractedData
   const extractedConfidence = extractedData.aiConfidence
@@ -164,13 +176,17 @@ export function VerificationModal({
     mutationFn: (payload: { field: string; status: FieldVerificationStatus; value?: string }) =>
       api.docs.verifyField(doc.id, payload),
     onMutate: async ({ field, status, value }) => {
+      // Instant local state update for immediate UI feedback
+      setLocalVerifications((prev) => ({ ...prev, [field]: status }))
+
       // Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey: ['case', caseId] })
 
       // Snapshot previous value
       const previousCase = queryClient.getQueryData(['case', caseId])
+      const previousLocalVerifications = { ...localVerifications }
 
-      // Optimistically update
+      // Optimistically update query cache too
       queryClient.setQueryData(['case', caseId], (old: unknown) => {
         if (!isRecord(old)) return old
         const digitalDocs = Array.isArray(old.digitalDocs) ? old.digitalDocs : []
@@ -189,7 +205,7 @@ export function VerificationModal({
         }
       })
 
-      return { previousCase }
+      return { previousCase, previousLocalVerifications }
     },
     onSuccess: () => {
       // Move to next unverified field
@@ -200,12 +216,16 @@ export function VerificationModal({
         setCurrentFieldIndex(nextUnverified)
       }
     },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
+    onError: (_error, variables, context) => {
+      // Rollback local state on error
+      if (context?.previousLocalVerifications) {
+        setLocalVerifications(context.previousLocalVerifications)
+      }
+      // Rollback query cache on error
       if (context?.previousCase) {
         queryClient.setQueryData(['case', caseId], context.previousCase)
       }
-      toast.error(MESSAGES.VERIFY_ERROR)
+      toast.error(`${MESSAGES.VERIFY_ERROR}: ${variables.field}`)
     },
     onSettled: () => {
       // Invalidate to ensure sync
@@ -257,22 +277,10 @@ export function VerificationModal({
     [verifyFieldMutation]
   )
 
-  // Handle complete verification
+  // Handle complete verification - auto-verifies all remaining fields
   const handleComplete = useCallback(() => {
-    if (!allVerified) {
-      toast.error(MESSAGES.ALL_FIELDS_REQUIRED)
-      return
-    }
     completeMutation.mutate()
-  }, [allVerified, completeMutation])
-
-  // Handle request re-upload
-  const handleRequestReupload = useCallback(() => {
-    const unreadableFields = Object.entries(fieldVerifications)
-      .filter(([_, status]) => status === 'unreadable')
-      .map(([key]) => key)
-    onRequestReupload?.(doc, unreadableFields)
-  }, [doc, fieldVerifications, onRequestReupload])
+  }, [completeMutation])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -309,25 +317,29 @@ export function VerificationModal({
         }
       }
 
-      // Enter to complete when all verified
-      if (e.key === 'Enter' && allVerified && !completeMutation.isPending) {
-        e.preventDefault()
-        handleComplete()
+      // Enter to complete
+      if (e.key === 'Enter' && !completeMutation.isPending) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          handleComplete()
+        }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, currentFieldIndex, fields.length, allVerified, completeMutation.isPending, handleComplete])
+  }, [isOpen, onClose, currentFieldIndex, fields.length, completeMutation.isPending, handleComplete])
 
-  // Reset state when modal opens
+  // Reset state when modal opens or doc changes
   // Note: setState is intentional here to sync internal state with prop changes
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setCurrentFieldIndex(0)
+      setLocalVerifications({}) // Clear local optimistic state for fresh doc
     }
-  }, [isOpen])
+  }, [isOpen, doc.id])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null
@@ -482,7 +494,7 @@ export function VerificationModal({
                   >
                     <FieldVerificationItem
                       fieldKey={key}
-                      label={getFieldLabel(key)}
+                      label={getFieldLabelForDocType(key, doc.docType)}
                       value={String(value ?? '')}
                       status={fieldVerifications[key] || null}
                       onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
@@ -494,51 +506,23 @@ export function VerificationModal({
             </div>
 
             {/* Footer - compact */}
-            <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
-              {/* Compact progress bar */}
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Xác minh</span>
-                <span className="font-medium">{verifiedCount}/{totalFields}</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: totalFields > 0 ? `${(verifiedCount / totalFields) * 100}%` : '0%' }}
-                />
-              </div>
-
-              {/* Compact actions */}
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRequestReupload}
-                  disabled={!hasUnreadable || !onRequestReupload}
-                  className="text-xs"
-                >
-                  Yêu cầu tải lại
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleComplete}
-                  disabled={!allVerified || completeMutation.isPending}
-                  className="flex-1 text-xs"
-                >
-                  {completeMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                      Đang lưu...
-                    </>
-                  ) : (
-                    'Hoàn tất'
-                  )}
-                </Button>
-              </div>
-
-              {/* Keyboard hints inline */}
-              <p className="text-[10px] text-muted-foreground text-center">
-                Tab = Di chuyển • Enter = Hoàn tất • Esc = Đóng
-              </p>
+            <div className="px-3 py-2 border-t border-border bg-muted/10">
+              {/* Complete button */}
+              <Button
+                size="sm"
+                onClick={handleComplete}
+                disabled={completeMutation.isPending}
+                className="w-full"
+              >
+                {completeMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  'Hoàn tất'
+                )}
+              </Button>
             </div>
           </div>
         </div>

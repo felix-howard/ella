@@ -15,7 +15,7 @@ export const clientProfileSchema = z.object({
     .min(1, 'At least one tax type required'),
   taxYear: z.number().int().min(2020).max(2030),
 
-  // 1040 questions
+  // 1040 questions (legacy fields for backward compatibility)
   filingStatus: z.string().optional(),
   hasW2: z.boolean().default(false),
   hasBankAccount: z.boolean().default(false),
@@ -36,6 +36,21 @@ export const clientProfileSchema = z.object({
   hasEmployees: z.boolean().default(false),
   hasContractors: z.boolean().default(false),
   has1099K: z.boolean().default(false),
+
+  // NEW: Full intake answers JSON (stores all dynamic question answers)
+  // Validation: max 200 keys, strings max 500 chars, numbers 0-9999 (to allow years)
+  intakeAnswers: z.record(
+    z.union([
+      z.boolean(),
+      z.number().min(0).max(9999),
+      z.string().max(500),
+    ])
+  )
+    .optional()
+    .refine(
+      (val) => !val || Object.keys(val).length <= 200,
+      { message: 'Too many intake answers (max 200)' }
+    ),
 })
 
 // Create client input
@@ -78,7 +93,64 @@ export const listClientsQuerySchema = z.object({
     .optional(),
 })
 
+// Cascade cleanup input
+export const cascadeCleanupSchema = z.object({
+  changedKey: z.string().min(1, 'Changed key is required'),
+  caseId: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid case ID format').optional(),
+})
+
+// Regex for valid intakeAnswer keys: alphanumeric, underscores, starts with letter
+// Prevents prototype pollution and ensures clean key names
+const VALID_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
+
+// Dangerous keys that could pollute Object prototype - must be explicitly blocked
+// Even if they match VALID_KEY_PATTERN, these should never be accepted as keys
+const DANGEROUS_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'toString',
+  'valueOf',
+  'hasOwnProperty',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+])
+
+// Update client profile input (for PATCH /clients/:id/profile)
+// Supports partial updates to intakeAnswers (merges with existing)
+export const updateProfileSchema = z.object({
+  // Direct profile field
+  filingStatus: z.string().optional(),
+
+  // Partial intakeAnswers update (merged with existing, not replaced)
+  // Validation: strings max 500 chars, numbers 0-9999, keys must be alphanumeric
+  intakeAnswers: z.record(
+    z.union([
+      z.boolean(),
+      z.number().min(0).max(9999),
+      z.string().max(500),
+    ])
+  )
+    .optional()
+    .refine(
+      (val) => !val || Object.keys(val).length <= 200,
+      { message: 'Too many intake answers (max 200)' }
+    )
+    .refine(
+      (val) => !val || Object.keys(val).every((key) => VALID_KEY_PATTERN.test(key)),
+      { message: 'Invalid intake answer key format (must be alphanumeric, start with letter, max 64 chars)' }
+    )
+    .refine(
+      (val) => !val || Object.keys(val).every((key) => !DANGEROUS_KEYS.has(key)),
+      { message: 'Reserved key name not allowed (potential prototype pollution)' }
+    ),
+})
+
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>
+export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>

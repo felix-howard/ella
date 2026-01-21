@@ -20,7 +20,42 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
+import { refreshAttachmentUrls } from '../../services/sms/mms-media-handler'
 import type { MessageChannel, MessageDirection } from '@ella/db'
+
+/**
+ * Extract R2 keys from signed R2 URLs
+ * Used to auto-repair messages that have URLs but missing R2 keys
+ *
+ * URL format: https://{bucket}.{account}.r2.cloudflarestorage.com/{key}?{queryParams}
+ * Example: https://ella-documents.xxx.r2.cloudflarestorage.com/cases/abc/raw/123.jpg?X-Amz-...
+ * Returns: cases/abc/raw/123.jpg
+ */
+function extractR2KeysFromUrls(urls: string[]): string[] {
+  const keys: string[] = []
+
+  for (const url of urls) {
+    try {
+      // Check if it's an R2 URL
+      if (!url.includes('r2.cloudflarestorage.com')) {
+        continue
+      }
+
+      const urlObj = new URL(url)
+      // The pathname starts with /, so we remove it
+      const key = urlObj.pathname.substring(1)
+
+      if (key && key.startsWith('cases/')) {
+        keys.push(key)
+      }
+    } catch {
+      // Invalid URL, skip
+      continue
+    }
+  }
+
+  return keys
+}
 
 const messagesRoute = new Hono()
 
@@ -100,6 +135,21 @@ messagesRoute.get(
   }
 )
 
+// GET /messages/:caseId/unread - Get unread count for a specific case
+messagesRoute.get('/:caseId/unread', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  const conversation = await prisma.conversation.findUnique({
+    where: { caseId },
+    select: { unreadCount: true },
+  })
+
+  return c.json({
+    caseId,
+    unreadCount: conversation?.unreadCount ?? 0,
+  })
+})
+
 // GET /messages/:caseId - Get conversation for case
 messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), async (c) => {
   const caseId = c.req.param('caseId')
@@ -133,17 +183,62 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
     })
   }
 
+  // Refresh signed URLs for messages with attachments (URLs expire after 1 hour)
+  const messagesWithRefreshedUrls = await Promise.all(
+    messages.map(async (m) => {
+      // If message has R2 keys, generate fresh signed URLs
+      if (m.attachmentR2Keys && m.attachmentR2Keys.length > 0) {
+        const freshUrls = await refreshAttachmentUrls(m.attachmentR2Keys)
+        return {
+          ...m,
+          attachmentUrls: freshUrls,
+          createdAt: m.createdAt.toISOString(),
+          updatedAt: m.updatedAt.toISOString(),
+        }
+      }
+
+      // AUTO-REPAIR: Message has R2 URLs but no R2 keys stored
+      // This happens for messages created before R2 key storage was added
+      // Extract the R2 key from the URL and update the message
+      if (m.attachmentUrls && m.attachmentUrls.length > 0) {
+        const extractedKeys = extractR2KeysFromUrls(m.attachmentUrls)
+
+        if (extractedKeys.length > 0) {
+          console.log(`[Messages] Auto-repairing message ${m.id}: extracted ${extractedKeys.length} R2 keys from URLs`)
+
+          // Update the message with extracted R2 keys (fire and forget)
+          prisma.message.update({
+            where: { id: m.id },
+            data: { attachmentR2Keys: extractedKeys },
+          }).catch(err => console.error(`[Messages] Failed to update R2 keys for message ${m.id}:`, err))
+
+          // Generate fresh URLs
+          const freshUrls = await refreshAttachmentUrls(extractedKeys)
+          return {
+            ...m,
+            attachmentUrls: freshUrls,
+            attachmentR2Keys: extractedKeys,
+            createdAt: m.createdAt.toISOString(),
+            updatedAt: m.updatedAt.toISOString(),
+          }
+        }
+      }
+
+      return {
+        ...m,
+        createdAt: m.createdAt.toISOString(),
+        updatedAt: m.updatedAt.toISOString(),
+      }
+    })
+  )
+
   return c.json({
     conversation: {
       ...conversation,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
     },
-    messages: messages.map((m) => ({
-      ...m,
-      createdAt: m.createdAt.toISOString(),
-      updatedAt: m.updatedAt.toISOString(),
-    })),
+    messages: messagesWithRefreshedUrls,
     pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })

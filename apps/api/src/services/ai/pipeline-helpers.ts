@@ -48,40 +48,73 @@ export async function markImageProcessing(rawImageId: string) {
 
 /**
  * Link raw image to matching checklist item
+ * Priority: 1) Item already linked to this image, 2) Item with existing images, 3) First by sortOrder
+ * This prevents duplicate checklist items when multiple taxTypes have same docType (e.g., W2)
  */
 export async function linkToChecklistItem(
   rawImageId: string,
   caseId: string,
   docType: DocType
 ): Promise<string | null> {
-  const checklistItem = await prisma.checklistItem.findFirst({
+  // Check if image is already linked to a checklist item with this docType
+  const existingImage = await prisma.rawImage.findUnique({
+    where: { id: rawImageId },
+    select: { checklistItemId: true },
+  })
+
+  if (existingImage?.checklistItemId) {
+    const existingItem = await prisma.checklistItem.findUnique({
+      where: { id: existingImage.checklistItemId },
+      include: { template: true },
+    })
+    // If already linked to correct docType, just update status
+    if (existingItem?.template?.docType === docType) {
+      await prisma.checklistItem.update({
+        where: { id: existingItem.id },
+        data: { status: 'HAS_RAW' },
+      })
+      return existingItem.id
+    }
+  }
+
+  // Find all matching checklist items, prefer ones with existing images
+  const checklistItems = await prisma.checklistItem.findMany({
     where: {
       caseId,
       template: { docType },
     },
+    include: {
+      template: true,
+      _count: { select: { rawImages: true } },
+    },
+    orderBy: { template: { sortOrder: 'asc' } },
   })
 
-  if (checklistItem) {
-    await prisma.rawImage.update({
-      where: { id: rawImageId },
-      data: {
-        checklistItemId: checklistItem.id,
-        status: 'LINKED',
-      },
-    })
-
-    await prisma.checklistItem.update({
-      where: { id: checklistItem.id },
-      data: {
-        status: 'HAS_RAW',
-        receivedCount: { increment: 1 },
-      },
-    })
-
-    return checklistItem.id
+  if (checklistItems.length === 0) {
+    return null
   }
 
-  return null
+  // Prefer checklist item that already has images (to group documents together)
+  // Otherwise use first by sortOrder (typically personal income over business)
+  const checklistItem = checklistItems.find(item => item._count.rawImages > 0) || checklistItems[0]
+
+  await prisma.rawImage.update({
+    where: { id: rawImageId },
+    data: {
+      checklistItemId: checklistItem.id,
+      status: 'LINKED',
+    },
+  })
+
+  await prisma.checklistItem.update({
+    where: { id: checklistItem.id },
+    data: {
+      status: 'HAS_RAW',
+      receivedCount: { increment: 1 },
+    },
+  })
+
+  return checklistItem.id
 }
 
 /**

@@ -14,6 +14,8 @@ import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
 import { twilioWebhookRoute } from './routes/webhooks'
 import { inngestRoute } from './routes/inngest'
+import { adminRoute } from './routes/admin'
+import { voiceRoutes } from './routes/voice'
 
 const app = new OpenAPIHono()
 
@@ -46,6 +48,8 @@ app.use('/actions/*', authMiddleware)
 app.use('/docs/*', authMiddleware)
 app.use('/images/*', authMiddleware)
 app.use('/messages/*', authMiddleware)
+app.use('/admin/*', authMiddleware)
+app.use('/voice/*', authMiddleware)
 
 // Routes
 app.route('/clients', clientsRoute)
@@ -54,6 +58,8 @@ app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
 app.route('/images', imagesRoute)
 app.route('/messages', messagesRoute)
+app.route('/admin', adminRoute)
+app.route('/voice', voiceRoutes)
 
 // OpenAPI documentation
 app.doc('/doc', {

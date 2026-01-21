@@ -9,8 +9,25 @@ import { useShallow } from 'zustand/react/shallow'
 
 // View mode types
 export type ClientViewMode = 'kanban' | 'list'
+export type Theme = 'light' | 'dark'
+
+// Helper to apply theme class to document
+const applyThemeClass = (theme: Theme) => {
+  if (typeof document !== 'undefined') {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
+}
 
 interface UIState {
+  // Theme
+  theme: Theme
+  setTheme: (theme: Theme) => void
+  toggleTheme: () => void
+
   // Sidebar
   sidebarCollapsed: boolean
   toggleSidebar: () => void
@@ -33,6 +50,18 @@ interface UIState {
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
+      // Theme - default light
+      theme: 'light' as Theme,
+      setTheme: (theme) => {
+        applyThemeClass(theme)
+        set({ theme })
+      },
+      toggleTheme: () => set((state) => {
+        const newTheme = state.theme === 'light' ? 'dark' : 'light'
+        applyThemeClass(newTheme)
+        return { theme: newTheme }
+      }),
+
       // Sidebar - default expanded
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -54,9 +83,16 @@ export const useUIStore = create<UIState>()(
     {
       name: 'ella-ui-store',
       partialize: (state) => ({
+        theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
         clientViewMode: state.clientViewMode,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Apply theme on rehydration (page load)
+        if (state?.theme) {
+          applyThemeClass(state.theme)
+        }
+      },
     }
   )
 )
@@ -88,4 +124,11 @@ export const useMobileMenu = () =>
     open: state.mobileMenuOpen,
     setOpen: state.setMobileMenuOpen,
     toggle: state.toggleMobileMenu,
+  })))
+
+export const useTheme = () =>
+  useUIStore(useShallow((state) => ({
+    theme: state.theme,
+    setTheme: state.setTheme,
+    toggleTheme: state.toggleTheme,
   })))

@@ -272,7 +272,11 @@ LOW (<60%):    text-error bg-error/10      "Thấp"
 | `apps/workspace/src/lib/constants.ts` | Added CONFIDENCE_LEVELS, getConfidenceLevel() |
 | `apps/workspace/src/lib/api-client.ts` | Updated RawImage type, added ImageGroup, api.images.updateClassification() |
 | `apps/workspace/src/components/cases/raw-image-gallery.tsx` | Confidence badges, review button |
-| `apps/workspace/src/components/documents/classification-review-modal.tsx` | NEW: Modal for review |
+| `apps/workspace/src/components/documents/classification-review-modal.tsx` | REMOVED: Replaced with UnclassifiedDocsCard |
+| `apps/workspace/src/components/documents/unclassified-docs-card.tsx` | NEW: AI-failed documents display (Phase 04 UX redesign) |
+| `apps/workspace/src/components/documents/data-entry-tab.tsx` | NEW: Verified docs data entry workflow (Phase 04 UX redesign) |
+| `apps/workspace/src/components/documents/index.ts` | Removed classification-review-modal export, added UnclassifiedDocsCard, DataEntryTab |
+| `apps/workspace/src/routes/clients/$clientId.tsx` | Updated Documents tab: 3-card layout with UnclassifiedDocsCard + DataEntryTab + raw images |
 | `apps/api/src/routes/images/index.ts` | NEW: PATCH /images/:id/classification endpoint |
 
 ## Constants & Labels
@@ -297,22 +301,61 @@ REJECT_SUCCESS: 'Đã từ chối - yêu cầu gửi lại'
 UPDATE_ERROR: 'Lỗi cập nhật phân loại'
 ```
 
+## Document Tab UX Redesign (Phase 04 - Redesign Integration)
+
+**Date:** 2026-01-21
+**Status:** Complete
+
+### Changes Made
+
+**Removed:**
+- `classification-review-modal.tsx` - Replaced with card-based UX
+- `DocumentWorkflowTabs` component - Simplified to 3-card layout
+
+**Added:**
+- `UnclassifiedDocsCard` - Displays AI-failed documents requiring manual classification
+- `DataEntryTab` - Verified documents ready for data entry workflow
+- Updated Documents tab to use 3-card layout:
+  1. **UnclassifiedDocsCard** - AI-failed images (low confidence <60%)
+  2. **DataEntryTab** - Verified documents with extracted data (confidence ≥60%, awaiting entry completion)
+  3. **RawImageGallery** - All uploaded images with confidence badges
+
+**Updated:**
+- `$clientId.tsx` - Documents tab now renders 3-card layout
+- `documents/index.ts` - Barrel exports updated
+
+### Architecture Impact
+
+**Benefits:**
+- Clearer document workflow stages (unclassified → data entry → complete)
+- Better UX with card-based organization vs modal overload
+- Simplified component hierarchy (removed DocumentWorkflowTabs)
+- Improved data visibility (all stages visible simultaneously)
+
+**Component Hierarchy:**
+```
+Documents Tab
+├── UnclassifiedDocsCard (AI-failed, requires manual classification)
+├── DataEntryTab (Verified, ready for data entry)
+└── RawImageGallery (All images with confidence badges)
+```
+
 ## Next Steps
 
-1. **Phase 04.1** - Confidence-based action queue filtering
-   - Filter actions by confidence level
-   - Batch approve/reject workflow
-   - Confidence trend analytics
-
-2. **Phase 04.2** - Manual classification for low-confidence images
-   - Drag-to-classify interface
-   - Template matching suggestions
-   - Confidence feedback loop
-
-3. **Phase 05** - Real-time notifications on classification completion
-   - WebSocket or polling for auto-refresh
+1. **Phase 05** - Real-time notifications on classification completion
+   - WebSocket or polling for auto-refresh (currently 5s polling)
    - Push notifications to staff
    - Audit trail of all reviews
+
+2. **Phase 06** - Enhanced data entry with field-level verification
+   - Field masking for sensitive data
+   - Copy-to-clipboard workflow optimization
+   - Batch entry mode for multiple documents
+
+3. **Phase 07** - Analytics & reporting
+   - Classification accuracy metrics
+   - Staff productivity dashboard
+   - Document processing timeline analysis
 
 ## Related Documentation
 
@@ -323,6 +366,15 @@ UPDATE_ERROR: 'Lỗi cập nhật phân loại'
 
 ---
 
-**Last Updated:** 2026-01-14
-**Status:** Phase 04 Complete
-**Next Phase:** Phase 04.1 - Action Queue Filtering & Batch Workflow
+**Last Updated:** 2026-01-21
+**Status:** Phase 04 Complete (Classification System + UX Redesign Integration)
+**Components Delivered:**
+- ✓ Confidence-level system (HIGH/MEDIUM/LOW with thresholds)
+- ✓ Classification review workflow with optimistic updates
+- ✓ UnclassifiedDocsCard for AI-failed documents
+- ✓ DataEntryTab for verified documents data entry
+- ✓ Simplified 3-card layout for Documents tab
+- ✓ Real-time polling with 5s refresh intervals
+- ✓ Atomic database transactions for all state changes
+
+**Next Phase:** Phase 05 - Real-time Notifications & WebSocket Integration

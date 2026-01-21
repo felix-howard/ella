@@ -1,7 +1,7 @@
 /**
  * OCR Extractor Service
  * Extracts structured data from documents using Gemini vision
- * Supports both images and PDFs (multi-page)
+ * Supports both images and PDFs (native Gemini PDF support)
  */
 import { analyzeImage, isGeminiConfigured } from './gemini-client'
 import {
@@ -10,7 +10,7 @@ import {
   validateExtractedData,
   getFieldLabels,
 } from './prompts/ocr'
-import { convertPdfToImages, isPdfMimeType } from '../pdf'
+import { isPdfMimeType } from '../pdf'
 
 // OCR constants
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
@@ -170,7 +170,8 @@ async function extractFromImage(
 
 /**
  * Extract data from PDF document
- * Converts to images and processes each page through OCR
+ * Uses Gemini's native PDF support (no image conversion needed)
+ * Gemini 2.0/2.5 can read PDFs directly with better accuracy
  */
 async function extractFromPdf(
   pdfBuffer: Buffer,
@@ -178,10 +179,15 @@ async function extractFromPdf(
   prompt: string,
   startTime: number
 ): Promise<OcrExtractionResult> {
-  // Convert PDF to images
-  const conversionResult = await convertPdfToImages(pdfBuffer)
+  // Send PDF directly to Gemini - it supports native PDF reading
+  // This is more accurate than converting to images
+  const result = await analyzeImage<Record<string, unknown>>(
+    pdfBuffer,
+    'application/pdf',
+    prompt
+  )
 
-  if (!conversionResult.success || !conversionResult.pages) {
+  if (!result.success || !result.data) {
     return {
       success: false,
       docType,
@@ -189,112 +195,23 @@ async function extractFromPdf(
       confidence: 0,
       isValid: false,
       fieldLabels: getFieldLabels(docType),
-      error: conversionResult.error || 'PDF conversion failed',
+      error: result.error || 'PDF extraction failed',
       processingTimeMs: Date.now() - startTime,
     }
   }
 
-  const pages = conversionResult.pages
-  const pageResults: Array<{ data: Record<string, unknown>; confidence: number }> = []
-
-  // Process each page through OCR
-  for (const page of pages) {
-    const result = await analyzeImage<Record<string, unknown>>(page.buffer, page.mimeType, prompt)
-    if (result.success && result.data) {
-      pageResults.push({
-        data: result.data,
-        confidence: calculateConfidence(result.data, docType),
-      })
-    }
-  }
-
-  // No successful extractions
-  if (pageResults.length === 0) {
-    return {
-      success: false,
-      docType,
-      extractedData: null,
-      confidence: 0,
-      isValid: false,
-      fieldLabels: getFieldLabels(docType),
-      error: 'Không thể trích xuất dữ liệu từ bất kỳ trang PDF nào',
-      pageCount: pages.length,
-      processingTimeMs: Date.now() - startTime,
-    }
-  }
-
-  // Merge results from all pages
-  const merged = mergePageResults(pageResults)
+  const isValid = validateExtractedData(docType, result.data)
+  const confidence = calculateConfidence(result.data, docType)
 
   return {
     success: true,
     docType,
-    extractedData: merged.data,
-    confidence: merged.confidence,
-    isValid: validateExtractedData(docType, merged.data),
+    extractedData: result.data,
+    confidence,
+    isValid,
     fieldLabels: getFieldLabels(docType),
-    pageCount: pages.length,
-    pageConfidences: pageResults.map((r) => r.confidence),
+    pageCount: 1, // Gemini processes entire PDF at once
     processingTimeMs: Date.now() - startTime,
-  }
-}
-
-/**
- * Merge extracted data from multiple PDF pages
- *
- * Merge Strategy (rationale):
- * - Later pages override earlier values for the same field
- * - Tax documents often have corrections/amendments on page 2+
- * - This ensures the most recent/corrected value takes precedence
- *
- * Confidence calculation:
- * - Weighted average based on field contribution from each page
- * - If page 1 contributes 3 fields and page 2 contributes 7 fields,
- *   page 2's confidence weighs more heavily in the final score
- */
-function mergePageResults(
-  pageResults: Array<{ data: Record<string, unknown>; confidence: number }>
-): { data: Record<string, unknown>; confidence: number } {
-  if (pageResults.length === 0) {
-    return { data: {}, confidence: 0 }
-  }
-
-  if (pageResults.length === 1) {
-    return pageResults[0]
-  }
-
-  // Merge data: later pages override (common for tax doc amendments)
-  const mergedData: Record<string, unknown> = {}
-  const fieldSources: Record<string, number> = {} // Track which page each field came from
-
-  for (let i = 0; i < pageResults.length; i++) {
-    const { data } = pageResults[i]
-    for (const [key, value] of Object.entries(data)) {
-      // Only override if new value is non-empty
-      if (value !== null && value !== undefined && value !== '') {
-        mergedData[key] = value
-        fieldSources[key] = i + 1 // 1-indexed page number
-      }
-    }
-  }
-
-  // Calculate weighted confidence based on field contribution
-  const totalFields = Object.keys(mergedData).length
-  if (totalFields === 0) {
-    return { data: mergedData, confidence: 0 }
-  }
-
-  let weightedConfidence = 0
-  for (let i = 0; i < pageResults.length; i++) {
-    const { confidence } = pageResults[i]
-    const fieldsFromPage = Object.entries(fieldSources).filter(([, page]) => page === i + 1).length
-    const weight = fieldsFromPage / totalFields
-    weightedConfidence += confidence * weight
-  }
-
-  return {
-    data: mergedData,
-    confidence: Math.min(weightedConfidence, MAX_CONFIDENCE),
   }
 }
 

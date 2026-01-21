@@ -9,9 +9,11 @@
 
 ## Overview
 
-Phase 02 implements production-ready background document classification via Inngest. Transforms document upload into an automated multi-stage pipeline: fetch from storage → classify with Gemini → route by confidence → extract structured data → update database atomically.
+Phase 02 implements production-ready background document classification via Inngest. Transforms document upload into an automated multi-stage pipeline: fetch from storage → **convert PDF to image** → classify with Gemini → route by confidence → extract structured data → update database atomically.
 
 **Key Achievement:** Confidence-based routing eliminates manual classification bottleneck. High-confidence documents auto-link without user action. Medium-confidence routes to review queue. Low-confidence flags for manual intervention.
+
+**Phase 3 Enhancement:** PDF files now converted to PNG (first page) before classification. Matches OCR extractor behavior and ensures Gemini compatibility.
 
 ---
 
@@ -40,6 +42,7 @@ Durable Step 1: mark-processing
 Durable Step 2: fetch-image
   ├─ Generate signed URL (R2)
   ├─ Fetch image buffer via HTTP
+  ├─ If PDF: Convert to PNG (first page only, Phase 3)
   ├─ Base64 encode for step serialization
   └─ Return { buffer: base64, mimeType }
         ↓
@@ -290,7 +293,7 @@ await prisma.$transaction(async (tx) => {
 
 **File:** `apps/api/src/services/storage.ts`
 
-New function: `fetchImageBuffer(r2Key)`
+Function: `fetchImageBuffer(r2Key)`
 
 ```typescript
 export async function fetchImageBuffer(r2Key: string): Promise<{
@@ -313,16 +316,52 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
 }
 ```
 
+### PDF Conversion Service (Phase 3)
+
+**File:** `apps/api/src/services/pdf/pdf-converter.ts`
+
+Converts PDF first page to PNG before classification (Gemini compatibility).
+
+**Key Functions:**
+```typescript
+export async function convertPdfToImages(buffer: Buffer): Promise<{
+  success: boolean
+  pages: Array<{ buffer: Buffer; pageNumber: number }>
+  totalPages: number
+  error?: string
+}>
+
+export function isPdfMimeType(mimeType: string): boolean
+  // Returns true for: application/pdf, application/x-pdf
+```
+
 **Usage in Job:**
 ```typescript
 const imageData = await step.run('fetch-image', async () => {
-  const result = await fetchImageBuffer(r2Key)
+  let result = await fetchImageBuffer(r2Key)
+
+  if (isPdfMimeType(result.mimeType)) {
+    const conversion = await convertPdfToImages(result.buffer)
+    if (!conversion.success) throw new Error(conversion.error)
+
+    // Use first page (PNG)
+    result.buffer = conversion.pages[0].buffer
+    result.mimeType = 'image/png'
+  }
+
   return {
-    buffer: result.buffer.toString('base64'),  // Serialize for durability
+    buffer: result.buffer.toString('base64'),
     mimeType: result.mimeType
   }
 })
 ```
+
+**Conversion Details:**
+- Extracts first page only (matches OCR behavior)
+- Returns PNG format (supports vision models)
+- Respects hard size limits (20MB max, enforced before conversion)
+- 200 DPI rendering quality for accuracy
+- Error handling: Returns success flag + error message
 
 ### Pipeline Helper Functions
 
@@ -643,22 +682,26 @@ GET /health → Check aiConfigured flag
 
 ---
 
+## Implementation Notes
+
+**Phase 3 - PDF Classification Fix (2026-01-17)**
+- PDF files now converted to PNG before Gemini classification
+- Conversion happens in Step 2 (fetch-image) before classification
+- Uses first page only (matches OCR extractor behavior)
+- Solves Gemini API compatibility issues with raw PDF input
+- Maintains file size and page limits (20MB max, 10-page limit enforced by pdf-converter)
+
 ## Future Enhancements
 
-### Phase 3.1
-- Multi-page PDF document support
-- Form field cross-validation
-- 1099-DIV, 1099-K, 1099-R OCR support
-
 ### Phase 3.2
-- Real-time job progress notifications
+- Real-time job progress notifications (already: 5min stuck detection modal)
 - Job cancellation support
 - Bulk re-classification for failed batches
 
-### Phase 4.0
+### Phase 4.0+
 - ML model fine-tuning on tax documents
 - Custom confidence thresholds per client
-- Automated duplicate detection
+- Improved duplicate detection (pHash disabled for PDFs, awaiting better algorithm)
 
 ---
 

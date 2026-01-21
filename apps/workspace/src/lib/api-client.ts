@@ -5,11 +5,11 @@
  */
 
 // Environment validation
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
 // Validate API URL format
 if (typeof API_BASE_URL !== 'string' || !API_BASE_URL.startsWith('http')) {
-  console.error('[API Client] Invalid VITE_API_URL. Using default: http://localhost:3001')
+  console.error('[API Client] Invalid VITE_API_URL. Using default: http://localhost:3002')
 }
 
 // Configuration
@@ -197,6 +197,20 @@ export const api = {
         `/clients/${id}/resend-sms`,
         { method: 'POST' }
       ),
+
+    // Cascade cleanup when parent answer changes to false
+    cascadeCleanup: (id: string, data: { changedKey: string; caseId?: string }) =>
+      request<{ success: boolean; deletedAnswers: string[]; deletedItems: number }>(
+        `/clients/${id}/cascade-cleanup`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
+
+    // Update client profile (intakeAnswers + filingStatus)
+    updateProfile: (id: string, data: UpdateProfileInput) =>
+      request<UpdateProfileResponse>(`/clients/${id}/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
   },
 
   // Tax Cases
@@ -220,6 +234,33 @@ export const api = {
 
     getChecklist: (id: string) =>
       request<ChecklistResponse>(`/cases/${id}/checklist`),
+
+    // Add manual checklist item
+    addChecklistItem: (id: string, data: { docType: string; reason?: string; expectedCount?: number }) =>
+      request<{ data: ChecklistItem }>(`/cases/${id}/checklist/items`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Skip checklist item
+    skipChecklistItem: (caseId: string, itemId: string, reason: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/skip`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason }),
+      }),
+
+    // Unskip checklist item (restore from NOT_REQUIRED)
+    unskipChecklistItem: (caseId: string, itemId: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/unskip`, {
+        method: 'PATCH',
+      }),
+
+    // Update checklist item notes
+    updateChecklistItemNotes: (caseId: string, itemId: string, notes: string) =>
+      request<{ data: ChecklistItem }>(`/cases/${caseId}/checklist/items/${itemId}/notes`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notes }),
+      }),
 
     getImages: (id: string, params?: { status?: string }) =>
       request<ImagesResponse>(`/cases/${id}/images`, { params }),
@@ -325,7 +366,130 @@ export const api = {
     // Unified inbox - list all conversations
     listConversations: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
       request<ConversationsResponse>('/messages/conversations', { params }),
+
+    // Get unread count for a specific case
+    getUnreadCount: (caseId: string) =>
+      request<{ caseId: string; unreadCount: number }>(`/messages/${caseId}/unread`),
   },
+
+  // Voice Calls
+  voice: {
+    // Get voice token for Twilio SDK
+    getToken: () =>
+      request<VoiceTokenResponse>('/voice/token', {
+        method: 'POST',
+      }),
+
+    // Check voice availability
+    getStatus: () =>
+      request<VoiceStatusResponse>('/voice/status'),
+
+    // Create call record (before initiating call via SDK)
+    createCall: (data: { caseId: string; toPhone: string }) =>
+      request<CreateCallResponse>('/voice/calls', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Update call message with Twilio CallSid (after device.connect() succeeds)
+    updateCallSid: (messageId: string, callSid: string) =>
+      request<UpdateCallSidResponse>(`/voice/calls/${messageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ callSid }),
+      }),
+
+    // Get recording audio URL (returns full URL for <audio> src)
+    getRecordingAudioUrl: (recordingSid: string) =>
+      `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
+  },
+
+  // Admin - Configuration management
+  admin: {
+    // Intake Questions
+    intakeQuestions: {
+      list: (params?: { taxType?: TaxType; section?: string; isActive?: boolean }) =>
+        request<{ data: IntakeQuestion[] }>('/admin/intake-questions', { params }),
+
+      get: (id: string) => request<IntakeQuestion>(`/admin/intake-questions/${id}`),
+
+      create: (data: CreateIntakeQuestionInput) =>
+        request<IntakeQuestion>('/admin/intake-questions', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateIntakeQuestionInput) =>
+        request<IntakeQuestion>(`/admin/intake-questions/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/intake-questions/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Checklist Templates
+    checklistTemplates: {
+      list: (params?: { taxType?: TaxType; category?: string }) =>
+        request<{ data: ChecklistTemplate[] }>('/admin/checklist-templates', { params }),
+
+      get: (id: string) => request<ChecklistTemplate>(`/admin/checklist-templates/${id}`),
+
+      create: (data: CreateChecklistTemplateInput) =>
+        request<ChecklistTemplate>('/admin/checklist-templates', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateChecklistTemplateInput) =>
+        request<ChecklistTemplate>(`/admin/checklist-templates/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/checklist-templates/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Doc Type Library
+    docTypeLibrary: {
+      list: (params?: { category?: string; isActive?: boolean; search?: string }) =>
+        request<{ data: DocTypeLibraryItem[] }>('/admin/doc-type-library', { params }),
+
+      get: (id: string) => request<DocTypeLibraryItem>(`/admin/doc-type-library/${id}`),
+
+      create: (data: CreateDocTypeLibraryInput) =>
+        request<DocTypeLibraryItem>('/admin/doc-type-library', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateDocTypeLibraryInput) =>
+        request<DocTypeLibraryItem>(`/admin/doc-type-library/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/doc-type-library/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Utility endpoints
+    getSections: () => request<{ data: string[] }>('/admin/sections'),
+    getCategories: () => request<{ data: string[] }>('/admin/categories'),
+  },
+
+  // Client intake questions (public endpoint for forms)
+  getIntakeQuestions: (taxTypes: TaxType[]) =>
+    request<{ data: IntakeQuestion[] }>('/clients/intake-questions', {
+      params: { taxTypes: taxTypes.join(',') },
+    }),
 }
 
 // Type definitions
@@ -400,6 +564,8 @@ export interface ClientProfile {
   hasEmployees: boolean
   hasContractors: boolean
   has1099K: boolean
+  // Full intake answers JSON from dynamic intake form
+  intakeAnswers?: Record<string, boolean | number | string | undefined>
 }
 
 export interface ClientDetail extends Client {
@@ -467,9 +633,21 @@ export interface ChecklistItem {
   caseId: string
   templateId: string
   status: ChecklistItemStatus
+  expectedCount: number
+  receivedCount: number
+  notes: string | null
   template: ChecklistTemplate
   rawImages?: RawImage[]
   digitalDocs?: DigitalDoc[]
+  // Staff override fields
+  isManuallyAdded: boolean
+  addedById: string | null
+  addedBy?: { id: string; name: string } | null
+  addedReason: string | null
+  skippedAt: string | null
+  skippedById: string | null
+  skippedBy?: { id: string; name: string } | null
+  skippedReason: string | null
 }
 
 export interface ChecklistResponse {
@@ -585,11 +763,16 @@ export interface ActionsGroupedResponse {
 export interface Message {
   id: string
   conversationId: string
-  channel: 'SMS' | 'PORTAL' | 'SYSTEM'
+  channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
   attachmentUrls?: string[]
   createdAt: string
+  // Call-specific fields (only for CALL channel)
+  callSid?: string
+  recordingUrl?: string
+  recordingDuration?: number
+  callStatus?: string
 }
 
 // Input types
@@ -602,6 +785,7 @@ export interface CreateClientInput {
     taxTypes: TaxType[]
     taxYear: number
     filingStatus?: string
+    // Legacy fields for backward compatibility
     hasW2?: boolean
     hasBankAccount?: boolean
     hasInvestments?: boolean
@@ -616,6 +800,8 @@ export interface CreateClientInput {
     hasEmployees?: boolean
     hasContractors?: boolean
     has1099K?: boolean
+    // NEW: Full intake answers JSON
+    intakeAnswers?: Record<string, boolean | number | string>
   }
 }
 
@@ -630,6 +816,21 @@ export interface UpdateClientInput {
   phone?: string
   email?: string | null
   language?: Language
+}
+
+// Update client profile (intakeAnswers + filingStatus)
+export interface UpdateProfileInput {
+  filingStatus?: string
+  intakeAnswers?: Record<string, boolean | number | string>
+}
+
+// Response from profile update (includes checklist refresh status)
+export interface UpdateProfileResponse {
+  profile: ClientProfile
+  checklistRefreshed: boolean
+  cascadeCleanup: {
+    triggeredBy: string[]
+  }
 }
 
 export interface CreateCaseInput {
@@ -711,4 +912,157 @@ export interface ConversationsResponse {
     total: number
     totalPages: number
   }
+}
+
+// Admin types - Intake Questions
+export type FieldType = 'BOOLEAN' | 'SELECT' | 'NUMBER' | 'NUMBER_INPUT' | 'CURRENCY' | 'TEXT'
+
+export interface IntakeQuestion {
+  id: string
+  questionKey: string
+  taxTypes: TaxType[]
+  labelVi: string
+  labelEn: string
+  hintVi: string | null
+  hintEn: string | null
+  fieldType: FieldType
+  options: string | null // JSON string
+  condition: string | null // JSON string
+  section: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateIntakeQuestionInput {
+  questionKey: string
+  taxTypes: TaxType[]
+  labelVi: string
+  labelEn: string
+  hintVi?: string
+  hintEn?: string
+  fieldType: FieldType
+  options?: string
+  condition?: string
+  section: string
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateIntakeQuestionInput = Partial<CreateIntakeQuestionInput>
+
+// Admin types - Checklist Templates
+export interface ChecklistTemplate {
+  id: string
+  taxType: TaxType
+  docType: string
+  labelVi: string
+  labelEn: string
+  descriptionVi: string | null
+  descriptionEn: string | null
+  hintVi: string | null
+  hintEn: string | null
+  isRequired: boolean
+  condition: string | null // JSON string
+  category: string
+  expectedCount: number
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  docTypeLibrary?: {
+    code: string
+    labelVi: string
+    labelEn: string
+  } | null
+}
+
+export interface CreateChecklistTemplateInput {
+  taxType: TaxType
+  docType: string
+  labelVi: string
+  labelEn: string
+  descriptionVi?: string
+  descriptionEn?: string
+  hintVi?: string
+  hintEn?: string
+  isRequired?: boolean
+  condition?: string
+  category: string
+  expectedCount?: number
+  sortOrder?: number
+}
+
+export interface UpdateChecklistTemplateInput {
+  labelVi?: string
+  labelEn?: string
+  descriptionVi?: string
+  descriptionEn?: string
+  hintVi?: string
+  hintEn?: string
+  isRequired?: boolean
+  condition?: string
+  category?: string
+  expectedCount?: number
+  sortOrder?: number
+}
+
+// Admin types - Doc Type Library
+export interface DocTypeLibraryItem {
+  id: string
+  code: string
+  labelVi: string
+  labelEn: string
+  descriptionVi: string | null
+  descriptionEn: string | null
+  category: string
+  aliases: string[]
+  keywords: string[]
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateDocTypeLibraryInput {
+  code: string
+  labelVi: string
+  labelEn: string
+  descriptionVi?: string
+  descriptionEn?: string
+  category: string
+  aliases?: string[]
+  keywords?: string[]
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
+
+// Voice API types
+export interface VoiceTokenResponse {
+  token: string
+  expiresIn: number
+  identity: string
+}
+
+export interface VoiceStatusResponse {
+  available: boolean
+  features: {
+    outbound: boolean
+    recording: boolean
+  }
+}
+
+export interface CreateCallResponse {
+  messageId: string
+  conversationId: string
+  toPhone: string
+  clientName: string
+}
+
+export interface UpdateCallSidResponse {
+  success: boolean
+  messageId: string
+  callSid: string
 }

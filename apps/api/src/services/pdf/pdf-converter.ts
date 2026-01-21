@@ -12,7 +12,10 @@ import * as pdf from 'pdf-poppler'
 // Constants
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024 // 20MB
 const MAX_PAGES = 10 // Limit pages for memory safety
-const RENDER_DPI = 200 // OCR-quality DPI
+// pdf-poppler's scale option is -scale-to (pixel box), NOT DPI
+// For OCR quality on letter-size (8.5x11in), we need ~2400px for 200 DPI equivalent
+// 11in * 200 DPI = 2200px, round up to 2400 for margin
+const RENDER_SCALE = 2400
 const PDF_MAGIC_BYTES = [0x25, 0x50, 0x44, 0x46] // %PDF
 
 /**
@@ -132,9 +135,10 @@ export async function convertPdfToImages(pdfBuffer: Buffer): Promise<PdfConversi
     }
 
     // Convert PDF to PNG images
+    // Note: scale is -scale-to (pixel box), not DPI
     const options: pdf.Options = {
       format: 'png',
-      scale: RENDER_DPI,
+      scale: RENDER_SCALE,
       out_dir: tempDir,
       out_prefix: 'page',
     }

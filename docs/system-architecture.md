@@ -52,6 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - 10 main pages (/, /actions, /clients, /cases, /messages, etc.)
   - 27 components (6 feature areas + 7 messaging)
   - Real-time polling for live updates
+  - Client detail: 2-tab layout (Overview, Documents) + Header messaging button
 - File-based routing via TanStack Router (`src/routes/*`)
 - Auto-generated route tree (`routeTree.gen.ts`)
 
@@ -70,7 +71,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Document upload interface (portal)
 - Unified message inbox with split-view (workspace)
 - Dashboard with compliance status
-- Client/case management with messaging
+- Client/case management with messaging (inline "Tin nhắn" header button with unread badge)
 - Action queue with priority grouping
 - Accessibility: ARIA labels, semantic HTML
 
@@ -87,7 +88,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Structure:**
 
-- Entry: `src/index.ts` (serves on PORT 3001, validates Gemini on startup Phase 02)
+- Entry: `src/index.ts` (serves on PORT 3002, validates Gemini on startup Phase 02)
 - App config: `src/app.ts` (main Hono app instance & all routes)
 - Middleware: `src/middleware/error-handler.ts` (global error handling)
 - Lib: `src/lib/db.ts` (Prisma re-export), `src/lib/constants.ts` (pagination, Vietnamese labels)
@@ -100,13 +101,20 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (36 total):**
+**Implemented Endpoints (40 total - Phase 4 NEW: +4 checklist endpoints):**
 
-**Clients (6):**
+**Checklist Management (4 - Phase 4 NEW):**
+- `POST /cases/:id/checklist/items` - Add manual checklist item (staff override)
+- `PATCH /cases/:id/checklist/items/:itemId/skip` - Skip item (mark NOT_REQUIRED)
+- `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item
+- `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
+
+**Clients (7 - Phase 01 NEW: +1 profile endpoint):**
 - `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
 - `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
 - `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
+- `PATCH /clients/:id/profile` - Update client profile (intakeAnswers + filingStatus) with audit logging (PHASE 01 NEW)
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
@@ -137,9 +145,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /actions` - Queue grouped by priority (URGENT > HIGH > NORMAL > LOW)
 - `GET/PATCH /actions/:id` - Action details & mark complete
 
-**Messages (4, Phase 3.2):**
+**Messages (5, Phase 3.2 + UX Enhancement):**
 - `GET /messages/conversations` - List all conversations with unread counts, pagination, last message preview
 - `GET /messages/:caseId` - Conversation history (SMS/portal/system) with auto-reset unread
+- `GET /messages/:caseId/unread` - Fetch unread count for specific case (efficient single-case query)
 - `POST /messages/send` - Create message, support SMS/PORTAL/SYSTEM channels
 - `POST /messages/remind/:caseId` - Send missing docs reminder to specific case
 
@@ -178,11 +187,113 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Core Services (Phase 1.2+):**
 
-- `checklist-generator.ts` - Generate checklist from profile & templates
+- `checklist-generator.ts` - Generate checklist from profile & templates (Phase 3: intakeAnswers priority)
 - `magic-link.ts` - Create/validate passwordless access tokens
 - `sms.ts` - SMS service with Twilio integration, welcome message & configuration checks
 - `storage.ts` - R2 Cloudflare storage service (placeholder)
 - `pdf/pdf-converter.ts` - PDF to PNG conversion for OCR processing (Phase 01)
+- `audit-logger.ts` - Field-level change tracking for compliance & audit trails (Phase 01 NEW)
+
+**Checklist Generator Service (Phase 3 - Enhanced):**
+
+- **ConditionContext Interface:** Combines legacy profile fields + dynamic intakeAnswers (new)
+- **Condition Evaluation:** Checks intakeAnswers first, falls back to profile fields
+  - Prevents mismatches between questionnaire answers & legacy data
+  - Supports AND logic across multiple conditions
+  - JSON size limit: 10KB (DoS protection)
+- **Expected Count Logic:** Uses intake answers for dynamic counts
+  - W2: `w2Count` from intakeAnswers
+  - Rental Property: `rentalPropertyCount` from intakeAnswers
+  - Schedule K1: `k1Count` from intakeAnswers
+  - Bank Statements: 12 months default
+  - Fallback: template `expectedCount` or 1
+- **intakeAnswers Validation:** Type-checked at runtime (must be plain object, not array)
+- **Refresh Flow:** Preserves verified items, re-evaluates MISSING items only
+- **15 Unit Tests:** Condition evaluation, AND logic, fallback behavior, invalid JSON, DoS protection
+
+**Audit Logger Service (Phase 01 - NEW):**
+
+**Location:** `apps/api/src/services/audit-logger.ts`
+
+**Purpose:** Field-level change tracking for compliance, audit trails, and data governance (IRS 7-year retention requirement).
+
+**Key Features:**
+- Non-blocking async logging (doesn't slow down API responses via fire-and-forget pattern)
+- Batch insert for efficiency (Prisma createMany)
+- Field-level granularity (tracks individual field changes, not entire records)
+- Support for nested JSON fields (intakeAnswers partial updates)
+- Staff attribution (tracks who made changes and when)
+- Error resilience with structured logging
+
+**Core Functions:**
+
+1. **logProfileChanges(clientId, changes[], staffId?)** - Log profile field changes asynchronously
+   - `changes`: Array of `{ field, oldValue, newValue }`
+   - Converts to AuditLog entries with CLIENT_PROFILE entity type
+   - Handles Prisma.JsonNull for explicit null values
+   - Fires as background task (non-blocking)
+
+2. **computeIntakeAnswersDiff(oldAnswers, newAnswers)** - Compute changes for intake answers
+   - Optimized: Only compares keys in newAnswers (partial update pattern)
+   - Returns only changed fields with old/new values
+   - Uses JSON.stringify for deep equality on primitives
+
+3. **computeProfileFieldDiff(oldProfile, newProfile)** - Compute direct profile field changes
+   - Currently handles filingStatus field
+   - Extensible to other scalar fields (e.g., businessName, ein)
+   - Type-safe field comparison
+
+**Integration with PATCH /clients/:id/profile:**
+- Before database update: Compute all changes (intakeAnswers + direct fields)
+- If changes exist: Log asynchronously via logProfileChanges()
+- Response includes audit metadata
+- No changes = no logging (efficiency optimization)
+
+**Database Schema (AuditLog Model):**
+```
+id: cuid (primary key)
+entityType: enum (CLIENT_PROFILE, CLIENT, TAX_CASE) - tracks entity type
+entityId: string - references client/profile/case ID
+field: string - field name that changed (e.g., "intakeAnswers.w2Count")
+oldValue: Json? - previous value (null for new fields)
+newValue: Json? - new value (null for deleted fields)
+changedById: string? - Staff ID who made change
+changedBy: Staff relation - join to staff for attribution
+createdAt: timestamp - when change was logged
+
+Indexes:
+- (entityType, entityId) - efficient queries by entity
+- (changedById) - audit by staff member
+- (createdAt) - time-based queries, audit retention cleanup
+```
+
+**Error Handling:**
+- Catches Prisma errors and logs with structured format
+- Includes field names (for debugging) but excludes values (privacy)
+- Non-critical: Audit log failures don't fail API requests
+- Production: Consider sending critical errors to monitoring service (Sentry, DataDog)
+
+**Usage Example:**
+```typescript
+// In PATCH /clients/:id/profile endpoint
+const intakeChanges = computeIntakeAnswersDiff(oldAnswers, newAnswers)
+const profileChanges = computeProfileFieldDiff(oldProfile, newProfile)
+const allChanges = [...intakeChanges, ...profileChanges]
+
+// Log asynchronously (fire-and-forget)
+if (allChanges.length > 0) {
+  logProfileChanges(clientId, allChanges, staffId).catch(err => {
+    console.error('Audit logging failed:', err)
+    // Don't throw - API response already sent
+  })
+}
+```
+
+**Compliance Considerations:**
+- IRS 7-year record retention: Implement scheduled cleanup job
+- Field masking: PII never stored in audit logs (values are audit records, not compliance records)
+- Staff attribution: Enables user activity tracking for compliance audits
+- Atomic updates: All changes for single request logged together
 
 **SMS Service Implementation (Phase 1.2+):**
 
@@ -196,7 +307,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **AI Service: Gemini Client with Model Fallback (Phase 03):**
 
 - **Configuration (`src/lib/config.ts`):**
-  - `GEMINI_MODEL`: Primary model (default: `gemini-2.0-flash`)
+  - `GEMINI_MODEL`: Primary model (default: `gemini-2.5-flash`)
   - `GEMINI_FALLBACK_MODELS`: Comma-separated fallback list (default: `gemini-2.5-flash-lite,gemini-2.5-flash`)
   - `GEMINI_MAX_RETRIES`: Retry attempts per model (default: 3)
   - `GEMINI_RETRY_DELAY_MS`: Initial retry backoff (default: 1000ms, exponential)
@@ -265,10 +376,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Batch Classification:** `batchClassifyDocuments(images[], concurrency)` with configurable concurrency limit
 - **OCR Extraction Eligibility:** Exclusion-based - 9 types excluded (PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN), all others require OCR
 
-**PDF Converter Service (Phase 01) & OCR Extractor (Phase 02):**
+**PDF Converter Service & Classification Pipeline (Phase 01-03):**
 
-- **PDF Conversion Function (Phase 03):** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-  - Converts PDF → PNG images (200 DPI) for OCR processing via poppler-based pdf-poppler library
+- **PDF Conversion Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
+  - Converts PDF → PNG images (200 DPI) via poppler-based pdf-poppler library
+  - **Dual Usage:**
+    - Classification: First page only, used before Gemini classification (Phase 3 fix)
+    - OCR: All pages extracted, used for field data extraction
   - **Poppler Dependency:** Required for PDF rendering (`pdf-poppler` npm package)
     - Validation: 20MB limit, %PDF magic bytes, 10-page max, encryption detection
     - Error Handling: Vietnamese messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
@@ -305,13 +419,47 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Phase 02 OCR PDF Support](./phase-02-ocr-pdf-support.md) for details.
 
-**Unified Messaging (Phase 3.2):**
+**Unified Messaging (Phase 3.2 + UX Enhancement + Phase 02 Voice Calls):**
 
 - `messages/` routes handle conversation listing, message history, and sending
 - Conversation auto-creation with upsert pattern (prevents race conditions)
-- Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM stored in database
-- Unread count tracking per conversation
+- Channel-aware sending: SMS via Twilio, PORTAL/SYSTEM/CALL stored in database
+- Unread count tracking per conversation with efficient per-case query
 - Real-time updates via polling (30s inbox, 10s active)
+- Client detail header: "Tin nhắn" button with unread badge (queries `/messages/:caseId/unread`)
+- Browser-based voice calling via Twilio Client SDK (Phase 02 Voice Calls - NEW):
+  - Phone icon button in conversation header
+  - Active call modal with mute/end controls and duration timer
+  - Microphone permission check before calls
+  - Token refresh mechanism (5-min buffer before expiry)
+  - Call state tracking (idle → connecting → ringing → connected → disconnecting)
+  - Duration timer (increments 1s/sec during connected state)
+  - CALL channel in message bubbles with PhoneCall icon
+  - Vietnamese error messages with sanitization
+  - Focus trap modal (prevents page interaction during calls)
+
+**Checklist Display Enhancement (Phase 4 - NEW):**
+
+- **Staff Override Capabilities:**
+  - Add manual checklist items: `POST /cases/:id/checklist/items`
+  - Skip/unskip items: `PATCH /cases/:id/checklist/items/:itemId/skip`, `unskip`
+  - Update item notes: `PATCH /cases/:id/checklist/items/:itemId/notes`
+
+- **Database Schema Extensions:**
+  - ChecklistItem: `isManuallyAdded`, `addedById`, `addedReason`, `skippedAt`, `skippedById`, `skippedReason`
+  - Staff: Relations to track `AddedChecklistItems`, `SkippedChecklistItems` for audit trail
+  - Composite index `[caseId, status]` for efficient checklist queries
+
+- **Frontend Components (Phase 4 NEW):**
+  - `ChecklistProgress` - Progress bar showing completion % & status breakdown
+  - `TieredChecklist` - 3-tier display (Required/Applicable/Optional) with staff actions
+  - `AddChecklistItemModal` - Staff form to add items with validation
+  - Constants: `checklist-tier-constants.ts` - Tier colors, labels (Vietnamese-first)
+
+- **Tier Categorization Logic:**
+  - Required: `template.isRequired=true` AND no condition
+  - Applicable: Template has conditional logic (matched vs intake answers)
+  - Optional: `template.isRequired=false` AND no condition
 
 **Future Services:**
 
@@ -753,10 +901,29 @@ Case returns to WAITING_DOCS or IN_PROGRESS
 - Clear user feedback via toast notifications
 - Debounced search prevents API overload
 
-### Unified Inbox & Messaging Flow (Phase 3.2)
+### Unified Inbox & Messaging Flow (Phase 3.2 + UX Enhancement)
 
 ```
-Staff Views Unified Inbox (/messages)
+Staff Views Client Detail Page (/clients/$clientId)
+        ↓
+Client Detail Header shows:
+├─ Client profile info (name, phone, email)
+├─ SMS status badge
+├─ Case status selector
+├─ Edit button
+└─ "Tin nhắn" button with unread badge
+        ↓
+GET /messages/:caseId/unread (30s cache)
+        ↓
+Fetch unread count: { caseId, unreadCount }
+        ↓
+Display badge on button if unreadCount > 0
+        ↓
+Staff clicks "Tin nhắn" button → Navigate to /messages/$caseId
+        ↓
+---
+        ↓
+Alternative: Staff Views Unified Inbox (/messages)
         ↓
 GET /messages/conversations (30s polling)
         ↓
@@ -1099,12 +1266,19 @@ Poll Stops (unsubscribe):
 
 ## Database Schema (Phase 1.1 - Complete)
 
-**Core Models (13):**
+**Core Models (14 - Phase 01 NEW: +1 AuditLog model):**
 
 ```
+AuditLog - Compliance & audit trail (Phase 01 NEW)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE)
+├── entityId, field, oldValue, newValue (Json)
+├── changedById (optional), createdAt
+├── Indexes: (entityType, entityId), (changedById), (createdAt)
+
 Staff - Authentication & authorization
 ├── id, email (@unique), name, role (ADMIN|STAFF|CPA)
 ├── avatarUrl, isActive, timestamps
+├── auditLogs (1:many AuditLog)
 
 Client - Tax client management
 ├── id, name, phone (@unique), email, language (VI|EN)
@@ -1609,9 +1783,9 @@ scheduler: {
 
 ---
 
-**Last Updated:** 2026-01-15
-**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete)
-**Architecture Version:** 6.0 (Tested & Resilient)
+**Last Updated:** 2026-01-17
+**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete) + Phase 1 & 2 Debug
+**Architecture Version:** 6.1 (Tested, Resilient, Optimized)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)
@@ -1621,8 +1795,14 @@ scheduler: {
 - ✓ Gemini service unavailability detection with retry logic
 - ✓ Error message sanitization (API keys, emails, paths masked)
 - ✓ AI_FAILED action creation for CPA manual review
+**Completed Features (Phase 1 & 2 Debug - 2026-01-17):**
+- ✓ Smart stuck detection for images in PROCESSING >5 minutes
+- ✓ Modal display accuracy improved with stuck image filtering
+- ✓ Gemini model reverted to gemini-2.5-flash (more stable)
+- ✓ Progress notifications exclude stale/abandoned jobs
+
 **Completed Features (Phase 05):**
-- ✓ Classification updates hook with 5s polling
+- ✓ Classification updates hook with 5s polling + stuck detection
 - ✓ Real-time status tracking (UPLOADED → PROCESSING → CLASSIFIED/LINKED)
 - ✓ Confidence-level notifications (HIGH/MEDIUM/LOW toasts)
 - ✓ Floating status panel (UploadProgress component)

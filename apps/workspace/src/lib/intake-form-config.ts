@@ -1,0 +1,335 @@
+/**
+ * Intake Form Configuration
+ * Centralized configuration for intake form sections and fields
+ * Used by ClientOverviewSections and SectionEditModal
+ */
+
+import type { FieldType } from './api-client'
+
+// Section configuration with Vietnamese labels
+export const SECTION_CONFIG: Record<string, { title: string }> = {
+  personal_info: { title: 'Thông tin cá nhân' },
+  tax_info: { title: 'Thông tin thuế' },
+  client_status: { title: 'Trạng thái khách hàng' },
+  prior_year: { title: 'Năm trước & Extension' },
+  life_changes: { title: 'Thay đổi trong năm' },
+  income: { title: 'Nguồn thu nhập' },
+  dependents: { title: 'Người phụ thuộc' },
+  health: { title: 'Bảo hiểm sức khỏe' },
+  deductions: { title: 'Khấu trừ' },
+  credits: { title: 'Tín dụng thuế' },
+  foreign: { title: 'Thu nhập nước ngoài' },
+  business: { title: 'Thông tin doanh nghiệp' },
+  filing: { title: 'Giao nhận tờ khai' },
+  entity_info: { title: 'Thông tin pháp nhân' },
+  ownership: { title: 'Cấu trúc sở hữu' },
+  expenses: { title: 'Chi phí kinh doanh' },
+  assets: { title: 'Tài sản' },
+  state: { title: 'Thuế tiểu bang' },
+}
+
+// Section display order
+export const SECTION_ORDER = [
+  'personal_info',
+  'tax_info',
+  'client_status',
+  'prior_year',
+  'life_changes',
+  'income',
+  'dependents',
+  'health',
+  'deductions',
+  'credits',
+  'foreign',
+  'business',
+  'filing',
+  'entity_info',
+  'ownership',
+  'expenses',
+  'assets',
+  'state',
+] as const
+
+// Sections that use client/taxCase data, not intakeAnswers (read-only)
+export const NON_EDITABLE_SECTIONS: readonly string[] = ['personal_info', 'tax_info']
+
+// Field format types (display format in overview)
+export type FormatType = 'boolean' | 'currency' | 'number' | 'text' | 'select'
+
+// Field configuration item
+export interface FieldConfigItem {
+  label: string
+  section: string
+  format?: FormatType
+  options?: { value: string; label: string }[]
+}
+
+// Map display format to IntakeQuestion fieldType
+export function formatToFieldType(format?: FormatType): FieldType {
+  switch (format) {
+    case 'boolean': return 'BOOLEAN'
+    case 'currency': return 'CURRENCY'
+    case 'number': return 'NUMBER'
+    case 'select': return 'SELECT'
+    case 'text':
+    default: return 'TEXT'
+  }
+}
+
+// Field display configuration - centralized for all components
+export const FIELD_CONFIG: Record<string, FieldConfigItem> = {
+  // Client Status
+  isNewClient: { label: 'Khách hàng mới', section: 'client_status', format: 'boolean' },
+  hasIrsNotice: { label: 'Có thông báo từ IRS', section: 'client_status', format: 'boolean' },
+  hasIdentityTheft: { label: 'Có vấn đề Identity Theft', section: 'client_status', format: 'boolean' },
+
+  // Prior Year
+  hasExtensionFiled: { label: 'Đã nộp Extension', section: 'prior_year', format: 'boolean' },
+  estimatedTaxPaid: { label: 'Đã trả Estimated Tax', section: 'prior_year', format: 'boolean' },
+  estimatedTaxAmountTotal: { label: 'Tổng Estimated Tax đã trả', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ1: { label: 'Estimated Tax Q1', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ2: { label: 'Estimated Tax Q2', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ3: { label: 'Estimated Tax Q3', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ4: { label: 'Estimated Tax Q4', section: 'prior_year', format: 'currency' },
+  priorYearAGI: { label: 'AGI năm trước', section: 'prior_year', format: 'currency' },
+
+  // Life Changes
+  hasAddressChange: { label: 'Đổi địa chỉ', section: 'life_changes', format: 'boolean' },
+  hasMaritalChange: { label: 'Thay đổi tình trạng hôn nhân', section: 'life_changes', format: 'boolean' },
+  hasNewChild: { label: 'Có con mới', section: 'life_changes', format: 'boolean' },
+  hasBoughtSoldHome: { label: 'Mua/Bán nhà', section: 'life_changes', format: 'boolean' },
+  hasStartedBusiness: { label: 'Bắt đầu kinh doanh', section: 'life_changes', format: 'boolean' },
+
+  // Income - Employment
+  hasW2: { label: 'Có W2', section: 'income', format: 'boolean' },
+  w2Count: { label: 'Số lượng W2', section: 'income', format: 'number' },
+  hasW2G: { label: 'Có W2-G (Gambling)', section: 'income', format: 'boolean' },
+  hasTipsIncome: { label: 'Có thu nhập Tips', section: 'income', format: 'boolean' },
+  has1099NEC: { label: 'Có 1099-NEC', section: 'income', format: 'boolean' },
+  num1099Types: { label: 'Số loại 1099', section: 'income', format: 'number' },
+  hasJuryDutyPay: { label: 'Có tiền Jury Duty', section: 'income', format: 'boolean' },
+
+  // Income - Self Employment
+  hasSelfEmployment: { label: 'Tự kinh doanh', section: 'income', format: 'boolean' },
+
+  // Income - Banking & Investments
+  hasBankAccount: { label: 'Có tài khoản ngân hàng', section: 'income', format: 'boolean' },
+  hasInvestments: { label: 'Có đầu tư', section: 'income', format: 'boolean' },
+  hasCrypto: { label: 'Có Crypto', section: 'income', format: 'boolean' },
+
+  // Income - Retirement & Benefits
+  hasRetirement: { label: 'Có thu nhập hưu trí', section: 'income', format: 'boolean' },
+  hasSocialSecurity: { label: 'Có Social Security', section: 'income', format: 'boolean' },
+  hasUnemployment: { label: 'Có Unemployment', section: 'income', format: 'boolean' },
+  hasAlimony: { label: 'Có Alimony', section: 'income', format: 'boolean' },
+
+  // Income - Rental & K-1
+  hasRentalProperty: { label: 'Có bất động sản cho thuê', section: 'income', format: 'boolean' },
+  rentalPropertyCount: { label: 'Số bất động sản', section: 'income', format: 'number' },
+  rentalMonthsRented: { label: 'Số tháng cho thuê', section: 'income', format: 'number' },
+  rentalPersonalUseDays: { label: 'Số ngày sử dụng cá nhân', section: 'income', format: 'number' },
+  hasK1Income: { label: 'Có K-1 Income', section: 'income', format: 'boolean' },
+  k1Count: { label: 'Số K-1', section: 'income', format: 'number' },
+
+  // Home Sale
+  homeSaleGrossProceeds: { label: 'Tiền bán nhà (Gross)', section: 'income', format: 'currency' },
+  homeSaleGain: { label: 'Lợi nhuận bán nhà', section: 'income', format: 'currency' },
+  monthsLivedInHome: { label: 'Số tháng sống trong nhà', section: 'income', format: 'number' },
+  homeOfficeSqFt: { label: 'Diện tích Home Office (sqft)', section: 'income', format: 'number' },
+  homeOfficeMethod: {
+    label: 'Phương pháp Home Office',
+    section: 'income',
+    format: 'select',
+    options: [
+      { value: 'SIMPLIFIED', label: 'Simplified' },
+      { value: 'REGULAR', label: 'Regular' },
+    ]
+  },
+
+  // Dependents
+  hasKidsUnder17: { label: 'Con dưới 17 tuổi', section: 'dependents', format: 'boolean' },
+  numKidsUnder17: { label: 'Số con dưới 17 tuổi', section: 'dependents', format: 'number' },
+  numDependentsCTC: { label: 'Số người phụ thuộc CTC', section: 'dependents', format: 'number' },
+  paysDaycare: { label: 'Trả tiền Daycare', section: 'dependents', format: 'boolean' },
+  daycareAmount: { label: 'Số tiền Daycare', section: 'dependents', format: 'currency' },
+  childcareProviderName: { label: 'Tên nhà cung cấp Childcare', section: 'dependents', format: 'text' },
+  childcareProviderEIN: { label: 'EIN nhà cung cấp Childcare', section: 'dependents', format: 'text' },
+  hasKids17to24: { label: 'Con 17-24 tuổi', section: 'dependents', format: 'boolean' },
+  hasOtherDependents: { label: 'Người phụ thuộc khác', section: 'dependents', format: 'boolean' },
+
+  // Health Insurance
+  hasMarketplaceCoverage: { label: 'Có Marketplace Coverage', section: 'health', format: 'boolean' },
+  hasHSA: { label: 'Có HSA', section: 'health', format: 'boolean' },
+
+  // Deductions
+  hasMortgage: { label: 'Có Mortgage', section: 'deductions', format: 'boolean' },
+  helocInterestPurpose: {
+    label: 'Mục đích HELOC',
+    section: 'deductions',
+    format: 'select',
+    options: [
+      { value: 'HOME_IMPROVEMENT', label: 'Home Improvement' },
+      { value: 'OTHER', label: 'Other' },
+    ]
+  },
+  hasPropertyTax: { label: 'Có Property Tax', section: 'deductions', format: 'boolean' },
+  hasCharitableDonations: { label: 'Có từ thiện', section: 'deductions', format: 'boolean' },
+  noncashDonationValue: { label: 'Giá trị đóng góp phi tiền mặt', section: 'deductions', format: 'currency' },
+  hasMedicalExpenses: { label: 'Có chi phí y tế', section: 'deductions', format: 'boolean' },
+  medicalMileage: { label: 'Medical Mileage', section: 'deductions', format: 'number' },
+  hasStudentLoanInterest: { label: 'Có Student Loan Interest', section: 'deductions', format: 'boolean' },
+  hasEducatorExpenses: { label: 'Có Educator Expenses', section: 'deductions', format: 'boolean' },
+  hasCasualtyLoss: { label: 'Có Casualty Loss', section: 'deductions', format: 'boolean' },
+
+  // Credits
+  hasEnergyCredits: { label: 'Có Energy Credits', section: 'credits', format: 'boolean' },
+  energyCreditInvoice: { label: 'Có hóa đơn Energy Credit', section: 'credits', format: 'boolean' },
+  hasEVCredit: { label: 'Có EV Credit', section: 'credits', format: 'boolean' },
+  hasAdoptionExpenses: { label: 'Có Adoption Expenses', section: 'credits', format: 'boolean' },
+  hasRDCredit: { label: 'Có R&D Credit', section: 'credits', format: 'boolean' },
+
+  // Foreign
+  hasForeignAccounts: { label: 'Có tài khoản nước ngoài', section: 'foreign', format: 'boolean' },
+  fbarMaxBalance: { label: 'FBAR Max Balance', section: 'foreign', format: 'currency' },
+  hasForeignIncome: { label: 'Có thu nhập nước ngoài', section: 'foreign', format: 'boolean' },
+  hasForeignTaxPaid: { label: 'Đã trả thuế nước ngoài', section: 'foreign', format: 'boolean' },
+  feieResidencyStartDate: { label: 'FEIE Residency Start', section: 'foreign', format: 'text' },
+  feieResidencyEndDate: { label: 'FEIE Residency End', section: 'foreign', format: 'text' },
+  foreignGiftValue: { label: 'Giá trị quà từ nước ngoài', section: 'foreign', format: 'currency' },
+
+  // Business
+  businessName: { label: 'Tên doanh nghiệp', section: 'business', format: 'text' },
+  ein: { label: 'EIN', section: 'business', format: 'text' },
+  hasEmployees: { label: 'Có nhân viên', section: 'business', format: 'boolean' },
+  hasContractors: { label: 'Có contractors', section: 'business', format: 'boolean' },
+  has1099K: { label: 'Có 1099-K', section: 'business', format: 'boolean' },
+  hasHomeOffice: { label: 'Có Home Office', section: 'business', format: 'boolean' },
+  hasBusinessVehicle: { label: 'Có xe kinh doanh', section: 'business', format: 'boolean' },
+
+  // Entity Info (1120S/1065)
+  entityName: { label: 'Tên pháp nhân', section: 'entity_info', format: 'text' },
+  entityEIN: { label: 'EIN pháp nhân', section: 'entity_info', format: 'text' },
+  stateOfFormation: { label: 'Tiểu bang thành lập', section: 'entity_info', format: 'text' },
+  accountingMethod: {
+    label: 'Phương pháp kế toán',
+    section: 'entity_info',
+    format: 'select',
+    options: [
+      { value: 'CASH', label: 'Cash' },
+      { value: 'ACCRUAL', label: 'Accrual' },
+      { value: 'OTHER', label: 'Other' },
+    ]
+  },
+  returnType: {
+    label: 'Loại tờ khai',
+    section: 'entity_info',
+    format: 'select',
+    options: [
+      { value: 'ORIGINAL', label: 'Original' },
+      { value: 'AMENDED', label: 'Amended' },
+      { value: 'FINAL', label: 'Final' },
+    ]
+  },
+
+  // Ownership
+  hasOwnershipChanges: { label: 'Có thay đổi sở hữu', section: 'ownership', format: 'boolean' },
+  hasNonresidentOwners: { label: 'Có chủ sở hữu non-resident', section: 'ownership', format: 'boolean' },
+  hasDistributions: { label: 'Có distributions', section: 'ownership', format: 'boolean' },
+  hasOwnerLoans: { label: 'Có owner loans', section: 'ownership', format: 'boolean' },
+
+  // Expenses
+  hasGrossReceipts: { label: 'Có Gross Receipts', section: 'expenses', format: 'boolean' },
+  businessHas1099K: { label: 'Business có 1099-K', section: 'expenses', format: 'boolean' },
+  businessHas1099NEC: { label: 'Business có 1099-NEC', section: 'expenses', format: 'boolean' },
+  hasInterestIncome: { label: 'Có Interest Income', section: 'expenses', format: 'boolean' },
+  businessHasRentalIncome: { label: 'Business có Rental Income', section: 'expenses', format: 'boolean' },
+  hasInventory: { label: 'Có Inventory', section: 'expenses', format: 'boolean' },
+  businessHasEmployees: { label: 'Business có nhân viên', section: 'expenses', format: 'boolean' },
+  businessHasContractors: { label: 'Business có contractors', section: 'expenses', format: 'boolean' },
+  hasOfficerCompensation: { label: 'Có Officer Compensation', section: 'expenses', format: 'boolean' },
+  officerCompensationAmount: { label: 'Số tiền Officer Compensation', section: 'expenses', format: 'currency' },
+  hasGuaranteedPayments: { label: 'Có Guaranteed Payments', section: 'expenses', format: 'boolean' },
+  guaranteedPaymentsAmount: { label: 'Số tiền Guaranteed Payments', section: 'expenses', format: 'currency' },
+  hasRetirementPlan: { label: 'Có Retirement Plan', section: 'expenses', format: 'boolean' },
+  hasHealthInsuranceOwners: { label: 'Có Health Insurance cho owners', section: 'expenses', format: 'boolean' },
+
+  // Assets
+  hasAssetPurchases: { label: 'Có mua tài sản', section: 'assets', format: 'boolean' },
+  hasAssetDisposals: { label: 'Có bán tài sản', section: 'assets', format: 'boolean' },
+  hasDepreciation: { label: 'Có khấu hao', section: 'assets', format: 'boolean' },
+  hasVehicles: { label: 'Có vehicles', section: 'assets', format: 'boolean' },
+
+  // State
+  statesWithNexus: { label: 'Tiểu bang có nexus', section: 'state', format: 'text' },
+  hasMultistateIncome: { label: 'Có thu nhập đa tiểu bang', section: 'state', format: 'boolean' },
+  businessHasForeignActivity: { label: 'Business có hoạt động nước ngoài', section: 'state', format: 'boolean' },
+  hasForeignOwners: { label: 'Có chủ sở hữu nước ngoài', section: 'state', format: 'boolean' },
+  shareholderBasisTracking: { label: 'Có theo dõi Shareholder Basis', section: 'state', format: 'boolean' },
+  partnerCapitalMethod: {
+    label: 'Phương pháp Partner Capital',
+    section: 'state',
+    format: 'select',
+    options: [
+      { value: 'TAX', label: 'Tax' },
+      { value: 'GAAP', label: 'GAAP' },
+      { value: '704B', label: '704(b)' },
+    ]
+  },
+
+  // Filing
+  deliveryPreference: {
+    label: 'Preference giao nhận',
+    section: 'filing',
+    format: 'select',
+    options: [
+      { value: 'EMAIL', label: 'Email' },
+      { value: 'MAIL', label: 'Mail' },
+      { value: 'PICKUP', label: 'Pick up' },
+    ]
+  },
+  followUpNotes: { label: 'Ghi chú follow-up', section: 'filing', format: 'text' },
+  refundBankAccount: { label: 'Tài khoản nhận refund', section: 'filing', format: 'text' },
+  refundRoutingNumber: { label: 'Routing Number', section: 'filing', format: 'text' },
+
+  // Tax Info (display only, from client/taxCase)
+  taxYear: { label: 'Năm thuế', section: 'tax_info', format: 'number' },
+  filingStatus: { label: 'Tình trạng khai thuế', section: 'tax_info', format: 'select' },
+  refundMethod: { label: 'Phương thức nhận refund', section: 'tax_info', format: 'select' },
+}
+
+// Select option labels for display formatting
+export const SELECT_LABELS: Record<string, Record<string, string>> = {
+  homeOfficeMethod: {
+    SIMPLIFIED: 'Simplified',
+    REGULAR: 'Regular',
+  },
+  helocInterestPurpose: {
+    HOME_IMPROVEMENT: 'Home Improvement',
+    OTHER: 'Other',
+  },
+  accountingMethod: {
+    CASH: 'Cash',
+    ACCRUAL: 'Accrual',
+    OTHER: 'Other',
+  },
+  returnType: {
+    ORIGINAL: 'Original',
+    AMENDED: 'Amended',
+    FINAL: 'Final',
+  },
+  deliveryPreference: {
+    EMAIL: 'Email',
+    MAIL: 'Mail',
+    PICKUP: 'Pick up',
+  },
+  refundMethod: {
+    DIRECT_DEPOSIT: 'Direct Deposit',
+    CHECK: 'Check',
+    APPLY_NEXT_YEAR: 'Apply to Next Year',
+  },
+  partnerCapitalMethod: {
+    TAX: 'Tax',
+    GAAP: 'GAAP',
+    '704B': '704(b)',
+  },
+}

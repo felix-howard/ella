@@ -48,6 +48,11 @@ export const UI_TEXT = {
     fileTooLarge: 'File quá lớn (tối đa 10MB)',
     invalidFileType: 'Chỉ chấp nhận ảnh (JPEG, PNG) và PDF',
     maxFilesReached: 'Chỉ có thể thêm {count} file nữa',
+    // Phase 2: Simple uploader strings
+    docsNeeded: 'Tài liệu cần gửi',
+    tapToUpload: 'Nhấn để gửi tài liệu',
+    uploadedSuccess: 'Đã gửi thành công!',
+    noDocsNeeded: 'Đã đủ tài liệu',
   },
   EN: {
     welcome: 'Hello',
@@ -91,6 +96,11 @@ export const UI_TEXT = {
     fileTooLarge: 'File too large (max 10MB)',
     invalidFileType: 'Only images (JPEG, PNG) and PDF accepted',
     maxFilesReached: 'Can only add {count} more files',
+    // Phase 2: Simple uploader strings
+    docsNeeded: 'Documents Needed',
+    tapToUpload: 'Tap to upload documents',
+    uploadedSuccess: 'Upload successful!',
+    noDocsNeeded: 'All documents received',
   },
 }
 

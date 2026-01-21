@@ -60,7 +60,26 @@ export const listDocsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+// Add checklist item schema (staff override)
+export const addChecklistItemSchema = z.object({
+  docType: z.string().min(1, 'Document type is required').max(100),
+  reason: z.string().max(500, 'Reason too long (max 500 chars)').optional(),
+  expectedCount: z.number().int().min(1).max(99).default(1),
+})
+
+// Skip checklist item schema
+export const skipChecklistItemSchema = z.object({
+  reason: z.string().min(1, 'Reason is required').max(500, 'Reason too long (max 500 chars)'),
+})
+
+// Update checklist item notes schema
+export const updateChecklistItemNotesSchema = z.object({
+  notes: z.string().max(1000, 'Notes too long (max 1000 chars)'),
+})
+
 // Type exports
 export type CreateCaseInput = z.infer<typeof createCaseSchema>
 export type UpdateCaseInput = z.infer<typeof updateCaseSchema>
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>
+export type AddChecklistItemInput = z.infer<typeof addChecklistItemSchema>
+export type SkipChecklistItemInput = z.infer<typeof skipChecklistItemSchema>

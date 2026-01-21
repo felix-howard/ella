@@ -360,9 +360,9 @@ export function VerificationModal({
         aria-hidden="true"
       />
 
-      {/* Modal */}
+      {/* Modal - Near fullscreen */}
       <div
-        className="fixed inset-4 md:inset-8 lg:inset-12 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        className="fixed inset-2 md:inset-4 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="verification-modal-title"
@@ -391,7 +391,7 @@ export function VerificationModal({
               size="sm"
               onClick={() => extractMutation.mutate()}
               disabled={extractMutation.isPending}
-              className="gap-1.5"
+              className="gap-1.5 px-4"
             >
               {extractMutation.isPending ? (
                 <>
@@ -415,10 +415,10 @@ export function VerificationModal({
           </div>
         </div>
 
-        {/* Content - Split view */}
+        {/* Content - Split view (60/40 for better document viewing) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Left: Image Viewer */}
-          <div className="h-1/2 md:h-full md:w-1/2 border-b md:border-b-0 md:border-r border-border bg-muted/20 p-4">
+          {/* Left: Image Viewer - Larger space for document */}
+          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/30 p-2">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -442,7 +442,7 @@ export function VerificationModal({
           </div>
 
           {/* Right: Verification Panel */}
-          <div className="h-1/2 md:h-full md:w-1/2 flex flex-col overflow-hidden">
+          <div className="h-1/2 md:h-full md:w-[40%] flex flex-col overflow-hidden bg-card">
             {/* Status info */}
             <div className="px-4 py-3 border-b border-border bg-muted/10">
               <p className="text-sm text-secondary">
@@ -453,13 +453,13 @@ export function VerificationModal({
               </p>
             </div>
 
-            {/* Fields list - Scrollable (compact spacing for 8-10 fields visible) */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            {/* Fields list - Clean form layout */}
+            <div className="flex-1 overflow-y-auto">
               {fields.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
-                  <p className="font-medium">Không có dữ liệu được trích xuất</p>
-                  <p className="text-xs mt-2">
+                <div className="text-center py-12 px-4 text-muted-foreground">
+                  <AlertTriangle className="w-10 h-10 mx-auto mb-3" />
+                  <p className="font-medium text-base">Không có dữ liệu được trích xuất</p>
+                  <p className="text-sm mt-2 text-muted-foreground">
                     {aiConfidence === 0
                       ? 'AI đang gặp sự cố. Vui lòng thử lại sau hoặc nhập liệu thủ công.'
                       : 'Tài liệu chưa được xử lý OCR hoặc không hỗ trợ loại này.'}
@@ -469,7 +469,7 @@ export function VerificationModal({
                     size="sm"
                     onClick={() => extractMutation.mutate()}
                     disabled={extractMutation.isPending}
-                    className="mt-4 gap-1.5"
+                    className="mt-6 gap-2 px-6"
                   >
                     {extractMutation.isPending ? (
                       <>
@@ -485,42 +485,43 @@ export function VerificationModal({
                   </Button>
                 </div>
               ) : (
-                fields.map(([key, value], index) => (
-                  <div
-                    key={key}
-                    className={cn(
-                      index === currentFieldIndex && 'bg-primary/5 -mx-1 px-1 rounded'
-                    )}
-                  >
-                    <FieldVerificationItem
-                      fieldKey={key}
-                      label={getFieldLabelForDocType(key, doc.docType)}
-                      value={String(value ?? '')}
-                      status={fieldVerifications[key] || null}
-                      onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
-                      disabled={verifyFieldMutation.isPending}
-                    />
-                  </div>
-                ))
+                <div className="divide-y divide-border/30">
+                  {fields.map(([key, value], index) => (
+                    <div
+                      key={key}
+                      className={cn(
+                        index === currentFieldIndex && 'bg-primary/5'
+                      )}
+                    >
+                      <FieldVerificationItem
+                        fieldKey={key}
+                        label={getFieldLabelForDocType(key, doc.docType)}
+                        value={String(value ?? '')}
+                        status={fieldVerifications[key] || null}
+                        onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
+                        disabled={verifyFieldMutation.isPending}
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            {/* Footer - compact */}
-            <div className="px-3 py-2 border-t border-border bg-muted/10">
-              {/* Complete button */}
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-border bg-muted/10">
               <Button
-                size="sm"
+                size="default"
                 onClick={handleComplete}
                 disabled={completeMutation.isPending}
-                className="w-full"
+                className="w-full h-10 text-sm font-medium"
               >
                 {completeMutation.isPending ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Đang lưu...
                   </>
                 ) : (
-                  'Hoàn tất'
+                  'Xác minh'
                 )}
               </Button>
             </div>

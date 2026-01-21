@@ -33,10 +33,10 @@ export interface FieldVerificationItemProps {
   className?: string
 }
 
-// Status border/bg styles
+// Status border/bg styles (dark-mode friendly)
 const STATUS_STYLES: Record<string, string> = {
   verified: 'border-primary/50 bg-primary/5',
-  edited: 'border-blue-300 bg-blue-50',
+  edited: 'border-amber-500/50 bg-amber-500/10',
   unreadable: 'border-error/50 bg-error/5',
 }
 
@@ -118,71 +118,71 @@ export function FieldVerificationItem({
     onVerify('unreadable')
   }, [disabled, onVerify])
 
-  // Compact mode: inline layout with click-to-edit
+  // Compact mode: clean form-like layout
   if (compact) {
     return (
       <div
         className={cn(
-          'group flex items-center gap-2 py-1.5 px-2 border rounded transition-all duration-300',
-          status ? STATUS_STYLES[status] : 'border-border bg-card hover:bg-muted/30',
-          justSaved && 'border-primary/50 bg-primary/10',
+          'group flex items-start gap-3 py-2.5 px-3 border-b border-border/50 transition-all duration-200',
+          status && STATUS_STYLES[status],
+          justSaved && 'bg-primary/5',
           disabled && 'opacity-60',
-          !isEditing && !disabled && 'cursor-pointer',
+          !isEditing && !disabled && 'cursor-pointer hover:bg-muted/30',
           className
         )}
         data-field-key={fieldKey}
         onClick={!isEditing && !disabled ? handleStartEdit : undefined}
       >
-        {/* Status indicator with icon for colorblind accessibility */}
+        {/* Status indicator */}
         {status && (
           <div
-            className="flex-shrink-0"
+            className="flex-shrink-0 mt-0.5"
             title={status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}
           >
-            {status === 'verified' && <Check className="w-3.5 h-3.5 text-primary" />}
-            {status === 'edited' && <Pencil className="w-3.5 h-3.5 text-blue-500" />}
-            {status === 'unreadable' && <AlertTriangle className="w-3.5 h-3.5 text-error" />}
+            {status === 'verified' && <Check className="w-4 h-4 text-primary" />}
+            {status === 'edited' && <Pencil className="w-4 h-4 text-amber-500" />}
+            {status === 'unreadable' && <AlertTriangle className="w-4 h-4 text-error" />}
           </div>
         )}
 
         {/* Save feedback indicator */}
         {justSaved && !status && (
-          <Check className="w-3.5 h-3.5 text-primary animate-pulse flex-shrink-0" />
+          <Check className="w-4 h-4 text-primary animate-pulse flex-shrink-0 mt-0.5" />
         )}
 
         {/* Label */}
-        <span className="text-xs text-muted-foreground flex-shrink-0 min-w-[80px]">{label}:</span>
+        <span className="text-sm text-muted-foreground flex-shrink-0 w-[140px]">{label}:</span>
 
         {/* Value / Edit input */}
         {isEditing ? (
-          <div className="flex-1 flex gap-1 items-center" onClick={(e) => e.stopPropagation()}>
+          <div className="flex-1 flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
             <Input
               ref={inputRef}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              className="flex-1 h-7 text-sm py-0 px-2 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0"
+              className="flex-1 h-8 text-sm py-1 px-3 focus:ring-1 focus:ring-primary"
               inputSize="sm"
             />
             <button
               onClick={handleCancelEdit}
-              className="p-1 rounded hover:bg-muted"
+              className="p-1.5 rounded-md hover:bg-muted"
               aria-label="Hủy"
             >
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
+              <X className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         ) : (
-          <span className="flex-1 text-sm font-medium text-foreground truncate">
+          <span className="flex-1 text-sm font-medium text-foreground">
             {value || <span className="text-muted-foreground italic">Trống</span>}
           </span>
         )}
 
         {/* Edit icon - visible on hover when not editing */}
         {!isEditing && !disabled && (
-          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Pencil className="w-4 h-4 text-muted-foreground" />
           </div>
         )}
       </div>
@@ -243,7 +243,7 @@ export function FieldVerificationItem({
       {status && (
         <div className="flex items-center gap-1.5 mt-2">
           {status === 'verified' && <Check className="w-3.5 h-3.5 text-primary" />}
-          {status === 'edited' && <Pencil className="w-3.5 h-3.5 text-blue-500" />}
+          {status === 'edited' && <Pencil className="w-3.5 h-3.5 text-amber-500" />}
           {status === 'unreadable' && <AlertTriangle className="w-3.5 h-3.5 text-error" />}
           <span className="text-xs text-muted-foreground">
             {status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}

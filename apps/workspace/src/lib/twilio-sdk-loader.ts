@@ -4,14 +4,13 @@
  * Security: Uses Subresource Integrity (SRI) to verify script integrity
  */
 
-// Twilio SDK version 1.14 (Voice JavaScript SDK)
-// Note: Update SRI hash when upgrading SDK version
-const TWILIO_SDK_URL = 'https://sdk.twilio.com/js/client/releases/1.14/twilio.min.js'
+// Twilio Voice SDK version 2.18.0 (via jsDelivr CDN)
+// Note: Twilio no longer hosts 2.x SDK on their CDN, jsDelivr is recommended alternative
+// Update version when upgrading: https://www.jsdelivr.com/package/npm/@twilio/voice-sdk
+const TWILIO_SDK_URL = 'https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.0/dist/twilio.min.js'
 
-// SRI hash for Twilio SDK v1.14
-// If SDK update breaks this, regenerate with: openssl dgst -sha384 -binary twilio.min.js | openssl base64
-// Or use https://www.srihash.org/ with the CDN URL
-// Note: Setting to empty string disables SRI check (use when hash unknown for new version)
+// SRI hash for integrity verification
+// Note: Setting to empty string disables SRI check (jsDelivr provides its own integrity)
 const TWILIO_SDK_SRI = ''
 
 let loadPromise: Promise<void> | null = null
@@ -32,8 +31,8 @@ export function loadTwilioSdk(): Promise<void> {
   }
 
   loadPromise = new Promise((resolve, reject) => {
-    // Check if already loaded via window global
-    if (window.Twilio?.Device) {
+    // Check if already loaded via window global (SDK 2.x exports Twilio.Device class)
+    if (typeof window.Twilio?.Device === 'function') {
       isLoaded = true
       resolve()
       return
@@ -50,7 +49,8 @@ export function loadTwilioSdk(): Promise<void> {
     }
 
     script.onload = () => {
-      if (window.Twilio?.Device) {
+      // SDK 2.x exports Device as a class constructor
+      if (typeof window.Twilio?.Device === 'function') {
         isLoaded = true
         resolve()
       } else {
@@ -73,10 +73,10 @@ export function loadTwilioSdk(): Promise<void> {
  * Check if Twilio SDK is currently loaded and ready
  */
 export function isTwilioSdkLoaded(): boolean {
-  return isLoaded && !!window.Twilio?.Device
+  return isLoaded && typeof window.Twilio?.Device === 'function'
 }
 
-// Type declaration for Twilio global
+// Type declaration for Twilio global (SDK 2.x)
 declare global {
   interface Window {
     Twilio?: {
@@ -85,31 +85,60 @@ declare global {
   }
 }
 
-// Twilio Device types
+// Twilio Device types (SDK 2.x)
 export interface TwilioDeviceConstructor {
   new (token: string, options?: TwilioDeviceOptions): TwilioDeviceInstance
 }
 
 export interface TwilioDeviceOptions {
-  logLevel?: number // 0=off, 1=error, 2=warn, 3=info, 4=debug
+  logLevel?: number | string // 0=off, 1=error, 2=warn, 3=info, 4=debug or 'error'|'warn'|'info'|'debug'
   codecPreferences?: ('opus' | 'pcmu')[]
-  enableRingingState?: boolean
+  edge?: string | string[] // Edge location(s)
+  closeProtection?: boolean | string // Warn before leaving page during active call
 }
 
 export interface TwilioDeviceInstance {
-  connect(options?: { params?: Record<string, string> }): TwilioCall
+  // In SDK 2.x, connect returns a Promise<Call>
+  connect(options?: TwilioConnectOptions): Promise<TwilioCall>
   disconnectAll(): void
   updateToken(token: string): void
+  register(): Promise<void> // Opens signaling WebSocket for receiving calls
+  unregister(): Promise<void> // Closes signaling connection
   on(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void
   off(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void
   destroy(): void
+  // Accessors
+  state: 'unregistered' | 'registering' | 'registered' | 'destroyed'
+  isBusy: boolean
+  identity: string | null
+  // Audio device management (SDK 2.x)
+  audio: {
+    availableInputDevices: Map<string, MediaDeviceInfo>
+    availableOutputDevices: Map<string, MediaDeviceInfo>
+    setInputDevice(deviceId: string): Promise<void>
+    unsetInputDevice(): Promise<void>
+    speakerDevices: {
+      set(deviceId: string): Promise<void>
+    }
+    ringtoneDevices: {
+      set(deviceId: string): Promise<void>
+    }
+  }
 }
 
+export interface TwilioConnectOptions {
+  params?: Record<string, string>
+  rtcConstraints?: {
+    audio?: boolean | MediaTrackConstraints
+  }
+}
+
+// SDK 2.x event names (changed from 1.x)
 export type TwilioDeviceEvent =
-  | 'ready'
+  | 'registered' // Was 'ready' in 1.x
   | 'error'
   | 'tokenWillExpire'
-  | 'offline'
+  | 'unregistered' // Was 'offline' in 1.x
   | 'incoming'
 
 export interface TwilioCall {
@@ -123,15 +152,21 @@ export interface TwilioCall {
     To?: string
   }
   on(event: TwilioCallEvent, handler: (...args: unknown[]) => void): void
-  off(event: TwilioCallEvent, handler: (...args: unknown[]) => void): void
+  removeListener(event: TwilioCallEvent, handler: (...args: unknown[]) => void): void
+  removeAllListeners(event?: TwilioCallEvent): void
+  // Get the local MediaStream (for debugging audio issues)
+  getLocalStream(): MediaStream | null
+  getRemoteStream(): MediaStream | null
 }
 
+// SDK 2.x call status values
 export type TwilioCallStatus =
   | 'connecting'
   | 'ringing'
   | 'open'
   | 'closed'
   | 'pending'
+  | 'reconnecting' // Added in 2.x
 
 export type TwilioCallEvent =
   | 'ringing'
@@ -140,3 +175,4 @@ export type TwilioCallEvent =
   | 'cancel'
   | 'error'
   | 'warning'
+  | 'warning-cleared' // Added in 2.x

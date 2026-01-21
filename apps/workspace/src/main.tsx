@@ -25,11 +25,11 @@ declare module '@tanstack/react-router' {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <ClerkAuthProvider>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <ClerkAuthProvider>
           <RouterProvider router={router} />
-        </QueryClientProvider>
-      </ClerkAuthProvider>
+        </ClerkAuthProvider>
+      </QueryClientProvider>
     </ClerkProvider>
   </StrictMode>
 )

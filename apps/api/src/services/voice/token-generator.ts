@@ -2,10 +2,10 @@
  * Twilio Voice Access Token Generator
  * Generates JWT tokens for browser-based voice calls using Twilio Client SDK
  */
-import { jwt } from 'twilio'
+import twilio from 'twilio'
 import { config } from '../../lib/config'
 
-const { AccessToken } = jwt
+const AccessToken = twilio.jwt.AccessToken
 const VoiceGrant = AccessToken.VoiceGrant
 
 export interface VoiceTokenOptions {

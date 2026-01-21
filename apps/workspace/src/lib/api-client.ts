@@ -391,6 +391,13 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    // Update call message with Twilio CallSid (after device.connect() succeeds)
+    updateCallSid: (messageId: string, callSid: string) =>
+      request<UpdateCallSidResponse>(`/voice/calls/${messageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ callSid }),
+      }),
+
     // Get recording audio URL (returns full URL for <audio> src)
     getRecordingAudioUrl: (recordingSid: string) =>
       `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
@@ -1048,6 +1055,14 @@ export interface VoiceStatusResponse {
 }
 
 export interface CreateCallResponse {
-  message: Message
+  messageId: string
   conversationId: string
+  toPhone: string
+  clientName: string
+}
+
+export interface UpdateCallSidResponse {
+  success: boolean
+  messageId: string
+  callSid: string
 }

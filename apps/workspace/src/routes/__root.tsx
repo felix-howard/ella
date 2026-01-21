@@ -42,8 +42,18 @@ function RootLayout() {
     )
   }
 
+  // Not signed in and not on login page - show loading while redirecting
+  // This prevents protected routes from rendering and making API calls
+  if (!isSignedIn && !isLoginPage) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    )
+  }
+
   // Show login page without sidebar/header
-  if (!isSignedIn || isLoginPage) {
+  if (isLoginPage) {
     return (
       <ErrorBoundary>
         <Outlet />

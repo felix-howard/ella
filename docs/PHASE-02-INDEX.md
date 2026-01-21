@@ -9,6 +9,25 @@
 
 ## Primary Documentation
 
+### 0. **Phase 02 Duplicate Detection - Frontend UI** (NEW)
+📄 [`phase-02-duplicate-detection-ui.md`](./phase-02-duplicate-detection-ui.md)
+- **Size:** 350+ lines
+- **Purpose:** Frontend component documentation for duplicate management
+- **Contains:**
+  - DuplicateDocsCard component (main container)
+  - DuplicateDocItem (memoized, reusable)
+  - DuplicateThumbnail (lazy PDF loading)
+  - API integration (delete + classify-anyway methods)
+  - Hook integration (DUPLICATE status handling)
+  - Route integration (Documents tab)
+  - Styling & UX patterns
+  - User workflows (3 scenarios)
+  - Testing checklist
+
+**When to Use:** Understanding duplicate detection UI implementation and user interactions
+
+---
+
 ### 1. **Phase 02 Classification Job Guide**
 📄 [`phase-02-classification-job.md`](./phase-02-classification-job.md)
 - **Size:** 676 lines
@@ -237,10 +256,10 @@ From `phase-02-quick-reference.md`:
 
 ## Documentation Statistics
 
-- **New files:** 3 (phase-02-classification-job.md, phase-02-quick-reference.md, phase-02-api-endpoints.md)
-- **Updated files:** 2 (system-architecture.md, PHASE-02-INDEX.md)
-- **Total new content:** ~1,550 lines
-- **Code references verified:** 12/12 (all 4 new endpoints + existing jobs)
+- **New files:** 4 (phase-02-classification-job.md, phase-02-quick-reference.md, phase-02-api-endpoints.md, phase-02-duplicate-detection-ui.md)
+- **Updated files:** 3 (system-architecture.md, PHASE-02-INDEX.md, codebase-summary.md)
+- **Total new content:** ~1,900 lines
+- **Code references verified:** 17/17 (all 6 new methods + 5 files + existing jobs)
 - **Quality checks passed:** ✓ All
 
 ---
@@ -264,7 +283,11 @@ From `phase-02-quick-reference.md`:
 
 ---
 
-**Status:** ✓ Complete & Production-Ready
-**Last Updated:** 2026-01-14
+**Status:** ✓ Complete & Production-Ready (Backend + Frontend UI)
+**Last Updated:** 2026-01-21
+**Phases Covered:**
+- Phase 02 Backend: Classification Job (2026-01-14)
+- Phase 02 Frontend UI: Duplicate Detection (2026-01-21)
+
 **Next Phase:** Phase 3.1 - Advanced OCR & Real-time Notifications
 

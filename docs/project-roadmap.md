@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-20 22:40 ICT
-> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete) + Section-Edit Modals (100% COMPLETE) + Phase 7.1 Twilio Voice Calls (In Progress)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement + 100% Section-Edit Modals + Voice Calling (Phase 01 Complete)
+> **Last Updated:** 2026-01-21 10:40 ICT
+> **Current Phase:** Phase 7 (Enhanced Gemini AI Features) + Enhancement Track (Verification Modal UI) + Intake Enhancement (60% complete) + Section-Edit Modals (100% COMPLETE) + Phase 7.1 Twilio Voice Calls (In Progress) + Document Tab UX Redesign (In Progress)
+> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 29% AI Enhancement Phase (Phase 1-4 OCR/Classification done) + 50% Verification Modal Enhancement + 60% Intake Enhancement + 100% Section-Edit Modals + Voice Calling (Phase 01 Complete) + Document Tab UX Redesign (Phase 01 Complete)
 
 ---
 
@@ -189,6 +189,30 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - Total seeded templates: 92 (up from ~65)
 - Test coverage: 42/42 passing (100%)
 - Code quality: 9.5/10
+- Branch: feature/more-enhancement
+
+---
+
+### Document Tab UX Redesign - In Progress (33% Complete) ⏳
+**Started:** 2026-01-21 10:40
+**Target Completion:** 2026-01-21
+**Deliverable:** Reorganize Documents tab into focused cards (unclassified grid + category checklist) + Data Entry tab for cleaner workflow
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Unclassified Docs Card | ✅ DONE | 2026-01-21 10:40 | 168-line component, 9/10 code review, all 6 success criteria met |
+| 2 | Category-Based Checklist | ⏳ PENDING | - | Refactor tiered-checklist.tsx with DOC_TYPE_CATEGORIES grouping |
+| 3 | Data Entry Tab | ⏳ PENDING | - | New responsive grid for verified docs, no horizontal scroll |
+| 4 | Integration | ⏳ PENDING | - | Wire components in $clientId.tsx |
+
+**Completion Summary (Phase 1):**
+- Component: `apps/workspace/src/components/documents/unclassified-docs-card.tsx`
+- Shows only UPLOADED/UNCLASSIFIED images in 4/3/2 responsive grid
+- Click action: opens ManualClassificationModal
+- Clean empty state (returns null)
+- File size: 168 lines (under 200 limit)
+- Code quality: 9/10, APPROVED
 - Branch: feature/more-enhancement
 
 ---
@@ -545,6 +569,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.1 | 2026-01-21 10:40 | PM | NEW ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 01 COMPLETE. Unclassified docs card (168 lines, 9/10 code review). UPLOADED/UNCLASSIFIED filtering, responsive 4/3/2 grid, ManualClassificationModal integration. Ready for Phase 02 (category-based checklist). |
 | 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |
 | 3.9 | 2026-01-20 21:24 | PM | ENHANCEMENT TRACK: Section-Edit Modals - 100% COMPLETE (Phase 05 Testing & Polish Done). 91 total tests (22 profile-update + 22 audit-logger), 100% pass rate. Security fixes: prototype pollution blocklist, XSS sanitization. Code review 9/10. All 5 phases complete, ready for merge. |
 | 3.8 | 2026-01-20 20:45 | PM | ENHANCEMENT TRACK: Section-Edit Modals - Phase 04 Complete (80% overall). Checklist recalculation integration: query invalidation, cascade cleanup, toast feedback, loading state. Profile updates trigger refreshChecklist & cascadeCleanupOnFalse. Phase 05 (testing & polish) pending. |

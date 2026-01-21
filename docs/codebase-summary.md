@@ -1,12 +1,13 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-20
+**Current Date:** 2026-01-21
 **Current Branch:** feature/more-enhancement
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 01 Unclassified Docs Card** | **Grid display of UPLOADED/UNCLASSIFIED documents, responsive 4/3/2 col layout, lazy PDF thumbnails, signed URL caching, empty state** | **2026-01-21** |
 | **Phase 03 Voice Recording Playback** | **Recording endpoints with proxy auth; AudioPlayer component (lazy-load, seek, time); message-bubble integration; RecordingSid validation; memory-efficient streaming** | **2026-01-20** |
 | **Phase 02 Voice Calls** | **Browser-based calling (Twilio Client SDK); phone icon button; active call modal with mute/end; duration timer; microphone permission check; token refresh; error sanitization; CALL channel in messages** | **2026-01-20** |
 | **Phase 01 Voice API** | **Token generation (VoiceGrant); TwiML call routing; call message tracking; recording + status webhooks; E.164 phone validation; Twilio signature validation** | **2026-01-20** |
@@ -814,6 +815,31 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 - **SkipItemModal** - Reason textarea modal for checklist item skip
 - **useDebouncedSave Hook** - Debounced save with saveNow immediate action, unmount cleanup
 
+## Recent Feature: Phase 01 Unclassified Docs Card (NEW - 2026-01-21)
+
+**Location:** `apps/workspace/src/components/documents/unclassified-docs-card.tsx`
+
+**Component:** `UnclassifiedDocsCard` (~170 LOC)
+- **Scope:** Grid display of documents awaiting manual classification (UPLOADED/UNCLASSIFIED status only)
+- **Props:** `rawImages: RawImage[]`, `onClassify: (image: RawImage) => void`
+- **Layout:** Responsive grid - 4 cols (lg), 3 cols (sm), 2 cols (default)
+- **UI Features:**
+  - Header with title + count badge (warning color)
+  - Empty state: "Không có tài liệu chờ phân loại"
+  - Hover overlay: "Phân loại" action label
+  - Filename display: 2-line max with tooltip
+- **Thumbnail Handling:**
+  - Uses `useSignedUrl` hook for lazy loading (55 min cache)
+  - Lazy-loaded `LazyPdfThumbnail` component for PDF first page
+  - Fallback icons: FileText (PDF), ImageIcon (image) on error
+- **Performance:**
+  - Memoized `UnclassifiedDocCard` to prevent re-renders during polling
+  - Signed URL caching reduces API calls
+  - Lazy PDF imports reduce initial bundle
+- **Integration:**
+  - Exported in `apps/workspace/src/components/documents/index.ts`
+  - Used in document workflow tabs alongside UploadsTab, ReviewQueueTab, VerifiedTab
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -833,9 +859,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-20
-**Status:** Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
+**Last Updated:** 2026-01-21
+**Status:** Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.3.0 (Phase 03 Voice Recording Playback - Recording endpoints with proxy auth, AudioPlayer component lazy-load/seek/time display, message-bubble CALL channel integration with status badges, RecordingSid validation, memory-efficient streaming)
+**Architecture Version:** 8.4.0 (Phase 01 Unclassified Docs Card - Grid display of UPLOADED/UNCLASSIFIED documents with responsive layout, lazy PDF thumbnails, signed URL caching, performance-optimized memoization)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

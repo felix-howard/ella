@@ -35,3 +35,6 @@ export type ApiResponse<T> = {
 export type UserId = string
 export type ClientId = string
 export type DocumentId = string
+
+// Action counts types for client list
+export type { ActionCounts, ClientWithActions } from './action-counts'

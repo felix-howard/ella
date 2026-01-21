@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, CheckCircle2, Clock } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
@@ -351,39 +352,60 @@ export function VerificationModal({
   const validatedUrl =
     signedUrlData?.url && isValidSignedUrl(signedUrlData.url) ? signedUrlData.url : null
 
-  return (
+  // Calculate verification progress
+  const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
+  const totalFields = fields.length
+  const progressPercent = totalFields > 0 ? Math.round((verifiedCount / totalFields) * 100) : 0
+
+  // Use portal to render at document.body level to avoid stacking context issues
+  return createPortal(
     <>
-      {/* Backdrop */}
+      {/* Backdrop - covers entire viewport */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal - Near fullscreen */}
       <div
-        className="fixed inset-2 md:inset-4 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        className="fixed inset-2 md:inset-4 z-[100] flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="verification-modal-title"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        {/* Header - Enhanced with gradient */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
           <div className="flex items-center gap-3">
-            <h2
-              id="verification-modal-title"
-              className="text-lg font-semibold text-foreground"
-            >
-              {docLabel}
-            </h2>
-            <Badge variant="outline" className="text-xs">
-              AI {confidencePercent}%
-            </Badge>
-            {doc.status === 'PARTIAL' && (
-              <Badge variant="warning" className="text-xs">
-                Thiếu dữ liệu
+            <div className="p-2 rounded-lg bg-primary/10">
+              <FileCheck className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2
+                id="verification-modal-title"
+                className="text-lg font-bold text-foreground"
+              >
+                {docLabel}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Xác minh thông tin trích xuất
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge variant="outline" className="text-xs font-medium">
+                AI {confidencePercent}%
               </Badge>
-            )}
+              {doc.status === 'VERIFIED' && (
+                <Badge variant="success" className="text-xs">
+                  Đã xác minh
+                </Badge>
+              )}
+              {doc.status === 'PARTIAL' && (
+                <Badge variant="warning" className="text-xs">
+                  Thiếu dữ liệu
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -407,7 +429,7 @@ export function VerificationModal({
             </Button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
               aria-label="Đóng"
             >
               <X className="w-5 h-5 text-muted-foreground" />
@@ -418,15 +440,17 @@ export function VerificationModal({
         {/* Content - Split view (60/40 for better document viewing) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left: Image Viewer - Larger space for document */}
-          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/30">
+          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/20">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
               </div>
             ) : urlError || !validatedUrl ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
-                <ImageOff className="w-12 h-12" />
-                <p className="text-sm">Không thể tải hình ảnh</p>
+                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
+                  <ImageOff className="w-8 h-8" />
+                </div>
+                <p className="text-sm font-medium">Không thể tải hình ảnh</p>
                 <Button variant="outline" size="sm" onClick={() => refetchUrl()} className="gap-2">
                   <RefreshCw className="w-4 h-4" />
                   Thử lại
@@ -443,21 +467,46 @@ export function VerificationModal({
 
           {/* Right: Verification Panel */}
           <div className="h-1/2 md:h-full md:w-[40%] flex flex-col overflow-hidden bg-card">
-            {/* Status info */}
+            {/* Progress & Status bar */}
             <div className="px-4 py-3 border-b border-border bg-muted/10">
-              <p className="text-sm text-secondary">
-                {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
-                {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
-                {doc.status === 'PENDING' && 'Đang xử lý'}
-                {doc.status === 'VERIFIED' && 'Đã xác minh'}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {doc.status === 'VERIFIED' ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium text-foreground">
+                    {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
+                    {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
+                    {doc.status === 'PENDING' && 'Đang xử lý'}
+                    {doc.status === 'VERIFIED' && 'Đã xác minh'}
+                  </span>
+                </div>
+                {totalFields > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {verifiedCount}/{totalFields} trường
+                  </span>
+                )}
+              </div>
+              {/* Progress bar */}
+              {totalFields > 0 && (
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300 rounded-full"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Fields list - Clean form layout */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Fields list - Enhanced layout */}
+            <div className="flex-1 overflow-y-auto p-3">
               {fields.length === 0 ? (
                 <div className="text-center py-12 px-4 text-muted-foreground">
-                  <AlertTriangle className="w-10 h-10 mx-auto mb-3" />
+                  <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
                   <p className="font-medium text-base">Không có dữ liệu được trích xuất</p>
                   <p className="text-sm mt-2 text-muted-foreground">
                     {aiConfidence === 0
@@ -485,49 +534,57 @@ export function VerificationModal({
                   </Button>
                 </div>
               ) : (
-                <div className="divide-y divide-border/30">
-                  {fields.map(([key, value], index) => (
-                    <div
-                      key={key}
-                      className={cn(
-                        index === currentFieldIndex && 'bg-primary/5'
-                      )}
-                    >
-                      <FieldVerificationItem
-                        fieldKey={key}
-                        label={getFieldLabelForDocType(key, doc.docType)}
-                        value={String(value ?? '')}
-                        status={fieldVerifications[key] || null}
-                        onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
-                        disabled={verifyFieldMutation.isPending}
-                      />
-                    </div>
-                  ))}
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="divide-y divide-border/50">
+                    {fields.map(([key, value], index) => (
+                      <div
+                        key={key}
+                        className={cn(
+                          'transition-colors',
+                          index === currentFieldIndex && 'bg-primary/5',
+                          fieldVerifications[key] && 'bg-green-500/5'
+                        )}
+                      >
+                        <FieldVerificationItem
+                          fieldKey={key}
+                          label={getFieldLabelForDocType(key, doc.docType)}
+                          value={String(value ?? '')}
+                          status={fieldVerifications[key] || null}
+                          onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
+                          disabled={verifyFieldMutation.isPending}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-4 py-3 border-t border-border bg-muted/10">
+            {/* Footer - Enhanced */}
+            <div className="px-4 py-3 border-t border-border bg-gradient-to-r from-muted/30 to-transparent">
               <Button
                 size="default"
                 onClick={handleComplete}
                 disabled={completeMutation.isPending}
-                className="w-full h-10 text-sm font-medium"
+                className="w-full h-11 text-sm font-semibold gap-2"
               >
                 {completeMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Đang lưu...
                   </>
                 ) : (
-                  'Xác minh'
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Hoàn tất xác minh
+                  </>
                 )}
               </Button>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

@@ -18,6 +18,7 @@ export interface QuickActionsBarProps {
   clientPhone?: string
   clientId?: string
   defaultChannel?: 'SMS' | 'PORTAL'
+  autoFocus?: boolean
 }
 
 export function QuickActionsBar({
@@ -28,6 +29,7 @@ export function QuickActionsBar({
   clientPhone,
   clientId,
   defaultChannel = 'SMS',
+  autoFocus,
 }: QuickActionsBarProps) {
   const [message, setMessage] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
@@ -42,6 +44,16 @@ export function QuickActionsBar({
       textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
     }
   }, [message])
+
+  // Auto-focus on mount
+  useEffect(() => {
+    if (autoFocus) {
+      // Small delay to ensure DOM is ready
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    }
+  }, [autoFocus])
 
   // Handle send - sanitize input before sending (always SMS)
   const handleSend = () => {
@@ -147,7 +159,7 @@ export function QuickActionsBar({
               className={cn(
                 'w-full px-3 py-2 rounded-lg border border-border bg-muted',
                 'resize-none overflow-hidden',
-                'focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary',
+                'focus:outline-none focus:border-border',
                 'text-sm text-foreground placeholder:text-muted-foreground',
                 'disabled:opacity-50 disabled:cursor-not-allowed'
               )}

@@ -4,7 +4,7 @@
  * Redesigned for Document Tab UX - Phase 02
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, lazy, Suspense } from 'react'
 import { cn, Button, Badge } from '@ella/ui'
 import {
   ChevronRight,
@@ -24,6 +24,9 @@ import { ChecklistProgress } from './checklist-progress'
 import { SkipItemModal } from './skip-item-modal'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import type { ChecklistItem, ChecklistItemStatus, DigitalDoc } from '../../lib/api-client'
+
+// Lazy load PDF thumbnail for code splitting
+const PdfThumbnail = lazy(() => import('../documents/pdf-thumbnail'))
 
 interface TieredChecklistProps {
   items: ChecklistItem[]
@@ -453,8 +456,10 @@ function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
   const { data: signedUrlData, isLoading: isUrlLoading } = useSignedUrl(rawImageId || null)
 
   const filename = doc.rawImage?.filename || 'Document'
+  const isPdf = filename.toLowerCase().endsWith('.pdf')
 
-  const showImage = signedUrlData?.url && !imgError
+  const showImage = signedUrlData?.url && !imgError && !isPdf
+  const showPdf = signedUrlData?.url && isPdf
 
   return (
     <div
@@ -466,10 +471,14 @@ function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
       onDoubleClick={onDoubleClick}
       title={`Nhấp đúp để xem: ${filename}`}
     >
-      {/* Image preview */}
-      <div className="w-24 h-24 rounded overflow-hidden bg-muted/30 flex items-center justify-center">
+      {/* Preview - handles both images and PDFs */}
+      <div className="w-24 h-24 rounded overflow-hidden bg-muted/30 flex items-center justify-center relative">
         {isUrlLoading ? (
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        ) : showPdf ? (
+          <Suspense fallback={<div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />}>
+            <PdfThumbnail url={signedUrlData.url} width={96} />
+          </Suspense>
         ) : showImage ? (
           <img
             src={signedUrlData.url}

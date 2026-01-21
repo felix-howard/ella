@@ -7,6 +7,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
 | **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
 | **Phase 01 Unclassified Docs Card** | **Grid display of UPLOADED/UNCLASSIFIED documents, responsive 4/3/2 col layout, lazy PDF thumbnails, signed URL caching, empty state** | **2026-01-21** |
 | **Phase 03 Voice Recording Playback** | **Recording endpoints with proxy auth; AudioPlayer component (lazy-load, seek, time); message-bubble integration; RecordingSid validation; memory-efficient streaming** | **2026-01-20** |
@@ -841,6 +842,49 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
   - Exported in `apps/workspace/src/components/documents/index.ts`
   - Used in document workflow tabs alongside UploadsTab, ReviewQueueTab, VerifiedTab
 
+## Recent Feature: Phase 03 Data Entry Tab (NEW - 2026-01-21)
+
+**Location:** `apps/workspace/src/components/documents/data-entry-tab.tsx`
+
+**Main Component:** `DataEntryTab` (~299 LOC)
+- **Scope:** Responsive grid layout for verified docs (VERIFIED status) ready for data entry to OltPro
+- **Props:** `docs: DigitalDoc[]`, `caseId: string`, `isLoading?: boolean`
+- **Layout:** Responsive grid - 4 cols (lg), 3 cols (md), 2 cols (sm)
+- **Grouping:** Category-based organization (income/deductions/personal/business/other via `DOC_TYPE_CATEGORIES`)
+- **Key Features:**
+  - **Category Headers:** Section label + doc count per category
+  - **DocCard Display:**
+    - Document type label + extracted year (if applicable)
+    - Key fields (2-3 most important per doc type)
+    - Field values with USD currency formatting for numbers
+    - Hover: Copy icon (individual field), Eye icon (view modal)
+  - **Copy Functionality:**
+    - Individual field copy via `useClipboard` hook
+    - "Copy All" button copies all fields in plain-text format
+    - Formatted output: `Field Label: value` per line
+  - **Detail Modal:** DataEntryModal for full document view + all extracted fields
+  - **Empty State:** "Không có tài liệu đã xác minh" when no verified docs
+- **Support Components:**
+  - **DataEntryTabSkeleton:** Loading state with shimmer animation
+  - **DocCard:** Individual card (title, key fields, actions)
+  - **ModalErrorFallback:** Error boundary fallback component
+- **Key Field Config:** `KEY_FIELDS` record maps doc types to priority fields (e.g., W2 → wages + federalWithholding)
+- **Data Utilities:**
+  - `groupDocsByCategory()` - Filter docs by category, preserve order
+  - `getKeyFieldValues()` - Extract 2-3 priority fields per doc type
+  - `formatValue()` - Currency formatting for numbers, type-safe fallback
+  - `formatForCopy()` - Generate plain-text output for clipboard (all fields)
+  - `escapeHtml()` - XSS prevention for title attributes
+  - `isValidExtractedData()` - Type guard for extracted data validation
+- **Performance:**
+  - `useMemo` on docs grouping prevents recalculation
+  - Memoized DocCard components
+  - Lazy-loaded DataEntryModal
+- **Integration:**
+  - Exported in `apps/workspace/src/components/documents/index.ts`
+  - Used in DocumentWorkflowTabs (verified tab content)
+  - Part of 3-tab document workflow (Uploads | Review | Verified)
+
 ## Design System
 
 **Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
@@ -861,8 +905,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-21
-**Status:** Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
+**Status:** Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.4.0 (Phase 01 Unclassified Docs Card - Grid display of UPLOADED/UNCLASSIFIED documents with responsive layout, lazy PDF thumbnails, signed URL caching, performance-optimized memoization)
+**Architecture Version:** 8.5.0 (Phase 03 Data Entry Tab - Responsive grid for verified docs with category-based grouping, key field extraction, copy-to-clipboard workflow, detail modal)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

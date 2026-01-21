@@ -16,7 +16,21 @@ import {
   Check,
   Circle,
   Minus,
+  User,
+  Coins,
+  Building2,
+  Paperclip,
+  type LucideIcon,
 } from 'lucide-react'
+
+// Icon mapping for category styles
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  User,
+  Coins,
+  FileText,
+  Building2,
+  Paperclip,
+}
 import {
   CATEGORY_STYLES,
   SIMPLIFIED_STATUS_DISPLAY,
@@ -182,7 +196,7 @@ export function TieredChecklist({
       {/* Staff actions */}
       {isStaffView && onAddItem && (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onAddItem}>
+          <Button variant="outline" size="sm" className="px-4" onClick={onAddItem}>
             <Plus className="w-4 h-4 mr-1" /> Thêm mục
           </Button>
         </div>
@@ -268,7 +282,10 @@ function CategorySection({
         ) : (
           <ChevronRight className={cn('w-4 h-4', style.color)} />
         )}
-        <span className="text-sm mr-1">{style.icon}</span>
+        {(() => {
+          const IconComponent = CATEGORY_ICONS[style.icon]
+          return IconComponent ? <IconComponent className={cn('w-4 h-4', style.color)} /> : null
+        })()}
         <span className={cn('text-sm font-semibold flex-1', style.color)}>
           {label}
         </span>

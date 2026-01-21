@@ -13,8 +13,9 @@ import {
   ModalFooter,
   Button,
   Input,
-  Select,
+  cn,
 } from '@ella/ui'
+import { ChevronDown } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 
 interface AddChecklistItemModalProps {
@@ -35,6 +36,7 @@ export function AddChecklistItemModal({
   const [docType, setDocType] = useState<string>('')
   const [reason, setReason] = useState('')
   const [expectedCount, setExpectedCount] = useState(1)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   // Filter out already-existing doc types
   const availableDocTypes = useMemo(() => {
@@ -58,6 +60,7 @@ export function AddChecklistItemModal({
     setDocType('')
     setReason('')
     setExpectedCount(1)
+    setIsDropdownOpen(false)
     onClose()
   }
 
@@ -72,23 +75,56 @@ export function AddChecklistItemModal({
         </ModalHeader>
 
         <ModalBody className="space-y-4">
-          {/* Doc type select */}
+          {/* Doc type select - custom dropdown */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Loại tài liệu <span className="text-error">*</span>
             </label>
-            <Select
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              required
-            >
-              <option value="">Chọn loại tài liệu</option>
-              {availableDocTypes.map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                disabled={isSubmitting || availableDocTypes.length === 0}
+                className={cn(
+                  'w-full flex items-center justify-between px-3 py-2.5 text-left',
+                  'border border-border rounded-lg bg-background',
+                  'hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+              >
+                <span className={docType ? 'text-foreground' : 'text-muted-foreground'}>
+                  {docType ? DOC_TYPE_LABELS[docType] || docType : 'Chọn loại tài liệu'}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 text-muted-foreground transition-transform',
+                    isDropdownOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+
+              {/* Dropdown list */}
+              {isDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
+                  {availableDocTypes.map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setDocType(key)
+                        setIsDropdownOpen(false)
+                      }}
+                      className={cn(
+                        'w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors',
+                        docType === key && 'bg-primary-light text-primary'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {availableDocTypes.length === 0 && (
               <p className="text-xs text-muted-foreground mt-1">
                 Tất cả loại tài liệu đã có trong checklist

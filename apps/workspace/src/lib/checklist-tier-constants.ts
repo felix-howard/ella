@@ -49,11 +49,11 @@ export const CHECKLIST_STATUS_DISPLAY = {
  * All categories use consistent emerald color scheme for unified appearance
  */
 export const CATEGORY_STYLES = {
-  personal: { icon: '👤', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
-  income: { icon: '💰', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
-  deductions: { icon: '📝', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
-  business: { icon: '🏢', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
-  other: { icon: '📎', color: 'text-emerald-600', bgColor: 'bg-emerald-500/5', borderColor: 'border-emerald-500/20' },
+  personal: { icon: 'User', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
+  income: { icon: 'Coins', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
+  deductions: { icon: 'FileText', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
+  business: { icon: 'Building2', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
+  other: { icon: 'Paperclip', color: 'text-emerald-600', bgColor: 'bg-transparent', borderColor: 'border-emerald-500/20' },
 } as const
 
 export type CategoryKey = keyof typeof CATEGORY_STYLES

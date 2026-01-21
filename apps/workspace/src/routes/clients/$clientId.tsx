@@ -3,7 +3,7 @@
  * Tabs: Overview, Documents | Messages accessible via header button
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -33,6 +33,8 @@ import {
   DataEntryTab,
 } from '../../components/documents'
 import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
+import { FloatingChatbox } from '../../components/chatbox'
+import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import {
   UI_TEXT,
@@ -136,13 +138,20 @@ function ClientDetailPage() {
   })
 
   // Fetch unread count for the specific case
-  const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError } = useQuery({
+  const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
     queryKey: ['unread-count', latestCaseId],
     queryFn: () => api.messages.getUnreadCount(latestCaseId!),
     enabled: !!latestCaseId,
     staleTime: 30000, // Cache for 30s
   })
   const unreadCount = unreadData?.unreadCount ?? 0
+
+  // Callback to refetch unread count when chatbox sends/receives messages
+  // Memoized and debounced to prevent race conditions
+  const handleUnreadChange = useCallback(() => {
+    // Small debounce to allow server to update before refetching
+    setTimeout(() => refetchUnread(), 500)
+  }, [refetchUnread])
 
   // Fetch raw images for the latest case
   const { data: imagesResponse } = useQuery({
@@ -498,6 +507,26 @@ function ClientDetailPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
+      {latestCaseId && !isUnreadError && (
+        <ErrorBoundary
+          fallback={
+            <div className="fixed bottom-6 right-6 z-50 text-xs text-muted-foreground">
+              Chatbox không khả dụng
+            </div>
+          }
+        >
+          <FloatingChatbox
+            caseId={latestCaseId}
+            clientName={client.name}
+            clientPhone={client.phone}
+            clientId={clientId}
+            unreadCount={isUnreadLoading ? 0 : unreadCount}
+            onUnreadChange={handleUnreadChange}
+          />
+        </ErrorBoundary>
+      )}
     </PageContainer>
   )
 }

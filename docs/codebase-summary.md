@@ -817,6 +817,57 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 - **SkipItemModal** - Reason textarea modal for checklist item skip
 - **useDebouncedSave Hook** - Debounced save with saveNow immediate action, unmount cleanup
 
+## Recent Feature: Client Floating Chatbox (NEW - 2026-01-21)
+
+**Location:** `apps/workspace/src/components/chatbox/`
+
+**Components (3 new):**
+
+1. **FloatingChatbox** (~145 LOC) - Main Facebook Messenger-style popup
+   - **Props:** `caseId`, `clientName`, `clientPhone`, `clientId`, `unreadCount`, `onUnreadChange`
+   - **Features:**
+     - Fixed position bottom-right with z-50
+     - Smooth slide-in animation (bottom-4 fade-in 200ms)
+     - 15s polling for new messages when open (balanced performance)
+     - Reuses existing `MessageThread` (320px height) + `QuickActionsBar` components
+     - Escape key handler for accessibility
+   - **State:** `isOpen` toggle, message mutations (send/fetch)
+   - **Integration:** Mounted on client detail page (route: `$clientId.tsx`)
+   - **Window Size:** 360px width, 500px max height (mobile-responsive)
+
+2. **ChatboxButton** (~40 LOC) - Floating action button
+   - **Features:**
+     - Circular button (w-14 h-14) with MessageCircle icon
+     - Unread badge (red, animated pulse, shows "99+" if >99)
+     - Hover scale animation (105%) + focus ring
+     - Aria labels in Vietnamese
+   - **Props:** `unreadCount`, `isOpen`, `onClick`, `className`
+
+3. **ChatboxHeader** (~90 LOC) - Header with client info
+   - **Features:**
+     - Gradient background (primary colors)
+     - Client avatar (initials, white/20 bg)
+     - Client name + phone display (truncated)
+     - Action buttons: Call (optional), Minimize, Close
+     - All buttons use white icons with hover (white/10 bg)
+   - **Props:** `clientName`, `clientPhone`, `onMinimize`, `onClose`, `onCall`
+
+**Integration in Client Detail Page:**
+- Wrapped in `ErrorBoundary` for crash protection
+- Receives unread count from parent state
+- Callback `onUnreadChange` triggers unread count refresh when opened
+- Uses shared API (`api.messages.list()`, `api.messages.send()`)
+- Toast notifications for errors (Vietnamese UI)
+
+**Key Features:**
+- 15-second message polling interval
+- React Query integration (invalidates ['messages', caseId] after send)
+- Escape key closes chatbox (accessibility)
+- Error boundary for robustness
+- Vietnamese-first UI text
+
+**Export:** `apps/workspace/src/components/chatbox/index.ts` (barrel export)
+
 ## Recent Feature: Phase 01 Unclassified Docs Card (NEW - 2026-01-21)
 
 **Location:** `apps/workspace/src/components/documents/unclassified-docs-card.tsx`
@@ -905,8 +956,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-21
-**Status:** Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
+**Status:** Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
 **Branch:** feature/more-enhancement
-**Architecture Version:** 8.5.0 (Phase 03 Data Entry Tab - Responsive grid for verified docs with category-based grouping, key field extraction, copy-to-clipboard workflow, detail modal)
+**Architecture Version:** 8.6.0 (Client Floating Chatbox - Facebook Messenger-style popup with 15s polling, ErrorBoundary protection, reuses MessageThread + QuickActionsBar)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

@@ -5,6 +5,7 @@
 
 import { cn } from '@ella/ui'
 import { X, Phone } from 'lucide-react'
+import { getInitials, getAvatarColor } from '../../lib/formatters'
 
 export interface ChatboxHeaderProps {
   clientName: string
@@ -21,6 +22,8 @@ export function ChatboxHeader({
   onCall,
   className,
 }: ChatboxHeaderProps) {
+  const avatarColor = getAvatarColor(clientName)
+
   return (
     <div
       className={cn(
@@ -32,9 +35,9 @@ export function ChatboxHeader({
     >
       {/* Client info */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-          <span className="text-primary font-semibold text-sm">
-            {clientName.charAt(0).toUpperCase()}
+        <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', avatarColor.bg)}>
+          <span className={cn('font-semibold text-sm', avatarColor.text)}>
+            {getInitials(clientName)}
           </span>
         </div>
         <div className="min-w-0">

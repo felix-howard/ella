@@ -57,8 +57,8 @@ export function UnclassifiedDocsCard({ rawImages, onClassify }: UnclassifiedDocs
         </span>
       </div>
 
-      {/* Grid: 4 cols desktop, 3 tablet, 2 mobile */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {/* Grid: 6 cols desktop, 5 large tablet, 4 tablet, 3 mobile */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
         {unclassified.map((image) => (
           <UnclassifiedDocCard key={image.id} image={image} onClick={() => onClassify(image)} />
         ))}
@@ -73,7 +73,7 @@ interface UnclassifiedDocCardProps {
 }
 
 /**
- * Single unclassified doc thumbnail card
+ * Single unclassified doc thumbnail card - compact size
  * Memoized to prevent re-renders during polling
  */
 const UnclassifiedDocCard = memo(function UnclassifiedDocCard({
@@ -86,26 +86,26 @@ const UnclassifiedDocCard = memo(function UnclassifiedDocCard({
       aria-label={`Phân loại ${image.filename}`}
       className={cn(
         'group relative bg-background rounded-lg border overflow-hidden',
-        'hover:border-primary hover:shadow-md transition-all cursor-pointer',
+        'hover:border-primary hover:shadow-sm transition-all cursor-pointer',
         'text-left'
       )}
     >
-      {/* Thumbnail - 80x80 aspect maintained */}
-      <div className="aspect-square bg-muted relative overflow-hidden">
+      {/* Thumbnail - compact fixed height */}
+      <div className="h-24 bg-muted relative overflow-hidden">
         <DocThumbnail imageId={image.id} filename={image.filename} />
 
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <span className="text-xs font-medium text-primary bg-white/90 px-2 py-1 rounded">
+          <span className="text-[10px] font-medium text-primary bg-white/90 px-1.5 py-0.5 rounded">
             Phân loại
           </span>
         </div>
       </div>
 
-      {/* Filename - max 2 lines with truncation */}
-      <div className="p-2">
+      {/* Filename - single line with truncation */}
+      <div className="px-1.5 py-1">
         <p
-          className="text-xs text-foreground line-clamp-2 break-all"
+          className="text-[10px] text-foreground truncate"
           title={image.filename}
         >
           {image.filename}
@@ -126,7 +126,7 @@ function DocThumbnail({ imageId, filename }: { imageId: string; filename: string
   if (isLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
       </div>
     )
   }
@@ -135,9 +135,9 @@ function DocThumbnail({ imageId, filename }: { imageId: string; filename: string
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-1">
         {isPdf ? (
-          <FileText className="w-6 h-6 text-muted-foreground" />
+          <FileText className="w-5 h-5 text-muted-foreground" />
         ) : (
-          <ImageIcon className="w-6 h-6 text-muted-foreground" />
+          <ImageIcon className="w-5 h-5 text-muted-foreground" />
         )}
       </div>
     )
@@ -148,7 +148,7 @@ function DocThumbnail({ imageId, filename }: { imageId: string; filename: string
       <Suspense
         fallback={
           <div className="w-full h-full flex items-center justify-center bg-muted">
-            <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+            <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
           </div>
         }
       >

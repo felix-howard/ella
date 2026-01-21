@@ -1,0 +1,661 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated"
+  binaryTargets = ["native"]
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum TaxCaseStatus {
+  INTAKE
+  WAITING_DOCS
+  IN_PROGRESS
+  READY_FOR_ENTRY
+  ENTRY_COMPLETE
+  REVIEW
+  FILED
+}
+
+enum TaxType {
+  FORM_1040
+  FORM_1120S
+  FORM_1065
+}
+
+enum DocType {
+  // Personal / Identity
+  SSN_CARD
+  DRIVER_LICENSE
+  PASSPORT
+  BIRTH_CERTIFICATE
+  ITIN_LETTER
+
+  // Employment Income
+  W2
+  W2G                    // Gambling winnings
+
+  // 1099 Series - Various Income
+  FORM_1099_INT          // Bank interest
+  FORM_1099_DIV          // Dividends
+  FORM_1099_NEC          // Non-employee compensation
+  FORM_1099_MISC         // Miscellaneous income
+  FORM_1099_K            // Payment card transactions
+  FORM_1099_R            // Retirement distributions
+  FORM_1099_G            // Government payments (unemployment, state refund)
+  FORM_1099_SSA          // Social Security
+  FORM_1099_B            // Brokerage/stock sales
+  FORM_1099_S            // Real estate sales
+  FORM_1099_C            // Cancellation of debt
+  FORM_1099_SA           // HSA distributions
+  FORM_1099_Q            // 529 distributions
+
+  // K-1 Forms (Pass-through income)
+  SCHEDULE_K1            // Generic K-1
+  SCHEDULE_K1_1065       // Partnership K-1
+  SCHEDULE_K1_1120S      // S-Corp K-1
+  SCHEDULE_K1_1041       // Trust/Estate K-1
+
+  // Health Insurance
+  FORM_1095_A            // Marketplace coverage
+  FORM_1095_B            // Health coverage
+  FORM_1095_C            // Employer health coverage
+  FORM_5498_SA           // HSA contributions
+
+  // Education
+  FORM_1098_T            // Tuition statement
+  FORM_1098_E            // Student loan interest
+
+  // Deductions / Credits
+  FORM_1098              // Mortgage interest
+  FORM_8332              // Release of claim to exemption
+
+  // Business Documents
+  BANK_STATEMENT
+  PROFIT_LOSS_STATEMENT
+  BALANCE_SHEET
+  BUSINESS_LICENSE
+  EIN_LETTER
+  ARTICLES_OF_INCORPORATION
+  OPERATING_AGREEMENT
+  PAYROLL_REPORT         // 941, W-3, etc.
+  DEPRECIATION_SCHEDULE
+  VEHICLE_MILEAGE_LOG
+
+  // Receipts & Supporting Docs
+  RECEIPT                // Generic receipt
+  DAYCARE_RECEIPT
+  CHARITY_RECEIPT
+  MEDICAL_RECEIPT
+  PROPERTY_TAX_STATEMENT
+  ESTIMATED_TAX_PAYMENT
+
+  // Prior Year / IRS
+  PRIOR_YEAR_RETURN
+  IRS_NOTICE
+
+  // Crypto
+  CRYPTO_STATEMENT
+
+  // Foreign
+  FOREIGN_BANK_STATEMENT
+  FOREIGN_TAX_STATEMENT
+  FBAR_SUPPORT_DOCS          // FBAR supporting documents
+  FORM_8938                  // FATCA foreign financial assets
+
+  // Real Estate / Home Sale
+  CLOSING_DISCLOSURE         // HUD closing statement
+  LEASE_AGREEMENT            // Rental lease contracts
+
+  // Credits / Energy
+  EV_PURCHASE_AGREEMENT      // Electric vehicle purchase docs
+  ENERGY_CREDIT_INVOICE      // Solar, insulation, etc.
+
+  // Additional Business Docs
+  FORM_W9_ISSUED             // W-9s collected from contractors
+  MORTGAGE_POINTS_STATEMENT  // Points paid on mortgage
+
+  // Prior Year Extension
+  EXTENSION_PAYMENT_PROOF    // Form 4868 / payment confirmation
+
+  // Other
+  OTHER
+  UNKNOWN
+}
+
+enum RawImageStatus {
+  UPLOADED
+  PROCESSING
+  CLASSIFIED
+  LINKED
+  BLURRY
+  UNCLASSIFIED
+  DUPLICATE
+}
+
+enum DigitalDocStatus {
+  PENDING
+  EXTRACTED
+  VERIFIED
+  PARTIAL
+  FAILED
+}
+
+enum ChecklistItemStatus {
+  MISSING
+  HAS_RAW
+  HAS_DIGITAL
+  VERIFIED
+  NOT_REQUIRED
+}
+
+enum ActionType {
+  VERIFY_DOCS
+  AI_FAILED
+  BLURRY_DETECTED
+  READY_FOR_ENTRY
+  REMINDER_DUE
+  CLIENT_REPLIED
+}
+
+enum ActionPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum MessageChannel {
+  SMS
+  PORTAL
+  SYSTEM
+  CALL    // Voice call recordings
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum StaffRole {
+  ADMIN
+  STAFF
+  CPA
+}
+
+enum Language {
+  VI
+  EN
+}
+
+enum FieldType {
+  BOOLEAN
+  SELECT
+  NUMBER
+  NUMBER_INPUT
+  CURRENCY
+  TEXT
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model Staff {
+  id        String    @id @default(cuid())
+  clerkId   String?   @unique  // Clerk user ID for auth sync
+  email     String    @unique
+  name      String
+  role      StaffRole @default(STAFF)
+  avatarUrl String?
+  isActive  Boolean   @default(true)
+
+  // Audit fields
+  deactivatedAt DateTime?
+  lastLoginAt   DateTime?
+
+  actions   Action[]  @relation("AssignedStaff")
+  addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
+  skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
+  auditLogs AuditLog[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([clerkId])
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  email     String?
+  language  Language @default(VI)
+
+  profile   ClientProfile?
+  taxCases  TaxCase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@index([name])
+}
+
+model ClientProfile {
+  id        String  @id @default(cuid())
+  clientId  String  @unique
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  filingStatus     String?
+  hasW2            Boolean @default(false)
+  hasBankAccount   Boolean @default(false)
+  hasInvestments   Boolean @default(false)
+  hasKidsUnder17   Boolean @default(false)
+  numKidsUnder17   Int     @default(0)
+  paysDaycare      Boolean @default(false)
+  hasKids17to24    Boolean @default(false)
+  hasSelfEmployment Boolean @default(false)
+  hasRentalProperty Boolean @default(false)
+
+  businessName     String?
+  ein              String?
+  hasEmployees     Boolean @default(false)
+  hasContractors   Boolean @default(false)
+  has1099K         Boolean @default(false)
+
+  // Dynamic intake answers - flexible JSON storage for intake questionnaire responses
+  // Maps questionKey -> value (boolean, number, string) from IntakeQuestion model
+  intakeAnswers    Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxCase {
+  id        String        @id @default(cuid())
+  clientId  String
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  taxYear   Int
+  taxTypes  TaxType[]
+  status    TaxCaseStatus @default(INTAKE)
+
+  rawImages       RawImage[]
+  digitalDocs     DigitalDoc[]
+  checklistItems  ChecklistItem[]
+  conversation    Conversation?
+  magicLinks      MagicLink[]
+  actions         Action[]
+  imageGroups     ImageGroup[]
+
+  lastContactAt    DateTime?
+  entryCompletedAt DateTime?
+  filedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, taxYear])
+  @@index([status])
+  @@index([taxYear])
+  @@index([status, taxYear])    // H1: Composite index for filtering by status and year
+  @@index([clientId, status])   // H1: Composite index for client's cases by status
+}
+
+model RawImage {
+  id        String         @id @default(cuid())
+  caseId    String
+  taxCase   TaxCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  r2Key     String         @unique
+  r2Url     String?
+  filename  String
+  mimeType  String
+  fileSize  Int
+
+  status          RawImageStatus @default(UPLOADED)
+  classifiedType  DocType?
+  aiConfidence    Float?
+  blurScore       Float?
+
+  // Duplicate detection fields
+  imageHash       String?        // Perceptual hash (pHash) for duplicate detection
+  imageGroupId    String?
+  imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
+
+  // Re-upload request tracking
+  reuploadRequested   Boolean   @default(false)
+  reuploadRequestedAt DateTime?
+  reuploadReason      String?
+  reuploadFields      Json?     // ["ssn", "wages"] - specific unreadable fields
+
+  checklistItemId String?
+  checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
+  digitalDoc      DigitalDoc?
+
+  uploadedVia    MessageChannel @default(PORTAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([status])
+  @@index([imageGroupId])
+  @@index([caseId, classifiedType])  // For duplicate detection queries
+  @@index([reuploadRequested])
+  @@index([caseId, reuploadRequested])
+}
+
+// Groups duplicate images of the same physical document
+model ImageGroup {
+  id          String     @id @default(cuid())
+  caseId      String
+  taxCase     TaxCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  docType     DocType
+  bestImageId String?    // Selected best image from group
+
+  images      RawImage[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([caseId])
+  @@index([caseId, docType])
+}
+
+model DigitalDoc {
+  id          String           @id @default(cuid())
+  caseId      String
+  taxCase     TaxCase          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  rawImageId  String           @unique
+  rawImage    RawImage         @relation(fields: [rawImageId], references: [id], onDelete: Cascade)
+
+  docType     DocType
+  status      DigitalDocStatus @default(PENDING)
+
+  extractedData Json
+  aiConfidence  Float?
+
+  verifiedAt    DateTime?
+  verifiedById  String?
+
+  // Field-level verification tracking
+  fieldVerifications Json?  // {"ssn": "verified", "wages": "edited", "address": "unreadable"}
+
+  // Copy tracking for data entry
+  copiedFields      Json?       // {"ssn": true, "wages": false}
+  entryCompleted    Boolean     @default(false)
+  entryCompletedAt  DateTime?
+
+  checklistItemId String?
+  checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([docType])
+  @@index([status])
+  @@index([entryCompleted])
+  @@index([caseId, entryCompleted])
+}
+
+model ChecklistTemplate {
+  id          String   @id @default(cuid())
+  taxType     TaxType
+  docType     DocType
+
+  labelVi     String
+  labelEn     String
+  descriptionVi String?
+  descriptionEn String?
+  hintVi      String?   // Help text shown to clients
+  hintEn      String?
+
+  isRequired  Boolean  @default(true)
+  condition   String?   // JSON: {"questionKey": value} - only show if profile matches
+  sortOrder   Int      @default(0)
+  category    String
+  expectedCount Int    @default(1)  // How many documents expected (e.g., 12 for bank statements)
+
+  // Optional link to document library for extended metadata
+  docTypeLibraryId String?
+  docTypeLibrary   DocTypeLibrary? @relation(fields: [docTypeLibraryId], references: [id])
+
+  checklistItems ChecklistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taxType, docType])
+  @@index([taxType])
+  @@index([category])
+}
+
+model ChecklistItem {
+  id          String              @id @default(cuid())
+  caseId      String
+  taxCase     TaxCase             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  templateId  String
+  template    ChecklistTemplate   @relation(fields: [templateId], references: [id])
+
+  status      ChecklistItemStatus @default(MISSING)
+
+  expectedCount Int               @default(1)
+  receivedCount Int               @default(0)
+
+  rawImages   RawImage[]
+  digitalDocs DigitalDoc[]
+
+  notes       String?
+
+  // Staff override fields
+  isManuallyAdded  Boolean   @default(false)
+  addedById        String?
+  addedBy          Staff?    @relation("AddedChecklistItems", fields: [addedById], references: [id])
+  addedReason      String?
+  skippedAt        DateTime?
+  skippedById      String?
+  skippedBy        Staff?    @relation("SkippedChecklistItems", fields: [skippedById], references: [id])
+  skippedReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([caseId, templateId])
+  @@index([caseId])
+  @@index([status])
+  @@index([caseId, status])     // H1: Composite index for case's checklist by status
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  caseId    String   @unique
+  taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  messages  Message[]
+
+  lastMessageAt DateTime?
+  unreadCount   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastMessageAt, createdAt]) // Composite index for inbox sorting with secondary sort
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  channel        MessageChannel
+  direction      MessageDirection
+  content        String           @db.VarChar(5000)  // M3: Limit message length for security
+
+  twilioSid      String?          @unique
+  twilioStatus   String?
+
+  attachmentUrls  String[]
+  attachmentR2Keys String[]  // Permanent R2 keys for refreshing expired URLs
+
+  isSystem       Boolean          @default(false)
+  templateUsed   String?
+
+  // Voice call specific fields (null for non-CALL messages)
+  callSid           String?       // Twilio Call SID
+  recordingUrl      String?       // Twilio recording URL (.mp3)
+  recordingDuration Int?          // Recording duration in seconds
+  callStatus        String?       // completed, no-answer, busy, failed, canceled
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([callSid])
+}
+
+model MagicLink {
+  id        String   @id @default(cuid())
+  caseId    String
+  taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  token     String   @unique @default(cuid())
+
+  lastUsedAt DateTime?
+  usageCount Int      @default(0)
+
+  expiresAt DateTime?
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([caseId])
+  @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
+}
+
+model Action {
+  id        String         @id @default(cuid())
+  caseId    String
+  taxCase   TaxCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  type      ActionType
+  priority  ActionPriority @default(NORMAL)
+
+  assignedToId String?
+  assignedTo   Staff?      @relation("AssignedStaff", fields: [assignedToId], references: [id])
+
+  isCompleted   Boolean    @default(false)
+  completedAt   DateTime?
+
+  title         String
+  description   String?
+  metadata      Json?
+
+  scheduledFor  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([type])
+  @@index([priority])
+  @@index([isCompleted])
+  @@index([assignedToId])
+  @@index([isCompleted, priority])      // Composite index for action queue
+  @@index([assignedToId, isCompleted])  // Composite index for staff's pending actions
+}
+
+// ============================================
+// DYNAMIC CHECKLIST CONFIGURATION
+// ============================================
+
+// Intake questions - Dynamic questionnaire for client intake
+model IntakeQuestion {
+  id          String      @id @default(cuid())
+  taxTypes    TaxType[]   // Which tax types this question applies to
+  questionKey String      @unique  // e.g., "hasW2", "hasRentalProperty"
+
+  labelVi     String
+  labelEn     String
+  hintVi      String?
+  hintEn      String?
+
+  fieldType   FieldType   // BOOLEAN, SELECT, NUMBER, TEXT
+  options     String?     // JSON for SELECT type options
+  condition   String?     // JSON: show if other answer matches {"questionKey": "value"}
+  section     String      // Section grouping: tax_info, income, dependents, business, deductions, foreign
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([isActive])
+}
+
+// Comprehensive document type library for staff document recognition
+model DocTypeLibrary {
+  id          String      @id @default(cuid())
+  code        String      @unique  // Internal code matching DocType enum or custom
+
+  labelVi     String
+  labelEn     String
+  descriptionVi String?
+  descriptionEn String?
+
+  category    String      // personal, income, deductions, business, health, foreign, other
+  aliases     String[]    // Alternative names for AI matching
+  keywords    String[]    // Keywords for search/classification
+
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+
+  // Link to checklist templates that use this doc type
+  checklistTemplates ChecklistTemplate[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+// Entity types that can be audited
+enum AuditEntityType {
+  CLIENT
+  CLIENT_PROFILE
+  TAX_CASE
+}
+
+// Audit log for tracking field-level changes
+model AuditLog {
+  id          String          @id @default(cuid())
+  entityType  AuditEntityType
+  entityId    String          // clientId, profileId, or caseId
+  field       String          // Field name that was changed
+  oldValue    Json?           // Previous value (null for new fields)
+  newValue    Json?           // New value (null for deleted fields)
+  changedById String?         // Staff who made the change
+  changedBy   Staff?          @relation(fields: [changedById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@index([changedById])
+  @@index([createdAt])
+}

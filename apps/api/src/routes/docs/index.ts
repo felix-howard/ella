@@ -1,0 +1,675 @@
+/**
+ * Digital Documents API routes
+ * Classification, OCR, and verification operations
+ */
+import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { prisma } from '../../lib/db'
+import {
+  classifyDocSchema,
+  verifyDocSchema,
+  verifyActionSchema,
+  selectBestImageSchema,
+  verifyFieldSchema,
+  markCopiedSchema,
+  completeEntrySchema,
+} from './schemas'
+import {
+  extractDocumentData,
+  needsManualVerification,
+  isGeminiConfigured,
+  supportsOcrExtraction,
+  selectBestImage,
+  getGroupImages,
+} from '../../services/ai'
+import { getSignedDownloadUrl } from '../../services/storage'
+import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
+import { isValidDocField } from '../../lib/validation'
+
+const docsRoute = new Hono()
+
+// GET /docs/:id - Get digital doc details with extracted data
+docsRoute.get('/:id', async (c) => {
+  const id = c.req.param('id')
+
+  const doc = await prisma.digitalDoc.findUnique({
+    where: { id },
+    include: {
+      rawImage: true,
+      checklistItem: { include: { template: true } },
+    },
+  })
+
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  return c.json({
+    ...doc,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  })
+})
+
+// POST /docs/:id/classify - Manually classify a raw image
+docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c) => {
+  const id = c.req.param('id')
+  const { docType } = c.req.valid('json')
+
+  // Find the raw image
+  const rawImage = await prisma.rawImage.findUnique({
+    where: { id },
+    include: { taxCase: true },
+  })
+
+  if (!rawImage) {
+    return c.json(
+      { error: 'NOT_FOUND', message: 'Raw image not found' },
+      404
+    )
+  }
+
+  // Update raw image with classification
+  const updatedRawImage = await prisma.rawImage.update({
+    where: { id },
+    data: {
+      classifiedType: docType as DocType,
+      status: 'CLASSIFIED',
+      aiConfidence: 1.0, // Manual classification = 100% confidence
+    },
+  })
+
+  // Find matching checklist item and link
+  const checklistItem = await prisma.checklistItem.findFirst({
+    where: {
+      caseId: rawImage.caseId,
+      template: { docType: docType as DocType },
+    },
+  })
+
+  if (checklistItem) {
+    await prisma.rawImage.update({
+      where: { id },
+      data: {
+        checklistItemId: checklistItem.id,
+        status: 'LINKED',
+      },
+    })
+
+    // Update checklist item status
+    await prisma.checklistItem.update({
+      where: { id: checklistItem.id },
+      data: {
+        status: 'HAS_RAW' as ChecklistItemStatus,
+        receivedCount: { increment: 1 },
+      },
+    })
+  }
+
+  // Create placeholder digital doc (OCR will populate extractedData later)
+  const digitalDoc = await prisma.digitalDoc.upsert({
+    where: { rawImageId: id },
+    update: {
+      docType: docType as DocType,
+      status: 'PENDING',
+    },
+    create: {
+      caseId: rawImage.caseId,
+      rawImageId: id,
+      docType: docType as DocType,
+      status: 'PENDING',
+      extractedData: {},
+      checklistItemId: checklistItem?.id,
+    },
+  })
+
+  return c.json({
+    rawImage: {
+      ...updatedRawImage,
+      createdAt: updatedRawImage.createdAt.toISOString(),
+      updatedAt: updatedRawImage.updatedAt.toISOString(),
+    },
+    digitalDoc: {
+      ...digitalDoc,
+      createdAt: digitalDoc.createdAt.toISOString(),
+      updatedAt: digitalDoc.updatedAt.toISOString(),
+    },
+    message: 'Document classified. OCR extraction pending.',
+  })
+})
+
+// POST /docs/:id/ocr - Trigger OCR extraction using Gemini AI
+docsRoute.post('/:id/ocr', async (c) => {
+  const id = c.req.param('id')
+
+  // Find digital doc with raw image
+  const doc = await prisma.digitalDoc.findUnique({
+    where: { id },
+    include: { rawImage: true },
+  })
+
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  // Check if AI is configured
+  if (!isGeminiConfigured) {
+    // Fall back to placeholder data
+    const placeholderData = generatePlaceholderExtractedData(doc.docType)
+    const updatedDoc = await prisma.digitalDoc.update({
+      where: { id },
+      data: {
+        status: 'PENDING' as DigitalDocStatus,
+        extractedData: placeholderData as Parameters<typeof prisma.digitalDoc.update>[0]['data']['extractedData'],
+        aiConfidence: 0,
+      },
+    })
+
+    return c.json({
+      digitalDoc: {
+        ...updatedDoc,
+        createdAt: updatedDoc.createdAt.toISOString(),
+        updatedAt: updatedDoc.updatedAt.toISOString(),
+      },
+      aiConfigured: false,
+      message: 'AI not configured. Manual data entry required.',
+    })
+  }
+
+  // Check if doc type supports OCR
+  if (!supportsOcrExtraction(doc.docType)) {
+    return c.json({
+      error: 'UNSUPPORTED_DOC_TYPE',
+      message: `Document type ${doc.docType} does not support OCR extraction`,
+    }, 400)
+  }
+
+  // Fetch image from R2 for processing
+  let imageBuffer: Buffer
+  let mimeType: string
+
+  try {
+    if (!doc.rawImage) {
+      return c.json({ error: 'NO_IMAGE', message: 'No raw image linked to document' }, 400)
+    }
+
+    // Get signed URL and fetch image
+    const signedUrl = await getSignedDownloadUrl(doc.rawImage.r2Key)
+    if (!signedUrl) {
+      return c.json({ error: 'STORAGE_ERROR', message: 'Cannot access image file' }, 500)
+    }
+
+    const response = await fetch(signedUrl)
+    if (!response.ok) {
+      return c.json({ error: 'FETCH_ERROR', message: 'Cannot fetch image from storage' }, 500)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    imageBuffer = Buffer.from(arrayBuffer)
+    mimeType = doc.rawImage.mimeType || 'image/jpeg'
+  } catch (error) {
+    console.error('Failed to fetch image for OCR:', error)
+    return c.json({ error: 'IMAGE_ERROR', message: 'Failed to load image for processing' }, 500)
+  }
+
+  // Check PDF size limit before OCR (fail fast)
+  const MAX_PDF_SIZE = 20 * 1024 * 1024 // 20MB
+  if (mimeType === 'application/pdf' && imageBuffer.length > MAX_PDF_SIZE) {
+    return c.json({
+      error: 'PDF_TOO_LARGE',
+      message: 'Tệp PDF quá lớn (tối đa 20MB).',
+    }, 413)
+  }
+
+  // Log PDF processing
+  if (mimeType === 'application/pdf') {
+    console.log(`[OCR] Processing PDF document: ${id}, size: ${imageBuffer.length} bytes`)
+  }
+
+  // Run OCR extraction
+  const ocrResult = await extractDocumentData(imageBuffer, mimeType, doc.docType)
+
+  // Determine status based on result
+  let status: DigitalDocStatus = 'PENDING'
+  if (ocrResult.success) {
+    status = ocrResult.isValid ? 'EXTRACTED' : 'PARTIAL'
+  } else {
+    status = 'FAILED'
+  }
+
+  // Atomic transaction: Update digital doc, checklist item, and create action
+  const updatedDoc = await prisma.$transaction(async (tx) => {
+    // Update digital doc with extracted data
+    const digitalDoc = await tx.digitalDoc.update({
+      where: { id },
+      data: {
+        status,
+        extractedData: (ocrResult.extractedData || {}) as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+        aiConfidence: ocrResult.confidence,
+      },
+    })
+
+    // Update checklist item status to HAS_DIGITAL on successful extraction
+    if (doc.checklistItemId && (status === 'EXTRACTED' || status === 'PARTIAL')) {
+      await tx.checklistItem.update({
+        where: { id: doc.checklistItemId },
+        data: { status: 'HAS_DIGITAL' as ChecklistItemStatus },
+      })
+    }
+
+    // Create action for verification if needed
+    if (needsManualVerification(ocrResult)) {
+      await tx.action.create({
+        data: {
+          caseId: doc.caseId,
+          type: 'VERIFY_DOCS',
+          priority: 'NORMAL',
+          title: 'Xác minh dữ liệu OCR',
+          description: `${doc.docType}: Dữ liệu cần xác minh (độ tin cậy: ${Math.round(ocrResult.confidence * 100)}%)`,
+          metadata: {
+            docId: doc.id,
+            rawImageId: doc.rawImageId,
+            confidence: ocrResult.confidence,
+          },
+        },
+      })
+    }
+
+    return digitalDoc
+  })
+
+  // Determine appropriate success message (Vietnamese for PDF)
+  const isPdf = mimeType === 'application/pdf'
+  let message: string
+  if (ocrResult.success) {
+    message = isPdf
+      ? `Trích xuất PDF thành công (${ocrResult.pageCount || 1} trang). Đang chờ xác minh.`
+      : 'OCR extraction completed. Awaiting verification.'
+  } else {
+    message = `Trích xuất thất bại: ${ocrResult.error}`
+  }
+
+  // Set UTF-8 charset for Vietnamese messages
+  c.header('Content-Type', 'application/json; charset=utf-8')
+
+  return c.json({
+    digitalDoc: {
+      ...updatedDoc,
+      createdAt: updatedDoc.createdAt.toISOString(),
+      updatedAt: updatedDoc.updatedAt.toISOString(),
+    },
+    ocrResult: {
+      success: ocrResult.success,
+      confidence: ocrResult.confidence,
+      isValid: ocrResult.isValid,
+      fieldLabels: ocrResult.fieldLabels,
+      processingTimeMs: ocrResult.processingTimeMs,
+      // PDF-specific metadata
+      pageCount: ocrResult.pageCount,
+      pageConfidences: ocrResult.pageConfidences,
+      isPdf,
+    },
+    message,
+  })
+})
+
+// POST /docs/:id/verify-action - Quick verify or reject a document
+docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), async (c) => {
+  const id = c.req.param('id')
+  const { action, notes } = c.req.valid('json')
+
+  // Fetch document with related data
+  const doc = await prisma.digitalDoc.findUnique({
+    where: { id },
+    include: {
+      rawImage: true,
+      checklistItem: true,
+      taxCase: { include: { client: true } },
+    },
+  })
+
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  if (action === 'verify') {
+    // Mark as verified
+    await prisma.$transaction(async (tx) => {
+      await tx.digitalDoc.update({
+        where: { id },
+        data: {
+          status: 'VERIFIED',
+          verifiedAt: new Date(),
+        },
+      })
+
+      // Update checklist item if linked
+      if (doc.checklistItemId) {
+        await tx.checklistItem.update({
+          where: { id: doc.checklistItemId },
+          data: { status: 'VERIFIED' },
+        })
+      }
+    })
+
+    return c.json({ success: true, message: 'Document verified' })
+  }
+
+  if (action === 'reject') {
+    // Reset status and create action for follow-up
+    await prisma.$transaction(async (tx) => {
+      await tx.digitalDoc.update({
+        where: { id },
+        data: { status: 'PENDING' },
+      })
+
+      // Mark raw image as needing resend
+      if (doc.rawImageId) {
+        await tx.rawImage.update({
+          where: { id: doc.rawImageId },
+          data: { status: 'BLURRY' },
+        })
+      }
+
+      // Create action for follow-up
+      await tx.action.create({
+        data: {
+          caseId: doc.caseId,
+          type: 'BLURRY_DETECTED',
+          priority: 'HIGH',
+          title: 'Yêu cầu gửi lại tài liệu',
+          description: notes || 'Tài liệu bị từ chối, cần gửi lại',
+          metadata: {
+            rawImageId: doc.rawImageId,
+            docType: doc.docType,
+            rejectedDocId: doc.id,
+          },
+        },
+      })
+    })
+
+    return c.json({ success: true, message: 'Document rejected' })
+  }
+
+  return c.json({ error: 'INVALID_ACTION', message: 'Invalid action' }, 400)
+})
+
+// PATCH /docs/:id/verify - Verify/edit extracted data
+docsRoute.patch('/:id/verify', zValidator('json', verifyDocSchema), async (c) => {
+  const id = c.req.param('id')
+  const { extractedData, status } = c.req.valid('json')
+
+  const doc = await prisma.digitalDoc.update({
+    where: { id },
+    data: {
+      extractedData,
+      status: status as DigitalDocStatus,
+      verifiedAt: new Date(),
+    },
+    include: { checklistItem: true },
+  })
+
+  // Update checklist item status if linked
+  if (doc.checklistItemId && status === 'VERIFIED') {
+    await prisma.checklistItem.update({
+      where: { id: doc.checklistItemId },
+      data: { status: 'VERIFIED' as ChecklistItemStatus },
+    })
+  }
+
+  return c.json({
+    ...doc,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+  })
+})
+
+// ============================================
+// FIELD-LEVEL VERIFICATION & ENTRY TRACKING (Phase 02)
+// ============================================
+
+// POST /docs/:id/verify-field - Verify single field
+docsRoute.post('/:id/verify-field', zValidator('json', verifyFieldSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field, status, value } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions (read-modify-write atomicity)
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist for the document type
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing fieldVerifications (not overwrite)
+    const fieldVerifications = (doc.fieldVerifications as Record<string, string>) || {}
+    fieldVerifications[field] = status
+
+    // If edited, update extractedData with new value
+    const extractedData = (doc.extractedData as Record<string, unknown>) || {}
+    if (status === 'edited' && value !== undefined) {
+      extractedData[field] = value
+    }
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: {
+        fieldVerifications,
+        extractedData: extractedData as Parameters<typeof tx.digitalDoc.update>[0]['data']['extractedData'],
+      },
+    })
+
+    return { success: true, fieldVerifications }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/mark-copied - Track field copied for clipboard workflow
+docsRoute.post('/:id/mark-copied', zValidator('json', markCopiedSchema), async (c) => {
+  const id = c.req.param('id')
+  const { field } = c.req.valid('json')
+
+  // Use transaction to prevent race conditions
+  const result = await prisma.$transaction(async (tx) => {
+    const doc = await tx.digitalDoc.findUnique({ where: { id } })
+    if (!doc) {
+      return { error: 'NOT_FOUND' as const }
+    }
+
+    // Validate field name against whitelist
+    if (!isValidDocField(doc.docType, field)) {
+      return { error: 'INVALID_FIELD' as const, docType: doc.docType }
+    }
+
+    // Merge with existing copiedFields
+    const copiedFields = (doc.copiedFields as Record<string, boolean>) || {}
+    copiedFields[field] = true
+
+    await tx.digitalDoc.update({
+      where: { id },
+      data: { copiedFields },
+    })
+
+    return { success: true, copiedFields }
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+    }
+    if (result.error === 'INVALID_FIELD') {
+      return c.json({ error: 'INVALID_FIELD', message: `Field "${field}" is not valid for document type ${result.docType}` }, 400)
+    }
+  }
+
+  return c.json(result)
+})
+
+// POST /docs/:id/complete-entry - Mark entry complete
+docsRoute.post('/:id/complete-entry', zValidator('json', completeEntrySchema), async (c) => {
+  const id = c.req.param('id')
+
+  const doc = await prisma.digitalDoc.findUnique({ where: { id } })
+  if (!doc) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
+
+  await prisma.digitalDoc.update({
+    where: { id },
+    data: {
+      entryCompleted: true,
+      entryCompletedAt: new Date(),
+    },
+  })
+
+  return c.json({ success: true, message: 'Entry marked complete' })
+})
+
+/**
+ * Generate placeholder extracted data based on doc type
+ * This will be replaced by actual Gemini OCR in Phase 2
+ */
+function generatePlaceholderExtractedData(docType: DocType): Record<string, unknown> {
+  switch (docType) {
+    case 'W2':
+      return {
+        employerName: '[Pending OCR]',
+        employerEIN: '[Pending OCR]',
+        wages: 0,
+        federalWithholding: 0,
+        socialSecurityWages: 0,
+        medicareWages: 0,
+      }
+    case 'FORM_1099_INT':
+      return {
+        payerName: '[Pending OCR]',
+        interestIncome: 0,
+      }
+    case 'FORM_1099_NEC':
+      return {
+        payerName: '[Pending OCR]',
+        nonemployeeCompensation: 0,
+      }
+    case 'SSN_CARD':
+      return {
+        name: '[Pending OCR]',
+        ssn: '[Pending OCR]',
+      }
+    case 'DRIVER_LICENSE':
+      return {
+        name: '[Pending OCR]',
+        address: '[Pending OCR]',
+        licenseNumber: '[Pending OCR]',
+        expirationDate: '[Pending OCR]',
+      }
+    default:
+      return {
+        rawText: '[Pending OCR]',
+        notes: 'Document type not yet supported for structured extraction',
+      }
+  }
+}
+
+// ============================================
+// IMAGE GROUP ENDPOINTS
+// ============================================
+
+// GET /docs/groups/:groupId - Get image group with all images
+docsRoute.get('/groups/:groupId', async (c) => {
+  const groupId = c.req.param('groupId')
+
+  const group = await getGroupImages(groupId)
+
+  if (!group) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image group not found' }, 404)
+  }
+
+  return c.json({
+    ...group,
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+    images: group.images.map((img) => ({
+      ...img,
+      createdAt: img.createdAt.toISOString(),
+    })),
+  })
+})
+
+// POST /docs/groups/:groupId/select-best - Select the best image from a group
+docsRoute.post(
+  '/groups/:groupId/select-best',
+  zValidator('json', selectBestImageSchema),
+  async (c) => {
+    const groupId = c.req.param('groupId')
+    const { imageId } = c.req.valid('json')
+
+    try {
+      await selectBestImage(groupId, imageId)
+
+      return c.json({
+        success: true,
+        message: 'Best image selected',
+        groupId,
+        bestImageId: imageId,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('does not belong')) {
+        return c.json(
+          { error: 'INVALID_IMAGE', message: error.message },
+          400
+        )
+      }
+      throw error
+    }
+  }
+)
+
+// GET /docs/groups/case/:caseId - Get all image groups for a case
+docsRoute.get('/groups/case/:caseId', async (c) => {
+  const caseId = c.req.param('caseId')
+
+  const groups = await prisma.imageGroup.findMany({
+    where: { caseId },
+    include: {
+      images: {
+        select: {
+          id: true,
+          r2Key: true,
+          filename: true,
+          aiConfidence: true,
+          blurScore: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return c.json(
+    groups.map((group) => ({
+      ...group,
+      createdAt: group.createdAt.toISOString(),
+      updatedAt: group.updatedAt.toISOString(),
+      images: group.images.map((img) => ({
+        ...img,
+        createdAt: img.createdAt.toISOString(),
+      })),
+    }))
+  )
+})
+
+export { docsRoute }

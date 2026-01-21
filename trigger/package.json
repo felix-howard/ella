@@ -1,0 +1,18 @@
+{
+  "name": "@ella/trigger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Trigger.dev not configured yet'",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@ella/db": "workspace:*",
+    "@ella/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

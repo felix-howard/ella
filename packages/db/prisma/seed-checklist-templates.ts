@@ -1,0 +1,1253 @@
+/**
+ * Seed Checklist Templates
+ * Client-facing document checklist extracted from CPA PDF guides
+ */
+import { PrismaClient, TaxType, DocType } from '../src/generated/index.js'
+
+const prisma = new PrismaClient()
+
+interface ChecklistTemplateSeed {
+  taxType: TaxType
+  docType: DocType
+  labelVi: string
+  labelEn: string
+  descriptionVi?: string
+  descriptionEn?: string
+  hintVi?: string
+  hintEn?: string
+  isRequired: boolean
+  condition?: string // JSON: {questionKey: value}
+  category: string
+  expectedCount: number
+  sortOrder: number
+}
+
+// ============================================
+// FORM 1040 - INDIVIDUAL TAX RETURN CHECKLIST
+// ============================================
+const form1040Templates: ChecklistTemplateSeed[] = [
+  // Category: Personal/Identity
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.SSN_CARD,
+    labelVi: 'Thẻ SSN (Social Security)',
+    labelEn: 'Social Security Card',
+    descriptionVi: 'Thẻ SSN của bạn và người phụ thuộc',
+    descriptionEn: 'Your SSN card and dependents',
+    isRequired: true,
+    category: 'personal',
+    expectedCount: 1,
+    sortOrder: 1,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.DRIVER_LICENSE,
+    labelVi: 'Bằng lái xe / ID',
+    labelEn: 'Driver License / ID',
+    descriptionVi: 'ID có ảnh hợp lệ',
+    descriptionEn: 'Valid photo ID',
+    isRequired: true,
+    category: 'personal',
+    expectedCount: 1,
+    sortOrder: 2,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.ITIN_LETTER,
+    labelVi: 'ITIN Letter (nếu không có SSN)',
+    labelEn: 'ITIN Letter (if no SSN)',
+    isRequired: false,
+    category: 'personal',
+    expectedCount: 1,
+    sortOrder: 3,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.BIRTH_CERTIFICATE,
+    labelVi: 'Giấy khai sinh con (nếu có con mới)',
+    labelEn: 'Child Birth Certificate (if new child)',
+    condition: JSON.stringify({ hasNewChild: true }),
+    isRequired: false,
+    category: 'personal',
+    expectedCount: 1,
+    sortOrder: 4,
+  },
+
+  // Category: Prior Year / IRS
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.PRIOR_YEAR_RETURN,
+    labelVi: 'Tờ khai thuế năm trước',
+    labelEn: 'Prior Year Tax Return',
+    hintVi: 'Cần nếu đây là lần đầu khai với chúng tôi',
+    hintEn: 'Needed if this is your first time with us',
+    condition: JSON.stringify({ isNewClient: true }),
+    isRequired: false,
+    category: 'prior_year',
+    expectedCount: 1,
+    sortOrder: 10,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.IRS_NOTICE,
+    labelVi: 'Thư từ IRS',
+    labelEn: 'IRS Notices/Letters',
+    condition: JSON.stringify({ hasIrsNotice: true }),
+    isRequired: false,
+    category: 'prior_year',
+    expectedCount: 1,
+    sortOrder: 11,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.ESTIMATED_TAX_PAYMENT,
+    labelVi: 'Bằng chứng đã đóng estimated tax',
+    labelEn: 'Estimated Tax Payment Proof',
+    hintVi: 'Vouchers hoặc bank statements',
+    hintEn: 'Vouchers or bank statements',
+    isRequired: false,
+    category: 'prior_year',
+    expectedCount: 4,
+    sortOrder: 12,
+  },
+
+  // Category: Income - Employment
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.W2,
+    labelVi: 'W2 (Thu nhập từ công việc)',
+    labelEn: 'W2 (Employment Income)',
+    condition: JSON.stringify({ hasW2: true }),
+    isRequired: true,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 20,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.W2G,
+    labelVi: 'W2G (Tiền thắng cờ bạc)',
+    labelEn: 'W2G (Gambling Winnings)',
+    condition: JSON.stringify({ hasW2G: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 21,
+  },
+
+  // Category: Income - 1099 Series
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_INT,
+    labelVi: '1099-INT (Lãi ngân hàng)',
+    labelEn: '1099-INT (Bank Interest)',
+    condition: JSON.stringify({ hasBankAccount: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 30,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_DIV,
+    labelVi: '1099-DIV (Cổ tức)',
+    labelEn: '1099-DIV (Dividends)',
+    condition: JSON.stringify({ hasInvestments: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 31,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_B,
+    labelVi: '1099-B (Bán cổ phiếu)',
+    labelEn: '1099-B (Stock Sales)',
+    condition: JSON.stringify({ hasInvestments: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 32,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_NEC,
+    labelVi: '1099-NEC (Self-employment)',
+    labelEn: '1099-NEC (Self-employment)',
+    condition: JSON.stringify({ hasSelfEmployment: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 33,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_MISC,
+    labelVi: '1099-MISC (Thu nhập khác)',
+    labelEn: '1099-MISC (Miscellaneous Income)',
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 34,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_K,
+    labelVi: '1099-K (Payment cards)',
+    labelEn: '1099-K (Payment Cards)',
+    hintVi: 'Stripe, PayPal, Square, etc.',
+    hintEn: 'Stripe, PayPal, Square, etc.',
+    condition: JSON.stringify({ has1099K: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 35,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_R,
+    labelVi: '1099-R (Retirement distributions)',
+    labelEn: '1099-R (Retirement Distributions)',
+    condition: JSON.stringify({ hasRetirement: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 36,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_SSA,
+    labelVi: 'SSA-1099 (Social Security)',
+    labelEn: 'SSA-1099 (Social Security)',
+    condition: JSON.stringify({ hasSocialSecurity: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 37,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_G,
+    labelVi: '1099-G (Unemployment)',
+    labelEn: '1099-G (Unemployment)',
+    condition: JSON.stringify({ hasUnemployment: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 38,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_S,
+    labelVi: '1099-S (Bán bất động sản)',
+    labelEn: '1099-S (Real Estate Sales)',
+    condition: JSON.stringify({ hasBoughtSoldHome: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 39,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_C,
+    labelVi: '1099-C (Xóa nợ)',
+    labelEn: '1099-C (Cancellation of Debt)',
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 40,
+  },
+
+  // Category: K-1 Forms
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.SCHEDULE_K1_1065,
+    labelVi: 'K-1 (Partnership)',
+    labelEn: 'K-1 (Partnership)',
+    condition: JSON.stringify({ hasK1Income: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 50,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.SCHEDULE_K1_1120S,
+    labelVi: 'K-1 (S-Corp)',
+    labelEn: 'K-1 (S-Corp)',
+    condition: JSON.stringify({ hasK1Income: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 51,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.SCHEDULE_K1_1041,
+    labelVi: 'K-1 (Trust/Estate)',
+    labelEn: 'K-1 (Trust/Estate)',
+    condition: JSON.stringify({ hasK1Income: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 52,
+  },
+
+  // Category: Crypto
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.CRYPTO_STATEMENT,
+    labelVi: 'Báo cáo Crypto',
+    labelEn: 'Crypto Statement',
+    hintVi: 'Từ Coinbase, Binance, etc.',
+    hintEn: 'From Coinbase, Binance, etc.',
+    condition: JSON.stringify({ hasCrypto: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 55,
+  },
+
+  // Category: Health Insurance
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1095_A,
+    labelVi: '1095-A (Marketplace Insurance)',
+    labelEn: '1095-A (Marketplace Insurance)',
+    condition: JSON.stringify({ hasMarketplaceCoverage: true }),
+    isRequired: true,
+    category: 'health',
+    expectedCount: 1,
+    sortOrder: 60,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1095_B,
+    labelVi: '1095-B (Health Coverage)',
+    labelEn: '1095-B (Health Coverage)',
+    isRequired: false,
+    category: 'health',
+    expectedCount: 1,
+    sortOrder: 61,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1095_C,
+    labelVi: '1095-C (Employer Health Coverage)',
+    labelEn: '1095-C (Employer Health Coverage)',
+    isRequired: false,
+    category: 'health',
+    expectedCount: 1,
+    sortOrder: 62,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_SA,
+    labelVi: '1099-SA (HSA Distributions)',
+    labelEn: '1099-SA (HSA Distributions)',
+    condition: JSON.stringify({ hasHSA: true }),
+    isRequired: false,
+    category: 'health',
+    expectedCount: 1,
+    sortOrder: 63,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_5498_SA,
+    labelVi: '5498-SA (HSA Contributions)',
+    labelEn: '5498-SA (HSA Contributions)',
+    condition: JSON.stringify({ hasHSA: true }),
+    isRequired: false,
+    category: 'health',
+    expectedCount: 1,
+    sortOrder: 64,
+  },
+
+  // Category: Education
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1098_T,
+    labelVi: '1098-T (Tuition Statement)',
+    labelEn: '1098-T (Tuition Statement)',
+    condition: JSON.stringify({ hasKids17to24: true }),
+    isRequired: false,
+    category: 'education',
+    expectedCount: 1,
+    sortOrder: 70,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1098_E,
+    labelVi: '1098-E (Student Loan Interest)',
+    labelEn: '1098-E (Student Loan Interest)',
+    condition: JSON.stringify({ hasStudentLoanInterest: true }),
+    isRequired: false,
+    category: 'education',
+    expectedCount: 1,
+    sortOrder: 71,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1099_Q,
+    labelVi: '1099-Q (529 Distributions)',
+    labelEn: '1099-Q (529 Distributions)',
+    isRequired: false,
+    category: 'education',
+    expectedCount: 1,
+    sortOrder: 72,
+  },
+
+  // Category: Deductions
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_1098,
+    labelVi: '1098 (Mortgage Interest)',
+    labelEn: '1098 (Mortgage Interest)',
+    condition: JSON.stringify({ hasMortgage: true }),
+    isRequired: false,
+    category: 'deductions',
+    expectedCount: 1,
+    sortOrder: 80,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.PROPERTY_TAX_STATEMENT,
+    labelVi: 'Property Tax Statement',
+    labelEn: 'Property Tax Statement',
+    condition: JSON.stringify({ hasPropertyTax: true }),
+    isRequired: false,
+    category: 'deductions',
+    expectedCount: 1,
+    sortOrder: 81,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.CHARITY_RECEIPT,
+    labelVi: 'Biên lai từ thiện',
+    labelEn: 'Charity Receipts',
+    condition: JSON.stringify({ hasCharitableDonations: true }),
+    isRequired: false,
+    category: 'deductions',
+    expectedCount: 5,
+    sortOrder: 82,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.MEDICAL_RECEIPT,
+    labelVi: 'Chi phí y tế',
+    labelEn: 'Medical Expense Receipts',
+    hintVi: 'Chi phí không được bảo hiểm chi trả',
+    hintEn: 'Out-of-pocket expenses',
+    condition: JSON.stringify({ hasMedicalExpenses: true }),
+    isRequired: false,
+    category: 'deductions',
+    expectedCount: 5,
+    sortOrder: 83,
+  },
+
+  // Category: Dependents/Credits
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.DAYCARE_RECEIPT,
+    labelVi: 'Biên lai Daycare',
+    labelEn: 'Daycare Receipts',
+    hintVi: 'Cần tên, địa chỉ, EIN/SSN của provider',
+    hintEn: 'Need provider name, address, EIN/SSN',
+    condition: JSON.stringify({ paysDaycare: true }),
+    isRequired: false,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 90,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_8332,
+    labelVi: 'Form 8332 (Release of Exemption)',
+    labelEn: 'Form 8332 (Release of Exemption)',
+    hintVi: 'Nếu ly hôn và có thỏa thuận về dependency',
+    hintEn: 'If divorced with dependency agreement',
+    isRequired: false,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 91,
+  },
+
+  // Category: Business (Self-employment)
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.PROFIT_LOSS_STATEMENT,
+    labelVi: 'Báo cáo P&L',
+    labelEn: 'Profit & Loss Statement',
+    condition: JSON.stringify({ hasSelfEmployment: true }),
+    isRequired: true,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 100,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.BANK_STATEMENT,
+    labelVi: 'Bank Statements (12 tháng)',
+    labelEn: 'Bank Statements (12 months)',
+    condition: JSON.stringify({ hasSelfEmployment: true }),
+    isRequired: false,
+    category: 'business',
+    expectedCount: 12,
+    sortOrder: 101,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.EIN_LETTER,
+    labelVi: 'EIN Letter',
+    labelEn: 'EIN Letter',
+    condition: JSON.stringify({ hasSelfEmployment: true }),
+    isRequired: false,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 102,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.VEHICLE_MILEAGE_LOG,
+    labelVi: 'Nhật ký lái xe',
+    labelEn: 'Vehicle Mileage Log',
+    condition: JSON.stringify({ hasBusinessVehicle: true }),
+    isRequired: false,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 103,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.DEPRECIATION_SCHEDULE,
+    labelVi: 'Bảng khấu hao',
+    labelEn: 'Depreciation Schedule',
+    condition: JSON.stringify({ hasSelfEmployment: true }),
+    isRequired: false,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 104,
+  },
+
+  // Category: Rental
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.PROFIT_LOSS_STATEMENT,
+    labelVi: 'Báo cáo thu nhập/chi phí cho thuê',
+    labelEn: 'Rental Income/Expense Summary',
+    condition: JSON.stringify({ hasRentalProperty: true }),
+    isRequired: true,
+    category: 'rental',
+    expectedCount: 1,
+    sortOrder: 110,
+  },
+
+  // Category: Foreign
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FOREIGN_BANK_STATEMENT,
+    labelVi: 'Sao kê tài khoản nước ngoài',
+    labelEn: 'Foreign Bank Statements',
+    hintVi: 'Cần số dư cao nhất trong năm cho FBAR',
+    hintEn: 'Need max balance for FBAR filing',
+    condition: JSON.stringify({ hasForeignAccounts: true }),
+    isRequired: false,
+    category: 'foreign',
+    expectedCount: 12,
+    sortOrder: 120,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FOREIGN_TAX_STATEMENT,
+    labelVi: 'Chứng từ thuế nước ngoài',
+    labelEn: 'Foreign Tax Statements',
+    condition: JSON.stringify({ hasForeignTaxPaid: true }),
+    isRequired: false,
+    category: 'foreign',
+    expectedCount: 1,
+    sortOrder: 121,
+  },
+
+  // ============================================
+  // PHASE 03: NEW TEMPLATES (35+ additions)
+  // ============================================
+
+  // Category: Prior Year - Extension payment proof
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.EXTENSION_PAYMENT_PROOF,
+    labelVi: 'Bằng chứng thanh toán extension',
+    labelEn: 'Extension Payment Proof',
+    hintVi: 'Form 4868 hoặc bank confirmation',
+    hintEn: 'Form 4868 or bank confirmation',
+    condition: JSON.stringify({ hasExtensionFiled: true }),
+    isRequired: false,
+    category: 'prior_year',
+    expectedCount: 1,
+    sortOrder: 13,
+  },
+
+  // Category: Home Sale Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.CLOSING_DISCLOSURE,
+    labelVi: 'Closing Disclosure (Mua/Bán nhà)',
+    labelEn: 'Closing Disclosure (Home Purchase/Sale)',
+    hintVi: 'Cần cho tính basis và points',
+    hintEn: 'Needed for basis and points calculation',
+    condition: JSON.stringify({ hasBoughtSoldHome: true }),
+    isRequired: true,
+    category: 'home_sale',
+    expectedCount: 2,
+    sortOrder: 85,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.MORTGAGE_POINTS_STATEMENT,
+    labelVi: 'Điểm mortgage đã trả',
+    labelEn: 'Mortgage Points Statement',
+    hintVi: 'Points paid at closing',
+    hintEn: 'Points paid at closing',
+    condition: JSON.stringify({ hasBoughtSoldHome: true }),
+    isRequired: false,
+    category: 'home_sale',
+    expectedCount: 1,
+    sortOrder: 86,
+  },
+
+  // Category: Rental Property Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.LEASE_AGREEMENT,
+    labelVi: 'Hợp đồng thuê nhà',
+    labelEn: 'Lease Agreements',
+    condition: JSON.stringify({ hasRentalProperty: true }),
+    isRequired: false,
+    category: 'rental',
+    expectedCount: 1,
+    sortOrder: 111,
+  },
+  // NOTE: Rental 1098 removed - use the existing FORM_1098 template (sortOrder 80)
+  // which covers both personal and rental mortgage interest
+
+  // Category: Business Templates - W-9s and 1099s issued
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({
+      type: 'AND',
+      conditions: [
+        { key: 'hasSelfEmployment', value: true },
+        { key: 'hasContractors', value: true },
+      ],
+    }),
+    isRequired: true,
+    category: 'business',
+    expectedCount: 1,
+    sortOrder: 105,
+  },
+
+  // Category: Foreign Reporting Templates
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FBAR_SUPPORT_DOCS,
+    labelVi: 'Tài liệu hỗ trợ FBAR',
+    labelEn: 'FBAR Support Documents',
+    hintVi: 'Cần nếu tổng balance >$10,000 bất kỳ lúc nào',
+    hintEn: 'Needed if aggregate balance >$10,000 at any time',
+    condition: JSON.stringify({
+      type: 'AND',
+      conditions: [
+        { key: 'hasForeignAccounts', value: true },
+        { key: 'fbarMaxBalance', value: 10000, operator: '>' },
+      ],
+    }),
+    isRequired: true,
+    category: 'foreign',
+    expectedCount: 1,
+    sortOrder: 122,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.FORM_8938,
+    labelVi: 'Form 8938 Support',
+    labelEn: 'Form 8938 Support Documents',
+    hintVi: 'FATCA reporting nếu assets >$50K (single) / $100K (joint)',
+    hintEn: 'FATCA reporting if assets >$50K (single) / $100K (joint)',
+    condition: JSON.stringify({ hasForeignAccounts: true }),
+    isRequired: false,
+    category: 'foreign',
+    expectedCount: 1,
+    sortOrder: 123,
+  },
+
+  // Category: Credits - Energy and EV
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.EV_PURCHASE_AGREEMENT,
+    labelVi: 'Hợp đồng mua xe điện',
+    labelEn: 'Electric Vehicle Purchase Agreement',
+    hintVi: 'Cần cho EV tax credit',
+    hintEn: 'Required for EV tax credit',
+    condition: JSON.stringify({ hasEVPurchase: true }),
+    isRequired: true,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 92,
+  },
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.ENERGY_CREDIT_INVOICE,
+    labelVi: 'Hóa đơn năng lượng xanh',
+    labelEn: 'Energy Credit Invoices',
+    hintVi: 'Solar, cách nhiệt, heat pump, etc.',
+    hintEn: 'Solar, insulation, heat pump, etc.',
+    condition: JSON.stringify({ hasEnergyCredits: true }),
+    isRequired: true,
+    category: 'credits',
+    expectedCount: 1,
+    sortOrder: 93,
+  },
+
+  // ============================================
+  // CATEGORY: OTHER (Always included - catch-all for unmatched docs)
+  // ============================================
+  {
+    taxType: TaxType.FORM_1040,
+    docType: DocType.OTHER,
+    labelVi: 'Tài liệu khác',
+    labelEn: 'Other Documents',
+    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
+    descriptionEn: 'Documents that do not belong to categories above',
+    isRequired: true, // Always included
+    category: 'other',
+    expectedCount: 10, // Flexible count
+    sortOrder: 999, // Always at bottom
+  },
+]
+
+// ============================================
+// FORM 1120-S - S-CORPORATION CHECKLIST
+// ============================================
+const form1120STemplates: ChecklistTemplateSeed[] = [
+  // Category: Admin/Entity
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.PRIOR_YEAR_RETURN,
+    labelVi: 'Tờ khai thuế năm trước',
+    labelEn: 'Prior Year Tax Return',
+    condition: JSON.stringify({ isNewClient: true }),
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 1,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.EIN_LETTER,
+    labelVi: 'EIN Letter từ IRS',
+    labelEn: 'EIN Letter from IRS',
+    isRequired: true,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 2,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.ARTICLES_OF_INCORPORATION,
+    labelVi: 'Articles of Incorporation',
+    labelEn: 'Articles of Incorporation',
+    isRequired: true,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 3,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.OPERATING_AGREEMENT,
+    labelVi: 'Bylaws / Operating Agreement',
+    labelEn: 'Bylaws / Operating Agreement',
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 4,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.BUSINESS_LICENSE,
+    labelVi: 'Business License',
+    labelEn: 'Business License',
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 5,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.IRS_NOTICE,
+    labelVi: 'IRS Notices/Letters',
+    labelEn: 'IRS Notices/Letters',
+    condition: JSON.stringify({ hasIrsNotice: true }),
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 6,
+  },
+
+  // Category: Ownership
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.SSN_CARD,
+    labelVi: 'SSN Shareholders',
+    labelEn: 'Shareholder SSN Cards',
+    isRequired: true,
+    category: 'ownership',
+    expectedCount: 1,
+    sortOrder: 10,
+  },
+
+  // Category: Income
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_1099_K,
+    labelVi: '1099-K (Payment cards)',
+    labelEn: '1099-K (Payment Cards)',
+    condition: JSON.stringify({ businessHas1099K: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 20,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_1099_NEC,
+    labelVi: '1099-NEC/MISC nhận được',
+    labelEn: '1099-NEC/MISC Received',
+    condition: JSON.stringify({ businessHas1099NEC: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 21,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_1099_INT,
+    labelVi: '1099-INT (Lãi)',
+    labelEn: '1099-INT (Interest)',
+    condition: JSON.stringify({ hasInterestIncome: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 22,
+  },
+
+  // Category: Financials
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.PROFIT_LOSS_STATEMENT,
+    labelVi: 'Báo cáo P&L',
+    labelEn: 'Profit & Loss Statement',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 1,
+    sortOrder: 30,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.BALANCE_SHEET,
+    labelVi: 'Balance Sheet',
+    labelEn: 'Balance Sheet',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 1,
+    sortOrder: 31,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.BANK_STATEMENT,
+    labelVi: 'Bank Statements (12 tháng)',
+    labelEn: 'Bank Statements (12 months)',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 12,
+    sortOrder: 32,
+  },
+
+  // Category: Payroll
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.PAYROLL_REPORT,
+    labelVi: 'Payroll Reports (941, W-3)',
+    labelEn: 'Payroll Reports (941, W-3)',
+    condition: JSON.stringify({ businessHasEmployees: true }),
+    isRequired: true,
+    category: 'payroll',
+    expectedCount: 4,
+    sortOrder: 40,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.W2,
+    labelVi: 'W2s đã cấp cho nhân viên',
+    labelEn: 'W2s Issued to Employees',
+    condition: JSON.stringify({ businessHasEmployees: true }),
+    isRequired: true,
+    category: 'payroll',
+    expectedCount: 1,
+    sortOrder: 41,
+  },
+
+  // Category: Expenses
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_1099_NEC,
+    labelVi: '1099-NEC đã cấp cho contractors',
+    labelEn: '1099-NEC Issued to Contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: false,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 50,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: true,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 51,
+  },
+
+  // Category: Assets
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.DEPRECIATION_SCHEDULE,
+    labelVi: 'Bảng khấu hao',
+    labelEn: 'Depreciation Schedule',
+    condition: JSON.stringify({ hasDepreciation: true }),
+    isRequired: false,
+    category: 'assets',
+    expectedCount: 1,
+    sortOrder: 60,
+  },
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.VEHICLE_MILEAGE_LOG,
+    labelVi: 'Nhật ký lái xe',
+    labelEn: 'Vehicle Mileage Log',
+    condition: JSON.stringify({ hasVehicles: true }),
+    isRequired: false,
+    category: 'assets',
+    expectedCount: 1,
+    sortOrder: 61,
+  },
+
+  // Category: Other (Always included - catch-all)
+  {
+    taxType: TaxType.FORM_1120S,
+    docType: DocType.OTHER,
+    labelVi: 'Tài liệu khác',
+    labelEn: 'Other Documents',
+    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
+    descriptionEn: 'Documents that do not belong to categories above',
+    isRequired: true,
+    category: 'other',
+    expectedCount: 10,
+    sortOrder: 999,
+  },
+]
+
+// ============================================
+// FORM 1065 - PARTNERSHIP CHECKLIST
+// ============================================
+const form1065Templates: ChecklistTemplateSeed[] = [
+  // Category: Admin/Entity
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.PRIOR_YEAR_RETURN,
+    labelVi: 'Tờ khai thuế năm trước',
+    labelEn: 'Prior Year Tax Return',
+    condition: JSON.stringify({ isNewClient: true }),
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 1,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.EIN_LETTER,
+    labelVi: 'EIN Letter từ IRS',
+    labelEn: 'EIN Letter from IRS',
+    isRequired: true,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 2,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.OPERATING_AGREEMENT,
+    labelVi: 'Partnership / Operating Agreement',
+    labelEn: 'Partnership / Operating Agreement',
+    isRequired: true,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 3,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.BUSINESS_LICENSE,
+    labelVi: 'Business License',
+    labelEn: 'Business License',
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 4,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.IRS_NOTICE,
+    labelVi: 'IRS Notices/Letters',
+    labelEn: 'IRS Notices/Letters',
+    condition: JSON.stringify({ hasIrsNotice: true }),
+    isRequired: false,
+    category: 'admin',
+    expectedCount: 1,
+    sortOrder: 5,
+  },
+
+  // Category: Ownership
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.SSN_CARD,
+    labelVi: 'SSN Partners',
+    labelEn: 'Partner SSN Cards',
+    isRequired: true,
+    category: 'ownership',
+    expectedCount: 1,
+    sortOrder: 10,
+  },
+
+  // Category: Income
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_1099_K,
+    labelVi: '1099-K (Payment cards)',
+    labelEn: '1099-K (Payment Cards)',
+    condition: JSON.stringify({ businessHas1099K: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 20,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_1099_NEC,
+    labelVi: '1099-NEC/MISC nhận được',
+    labelEn: '1099-NEC/MISC Received',
+    condition: JSON.stringify({ businessHas1099NEC: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 21,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_1099_INT,
+    labelVi: '1099-INT (Lãi)',
+    labelEn: '1099-INT (Interest)',
+    condition: JSON.stringify({ hasInterestIncome: true }),
+    isRequired: false,
+    category: 'income',
+    expectedCount: 1,
+    sortOrder: 22,
+  },
+
+  // Category: Financials
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.PROFIT_LOSS_STATEMENT,
+    labelVi: 'Báo cáo P&L',
+    labelEn: 'Profit & Loss Statement',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 1,
+    sortOrder: 30,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.BALANCE_SHEET,
+    labelVi: 'Balance Sheet',
+    labelEn: 'Balance Sheet',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 1,
+    sortOrder: 31,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.BANK_STATEMENT,
+    labelVi: 'Bank Statements (12 tháng)',
+    labelEn: 'Bank Statements (12 months)',
+    isRequired: true,
+    category: 'financials',
+    expectedCount: 12,
+    sortOrder: 32,
+  },
+
+  // Category: Payroll
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.PAYROLL_REPORT,
+    labelVi: 'Payroll Reports (941, W-3)',
+    labelEn: 'Payroll Reports (941, W-3)',
+    condition: JSON.stringify({ businessHasEmployees: true }),
+    isRequired: true,
+    category: 'payroll',
+    expectedCount: 4,
+    sortOrder: 40,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.W2,
+    labelVi: 'W2s đã cấp cho nhân viên',
+    labelEn: 'W2s Issued to Employees',
+    condition: JSON.stringify({ businessHasEmployees: true }),
+    isRequired: true,
+    category: 'payroll',
+    expectedCount: 1,
+    sortOrder: 41,
+  },
+
+  // Category: Expenses
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_1099_NEC,
+    labelVi: '1099-NEC đã cấp cho contractors',
+    labelEn: '1099-NEC Issued to Contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: false,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 50,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.FORM_W9_ISSUED,
+    labelVi: 'W-9 đã thu từ contractors',
+    labelEn: 'W-9s Collected from Contractors',
+    hintVi: 'Bắt buộc nếu trả >$600 cho contractor',
+    hintEn: 'Required if paying >$600 to contractors',
+    condition: JSON.stringify({ businessHasContractors: true }),
+    isRequired: true,
+    category: 'expenses',
+    expectedCount: 1,
+    sortOrder: 51,
+  },
+
+  // Category: Assets
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.DEPRECIATION_SCHEDULE,
+    labelVi: 'Bảng khấu hao',
+    labelEn: 'Depreciation Schedule',
+    condition: JSON.stringify({ hasDepreciation: true }),
+    isRequired: false,
+    category: 'assets',
+    expectedCount: 1,
+    sortOrder: 60,
+  },
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.VEHICLE_MILEAGE_LOG,
+    labelVi: 'Nhật ký lái xe',
+    labelEn: 'Vehicle Mileage Log',
+    condition: JSON.stringify({ hasVehicles: true }),
+    isRequired: false,
+    category: 'assets',
+    expectedCount: 1,
+    sortOrder: 61,
+  },
+
+  // Category: Other (Always included - catch-all)
+  {
+    taxType: TaxType.FORM_1065,
+    docType: DocType.OTHER,
+    labelVi: 'Tài liệu khác',
+    labelEn: 'Other Documents',
+    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
+    descriptionEn: 'Documents that do not belong to categories above',
+    isRequired: true,
+    category: 'other',
+    expectedCount: 10,
+    sortOrder: 999,
+  },
+]
+
+// Combine all templates
+const allTemplates = [...form1040Templates, ...form1120STemplates, ...form1065Templates]
+
+export async function seedChecklistTemplates(): Promise<void> {
+  console.log('Seeding checklist templates...')
+
+  for (const template of allTemplates) {
+    await prisma.checklistTemplate.upsert({
+      where: {
+        taxType_docType: {
+          taxType: template.taxType,
+          docType: template.docType,
+        },
+      },
+      update: {
+        labelVi: template.labelVi,
+        labelEn: template.labelEn,
+        descriptionVi: template.descriptionVi,
+        descriptionEn: template.descriptionEn,
+        hintVi: template.hintVi,
+        hintEn: template.hintEn,
+        isRequired: template.isRequired,
+        condition: template.condition,
+        category: template.category,
+        expectedCount: template.expectedCount,
+        sortOrder: template.sortOrder,
+      },
+      create: {
+        taxType: template.taxType,
+        docType: template.docType,
+        labelVi: template.labelVi,
+        labelEn: template.labelEn,
+        descriptionVi: template.descriptionVi,
+        descriptionEn: template.descriptionEn,
+        hintVi: template.hintVi,
+        hintEn: template.hintEn,
+        isRequired: template.isRequired,
+        condition: template.condition,
+        category: template.category,
+        expectedCount: template.expectedCount,
+        sortOrder: template.sortOrder,
+      },
+    })
+  }
+
+  console.log(`Seeded ${allTemplates.length} checklist templates`)
+}
+
+// Run if executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  seedChecklistTemplates()
+    .catch((e) => {
+      console.error('Seed failed:', e)
+      process.exit(1)
+    })
+    .finally(async () => {
+      await prisma.$disconnect()
+    })
+}

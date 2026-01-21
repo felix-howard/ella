@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(awk:*)",
+      "Bash(cat:*)",
+      "WebSearch",
+      "WebFetch(domain:support.google.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(pnpm --filter workspace tsc:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm build)",
+      "Bash(pnpm test --help:*)",
+      "Bash(pnpm test:*)",
+      "Bash(tee:*)",
+      "Bash(pnpm type-check:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run type-check:*)"
+    ]
+  }
+}

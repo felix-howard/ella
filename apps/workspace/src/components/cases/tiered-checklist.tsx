@@ -22,16 +22,20 @@ import { CATEGORY_STYLES, SIMPLIFIED_STATUS_DISPLAY, type CategoryKey } from '..
 import { DOC_TYPE_LABELS, DOC_TYPE_CATEGORIES } from '../../lib/constants'
 import { ChecklistProgress } from './checklist-progress'
 import { SkipItemModal } from './skip-item-modal'
-import type { ChecklistItem, ChecklistItemStatus } from '../../lib/api-client'
+import { useSignedUrl } from '../../hooks/use-signed-url'
+import type { ChecklistItem, ChecklistItemStatus, DigitalDoc } from '../../lib/api-client'
 
 interface TieredChecklistProps {
   items: ChecklistItem[]
+  /** All digital docs for the case - used to display docs under checklist items */
+  digitalDocs?: DigitalDoc[]
   isLoading?: boolean
   isStaffView?: boolean
   onAddItem?: () => void
   onSkip?: (itemId: string, reason: string) => void
   onUnskip?: (itemId: string) => void
-  onVerify?: (item: ChecklistItem) => void
+  /** Called when a document under a checklist item is double-clicked */
+  onDocVerify?: (doc: DigitalDoc) => void
   onViewNotes?: (item: ChecklistItem) => void
 }
 
@@ -91,12 +95,13 @@ function getSimplifiedStatus(status: ChecklistItemStatus) {
 
 export function TieredChecklist({
   items,
+  digitalDocs = [],
   isLoading,
   isStaffView = false,
   onAddItem,
   onSkip,
   onUnskip,
-  onVerify,
+  onDocVerify,
   onViewNotes,
 }: TieredChecklistProps) {
   // Skip modal state
@@ -157,10 +162,11 @@ export function TieredChecklist({
           categoryKey={group.key}
           label={group.label}
           items={group.items}
+          digitalDocs={digitalDocs}
           isStaffView={isStaffView}
           onSkip={handleOpenSkipModal}
           onUnskip={onUnskip}
-          onVerify={onVerify}
+          onDocVerify={onDocVerify}
           onViewNotes={onViewNotes}
         />
       ))}
@@ -183,10 +189,11 @@ interface CategorySectionProps {
   categoryKey: CategoryKey
   label: string
   items: ChecklistItem[]
+  digitalDocs?: DigitalDoc[]
   isStaffView?: boolean
   onSkip?: (itemId: string, itemLabel: string) => void
   onUnskip?: (itemId: string) => void
-  onVerify?: (item: ChecklistItem) => void
+  onDocVerify?: (doc: DigitalDoc) => void
   onViewNotes?: (item: ChecklistItem) => void
 }
 
@@ -194,10 +201,11 @@ function CategorySection({
   categoryKey,
   label,
   items,
+  digitalDocs = [],
   isStaffView,
   onSkip,
   onUnskip,
-  onVerify,
+  onDocVerify,
   onViewNotes,
 }: CategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
@@ -243,10 +251,11 @@ function CategorySection({
             <ChecklistItemRow
               key={item.id}
               item={item}
+              digitalDocs={digitalDocs}
               isStaffView={isStaffView}
               onSkip={onSkip}
               onUnskip={onUnskip}
-              onVerify={onVerify}
+              onDocVerify={onDocVerify}
               onViewNotes={onViewNotes}
             />
           ))}
@@ -257,26 +266,29 @@ function CategorySection({
 }
 
 /**
- * ChecklistItemRow - Clickable row for checklist item
- * Click action: opens VerificationModal directly via onVerify callback
+ * ChecklistItemRow - Row for checklist item with expandable documents section
+ * Documents under the item can be double-clicked to open verification modal
  */
 interface ChecklistItemRowProps {
   item: ChecklistItem
+  digitalDocs?: DigitalDoc[]
   isStaffView?: boolean
   onSkip?: (itemId: string, itemLabel: string) => void
   onUnskip?: (itemId: string) => void
-  onVerify?: (item: ChecklistItem) => void
+  onDocVerify?: (doc: DigitalDoc) => void
   onViewNotes?: (item: ChecklistItem) => void
 }
 
 function ChecklistItemRow({
   item,
+  digitalDocs = [],
   isStaffView,
   onSkip,
   onUnskip,
-  onVerify,
+  onDocVerify,
   onViewNotes,
 }: ChecklistItemRowProps) {
+  const [isExpanded, setIsExpanded] = useState(true)
   const status = item.status as ChecklistItemStatus
   const simplifiedStatus = getSimplifiedStatus(status)
   const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
@@ -289,25 +301,37 @@ function ChecklistItemRow({
   const receivedCount = item.receivedCount || 0
   const needsMore = expectedCount > 1 && receivedCount < expectedCount
 
-  // Handle row click - opens verification modal
-  const handleRowClick = () => {
-    if (onVerify && !isSkipped) {
-      onVerify(item)
-    }
-  }
+  // Find documents associated with this checklist item by docType
+  const itemDocs = useMemo(() => {
+    const docType = item.template?.docType
+    if (!docType) return []
+    return digitalDocs.filter(doc => doc.docType === docType)
+  }, [digitalDocs, item.template?.docType])
+
+  const hasDocuments = itemDocs.length > 0
 
   return (
     <div className={cn('group', isSkipped && 'opacity-60')}>
-      {/* Main row - clickable for verification */}
-      <button
-        onClick={handleRowClick}
-        disabled={isSkipped}
+      {/* Main row - shows checklist item info */}
+      <div
         className={cn(
-          'w-full flex items-center gap-2 px-3 py-2.5 text-left',
-          'hover:bg-muted/50 transition-colors',
-          isSkipped && 'cursor-default'
+          'w-full flex items-center gap-2 px-3 py-2.5',
+          hasDocuments && 'cursor-pointer hover:bg-muted/30',
+          !hasDocuments && 'cursor-default'
         )}
+        onClick={() => hasDocuments && setIsExpanded(!isExpanded)}
       >
+        {/* Expand/collapse indicator for items with docs */}
+        {hasDocuments ? (
+          isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )
+        ) : (
+          <div className="w-4" /> // Spacer for alignment
+        )}
+
         {/* Status indicator */}
         <span
           className={cn('flex items-center justify-center w-5 h-5 rounded-full text-xs', simplifiedStatus.bgColor)}
@@ -345,9 +369,24 @@ function ChecklistItemRow({
         <span className={cn('text-xs px-2 py-0.5 rounded', simplifiedStatus.bgColor, simplifiedStatus.color)}>
           {simplifiedStatus.labelVi}
         </span>
-      </button>
+      </div>
 
-      {/* Action buttons row - separate from clickable area */}
+      {/* Documents section - shown when item has documents and is expanded */}
+      {hasDocuments && isExpanded && (
+        <div className="px-3 pb-2 pl-10">
+          <div className="flex flex-wrap gap-2">
+            {itemDocs.map(doc => (
+              <DocumentThumbnail
+                key={doc.id}
+                doc={doc}
+                onDoubleClick={() => onDocVerify?.(doc)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons row */}
       {(hasNotes || isStaffView) && (
         <div className="flex items-center gap-1 px-3 pb-2 justify-end">
           {/* Notes indicator */}
@@ -394,6 +433,58 @@ function ChecklistItemRow({
           Lý do: {item.skippedReason}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * DocumentThumbnail - Thumbnail preview of a document with filename
+ * Double-click to open verification modal
+ */
+interface DocumentThumbnailProps {
+  doc: DigitalDoc
+  onDoubleClick: () => void
+}
+
+function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
+  const [imgError, setImgError] = useState(false)
+  // Get signed URL for the raw image
+  const rawImageId = doc.rawImageId || doc.rawImage?.id
+  const { data: signedUrlData, isLoading: isUrlLoading } = useSignedUrl(rawImageId || null)
+
+  const filename = doc.rawImage?.filename || 'Document'
+
+  const showImage = signedUrlData?.url && !imgError
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border cursor-pointer',
+        'hover:bg-muted/50 hover:border-primary/50 transition-all',
+        'bg-background w-28'
+      )}
+      onDoubleClick={onDoubleClick}
+      title={`Nhấp đúp để xem: ${filename}`}
+    >
+      {/* Image preview */}
+      <div className="w-24 h-24 rounded overflow-hidden bg-muted/30 flex items-center justify-center">
+        {isUrlLoading ? (
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        ) : showImage ? (
+          <img
+            src={signedUrlData.url}
+            alt={filename}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <FileText className="w-10 h-10 text-muted-foreground" />
+        )}
+      </div>
+      {/* Filename - wrap to multiple lines */}
+      <span className="text-xs text-muted-foreground text-center w-full break-words leading-tight line-clamp-2">
+        {filename}
+      </span>
     </div>
   )
 }

@@ -1,130 +1,40 @@
-@ella/api:dev: --> PUT /api/inngest 200 8ms
-@ella/api:dev: <-- OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55 204 1ms
-@ella/api:dev: <-- GET /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] Fetching 13 messages for case cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] Message cmklb6j170019gfp4o4o25b4y:
-@ella/api:dev: [Messages] WARNING: Message cmkjq7u560071gf14xcj7jdbe has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260119%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260119T151706Z&X-Amz-Expires=3600&X-Amz-Signature=049198e9d7bdef5491e111e53213fd9a5b73012b4492941ef5d78df34d719734&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: ["cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg"]
-@ella/api:dev: [Messages] Message cmkjq7u560071gf14xcj7jdbe:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768740148501.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260118%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260118T124229Z&X-Amz-Expires=3600&X-Amz-Signature=dcb908f2885bab8f8a4ad0137689e60dbfc64bb510874c17cf076bebc2cd40ae&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Message cmkflty020015gf7womnnv2gx:
-@ella/api:dev: [Messages] WARNING: Message cmkflty020015gf7womnnv2gx has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768490917331.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260115%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260115T152837Z&X-Amz-Expires=3600&X-Amz-Signature=7f157d2cee113f8043e04b15e9739dd154918a1f2b4a00bdc4d3377d3a765fdf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Refreshing URLs for message cmklb6j170019gfp4o4o25b4y with 1 R2 keys
-@ella/api:dev: [Messages] Got 1 fresh URLs for message cmklb6j170019gfp4o4o25b4y
-@ella/api:dev: --> GET /messages/cmkfg5d2k000dgfwgxznjik55 200 420ms
-@ella/api:dev: <-- PUT /api/inngest
-@ella/api:dev: --> PUT /api/inngest 200 12ms
-@ella/api:dev: <-- OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55 204 0ms
-@ella/api:dev: <-- OPTIONS /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: --> OPTIONS /messages/conversations?unreadOnly=false&limit=50 204 0ms
-@ella/api:dev: <-- GET /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: <-- GET /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: <-- PUT /api/inngest
-@ella/api:dev: --> PUT /api/inngest 200 8ms
-@ella/api:dev: [Messages] Fetching 13 messages for case cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] WARNING: Message cmkjq7u560071gf14xcj7jdbe has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] Message cmklb6j170019gfp4o4o25b4y:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260119%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260119T151706Z&X-Amz-Expires=3600&X-Amz-Signature=049198e9d7bdef5491e111e53213fd9a5b73012b4492941ef5d78df34d719734&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: ["cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg"]
-@ella/api:dev: [Messages] WARNING: Message cmkflty020015gf7womnnv2gx has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] Message cmkjq7u560071gf14xcj7jdbe:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768740148501.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260118%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260118T124229Z&X-Amz-Expires=3600&X-Amz-Signature=dcb908f2885bab8f8a4ad0137689e60dbfc64bb510874c17cf076bebc2cd40ae&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Message cmkflty020015gf7womnnv2gx:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768490917331.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260115%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260115T152837Z&X-Amz-Expires=3600&X-Amz-Signature=7f157d2cee113f8043e04b15e9739dd154918a1f2b4a00bdc4d3377d3a765fdf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Refreshing URLs for message cmklb6j170019gfp4o4o25b4y with 1 R2 keys
-@ella/api:dev: [Messages] Got 1 fresh URLs for message cmklb6j170019gfp4o4o25b4y
-@ella/api:dev: --> GET /messages/cmkfg5d2k000dgfwgxznjik55 200 441ms
-@ella/api:dev: --> GET /messages/conversations?unreadOnly=false&limit=50 200 609ms
-@ella/api:dev: <-- OPTIONS /messages/conversations?limit=1
-@ella/api:dev: --> OPTIONS /messages/conversations?limit=1 204 0ms
-@ella/api:dev: <-- GET /messages/conversations?limit=1
-@ella/api:dev: --> GET /messages/conversations?limit=1 200 492ms
-@ella/api:dev: <-- PUT /api/inngest
-@ella/api:dev: --> PUT /api/inngest 200 16ms
-@ella/api:dev: <-- OPTIONS /messages/conversations?limit=1
-@ella/api:dev: --> OPTIONS /messages/conversations?limit=1 204 1ms
-@ella/api:dev: <-- OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55 204 0ms
-@ella/api:dev: <-- OPTIONS /cases/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /cases/cmkfg5d2k000dgfwgxznjik55 204 0ms
-@ella/api:dev: <-- OPTIONS /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: --> OPTIONS /messages/conversations?unreadOnly=false&limit=50 204 0ms
-@ella/api:dev: <-- OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55 204 1ms
-@ella/api:dev: <-- OPTIONS /cases/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /cases/cmkfg5d2k000dgfwgxznjik55 204 0ms
-@ella/api:dev: <-- OPTIONS /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: --> OPTIONS /messages/conversations?unreadOnly=false&limit=50 204 0ms
-@ella/api:dev: <-- GET /messages/conversations?limit=1
-@ella/api:dev: <-- GET /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: <-- GET /cases/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: <-- GET /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: <-- GET /cases/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: <-- GET /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: [Messages] Fetching 13 messages for case cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] WARNING: Message cmkjq7u560071gf14xcj7jdbe has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] WARNING: Message cmkflty020015gf7womnnv2gx has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] Message cmklb6j170019gfp4o4o25b4y:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260119%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260119T151706Z&X-Amz-Expires=3600&X-Amz-Signature=049198e9d7bdef5491e111e53213fd9a5b73012b4492941ef5d78df34d719734&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: ["cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg"]
-@ella/api:dev: [Messages] Message cmkjq7u560071gf14xcj7jdbe:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768740148501.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260118%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260118T124229Z&X-Amz-Expires=3600&X-Amz-Signature=dcb908f2885bab8f8a4ad0137689e60dbfc64bb510874c17cf076bebc2cd40ae&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Message cmkflty020015gf7womnnv2gx:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768490917331.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260115%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260115T152837Z&X-Amz-Expires=3600&X-Amz-Signature=7f157d2cee113f8043e04b15e9739dd154918a1f2b4a00bdc4d3377d3a765fdf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Refreshing URLs for message cmklb6j170019gfp4o4o25b4y with 1 R2 keys
-@ella/api:dev: [Messages] Got 1 fresh URLs for message cmklb6j170019gfp4o4o25b4y
-@ella/api:dev: --> GET /messages/cmkfg5d2k000dgfwgxznjik55 200 452ms
-@ella/api:dev: <-- GET /messages/conversations?unreadOnly=false&limit=50
-@ella/api:dev: [Messages] Fetching 13 messages for case cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] Message cmklb6j170019gfp4o4o25b4y:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260119%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260119T151706Z&X-Amz-Expires=3600&X-Amz-Signature=049198e9d7bdef5491e111e53213fd9a5b73012b4492941ef5d78df34d719734&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: ["cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg"]
-@ella/api:dev: [Messages] Message cmkjq7u560071gf14xcj7jdbe:
-@ella/api:dev: [Messages] WARNING: Message cmkjq7u560071gf14xcj7jdbe has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768740148501.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260118%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260118T124229Z&X-Amz-Expires=3600&X-Amz-Signature=dcb908f2885bab8f8a4ad0137689e60dbfc64bb510874c17cf076bebc2cd40ae&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Message cmkflty020015gf7womnnv2gx:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768490917331.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260115%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260115T152837Z&X-Amz-Expires=3600&X-Amz-Signature=7f157d2cee113f8043e04b15e9739dd154918a1f2b4a00bdc4d3377d3a765fdf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Refreshing URLs for message cmklb6j170019gfp4o4o25b4y with 1 R2 keys
-@ella/api:dev: [Messages] WARNING: Message cmkflty020015gf7womnnv2gx has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] Got 1 fresh URLs for message cmklb6j170019gfp4o4o25b4y
-@ella/api:dev: --> GET /messages/cmkfg5d2k000dgfwgxznjik55 200 580ms
-@ella/api:dev: --> GET /cases/cmkfg5d2k000dgfwgxznjik55 200 687ms
-@ella/api:dev: --> GET /cases/cmkfg5d2k000dgfwgxznjik55 200 773ms
-@ella/api:dev: --> GET /messages/conversations?unreadOnly=false&limit=50 200 812ms
-@ella/api:dev: --> GET /messages/conversations?limit=1 200 1s
-@ella/api:dev: --> GET /messages/conversations?unreadOnly=false&limit=50 200 1s
-@ella/api:dev: <-- PUT /api/inngest
-@ella/api:dev: --> PUT /api/inngest 200 11ms
-@ella/api:dev: <-- PUT /api/inngest
-@ella/api:dev: --> PUT /api/inngest 200 11ms
-@ella/api:dev: <-- OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: --> OPTIONS /messages/cmkfg5d2k000dgfwgxznjik55 204 0ms
-@ella/api:dev: <-- GET /messages/cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] Fetching 13 messages for case cmkfg5d2k000dgfwgxznjik55
-@ella/api:dev: [Messages] Message cmklb6j170019gfp4o4o25b4y:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260119%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260119T151706Z&X-Amz-Expires=3600&X-Amz-Signature=049198e9d7bdef5491e111e53213fd9a5b73012b4492941ef5d78df34d719734&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: ["cases/cmkfg5d2k000dgfwgxznjik55/raw/1768835825455.jpg"]
-@ella/api:dev: [Messages] Message cmkjq7u560071gf14xcj7jdbe:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768740148501.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260118%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260118T124229Z&X-Amz-Expires=3600&X-Amz-Signature=dcb908f2885bab8f8a4ad0137689e60dbfc64bb510874c17cf076bebc2cd40ae&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Message cmkflty020015gf7womnnv2gx:
-@ella/api:dev: [Messages]   - attachmentUrls: ["https://ella-documents.f0e566ec1af5e3f22d587a1c0500e1f0.r2.cloudflarestorage.com/cases/cmkfg5d2k000dgfwgxznjik55/raw/1768490917331.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=74f202f4077af3e2e426567c0b1733e6%2F20260115%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260115T152837Z&X-Amz-Expires=3600&X-Amz-Signature=7f157d2cee113f8043e04b15e9739dd154918a1f2b4a00bdc4d3377d3a765fdf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"]
-@ella/api:dev: [Messages] WARNING: Message cmkjq7u560071gf14xcj7jdbe has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages]   - attachmentR2Keys: []
-@ella/api:dev: [Messages] Refreshing URLs for message cmklb6j170019gfp4o4o25b4y with 1 R2 keys
-@ella/api:dev: [Messages] WARNING: Message cmkflty020015gf7womnnv2gx has attachmentUrls but NO R2 keys - URLs will expire!
-@ella/api:dev: [Messages] Got 1 fresh URLs for message cmklb6j170019gfp4o4o25b4y
-@ella/api:dev: --> GET /messages/cmkfg5d2k000dgfwgxznjik55 200 669ms
-@ella/api:dev: <-- PUT /api/inngest
+tôi muốn nâng cấp màn hình tab Document của Client Detail
+giao diện hiện tại gồm: Danh sách tài liệu cần thu thập card + Quy trình xử lý tài liệu card
+tôi cảm thấy giao diện chưa tối ưu cho workflow của staff, và bị overlap tài liệu ở 2 card
+
+tôi muốn giữ lại/nâng cấp Danh sách tài liệu cần thu thập card để có thể staff làm việc trực tiếp trên đây
+và loại bỏ/đơn giản hóa Quy trình xử lý tài liệu card
+
+Workflow hiện tại:
+client gửi docs
+docs nằm trong Quy trình xử lý tài liệu card, tab "Uploaded"
+AI tự phân loại
+docs chuyển sang nằm ở 2 nơi: trong Danh sách tài liệu cần thu thập card ở đúng mục checklist
+và ở trong tab "Need verify" trong Quy trình xử lý tài liệu card
+tôi qua tab "Need verify", nhấn nút "hoàn tất" để chuyển card sang tab "Verifed"
+
+tôi cảm thấy card Danh sách tài liệu cần thu thập card  suboptimal for staff workflow
+tôi muốn 1 nơi tập trung làm việc
+và tại sao docs đã được classified, nằm ở cả 2 nơi.
+
+
+tôi hình dung kiểu như
+có 1 card A, chưa tất cả tài liệu client gửi đến. Hay còn gọi là, cards chứa các tài liệu mà AI failed to classify
+có 1 card B, là checklist, card làm việc chính
+
+khi client gửi docs, docs vào ngay trong card A
+AI chạy ngầm, nếu classify docs thành công, docs di chuyển vào trong card B, ở đúng mục trong checklist
+AI failed, docs còn nằm lại ở card A, để staff manually classify
+Mục đích của trang này chỉ để classify tài liệu khách gửi vào từng mục checklist cụ thể, để biết client còn thiếu docs nào
+
+trạng thái của checklist lúc này chuyển từ còn thiếu => đã nộp (màu xanh dương)
+Khi click vào tài liệu trong checklist, sẽ mở tài liệu raw bên trái, tài liệu digital extracted bên phải giống màn hình verification modal
+khi staff nhấn "hoàn tất" trong modal này, thì sẽ chuyển sang trạng thái đã xác minh, màu xanh lá
+
+về các digital extracted docs card, tôi nghĩ làm 1 tab mới, vì staff chỉ vào đây khi sẵn sàng nhập liệu
+ở tab này, sẽ hiện ra các digital extracted doc card. Các card này chứa các giá trị đã được extracted và verfied ở bước trước, có nút copy kế bên để staff dễ nhấn copy
+ở tab này, nên sắp xếp các card này sao cho staff dễ phân loại và nhập liệu, ví dụ tôi nghĩ là sẽ phân nhóm card kiểu, header, rồi bên dưới là list hàng ngang các digital verifed extracted card (giống như giao diện của các web xem phim: tên thể loại, và danh sách hàng ngang các phim)
+như vậy khi vào tab digital docs này, staff chỉ vào khi muốn quá trình data entry, staff sẽ nhấn vào từng card, nhấn copy rồi paste vào tax software
+
+
+bạn nghĩ sao về approach của tôi, đó chỉ là suy nghĩ sơ bộ của tôi thôi, tôi muốn nghe ý kiến của bạn, bạn có cải thiện gì vào approach của tôi, hay bạn có ý kiến hay hơn, hãy nói ra cho tôi xem xét

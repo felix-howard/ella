@@ -410,17 +410,12 @@ function ClientDetailPage() {
             </div>
             <TieredChecklist
               items={checklistItems}
+              digitalDocs={digitalDocs}
               isStaffView={true}
               onAddItem={() => setIsAddItemModalOpen(true)}
               onSkip={(itemId, reason) => skipChecklistItemMutation.mutate({ itemId, reason })}
               onUnskip={(itemId) => unskipChecklistItemMutation.mutate(itemId)}
-              onVerify={(item) => {
-                // Find doc for this checklist item
-                const doc = digitalDocs.find(d => d.rawImageId && item.rawImages?.some(img => img.id === d.rawImageId))
-                if (doc) {
-                  handleVerifyDoc(doc)
-                }
-              }}
+              onDocVerify={handleVerifyDoc}
             />
           </div>
 

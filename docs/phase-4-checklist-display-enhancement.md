@@ -224,19 +224,32 @@ interface TieredChecklistProps {
 ```
 
 **Features:**
-- Automatic tier grouping via `groupItemsByTier()` function
-- Expandable tier sections
+- Automatic category grouping by document type (personal, income, deductions, business, other)
+- Expandable category sections with received/total count
 - Status indicators with icons and colors
 - Staff action buttons (skip, unskip, add notes)
+- Document thumbnail preview with colored borders (verification status visual)
+- Verification progress badge for multi-document items (>1 doc)
 - File preview integration
 - Loading skeleton state
 
 **Internal Helpers:**
 ```typescript
-function groupItemsByTier(items: ChecklistItem[]): Record<ChecklistTierKey, ChecklistItem[]>
+function groupItemsByCategory(items: ChecklistItem[]): CategoryGroup[]
+function getSimplifiedStatus(status: ChecklistItemStatus): StatusDisplay
+function getDocStatusBorderStyle(status: string | undefined): string
+function getVerificationProgressStyle(verified: number, total: number): ProgressStyle
 ```
 
-Groups items by REQUIRED, APPLICABLE, or OPTIONAL tier.
+- `groupItemsByCategory()`: Groups items by document category in DOC_TYPE_CATEGORIES order
+- `getDocStatusBorderStyle()`: Maps DigitalDoc status to border Tailwind classes
+- `getVerificationProgressStyle()`: Determines badge style based on verification count
+
+**Document Verification Visualization:**
+- Each document thumbnail shows colored border based on status (PENDING, EXTRACTED, VERIFIED, PARTIAL, FAILED)
+- Multi-document checklist items display verification progress badge: "{verified}/{total} đã xác minh"
+- Badge only shows when item has >1 doc to reduce visual clutter
+- Colors match system palette: Emerald (verified), Amber (extracted/in-progress), Red (failed), Gray (pending)
 
 ### AddChecklistItemModal
 
@@ -304,6 +317,34 @@ Centralized constants for tier styling and status display.
 
 **CHECKLIST_STATUS_DISPLAY:**
 Maps ChecklistItemStatus to visual representation (icons, colors, labels).
+
+**DOC_STATUS_BORDER_STYLES:** (NEW - Document-Level Verification Status)
+Border styling for document thumbnails based on DigitalDoc.status:
+```typescript
+{
+  PENDING: 'border-2 border-dashed border-gray-400 dark:border-gray-500',
+  EXTRACTED: 'border-2 border-amber-500 dark:border-amber-400',
+  VERIFIED: 'border-2 border-emerald-500 dark:border-emerald-400',
+  PARTIAL: 'border-2 border-red-500 dark:border-red-400',  // Extraction partial success
+  FAILED: 'border-2 border-red-500 dark:border-red-400',
+}
+```
+- Visual differentiation at a glance without affecting interactivity
+- Uses 2px borders for clear distinction
+- Dark mode support for all status colors
+
+**VERIFICATION_PROGRESS_STYLES:** (NEW - Multi-Document Progress Badge)
+Badge styling for verification progress on checklist items with >1 document:
+```typescript
+{
+  ALL: { bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+  PARTIAL: { bgColor: 'bg-amber-500/10', textColor: 'text-amber-600 dark:text-amber-400' },
+  NONE: { bgColor: 'bg-gray-500/10', textColor: 'text-gray-600 dark:text-gray-400' },
+}
+```
+- ALL: All docs verified (complete)
+- PARTIAL: Some docs verified (in progress)
+- NONE: No docs verified (not started)
 
 ## API Client Updates
 

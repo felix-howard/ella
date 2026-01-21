@@ -18,7 +18,14 @@ import {
   Minus,
   MessageSquare,
 } from 'lucide-react'
-import { CATEGORY_STYLES, SIMPLIFIED_STATUS_DISPLAY, type CategoryKey } from '../../lib/checklist-tier-constants'
+import {
+  CATEGORY_STYLES,
+  SIMPLIFIED_STATUS_DISPLAY,
+  DOC_STATUS_BORDER_STYLES,
+  VERIFICATION_PROGRESS_STYLES,
+  type CategoryKey,
+  type DocStatusKey,
+} from '../../lib/checklist-tier-constants'
 import { DOC_TYPE_LABELS, DOC_TYPE_CATEGORIES } from '../../lib/constants'
 import { ChecklistProgress } from './checklist-progress'
 import { SkipItemModal } from './skip-item-modal'
@@ -94,6 +101,30 @@ function getSimplifiedStatus(status: ChecklistItemStatus) {
   if (status === 'VERIFIED') return SIMPLIFIED_STATUS_DISPLAY.VERIFIED
   if (status === 'HAS_RAW' || status === 'HAS_DIGITAL') return SIMPLIFIED_STATUS_DISPLAY.SUBMITTED
   return SIMPLIFIED_STATUS_DISPLAY.NOT_REQUIRED
+}
+
+/**
+ * Get border style class for document thumbnail based on verification status
+ * Border colors: PENDING (gray dashed), EXTRACTED (amber), VERIFIED (green), PARTIAL/FAILED (red)
+ */
+function getDocStatusBorderStyle(status: string | undefined): string {
+  if (!status) return 'border border-border'
+  const key = status as DocStatusKey
+  const style = DOC_STATUS_BORDER_STYLES[key]
+  if (!style) {
+    console.warn(`[TieredChecklist] Unknown doc status: "${status}", using default border`)
+    return 'border border-border'
+  }
+  return style
+}
+
+/**
+ * Get verification progress style based on verified/total counts
+ */
+function getVerificationProgressStyle(verified: number, total: number) {
+  if (verified === total) return VERIFICATION_PROGRESS_STYLES.ALL
+  if (verified > 0) return VERIFICATION_PROGRESS_STYLES.PARTIAL
+  return VERIFICATION_PROGRESS_STYLES.NONE
 }
 
 export function TieredChecklist({
@@ -311,6 +342,17 @@ function ChecklistItemRow({
     return digitalDocs.filter(doc => doc.docType === docType)
   }, [digitalDocs, item.template?.docType])
 
+  // Compute verification stats for progress badge
+  // Badge only shows when item has >1 doc to avoid clutter on single-doc items
+  const verificationStats = useMemo(() => {
+    const total = itemDocs.length
+    const verified = itemDocs.filter(doc => doc.status === 'VERIFIED').length
+    return { total, verified }
+  }, [itemDocs])
+
+  // Pre-compute progress style to avoid double function call in render
+  const progressStyle = getVerificationProgressStyle(verificationStats.verified, verificationStats.total)
+
   const hasDocuments = itemDocs.length > 0
 
   return (
@@ -366,6 +408,15 @@ function ChecklistItemRow({
           <span className="text-xs text-warning">
             {receivedCount}/{expectedCount}
           </span>
+        )}
+        {/* Verification progress badge - only show when multiple docs */}
+        {verificationStats.total > 1 && (
+          <Badge
+            variant="outline"
+            className={cn('text-xs px-1.5 py-0', progressStyle.bgColor, progressStyle.textColor)}
+          >
+            {verificationStats.verified}/{verificationStats.total} đã xác minh
+          </Badge>
         )}
 
         {/* Status badge */}
@@ -464,9 +515,10 @@ function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-1.5 p-2 rounded-lg border border-border cursor-pointer',
-        'hover:bg-muted/50 hover:border-primary/50 transition-all',
-        'bg-background w-28'
+        'flex flex-col items-center gap-1.5 p-2 rounded-lg cursor-pointer',
+        'hover:bg-muted/50 transition-all',
+        'bg-background w-28',
+        getDocStatusBorderStyle(doc.status)
       )}
       onDoubleClick={onDoubleClick}
       title={`Nhấp đúp để xem: ${filename}`}

@@ -67,3 +67,31 @@ export const SIMPLIFIED_STATUS_DISPLAY = {
   VERIFIED: { labelVi: 'Đã xác minh', color: 'text-success', bgColor: 'bg-success/10' },
   NOT_REQUIRED: { labelVi: 'Không cần', color: 'text-muted-foreground', bgColor: 'bg-muted' },
 } as const
+
+/**
+ * Border styles for document thumbnails based on DigitalDoc.status
+ * Used to visually indicate verification status at a glance
+ * Uses border-2 (2px) for clear visual differentiation without being too heavy
+ * Note: hover:border-primary/50 removed to preserve status indication on hover
+ */
+export const DOC_STATUS_BORDER_STYLES = {
+  PENDING: 'border-2 border-dashed border-gray-400 dark:border-gray-500',
+  EXTRACTED: 'border-2 border-amber-500 dark:border-amber-400',
+  VERIFIED: 'border-2 border-emerald-500 dark:border-emerald-400',
+  // PARTIAL = extraction partially successful (some fields extracted)
+  PARTIAL: 'border-2 border-red-500 dark:border-red-400',
+  FAILED: 'border-2 border-red-500 dark:border-red-400',
+} as const
+
+export type DocStatusKey = keyof typeof DOC_STATUS_BORDER_STYLES
+
+/**
+ * Badge styles for verification progress display
+ * Used when checklist item has multiple documents (>1)
+ * Colors: ALL=green (complete), PARTIAL=amber (in progress), NONE=gray (not started)
+ */
+export const VERIFICATION_PROGRESS_STYLES = {
+  ALL: { bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-600 dark:text-emerald-400' },
+  PARTIAL: { bgColor: 'bg-amber-500/10', textColor: 'text-amber-600 dark:text-amber-400' },
+  NONE: { bgColor: 'bg-gray-500/10', textColor: 'text-gray-600 dark:text-gray-400' },
+} as const

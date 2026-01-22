@@ -7,6 +7,8 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 2 Intake Wizard Components** | **10-component 4-step wizard; dependent repeater; category toggles; XSS-hardened crypto** | **2026-01-22** |
+| **Phase 1 Foundation - Intake Wizard Refactor** | **SSN AES-256-GCM encryption service; 17+ identity fields (taxpayer/spouse/dependent info); US states options; dependent relationships; frontend masking utilities** | **2026-01-22** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
 | **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
@@ -38,22 +40,9 @@
 | **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
 | **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
 | **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
-| Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
-| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
-| Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
-| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
-| **Phase 2** | **Make It Usable (Core Workflow)** | **2026-01-14** |
-| Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
-| Phase 2.1 | AI Document Processing | 2026-01-13 |
+| **Phase 2 Core** | **Make It Usable (Core Workflow)** | **2026-01-14** |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
-| Phase 3 (Old) | Apps Setup (API, Portal, Workspace) | Complete |
-| Phase 2 Infrastructure | Packages Setup (DB, Shared, UI) | Complete |
-| Phase 1.5 | Shared UI Components | 2026-01-13 |
-| Phase 1.4 | Client Portal | 2026-01-13 |
-| Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
-| Phase 1.2 | Backend API Endpoints | 2026-01-13 |
-| Phase 1.1 | Database Schema | 2026-01-12 |
 
 ## Architecture at a Glance
 
@@ -208,6 +197,50 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - Streaming: No buffering (memory efficient)
 - HTTP cache: 3600s for repeated plays
 
+### SSN Encryption Service (Phase 1 Foundation - NEW)
+
+**Location:** `apps/api/src/services/crypto/index.ts`
+
+**Purpose:** Server-side encryption for sensitive SSN fields using AES-256-GCM.
+
+**Core Functions:**
+- `encryptSSN(ssn: string): string` - Encrypt SSN with AES-256-GCM, returns base64 (IV + AuthTag + Ciphertext)
+- `decryptSSN(encrypted: string): string` - Decrypt using cached key, handle migration period (plain text fallback)
+- `maskSSN(ssn: string): string` - Mask for display (e.g., "***-**-6789")
+- `isValidSSN(ssn: string): boolean` - Validate SSN format (9 digits, no invalid prefixes)
+- `formatSSN(ssn: string): string` - Format with dashes (e.g., "123-45-6789")
+- `encryptSensitiveFields(data, clientId, staffId?)` - Encrypt all SSN fields in intake answers + audit log
+- `decryptSensitiveFields(data, clientId, staffId?)` - Decrypt for display + audit log access
+
+**Encryption Details:**
+- Algorithm: AES-256-GCM (authenticated encryption)
+- Key: 32 bytes (256 bits) from `SSN_ENCRYPTION_KEY` environment variable (64-char hex)
+- IV: 12 bytes random (GCM recommended)
+- AuthTag: 16 bytes (128 bits)
+- Format: Base64 encoded (IV || AuthTag || Ciphertext)
+
+**SSN Validation Rules:**
+- Must be 9 digits
+- Cannot start with 000, 666, or 9XX (invalid SSA area numbers)
+- Middle two digits cannot be 00
+- Last four digits cannot be 0000
+
+**Features:**
+- Async encryption with audit logging (non-blocking)
+- Handles dependents array with nested SSN fields
+- Error resilient: Invalid SSN throws validation error before encryption
+- Decryption migration period: Falls back to plain text if decryption fails (for data already in DB)
+- Key caching: Encrypted key cached in memory after first use
+
+**Environment:** Requires `SSN_ENCRYPTION_KEY` (64-char hex string, e.g., `a1b2c3d4...` = 32 bytes)
+
+**Integration:** Used in Phase 1 intake form for personal ID section (taxpayerSSN, spouseSSN fields)
+
+**Security Notes:**
+- NEVER log or expose unencrypted SSN
+- Decryption only on authorized staff access (tracked in audit log)
+- Key rotation requires app restart (no hot reload)
+
 ### Audit Logger Service (Phase 01 - NEW)
 
 **Location:** `apps/api/src/services/audit-logger.ts`
@@ -227,7 +260,7 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 **Database:** AuditLog model with entityType (CLIENT_PROFILE|CLIENT|TAX_CASE), field names, old/new values, staff attribution
 
-**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates
+**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates; also called during SSN encryption/decryption
 
 ### Checklist Generator Service (Phase 01 Condition System - UPGRADED)
 
@@ -948,6 +981,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 | File | Purpose |
 |------|---------|
 | [codebase-summary.md](./codebase-summary.md) | This file - quick reference |
+| [phase-02-wizard-components.md](./phase-02-wizard-components.md) | Intake Wizard 4-step orchestrator, components, validation |
+| [phase-01-intake-wizard-foundation.md](./phase-01-intake-wizard-foundation.md) | SSN encryption, identity fields, crypto utilities |
 | [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) | UI library detailed reference |
 | [client-messages-tab-feature.md](./client-messages-tab-feature.md) | Client Messages Tab implementation |
 | [system-architecture.md](./system-architecture.md) | System design & data flow |
@@ -956,9 +991,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-21
-**Status:** Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
-**Branch:** feature/more-enhancement
-**Architecture Version:** 8.6.0 (Client Floating Chatbox - Facebook Messenger-style popup with 15s polling, ErrorBoundary protection, reuses MessageThread + QuickActionsBar)
+**Last Updated:** 2026-01-22
+**Status:** Phase 2 Intake Wizard Components (10-component orchestrator, 4-step flow, dependent repeater, category toggles, XSS-hardened crypto) + Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
+**Branch:** fix/minor-fix
+**Architecture Version:** 9.0.0 (Phase 2 Intake Wizard - WizardContainer orchestrator with 4-step flow, WizardStep1-4 components, DependentGrid repeater, WizardConstants + useCategoryToggle hook, XSS-hardened crypto utilities)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

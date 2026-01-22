@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-21 13:37 ICT
-> **Current Phase:** Enhancement Track (Client Floating Chatbox - 100% COMPLETE) + Phase 7 (Enhanced Gemini AI Features) + Verification Modal UI + Intake Enhancement (60% complete) + Voice Calls Completed + Document Tab UX Redesign (Phase 1-3 Complete, 90%)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 100% Client Floating Chatbox (Facebook Messenger popup, 15s polling, error boundary) + 90% Document Tab UX Redesign + 60% Intake Enhancement + 100% Section-Edit Modals + Voice Calling (Phase 01-03 Complete) + 80% AI Enhancement Phase (Classification + OCR done, testing finalized)
+> **Last Updated:** 2026-01-22 19:55 ICT
+> **Current Phase:** Phase 8 (Intake Wizard Refactor - Phase 1-2 COMPLETE, 50%) + Enhancement Track + Phase 7 (Enhanced Gemini AI Features) + Document Tab UX Redesign (90%) + Voice Calls + Verification Modal UI
+> **Overall Project Progress:** 100% MVP + Gap Fixes + 100% Client Floating Chatbox + 90% Document Tab UX Redesign + 50% Intake Wizard (Phase 1-2 Done) + 60% Intake Enhancement + 100% Section-Edit Modals + Phase 01-03 Voice Calling
 
 ---
 
@@ -22,6 +22,29 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Phase 5.2 (Core Workflow - Production Gaps):** ✅ COMPLETE (Status Management, Document Verification, Action Completion, Search) - as of 2026-01-14 15:54
 - **Phase 5.3 (Enhanced Portal Upload):** ✅ COMPLETE (4/4 phases: API progress tracking, i18n strings, enhanced uploader component, upload page integration) - as of 2026-01-14 19:05
 - **Phase 6 (AI Classification Testing & Polish):** ✅ COMPLETE (28 tests, 100% pass rate, all security hardening) - as of 2026-01-15 07:40
+
+---
+
+### Phase 8: Intake Wizard Refactor - In Progress (50% Complete) ⏳
+**Started:** 2026-01-22 18:07
+**Target Completion:** 2026-01-23
+**Deliverable:** 4-step multi-step wizard with SSN encryption, identity fields, conditional logic, bank account selection
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Foundation (Crypto + Field Config) | ✅ DONE | 2026-01-22 | Server-side SSN encryption (AES-256-GCM), client-side display utils, 17+ identity fields added |
+| 2 | Wizard Components (9 files) | ✅ DONE | 2026-01-22 19:55 | Container, steps 1-4, dependent grid - all components built & tested |
+| 3 | Route Integration | ⏳ PENDING | - | Replace 2-step with WizardContainer |
+| 4 | Testing & Polish | ⏳ PENDING | - | Manual testing, mobile optimization |
+
+**Completion Summary (Phase 1-2):**
+- Created `apps/api/src/services/crypto/index.ts` - AES-256-GCM encryption with random IV
+- Updated `apps/workspace/src/lib/crypto.ts` - maskSSN(), display utilities
+- Updated `apps/workspace/src/lib/intake-form-config.ts` - Added taxpayer, spouse, dependent, bank fields
+- All wizard components created: wizard-container.tsx, wizard-step-indicator.tsx, wizard-step-1/2/3/4.tsx, dependent-grid.tsx, index.ts (9 files)
+- All components use `VITE_INTAKE_ENCRYPTION_KEY` env var for key management
+- Branch: feature/intake-wizard-refactor (or continue on fix/minor-fix)
 
 ---
 
@@ -567,6 +590,8 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.4 | 2026-01-22 19:55 | PM | PHASE 8 UPDATE: Intake Wizard Refactor - Phase 02 COMPLETE (50% overall). All 9 wizard components built & tested: container, step indicator, identity/income/deductions/review steps, dependent grid. Ready for Phase 03 (Route Integration). |
+| 4.3 | 2026-01-22 02:05 | PM | NEW PHASE: Phase 8 Intake Wizard Refactor - Phase 01 COMPLETE (25% overall). Server-side SSN encryption service, client-side display/masking utilities, 17+ identity field configs added. Foundation layer ready for Phase 02 (Wizard components). |
 | 4.2 | 2026-01-21 12:00 | PM | ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 03 COMPLETE (75% overall). Data Entry Tab (299 lines, 9/10 code review). Shows VERIFIED docs in responsive 4/3/2 grid, no scroll. Copy/view actions + XSS sanitization + ErrorBoundary. All success criteria met. Phase 04 (Integration) pending. |
 | 4.1 | 2026-01-21 10:40 | PM | NEW ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 01 COMPLETE. Unclassified docs card (168 lines, 9/10 code review). UPLOADED/UNCLASSIFIED filtering, responsive 4/3/2 grid, ManualClassificationModal integration. Ready for Phase 02 (category-based checklist). |
 | 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |

@@ -1,7 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 1 - Foundation & API Complete
-**Last Updated:** 2026-01-19
+**Current Phase:** 1 - Backend Foundation (Inbound Call Handling) - In Progress
+**Last Updated:** 2026-01-21
+**Branch:** feature/enhance-call
 
 ## Project Vision
 

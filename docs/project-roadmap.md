@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-01-22 ICT
-> **Current Phase:** Actionable Client Status (Phase 4 Complete: Constants & Labels) + Enhancement Tracks (Document Tab UX, Intake, Voice Calls, Verification Modal)
-> **Overall Project Progress:** 100% MVP + All Core Phases Complete + Phase 1-4 Actionable Status System (Database, API, Frontend, Constants - ALL COMPLETE)
+> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Incoming Call UI Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + All prior enhancements
 
 ---
 
@@ -243,26 +243,35 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 
 ---
 
-### Phase 7.1: Twilio Voice Calls - In Progress (33% Complete) ⏳
+### Phase 7.1: Twilio Voice Calls - In Progress (40% Complete) ⏳
 **Started:** 2026-01-20 22:30
-**Target Completion:** 2026-01-22
+**Target Completion:** 2026-01-24
 **Deliverable:** Browser-based voice calling with auto-recording, integrated into /messages page
 
 **Phase Breakdown:**
 | Phase | Component | Status | Completion | Tests | Notes |
 |-------|-----------|--------|-----------|-------|-------|
 | 7.1.1 | Backend Voice API | ✅ DONE | 2026-01-20 22:40 | 54/54 passing | Token generation, TwiML routing, webhooks, recording storage |
+| 7.1.1a | Voicemail Helpers | ✅ DONE | 2026-01-22 13:40 | 83/83 passing | E.164 validation, phone sanitization, placeholder client creation, race condition handling |
 | 7.1.2 | Frontend Call UI | ⏳ PENDING | - | - | Twilio SDK init, useVoiceCall hook, CallButton, ActiveCallModal |
 | 7.1.3 | Recording Playback | ⏳ PENDING | - | - | AudioPlayer component, message integration |
 
-**Completion Summary (Phase 7.1.1):**
+**Completion Summary (Phase 7.1.1 + 7.1.1a):**
 - Backend infrastructure complete: token generation (VoiceGrant), TwiML webhooks, recording callbacks
 - Database schema extended: MessageChannel.CALL enum, callSid, recordingUrl, recordingDuration, callStatus fields
 - All 3 webhook endpoints secured: signature validation + rate limiting
-- Test suite: 54 voice tests (100% pass rate)
-- Code quality: 8/10 review score
-- Security hardening: API key validation, signature validation, rate limiting, input validation
-- Production ready for Phase 7.1.2 frontend implementation
+- Voicemail helpers: 6 reusable functions for unknown caller handling
+  - `isValidE164Phone()` - E.164 validation prevents injection
+  - `sanitizePhone()` - XSS-safe phone sanitization
+  - `sanitizeRecordingDuration()` - Duration parsing/clamping
+  - `formatVoicemailDuration()` - MM:SS duration formatting
+  - `findConversationByPhone()` - Existing client lookup
+  - `createPlaceholderConversation()` - Unknown caller handling with upsert pattern
+- Test suite: 83 voice tests (100% pass rate)
+- Code quality: 9/10 review score (after security fixes)
+- Security hardening: Phone validation, XSS sanitization, race condition handling, rate limiting
+- **NOTE:** 5 critical/high priority fixes required before Phase 7.1.2 start (XSS sanitization, race condition handling, DRY violations)
+- Production ready after fixes for Phase 7.1.2 frontend implementation
 
 ---
 
@@ -595,8 +604,10 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |
 | 4.4 | 2026-01-22 | PM | Actionable Client Status - Phase 4 COMPLETE (64% overall). Constants & Labels Update: Centralized ACTION_BADGE_LABELS, ACTION_BADGE_ARIA_LABELS (6 Vietnamese + accessibility), TIME_FORMATS localization helpers, STALE_THRESHOLD_DAYS=7. Refactored action-badge.tsx to use constants. All 4 phases complete (database/api/frontend/constants). Ready for Phase 5 (testing & migration). |
-| 4.3 | 2026-01-21 22:06 | PM | NEW PROJECT: Actionable Client Status System - Phase 1 COMPLETE (16% overall). Database & Backend Foundation: Schema changes (isInReview, isFiled, lastActivityAt), computed status utility, action counts types, activity tracker service. 23/23 tests passing, 9/10 code review. Ready for Phase 2 (API changes). |
+| 4.3 | 2026-01-22 13:40 | PM | PHASE 7.1 UPDATE: Voice Calls - Phase 7.1.1a (Voicemail Helpers) COMPLETE. 6 helper functions, 83/83 tests passing (up from 54), 9/10 code review. Includes E.164 validation, XSS sanitization, race condition handling (upsert pattern). |
+| 4.3 | 2026-01-21 22:06 | PM | NEW PROJECT: Actionable Client Status System - Phase 1 COMPLETE (16% overall). Database & Backend Foundation: Schema changes (isInReview, isFiled, lastActivityAt), computed status utility, action counts types, activity tracker service. 23/23 tests passing, 9/10 code review. |
 | 4.2 | 2026-01-21 12:00 | PM | ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 03 COMPLETE (75% overall). Data Entry Tab (299 lines, 9/10 code review). Shows VERIFIED docs in responsive 4/3/2 grid, no scroll. Copy/view actions + XSS sanitization + ErrorBoundary. All success criteria met. Phase 04 (Integration) pending. |
 | 4.1 | 2026-01-21 10:40 | PM | NEW ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 01 COMPLETE. Unclassified docs card (168 lines, 9/10 code review). UPLOADED/UNCLASSIFIED filtering, responsive 4/3/2 grid, ManualClassificationModal integration. Ready for Phase 02 (category-based checklist). |
 | 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |

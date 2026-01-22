@@ -101,7 +101,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (46 total - Phase 2 Actionable Status: +3 status action endpoints, +2 client enhancements):**
+**Implemented Endpoints (52 total - Phase 01-04 Voice + Phase 2 Actionable Status combined):**
+
+**Voice Management (10 - Phase 01-04 Voice Calls):**
+- `POST /voice/token` - Generate staff access token with VoiceGrant (outbound + inbound)
+- `GET /voice/status` - Check voice feature availability
+- `POST /voice/presence/register` - Register staff as online (Phase 01)
+- `POST /voice/presence/unregister` - Mark staff offline (Phase 01)
+- `POST /voice/presence/heartbeat` - Update lastSeen to keep presence alive (Phase 01)
+- `GET /voice/caller/:phone` - Lookup caller info for incoming call UI (Phase 01)
+- `POST /voice/calls` - Create outbound call message record
+- `PATCH /voice/calls/:messageId` - Update with Twilio CallSid
+- `GET /voice/recordings/:recordingSid` - Recording metadata with auth
+- `GET /voice/recordings/:recordingSid/audio` - Proxied audio stream (auth + secure)
 
 **Checklist Management (4 - Phase 4 NEW):**
 - `POST /cases/:id/checklist/items` - Add manual checklist item (staff override)

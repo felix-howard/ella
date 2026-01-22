@@ -17,7 +17,8 @@ import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
 import { fetchImageBuffer } from '../services/storage'
 import { classifyDocument, requiresOcrExtraction } from '../services/ai'
-import { isPdfMimeType } from '../services/pdf/pdf-converter'
+// Simple PDF check (pdf-poppler removed)
+const isPdfMimeType = (mimeType: string) => mimeType === 'application/pdf'
 import { extractDocumentData } from '../services/ai/ocr-extractor'
 import {
   updateRawImageStatus,

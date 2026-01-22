@@ -28,7 +28,6 @@
     "inngest": "^3.49.1",
     "nanoid": "^5.1.6",
     "node-cron": "^4.2.1",
-    "pdf-poppler": "^0.2.3",
     "sharp": "^0.34.5",
     "twilio": "^5.4.0",
     "zod": "^3.24.1"

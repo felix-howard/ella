@@ -10,7 +10,8 @@ import {
   validateExtractedData,
   getFieldLabels,
 } from './prompts/ocr'
-import { isPdfMimeType } from '../pdf'
+// Simple PDF check (pdf-poppler removed - using native Gemini PDF support)
+const isPdfMimeType = (mimeType: string) => mimeType === 'application/pdf'
 
 // OCR constants
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']

@@ -10,7 +10,6 @@ export default defineConfig({
   // Native modules must stay external for platform-specific binaries
   external: [
     'sharp',
-    'pdf-poppler',
     '@prisma/client',
     'prisma',
   ],

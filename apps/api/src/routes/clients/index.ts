@@ -26,6 +26,8 @@ import {
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+import { computeStatus, calculateStaleDays } from '@ella/shared'
+import type { ActionCounts, ClientWithActions } from '@ella/shared'
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
@@ -68,9 +70,10 @@ clientsRoute.get('/intake-questions', async (c) => {
   return c.json({ data: questions })
 })
 
-// GET /clients - List all clients with pagination
+// GET /clients - List all clients with pagination, computed status, and action counts
+// Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, status } = c.req.valid('query')
+  const { page, limit, search, status, sort } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause
@@ -90,29 +93,136 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     where.taxCases = { some: { status } }
   }
 
+  // Determine sort order based on sort parameter
+  type OrderByType = { name: 'asc' } | { createdAt: 'desc' }
+  let orderBy: OrderByType = { createdAt: 'desc' }
+  if (sort === 'name') {
+    orderBy = { name: 'asc' }
+  }
+  // For activity and stale sorting, we sort in JS after fetching due to relation complexity
+
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
       where,
       skip,
       take: safeLimit,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       include: {
+        profile: {
+          select: { intakeAnswers: true }
+        },
         taxCases: {
           take: 1,
-          orderBy: { createdAt: 'desc' },
-          select: { status: true, taxYear: true },
-        },
+          orderBy: { lastActivityAt: 'desc' },
+          select: {
+            id: true,
+            taxYear: true,
+            taxTypes: true,
+            isInReview: true,
+            isFiled: true,
+            lastActivityAt: true,
+            // Use _count for efficient aggregation (single query instead of fetching all records)
+            _count: {
+              select: {
+                checklistItems: { where: { status: 'MISSING' } },
+              }
+            },
+            digitalDocs: {
+              select: {
+                status: true,
+                entryCompleted: true
+              }
+            },
+            conversation: {
+              select: { unreadCount: true }
+            }
+          }
+        }
       },
     }),
     prisma.client.count({ where }),
   ])
 
-  return c.json({
-    data: clients.map((client) => ({
-      ...client,
+  // Transform to ClientWithActions
+  const data: ClientWithActions[] = clients.map((client) => {
+    const latestCase = client.taxCases[0]
+    const intakeAnswers = (client.profile?.intakeAnswers as Record<string, unknown>) || {}
+    const hasIntakeAnswers = Object.keys(intakeAnswers).length > 0
+
+    let computedStatusValue = null
+    let actionCounts: ActionCounts | null = null
+
+    if (latestCase) {
+      // Use _count for missingDocs (efficient aggregation)
+      const missingDocs = latestCase._count.checklistItems
+      // Filter docs in JS for complex conditions (minimal data fetched)
+      const toVerify = latestCase.digitalDocs.filter(
+        (d) => d.status === 'EXTRACTED'
+      ).length
+      const unverifiedDocs = latestCase.digitalDocs.filter(
+        (d) => d.status !== 'VERIFIED'
+      ).length
+      const toEnter = latestCase.digitalDocs.filter(
+        (d) => d.status === 'VERIFIED' && !d.entryCompleted
+      ).length
+
+      computedStatusValue = computeStatus({
+        hasIntakeAnswers,
+        missingDocsCount: missingDocs,
+        unverifiedDocsCount: unverifiedDocs,
+        pendingEntryCount: toEnter,
+        isInReview: latestCase.isInReview,
+        isFiled: latestCase.isFiled,
+      })
+
+      actionCounts = {
+        missingDocs,
+        toVerify,
+        toEnter,
+        staleDays: calculateStaleDays(latestCase.lastActivityAt),
+        hasNewActivity: (latestCase.conversation?.unreadCount || 0) > 0,
+      }
+    }
+
+    return {
+      id: client.id,
+      name: client.name,
+      phone: client.phone,
+      email: client.email,
+      language: client.language as 'VI' | 'EN',
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
-    })),
+      computedStatus: computedStatusValue,
+      actionCounts,
+      latestCase: latestCase ? {
+        id: latestCase.id,
+        taxYear: latestCase.taxYear,
+        taxTypes: latestCase.taxTypes as string[],
+        isInReview: latestCase.isInReview,
+        isFiled: latestCase.isFiled,
+        lastActivityAt: latestCase.lastActivityAt.toISOString(),
+      } : null,
+    }
+  })
+
+  // Apply activity-based sorting in JS (Prisma doesn't support nested relation sorting well)
+  let sortedData = data
+  if (sort === 'activity') {
+    sortedData = [...data].sort((a, b) => {
+      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : 0
+      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : 0
+      return bTime - aTime // Most recent first
+    })
+  } else if (sort === 'stale') {
+    sortedData = [...data].sort((a, b) => {
+      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : Infinity
+      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : Infinity
+      return aTime - bTime // Oldest first (most stale)
+    })
+  }
+
+  return c.json({
+    data: sortedData,
     pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })

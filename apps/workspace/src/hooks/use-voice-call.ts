@@ -1,16 +1,19 @@
 /**
  * useVoiceCall Hook
  * Manages Twilio Voice SDK device and call state for browser-based voice calls
- * Features: mic permission check, token refresh, error sanitization, proper cleanup
+ * Features: mic permission check, token refresh, error sanitization, proper cleanup,
+ *           incoming call handling, presence tracking
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { api } from '../lib/api-client'
+import { api, type CallerLookupResponse } from '../lib/api-client'
 import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
   type TwilioCall,
   type TwilioCallEvent,
 } from '../lib/twilio-sdk-loader'
+import { playRingSound, stopRingSound, cleanupRingSound } from '../lib/ring-sound'
+import { toast } from '../stores/toast-store'
 
 export type CallState =
   | 'idle'
@@ -20,6 +23,14 @@ export type CallState =
   | 'disconnecting'
   | 'error'
 
+// Caller info for incoming calls
+export interface CallerInfo {
+  phone: string
+  clientName: string | null
+  caseId: string | null
+  conversationId: string | null
+}
+
 export interface VoiceCallState {
   isAvailable: boolean
   isLoading: boolean
@@ -27,12 +38,21 @@ export interface VoiceCallState {
   isMuted: boolean
   duration: number
   error: string | null
+  // Incoming call state
+  incomingCall: TwilioCall | null
+  callerInfo: CallerInfo | null
+  // Device registration status (for UI indicator)
+  isRegistered: boolean
+  isRegistering: boolean
 }
 
 export interface VoiceCallActions {
   initiateCall: (toPhone: string, caseId: string) => Promise<void>
   endCall: () => void
   toggleMute: () => void
+  // Incoming call actions
+  acceptIncoming: () => void
+  rejectIncoming: () => void
 }
 
 // User-friendly error messages (Vietnamese)
@@ -92,6 +112,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const [isMuted, setIsMuted] = useState(false)
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  // Incoming call state
+  const [incomingCall, setIncomingCall] = useState<TwilioCall | null>(null)
+  const [callerInfo, setCallerInfo] = useState<CallerInfo | null>(null)
+  // Device registration status (for UI indicator only)
+  const [isRegistered, setIsRegistered] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
 
   const deviceRef = useRef<TwilioDeviceInstance | null>(null)
   const callRef = useRef<TwilioCall | null>(null)
@@ -99,6 +125,10 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const tokenExpiryRef = useRef<number>(0)
   const callListenersRef = useRef<{ event: TwilioCallEvent; handler: () => void }[]>([])
   const messageIdRef = useRef<string | null>(null) // Track message ID for CallSid update
+  const incomingCallRef = useRef<TwilioCall | null>(null) // Track incoming call for timeout
+  const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
+  const mountedRef = useRef(true) // Track component mount status for cleanup
+  const autoRegisterTriggeredRef = useRef(false) // Track if auto-register has been triggered this session
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -123,32 +153,35 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     let mounted = true
 
     async function init() {
+      console.log('[Voice] Init starting...')
       try {
         // Check if voice is available on server
         const status = await api.voice.getStatus()
+        console.log('[Voice] Status response:', status)
         if (!mounted) return
 
         if (!status.available) {
+          console.log('[Voice] Voice not available on server')
           setIsAvailable(false)
           setIsLoading(false)
           return
         }
 
         voiceAvailableRef.current = true
+        console.log('[Voice] Voice available, loading SDK...')
 
         // Preload Twilio SDK from CDN (doesn't create AudioContext)
         await loadTwilioSdk()
         if (!mounted) return
 
+        console.log('[Voice] SDK loaded, setting isAvailable=true')
         // Mark as available - Device will be created on first call (user gesture)
         // This avoids AudioContext being created before user interaction
         setIsAvailable(true)
         setIsLoading(false)
       } catch (e) {
+        console.error('[Voice] Init failed:', e)
         if (mounted) {
-          if (import.meta.env.DEV) {
-            console.error('[Voice] Init failed:', e)
-          }
           setError(sanitizeError(e))
           setIsAvailable(false)
           setIsLoading(false)
@@ -160,24 +193,32 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
     return () => {
       mounted = false
+      mountedRef.current = false // Mark as unmounted for async handlers
       cleanupCallListeners()
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+      }
       if (deviceRef.current) {
         deviceRef.current.destroy()
       }
+      cleanupRingSound()
     }
   }, [cleanupCallListeners])
 
   // Create and setup Twilio Device (called on first user gesture)
   const setupDevice = useCallback(async (): Promise<boolean> => {
+    console.log('[Voice] setupDevice called. deviceRef.current:', !!deviceRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
     if (deviceRef.current) return true // Already setup
     if (!voiceAvailableRef.current) return false
 
     try {
       // Get voice token from server
+      console.log('[Voice] Getting voice token...')
       const tokenResponse = await api.voice.getToken()
+      console.log('[Voice] Token received, creating Device...')
 
       // Create Twilio Device instance (SDK 2.x)
       // This creates AudioContext - MUST be after user gesture
@@ -208,12 +249,115 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       deviceRef.current = device
       tokenExpiryRef.current = Date.now() + tokenResponse.expiresIn * 1000
 
+      // Setup incoming call handler - always show modal for staff to accept/reject
+      device.on('incoming', async (call: TwilioCall) => {
+        const fromPhone = call.parameters.From || 'Unknown'
+
+        // Don't accept if already in a call
+        if (callRef.current || callState !== 'idle') {
+          call.reject()
+          return
+        }
+
+        // Store call reference
+        incomingCallRef.current = call
+        setIncomingCall(call)
+
+        // Fetch caller info from backend
+        try {
+          const info = await api.voice.lookupCaller(fromPhone)
+          setCallerInfo({
+            phone: fromPhone,
+            clientName: info.conversation?.clientName || null,
+            caseId: info.conversation?.caseId || null,
+            conversationId: info.conversation?.id || null,
+          })
+        } catch {
+          // Unknown caller
+          setCallerInfo({
+            phone: fromPhone,
+            clientName: null,
+            caseId: null,
+            conversationId: null,
+          })
+        }
+
+        // Play ring sound
+        playRingSound()
+
+        // Listen for cancel (caller hung up before answer)
+        call.on('cancel', () => {
+          stopRingSound()
+          setIncomingCall(null)
+          setCallerInfo(null)
+          incomingCallRef.current = null
+        })
+
+        call.on('disconnect', () => {
+          stopRingSound()
+          setCallState('idle')
+          setIncomingCall(null)
+          setCallerInfo(null)
+          callRef.current = null
+          incomingCallRef.current = null
+          // Stop timer
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+        })
+      })
+
+      // Setup presence registration handlers
+      // Note: Don't use mountedRef guard here - React Strict Mode causes false positives
+      // The device will be destroyed on actual unmount, which handles cleanup
+      device.on('registered', async () => {
+        console.log('[Voice] Device registered! Registering presence...')
+        try {
+          await api.voice.registerPresence()
+          console.log('[Voice] Presence registered! Setting isRegistered=true')
+
+          // Mark as registered
+          setIsRegistered(true)
+          setIsRegistering(false)
+
+          // Notify user that voice is ready (info toast, auto-dismiss)
+          toast.info('Đã sẵn sàng nhận cuộc gọi đến', 2000)
+
+          // Start heartbeat every 30 seconds
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current)
+          }
+          heartbeatIntervalRef.current = window.setInterval(async () => {
+            try {
+              await api.voice.heartbeat()
+            } catch {
+              // Heartbeat failed - device might be offline
+            }
+          }, 30000) // 30 second heartbeat
+        } catch {
+          setIsRegistering(false)
+          toast.error('Không thể đăng ký nhận cuộc gọi', 3000)
+        }
+      })
+
+      device.on('unregistered', async () => {
+        setIsRegistered(false)
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current)
+          heartbeatIntervalRef.current = null
+        }
+        // Guard: Skip API call if component unmounted
+        if (!mountedRef.current) return
+        try {
+          await api.voice.unregisterPresence()
+        } catch {
+          // Fire and forget on unregister
+        }
+      })
+
       // Register device (establishes signaling connection)
       await device.register()
-
-      if (import.meta.env.DEV) {
-        console.log('[Voice] Device created and registered after user gesture')
-      }
 
       // Select proper microphone input (avoid "Stereo Mix" which captures system audio)
       try {
@@ -488,8 +632,134 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     }
   }, [])
 
+  // Accept incoming call
+  const acceptIncoming = useCallback(() => {
+    if (!incomingCall) return
+
+    stopRingSound()
+    incomingCall.accept()
+
+    // Transfer to active call ref
+    callRef.current = incomingCall
+    setCallState('connected')
+    startTimer()
+
+    // Setup additional listeners for accepted call
+    incomingCall.on('accept', () => {
+      setCallState('connected')
+      if (import.meta.env.DEV) {
+        console.log('[Voice] Incoming call accepted and connected')
+      }
+    })
+
+    // Clear incoming call state (call is now active)
+    setIncomingCall(null)
+    incomingCallRef.current = null
+  }, [incomingCall, startTimer])
+
+  // Reject incoming call (sends to voicemail)
+  const rejectIncoming = useCallback(() => {
+    if (!incomingCall) return
+
+    stopRingSound()
+    incomingCall.reject() // Sends busy signal - triggers voicemail on Twilio side
+
+    setIncomingCall(null)
+    setCallerInfo(null)
+    incomingCallRef.current = null
+
+  }, [incomingCall])
+
+  // Auto-register device on first user interaction (browser requires user gesture for AudioContext)
+  // Device stays registered until page unload - staff can accept/reject calls via modal
+  useEffect(() => {
+    console.log('[Voice] Auto-register effect running. isAvailable:', isAvailable, 'isRegistered:', isRegistered, 'isRegistering:', isRegistering)
+
+    // Skip if voice not available or already registered/registering
+    if (!isAvailable || isRegistered || isRegistering) {
+      console.log('[Voice] Skipping auto-register effect - conditions not met')
+      return
+    }
+
+    console.log('[Voice] Adding click/keydown listeners for auto-registration')
+
+    const handleUserGesture = async () => {
+      console.log('[Voice] User gesture detected! autoRegisterTriggeredRef:', autoRegisterTriggeredRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
+
+      // Prevent duplicate registration attempts
+      if (autoRegisterTriggeredRef.current) {
+        console.log('[Voice] Already triggered, skipping')
+        return
+      }
+
+      // Check voice availability BEFORE setting flag
+      if (!voiceAvailableRef.current) {
+        console.log('[Voice] Voice not available yet, skipping')
+        return
+      }
+
+      // Mark as triggered and set registering state immediately (before async work)
+      console.log('[Voice] Starting registration...')
+      autoRegisterTriggeredRef.current = true
+      setIsRegistering(true)
+      setError(null)
+
+      // Small delay to ensure gesture context is valid for AudioContext
+      setTimeout(async () => {
+        try {
+          // Check microphone permission first
+          console.log('[Voice] Checking microphone permission...')
+          const hasMicPermission = await checkMicrophonePermission()
+          console.log('[Voice] Microphone permission:', hasMicPermission)
+          if (!hasMicPermission) {
+            setError(ERROR_MESSAGES.NotAllowedError)
+            setIsRegistering(false)
+            autoRegisterTriggeredRef.current = false // Allow retry
+            return
+          }
+
+          // Setup device (creates Twilio Device, registers it)
+          console.log('[Voice] Setting up device...')
+          const success = await setupDevice()
+          console.log('[Voice] setupDevice result:', success)
+          if (!success) {
+            setIsRegistering(false)
+            autoRegisterTriggeredRef.current = false // Allow retry on failure
+          }
+          // isRegistered will be set in 'registered' event handler
+        } catch (e) {
+          console.error('[Voice] Registration error:', e)
+          setIsRegistering(false)
+          autoRegisterTriggeredRef.current = false // Allow retry on error
+        }
+      }, 100)
+    }
+
+    // Listen for user interaction (click or keydown)
+    document.addEventListener('click', handleUserGesture, { once: true })
+    document.addEventListener('keydown', handleUserGesture, { once: true })
+
+    return () => {
+      document.removeEventListener('click', handleUserGesture)
+      document.removeEventListener('keydown', handleUserGesture)
+    }
+  }, [isAvailable, isRegistered, isRegistering, setupDevice])
+
+  // Cleanup on beforeunload (tab close)
+  useEffect(() => {
+    function handleBeforeUnload() {
+      // Fire and forget - unregister presence
+      api.voice.unregisterPresence().catch(() => {})
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
   return [
-    { isAvailable, isLoading, callState, isMuted, duration, error },
-    { initiateCall, endCall, toggleMute },
+    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isRegistered, isRegistering },
+    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming },
   ]
 }

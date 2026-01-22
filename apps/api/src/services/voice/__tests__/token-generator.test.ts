@@ -74,6 +74,11 @@ vi.mock('twilio', () => {
   ;(MockAccessToken as unknown as { VoiceGrant: typeof MockVoiceGrant }).VoiceGrant = MockVoiceGrant
 
   return {
+    default: {
+      jwt: {
+        AccessToken: MockAccessToken,
+      },
+    },
     jwt: {
       AccessToken: MockAccessToken,
     },

@@ -18,6 +18,7 @@ import {
   addChecklistItemSchema,
   skipChecklistItemSchema,
   updateChecklistItemNotesSchema,
+  caseIdParamSchema,
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
@@ -118,8 +119,8 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
 })
 
 // GET /cases/:id - Get case details with all relations
-casesRoute.get('/:id', async (c) => {
-  const id = c.req.param('id')
+casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
 
   const taxCase = await prisma.taxCase.findUnique({
     where: { id },
@@ -577,5 +578,113 @@ casesRoute.patch('/:id/checklist/items/:itemId/notes', zValidator('json', update
 
   return c.json({ data: updatedItem })
 })
+
+// ============================================
+// STATUS ACTION ENDPOINTS (Computed Status System)
+// ============================================
+
+// POST /cases/:id/send-to-review - Move case to REVIEW state
+casesRoute.post(
+  '/:id/send-to-review',
+  zValidator('param', caseIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+
+    // Verify case exists and check current state
+    const taxCase = await prisma.taxCase.findUnique({
+      where: { id },
+      select: { isInReview: true, isFiled: true }
+    })
+
+    if (!taxCase) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    if (taxCase.isFiled) {
+      return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
+    }
+
+    if (taxCase.isInReview) {
+      return c.json({ error: 'ALREADY_IN_REVIEW', message: 'Case is already in review' }, 400)
+    }
+
+    await prisma.taxCase.update({
+      where: { id },
+      data: {
+        isInReview: true,
+        lastActivityAt: new Date()
+      }
+    })
+
+    return c.json({ success: true })
+  }
+)
+
+// POST /cases/:id/mark-filed - Mark case as filed
+casesRoute.post(
+  '/:id/mark-filed',
+  zValidator('param', caseIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+
+    const taxCase = await prisma.taxCase.findUnique({
+      where: { id },
+      select: { isInReview: true, isFiled: true }
+    })
+
+    if (!taxCase) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    if (taxCase.isFiled) {
+      return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
+    }
+
+    await prisma.taxCase.update({
+      where: { id },
+      data: {
+        isFiled: true,
+        filedAt: new Date(),
+        lastActivityAt: new Date()
+      }
+    })
+
+    return c.json({ success: true })
+  }
+)
+
+// POST /cases/:id/reopen - Reopen a filed case (goes back to review)
+casesRoute.post(
+  '/:id/reopen',
+  zValidator('param', caseIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+
+    const taxCase = await prisma.taxCase.findUnique({
+      where: { id },
+      select: { isFiled: true }
+    })
+
+    if (!taxCase) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    if (!taxCase.isFiled) {
+      return c.json({ error: 'NOT_FILED', message: 'Case is not filed' }, 400)
+    }
+
+    await prisma.taxCase.update({
+      where: { id },
+      data: {
+        isFiled: false,
+        isInReview: true, // Go back to review state
+        filedAt: null,
+        lastActivityAt: new Date()
+      }
+    })
+
+    return c.json({ success: true })
+  }
+)
 
 export { casesRoute }

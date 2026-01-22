@@ -11,9 +11,29 @@ export {
   type VoiceTokenResult,
 } from './token-generator'
 
-// TwiML generator
+// TwiML generator - outbound calls
 export {
   generateTwimlVoiceResponse,
   generateEmptyTwimlResponse,
   type TwimlVoiceOptions,
 } from './twiml-generator'
+
+// TwiML generator - incoming calls
+export {
+  generateIncomingTwiml,
+  generateNoStaffTwiml,
+  generateVoicemailTwiml,
+  generateVoicemailCompleteTwiml,
+  type TwimlIncomingOptions,
+  type TwimlVoicemailOptions,
+} from './twiml-generator'
+
+// Voicemail helpers
+export {
+  findConversationByPhone,
+  createPlaceholderConversation,
+  formatVoicemailDuration,
+  isValidE164Phone,
+  sanitizePhone,
+  sanitizeRecordingDuration,
+} from './voicemail-helpers'

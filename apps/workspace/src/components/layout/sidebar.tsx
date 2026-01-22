@@ -14,11 +14,15 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Phone,
+  PhoneOff,
+  Loader2,
 } from 'lucide-react'
 import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
 import { useUIStore, useTheme } from '../../stores/ui-store'
 import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
+import { useVoiceCallContext } from '../voice/voice-call-provider'
 
 // Navigation items with icons mapped from constants
 const navItemsWithIcons = [
@@ -37,6 +41,7 @@ export function Sidebar() {
   const currentPath = routerState.location.pathname
   const { signOut } = useClerk()
   const { user } = useUser()
+  const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
 
   // Select logo based on theme
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
@@ -151,6 +156,44 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* Voice status indicator (auto-registered on page load) */}
+        {voiceState.isAvailable && (
+          <div
+            className={cn(
+              'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg',
+              sidebarCollapsed && 'justify-center',
+              voiceState.isRegistered
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : voiceState.isRegistering
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'text-muted-foreground'
+            )}
+            aria-label={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi' : 'Đang kết nối...'}
+            title={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi đến' : 'Hệ thống đang kết nối...'}
+          >
+            {voiceState.isRegistering ? (
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            ) : voiceState.isRegistered ? (
+              <Phone className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <PhoneOff className="w-5 h-5" aria-hidden="true" />
+            )}
+            {!sidebarCollapsed && (
+              <span className="text-sm">
+                {voiceState.isRegistering
+                  ? 'Đang kết nối...'
+                  : voiceState.isRegistered
+                    ? 'Sẵn sàng nhận cuộc gọi'
+                    : 'Chờ kết nối...'}
+              </span>
+            )}
+            {/* Online indicator dot */}
+            {voiceState.isRegistered && sidebarCollapsed && (
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            )}
+          </div>
+        )}
 
         {/* Logout button */}
         <button

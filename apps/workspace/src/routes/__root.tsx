@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { Sidebar, Header } from '../components/layout'
 import { ErrorBoundary } from '../components/error-boundary'
 import { ToastContainer } from '../components/ui/toast-container'
+import { VoiceCallProvider } from '../components/voice'
 import { useTheme } from '../stores/ui-store'
 
 export const Route = createRootRoute({
@@ -64,12 +65,14 @@ function RootLayout() {
   // Show main app layout for authenticated users
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background">
-        <Sidebar />
-        <Header />
-        <Outlet />
-        <ToastContainer />
-      </div>
+      <VoiceCallProvider>
+        <div className="min-h-screen bg-background">
+          <Sidebar />
+          <Header />
+          <Outlet />
+          <ToastContainer />
+        </div>
+      </VoiceCallProvider>
     </ErrorBoundary>
   )
 }

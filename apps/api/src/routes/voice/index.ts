@@ -1,6 +1,6 @@
 /**
  * Voice API Routes
- * Token generation and call initiation for browser-based voice calls
+ * Token generation, presence tracking, and call initiation for browser-based voice calls
  */
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { zValidator } from '@hono/zod-validator'
 import { generateVoiceToken, isVoiceConfigured } from '../../services/voice'
 import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
+import { presenceRateLimit } from '../../middleware/rate-limiter'
 
 const voiceRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -48,9 +49,182 @@ voiceRoutes.get('/status', async (c) => {
     features: {
       outbound: isVoiceConfigured(),
       recording: isVoiceConfigured(),
-      inbound: false, // Not implemented yet
+      inbound: isVoiceConfigured(), // Inbound calls now supported
     },
   })
+})
+
+/**
+ * POST /voice/presence/register - Register staff as online for incoming calls
+ * Called when Device.on('registered') fires in frontend
+ */
+voiceRoutes.post('/presence/register', presenceRateLimit, async (c) => {
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  try {
+    const deviceId = `staff_${user.staffId}`
+    const now = new Date()
+
+    await prisma.staffPresence.upsert({
+      where: { staffId: user.staffId },
+      create: {
+        staffId: user.staffId,
+        isOnline: true,
+        deviceId,
+        lastSeen: now,
+      },
+      update: {
+        isOnline: true,
+        deviceId,
+        lastSeen: now,
+      },
+    })
+
+    console.log('[Voice Presence] Registered:', deviceId)
+    return c.json({ success: true, deviceId })
+  } catch (error) {
+    console.error('[Voice Presence] Register failed:', error instanceof Error ? error.message : 'Unknown')
+    return c.json({ error: 'OPERATION_FAILED' }, 500)
+  }
+})
+
+/**
+ * POST /voice/presence/unregister - Mark staff as offline
+ * Called when Device.on('unregistered') fires or tab closes
+ */
+voiceRoutes.post('/presence/unregister', presenceRateLimit, async (c) => {
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  try {
+    const now = new Date()
+
+    await prisma.staffPresence.upsert({
+      where: { staffId: user.staffId },
+      create: {
+        staffId: user.staffId,
+        isOnline: false,
+        lastSeen: now,
+      },
+      update: {
+        isOnline: false,
+        lastSeen: now,
+      },
+    })
+
+    console.log('[Voice Presence] Unregistered:', `staff_${user.staffId}`)
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('[Voice Presence] Unregister failed:', error instanceof Error ? error.message : 'Unknown')
+    return c.json({ error: 'OPERATION_FAILED' }, 500)
+  }
+})
+
+/**
+ * POST /voice/presence/heartbeat - Keep presence alive (called periodically by frontend)
+ * Updates lastSeen timestamp to indicate staff is still online
+ */
+voiceRoutes.post('/presence/heartbeat', presenceRateLimit, async (c) => {
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  try {
+    const result = await prisma.staffPresence.updateMany({
+      where: { staffId: user.staffId, isOnline: true },
+      data: { lastSeen: new Date() },
+    })
+
+    // If no record was updated, staff might have been marked offline
+    if (result.count === 0) {
+      return c.json({ success: false, reason: 'NOT_ONLINE' })
+    }
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('[Voice Presence] Heartbeat failed:', error instanceof Error ? error.message : 'Unknown')
+    return c.json({ error: 'OPERATION_FAILED' }, 500)
+  }
+})
+
+/**
+ * Validate E.164 phone format with stricter rules
+ * Format: +[country code][number] - 10-15 digits total after +
+ */
+function isValidE164Phone(phone: string): boolean {
+  // Must start with +, followed by 10-15 digits, first digit after + can't be 0
+  return /^\+[1-9]\d{9,14}$/.test(phone)
+}
+
+/**
+ * GET /voice/caller/:phone - Lookup caller info for incoming call UI
+ * Returns caller info including conversation and last-contact staff
+ */
+voiceRoutes.get('/caller/:phone', async (c) => {
+  const user = c.get('user')
+  if (!user?.staffId) {
+    return c.json({ error: 'UNAUTHORIZED' }, 401)
+  }
+
+  const phone = c.req.param('phone')
+
+  // Validate E.164 format
+  if (!isValidE164Phone(phone)) {
+    return c.json({ error: 'INVALID_PHONE' }, 400)
+  }
+
+  try {
+    // Find client by phone
+    const client = await prisma.client.findUnique({
+      where: { phone },
+      include: {
+        taxCases: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            conversation: true,
+          },
+        },
+      },
+    })
+
+    if (!client) {
+      return c.json({
+        phone,
+        conversation: null,
+        lastContactStaffId: null,
+      })
+    }
+
+    const taxCase = client.taxCases[0]
+    const conversation = taxCase?.conversation
+
+    // Find last outbound call to determine routing staff
+    // TODO: Track staffId on messages for better routing
+    // For now, return null - will ring all online staff
+    const lastContactStaffId: string | null = null
+
+    return c.json({
+      phone,
+      conversation: conversation
+        ? {
+            id: conversation.id,
+            caseId: taxCase?.id || null,
+            clientName: client.name,
+          }
+        : null,
+      lastContactStaffId,
+    })
+  } catch (error) {
+    console.error('[Voice Caller] Lookup failed:', error instanceof Error ? error.message : 'Unknown')
+    return c.json({ error: 'OPERATION_FAILED' }, 500)
+  }
 })
 
 // Schema for initiating call

@@ -11,6 +11,7 @@ import { DOC_TYPE_LABELS_VI } from '../../lib/constants'
 import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
+import { updateLastActivity } from '../../services/activity-tracker'
 import type { DocType, ChecklistItemStatus, RawImageStatus, Language } from '@ella/db'
 
 const imagesRoute = new Hono()
@@ -121,6 +122,9 @@ imagesRoute.patch(
 
         return updatedImage
       })
+
+      // Update case activity timestamp on classification approval
+      await updateLastActivity(rawImage.caseId)
 
       return c.json({
         success: true,

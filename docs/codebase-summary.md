@@ -1,16 +1,21 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-01-22
-**Current Branch:** fix/minor-fix
+**Current Branch:** feature/enhance-call
+**Latest Phase:** Phase 04 Frontend Incoming Call UI - Accept/Reject Modal + Presence Tracking + Ring Tone
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| **Phase 4 Intake Wizard Polish** | **Input validation (max lengths), ABA routing checksum, duplicate SSN detection, accessibility (ARIA labels), crypto.randomUUID(), crypto service module** | **2026-01-22** |
-| **Phase 3 Intake Wizard Integration** | **3-step outer flow (Basic→Tax→Wizard), WizardContainer integration, XSS sanitization, prototype pollution protection, legacy field mapping** | **2026-01-22** |
-| **Phase 2 Intake Wizard Components** | **10-component 4-step wizard; dependent repeater; category toggles; XSS-hardened crypto** | **2026-01-22** |
-| **Phase 1 Foundation - Intake Wizard Refactor** | **SSN AES-256-GCM encryption service; 17+ identity fields (taxpayer/spouse/dependent info); US states options; dependent relationships; frontend masking utilities** | **2026-01-22** |
+| **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
+| **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
+| **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
+| **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
+| **Phase 4 Constants & Labels (Actionable Status)** | **Centralized constants: ACTION_BADGE_LABELS (6 Vietnamese labels), ACTION_BADGE_ARIA_LABELS (6 a11y labels), TIME_FORMATS localization, STALE_THRESHOLD_DAYS=7, ACTION_BADGE_COLORS config; refactored action-badge.tsx for maintainability & i18n** | **2026-01-22** |
+| **Phase 3 Frontend (Actionable Status)** | **ComputedStatusBadge + ActionBadge components; client list sort (activity/name/stale); status action buttons (Send to Review/Mark Filed/Reopen); TaxCaseSummary type with isInReview/isFiled; computeStatus() utility** | **2026-01-21** |
+| **Phase 2 API Changes (Actionable Status)** | **3 case status endpoints; enhanced GET /clients with sort/actionCounts; ComputedStatus + ActionCounts types; activity tracking service; 23 tests** | **2026-01-21** |
+| **Phase 1 Database & Backend (Actionable Status)** | **TaxCase isInReview/isFiled flags; lastActivityAt tracking; computeStatus() priority system; calculateStaleDays() detection; updateLastActivity() service; ActionCounts types; 23 comprehensive tests** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
 | **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
@@ -42,9 +47,22 @@
 | **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
 | **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
 | **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
-| **Phase 2 Core** | **Make It Usable (Core Workflow)** | **2026-01-14** |
+| Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
+| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
+| Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
+| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
+| **Phase 2** | **Make It Usable (Core Workflow)** | **2026-01-14** |
+| Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
+| Phase 2.1 | AI Document Processing | 2026-01-13 |
 | Phase 5 | Verification | 2026-01-12 |
 | Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
+| Phase 3 (Old) | Apps Setup (API, Portal, Workspace) | Complete |
+| Phase 2 Infrastructure | Packages Setup (DB, Shared, UI) | Complete |
+| Phase 1.5 | Shared UI Components | 2026-01-13 |
+| Phase 1.4 | Client Portal | 2026-01-13 |
+| Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
+| Phase 1.2 | Backend API Endpoints | 2026-01-13 |
+| Phase 1.1 | Database Schema | 2026-01-12 |
 
 ## Architecture at a Glance
 
@@ -118,18 +136,90 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
+## Frontend Voice Services
+
+### Phase 04 Frontend Incoming Call UI (NEW - 2026-01-22)
+
+**Location:** `apps/workspace/src/lib/api-client.ts`, `apps/workspace/src/lib/ring-sound.ts`, `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/incoming-call-modal.tsx`, `apps/workspace/src/components/voice/voice-call-provider.tsx`
+
+**New API Methods (api-client.ts - 5 methods):**
+1. `lookupCaller(phoneNumber: string): Promise<CallerLookupResponse>` - Retrieve caller info (name, conversation)
+2. `registerPresence(phoneNumber: string): Promise<PresenceResponse>` - Mark staff as online
+3. `unregisterPresence(): Promise<PresenceResponse>` - Mark staff as offline
+4. `heartbeat(): Promise<HeartbeatResponse>` - Keep presence alive (10s intervals)
+5. **Types:** CallerLookupResponse (caller name, conversationId), PresenceResponse (presenceId), HeartbeatResponse (success)
+
+**Ring Sound Generator (ring-sound.ts - NEW):**
+- Web Audio API oscillator-based ring tone (440Hz frequency)
+- Graceful fallback to HTMLAudioElement if Web Audio unavailable
+- Play/stop/volume control methods
+- No external dependencies, pure browser API
+
+**Twilio SDK Enhancements (twilio-sdk-loader.ts):**
+- Added `accept()` method to TwilioCall class
+- Added `reject()` method to TwilioCall class
+- Type-safe event handlers for accept/reject results
+- Error handling with Vietnamese messages
+
+**useVoiceCall Hook (use-voice-call.ts - Enhanced):**
+- **New State:** `incomingCall` (caller info), `callerInfo` (lookup result), `isRinging` (boolean)
+- **New Actions:**
+  - `acceptIncoming()` - Accept incoming call, stop ring tone
+  - `rejectIncoming()` - Reject call, stop ring tone
+- **Presence Tracking:** Automatic register on mount, heartbeat every 10s, unregister on unmount
+- **Mounted Guard:** Prevents hydration mismatches with useEffect flag
+- **Toast Notifications:** Success/error feedback for accept/reject actions
+- **Ring Tone Management:** Auto-play on incoming call, stop on accept/reject
+
+**IncomingCallModal Component (incoming-call-modal.tsx - NEW):**
+- **Layout:** Full-screen modal overlay with centered card
+- **Caller Display:**
+  - Large caller name from `callerInfo`
+  - Phone number formatted E.164
+  - "Tin nhắn đến từ..." Vietnamese header
+- **Action Buttons:**
+  - Green "Trả lời" (Accept) button - calls `acceptIncoming()`
+  - Red "Từ chối" (Reject) button - calls `rejectIncoming()`
+  - Both buttons disabled during processing
+- **Ring Animation:** Pulsing call icon during ring state
+- **Vietnamese UI:** All text labels in Vietnamese
+
+**VoiceCallProvider Context (voice-call-provider.tsx - NEW):**
+- Wraps app with global voice call state
+- Error boundary integration for crash safety
+- Re-exports useVoiceCall hook
+- Mounted on `__root.tsx` at app level
+
+**Integration Changes:**
+- `apps/workspace/src/routes/__root.tsx` - Wrapped with `<VoiceCallProvider>` at root level
+- `apps/workspace/src/routeTree.gen.ts` - Auto-updated by TanStack Router
+- `apps/portal/src/routeTree.gen.ts` - Auto-updated (portal routes unchanged)
+
+**Key Features:**
+- **Real-time Presence:** Staff heartbeat keeps session alive (10s interval)
+- **Caller Lookup:** Fetch caller name from conversation/unknown caller placeholder
+- **Type-Safe Events:** Twilio SDK accept/reject with proper TypeScript types
+- **Ring Tone UX:** Web Audio API with fallback to native audio
+- **Error Resilience:** Toast notifications for all failure scenarios
+- **Memory Safe:** Cleanup all intervals/listeners on unmount
+
+**Security:**
+- API endpoints use staff JWT auth
+- Caller lookup validates conversation ownership
+- Presence token expires with session
+
 ## Backend Services
 
 ### Voice API Service (Phase 01-03)
 
 **Location:** `apps/api/src/services/voice/`, `apps/api/src/routes/voice/`, `apps/api/src/routes/webhooks/twilio.ts`
 
-**See [voice-api-guide.md](./voice-api-guide.md) for detailed documentation.**
+**See [phase-03-voicemail-system.md](./phase-03-voicemail-system.md) for Phase 03 Voicemail System details.**
 
 **Quick Summary:**
 - Phase 01: Backend token generation, TwiML routing, recording webhooks
-- Phase 02: Frontend browser calling, Twilio Client SDK, active call modal
-- Phase 03: Recording playback endpoints, AudioPlayer component, secure proxy
+- Phase 02: Frontend browser calling + incoming call routing (rings staff browsers, voicemail routing)
+- Phase 03: Unknown caller support with placeholder conversation creation (NEW); voicemail-recording webhook enhanced; helper functions (findConversationByPhone, createPlaceholderConversation, formatVoicemailDuration, isValidE164Phone, sanitizeRecordingDuration); transaction-based race condition handling; 55 unit tests
 
 **Endpoints (6 total):**
 - `POST /voice/token` - Get access token (returns JWT with VoiceGrant)
@@ -139,18 +229,27 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - `GET /voice/recordings/:recordingSid` - Recording metadata (auth required)
 - `GET /voice/recordings/:recordingSid/audio` - Proxy stream (Twilio auth, no client exposure)
 
-**Webhooks (3 total):**
-- `POST /webhooks/twilio/voice` - Call routing (returns TwiML)
-- `POST /webhooks/twilio/voice/recording` - Recording completion callback
+**Webhooks (6 total):**
+- `POST /webhooks/twilio/voice` - Outbound call routing (returns TwiML)
+- `POST /webhooks/twilio/voice/incoming` - Incoming call from customer (NEW Phase 02: routes to online staff)
+- `POST /webhooks/twilio/voice/dial-complete` - Staff ring timeout, route to voicemail (NEW Phase 02)
+- `POST /webhooks/twilio/voice/voicemail-recording` - Voicemail recording completion (NEW Phase 02)
+- `POST /webhooks/twilio/voice/recording` - Outbound recording completion callback
 - `POST /webhooks/twilio/voice/status` - Call status updates
 
 **Key Features:**
 - Staff JWT auth (microphone permission checks, token 5-min buffer)
+- Incoming call routing: Queries StaffPresence for online staff, rings all via Twilio Client (parallel dial)
+- Max 10 staff browsers per incoming call (Twilio limit)
+- 30-second ring timeout, auto-route to voicemail if no answer
+- Vietnamese voicemail prompts (Google Wavenet-A voice) with recording (120s max)
 - RecordingSid format validation (RE + 32 hex)
 - Database access control (only staff-created recordings)
 - Memory-efficient streaming (no full buffering)
 - HTTP caching 3600s for repeated plays
 - Vietnamese-first error messages
+- Rate limiting: 60 requests/minute per IP on webhooks
+- Signature validation: All webhooks validate Twilio HMAC-SHA1
 
 ### Frontend Voice Calling (Phase 02 - NEW)
 
@@ -199,50 +298,6 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - Streaming: No buffering (memory efficient)
 - HTTP cache: 3600s for repeated plays
 
-### SSN Encryption Service (Phase 1 Foundation - NEW)
-
-**Location:** `apps/api/src/services/crypto/index.ts`
-
-**Purpose:** Server-side encryption for sensitive SSN fields using AES-256-GCM.
-
-**Core Functions:**
-- `encryptSSN(ssn: string): string` - Encrypt SSN with AES-256-GCM, returns base64 (IV + AuthTag + Ciphertext)
-- `decryptSSN(encrypted: string): string` - Decrypt using cached key, handle migration period (plain text fallback)
-- `maskSSN(ssn: string): string` - Mask for display (e.g., "***-**-6789")
-- `isValidSSN(ssn: string): boolean` - Validate SSN format (9 digits, no invalid prefixes)
-- `formatSSN(ssn: string): string` - Format with dashes (e.g., "123-45-6789")
-- `encryptSensitiveFields(data, clientId, staffId?)` - Encrypt all SSN fields in intake answers + audit log
-- `decryptSensitiveFields(data, clientId, staffId?)` - Decrypt for display + audit log access
-
-**Encryption Details:**
-- Algorithm: AES-256-GCM (authenticated encryption)
-- Key: 32 bytes (256 bits) from `SSN_ENCRYPTION_KEY` environment variable (64-char hex)
-- IV: 12 bytes random (GCM recommended)
-- AuthTag: 16 bytes (128 bits)
-- Format: Base64 encoded (IV || AuthTag || Ciphertext)
-
-**SSN Validation Rules:**
-- Must be 9 digits
-- Cannot start with 000, 666, or 9XX (invalid SSA area numbers)
-- Middle two digits cannot be 00
-- Last four digits cannot be 0000
-
-**Features:**
-- Async encryption with audit logging (non-blocking)
-- Handles dependents array with nested SSN fields
-- Error resilient: Invalid SSN throws validation error before encryption
-- Decryption migration period: Falls back to plain text if decryption fails (for data already in DB)
-- Key caching: Encrypted key cached in memory after first use
-
-**Environment:** Requires `SSN_ENCRYPTION_KEY` (64-char hex string, e.g., `a1b2c3d4...` = 32 bytes)
-
-**Integration:** Used in Phase 1 intake form for personal ID section (taxpayerSSN, spouseSSN fields)
-
-**Security Notes:**
-- NEVER log or expose unencrypted SSN
-- Decryption only on authorized staff access (tracked in audit log)
-- Key rotation requires app restart (no hot reload)
-
 ### Audit Logger Service (Phase 01 - NEW)
 
 **Location:** `apps/api/src/services/audit-logger.ts`
@@ -262,7 +317,7 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 **Database:** AuditLog model with entityType (CLIENT_PROFILE|CLIENT|TAX_CASE), field names, old/new values, staff attribution
 
-**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates; also called during SSN encryption/decryption
+**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates
 
 ### Checklist Generator Service (Phase 01 Condition System - UPGRADED)
 
@@ -983,8 +1038,6 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 | File | Purpose |
 |------|---------|
 | [codebase-summary.md](./codebase-summary.md) | This file - quick reference |
-| [phase-02-wizard-components.md](./phase-02-wizard-components.md) | Intake Wizard 4-step orchestrator, components, validation |
-| [phase-01-intake-wizard-foundation.md](./phase-01-intake-wizard-foundation.md) | SSN encryption, identity fields, crypto utilities |
 | [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) | UI library detailed reference |
 | [client-messages-tab-feature.md](./client-messages-tab-feature.md) | Client Messages Tab implementation |
 | [system-architecture.md](./system-architecture.md) | System design & data flow |
@@ -994,8 +1047,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-22
-**Status:** Phase 2 Intake Wizard Components (10-component orchestrator, 4-step flow, dependent repeater, category toggles, XSS-hardened crypto) + Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
-**Branch:** fix/minor-fix
-**Architecture Version:** 9.0.0 (Phase 2 Intake Wizard - WizardContainer orchestrator with 4-step flow, WizardStep1-4 components, DependentGrid repeater, WizardConstants + useCategoryToggle hook, XSS-hardened crypto utilities)
+**Status:** Phase 04 Frontend Incoming Call UI + Phase 03 Voicemail System + Phase 02 Incoming Call Routing + Phase 4 Actionable Status Constants & Labels + Phase 3 Frontend Actionable Status + All prior enhancements
+**Branch:** feature/enhance-call (merging with dev)
+**Architecture Version:** 9.1.0 (Incoming Call UI + Actionable Status merged)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

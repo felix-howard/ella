@@ -1,18 +1,18 @@
 /**
  * Client List Page - View all clients in Kanban or List view
- * Features: view toggle, search, status filter
+ * Features: view toggle, search, status filter, activity sort
  */
 
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle, Loader2 } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle, Loader2, ArrowUpDown } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { KanbanBoard, ClientListTable } from '../../components/clients'
 import { useClientViewState } from '../../stores/ui-store'
 import { useDebouncedValue } from '../../hooks'
-import { CASE_STATUS_LABELS, UI_TEXT } from '../../lib/constants'
+import { CASE_STATUS_LABELS, UI_TEXT, CLIENT_SORT_OPTIONS, type ClientSortOption } from '../../lib/constants'
 import { api, type TaxCaseStatus } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/')({
@@ -23,11 +23,12 @@ function ClientListPage() {
   const { viewMode, setViewMode } = useClientViewState()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
+  const [sortBy, setSortBy] = useState<ClientSortOption>('activity')
 
   // Debounce search query for server-side search (300ms delay)
   const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)
 
-  // Fetch clients from API with server-side search and filter
+  // Fetch clients from API with server-side search, filter, and sort
   const {
     data: clientsResponse,
     isLoading,
@@ -38,12 +39,14 @@ function ClientListPage() {
   } = useQuery({
     queryKey: ['clients', {
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
+      sort: sortBy,
     }],
     queryFn: () => api.clients.list({
       limit: 100,
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
+      sort: sortBy,
     }),
   })
 
@@ -96,6 +99,23 @@ function ClientListPage() {
 
         {/* Filter and View Controls */}
         <div className="flex items-center gap-3">
+          {/* Sort Selector */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ClientSortOption)}
+              className="appearance-none pl-9 pr-8 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
+              aria-label="Sắp xếp theo"
+            >
+              {CLIENT_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+          </div>
+
           {/* Status Filter */}
           <div className="relative">
             <select

@@ -645,6 +645,10 @@ export interface TaxCaseSummary {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   _count: {
     rawImages: number
     digitalDocs: number
@@ -661,6 +665,10 @@ export interface TaxCase {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   client?: { id: string; name: string; phone: string }
   _count?: {
     rawImages: number

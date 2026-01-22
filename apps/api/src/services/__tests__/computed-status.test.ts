@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   computeStatus,
   calculateStaleDays,
-  type ComputedStatus,
   type ComputedStatusInput,
 } from '@ella/shared/utils/computed-status'
 

@@ -198,6 +198,28 @@ export const NAV_ITEMS = [
   { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
 ] as const
 
+// Action badge labels (Vietnamese)
+export const ACTION_BADGE_LABELS = {
+  missing: 'thiếu',
+  verify: 'cần xác minh',
+  entry: 'cần nhập',
+  stale: 'không hoạt động',
+  ready: 'Sẵn sàng',
+  'new-activity': 'Mới',
+} as const
+
+// Stale threshold for activity tracking
+export const STALE_THRESHOLD_DAYS = 7
+
+// Sort options for client list
+export const CLIENT_SORT_OPTIONS = [
+  { value: 'activity', label: 'Hoạt động gần nhất' },
+  { value: 'stale', label: 'Lâu không hoạt động' },
+  { value: 'name', label: 'Tên A-Z' },
+] as const
+
+export type ClientSortOption = typeof CLIENT_SORT_OPTIONS[number]['value']
+
 // Common UI text
 export const UI_TEXT = {
   // General

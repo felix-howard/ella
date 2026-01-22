@@ -101,7 +101,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (40 total - Phase 4 NEW: +4 checklist endpoints):**
+**Implemented Endpoints (46 total - Phase 2 Actionable Status: +3 status action endpoints, +2 client enhancements):**
 
 **Checklist Management (4 - Phase 4 NEW):**
 - `POST /cases/:id/checklist/items` - Add manual checklist item (staff override)
@@ -109,23 +109,26 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item
 - `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
 
-**Clients (7 - Phase 01 NEW: +1 profile endpoint):**
-- `GET /clients` - List with search/status filters, pagination (PHASE 2: Real API calls)
+**Clients (7 - Phase 2 NEW: +2 enhanced with actionable status):**
+- `GET /clients` - List with **sort param** (activity/name), returns **ClientWithActions** with computed status & action badges
 - `POST /clients` - Create client + profile + case + magic link + checklist + SMS welcome
 - `GET /clients/:id` - Client with profile, tax cases, portalUrl, smsEnabled flag
 - `PATCH /clients/:id` - Update name/phone/email/language
-- `PATCH /clients/:id/profile` - Update client profile (intakeAnswers + filingStatus) with audit logging (PHASE 01 NEW)
+- `PATCH /clients/:id/profile` - Update client profile (intakeAnswers + filingStatus) with audit logging
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
-**Tax Cases (7 - Phase 2 additions):**
+**Tax Cases (10 - Phase 2 NEW: +3 status action endpoints):**
 - `GET /cases` - List with status/year/client filters, pagination
 - `POST /cases` - Create new case
-- `GET /cases/:id` - Case details with document counts
-- `PATCH /cases/:id` - Update status/metadata with transition validation (PHASE 2)
+- `GET /cases/:id` - Case details with document counts, **isInReview/isFiled flags**, lastActivityAt
+- `PATCH /cases/:id` - Update status/metadata with transition validation
+- `POST /cases/:id/send-to-review` - Move case to REVIEW state (Phase 2 NEW)
+- `POST /cases/:id/mark-filed` - Mark case as FILED with filedAt timestamp (Phase 2 NEW)
+- `POST /cases/:id/reopen` - Reopen filed case, returns to REVIEW (Phase 2 NEW)
 - `GET /cases/:id/checklist` - Dynamic checklist from profile & templates
 - `GET /cases/:id/images` - Raw images for case with pagination
-- `GET /cases/:id/valid-transitions` - Get valid status transitions for case (PHASE 2 NEW)
+- `GET /cases/:id/valid-transitions` - Get valid status transitions for case
 
 **Digital Documents (10 - Phase 2 + Phase 03 + Phase 04 additions):**
 - `GET /docs/:id` - Document details with extracted data
@@ -1781,11 +1784,162 @@ scheduler: {
 - Isolated test database
 - Mock image buffers (JPEG magic bytes)
 
+## Phase 2: Actionable Client Status System - API Changes Summary
+
+**Completion Date:** 2026-01-21
+
+### New/Updated API Endpoints
+
+#### 1. Enhanced GET /clients Endpoint
+
+**New Features:**
+- `sort` parameter: `activity` (default, by lastActivityAt) or `name` (alphabetical)
+- Returns `ClientWithActions` type with computed status & action counts
+- Efficient aggregation using Prisma `_count` for MISSING docs
+
+**Response Structure:**
+```typescript
+{
+  data: ClientWithActions[],
+  pagination: { page, limit, total }
+}
+
+// ClientWithActions type:
+{
+  id, name, phone, email, language, createdAt, updatedAt
+  computedStatus: ComputedStatus | null  // NEW
+  actionCounts: ActionCounts | null      // NEW
+  latestCase: {
+    id, taxYear, taxTypes
+    isInReview, isFiled               // NEW flags
+    lastActivityAt                    // Activity tracking
+  }
+}
+
+// ActionCounts type:
+{
+  missingDocs: number        // ChecklistItem.status = MISSING
+  toVerify: number          // DigitalDoc.status = EXTRACTED
+  toEnter: number           // DigitalDoc status VERIFIED but entryCompleted = false
+  staleDays: number | null  // Days since lastActivityAt (null if < threshold)
+  hasNewActivity: boolean   // Unread messages in conversation
+}
+
+// ComputedStatus:
+'INTAKE' | 'WAITING_DOCS' | 'IN_PROGRESS' | 'READY_FOR_ENTRY' |
+'ENTRY_COMPLETE' | 'IN_REVIEW' | 'FILED'
+```
+
+#### 2. New Case Status Action Endpoints
+
+**POST /cases/:id/send-to-review** - Move case to REVIEW state
+- Sets `isInReview = true`
+- Updates `lastActivityAt` timestamp
+- Validates: case not already filed, not already in review
+- Response: `{ success: true }`
+- Errors: `ALREADY_FILED`, `ALREADY_IN_REVIEW`, `NOT_FOUND`
+
+**POST /cases/:id/mark-filed** - Mark case as FILED
+- Sets `isFiled = true`, `filedAt = now`, `lastActivityAt = now`
+- Validates: case not already filed
+- Response: `{ success: true }`
+- Errors: `ALREADY_FILED`, `NOT_FOUND`
+
+**POST /cases/:id/reopen** - Reopen filed case
+- Sets `isFiled = false`, `isInReview = true`, `filedAt = null`
+- Updates `lastActivityAt` timestamp
+- Validates: case must be filed
+- Response: `{ success: true }`
+- Errors: `NOT_FILED`, `NOT_FOUND`
+
+### Database Schema Changes
+
+**TaxCase Model (Phase 2 Additions):**
+```prisma
+model TaxCase {
+  // Existing fields...
+
+  // Phase 2: Status flags + activity tracking
+  isInReview       Boolean   @default(false)
+  isFiled          Boolean   @default(false)
+  filedAt          DateTime?
+  lastActivityAt   DateTime  @default(now()) @updatedAt
+
+  // For efficient sorting
+  @@index([lastActivityAt])
+  @@index([isInReview, isFiled])
+}
+```
+
+### Activity Tracking Integration
+
+**New Service:** `activity-tracker.ts`
+- `updateLastActivity(caseId)` - Updates `TaxCase.lastActivityAt = now()`
+- Called on: document uploads, client messages, document verification, data entry completion
+
+**Integration Points:**
+- `POST /portal/:token/upload` - After client document upload
+- `POST /messages/send` - After message sent
+- `POST /docs/:id/verify-action` - After document verification
+- `POST /docs/:id/complete-entry` - After data entry completion
+- `POST /webhooks/twilio/sms` - After SMS message received
+
+**Database Queries Optimized:**
+- Indexed on `(lastActivityAt DESC)` for sorting clients by activity
+- Combined with `isInReview`, `isFiled` flags for status filtering
+- Efficient aggregation: `_count.checklistItems { where: { status: MISSING } }`
+
+### Frontend Integration
+
+**New API Client Methods** (`apps/workspace/src/lib/api-client.ts`):
+```typescript
+// Cases status actions
+cases: {
+  sendToReview: (caseId) => POST /cases/:id/send-to-review
+  markFiled: (caseId) => POST /cases/:id/mark-filed
+  reopen: (caseId) => POST /cases/:id/reopen
+}
+
+// Clients list with computed status
+clients: {
+  list: (params: { page, limit, search?, status?, sort? })
+    => GET /clients with ClientWithActions response
+}
+```
+
+### Computed Status Priority
+
+**System:** `computeStatus()` utility in `@ella/shared`
+
+**Priority Chain** (evaluated in order):
+1. **FILED** - `isFiled === true`
+2. **IN_REVIEW** - `isInReview === true`
+3. **ENTRY_COMPLETE** - All docs verified + all docs have entryCompleted
+4. **READY_FOR_ENTRY** - All docs verified but some missing entryCompleted
+5. **IN_PROGRESS** - Has some extracted/verified docs, intake answered
+6. **WAITING_DOCS** - Intake answered but no documents received
+7. **INTAKE** - Default state (just created, no intake answers)
+
+**Stale Detection:** `calculateStaleDays(lastActivityAt)`
+- Returns days since last activity, or `null` if < 3 days (default threshold)
+- Used for workspace "Stale Cases" section
+
+### Testing
+
+**New Tests (23 total):**
+- Computed status calculation with various doc states
+- Action counts aggregation (missingDocs, toVerify, toEnter)
+- Case status transitions (send-to-review, mark-filed, reopen)
+- Activity tracking on multiple operations
+- Stale days calculation with threshold
+- Sort parameter handling (activity vs name)
+- ClientWithActions response structure
+
 ---
 
-**Last Updated:** 2026-01-17
-**Phase:** Phase 06 - Testing Infrastructure & Edge Case Handling (Complete) + Phase 1 & 2 Debug
-**Architecture Version:** 6.1 (Tested, Resilient, Optimized)
+**Last Updated:** 2026-01-21
+**Phase:** Phase 2 - Actionable Client Status System (API Layer Complete)
+**Architecture Version:** 7.0 (Actionable Status with Activity Tracking)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)

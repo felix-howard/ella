@@ -1,23 +1,20 @@
 /**
  * Client List Table Component - Table view of clients
- * Displays clients in a sortable, paginated table format
+ * Displays clients with computed status and action badges
  */
 
+import { memo, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Phone, Mail, Calendar, ChevronRight, Users } from 'lucide-react'
 import { cn } from '@ella/ui'
-import {
-  CASE_STATUS_LABELS,
-  CASE_STATUS_COLORS,
-  TAX_TYPE_LABELS,
-  LANGUAGE_LABELS,
-  UI_TEXT,
-} from '../../lib/constants'
+import { TAX_TYPE_LABELS, LANGUAGE_LABELS, UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import type { Client, TaxCaseStatus } from '../../lib/api-client'
+import { ActionBadge } from './action-badge'
+import { ComputedStatusBadge } from './computed-status-badge'
+import type { ClientWithActions } from '../../lib/api-client'
 
 interface ClientListTableProps {
-  clients: Client[]
+  clients: ClientWithActions[]
   isLoading?: boolean
 }
 
@@ -54,6 +51,9 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 Trạng thái
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+                Việc cần làm
+              </th>
               <th className="w-10"></th>
             </tr>
           </thead>
@@ -69,16 +69,14 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
 }
 
 interface ClientRowProps {
-  client: Client
+  client: ClientWithActions
   isLast: boolean
 }
 
-function ClientRow({ client, isLast }: ClientRowProps) {
-  const latestCase = client.taxCases?.[0]
-  const caseStatus = latestCase?.status as TaxCaseStatus | undefined
-  const statusColors = caseStatus ? CASE_STATUS_COLORS[caseStatus] : null
-  const statusLabel = caseStatus ? CASE_STATUS_LABELS[caseStatus] : 'Chưa có hồ sơ'
-  const avatarColor = getAvatarColor(client.name)
+const ClientRow = memo(function ClientRow({ client, isLast }: ClientRowProps) {
+  const { computedStatus, actionCounts, latestCase } = client
+  // Memoize avatar color to prevent recalculation on every render
+  const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
 
   return (
     <Link
@@ -89,9 +87,9 @@ function ClientRow({ client, isLast }: ClientRowProps) {
         !isLast && 'border-b border-border'
       )}
     >
+      {/* Name column */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          {/* Avatar */}
           <div className={cn(
             'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
             avatarColor.bg,
@@ -112,17 +110,23 @@ function ClientRow({ client, isLast }: ClientRowProps) {
           </div>
         </div>
       </td>
+
+      {/* Phone column */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <Phone className="w-3.5 h-3.5" aria-hidden="true" />
           <span>{formatPhone(client.phone)}</span>
         </div>
       </td>
+
+      {/* Language column */}
       <td className="px-4 py-3 hidden md:table-cell">
         <span className="text-muted-foreground">
           {LANGUAGE_LABELS[client.language] || client.language}
         </span>
       </td>
+
+      {/* Tax Year column */}
       <td className="px-4 py-3">
         {latestCase ? (
           <div className="flex items-center gap-1.5">
@@ -133,39 +137,61 @@ function ClientRow({ client, isLast }: ClientRowProps) {
           <span className="text-muted-foreground">—</span>
         )}
       </td>
+
+      {/* Tax Types column */}
       <td className="px-4 py-3 hidden lg:table-cell">
-        {latestCase?.taxYear ? (
+        {latestCase?.taxTypes && latestCase.taxTypes.length > 0 ? (
           <div className="flex flex-wrap gap-1">
-            {/* Show tax types if available - mock for now */}
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-              {TAX_TYPE_LABELS['FORM_1040']}
-            </span>
+            {latestCase.taxTypes.map((taxType) => (
+              <span
+                key={taxType}
+                className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground"
+              >
+                {TAX_TYPE_LABELS[taxType] || taxType}
+              </span>
+            ))}
           </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </td>
+
+      {/* Status column - computed status */}
       <td className="px-4 py-3">
-        {statusColors ? (
-          <span
-            className={cn(
-              'text-xs font-medium px-2.5 py-1 rounded-full inline-block',
-              statusColors.bg,
-              statusColors.text
-            )}
-          >
-            {statusLabel}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+        <ComputedStatusBadge status={computedStatus} size="sm" />
       </td>
+
+      {/* Action badges column */}
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap gap-1 max-w-[200px]">
+          {actionCounts?.hasNewActivity && (
+            <ActionBadge type="new-activity" />
+          )}
+          {actionCounts?.missingDocs !== undefined && actionCounts.missingDocs > 0 && (
+            <ActionBadge type="missing" count={actionCounts.missingDocs} />
+          )}
+          {actionCounts?.toVerify !== undefined && actionCounts.toVerify > 0 && (
+            <ActionBadge type="verify" count={actionCounts.toVerify} />
+          )}
+          {actionCounts?.toEnter !== undefined && actionCounts.toEnter > 0 && (
+            <ActionBadge type="entry" count={actionCounts.toEnter} />
+          )}
+          {actionCounts?.staleDays !== null && actionCounts?.staleDays !== undefined && (
+            <ActionBadge type="stale" days={actionCounts.staleDays} />
+          )}
+          {computedStatus === 'ENTRY_COMPLETE' && (
+            <ActionBadge type="ready" />
+          )}
+        </div>
+      </td>
+
+      {/* Arrow column */}
       <td className="px-4 py-3">
         <ChevronRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
       </td>
     </Link>
   )
-}
+})
 
 function EmptyState() {
   return (
@@ -209,6 +235,9 @@ export function ClientListTableSkeleton() {
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+              </th>
               <th className="w-10"></th>
             </tr>
           </thead>
@@ -240,6 +269,12 @@ export function ClientListTableSkeleton() {
                   <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
                 </td>
                 <td className="px-4 py-3">
+                  <div className="flex gap-1">
+                    <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
+                    <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
+                  </div>
+                </td>
+                <td className="px-4 py-3">
                   <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                 </td>
               </tr>
@@ -250,4 +285,3 @@ export function ClientListTableSkeleton() {
     </div>
   )
 }
-

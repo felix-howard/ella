@@ -75,6 +75,10 @@ export const clientIdParamSchema = z.object({
   id: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid client ID format'),
 })
 
+// Sort options for client list
+export const clientSortOptions = ['activity', 'stale', 'name'] as const
+export type ClientSortOption = typeof clientSortOptions[number]
+
 // Query params for listing clients
 export const listClientsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -91,6 +95,7 @@ export const listClientsQuerySchema = z.object({
       'FILED',
     ])
     .optional(),
+  sort: z.enum(clientSortOptions).optional().default('activity'),
 })
 
 // Cascade cleanup input

@@ -5,6 +5,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
+import { updateLastActivity } from '../../services/activity-tracker'
 import {
   classifyDocSchema,
   verifyDocSchema,
@@ -278,6 +279,11 @@ docsRoute.post('/:id/ocr', async (c) => {
     return digitalDoc
   })
 
+  // Update case activity timestamp on successful OCR
+  if (ocrResult.success) {
+    await updateLastActivity(doc.caseId)
+  }
+
   // Determine appropriate success message (Vietnamese for PDF)
   const isPdf = mimeType === 'application/pdf'
   let message: string
@@ -351,6 +357,9 @@ docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), asy
         })
       }
     })
+
+    // Update case activity timestamp
+    await updateLastActivity(doc.caseId)
 
     return c.json({ success: true, message: 'Document verified' })
   }
@@ -535,6 +544,9 @@ docsRoute.post('/:id/complete-entry', zValidator('json', completeEntrySchema), a
       entryCompletedAt: new Date(),
     },
   })
+
+  // Update case activity timestamp
+  await updateLastActivity(doc.caseId)
 
   return c.json({ success: true, message: 'Entry marked complete' })
 })

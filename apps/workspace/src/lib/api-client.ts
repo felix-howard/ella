@@ -170,8 +170,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
-      request<PaginatedResponse<Client>>('/clients', { params }),
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' }) =>
+      request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
 
     get: (id: string) => request<ClientDetail>(`/clients/${id}`),
 
@@ -269,6 +269,22 @@ export const api = {
 
     getImageSignedUrl: (imageId: string) =>
       request<SignedUrlResponse>(`/cases/images/${imageId}/signed-url`),
+
+    // Status action endpoints (Computed Status System)
+    sendToReview: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/send-to-review`, {
+        method: 'POST',
+      }),
+
+    markFiled: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/mark-filed`, {
+        method: 'POST',
+      }),
+
+    reopen: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/reopen`, {
+        method: 'POST',
+      }),
   },
 
   // Actions
@@ -559,6 +575,41 @@ export interface Client {
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
 }
 
+// Action counts for client list view
+export interface ActionCounts {
+  /** ChecklistItem.status = MISSING */
+  missingDocs: number
+  /** DigitalDoc.status = EXTRACTED (needs verification) */
+  toVerify: number
+  /** DigitalDoc.status = VERIFIED && entryCompleted = false */
+  toEnter: number
+  /** Days since lastActivityAt (null if < threshold) */
+  staleDays: number | null
+  /** Has unread messages */
+  hasNewActivity: boolean
+}
+
+// Client with computed status and action counts for list view
+export interface ClientWithActions {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  language: 'VI' | 'EN'
+  createdAt: string
+  updatedAt: string
+  computedStatus: TaxCaseStatus | null
+  actionCounts: ActionCounts | null
+  latestCase: {
+    id: string
+    taxYear: number
+    taxTypes: string[]
+    isInReview: boolean
+    isFiled: boolean
+    lastActivityAt: string
+  } | null
+}
+
 export interface ClientProfile {
   id: string
   filingStatus: string | null
@@ -594,6 +645,10 @@ export interface TaxCaseSummary {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   _count: {
     rawImages: number
     digitalDocs: number
@@ -610,6 +665,10 @@ export interface TaxCase {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   client?: { id: string; name: string; phone: string }
   _count?: {
     rawImages: number

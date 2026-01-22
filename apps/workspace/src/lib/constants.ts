@@ -198,7 +198,7 @@ export const NAV_ITEMS = [
   { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
 ] as const
 
-// Action badge labels (Vietnamese)
+/** Action badge labels (Vietnamese) for client list action indicators */
 export const ACTION_BADGE_LABELS = {
   missing: 'thiếu',
   verify: 'cần xác minh',
@@ -208,8 +208,26 @@ export const ACTION_BADGE_LABELS = {
   'new-activity': 'Mới',
 } as const
 
-// Stale threshold for activity tracking
-export const STALE_THRESHOLD_DAYS = 7
+/** Action badge ARIA labels (Vietnamese) for accessibility */
+export const ACTION_BADGE_ARIA_LABELS = {
+  missing: 'Tài liệu còn thiếu',
+  verify: 'Tài liệu cần xác minh',
+  entry: 'Tài liệu cần nhập liệu',
+  stale: 'Hồ sơ không hoạt động',
+  ready: 'Sẵn sàng kiểm tra',
+  'new-activity': 'Có hoạt động mới',
+} as const
+
+/** Time format strings for localization */
+export const TIME_FORMATS = {
+  /** Days abbreviation (e.g., "7d" for 7 days) */
+  daysShort: (days: number) => `${days}d`,
+  /** Days full (Vietnamese) */
+  daysFull: (days: number) => `${days} ngày`,
+} as const
+
+/** Stale threshold for activity tracking (days without activity) */
+export const STALE_THRESHOLD_DAYS = 7 as const
 
 // Sort options for client list
 export const CLIENT_SORT_OPTIONS = [

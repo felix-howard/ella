@@ -150,6 +150,86 @@ POST /clients/:id/cascade-cleanup
 }
 ```
 
+## Intake Form Configuration (@ella/workspace - Phase 1 Foundation)
+
+**Location:** `apps/workspace/src/lib/intake-form-config.ts`
+
+**Purpose:** Centralized configuration for all intake form fields, sections, and validation options.
+
+**Core Configuration Objects:**
+
+1. **SECTION_CONFIG** - Vietnamese section titles (18 sections)
+   - personal_info, tax_info, identity, client_status, prior_year, life_changes, income, dependents, health, deductions, credits, foreign, business, filing, bank, entity_info, ownership, expenses, assets, state
+
+2. **SECTION_ORDER** - Display order array (18 items)
+
+3. **NON_EDITABLE_SECTIONS** - Read-only sections from client/taxCase data
+   - personal_info, tax_info (populated from database, not editable)
+
+4. **FIELD_CONFIG** - 95+ field definitions with metadata
+   - Fields organized by section
+   - Each field has: label (Vietnamese), section, format type, optional options[]
+   - Supported format types: text, number, currency, boolean, select, ssn, date
+
+5. **US_STATES_OPTIONS** - 51-item array (50 states + DC) with value/label pairs
+
+6. **RELATIONSHIP_OPTIONS** - Dependent relationship types with Vietnamese labels
+   - SON, DAUGHTER, STEPSON, STEPDAUGHTER, FOSTER_CHILD, GRANDCHILD, NIECE_NEPHEW, SIBLING, PARENT, OTHER
+
+7. **SELECT_LABELS** - Lookup tables for select field value→label mapping
+
+**Field Categories (95+ total):**
+
+| Category | Fields | Notes |
+|----------|--------|-------|
+| Identity - Taxpayer | 8 | SSN, DOB, occupation, driver's license (DL#, issue, exp, state), IP PIN |
+| Identity - Spouse | 8 | Conditional on MFJ filing status (mirrors taxpayer) |
+| Identity - Dependents | 1 | dependentCount counter |
+| Bank Info | 1 | refundAccountType (CHECKING/SAVINGS) |
+| Client Status | 3 | isNewClient, hasIrsNotice, hasIdentityTheft |
+| Prior Year | 8 | Extension, estimated tax (total + Q1-Q4), prior year AGI |
+| Life Changes | 5 | Address, marital, children, home purchase, business start |
+| Income - Employment | 7 | W2, W2-G, tips, 1099-NEC, 1099 count, jury duty |
+| Income - Self Employment | 1 | hasSelfEmployment |
+| Income - Banking & Investments | 3 | Bank accounts, investments, crypto |
+| Income - Retirement & Benefits | 4 | Retirement, Social Security, unemployment, alimony |
+| Income - Rental & K-1 | 6 | Rental property details (count, months rented, personal use days), K-1 count |
+| Home Sale | 4 | Gross proceeds, gain, months lived, home office (sqft, method) |
+| Dependents | 8 | Kids <17 (count), CTC count, daycare (amount, provider), kids 17-24, other |
+| Health Insurance | 2 | Marketplace coverage, HSA |
+| Deductions | 8 | Mortgage, HELOC purpose, property tax, charitable, medical (mileage), student loan, educator, casualty |
+| Credits | 5 | Energy, EV, adoption, R&D |
+| Foreign | 7 | Foreign accounts (FBAR max), income, tax paid, FEIE residency dates, gifts |
+| Business | 6 | Name, EIN, employees, contractors, 1099-K, home office, vehicle |
+| Entity Info | 4 | Name, EIN, state of formation, accounting method, return type |
+| Ownership | 4 | Ownership changes, non-resident owners, distributions, owner loans |
+| Expenses | 10 | Gross receipts, 1099-K/NEC, interest income, rental income, inventory, employees, contractors, officer comp, guaranteed payments, retirement, health insurance |
+| Assets | 4 | Purchases, disposals, depreciation, vehicles |
+| State Tax | 6 | States with nexus, multistate income, foreign activity, foreign owners, shareholder basis, partner capital method |
+| Filing | 3 | Delivery preference, follow-up notes, refund account (routing) |
+
+**Format Type Mapping (formatToFieldType):**
+```
+boolean → BOOLEAN
+currency → CURRENCY
+number → NUMBER
+select → SELECT
+ssn → TEXT (stored as encrypted)
+date → TEXT (stored as ISO string)
+text → TEXT (default)
+```
+
+**SSN Field Handling:**
+- `taxpayerSSN` and `spouseSSN` use format: 'ssn'
+- Encrypted server-side (AES-256-GCM) in `encryptSensitiveFields()`
+- Masked in UI via `maskSSN()` util from `apps/workspace/src/lib/crypto.ts`
+- Frontend validation via `isValidSSN()` (9 digits, valid prefix, etc.)
+
+**Usage in Components:**
+- `ClientOverviewSections` - Displays intake answers grouped by section
+- `SectionEditModal` - Allows editing fields within a section
+- `api.clients.updateProfile()` - Persists changes to backend
+
 ## Shared Types & Validation (@ella/shared)
 
 **Zod Schema Patterns:**
@@ -1634,9 +1714,235 @@ await cleanupExpiredTokens()
 - Global dependencies: `tsconfig.json`, `eslint.config.js`
 - Each package has `lint: "eslint src/"` script
 
+## Input Sanitization Patterns (Phase 3)
+
+**Use Case:** Prevent XSS and injection attacks when processing user input from forms.
+
+**Pattern 1: Control Character Removal**
+
+```typescript
+// Remove ASCII control characters (0x00-0x1F, 0x7F) to prevent injection
+const sanitize = (str: string): string => {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/[\x00-\x1F\x7F]/g, '')
+}
+
+// Usage in forms
+const sanitizedEmail = basicInfo.email.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 254).trim()
+const sanitizedName = basicInfo.name.replace(/[\x00-\x1F\x7F]/g, '').trim()
+```
+
+**Pattern 2: Length Limiting & Trimming**
+
+```typescript
+// Apply strict length limits based on field purpose
+const cleanedPhone = basicInfo.phone.replace(/\D/g, '').slice(0, 10)     // 10 digits max
+const sanitizedEmail = basicInfo.email.slice(0, 254).trim()             // RFC 5321 limit
+const sanitizedName = basicInfo.name.trim().slice(0, 100)               // Field requirement
+```
+
+**Pattern 3: Display Sanitization (Defense-in-Depth)**
+
+```typescript
+// Sanitize any string before rendering (even if previously sanitized)
+const sanitizeString = (str: string): string => {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 500)
+}
+
+// Apply in all display contexts
+const formatValue = (key: string, value: unknown) => {
+  switch (key) {
+    case 'currency':
+      return typeof value === 'number'
+        ? new Intl.NumberFormat('vi-VN', { style: 'currency' }).format(value)
+        : sanitizeString(String(value))
+    case 'text':
+    default:
+      return typeof value === 'string' ? sanitizeString(value) : String(value)
+  }
+}
+```
+
+**Threat Model:**
+- **Email Header Injection:** Control char removal prevents multi-line injection
+- **XSS via Display:** Sanitization before rendering blocks script injection
+- **Buffer Overflow:** Length limits prevent oversized payloads
+- **Invalid Formats:** Regex validation (phone, email) ensures conformance
+
+## Prototype Pollution Protection Pattern (Phase 3)
+
+**Use Case:** Validate object keys before merging user input into backend schemas.
+
+**Pattern: Multi-Layer Validation**
+
+```typescript
+// 1. Define dangerous keys blocklist
+const DANGEROUS_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'toString',
+  'valueOf',
+  'hasOwnProperty',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+])
+
+// 2. Define valid key pattern (prevent __proto__ and other dangerous starts)
+const VALID_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
+// - Starts with letter (prevents __ prefix)
+// - Alphanumeric + underscores only
+// - Max 64 characters
+
+// 3. Apply in Zod schema validation
+export const intakeAnswersSchema = z.record(z.union([
+  z.boolean(),
+  z.number(),
+  z.string(),
+  z.array(z.record(z.any())),
+  z.record(z.any()),
+]))
+  .refine(
+    (val) => !val || Object.keys(val).every((key) => VALID_KEY_PATTERN.test(key)),
+    { message: 'Invalid key format (must start with letter, alphanumeric+underscore, max 64 chars)' }
+  )
+  .refine(
+    (val) => !val || Object.keys(val).every((key) => !DANGEROUS_KEYS.has(key)),
+    { message: 'Reserved key name not allowed (potential prototype pollution)' }
+  )
+
+// 4. Frontend validation before API submission
+function validateWizardAnswers(answers: Record<string, unknown>) {
+  const keys = Object.keys(answers)
+
+  // Check total key count (DoS prevention)
+  if (keys.length > 200) {
+    return { valid: false, error: 'Too many fields (max 200)' }
+  }
+
+  // Validate each key
+  for (const key of keys) {
+    if (!VALID_KEY_PATTERN.test(key) || DANGEROUS_KEYS.has(key)) {
+      return { valid: false, error: `Invalid key: ${key}` }
+    }
+  }
+
+  return { valid: true }
+}
+```
+
+**Security Notes:**
+- **Backend:** Always validate keys in API schema (Zod or similar)
+- **Frontend:** Validate before API submission (user-friendly errors)
+- **Key Pattern:** Starting with letter blocks all dangerous prefixes
+- **Blocklist:** Covers all Object.prototype methods
+- **DoS Prevention:** Max 200 keys, max 20 array items
+
+## Intake Wizard Integration Pattern (Phase 3)
+
+**Use Case:** Integrate multi-step wizard into client creation flow while maintaining backward compatibility.
+
+**Pattern: Outer Flow + Inner Wizard**
+
+```typescript
+// 1. Define outer flow (not including wizard's internal steps)
+type OuterStep = 'basic' | 'tax-selection' | 'wizard'
+
+// 2. Step components
+const steps = [
+  { id: 'basic', label: 'Basic Info', icon: User },
+  { id: 'tax-selection', label: 'Tax Selection', icon: FileText },
+  { id: 'wizard', label: 'Detailed Questions', icon: ClipboardList },
+]
+
+// 3. Navigation with validation
+const handleNext = () => {
+  if (currentStep === 'basic' && validateBasicInfo()) {
+    setCurrentStep('tax-selection')
+  } else if (currentStep === 'tax-selection' && validateTaxSelection()) {
+    setCurrentStep('wizard')
+  }
+}
+
+// 4. Render step content with wizard as component
+return (
+  <>
+    {currentStep === 'basic' && (
+      <BasicInfoForm {...} />
+    )}
+    {currentStep === 'tax-selection' && (
+      <TaxSelectionForm {...} />
+    )}
+    {currentStep === 'wizard' && (
+      <WizardContainer
+        clientId={tempClientId}
+        caseId={tempCaseId}
+        onComplete={handleWizardComplete}
+      />
+    )}
+  </>
+)
+
+// 5. Handle wizard completion (receives all answers from wizard)
+const handleWizardComplete = async (wizardAnswers: IntakeAnswers) => {
+  // Validate wizard answers (defense-in-depth)
+  const validation = validateWizardAnswers(wizardAnswers)
+  if (!validation.valid) {
+    setError(validation.error)
+    return
+  }
+
+  // Merge wizard answers with earlier steps
+  const allAnswers = {
+    ...wizardAnswers,
+    taxYear: taxSelection.taxYear,
+    filingStatus: taxSelection.filingStatus,
+  }
+
+  // Map to legacy fields for backward compatibility
+  const legacyFields = mapWizardToLegacyFields(wizardAnswers)
+
+  // Submit to API
+  const response = await api.clients.create({
+    profile: {
+      ...legacyFields,
+      intakeAnswers: allAnswers,  // Full answers in JSON
+    }
+  })
+}
+
+// 6. Legacy field mapping utility
+function mapWizardToLegacyFields(wizardAnswers: IntakeAnswers) {
+  return {
+    hasW2: wizardAnswers.hasW2 ?? false,
+    hasBankAccount: !!wizardAnswers.refundAccountType,
+    hasInvestments: wizardAnswers.hasInvestments ?? false,
+    hasKidsUnder17: (wizardAnswers.dependentCount ?? 0) > 0,
+    numKidsUnder17: wizardAnswers.dependentCount ?? 0,
+    // ... more legacy fields
+  }
+}
+```
+
+**Key Points:**
+- **Separation:** Outer steps (basic → tax → wizard) separate from wizard's 4 internal steps
+- **Composition:** WizardContainer is a component, not a full route
+- **Callback:** onComplete receives all wizard answers at once
+- **Backward Compat:** Legacy fields auto-mapped from wizard data
+- **Validation:** Dual validation (client-side + API schema)
+
+**Benefits:**
+- User-friendly 3-step flow with progress indication
+- Complex wizard encapsulated as single component
+- Easy to reuse wizard in other flows (edit client, bulk import)
+- Full answer history in intakeAnswers JSON for audit/analytics
+
 ---
 
-**Last Updated:** 2026-01-21 11:37
-**Phase:** Phase 02 Document Tab UX Redesign (Category Checklist) + Phase 01 Unclassified Docs Card
-**Standards Version:** 1.6
-**Added:** Category-Based Grouping Pattern (reusable for list-based components)
+**Last Updated:** 2026-01-22 20:53
+**Phase:** Phase 03 Intake Wizard Refactor Complete Integration
+**Standards Version:** 1.7
+**Added:** Input sanitization patterns, prototype pollution protection, intake wizard integration pattern

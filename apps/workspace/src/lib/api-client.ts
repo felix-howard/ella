@@ -492,6 +492,31 @@ export const api = {
         }),
     },
 
+    // Message Templates
+    messageTemplates: {
+      list: (params?: { category?: MessageTemplateCategory; isActive?: boolean }) =>
+        request<{ data: MessageTemplate[] }>('/admin/message-templates', { params }),
+
+      get: (id: string) => request<MessageTemplate>(`/admin/message-templates/${id}`),
+
+      create: (data: CreateMessageTemplateInput) =>
+        request<MessageTemplate>('/admin/message-templates', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateMessageTemplateInput) =>
+        request<MessageTemplate>(`/admin/message-templates/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/message-templates/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
     // Utility endpoints
     getSections: () => request<{ data: string[] }>('/admin/sections'),
     getCategories: () => request<{ data: string[] }>('/admin/categories'),
@@ -577,7 +602,8 @@ export interface ClientProfile {
   hasContractors: boolean
   has1099K: boolean
   // Full intake answers JSON from dynamic intake form
-  intakeAnswers?: Record<string, boolean | number | string | undefined>
+  // Supports: booleans, numbers, strings, arrays (dependents), and nested objects
+  intakeAnswers?: Record<string, unknown>
 }
 
 export interface ClientDetail extends Client {
@@ -812,8 +838,8 @@ export interface CreateClientInput {
     hasEmployees?: boolean
     hasContractors?: boolean
     has1099K?: boolean
-    // NEW: Full intake answers JSON
-    intakeAnswers?: Record<string, boolean | number | string>
+    // Full intake answers JSON (supports arrays/objects for dependents, etc.)
+    intakeAnswers?: Record<string, unknown>
   }
 }
 
@@ -833,7 +859,7 @@ export interface UpdateClientInput {
 // Update client profile (intakeAnswers + filingStatus)
 export interface UpdateProfileInput {
   filingStatus?: string
-  intakeAnswers?: Record<string, boolean | number | string>
+  intakeAnswers?: Record<string, unknown>
 }
 
 // Response from profile update (includes checklist refresh status)
@@ -1050,6 +1076,32 @@ export interface CreateDocTypeLibraryInput {
 }
 
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
+
+// Admin types - Message Templates
+export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL'
+
+export interface MessageTemplate {
+  id: string
+  category: MessageTemplateCategory
+  title: string
+  content: string
+  placeholders: string[]
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateMessageTemplateInput {
+  category: MessageTemplateCategory
+  title: string
+  content: string
+  placeholders?: string[]
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateMessageTemplateInput = Partial<CreateMessageTemplateInput>
 
 // Voice API types
 export interface VoiceTokenResponse {

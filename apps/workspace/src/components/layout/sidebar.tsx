@@ -14,11 +14,15 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Phone,
+  PhoneOff,
+  Loader2,
 } from 'lucide-react'
 import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
 import { useUIStore, useTheme } from '../../stores/ui-store'
 import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
+import { useVoiceCallContext } from '../voice/voice-call-provider'
 
 // Navigation items with icons mapped from constants
 const navItemsWithIcons = [
@@ -37,6 +41,7 @@ export function Sidebar() {
   const currentPath = routerState.location.pathname
   const { signOut } = useClerk()
   const { user } = useUser()
+  const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
 
   // Select logo based on theme
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
@@ -151,6 +156,46 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* Voice status / Go Online button */}
+        {voiceState.isAvailable && (
+          <button
+            onClick={() => !voiceState.isOnline && !voiceState.isGoingOnline && voiceActions.goOnline()}
+            disabled={voiceState.isGoingOnline}
+            className={cn(
+              'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-colors',
+              sidebarCollapsed && 'justify-center',
+              voiceState.isOnline
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 cursor-default'
+                : voiceState.isGoingOnline
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-wait'
+                  : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
+            )}
+            aria-label={voiceState.isOnline ? 'Đang trực tuyến nhận cuộc gọi' : 'Bật nhận cuộc gọi'}
+            title={voiceState.isOnline ? 'Đang trực tuyến nhận cuộc gọi' : 'Nhấn để bật nhận cuộc gọi đến'}
+          >
+            {voiceState.isGoingOnline ? (
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            ) : voiceState.isOnline ? (
+              <Phone className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <PhoneOff className="w-5 h-5" aria-hidden="true" />
+            )}
+            {!sidebarCollapsed && (
+              <span className="text-sm">
+                {voiceState.isGoingOnline
+                  ? 'Đang kết nối...'
+                  : voiceState.isOnline
+                    ? 'Đang trực tuyến'
+                    : 'Bật nhận cuộc gọi'}
+              </span>
+            )}
+            {/* Online indicator dot */}
+            {voiceState.isOnline && sidebarCollapsed && (
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            )}
+          </button>
+        )}
 
         {/* Logout button */}
         <button

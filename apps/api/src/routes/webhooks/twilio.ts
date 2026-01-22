@@ -511,12 +511,14 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       })
     }
 
-    // 5. Generate TwiML to ring staff browsers
+    // 5. Generate TwiML to ring staff browsers with recording enabled
     const twiml = generateIncomingTwiml({
       staffIdentities,
       callerId: from,
       timeout: RING_TIMEOUT_SECONDS,
       dialCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/dial-complete`,
+      record: true,
+      recordingStatusCallback: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/inbound-recording`,
     })
 
     return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
@@ -602,6 +604,83 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   })
 
   return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
+})
+
+/**
+ * POST /webhooks/twilio/voice/inbound-recording - Handle inbound call recording completion
+ * Stores recording URL in the inbound call message (for answered calls)
+ * Similar to outbound /voice/recording but for inbound calls
+ */
+twilioWebhookRoute.post('/voice/inbound-recording', async (c) => {
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return c.json({ error: 'Rate limit exceeded' }, 429)
+  }
+
+  // Signature validation
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  const formData = await c.req.parseBody()
+
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn('[Inbound Recording] Signature validation failed:', validationResult.error)
+    return c.text('Forbidden', 403)
+  }
+
+  const recordingSid = formData.RecordingSid as string
+  const recordingUrl = formData.RecordingUrl as string
+  const callSid = formData.CallSid as string
+  const recordingStatus = formData.RecordingStatus as string
+  const recordingDuration = sanitizeRecordingDuration(formData.RecordingDuration as string | undefined, MAX_RECORDING_DURATION)
+
+  console.log(`[Inbound Recording] ${recordingSid}: status=${recordingStatus}, duration=${recordingDuration}s`)
+
+  if (recordingStatus !== 'completed') {
+    return c.json({ received: true, processed: false })
+  }
+
+  try {
+    // Find the inbound call message by callSid
+    const result = await prisma.$transaction(async (tx) => {
+      const callMessage = await tx.message.findFirst({
+        where: { callSid },
+      })
+
+      if (!callMessage) return null
+
+      // Update with recording data
+      return await tx.message.update({
+        where: { id: callMessage.id },
+        data: {
+          recordingUrl: `${recordingUrl}.mp3`,
+          recordingDuration,
+          content: `Cuộc gọi (${formatVoicemailDuration(recordingDuration)})`,
+          // Keep callStatus as 'completed' (set by dial-complete)
+        },
+      })
+    })
+
+    if (!result) {
+      console.warn(`[Inbound Recording] No message found for callSid: ${callSid}`)
+      return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
+    }
+
+    console.log(`[Inbound Recording] Updated message ${result.id} with recording`)
+    return c.json({ received: true, processed: true })
+  } catch (error) {
+    console.error('[Inbound Recording] Error:', error)
+    return c.json({ error: 'Processing failed' }, 500)
+  }
 })
 
 /**

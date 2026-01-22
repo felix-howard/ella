@@ -157,22 +157,33 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Voice status / Go Online button */}
+        {/* Voice status / Toggle online/offline button */}
         {voiceState.isAvailable && (
           <button
-            onClick={() => !voiceState.isOnline && !voiceState.isGoingOnline && voiceActions.goOnline()}
+            onClick={() => {
+              if (voiceState.isGoingOnline) return
+              if (voiceState.isOnline) {
+                // Go offline and disable auto-online
+                voiceActions.goOffline()
+                voiceActions.setAutoOnline(false)
+              } else {
+                // Go online and enable auto-online
+                voiceActions.goOnline()
+                voiceActions.setAutoOnline(true)
+              }
+            }}
             disabled={voiceState.isGoingOnline}
             className={cn(
               'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-colors',
               sidebarCollapsed && 'justify-center',
               voiceState.isOnline
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 cursor-default'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
                 : voiceState.isGoingOnline
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-wait'
                   : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
             )}
-            aria-label={voiceState.isOnline ? 'Đang trực tuyến nhận cuộc gọi' : 'Bật nhận cuộc gọi'}
-            title={voiceState.isOnline ? 'Đang trực tuyến nhận cuộc gọi' : 'Nhấn để bật nhận cuộc gọi đến'}
+            aria-label={voiceState.isOnline ? 'Nhấn để tắt nhận cuộc gọi' : 'Bật nhận cuộc gọi'}
+            title={voiceState.isOnline ? 'Nhấn để tắt nhận cuộc gọi' : 'Nhấn để bật nhận cuộc gọi đến'}
           >
             {voiceState.isGoingOnline ? (
               <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />

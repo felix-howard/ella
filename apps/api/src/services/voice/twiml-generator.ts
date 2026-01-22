@@ -91,6 +91,10 @@ export interface TwimlIncomingOptions {
   timeout: number
   /** Webhook URL for dial completion status */
   dialCompleteUrl: string
+  /** Enable call recording (default true) */
+  record?: boolean
+  /** Webhook URL for recording status callbacks */
+  recordingStatusCallback?: string
 }
 
 export interface TwimlVoicemailOptions {
@@ -107,9 +111,28 @@ export interface TwimlVoicemailOptions {
 /**
  * Generate TwiML for incoming call - rings staff browsers
  * Uses <Dial> with multiple <Client> nouns for parallel ring
+ * Includes recording settings for inbound call recordings
  */
 export function generateIncomingTwiml(options: TwimlIncomingOptions): string {
-  const { staffIdentities, timeout, dialCompleteUrl } = options
+  const { staffIdentities, timeout, dialCompleteUrl, record = true, recordingStatusCallback } = options
+
+  // Build Dial attributes
+  const dialAttrs: string[] = [
+    `timeout="${timeout}"`,
+    `action="${escapeXml(dialCompleteUrl)}"`,
+    'method="POST"',
+    'answerOnBridge="true"',
+  ]
+
+  // Add recording settings (record both sides from answer)
+  if (record) {
+    dialAttrs.push('record="record-from-answer-dual"')
+
+    if (recordingStatusCallback) {
+      dialAttrs.push(`recordingStatusCallback="${escapeXml(recordingStatusCallback)}"`)
+      dialAttrs.push('recordingStatusCallbackEvent="completed"')
+    }
+  }
 
   // Build Client nouns for each staff identity (max 10 per Twilio docs)
   const clientNouns = staffIdentities
@@ -119,7 +142,7 @@ export function generateIncomingTwiml(options: TwimlIncomingOptions): string {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="${timeout}" action="${escapeXml(dialCompleteUrl)}" method="POST" answerOnBridge="true">
+  <Dial ${dialAttrs.join(' ')}>
 ${clientNouns}
   </Dial>
 </Response>`

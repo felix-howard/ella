@@ -1,12 +1,15 @@
 /**
  * VoiceCallProvider - Global voice call context provider
- * Wraps app with useVoiceCall hook and renders incoming call modal globally
+ * Wraps app with useVoiceCall hook and renders incoming/active call modals globally
  * Ensures incoming calls are shown regardless of current route
+ * Shows active call UI with timer when incoming call is accepted
  * Includes error boundary to prevent voice failures from crashing the app
  */
-import { createContext, useContext, Component, type ReactNode, type ErrorInfo } from 'react'
+import { createContext, useContext, Component, type ReactNode, type ErrorInfo, useState, useEffect } from 'react'
 import { useVoiceCall, type VoiceCallState, type VoiceCallActions } from '../../hooks/use-voice-call'
 import { IncomingCallModal } from '../messaging/incoming-call-modal'
+import { ActiveCallModal } from '../messaging/active-call-modal'
+import { formatPhone } from '../../lib/formatters'
 
 // Combined context type
 interface VoiceCallContextValue {
@@ -53,6 +56,39 @@ class VoiceErrorBoundary extends Component<{ children: ReactNode }, VoiceErrorBo
 function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
   const [state, actions] = useVoiceCall()
 
+  // Track if this is an inbound call (accepted from incoming modal)
+  // We show ActiveCallModal for inbound calls that were accepted
+  const [inboundCallActive, setInboundCallActive] = useState(false)
+  const [inboundCallerInfo, setInboundCallerInfo] = useState<{
+    name: string
+    phone: string
+  } | null>(null)
+
+  // When incoming call is accepted, track it as inbound active call
+  const handleAcceptIncoming = () => {
+    // Save caller info before accepting (it will be cleared)
+    if (state.callerInfo) {
+      setInboundCallerInfo({
+        name: state.callerInfo.clientName || 'Khách hàng',
+        phone: state.callerInfo.phone,
+      })
+    }
+    setInboundCallActive(true)
+    actions.acceptIncoming()
+  }
+
+  // Clear inbound call state when call ends
+  useEffect(() => {
+    if (state.callState === 'idle' && inboundCallActive) {
+      // Delay clear to show completion briefly
+      const timer = setTimeout(() => {
+        setInboundCallActive(false)
+        setInboundCallerInfo(null)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [state.callState, inboundCallActive])
+
   return (
     <VoiceCallContext.Provider value={{ state, actions }}>
       {children}
@@ -60,9 +96,30 @@ function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
       <IncomingCallModal
         call={state.incomingCall}
         callerInfo={state.callerInfo}
-        onAccept={actions.acceptIncoming}
+        onAccept={handleAcceptIncoming}
         onReject={actions.rejectIncoming}
       />
+      {/* Active call modal for inbound calls - shows timer and controls */}
+      {inboundCallActive && inboundCallerInfo && (
+        <ActiveCallModal
+          isOpen={true}
+          callState={state.callState}
+          isMuted={state.isMuted}
+          duration={state.duration}
+          clientName={inboundCallerInfo.name}
+          clientPhone={formatPhone(inboundCallerInfo.phone)}
+          error={state.error}
+          onEndCall={actions.endCall}
+          onToggleMute={actions.toggleMute}
+          onClose={() => {
+            // Only allow closing if call ended
+            if (state.callState === 'idle' || state.callState === 'error') {
+              setInboundCallActive(false)
+              setInboundCallerInfo(null)
+            }
+          }}
+        />
+      )}
     </VoiceCallContext.Provider>
   )
 }

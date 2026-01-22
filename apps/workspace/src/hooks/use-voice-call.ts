@@ -44,6 +44,8 @@ export interface VoiceCallState {
   // Online status for receiving incoming calls
   isOnline: boolean
   isGoingOnline: boolean
+  // Auto-go-online preference (default: true)
+  autoOnline: boolean
 }
 
 export interface VoiceCallActions {
@@ -55,6 +57,33 @@ export interface VoiceCallActions {
   rejectIncoming: () => void
   // Enable incoming calls (requires user gesture for AudioContext)
   goOnline: () => Promise<boolean>
+  // Disable incoming calls
+  goOffline: () => void
+  // Toggle auto-go-online preference
+  setAutoOnline: (enabled: boolean) => void
+}
+
+// LocalStorage key for auto-go-online preference
+const AUTO_ONLINE_KEY = 'ella_voice_auto_online'
+
+// Get auto-online preference from localStorage (default: true)
+function getAutoOnlinePreference(): boolean {
+  try {
+    const stored = localStorage.getItem(AUTO_ONLINE_KEY)
+    // Default to true if not set
+    return stored === null ? true : stored === 'true'
+  } catch {
+    return true
+  }
+}
+
+// Save auto-online preference to localStorage
+function setAutoOnlinePreference(enabled: boolean): void {
+  try {
+    localStorage.setItem(AUTO_ONLINE_KEY, String(enabled))
+  } catch {
+    // Ignore localStorage errors
+  }
 }
 
 // User-friendly error messages (Vietnamese)
@@ -120,6 +149,8 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   // Online status for receiving incoming calls
   const [isOnline, setIsOnline] = useState(false)
   const [isGoingOnline, setIsGoingOnline] = useState(false)
+  // Auto-go-online preference (default: true, persisted in localStorage)
+  const [autoOnline, setAutoOnlineState] = useState(getAutoOnlinePreference)
 
   const deviceRef = useRef<TwilioDeviceInstance | null>(null)
   const callRef = useRef<TwilioCall | null>(null)
@@ -130,6 +161,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const incomingCallRef = useRef<TwilioCall | null>(null) // Track incoming call for timeout
   const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
   const mountedRef = useRef(true) // Track component mount status for cleanup
+  const autoOnlineTriggeredRef = useRef(false) // Track if auto-online has been triggered this session
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -717,6 +749,66 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     }
   }, [isOnline, isGoingOnline, setupDevice])
 
+  // Go offline - unregister device from receiving incoming calls
+  const goOffline = useCallback(() => {
+    if (!deviceRef.current || !isOnline) return
+
+    if (import.meta.env.DEV) {
+      console.log('[Voice] Going offline')
+    }
+
+    // Unregister device (triggers 'unregistered' event which handles cleanup)
+    deviceRef.current.unregister()
+  }, [isOnline])
+
+  // Set auto-online preference
+  const setAutoOnline = useCallback((enabled: boolean) => {
+    setAutoOnlineState(enabled)
+    setAutoOnlinePreference(enabled)
+    if (import.meta.env.DEV) {
+      console.log('[Voice] Auto-online set to:', enabled)
+    }
+  }, [])
+
+  // Auto-go-online on first user interaction when autoOnline is enabled
+  // Browser requires user gesture for AudioContext creation
+  useEffect(() => {
+    // Skip if voice not available, already online/going online, auto-online disabled, or already triggered
+    if (!isAvailable || isOnline || isGoingOnline || !autoOnline || autoOnlineTriggeredRef.current) {
+      return
+    }
+
+    const handleUserGesture = async () => {
+      // Only trigger once per session
+      if (autoOnlineTriggeredRef.current) return
+      autoOnlineTriggeredRef.current = true
+
+      if (import.meta.env.DEV) {
+        console.log('[Voice] Auto-going online after user gesture')
+      }
+
+      // Small delay to ensure gesture context is valid
+      setTimeout(async () => {
+        try {
+          await goOnline()
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.warn('[Voice] Auto-go-online failed:', e)
+          }
+        }
+      }, 100)
+    }
+
+    // Listen for user interaction (click or keydown)
+    document.addEventListener('click', handleUserGesture, { once: true })
+    document.addEventListener('keydown', handleUserGesture, { once: true })
+
+    return () => {
+      document.removeEventListener('click', handleUserGesture)
+      document.removeEventListener('keydown', handleUserGesture)
+    }
+  }, [isAvailable, isOnline, isGoingOnline, autoOnline, goOnline])
+
   // Cleanup on beforeunload (tab close)
   useEffect(() => {
     function handleBeforeUnload() {
@@ -731,7 +823,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   }, [])
 
   return [
-    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isOnline, isGoingOnline },
-    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming, goOnline },
+    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isOnline, isGoingOnline, autoOnline },
+    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming, goOnline, goOffline, setAutoOnline },
   ]
 }

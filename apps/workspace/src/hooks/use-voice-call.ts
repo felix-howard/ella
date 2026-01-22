@@ -795,11 +795,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     }
   }, [])
 
-  // Auto-go-online on first user interaction when autoOnline is enabled
+  // Auto-go-online on first user interaction (always on page load)
   // Browser requires user gesture for AudioContext creation
   useEffect(() => {
-    // Skip if voice not available, already online/going online, auto-online disabled, or already triggered
-    if (!isAvailable || isOnline || isGoingOnline || !autoOnline || autoOnlineTriggeredRef.current) {
+    // Skip if voice not available, already online/going online, or already triggered this session
+    // Note: Always auto-go-online on page load, regardless of previous session preference
+    if (!isAvailable || isOnline || isGoingOnline || autoOnlineTriggeredRef.current) {
       return
     }
 
@@ -832,7 +833,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       document.removeEventListener('click', handleUserGesture)
       document.removeEventListener('keydown', handleUserGesture)
     }
-  }, [isAvailable, isOnline, isGoingOnline, autoOnline, goOnline])
+  }, [isAvailable, isOnline, isGoingOnline, goOnline])
 
   // Cleanup on beforeunload (tab close)
   useEffect(() => {

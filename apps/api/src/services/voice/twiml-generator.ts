@@ -104,6 +104,10 @@ export interface TwimlVoicemailOptions {
   voicemailCompleteUrl: string
   /** Max recording duration in seconds (default 120) */
   maxLength?: number
+  /** Silence timeout before ending recording in seconds (default 10) */
+  timeout?: number
+  /** Key to press to finish recording (default #) */
+  finishOnKey?: string
 }
 
 // ============================================
@@ -152,33 +156,25 @@ ${clientNouns}
 
 /**
  * Generate TwiML when no staff are online
- * Plays message and records voicemail
- * - action: Controls call flow after recording (must return TwiML)
- * - recordingStatusCallback: Async callback to save recording data (fire-and-forget)
+ * Plays message and hangs up (voicemail disabled)
  */
-export function generateNoStaffTwiml(voicemailOptions: TwimlVoicemailOptions): string {
-  const { voicemailCallbackUrl, voicemailCompleteUrl, maxLength = 120 } = voicemailOptions
-
+export function generateNoStaffTwiml(_voicemailOptions?: TwimlVoicemailOptions): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Xin chào, hiện không có nhân viên trực. Xin vui lòng để lại tin nhắn sau tiếng bíp.</Say>
-  <Record maxLength="${maxLength}" action="${escapeXml(voicemailCompleteUrl)}" method="POST" recordingStatusCallback="${escapeXml(voicemailCallbackUrl)}" recordingStatusCallbackEvent="completed" playBeep="true" />
+  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Xin chào, hiện không có nhân viên trực. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Hangup />
 </Response>`
 }
 
 /**
- * Generate TwiML for voicemail (after dial timeout)
- * Vietnamese prompt with recording
- * - action: Controls call flow after recording (must return TwiML)
- * - recordingStatusCallback: Async callback to save recording data (fire-and-forget)
+ * Generate TwiML for when staff don't answer (after dial timeout)
+ * Plays message and hangs up (voicemail disabled)
  */
-export function generateVoicemailTwiml(options: TwimlVoicemailOptions): string {
-  const { voicemailCallbackUrl, voicemailCompleteUrl, maxLength = 120 } = options
-
+export function generateVoicemailTwiml(_options?: TwimlVoicemailOptions): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng để lại tin nhắn sau tiếng bíp.</Say>
-  <Record maxLength="${maxLength}" action="${escapeXml(voicemailCompleteUrl)}" method="POST" recordingStatusCallback="${escapeXml(voicemailCallbackUrl)}" recordingStatusCallbackEvent="completed" playBeep="true" />
+  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Hangup />
 </Response>`
 }
 

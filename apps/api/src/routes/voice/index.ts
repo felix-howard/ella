@@ -153,11 +153,6 @@ voiceRoutes.post('/presence/heartbeat', presenceRateLimit, async (c) => {
   }
 })
 
-// Schema for caller lookup - E.164 phone format
-const callerLookupSchema = z.object({
-  phone: z.string().regex(/^\+[1-9]\d{9,14}$/, 'Phone must be E.164 format'),
-})
-
 /**
  * Validate E.164 phone format with stricter rules
  * Format: +[country code][number] - 10-15 digits total after +
@@ -211,24 +206,9 @@ voiceRoutes.get('/caller/:phone', async (c) => {
     const conversation = taxCase?.conversation
 
     // Find last outbound call to determine routing staff
-    let lastContactStaffId: string | null = null
-    if (conversation) {
-      const lastOutbound = await prisma.message.findFirst({
-        where: {
-          conversationId: conversation.id,
-          channel: 'CALL',
-          direction: 'OUTBOUND',
-          callStatus: 'completed',
-        },
-        orderBy: { createdAt: 'desc' },
-      })
-
-      // TODO: Track staffId on messages for better routing
-      // For now, return null - will ring all online staff
-      if (lastOutbound) {
-        // Future: lastContactStaffId = lastOutbound.staffId
-      }
-    }
+    // TODO: Track staffId on messages for better routing
+    // For now, return null - will ring all online staff
+    const lastContactStaffId: string | null = null
 
     return c.json({
       phone,

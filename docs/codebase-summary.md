@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-21
+**Current Date:** 2026-01-22
 **Current Branch:** feature/enhance-call
-**Latest Phase:** Phase 01 Backend Foundation - Inbound Call Handling
+**Latest Phase:** Phase 02 Incoming Call Routing - Route to Staff Browsers + Voicemail
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
 | **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
@@ -139,7 +140,7 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 
 **Quick Summary:**
 - Phase 01: Backend token generation, TwiML routing, recording webhooks
-- Phase 02: Frontend browser calling, Twilio Client SDK, active call modal
+- Phase 02: Frontend browser calling + incoming call routing (NEW: rings staff browsers, voicemail routing)
 - Phase 03: Recording playback endpoints, AudioPlayer component, secure proxy
 
 **Endpoints (6 total):**
@@ -150,18 +151,27 @@ See [detailed architecture guide](./system-architecture.md) for full API/data fl
 - `GET /voice/recordings/:recordingSid` - Recording metadata (auth required)
 - `GET /voice/recordings/:recordingSid/audio` - Proxy stream (Twilio auth, no client exposure)
 
-**Webhooks (3 total):**
-- `POST /webhooks/twilio/voice` - Call routing (returns TwiML)
-- `POST /webhooks/twilio/voice/recording` - Recording completion callback
+**Webhooks (6 total):**
+- `POST /webhooks/twilio/voice` - Outbound call routing (returns TwiML)
+- `POST /webhooks/twilio/voice/incoming` - Incoming call from customer (NEW Phase 02: routes to online staff)
+- `POST /webhooks/twilio/voice/dial-complete` - Staff ring timeout, route to voicemail (NEW Phase 02)
+- `POST /webhooks/twilio/voice/voicemail-recording` - Voicemail recording completion (NEW Phase 02)
+- `POST /webhooks/twilio/voice/recording` - Outbound recording completion callback
 - `POST /webhooks/twilio/voice/status` - Call status updates
 
 **Key Features:**
 - Staff JWT auth (microphone permission checks, token 5-min buffer)
+- Incoming call routing: Queries StaffPresence for online staff, rings all via Twilio Client (parallel dial)
+- Max 10 staff browsers per incoming call (Twilio limit)
+- 30-second ring timeout, auto-route to voicemail if no answer
+- Vietnamese voicemail prompts (Google Wavenet-A voice) with recording (120s max)
 - RecordingSid format validation (RE + 32 hex)
 - Database access control (only staff-created recordings)
 - Memory-efficient streaming (no full buffering)
 - HTTP caching 3600s for repeated plays
 - Vietnamese-first error messages
+- Rate limiting: 60 requests/minute per IP on webhooks
+- Signature validation: All webhooks validate Twilio HMAC-SHA1
 
 ### Frontend Voice Calling (Phase 02 - NEW)
 
@@ -958,9 +968,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-21
-**Status:** Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization) + Phase 01 Voice API (Token generation, TwiML routing, recording + status webhooks, E.164 validation, Twilio signature validation) + Phase 05 Security Enhancements (XSS sanitization + prototype pollution prevention) + Phase 04 Checklist Recalculation (UpdateProfileResponse) + Phase 03 Quick-Edit Icons (QuickEditModal, validation) + Phase 02 Section Edit Modal (SectionEditModal, 18 sections) + Phase 05 Testing & Validation (46 checklist + 32 classification tests) + Phase 04 UX Improvements (6 components + hook) + Phase 03 Checklist Templates (92 templates, 60+ doc types) + Phase 02 Intake Expansion (+70 CPA questions)
-**Branch:** feature/more-enhancement
-**Architecture Version:** 8.6.0 (Client Floating Chatbox - Facebook Messenger-style popup with 15s polling, ErrorBoundary protection, reuses MessageThread + QuickActionsBar)
+**Last Updated:** 2026-01-22
+**Status:** Phase 02 Incoming Call Routing (generateIncomingTwiml rings staff browsers, generateNoStaffTwiml + generateVoicemailTwiml Vietnamese voicemail, 3 webhooks incoming/dial-complete/voicemail-recording, call routing to online staff via StaffPresence, rate limiting 60req/min, signature validation HMAC-SHA1) + Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization)
+**Branch:** feature/enhance-call
+**Architecture Version:** 8.4.0 (Phase 02 Incoming Call Routing - routes customer calls to staff browsers with voicemail fallback)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

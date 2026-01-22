@@ -5,4 +5,5 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   noExternal: ['@ella/db', '@ella/shared'],
+  external: ['sharp', 'pdf-poppler'],
 })

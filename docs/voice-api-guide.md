@@ -1,12 +1,12 @@
 # Voice API & Recording Playback Guide
 
-**Last Updated:** 2026-01-20
-**Status:** Phase 03 Complete (Recording Playback)
-**Architecture Version:** 8.3.0
+**Last Updated:** 2026-01-22
+**Status:** Phase 02 Complete (Incoming Call Routing)
+**Architecture Version:** 8.4.0
 
 ## Overview
 
-Complete voice calling system: browser-based outbound calls (Phase 01-02) + recording playback (Phase 03). Backend manages Twilio integration, frontend handles user interaction. All UI Vietnamese-first with secure proxy for recording access.
+Complete voice calling system: browser-based outbound calls (Phase 01-02) + incoming call routing to staff browsers (Phase 02) + recording playback (Phase 03). Backend manages Twilio integration, frontend handles user interaction. All UI Vietnamese-first with secure proxy for recording access. Incoming calls ring multiple staff browsers or route to voicemail if no staff online.
 
 ## Backend Architecture
 
@@ -15,15 +15,17 @@ Complete voice calling system: browser-based outbound calls (Phase 01-02) + reco
 **Token Generator** (`token-generator.ts`)
 - Generates JWT with VoiceGrant for staff identities
 - TTL: 1 hour (3600 seconds)
-- Outbound calling only (inbound not implemented)
+- Supports outbound calls + inbound call acceptance (browser to browser via Twilio Client SDK)
+- Used for browser Device registration to accept incoming calls
 - Input: `identity: "staff_{staffId}"`
 - Output: `{ token, expiresIn, identity }`
 
 **TwiML Generator** (`twiml-generator.ts`)
 - XML response for Twilio call routing
-- Includes recording config: `<Record>` with CallSid callback
+- **Outbound:** Includes recording config: `<Record>` with CallSid callback
+- **Incoming:** Rings multiple staff browser clients via `<Client>` nouns (max 10, parallel)
+- **Voicemail:** Vietnamese prompts with `<Say>` (Google Wavenet-A voice) + `<Record>` (120s max)
 - Status callback for call completion webhook
-- Dial context with phone number validation
 
 ### Voice Routes (`apps/api/src/routes/voice/index.ts`)
 
@@ -92,6 +94,37 @@ Authentication: Twilio credentials used server-side (never exposed to client)
 - Updates: callStatus (completed, busy, no-answer, failed, canceled)
 - Webhook signature validation (HMAC)
 
+**POST /webhooks/twilio/voice/incoming** (Phase 02 NEW)
+- Triggered: Incoming call from customer
+- Input: From (caller phone), To (Twilio number), CallSid
+- Flow:
+  1. Lookup customer by phone number
+  2. Get online staff via StaffPresence.isOnline=true
+  3. If no staff online: Return voicemail TwiML
+  4. If staff online: Create INBOUND call message with status='ringing', return TwiML to ring staff browsers
+- Returns: TwiML with `<Dial>` containing `<Client>` nouns for staff device IDs (max 10 parallel)
+- Staff device format: "staff_{staffId}" (from StaffPresence.deviceId)
+- Ring timeout: 30 seconds (RING_TIMEOUT_SECONDS constant)
+
+**POST /webhooks/twilio/voice/dial-complete** (Phase 02 NEW)
+- Triggered: After ring timeout or call answer/end
+- Input: DialCallStatus (completed|answered|no-answer|busy|failed), CallSid
+- Flow:
+  1. If status='completed|answered': Call was answered, return empty TwiML
+  2. Otherwise: Route to voicemail, return voicemail TwiML
+- Updates: Message callStatus to call status or voicemail message content
+- Signature validation (HMAC)
+
+**POST /webhooks/twilio/voice/voicemail-recording** (Phase 02 NEW)
+- Triggered: Voicemail recording completion (after customer speaks)
+- Input: RecordingSid, RecordingUrl, CallSid, RecordingDuration
+- Flow:
+  1. Find Message by CallSid
+  2. Store RecordingUrl + RecordingDuration + update callStatus='voicemail'
+- Updates: Message.recordingUrl, recordingDuration, callStatus
+- Returns: JSON acknowledgment { received: true, processed: true }
+- Signature validation (HMAC)
+
 ### Configuration (`.env`)
 
 **Required Environment Variables:**
@@ -115,6 +148,75 @@ VOICE_CONFIGURED=true (if all 7 vars present)
 ```typescript
 isVoiceConfigured() // All env vars present
 ```
+
+## Incoming Call TwiML Generators (Phase 02)
+
+### generateIncomingTwiml() - Ring Staff Browsers
+
+**Purpose:** Generate TwiML to ring multiple staff browser clients simultaneously (parallel dial)
+
+**Signature:**
+```typescript
+function generateIncomingTwiml(options: TwimlIncomingOptions): string
+  interface TwimlIncomingOptions {
+    staffIdentities: string[]  // e.g., ["staff_123", "staff_456"]
+    callerId: string           // Caller phone (From)
+    timeout: number            // Seconds to ring (default 30)
+    dialCompleteUrl: string    // Webhook URL after dial timeout/answer
+  }
+```
+
+**Returns:** TwiML XML response
+```xml
+<Response>
+  <Dial timeout="30" action="..." method="POST" answerOnBridge="true">
+    <Client>staff_123</Client>
+    <Client>staff_456</Client>
+  </Dial>
+</Response>
+```
+
+**Key Features:**
+- Max 10 staff browsers per call (limited by staffIdentities.slice(0, 10))
+- answerOnBridge="true" means conversation starts when first staff accepts
+- timeout triggers dial-complete webhook if no answer
+- Parallel dial: All staff browsers ring simultaneously
+
+### generateNoStaffTwiml() - Voicemail (No Staff Online)
+
+**Purpose:** Play message + record voicemail when no staff available
+
+**Signature:**
+```typescript
+function generateNoStaffTwiml(options: TwimlVoicemailOptions): string
+  interface TwimlVoicemailOptions {
+    voicemailCallbackUrl: string
+    maxLength?: number        // Max seconds (default 120)
+  }
+```
+
+**Vietnamese Messages:**
+- Say: "Xin chào, hiện không có nhân viên trực. Xin vui lòng để lại tin nhắn sau tiếng bíp."
+- After recording: "Không nhận được tin nhắn. Tạm biệt."
+- Voice: Google Translate text-to-speech (vi-VN-Wavenet-A)
+
+### generateVoicemailTwiml() - Voicemail (Dial Timeout)
+
+**Purpose:** Play message + record voicemail after ring timeout
+
+**Signature:**
+```typescript
+function generateVoicemailTwiml(options: TwimlVoicemailOptions): string
+```
+
+**Vietnamese Messages:**
+- Say: "Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng để lại tin nhắn sau tiếng bíp."
+- After recording: "Không nhận được tin nhắn. Tạm biệt."
+- Same voice engine as generateNoStaffTwiml()
+
+**Differences:**
+- generateNoStaffTwiml: Used when no staff online at call arrival
+- generateVoicemailTwiml: Used after 30-second ring timeout with staff online but no answer
 
 ## Frontend Architecture
 
@@ -242,20 +344,40 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 - `recordingDuration: Int?` - Duration in seconds (set by recording webhook)
 - `callStatus: String?` - Terminal state (set by status webhook)
 
-**Call Status Values:**
+**Call Status Values (Outbound & Inbound):**
 - `initiated` - Message created, calling starting
-- `ringing` - Call ringing on recipient end
+- `ringing` - Call ringing (outbound: on recipient, inbound: on staff browsers)
 - `in-progress` - Call connected and recording
-- `completed` - Call ended normally
+- `completed` - Call ended normally (answered by staff)
 - `busy` - Recipient busy
-- `no-answer` - Recipient didn't answer
+- `no-answer` - Recipient didn't answer (staff didn't pick up within 30s)
+- `voicemail` - Call routed to voicemail with recording (Phase 02 NEW)
 - `failed` - Call failed (technical error)
 - `canceled` - Call canceled by user
+
+**Direction Values:**
+- `OUTBOUND` - Staff initiated call to customer
+- `INBOUND` - Customer initiated call to staff (Phase 02 NEW)
 
 ### Conversation Model
 
 - `caseId: String!` - Tax case identifier (unique)
 - `lastMessageAt: DateTime` - Timestamp of last message
+
+### StaffPresence Model (Phase 01)
+
+**Used for Incoming Call Routing (Phase 02):**
+- `staffId: String!` - Foreign key to Staff
+- `isOnline: Boolean` - Current online status (updated by heartbeat)
+- `deviceId: String?` - Browser device identifier (e.g., "staff_123" for Twilio Client)
+- `lastHeartbeatAt: DateTime` - Last activity timestamp
+
+**Incoming Call Flow:**
+1. Customer calls Twilio number → `/webhooks/twilio/voice/incoming` triggered
+2. Webhook queries: `StaffPresence.findMany({ where: { isOnline: true } })`
+3. Builds staff device IDs: `["staff_123", "staff_456"]`
+4. Passes to `generateIncomingTwiml()` to ring all online staff browsers
+5. First staff to answer connects; others' rings stop (answerOnBridge="true")
 
 ## Security
 
@@ -408,16 +530,63 @@ ${API_BASE_URL}/voice/recordings/:recordingSid/audio
 - Check network stability
 - Verify Twilio CDN is responding (curl test)
 
+## Phase 02 Implementation Details
+
+### Files Changed
+
+**New Files:**
+- `apps/api/src/services/voice/twiml-generator.ts` - TwiML generation (incoming, voicemail)
+
+**Modified Files:**
+- `apps/api/src/services/voice/index.ts` - Exported new TwiML generators
+- `apps/api/src/routes/webhooks/twilio.ts` - Added 3 incoming call webhooks:
+  - POST /webhooks/twilio/voice/incoming (148 LOC)
+  - POST /webhooks/twilio/voice/dial-complete (67 LOC)
+  - POST /webhooks/twilio/voice/voicemail-recording (55 LOC)
+- `apps/api/src/routes/voice/index.ts` - Fixed linting (removed unused var, const vs let)
+
+### Key Implementation Notes
+
+**Rate Limiting:**
+- All incoming webhooks rate-limited: 60 requests/minute per IP
+- In-memory rate limiter with automatic cleanup
+
+**Signature Validation:**
+- All webhooks validate Twilio signature (HMAC-SHA1)
+- Reconstructs URL from forwarded headers (handles ngrok/proxy)
+- Returns 403 Forbidden on validation failure
+
+**Database Transactions:**
+- Incoming call message creation uses atomic transaction
+- Updates conversation lastMessageAt timestamp
+- Recording webhook uses transaction for find + update
+
+**Call Routing Logic:**
+1. Incoming call → lookup customer by phone (From)
+2. Get online staff (StaffPresence.isOnline=true)
+3. If online: Ring all staff browsers (parallel dial, max 10)
+4. If offline: Go directly to voicemail
+5. After 30s timeout: Update call status + route to voicemail
+6. Recording webhook: Store voicemail URL + duration
+
+**Vietnamese Voicemail Messages:**
+- Google Wavenet-A voice (high quality, natural)
+- Beep notification before recording
+- Timeout confirmation message
+- All messages in vi-VN locale
+
 ## Next Steps
 
-**Phase 04:** Recording duration confirmation via webhook, add download feature with staff audit
+**Phase 03:** (Completed) Recording playback endpoints + AudioPlayer component
 
-**Phase 05:** Recording transcription preview, add search by transcript
+**Phase 04:** Recording download feature with staff audit, recording duration confirmation
 
-**Phase 06:** Call analytics dashboard, quality metrics, retry logic
+**Phase 05:** Recording transcription preview, call analytics dashboard
+
+**Phase 06:** Quality metrics, retry logic, call recording archive
 
 ---
 
-**Files:** 5 backend + 1 frontend new | 3 backend + 2 frontend modified
-**Lines:** ~700 LOC total
-**Dependencies:** Twilio SDK, @ella/ui, lucide-react, React hooks
+**Phase 02 Files:** 1 new service | 2 routes modified | ~270 LOC added
+**Total Voice System:** ~1,200 LOC across services, routes, webhooks
+**Dependencies:** Twilio SDK, @ella/ui, lucide-react, React hooks, Prisma

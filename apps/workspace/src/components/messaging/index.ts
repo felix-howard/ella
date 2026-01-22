@@ -29,3 +29,6 @@ export type { ActiveCallModalProps } from './active-call-modal'
 
 export { AudioPlayer } from './audio-player'
 export type { AudioPlayerProps } from './audio-player'
+
+export { IncomingCallModal } from './incoming-call-modal'
+export type { IncomingCallModalProps } from './incoming-call-modal'

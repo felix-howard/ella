@@ -1,18 +1,20 @@
 /**
  * Template Picker - Modal for selecting pre-defined message templates
- * Templates are categorized for easy access during client communication
+ * Templates are fetched from API and categorized for easy access during client communication
  */
 
 import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
-import { X, Search, FileText, Clock, AlertTriangle, CheckCircle, Send } from 'lucide-react'
+import { X, Search, FileText, Clock, AlertTriangle, CheckCircle, Send, Loader2 } from 'lucide-react'
+import { api, type MessageTemplate as ApiMessageTemplate, type MessageTemplateCategory } from '../../lib/api-client'
 
+// Local interface matching API but with lowercase category for UI compatibility
 export interface MessageTemplate {
   id: string
   category: TemplateCategory
   title: string
   content: string
-  /** Placeholders like {clientName}, {docType} */
   placeholders?: string[]
 }
 
@@ -34,95 +36,19 @@ const CATEGORIES: Record<TemplateCategory, { label: string; icon: typeof FileTex
   general: { label: 'Chung', icon: FileText, color: 'text-muted-foreground' },
 }
 
-// Pre-defined templates
-const TEMPLATES: MessageTemplate[] = [
-  // Reminders
-  {
-    id: 'reminder-1',
-    category: 'reminder',
-    title: 'Nhắc nộp tài liệu',
-    content: 'Chào {clientName},\n\nElla nhắc bạn gửi thêm tài liệu thuế còn thiếu để chúng tôi hoàn thành hồ sơ. Cảm ơn bạn!',
-    placeholders: ['clientName'],
-  },
-  {
-    id: 'reminder-2',
-    category: 'reminder',
-    title: 'Nhắc nhở lần 2',
-    content: 'Chào {clientName},\n\nChúng tôi vẫn đang chờ một số tài liệu từ bạn. Vui lòng gửi sớm để tránh trễ hạn nộp thuế. Xin cảm ơn!',
-    placeholders: ['clientName'],
-  },
+// Map API category (uppercase) to UI category (lowercase)
+const mapApiCategoryToUi = (apiCategory: MessageTemplateCategory): TemplateCategory => {
+  return apiCategory.toLowerCase() as TemplateCategory
+}
 
-  // Missing documents
-  {
-    id: 'missing-1',
-    category: 'missing',
-    title: 'Yêu cầu W2',
-    content: 'Chào {clientName},\n\nChúng tôi cần bạn gửi form W2 để hoàn thành hồ sơ thuế. Bạn có thể chụp ảnh và gửi qua link đã nhận.',
-    placeholders: ['clientName'],
-  },
-  {
-    id: 'missing-2',
-    category: 'missing',
-    title: 'Yêu cầu SSN/ID',
-    content: 'Chào {clientName},\n\nVui lòng gửi ảnh chụp thẻ SSN và ID (bằng lái xe hoặc passport) để chúng tôi xác minh thông tin.',
-    placeholders: ['clientName'],
-  },
-  {
-    id: 'missing-3',
-    category: 'missing',
-    title: 'Yêu cầu 1099',
-    content: 'Chào {clientName},\n\nChúng tôi cần các form 1099 (nếu có) từ ngân hàng, công ty chứng khoán hoặc nơi trả tiền cho bạn.',
-    placeholders: ['clientName'],
-  },
-
-  // Blurry/Resend
-  {
-    id: 'blurry-1',
-    category: 'blurry',
-    title: 'Ảnh mờ - Chụp lại',
-    content: 'Chào {clientName},\n\nẢnh {docType} bạn gửi bị mờ, chúng tôi không đọc được. Vui lòng chụp lại rõ hơn và gửi lại. Cảm ơn!',
-    placeholders: ['clientName', 'docType'],
-  },
-  {
-    id: 'blurry-2',
-    category: 'blurry',
-    title: 'Ảnh bị cắt',
-    content: 'Chào {clientName},\n\nẢnh tài liệu bạn gửi bị cắt mất một phần. Vui lòng chụp lại đầy đủ 4 góc của tài liệu.',
-    placeholders: ['clientName'],
-  },
-
-  // Complete
-  {
-    id: 'complete-1',
-    category: 'complete',
-    title: 'Đã nhận đủ tài liệu',
-    content: 'Chào {clientName},\n\nChúng tôi đã nhận đủ tài liệu thuế của bạn. Hồ sơ đang được xử lý, chúng tôi sẽ liên hệ khi có kết quả.',
-    placeholders: ['clientName'],
-  },
-  {
-    id: 'complete-2',
-    category: 'complete',
-    title: 'Hoàn thành khai thuế',
-    content: 'Chào {clientName},\n\nHồ sơ thuế của bạn đã được hoàn thành và nộp thành công. Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi!',
-    placeholders: ['clientName'],
-  },
-
-  // General
-  {
-    id: 'general-1',
-    category: 'general',
-    title: 'Lời chào',
-    content: 'Chào {clientName},\n\nCảm ơn bạn đã liên hệ. Chúng tôi sẽ hỗ trợ bạn ngay.',
-    placeholders: ['clientName'],
-  },
-  {
-    id: 'general-2',
-    category: 'general',
-    title: 'Xác nhận nhận tin',
-    content: 'Chào {clientName},\n\nChúng tôi đã nhận được tin nhắn của bạn và sẽ phản hồi sớm nhất có thể.',
-    placeholders: ['clientName'],
-  },
-]
+// Convert API template to UI template format
+const mapApiTemplateToUi = (apiTemplate: ApiMessageTemplate): MessageTemplate => ({
+  id: apiTemplate.id,
+  category: mapApiCategoryToUi(apiTemplate.category),
+  title: apiTemplate.title,
+  content: apiTemplate.content,
+  placeholders: apiTemplate.placeholders,
+})
 
 export function TemplatePicker({
   isOpen,
@@ -133,9 +59,24 @@ export function TemplatePicker({
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | 'all'>('all')
 
+  // Fetch templates from API
+  const { data, isLoading } = useQuery({
+    queryKey: ['message-templates'],
+    queryFn: () => api.admin.messageTemplates.list({ isActive: true }),
+    enabled: isOpen, // Only fetch when modal is open
+  })
+
+  // Map API templates to UI format (exclude WELCOME - they're auto-sent)
+  const templates: MessageTemplate[] = useMemo(() => {
+    if (!data?.data) return []
+    return data.data
+      .filter((t) => t.category !== 'WELCOME') // WELCOME templates are auto-sent, not for manual selection
+      .map(mapApiTemplateToUi)
+  }, [data])
+
   // Filter templates
   const filteredTemplates = useMemo(() => {
-    return TEMPLATES.filter((template) => {
+    return templates.filter((template) => {
       const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory
       const matchesSearch =
         search === '' ||
@@ -143,7 +84,7 @@ export function TemplatePicker({
         template.content.toLowerCase().includes(search.toLowerCase())
       return matchesCategory && matchesSearch
     })
-  }, [search, selectedCategory])
+  }, [templates, search, selectedCategory])
 
   // Handle template selection with placeholder replacement
   const handleSelect = (template: MessageTemplate) => {
@@ -242,10 +183,18 @@ export function TemplatePicker({
 
         {/* Template list */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {filteredTemplates.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : filteredTemplates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Không tìm thấy mẫu phù hợp</p>
+              <p className="text-sm">
+                {templates.length === 0
+                  ? 'Chưa có mẫu tin nhắn nào. Hãy thêm mẫu trong Cài đặt.'
+                  : 'Không tìm thấy mẫu phù hợp'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -271,8 +220,8 @@ export function TemplatePicker({
                             {template.title}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {template.content.replace('{clientName}', clientName || 'Quý khách')}
+                        <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap">
+                          {template.content.replace(/{clientName}/g, clientName || 'Quý khách')}
                         </p>
                       </div>
                       <Send className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />

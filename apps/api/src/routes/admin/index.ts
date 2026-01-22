@@ -19,7 +19,12 @@ import {
   listDocTypeLibraryQuerySchema,
   createDocTypeLibrarySchema,
   updateDocTypeLibrarySchema,
+  messageTemplateIdParamSchema,
+  listMessageTemplatesQuerySchema,
+  createMessageTemplateSchema,
+  updateMessageTemplateSchema,
 } from './schemas'
+import type { MessageTemplateCategory } from '@ella/db'
 
 const adminRoute = new Hono()
 
@@ -387,5 +392,103 @@ adminRoute.get('/categories', async (c) => {
 
   return c.json({ data: categories.map((c) => c.category) })
 })
+
+// ============================================
+// MESSAGE TEMPLATES ENDPOINTS
+// ============================================
+
+// GET /admin/message-templates - List all message templates
+adminRoute.get(
+  '/message-templates',
+  zValidator('query', listMessageTemplatesQuerySchema),
+  async (c) => {
+    const { category, isActive } = c.req.valid('query')
+
+    const where: Record<string, unknown> = {}
+
+    if (category) {
+      where.category = category
+    }
+    if (isActive !== undefined) {
+      where.isActive = isActive
+    }
+
+    const templates = await prisma.messageTemplate.findMany({
+      where,
+      orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+    })
+
+    return c.json({ data: templates })
+  }
+)
+
+// GET /admin/message-templates/:id - Get single message template
+adminRoute.get(
+  '/message-templates/:id',
+  zValidator('param', messageTemplateIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+
+    const template = await prisma.messageTemplate.findUnique({ where: { id } })
+
+    if (!template) {
+      return c.json({ error: 'NOT_FOUND', message: 'Message template not found' }, 404)
+    }
+
+    return c.json(template)
+  }
+)
+
+// POST /admin/message-templates - Create message template
+adminRoute.post(
+  '/message-templates',
+  zValidator('json', createMessageTemplateSchema),
+  async (c) => {
+    const body = c.req.valid('json')
+
+    const template = await prisma.messageTemplate.create({
+      data: {
+        ...body,
+        category: body.category as MessageTemplateCategory,
+      },
+    })
+
+    return c.json(template, 201)
+  }
+)
+
+// PUT /admin/message-templates/:id - Update message template
+adminRoute.put(
+  '/message-templates/:id',
+  zValidator('param', messageTemplateIdParamSchema),
+  zValidator('json', updateMessageTemplateSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
+
+    const template = await prisma.messageTemplate.update({
+      where: { id },
+      data: {
+        ...body,
+        category: body.category as MessageTemplateCategory | undefined,
+      },
+    })
+
+    return c.json(template)
+  }
+)
+
+// DELETE /admin/message-templates/:id - Delete message template
+adminRoute.delete(
+  '/message-templates/:id',
+  zValidator('param', messageTemplateIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+
+    await prisma.messageTemplate.delete({ where: { id } })
+
+    return c.json({ success: true })
+  }
+)
 
 export { adminRoute }

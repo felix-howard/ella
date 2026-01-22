@@ -44,6 +44,8 @@ function getCallStatusInfo(status?: string): {
       return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang gọi...', color: 'text-blue-600' }
     case 'in-progress':
       return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang kết nối', color: 'text-green-600' }
+    case 'voicemail':
+      return { icon: <PhoneMissed className="w-4 h-4" />, label: 'Tin nhắn thoại', color: 'text-orange-600' }
     default:
       return { icon: <PhoneCall className="w-4 h-4" />, label: 'Cuộc gọi', color: 'text-muted-foreground' }
   }
@@ -90,7 +92,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   // Call messages with special styling and audio player
   if (message.channel === 'CALL') {
     const callStatusInfo = getCallStatusInfo(message.callStatus)
-    const hasRecording = message.recordingUrl && message.callStatus === 'completed'
+    const hasRecording = message.recordingUrl && (message.callStatus === 'completed' || message.callStatus === 'voicemail')
     // Extract recording SID from URL (format: .../Recordings/RE.../...)
     const recordingSid = message.recordingUrl?.match(/RE[0-9a-fA-F]{32}/)?.[0]
 

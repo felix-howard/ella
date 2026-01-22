@@ -3,6 +3,10 @@
  * Generates TwiML XML for Twilio voice call routing
  */
 
+// ============================================
+// OUTBOUND CALL TYPES
+// ============================================
+
 export interface TwimlVoiceOptions {
   /** Phone number to dial (E.164 format) */
   to: string
@@ -72,4 +76,116 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
+}
+
+// ============================================
+// INCOMING CALL TYPES
+// ============================================
+
+export interface TwimlIncomingOptions {
+  /** Staff device identities to ring (e.g., ["staff_123", "staff_456"]) */
+  staffIdentities: string[]
+  /** Caller phone number (From) for logging */
+  callerId: string
+  /** Ring timeout in seconds (default 30) */
+  timeout: number
+  /** Webhook URL for dial completion status */
+  dialCompleteUrl: string
+  /** Enable call recording (default true) */
+  record?: boolean
+  /** Webhook URL for recording status callbacks */
+  recordingStatusCallback?: string
+}
+
+export interface TwimlVoicemailOptions {
+  /** Webhook URL for recording status callback (async, saves recording data) */
+  voicemailCallbackUrl: string
+  /** Webhook URL for action after recording ends (sync, controls call flow) */
+  voicemailCompleteUrl: string
+  /** Max recording duration in seconds (default 120) */
+  maxLength?: number
+  /** Silence timeout before ending recording in seconds (default 10) */
+  timeout?: number
+  /** Key to press to finish recording (default #) */
+  finishOnKey?: string
+}
+
+// ============================================
+// INCOMING CALL TWIML GENERATORS
+// ============================================
+
+/**
+ * Generate TwiML for incoming call - rings staff browsers
+ * Uses <Dial> with multiple <Client> nouns for parallel ring
+ * Includes recording settings for inbound call recordings
+ */
+export function generateIncomingTwiml(options: TwimlIncomingOptions): string {
+  const { staffIdentities, timeout, dialCompleteUrl, record = true, recordingStatusCallback } = options
+
+  // Build Dial attributes
+  const dialAttrs: string[] = [
+    `timeout="${timeout}"`,
+    `action="${escapeXml(dialCompleteUrl)}"`,
+    'method="POST"',
+    'answerOnBridge="true"',
+  ]
+
+  // Add recording settings (record both sides from answer)
+  if (record) {
+    dialAttrs.push('record="record-from-answer-dual"')
+
+    if (recordingStatusCallback) {
+      dialAttrs.push(`recordingStatusCallback="${escapeXml(recordingStatusCallback)}"`)
+      dialAttrs.push('recordingStatusCallbackEvent="completed"')
+    }
+  }
+
+  // Build Client nouns for each staff identity (max 10 per Twilio docs)
+  const clientNouns = staffIdentities
+    .slice(0, 10)
+    .map((id) => `    <Client>${escapeXml(id)}</Client>`)
+    .join('\n')
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial ${dialAttrs.join(' ')}>
+${clientNouns}
+  </Dial>
+</Response>`
+}
+
+/**
+ * Generate TwiML when no staff are online
+ * Plays message and hangs up (voicemail disabled)
+ */
+export function generateNoStaffTwiml(_voicemailOptions?: TwimlVoicemailOptions): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Xin chào, hiện không có nhân viên trực. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Hangup />
+</Response>`
+}
+
+/**
+ * Generate TwiML for when staff don't answer (after dial timeout)
+ * Plays message and hangs up (voicemail disabled)
+ */
+export function generateVoicemailTwiml(_options?: TwimlVoicemailOptions): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Nhân viên của chúng tôi hiện không thể nhận cuộc gọi. Xin vui lòng gọi lại sau. Cảm ơn bạn.</Say>
+  <Hangup />
+</Response>`
+}
+
+/**
+ * Generate TwiML for voicemail completion (after recording ends)
+ * Says goodbye and hangs up - prevents looping
+ */
+export function generateVoicemailCompleteTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Google.vi-VN-Wavenet-A" language="vi-VN">Cảm ơn bạn đã để lại tin nhắn. Chúng tôi sẽ liên hệ lại sớm nhất. Tạm biệt.</Say>
+  <Hangup />
+</Response>`
 }

@@ -7,6 +7,7 @@ import { config } from '../../lib/config'
 import type { MessageChannel, MessageDirection, ActionType } from '@ella/db'
 import crypto from 'crypto'
 import { processMmsMedia } from './mms-media-handler'
+import { updateLastActivity } from '../activity-tracker'
 
 export interface TwilioIncomingMessage {
   MessageSid: string
@@ -212,13 +213,18 @@ export async function processIncomingMessage(
     },
   })
 
+  // Update case activity timestamp for computed status system
+  await updateLastActivity(latestCase.id)
+
   // Create action for staff to review
+  // Escape user content to prevent XSS when displaying in admin dashboard
   const mediaCount = mmsResult.attachmentUrls.length
+  const escapedContent = escapeXml(content)
   const actionTitle = mediaCount > 0
     ? content
-      ? `Khách hàng gửi: ${content.substring(0, 40)}${content.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
+      ? `Khách hàng gửi: ${escapedContent.substring(0, 40)}${escapedContent.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
       : `Khách hàng gửi ${mediaCount} ảnh`
-    : `Khách hàng trả lời: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`
+    : `Khách hàng trả lời: ${escapedContent.substring(0, 50)}${escapedContent.length > 50 ? '...' : ''}`
 
   const action = await prisma.action.create({
     data: {
@@ -231,7 +237,7 @@ export async function processIncomingMessage(
         : `Tin nhắn mới từ ${escapeXml(fromPhone)}`,
       metadata: {
         messageId: message.id,
-        preview: content.substring(0, 100),
+        preview: escapedContent.substring(0, 100), // Store escaped preview
         fromPhone,
         mediaCount,
         rawImageIds: mmsResult.rawImageIds,

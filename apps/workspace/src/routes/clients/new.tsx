@@ -1,14 +1,14 @@
 /**
  * Create Client Page - Multi-step form for adding new clients
- * Steps: 1. Basic Info → 2. Tax Profile (Intake Questions)
+ * Steps: 1. Basic Info → 2. Tax Selection → 3-6. Intake Wizard (4 steps)
  */
 
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, ArrowRight, Check, User, FileText, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, User, FileText, ClipboardList } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { MultiSectionIntakeForm } from '../../components/clients/multi-section-intake-form'
+import { WizardContainer, type IntakeAnswers } from '../../components/clients/intake-wizard'
 import { CustomSelect } from '../../components/ui/custom-select'
 import { UI_TEXT, LANGUAGE_LABELS } from '../../lib/constants'
 import { formatPhone } from '../../lib/formatters'
@@ -18,8 +18,8 @@ export const Route = createFileRoute('/clients/new')({
   component: CreateClientPage,
 })
 
-// Form steps
-type Step = 'basic' | 'profile'
+// Form steps: basic → tax-selection → wizard (4 internal steps)
+type Step = 'basic' | 'tax-selection' | 'wizard'
 
 interface BasicInfoData {
   name: string
@@ -40,6 +40,55 @@ interface FormErrors {
   taxSelection?: Partial<Record<keyof TaxSelection, string>>
 }
 
+// Validate wizard answers structure before API submission (defense-in-depth)
+function validateWizardAnswers(answers: IntakeAnswers): { valid: boolean; error?: string } {
+  // Ensure answers is an object
+  if (!answers || typeof answers !== 'object') {
+    return { valid: false, error: 'Dữ liệu không hợp lệ' }
+  }
+
+  // Check for too many keys (prevent DoS)
+  const keys = Object.keys(answers)
+  if (keys.length > 200) {
+    return { valid: false, error: 'Quá nhiều trường dữ liệu (tối đa 200)' }
+  }
+
+  // Validate dependents array if present
+  if (answers.dependents && Array.isArray(answers.dependents)) {
+    if (answers.dependents.length > 20) {
+      return { valid: false, error: 'Quá nhiều người phụ thuộc (tối đa 20)' }
+    }
+    for (const dep of answers.dependents) {
+      if (!dep || typeof dep !== 'object') {
+        return { valid: false, error: 'Thông tin người phụ thuộc không hợp lệ' }
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
+// Map wizard answers to legacy profile fields for backward compatibility
+// Extracted to utility for maintainability and testability
+function mapWizardToLegacyFields(wizardAnswers: IntakeAnswers) {
+  return {
+    hasW2: wizardAnswers.hasW2 ?? false,
+    hasBankAccount: !!wizardAnswers.refundAccountType,
+    hasInvestments: wizardAnswers.hasInvestments ?? false,
+    hasKidsUnder17: (wizardAnswers.dependentCount ?? 0) > 0,
+    numKidsUnder17: wizardAnswers.dependentCount ?? 0,
+    paysDaycare: false, // Legacy field - not in wizard
+    hasKids17to24: false, // Legacy field - not in wizard
+    hasSelfEmployment: wizardAnswers.hasSelfEmployment ?? false,
+    hasRentalProperty: wizardAnswers.hasRentalProperty ?? false,
+    businessName: undefined, // Handled in intakeAnswers JSON
+    ein: undefined, // Handled in intakeAnswers JSON
+    hasEmployees: false, // Legacy field - not in wizard
+    hasContractors: wizardAnswers.has1099NEC ?? false,
+    has1099K: false, // Legacy field - not in wizard
+  }
+}
+
 function CreateClientPage() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<Step>('basic')
@@ -55,20 +104,18 @@ function CreateClientPage() {
     language: 'VI',
   })
 
-  // Tax selection (shown at top of profile step)
+  // Tax selection (shown before wizard)
   const [taxSelection, setTaxSelection] = useState<TaxSelection>({
     taxYear: 2025,
     taxTypes: ['FORM_1040'],
     filingStatus: '',
   })
 
-  // Dynamic intake answers from MultiSectionIntakeForm
-  const [intakeAnswers, setIntakeAnswers] = useState<Record<string, unknown>>({})
-
-  // Step indicators
+  // Step indicators (outer steps - wizard has its own internal indicator)
   const steps = [
     { id: 'basic', label: 'Thông tin cơ bản', icon: User },
-    { id: 'profile', label: 'Hồ sơ thuế', icon: FileText },
+    { id: 'tax-selection', label: 'Loại thuế', icon: FileText },
+    { id: 'wizard', label: 'Câu hỏi chi tiết', icon: ClipboardList },
   ] as const
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
@@ -98,7 +145,7 @@ function CreateClientPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const validateProfile = (): boolean => {
+  const validateTaxSelection = (): boolean => {
     const newErrors: Partial<Record<keyof TaxSelection, string>> = {}
 
     if (!taxSelection.taxTypes.length) {
@@ -116,60 +163,63 @@ function CreateClientPage() {
   // Navigation
   const handleNext = () => {
     if (currentStep === 'basic' && validateBasicInfo()) {
-      setCurrentStep('profile')
+      setCurrentStep('tax-selection')
+    } else if (currentStep === 'tax-selection' && validateTaxSelection()) {
+      setCurrentStep('wizard')
     }
   }
 
   const handleBack = () => {
-    if (currentStep === 'profile') {
+    if (currentStep === 'tax-selection') {
       setCurrentStep('basic')
+    } else if (currentStep === 'wizard') {
+      setCurrentStep('tax-selection')
     }
   }
 
-  // Submit
-  const handleSubmit = async () => {
-    if (!validateProfile()) return
-
+  // Submit - called by WizardContainer when wizard completes
+  const handleWizardComplete = async (wizardAnswers: IntakeAnswers) => {
     setIsSubmitting(true)
     setSubmitError(null)
 
     try {
-      // Format phone as +1XXXXXXXXXX for US numbers (backend requirement)
-      const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
+      // Validate wizard answers structure (defense-in-depth)
+      const validation = validateWizardAnswers(wizardAnswers)
+      if (!validation.valid) {
+        setSubmitError(validation.error || 'Dữ liệu không hợp lệ')
+        setIsSubmitting(false)
+        return
+      }
+
+      // Sanitize and format phone (remove non-digits, limit to 10 digits)
+      const cleanedPhone = basicInfo.phone.replace(/\D/g, '').slice(0, 10)
       const formattedPhone = `+1${cleanedPhone}`
 
-      // Combine tax selection with dynamic intake answers
+      // Sanitize email (remove control chars, limit length per RFC 5321)
+      const sanitizedEmail = basicInfo.email
+        ? // eslint-disable-next-line no-control-regex
+          basicInfo.email.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 254).trim()
+        : undefined
+
+      // Combine tax selection with wizard answers
       const allAnswers = {
-        ...intakeAnswers,
+        ...wizardAnswers,
         taxYear: taxSelection.taxYear,
         filingStatus: taxSelection.filingStatus,
       }
 
       const response = await api.clients.create({
-        name: basicInfo.name.trim(),
+        name: basicInfo.name.trim().slice(0, 100), // Limit name length
         phone: formattedPhone,
-        email: basicInfo.email || undefined,
+        email: sanitizedEmail || undefined,
         language: basicInfo.language,
         profile: {
           taxYear: taxSelection.taxYear,
           taxTypes: taxSelection.taxTypes,
           filingStatus: taxSelection.filingStatus,
-          // Legacy fields for backward compatibility (also saved in intakeAnswers)
-          hasW2: (intakeAnswers.hasW2 as boolean) ?? false,
-          hasBankAccount: (intakeAnswers.hasBankAccount as boolean) ?? false,
-          hasInvestments: (intakeAnswers.hasInvestments as boolean) ?? false,
-          hasKidsUnder17: (intakeAnswers.hasKidsUnder17 as boolean) ?? false,
-          numKidsUnder17: (intakeAnswers.numKidsUnder17 as number) ?? 0,
-          paysDaycare: (intakeAnswers.paysDaycare as boolean) ?? false,
-          hasKids17to24: (intakeAnswers.hasKids17to24 as boolean) ?? false,
-          hasSelfEmployment: (intakeAnswers.hasSelfEmployment as boolean) ?? false,
-          hasRentalProperty: (intakeAnswers.hasRentalProperty as boolean) ?? false,
-          businessName: (intakeAnswers.businessName as string) || undefined,
-          ein: (intakeAnswers.ein as string) || undefined,
-          hasEmployees: (intakeAnswers.hasEmployees as boolean) ?? false,
-          hasContractors: (intakeAnswers.hasContractors as boolean) ?? false,
-          has1099K: (intakeAnswers.has1099K as boolean) ?? false,
-          // NEW: Full intake answers JSON
+          // Legacy fields for backward compatibility
+          ...mapWizardToLegacyFields(wizardAnswers),
+          // Full intake answers JSON (includes all wizard data)
           intakeAnswers: allAnswers,
         },
       })
@@ -259,89 +309,102 @@ function CreateClientPage() {
       </div>
 
       {/* Form Content */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-card rounded-xl border border-border p-6">
-          {/* Step 1: Basic Info */}
-          {currentStep === 'basic' && (
-            <BasicInfoForm
-              data={basicInfo}
-              onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
-              errors={errors.basic}
-            />
-          )}
-
-          {/* Step 2: Profile/Intake Questions */}
-          {currentStep === 'profile' && (
-            <ProfileStep
-              taxSelection={taxSelection}
-              onTaxSelectionChange={(updates) =>
-                setTaxSelection((prev) => ({ ...prev, ...updates }))
-              }
-              intakeAnswers={intakeAnswers}
-              onIntakeAnswersChange={setIntakeAnswers}
-              errors={errors.taxSelection}
-            />
-          )}
-
-          {/* Error Message */}
-          {submitError && (
-            <div className="mt-4 p-4 bg-error-light rounded-lg text-error text-sm">
-              {submitError}
+      <div className={cn('mx-auto', currentStep === 'wizard' ? 'max-w-4xl' : 'max-w-2xl')}>
+        {/* Step 1: Basic Info */}
+        {currentStep === 'basic' && (
+          <>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <BasicInfoForm
+                data={basicInfo}
+                onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
+                errors={errors.basic}
+              />
             </div>
-          )}
-        </div>
+            <div className="flex justify-between mt-6">
+              <button
+                type="button"
+                onClick={() => navigate({ to: '/clients' })}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
+                  'border border-border text-foreground hover:bg-muted transition-colors'
+                )}
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                {UI_TEXT.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium',
+                  'bg-primary text-white hover:bg-primary-dark transition-colors'
+                )}
+              >
+                Tiếp tục
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          </>
+        )}
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-6">
-          <button
-            type="button"
-            onClick={currentStep === 'basic' ? () => navigate({ to: '/clients' }) : handleBack}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
-              'border border-border text-foreground hover:bg-muted transition-colors'
+        {/* Step 2: Tax Selection */}
+        {currentStep === 'tax-selection' && (
+          <>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <TaxSelectionStep
+                taxSelection={taxSelection}
+                onTaxSelectionChange={(updates) =>
+                  setTaxSelection((prev) => ({ ...prev, ...updates }))
+                }
+                errors={errors.taxSelection}
+              />
+            </div>
+            <div className="flex justify-between mt-6">
+              <button
+                type="button"
+                onClick={handleBack}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
+                  'border border-border text-foreground hover:bg-muted transition-colors'
+                )}
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className={cn(
+                  'flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium',
+                  'bg-primary text-white hover:bg-primary-dark transition-colors'
+                )}
+              >
+                Tiếp tục
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 3-6: Wizard (4 internal steps) */}
+        {currentStep === 'wizard' && (
+          <>
+            <WizardContainer
+              taxTypes={taxSelection.taxTypes}
+              filingStatus={taxSelection.filingStatus}
+              taxYear={taxSelection.taxYear}
+              onComplete={handleWizardComplete}
+              onCancel={handleBack}
+              isSubmitting={isSubmitting}
+            />
+            {/* Error Message */}
+            {submitError && (
+              <div className="mt-4 p-4 bg-error-light rounded-lg text-error text-sm">
+                {submitError}
+              </div>
             )}
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            {currentStep === 'basic' ? UI_TEXT.cancel : 'Quay lại'}
-          </button>
-
-          {currentStep === 'basic' ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className={cn(
-                'flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium',
-                'bg-primary text-white hover:bg-primary-dark transition-colors'
-              )}
-            >
-              Tiếp tục
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className={cn(
-                'flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium',
-                'bg-primary text-white hover:bg-primary-dark transition-colors',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  Đang tạo...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" aria-hidden="true" />
-                  Tạo khách hàng
-                </>
-              )}
-            </button>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </PageContainer>
   )
@@ -460,7 +523,7 @@ function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
   )
 }
 
-// Profile Step - Tax selection + Dynamic intake form
+// Tax Selection Step - Simplified step for tax year, types, and filing status
 // Filing status options
 const FILING_STATUS_OPTIONS = [
   { value: 'SINGLE', label: 'Độc thân' },
@@ -480,21 +543,17 @@ const TAX_TYPE_OPTIONS: { value: TaxType; label: string; description: string }[]
 // Available tax years
 const TAX_YEARS = [2025, 2024, 2023]
 
-interface ProfileStepProps {
+interface TaxSelectionStepProps {
   taxSelection: TaxSelection
   onTaxSelectionChange: (data: Partial<TaxSelection>) => void
-  intakeAnswers: Record<string, unknown>
-  onIntakeAnswersChange: (answers: Record<string, unknown>) => void
   errors?: Partial<Record<keyof TaxSelection, string>>
 }
 
-function ProfileStep({
+function TaxSelectionStep({
   taxSelection,
   onTaxSelectionChange,
-  intakeAnswers,
-  onIntakeAnswersChange,
   errors,
-}: ProfileStepProps) {
+}: TaxSelectionStepProps) {
   const handleTaxTypeToggle = (taxType: TaxType) => {
     const current = taxSelection.taxTypes || []
     const updated = current.includes(taxType)
@@ -505,7 +564,7 @@ function ProfileStep({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-primary mb-4">Hồ sơ thuế</h2>
+      <h2 className="text-lg font-semibold text-primary mb-4">Loại thuế</h2>
 
       {/* Tax Year */}
       <div className="space-y-1.5">
@@ -575,20 +634,11 @@ function ProfileStep({
         {errors?.filingStatus && <p className="text-sm text-error">{errors.filingStatus}</p>}
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-border my-6" />
-
-      {/* Dynamic Intake Questions */}
-      <div className="space-y-2">
-        <h3 className="text-base font-medium text-foreground">Câu hỏi chi tiết</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Trả lời các câu hỏi sau để chúng tôi có thể tạo danh sách tài liệu cần thiết
+      {/* Info note */}
+      <div className="p-4 bg-muted/50 rounded-lg">
+        <p className="text-sm text-muted-foreground">
+          Sau bước này, bạn sẽ trả lời các câu hỏi chi tiết về thu nhập, khấu trừ, và thông tin ngân hàng.
         </p>
-        <MultiSectionIntakeForm
-          taxTypes={taxSelection.taxTypes}
-          answers={intakeAnswers}
-          onChange={onIntakeAnswersChange}
-        />
       </div>
     </div>
   )

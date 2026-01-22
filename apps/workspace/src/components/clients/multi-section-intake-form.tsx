@@ -110,8 +110,9 @@ const SECTION_CONFIG: Record<
 }
 
 // Section display order
+// NOTE: 'tax_info' is excluded because taxYear and filingStatus are already
+// handled by the parent form (ProfileStep in new.tsx, TaxInfoSection in client detail)
 const SECTION_ORDER = [
-  'tax_info',
   'client_status',
   'identity',
   'prior_year',
@@ -214,8 +215,9 @@ export function MultiSectionIntakeForm({
   }, [questions])
 
   // Get ordered sections
+  // Excludes 'tax_info' section since it's handled separately by the parent form
   const orderedSections = useMemo(() => {
-    const sections = Object.keys(questionsBySection)
+    const sections = Object.keys(questionsBySection).filter((s) => s !== 'tax_info')
     return SECTION_ORDER.filter((s) => sections.includes(s)).concat(
       sections.filter((s) => !SECTION_ORDER.includes(s))
     )

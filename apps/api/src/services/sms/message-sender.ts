@@ -22,7 +22,23 @@ export interface SendMessageResult {
 }
 
 /**
+ * Replace placeholders in template content with actual values
+ * Placeholders format: {placeholderName}
+ */
+function replacePlaceholders(
+  content: string,
+  values: Record<string, string | number>
+): string {
+  let result = content
+  for (const [key, value] of Object.entries(values)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value))
+  }
+  return result
+}
+
+/**
  * Send welcome message with magic link to new client
+ * Uses database template if available (WELCOME category), otherwise fallback to hardcoded
  */
 export async function sendWelcomeMessage(
   caseId: string,
@@ -32,12 +48,33 @@ export async function sendWelcomeMessage(
   taxYear: number,
   language: SmsLanguage = 'VI'
 ): Promise<SendMessageResult> {
-  const body = generateWelcomeMessage({
-    clientName,
-    magicLink,
-    taxYear,
-    language,
+  let body: string
+
+  // Try to get welcome template from database
+  const dbTemplate = await prisma.messageTemplate.findFirst({
+    where: {
+      category: 'WELCOME',
+      isActive: true,
+    },
+    orderBy: { sortOrder: 'asc' },
   })
+
+  if (dbTemplate) {
+    // Use database template with placeholder replacement
+    body = replacePlaceholders(dbTemplate.content, {
+      clientName,
+      portalUrl: magicLink,
+      taxYear,
+    })
+  } else {
+    // Fallback to hardcoded template
+    body = generateWelcomeMessage({
+      clientName,
+      magicLink,
+      taxYear,
+      language,
+    })
+  }
 
   return sendAndRecordMessage(caseId, clientPhone, body, 'welcome')
 }

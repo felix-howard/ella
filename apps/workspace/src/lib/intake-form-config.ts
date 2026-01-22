@@ -10,6 +10,7 @@ import type { FieldType } from './api-client'
 export const SECTION_CONFIG: Record<string, { title: string }> = {
   personal_info: { title: 'Thông tin cá nhân' },
   tax_info: { title: 'Thông tin thuế' },
+  identity: { title: 'Nhận dạng' },
   client_status: { title: 'Trạng thái khách hàng' },
   prior_year: { title: 'Năm trước & Extension' },
   life_changes: { title: 'Thay đổi trong năm' },
@@ -21,6 +22,7 @@ export const SECTION_CONFIG: Record<string, { title: string }> = {
   foreign: { title: 'Thu nhập nước ngoài' },
   business: { title: 'Thông tin doanh nghiệp' },
   filing: { title: 'Giao nhận tờ khai' },
+  bank: { title: 'Thông tin ngân hàng' },
   entity_info: { title: 'Thông tin pháp nhân' },
   ownership: { title: 'Cấu trúc sở hữu' },
   expenses: { title: 'Chi phí kinh doanh' },
@@ -32,6 +34,7 @@ export const SECTION_CONFIG: Record<string, { title: string }> = {
 export const SECTION_ORDER = [
   'personal_info',
   'tax_info',
+  'identity',
   'client_status',
   'prior_year',
   'life_changes',
@@ -43,6 +46,7 @@ export const SECTION_ORDER = [
   'foreign',
   'business',
   'filing',
+  'bank',
   'entity_info',
   'ownership',
   'expenses',
@@ -54,7 +58,7 @@ export const SECTION_ORDER = [
 export const NON_EDITABLE_SECTIONS: readonly string[] = ['personal_info', 'tax_info']
 
 // Field format types (display format in overview)
-export type FormatType = 'boolean' | 'currency' | 'number' | 'text' | 'select'
+export type FormatType = 'boolean' | 'currency' | 'number' | 'text' | 'select' | 'ssn' | 'date'
 
 // Field configuration item
 export interface FieldConfigItem {
@@ -71,13 +75,128 @@ export function formatToFieldType(format?: FormatType): FieldType {
     case 'currency': return 'CURRENCY'
     case 'number': return 'NUMBER'
     case 'select': return 'SELECT'
+    case 'ssn': return 'TEXT' // SSN stored as encrypted text
+    case 'date': return 'TEXT' // Date stored as ISO string
     case 'text':
     default: return 'TEXT'
   }
 }
 
+// US States options for driver's license state selection
+export const US_STATES_OPTIONS = [
+  { value: 'AL', label: 'Alabama' },
+  { value: 'AK', label: 'Alaska' },
+  { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' },
+  { value: 'CA', label: 'California' },
+  { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'DE', label: 'Delaware' },
+  { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' },
+  { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' },
+  { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' },
+  { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' },
+  { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' },
+  { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' },
+  { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' },
+  { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' },
+  { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' },
+  { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' },
+  { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' },
+  { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' },
+  { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' },
+  { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' },
+  { value: 'WY', label: 'Wyoming' },
+  { value: 'DC', label: 'Washington D.C.' },
+]
+
+// Dependent relationship options
+export const RELATIONSHIP_OPTIONS = [
+  { value: 'SON', label: 'Con trai' },
+  { value: 'DAUGHTER', label: 'Con gái' },
+  { value: 'STEPSON', label: 'Con trai riêng' },
+  { value: 'STEPDAUGHTER', label: 'Con gái riêng' },
+  { value: 'FOSTER_CHILD', label: 'Con nuôi' },
+  { value: 'GRANDCHILD', label: 'Cháu' },
+  { value: 'NIECE_NEPHEW', label: 'Cháu trai/gái' },
+  { value: 'SIBLING', label: 'Anh/Chị/Em' },
+  { value: 'PARENT', label: 'Cha/Mẹ' },
+  { value: 'OTHER', label: 'Khác' },
+]
+
 // Field display configuration - centralized for all components
 export const FIELD_CONFIG: Record<string, FieldConfigItem> = {
+  // Identity - Taxpayer
+  taxpayerSSN: { label: 'Số An sinh Xã hội', section: 'identity', format: 'ssn' },
+  taxpayerDOB: { label: 'Ngày sinh', section: 'identity', format: 'date' },
+  taxpayerOccupation: { label: 'Nghề nghiệp', section: 'identity', format: 'text' },
+  taxpayerDLNumber: { label: 'Số bằng lái', section: 'identity', format: 'text' },
+  taxpayerDLIssueDate: { label: 'Ngày cấp bằng lái', section: 'identity', format: 'date' },
+  taxpayerDLExpDate: { label: 'Ngày hết hạn bằng lái', section: 'identity', format: 'date' },
+  taxpayerDLState: {
+    label: 'Tiểu bang cấp bằng lái',
+    section: 'identity',
+    format: 'select',
+    options: US_STATES_OPTIONS,
+  },
+  taxpayerIPPIN: { label: 'IP PIN (6 số)', section: 'identity', format: 'text' },
+
+  // Identity - Spouse (conditional on MFJ filing status)
+  spouseSSN: { label: 'SSN vợ/chồng', section: 'identity', format: 'ssn' },
+  spouseDOB: { label: 'Ngày sinh vợ/chồng', section: 'identity', format: 'date' },
+  spouseOccupation: { label: 'Nghề nghiệp vợ/chồng', section: 'identity', format: 'text' },
+  spouseDLNumber: { label: 'Số bằng lái vợ/chồng', section: 'identity', format: 'text' },
+  spouseDLIssueDate: { label: 'Ngày cấp (vợ/chồng)', section: 'identity', format: 'date' },
+  spouseDLExpDate: { label: 'Ngày hết hạn (vợ/chồng)', section: 'identity', format: 'date' },
+  spouseDLState: {
+    label: 'Tiểu bang cấp (vợ/chồng)',
+    section: 'identity',
+    format: 'select',
+    options: US_STATES_OPTIONS,
+  },
+  spouseIPPIN: { label: 'IP PIN vợ/chồng', section: 'identity', format: 'text' },
+
+  // Identity - Dependents count
+  dependentCount: { label: 'Số người phụ thuộc', section: 'identity', format: 'number' },
+
+  // Bank Info
+  refundAccountType: {
+    label: 'Loại tài khoản',
+    section: 'bank',
+    format: 'select',
+    options: [
+      { value: 'CHECKING', label: 'Checking' },
+      { value: 'SAVINGS', label: 'Savings' },
+    ],
+  },
+
   // Client Status
   isNewClient: { label: 'Khách hàng mới', section: 'client_status', format: 'boolean' },
   hasIrsNotice: { label: 'Có thông báo từ IRS', section: 'client_status', format: 'boolean' },
@@ -332,4 +451,13 @@ export const SELECT_LABELS: Record<string, Record<string, string>> = {
     GAAP: 'GAAP',
     '704B': '704(b)',
   },
+  refundAccountType: {
+    CHECKING: 'Checking',
+    SAVINGS: 'Savings',
+  },
+  // US States - generate from US_STATES_OPTIONS
+  taxpayerDLState: Object.fromEntries(US_STATES_OPTIONS.map(s => [s.value, s.label])),
+  spouseDLState: Object.fromEntries(US_STATES_OPTIONS.map(s => [s.value, s.label])),
+  // Dependent relationships
+  relationship: Object.fromEntries(RELATIONSHIP_OPTIONS.map(r => [r.value, r.label])),
 }

@@ -203,6 +203,15 @@ enum FieldType {
   TEXT
 }
 
+enum MessageTemplateCategory {
+  WELCOME
+  REMINDER
+  MISSING
+  BLURRY
+  COMPLETE
+  GENERAL
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -224,11 +233,26 @@ model Staff {
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
   auditLogs AuditLog[]
+  presence  StaffPresence?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@index([clerkId])
+}
+
+// Staff presence tracking for inbound call routing
+model StaffPresence {
+  id        String   @id @default(cuid())
+  staffId   String   @unique
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  isOnline  Boolean  @default(false)
+  deviceId  String?  // Twilio device identity: staff_{staffId}
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isOnline])
 }
 
 model Client {
@@ -299,6 +323,13 @@ model TaxCase {
   entryCompletedAt DateTime?
   filedAt          DateTime?
 
+  // Manual status flags (REVIEW/FILED are manual transitions)
+  isInReview     Boolean   @default(false)
+  isFiled        Boolean   @default(false)
+
+  // Activity tracking for sorting & stale detection
+  lastActivityAt DateTime  @default(now())
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -307,6 +338,9 @@ model TaxCase {
   @@index([taxYear])
   @@index([status, taxYear])    // H1: Composite index for filtering by status and year
   @@index([clientId, status])   // H1: Composite index for client's cases by status
+  @@index([lastActivityAt])
+  @@index([isInReview])
+  @@index([isFiled])
 }
 
 model RawImage {
@@ -627,6 +661,27 @@ model DocTypeLibrary {
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// MESSAGE TEMPLATES
+// ============================================
+
+// Message templates for quick client communication
+model MessageTemplate {
+  id          String                  @id @default(cuid())
+  category    MessageTemplateCategory
+  title       String                  // Short title for list display
+  content     String                  @db.VarChar(2000)  // Template content with placeholders
+  placeholders String[]               // e.g., ["clientName", "docType"]
+  sortOrder   Int                     @default(0)
+  isActive    Boolean                 @default(true)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
   @@index([category])
   @@index([isActive])

@@ -170,8 +170,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
-      request<PaginatedResponse<Client>>('/clients', { params }),
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' }) =>
+      request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
 
     get: (id: string) => request<ClientDetail>(`/clients/${id}`),
 
@@ -269,6 +269,22 @@ export const api = {
 
     getImageSignedUrl: (imageId: string) =>
       request<SignedUrlResponse>(`/cases/images/${imageId}/signed-url`),
+
+    // Status action endpoints (Computed Status System)
+    sendToReview: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/send-to-review`, {
+        method: 'POST',
+      }),
+
+    markFiled: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/mark-filed`, {
+        method: 'POST',
+      }),
+
+    reopen: (id: string) =>
+      request<{ success: boolean }>(`/cases/${id}/reopen`, {
+        method: 'POST',
+      }),
   },
 
   // Actions
@@ -413,6 +429,30 @@ export const api = {
     // Get recording audio URL (returns full URL for <audio> src)
     getRecordingAudioUrl: (recordingSid: string) =>
       `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
+
+    // Lookup caller info for incoming call UI
+    lookupCaller: (phone: string) =>
+      request<CallerLookupResponse>(`/voice/caller/${encodeURIComponent(phone)}`),
+
+    // Register presence (called when Device.on('registered') fires)
+    registerPresence: () =>
+      request<PresenceResponse>('/voice/presence/register', {
+        method: 'POST',
+      }),
+
+    // Unregister presence (called when Device.on('unregistered') fires or tab closes)
+    unregisterPresence: () =>
+      request<PresenceResponse>('/voice/presence/unregister', {
+        method: 'POST',
+        retries: 0, // Don't retry on tab close
+      }),
+
+    // Heartbeat to keep presence alive (called periodically)
+    heartbeat: () =>
+      request<HeartbeatResponse>('/voice/presence/heartbeat', {
+        method: 'POST',
+        retries: 0,
+      }),
   },
 
   // Admin - Configuration management
@@ -492,6 +532,31 @@ export const api = {
         }),
     },
 
+    // Message Templates
+    messageTemplates: {
+      list: (params?: { category?: MessageTemplateCategory; isActive?: boolean }) =>
+        request<{ data: MessageTemplate[] }>('/admin/message-templates', { params }),
+
+      get: (id: string) => request<MessageTemplate>(`/admin/message-templates/${id}`),
+
+      create: (data: CreateMessageTemplateInput) =>
+        request<MessageTemplate>('/admin/message-templates', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
+
+      update: (id: string, data: UpdateMessageTemplateInput) =>
+        request<MessageTemplate>(`/admin/message-templates/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/admin/message-templates/${id}`, {
+          method: 'DELETE',
+        }),
+    },
+
     // Utility endpoints
     getSections: () => request<{ data: string[] }>('/admin/sections'),
     getCategories: () => request<{ data: string[] }>('/admin/categories'),
@@ -559,6 +624,41 @@ export interface Client {
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
 }
 
+// Action counts for client list view
+export interface ActionCounts {
+  /** ChecklistItem.status = MISSING */
+  missingDocs: number
+  /** DigitalDoc.status = EXTRACTED (needs verification) */
+  toVerify: number
+  /** DigitalDoc.status = VERIFIED && entryCompleted = false */
+  toEnter: number
+  /** Days since lastActivityAt (null if < threshold) */
+  staleDays: number | null
+  /** Has unread messages */
+  hasNewActivity: boolean
+}
+
+// Client with computed status and action counts for list view
+export interface ClientWithActions {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  language: 'VI' | 'EN'
+  createdAt: string
+  updatedAt: string
+  computedStatus: TaxCaseStatus | null
+  actionCounts: ActionCounts | null
+  latestCase: {
+    id: string
+    taxYear: number
+    taxTypes: string[]
+    isInReview: boolean
+    isFiled: boolean
+    lastActivityAt: string
+  } | null
+}
+
 export interface ClientProfile {
   id: string
   filingStatus: string | null
@@ -577,7 +677,8 @@ export interface ClientProfile {
   hasContractors: boolean
   has1099K: boolean
   // Full intake answers JSON from dynamic intake form
-  intakeAnswers?: Record<string, boolean | number | string | undefined>
+  // Supports: booleans, numbers, strings, arrays (dependents), and nested objects
+  intakeAnswers?: Record<string, unknown>
 }
 
 export interface ClientDetail extends Client {
@@ -594,6 +695,10 @@ export interface TaxCaseSummary {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   _count: {
     rawImages: number
     digitalDocs: number
@@ -610,6 +715,10 @@ export interface TaxCase {
   status: TaxCaseStatus
   createdAt: string
   updatedAt: string
+  /** Manual flag: case sent for review */
+  isInReview?: boolean
+  /** Manual flag: case has been filed */
+  isFiled?: boolean
   client?: { id: string; name: string; phone: string }
   _count?: {
     rawImages: number
@@ -812,8 +921,8 @@ export interface CreateClientInput {
     hasEmployees?: boolean
     hasContractors?: boolean
     has1099K?: boolean
-    // NEW: Full intake answers JSON
-    intakeAnswers?: Record<string, boolean | number | string>
+    // Full intake answers JSON (supports arrays/objects for dependents, etc.)
+    intakeAnswers?: Record<string, unknown>
   }
 }
 
@@ -833,7 +942,7 @@ export interface UpdateClientInput {
 // Update client profile (intakeAnswers + filingStatus)
 export interface UpdateProfileInput {
   filingStatus?: string
-  intakeAnswers?: Record<string, boolean | number | string>
+  intakeAnswers?: Record<string, unknown>
 }
 
 // Response from profile update (includes checklist refresh status)
@@ -1051,6 +1160,32 @@ export interface CreateDocTypeLibraryInput {
 
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
 
+// Admin types - Message Templates
+export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL'
+
+export interface MessageTemplate {
+  id: string
+  category: MessageTemplateCategory
+  title: string
+  content: string
+  placeholders: string[]
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateMessageTemplateInput {
+  category: MessageTemplateCategory
+  title: string
+  content: string
+  placeholders?: string[]
+  sortOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateMessageTemplateInput = Partial<CreateMessageTemplateInput>
+
 // Voice API types
 export interface VoiceTokenResponse {
   token: string
@@ -1077,4 +1212,27 @@ export interface UpdateCallSidResponse {
   success: boolean
   messageId: string
   callSid: string
+}
+
+// Caller lookup response for incoming calls
+export interface CallerLookupResponse {
+  phone: string
+  conversation: {
+    id: string
+    caseId: string | null
+    clientName: string
+  } | null
+  lastContactStaffId: string | null
+}
+
+// Presence registration response
+export interface PresenceResponse {
+  success: boolean
+  deviceId?: string
+}
+
+// Heartbeat response
+export interface HeartbeatResponse {
+  success: boolean
+  reason?: string
 }

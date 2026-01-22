@@ -68,11 +68,11 @@ export const CASE_STATUS_LABELS: Record<string, string> = {
 // Status colors for UI
 export const CASE_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   INTAKE: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
-  WAITING_DOCS: { bg: 'bg-warning-light', text: 'text-warning', border: 'border-warning' },
+  WAITING_DOCS: { bg: 'bg-amber-500/15', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' },
   IN_PROGRESS: { bg: 'bg-primary-light', text: 'text-primary', border: 'border-primary' },
   READY_FOR_ENTRY: { bg: 'bg-accent-light', text: 'text-accent', border: 'border-accent' },
   ENTRY_COMPLETE: { bg: 'bg-primary-light', text: 'text-primary-dark', border: 'border-primary-dark' },
-  REVIEW: { bg: 'bg-warning-light', text: 'text-warning', border: 'border-warning' },
+  REVIEW: { bg: 'bg-orange-500/15', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-500/30' },
   FILED: { bg: 'bg-success/10', text: 'text-success', border: 'border-success' },
 }
 
@@ -197,6 +197,46 @@ export const NAV_ITEMS = [
   { path: '/messages', label: 'Tin nhắn', icon: 'MessageSquare' },
   { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
 ] as const
+
+/** Action badge labels (Vietnamese) for client list action indicators */
+export const ACTION_BADGE_LABELS = {
+  missing: 'thiếu',
+  verify: 'cần xác minh',
+  entry: 'cần nhập',
+  stale: 'không hoạt động',
+  ready: 'Sẵn sàng',
+  'new-activity': 'Mới',
+} as const
+
+/** Action badge ARIA labels (Vietnamese) for accessibility */
+export const ACTION_BADGE_ARIA_LABELS = {
+  missing: 'Tài liệu còn thiếu',
+  verify: 'Tài liệu cần xác minh',
+  entry: 'Tài liệu cần nhập liệu',
+  stale: 'Hồ sơ không hoạt động',
+  ready: 'Sẵn sàng kiểm tra',
+  'new-activity': 'Có hoạt động mới',
+} as const
+
+/** Time format strings for localization */
+export const TIME_FORMATS = {
+  /** Days abbreviation (e.g., "7d" for 7 days) */
+  daysShort: (days: number) => `${days}d`,
+  /** Days full (Vietnamese) */
+  daysFull: (days: number) => `${days} ngày`,
+} as const
+
+/** Stale threshold for activity tracking (days without activity) */
+export const STALE_THRESHOLD_DAYS = 7 as const
+
+// Sort options for client list
+export const CLIENT_SORT_OPTIONS = [
+  { value: 'activity', label: 'Hoạt động gần nhất' },
+  { value: 'stale', label: 'Lâu không hoạt động' },
+  { value: 'name', label: 'Tên A-Z' },
+] as const
+
+export type ClientSortOption = typeof CLIENT_SORT_OPTIONS[number]['value']
 
 // Common UI text
 export const UI_TEXT = {

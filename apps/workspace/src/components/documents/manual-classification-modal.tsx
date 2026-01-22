@@ -4,34 +4,25 @@
  * Features: Embedded PDF/image viewer with zoom, document type dropdown, rename, retry AI
  */
 
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
   X,
   Loader2,
-  Image as ImageIcon,
   ChevronDown,
-  AlertCircle,
   RefreshCw,
-  FileText,
   StickyNote,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Pencil,
+  FileQuestion,
 } from 'lucide-react'
-import { cn } from '@ella/ui'
+import { cn, Badge } from '@ella/ui'
+import { ImageViewer } from '../ui/image-viewer'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { api, type RawImage } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
-
-// Lazy load PDF viewer component
-const PdfViewer = lazy(() => import('../ui/pdf-viewer'))
 
 interface ManualClassificationModalProps {
   image: RawImage | null
@@ -99,11 +90,6 @@ function isPdfFile(filename: string): boolean {
   return filename.toLowerCase().endsWith('.pdf')
 }
 
-// Zoom constants
-const MIN_ZOOM = 0.5
-const MAX_ZOOM = 3
-const ZOOM_STEP = 0.25
-
 export function ManualClassificationModal({
   image,
   isOpen,
@@ -114,13 +100,6 @@ export function ManualClassificationModal({
   const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [notes, setNotes] = useState('')
-  const [imageError, setImageError] = useState(false)
-
-  // Viewer state
-  const [zoom, setZoom] = useState(1)
-  const [rotation, setRotation] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [numPages, setNumPages] = useState<number | null>(null)
 
   // Filename editing state
   const [isEditingFilename, setIsEditingFilename] = useState(false)
@@ -140,26 +119,11 @@ export function ManualClassificationModal({
     setSelectedDocType(null)
     setIsDropdownOpen(false)
     setNotes('')
-    setImageError(false)
-    // Reset viewer state
-    setZoom(1)
-    setRotation(0)
-    setCurrentPage(1)
-    setNumPages(null)
     // Reset filename editing
     setIsEditingFilename(false)
     setEditedFilename(image?.filename || '')
   }, [image])
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  // PDF load handlers
-  const handlePdfLoadSuccess = useCallback((pages: number) => {
-    setNumPages(pages)
-  }, [])
-
-  const handlePdfLoadError = useCallback(() => {
-    setImageError(true)
-  }, [])
 
   // Mutation for manual classification (uses approve action)
   const classifyMutation = useMutation({
@@ -319,13 +283,6 @@ export function ManualClassificationModal({
       ? signedUrlData.url
       : null
 
-  const showLoading = isUrlLoading
-  const showError =
-    imageError || urlError || (!isUrlLoading && signedUrlData?.url && !validatedUrl)
-  const showImage = !showLoading && !showError && validatedUrl && !isPdf
-  const showPdf = !showLoading && !showError && validatedUrl && isPdf
-  const showPlaceholder = !showLoading && !showError && !validatedUrl
-
   const isPending =
     classifyMutation.isPending || retryMutation.isPending || skipMutation.isPending
 
@@ -333,189 +290,93 @@ export function ManualClassificationModal({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-50"
+        className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal - Expanded size for better viewing */}
+      {/* Modal - Near fullscreen like VerificationModal */}
       <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-5xl bg-card rounded-xl border border-border shadow-xl max-h-[95vh] overflow-hidden flex flex-col"
+        className="fixed inset-2 md:inset-4 z-50 flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="manual-classify-title"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
-          <h2
-            id="manual-classify-title"
-            className="text-lg font-semibold text-foreground"
-          >
-            Phân loại thủ công
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Đóng"
-          >
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
+        {/* Header - Enhanced with gradient like VerificationModal */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-gradient-to-r from-warning/10 via-warning/5 to-transparent flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-warning/10">
+              <FileQuestion className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <h2
+                id="manual-classify-title"
+                className="text-lg font-bold text-foreground"
+              >
+                Phân loại thủ công
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                AI không thể xác định loại tài liệu
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge variant="outline" className="text-xs font-medium bg-error-light text-error border-error/30">
+                Chưa phân loại
+              </Badge>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Open in new tab */}
+            {validatedUrl && (
+              <a
+                href={validatedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-lg transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Mở trong tab mới
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-4 overflow-hidden flex-1 flex gap-4">
-          {/* Left: File Viewer with controls */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Viewer Controls */}
-            <div className="flex items-center justify-between mb-2 px-1">
-              {/* Zoom & Rotate controls */}
-              <div className="flex items-center gap-1 bg-muted rounded-full px-2 py-1">
-                <button
-                  onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
-                  className="p-1.5 rounded-full hover:bg-background transition-colors"
-                  aria-label="Thu nhỏ"
-                  title="Thu nhỏ"
-                >
-                  <ZoomOut className="w-4 h-4 text-foreground" />
-                </button>
-                <span className="text-xs text-foreground min-w-[3rem] text-center">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
-                  className="p-1.5 rounded-full hover:bg-background transition-colors"
-                  aria-label="Phóng to"
-                  title="Phóng to"
-                >
-                  <ZoomIn className="w-4 h-4 text-foreground" />
-                </button>
-                <div className="w-px h-4 bg-border mx-1" />
-                <button
-                  onClick={() => setRotation((r) => (r + 90) % 360)}
-                  className="p-1.5 rounded-full hover:bg-background transition-colors"
-                  aria-label="Xoay"
-                  title="Xoay"
-                >
-                  <RotateCw className="w-4 h-4 text-foreground" />
-                </button>
+        {/* Content - Split view (60/40) */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Left: Image Viewer using ImageViewer component */}
+          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/20">
+            {isUrlLoading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
               </div>
-
-              {/* Open in new tab */}
-              {validatedUrl && (
-                <a
-                  href={validatedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Mở trong tab mới
-                </a>
-              )}
-            </div>
-
-            {/* Main Viewer Area */}
-            <div className="flex-1 bg-muted rounded-lg overflow-auto relative">
-              {showLoading && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
+            ) : urlError || !validatedUrl ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
+                  <FileQuestion className="w-8 h-8" />
                 </div>
-              )}
-              {showError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-destructive">
-                  <AlertCircle className="w-12 h-12" />
-                  <span className="text-sm">Không thể tải tệp</span>
-                </div>
-              )}
-              {showImage && (
-                <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-                  <img
-                    src={validatedUrl}
-                    alt={image.filename}
-                    className="max-w-full max-h-full object-contain transition-transform duration-200"
-                    style={{
-                      transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                    }}
-                    onError={() => setImageError(true)}
-                    draggable={false}
-                  />
-                </div>
-              )}
-              {showPdf && (
-                <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-                  <Suspense
-                    fallback={
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
-                      </div>
-                    }
-                  >
-                    <PdfViewer
-                      fileUrl={validatedUrl}
-                      zoom={zoom}
-                      rotation={rotation}
-                      currentPage={currentPage}
-                      onLoadSuccess={handlePdfLoadSuccess}
-                      onLoadError={handlePdfLoadError}
-                    />
-                  </Suspense>
-                </div>
-              )}
-              {showPlaceholder && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  {isPdf ? (
-                    <FileText className="w-16 h-16 text-muted-foreground" />
-                  ) : (
-                    <ImageIcon className="w-16 h-16 text-muted-foreground" />
-                  )}
-                  <span className="text-sm text-muted-foreground">
-                    Không có bản xem trước
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* PDF Page Navigation */}
-            {isPdf && numPages && numPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-2 bg-muted rounded-full px-3 py-1.5 mx-auto">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                  className="p-1 rounded-full hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Trang trước"
-                >
-                  <ChevronLeft className="w-4 h-4 text-foreground" />
-                </button>
-                <span className="text-xs text-foreground min-w-[4rem] text-center">
-                  {currentPage} / {numPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
-                  disabled={currentPage >= numPages}
-                  className="p-1 rounded-full hover:bg-background transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Trang sau"
-                >
-                  <ChevronRight className="w-4 h-4 text-foreground" />
-                </button>
+                <p className="text-sm font-medium">Không thể tải hình ảnh</p>
               </div>
+            ) : (
+              <ImageViewer
+                imageUrl={validatedUrl}
+                isPdf={isPdf}
+                className="w-full h-full"
+              />
             )}
           </div>
 
           {/* Right: Classification Form */}
-          <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
-            {/* Status Badge */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-error-light text-error">
-                Chưa phân loại
-              </span>
-              {image.status === 'UNCLASSIFIED' && (
-                <span className="text-xs text-muted-foreground">
-                  AI không thể xác định
-                </span>
-              )}
-            </div>
-
-            {/* Filename with edit */}
+          <div className="h-1/2 md:h-full md:w-[40%] flex flex-col overflow-hidden bg-card">
+            {/* Form content area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Filename with edit */}
             <div>
               <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                 Tên tệp
@@ -664,8 +525,10 @@ export function ManualClassificationModal({
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-3 pt-2">
+            </div>
+
+            {/* Footer - Action Buttons */}
+            <div className="px-4 py-3 border-t border-border bg-gradient-to-r from-muted/30 to-transparent">
               {/* Primary: Classify */}
               <button
                 onClick={() => {
@@ -675,10 +538,10 @@ export function ManualClassificationModal({
                 }}
                 disabled={!selectedDocType || isPending}
                 className={cn(
-                  'w-full flex items-center justify-center gap-2 px-4 py-2.5',
-                  'bg-primary text-white rounded-lg',
+                  'w-full flex items-center justify-center gap-2 px-4 py-2.5 h-11',
+                  'bg-primary text-white rounded-lg font-semibold',
                   'hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed',
-                  'transition-colors'
+                  'transition-colors text-sm'
                 )}
               >
                 {classifyMutation.isPending ? (
@@ -690,7 +553,7 @@ export function ManualClassificationModal({
               </button>
 
               {/* Secondary Actions */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-2">
                 {/* Retry AI */}
                 <button
                   onClick={() => retryMutation.mutate()}
@@ -729,12 +592,12 @@ export function ManualClassificationModal({
                   Bỏ qua
                 </button>
               </div>
-            </div>
 
-            {/* Keyboard hint */}
-            <p className="text-xs text-muted-foreground text-center pt-2">
-              Enter = Phân loại | Esc = Đóng
-            </p>
+              {/* Keyboard hint */}
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                Enter = Phân loại | Esc = Đóng
+              </p>
+            </div>
           </div>
         </div>
       </div>

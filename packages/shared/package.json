@@ -17,6 +17,10 @@
     "./types": {
       "types": "./src/types/index.ts",
       "default": "./src/types/index.ts"
+    },
+    "./utils/computed-status": {
+      "types": "./src/utils/computed-status.ts",
+      "default": "./src/utils/computed-status.ts"
     }
   },
   "scripts": {

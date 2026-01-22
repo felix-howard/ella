@@ -77,6 +77,11 @@ export const updateChecklistItemNotesSchema = z.object({
   notes: z.string().max(1000, 'Notes too long (max 1000 chars)'),
 })
 
+// Case ID param validation (CUID format)
+export const caseIdParamSchema = z.object({
+  id: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid case ID format'),
+})
+
 // Type exports
 export type CreateCaseInput = z.infer<typeof createCaseSchema>
 export type UpdateCaseInput = z.infer<typeof updateCaseSchema>

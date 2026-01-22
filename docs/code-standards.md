@@ -176,6 +176,112 @@ export type User = z.infer<typeof userSchema>
 - `/types` - TypeScript types & inferred types
 - Default export from index includes all
 
+## Computed Status & Activity Tracking (@ella/shared - Phase 1)
+
+**Location:** `packages/shared/src/utils/computed-status.ts` + `apps/api/src/services/activity-tracker.ts`
+
+### Status Computation
+
+Dynamically calculates `TaxCase` status from document/verification state without database updates.
+
+**Priority Order (highest to lowest):**
+1. `FILED` - Case filed with IRS (`isFiled = true`)
+2. `REVIEW` - Case under staff review (`isInReview = true`)
+3. `ENTRY_COMPLETE` - All documents verified & data entered
+4. `READY_FOR_ENTRY` - All documents verified, awaiting data entry
+5. `IN_PROGRESS` - Documents received but not all verified
+6. `WAITING_DOCS` - Client intake complete, missing documents
+7. `INTAKE` - No intake answers yet
+
+**Core Function:**
+
+```typescript
+import { computeStatus, type ComputedStatus, type ComputedStatusInput } from '@ella/shared'
+
+const status: ComputedStatus = computeStatus({
+  hasIntakeAnswers: true,
+  missingDocsCount: 0,
+  unverifiedDocsCount: 2,    // DigitalDoc.status != VERIFIED
+  pendingEntryCount: 0,      // VERIFIED but entryCompleted = false
+  isInReview: false,
+  isFiled: false,
+})
+// → 'IN_PROGRESS'
+```
+
+### Stale Activity Detection
+
+Calculates days since last activity for stale case highlighting.
+
+**Function:**
+
+```typescript
+import { calculateStaleDays, STALE_THRESHOLD_DAYS } from '@ella/shared'
+
+const staleDays = calculateStaleDays(case.lastActivityAt, 7)
+// → 10 (if >= 7 days) or null (if < 7 days)
+```
+
+**Usage:**
+- Display "stale" badge when `staleDays` is truthy
+- Show `Inactive ${staleDays}d` in UI
+- Sort client list by `lastActivityAt` to surface stale cases
+
+### Activity Tracking Service
+
+Updates `lastActivityAt` timestamp on `TaxCase` when meaningful activity occurs.
+
+**Function:**
+
+```typescript
+import { updateLastActivity } from '../services/activity-tracker'
+
+const updated = await updateLastActivity(caseId)
+// Returns: true if successful, false if error (non-blocking)
+```
+
+**Call Points:**
+- Client uploads document
+- Client sends message
+- Staff verifies document
+- Staff completes data entry
+- Staff adds/marks checklist items
+
+**Error Handling:**
+```typescript
+// Activity tracking is secondary—never block primary operations
+const updated = await updateLastActivity(caseId)
+if (!updated) {
+  console.warn(`Could not track activity for case ${caseId}`)
+}
+```
+
+### Action Counts Types
+
+Aggregated action counts for client list badges.
+
+```typescript
+import type { ActionCounts, ClientWithActions } from '@ella/shared'
+
+interface ActionCounts {
+  missingDocs: number            // MISSING checklist items
+  toVerify: number               // EXTRACTED documents
+  toEnter: number                // VERIFIED but not entered
+  staleDays: number | null       // Days inactive (or null)
+  hasNewActivity: boolean        // Has unread messages
+}
+
+interface ClientWithActions {
+  id: string
+  name: string
+  computedStatus: ComputedStatus | null
+  actionCounts: ActionCounts | null
+  latestCase: { ... }
+}
+```
+
+**See Also:** `docs/phase-1-database-backend-actionable-status.md` for complete reference.
+
 ## UI Components (@ella/ui)
 
 **Component Structure:**

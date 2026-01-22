@@ -12,6 +12,10 @@
 | **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
 | **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
 | **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
+| **Phase 4 Constants & Labels (Actionable Status)** | **Centralized constants: ACTION_BADGE_LABELS (6 Vietnamese labels), ACTION_BADGE_ARIA_LABELS (6 a11y labels), TIME_FORMATS localization, STALE_THRESHOLD_DAYS=7, ACTION_BADGE_COLORS config; refactored action-badge.tsx for maintainability & i18n** | **2026-01-22** |
+| **Phase 3 Frontend (Actionable Status)** | **ComputedStatusBadge + ActionBadge components; client list sort (activity/name/stale); status action buttons (Send to Review/Mark Filed/Reopen); TaxCaseSummary type with isInReview/isFiled; computeStatus() utility** | **2026-01-21** |
+| **Phase 2 API Changes (Actionable Status)** | **3 case status endpoints; enhanced GET /clients with sort/actionCounts; ComputedStatus + ActionCounts types; activity tracking service; 23 tests** | **2026-01-21** |
+| **Phase 1 Database & Backend (Actionable Status)** | **TaxCase isInReview/isFiled flags; lastActivityAt tracking; computeStatus() priority system; calculateStaleDays() detection; updateLastActivity() service; ActionCounts types; 23 comprehensive tests** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
 | **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
 | **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
@@ -1043,8 +1047,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-22
-**Status:** Phase 04 Frontend Incoming Call UI (Accept/Reject modal, CallerInfo display, API methods: lookupCaller/registerPresence/unregisterPresence/heartbeat, Web Audio API ring-sound.ts generator, Twilio SDK accept/reject methods, useVoiceCall hook with incomingCall state + presence tracking + mounted guard + toast notifications, VoiceCallProvider context with error boundary, __root.tsx wrapper) + Phase 03 Voicemail System (Unknown caller placeholder creation via createPlaceholderConversation(), voicemail-recording webhook enhanced for known/unknown callers, helper functions with E.164 validation and duration sanitization, transaction-based race condition handling, 55 unit tests) + Phase 02 Incoming Call Routing (generateIncomingTwiml rings staff browsers, generateNoStaffTwiml + generateVoicemailTwiml Vietnamese voicemail, 3 webhooks incoming/dial-complete/voicemail-recording, call routing to online staff via StaffPresence, rate limiting 60req/min, signature validation HMAC-SHA1)
-**Branch:** feature/enhance-call
-**Architecture Version:** 8.6.0 (Phase 04 Frontend - Incoming call UI with accept/reject + presence tracking + ring tone)
+**Status:** Phase 04 Frontend Incoming Call UI + Phase 03 Voicemail System + Phase 02 Incoming Call Routing + Phase 4 Actionable Status Constants & Labels + Phase 3 Frontend Actionable Status + All prior enhancements
+**Branch:** feature/enhance-call (merging with dev)
+**Architecture Version:** 9.1.0 (Incoming Call UI + Actionable Status merged)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-22 13:40 ICT
-> **Current Phase:** Enhancement Track (Client Floating Chatbox - 100% COMPLETE) + Phase 7 (Enhanced Gemini AI Features) + Verification Modal UI + Intake Enhancement (60% complete) + Voice Calls (40% complete - Backend API + Voicemail Helpers DONE) + Document Tab UX Redesign (Phase 1-3 Complete, 90%)
-> **Overall Project Progress:** 100% Complete (MVP + Gap Fixes) + 100% Client Floating Chatbox + 90% Document Tab UX Redesign + 60% Intake Enhancement + 100% Section-Edit Modals + Voice Calling (Phase 7.1.1 + 7.1.1a Backend Complete, 40%) + 80% AI Enhancement Phase (Classification + OCR done, testing finalized)
+> **Last Updated:** 2026-01-22 ICT
+> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Incoming Call UI Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + All prior enhancements
 
 ---
 
@@ -117,6 +117,34 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - 100% pass rate (28/28 passing)
 - Execution time: 946ms
 - Code coverage: >95%
+
+---
+
+### Actionable Client Status System - In Progress (16% Complete) ⏳
+**Started:** 2026-01-21 22:06
+**Target Completion:** 2026-01-23
+**Deliverable:** Auto-computed status, action badges, activity-based sorting for client prioritization
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Tests | Code Review |
+|-------|-----------|--------|-----------|-------|------------|
+| 1 | Database & Backend Foundation | ✅ DONE | 2026-01-21 22:06 | 23/23 passing | 9/10 |
+| 2 | API Changes (Client List, Status Endpoints) | ✅ DONE | 2026-01-22 | - | - |
+| 3 | Frontend Changes (Badges, Components) | ✅ DONE | 2026-01-22 | - | - |
+| 4 | Constants & Labels Update | ✅ DONE | 2026-01-22 | - | - |
+| 5 | Migration & Testing | ⏳ PENDING | - | - | - |
+
+**Completion Summary (Phase 1-4):**
+- **Phase 1:** Schema changes (isInReview, isFiled, lastActivityAt), computeStatus utility, action counts types, activity tracker service, 23/23 tests
+- **Phase 2:** API endpoints for client list status, case action transitions, activity tracking
+- **Phase 3:** Frontend ActionBadge + ComputedStatusBadge components, client list sorting (activity/name/stale), status action buttons (Send to Review/Mark Filed/Reopen)
+- **Phase 4:** Centralized constants in `apps/workspace/src/lib/constants.ts`:
+  - `ACTION_BADGE_LABELS` - 6 Vietnamese labels (missing, verify, entry, stale, ready, new-activity)
+  - `ACTION_BADGE_ARIA_LABELS` - 6 accessibility labels (Vietnamese) for screen readers
+  - `TIME_FORMATS` - Localization helpers: daysShort() + daysFull() for stale indicator formatting
+  - `STALE_THRESHOLD_DAYS = 7` - Activity inactivity threshold
+  - `ACTION_BADGE_COLORS` - Semantic color config (6 badge types with dark mode support)
+  - Refactored `action-badge.tsx` to use centralized constants (improved maintainability + i18n)
 
 ---
 
@@ -576,7 +604,10 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 4.3 | 2026-01-22 13:40 | PM | PHASE 7.1 UPDATE: Voice Calls - Phase 7.1.1a (Voicemail Helpers) COMPLETE. 6 helper functions, 83/83 tests passing (up from 54), 9/10 code review. Includes E.164 validation, XSS sanitization, race condition handling (upsert pattern). NOTE: 5 critical/high priority security fixes required before Phase 7.1.2 frontend. Overall progress 40% (up from 33%). |
+| 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |
+| 4.4 | 2026-01-22 | PM | Actionable Client Status - Phase 4 COMPLETE (64% overall). Constants & Labels Update: Centralized ACTION_BADGE_LABELS, ACTION_BADGE_ARIA_LABELS (6 Vietnamese + accessibility), TIME_FORMATS localization helpers, STALE_THRESHOLD_DAYS=7. Refactored action-badge.tsx to use constants. All 4 phases complete (database/api/frontend/constants). Ready for Phase 5 (testing & migration). |
+| 4.3 | 2026-01-22 13:40 | PM | PHASE 7.1 UPDATE: Voice Calls - Phase 7.1.1a (Voicemail Helpers) COMPLETE. 6 helper functions, 83/83 tests passing (up from 54), 9/10 code review. Includes E.164 validation, XSS sanitization, race condition handling (upsert pattern). |
+| 4.3 | 2026-01-21 22:06 | PM | NEW PROJECT: Actionable Client Status System - Phase 1 COMPLETE (16% overall). Database & Backend Foundation: Schema changes (isInReview, isFiled, lastActivityAt), computed status utility, action counts types, activity tracker service. 23/23 tests passing, 9/10 code review. |
 | 4.2 | 2026-01-21 12:00 | PM | ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 03 COMPLETE (75% overall). Data Entry Tab (299 lines, 9/10 code review). Shows VERIFIED docs in responsive 4/3/2 grid, no scroll. Copy/view actions + XSS sanitization + ErrorBoundary. All success criteria met. Phase 04 (Integration) pending. |
 | 4.1 | 2026-01-21 10:40 | PM | NEW ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 01 COMPLETE. Unclassified docs card (168 lines, 9/10 code review). UPLOADED/UNCLASSIFIED filtering, responsive 4/3/2 grid, ManualClassificationModal integration. Ready for Phase 02 (category-based checklist). |
 | 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |

@@ -1,6 +1,7 @@
 /**
  * Client Detail Page - Shows client info with tabbed sections
  * Tabs: Overview, Documents | Messages accessible via header button
+ * Status: Read-only computed status with action buttons for transitions
  */
 
 import { useState, useCallback } from 'react'
@@ -24,7 +25,7 @@ import {
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { StatusSelector, TieredChecklist, AddChecklistItemModal } from '../../components/cases'
+import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -33,15 +34,14 @@ import {
   DuplicateDocsCard,
   DataEntryTab,
 } from '../../components/documents'
-import { ClientOverviewSections } from '../../components/clients/client-overview-sections'
+import { ClientOverviewSections, ComputedStatusBadge } from '../../components/clients'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
-import {
-  UI_TEXT,
-} from '../../lib/constants'
+import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { computeStatus } from '../../lib/computed-status'
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -113,6 +113,40 @@ function ClientDetailPage() {
     onError: () => {
       toast.error('Lỗi khi xóa khách hàng')
       setIsDeleteModalOpen(false)
+    },
+  })
+
+  // Status action mutations
+  const sendToReviewMutation = useMutation({
+    mutationFn: () => api.cases.sendToReview(latestCaseId!),
+    onSuccess: () => {
+      toast.success('Đã gửi hồ sơ đi kiểm tra')
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi gửi đi kiểm tra')
+    },
+  })
+
+  const markFiledMutation = useMutation({
+    mutationFn: () => api.cases.markFiled(latestCaseId!),
+    onSuccess: () => {
+      toast.success('Đã đánh dấu hồ sơ đã nộp')
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi đánh dấu đã nộp')
+    },
+  })
+
+  const reopenMutation = useMutation({
+    mutationFn: () => api.cases.reopen(latestCaseId!),
+    onSuccess: () => {
+      toast.success('Đã mở lại hồ sơ')
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+    },
+    onError: () => {
+      toast.error('Lỗi khi mở lại hồ sơ')
     },
   })
 
@@ -228,7 +262,30 @@ function ClientDetailPage() {
     : (docsResponse?.docs ?? [])
 
   const latestCase = client.taxCases[0]
-  const caseStatus = latestCase?.status as TaxCaseStatus
+
+  // Compute status based on case data
+  const intakeAnswers = client.profile?.intakeAnswers as Record<string, unknown> || {}
+  const hasIntakeAnswers = Object.keys(intakeAnswers).length > 0
+  const missingDocsCount = checklistItems.filter(i => i.status === 'MISSING').length
+  const extractedDocsCount = digitalDocs.filter(d => d.status === 'EXTRACTED').length
+  const unverifiedDocsCount = digitalDocs.filter(d => d.status !== 'VERIFIED').length
+  const pendingEntryCount = digitalDocs.filter(d => d.status === 'VERIFIED' && !d.entryCompleted).length
+
+  // Get isInReview and isFiled from latestCase (type-safe via TaxCaseSummary)
+  const isInReview = latestCase?.isInReview ?? false
+  const isFiled = latestCase?.isFiled ?? false
+
+  const computedStatus: TaxCaseStatus | null = latestCase
+    ? computeStatus({
+        hasIntakeAnswers,
+        missingDocsCount,
+        extractedDocsCount,
+        unverifiedDocsCount,
+        pendingEntryCount,
+        isInReview,
+        isFiled,
+      })
+    : null
 
   // Handler for opening manual classification modal
   const handleManualClassify = (image: RawImage) => {
@@ -310,16 +367,51 @@ function ClientDetailPage() {
 
           {/* Status & Actions */}
           <div className="flex items-center gap-2">
-            {/* Case Status Selector */}
+            {/* Computed Status Badge (read-only) */}
             {latestCase && (
-              <StatusSelector
-                caseId={latestCase.id}
-                currentStatus={caseStatus}
-                onStatusChange={() => {
-                  // Refetch client data to update UI
-                  queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-                }}
-              />
+              <ComputedStatusBadge status={computedStatus} />
+            )}
+
+            {/* Action buttons based on state */}
+            {latestCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
+              <Button
+                onClick={() => sendToReviewMutation.mutate()}
+                disabled={sendToReviewMutation.isPending}
+                size="sm"
+                variant="outline"
+              >
+                {sendToReviewMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                )}
+                Gửi kiểm tra
+              </Button>
+            )}
+
+            {isInReview && !isFiled && (
+              <Button
+                onClick={() => markFiledMutation.mutate()}
+                disabled={markFiledMutation.isPending}
+                size="sm"
+              >
+                {markFiledMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                )}
+                Đánh dấu đã nộp
+              </Button>
+            )}
+
+            {isFiled && (
+              <Button
+                onClick={() => reopenMutation.mutate()}
+                disabled={reopenMutation.isPending}
+                size="sm"
+                variant="outline"
+              >
+                {reopenMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                )}
+                Mở lại
+              </Button>
             )}
 
             {/* Portal Link - Open button only */}
@@ -530,5 +622,3 @@ function ClientDetailPage() {
     </PageContainer>
   )
 }
-
-

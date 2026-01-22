@@ -6,8 +6,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, AlertTriangle, Building2, User, DollarSign, MapPin, FileText, Calendar, Hash } from 'lucide-react'
-import { Badge, cn } from '@ella/ui'
+import { X, AlertTriangle, Building2, User, DollarSign, MapPin, FileText, Hash } from 'lucide-react'
+import { Badge } from '@ella/ui'
 import { CopyableField } from '../ui/copyable-field'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'

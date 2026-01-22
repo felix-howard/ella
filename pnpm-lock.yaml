@@ -83,9 +83,6 @@ importers:
       node-cron:
         specifier: ^4.2.1
         version: 4.2.1
-      pdf-poppler:
-        specifier: ^0.2.3
-        version: 0.2.3
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
@@ -3636,9 +3633,6 @@ packages:
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
-
-  pdf-poppler@0.2.3:
-    resolution: {integrity: sha512-nUczP3M/W4c8/3F6il0LmkxkF33qTKQyxeBmUnPbQLxxhtBX42zfpZqnLysomvMdb756qVR7n5kvNr+LzisXQw==}
 
   pdfjs-dist@5.4.296:
     resolution: {integrity: sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==}
@@ -8105,8 +8099,6 @@ snapshots:
       minipass: 7.1.2
 
   pathe@2.0.3: {}
-
-  pdf-poppler@0.2.3: {}
 
   pdfjs-dist@5.4.296:
     optionalDependencies:

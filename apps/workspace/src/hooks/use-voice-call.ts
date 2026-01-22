@@ -281,6 +281,13 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         const fromPhone = call.parameters.From || 'Unknown'
         console.log('[Voice] Incoming call from:', fromPhone)
 
+        // Reject if device is not registered (user went offline, race condition with pending calls)
+        if (deviceRef.current?.state !== 'registered') {
+          console.log('[Voice] Rejecting incoming - device not registered (user offline)')
+          call.reject()
+          return
+        }
+
         // Don't accept if already in a call
         if (callRef.current || callState !== 'idle') {
           console.log('[Voice] Rejecting incoming - already in call')
@@ -735,6 +742,24 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       if (!success) {
         setIsGoingOnline(false)
         return false
+      }
+
+      // If device already exists but is unregistered (e.g., user went offline then back online),
+      // we need to re-register it. setupDevice() returns early if device exists.
+      if (deviceRef.current && deviceRef.current.state !== 'registered') {
+        if (import.meta.env.DEV) {
+          console.log('[Voice] Device exists but unregistered, re-registering...')
+        }
+        try {
+          await deviceRef.current.register()
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.error('[Voice] Re-registration failed:', e)
+          }
+          setIsGoingOnline(false)
+          setError(sanitizeError(e))
+          return false
+        }
       }
 
       // Device setup and registration is async - isOnline will be set in 'registered' handler

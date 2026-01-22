@@ -2,12 +2,14 @@
 
 **Current Date:** 2026-01-22
 **Current Branch:** feature/enhance-call
-**Latest Phase:** Phase 02 Incoming Call Routing - Route to Staff Browsers + Voicemail
+**Latest Phase:** Phase 04 Frontend Incoming Call UI - Accept/Reject Modal + Presence Tracking + Ring Tone
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
+| **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
 | **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
 | **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
 | **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
@@ -130,18 +132,90 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 
 See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
 
+## Frontend Voice Services
+
+### Phase 04 Frontend Incoming Call UI (NEW - 2026-01-22)
+
+**Location:** `apps/workspace/src/lib/api-client.ts`, `apps/workspace/src/lib/ring-sound.ts`, `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/incoming-call-modal.tsx`, `apps/workspace/src/components/voice/voice-call-provider.tsx`
+
+**New API Methods (api-client.ts - 5 methods):**
+1. `lookupCaller(phoneNumber: string): Promise<CallerLookupResponse>` - Retrieve caller info (name, conversation)
+2. `registerPresence(phoneNumber: string): Promise<PresenceResponse>` - Mark staff as online
+3. `unregisterPresence(): Promise<PresenceResponse>` - Mark staff as offline
+4. `heartbeat(): Promise<HeartbeatResponse>` - Keep presence alive (10s intervals)
+5. **Types:** CallerLookupResponse (caller name, conversationId), PresenceResponse (presenceId), HeartbeatResponse (success)
+
+**Ring Sound Generator (ring-sound.ts - NEW):**
+- Web Audio API oscillator-based ring tone (440Hz frequency)
+- Graceful fallback to HTMLAudioElement if Web Audio unavailable
+- Play/stop/volume control methods
+- No external dependencies, pure browser API
+
+**Twilio SDK Enhancements (twilio-sdk-loader.ts):**
+- Added `accept()` method to TwilioCall class
+- Added `reject()` method to TwilioCall class
+- Type-safe event handlers for accept/reject results
+- Error handling with Vietnamese messages
+
+**useVoiceCall Hook (use-voice-call.ts - Enhanced):**
+- **New State:** `incomingCall` (caller info), `callerInfo` (lookup result), `isRinging` (boolean)
+- **New Actions:**
+  - `acceptIncoming()` - Accept incoming call, stop ring tone
+  - `rejectIncoming()` - Reject call, stop ring tone
+- **Presence Tracking:** Automatic register on mount, heartbeat every 10s, unregister on unmount
+- **Mounted Guard:** Prevents hydration mismatches with useEffect flag
+- **Toast Notifications:** Success/error feedback for accept/reject actions
+- **Ring Tone Management:** Auto-play on incoming call, stop on accept/reject
+
+**IncomingCallModal Component (incoming-call-modal.tsx - NEW):**
+- **Layout:** Full-screen modal overlay with centered card
+- **Caller Display:**
+  - Large caller name from `callerInfo`
+  - Phone number formatted E.164
+  - "Tin nhắn đến từ..." Vietnamese header
+- **Action Buttons:**
+  - Green "Trả lời" (Accept) button - calls `acceptIncoming()`
+  - Red "Từ chối" (Reject) button - calls `rejectIncoming()`
+  - Both buttons disabled during processing
+- **Ring Animation:** Pulsing call icon during ring state
+- **Vietnamese UI:** All text labels in Vietnamese
+
+**VoiceCallProvider Context (voice-call-provider.tsx - NEW):**
+- Wraps app with global voice call state
+- Error boundary integration for crash safety
+- Re-exports useVoiceCall hook
+- Mounted on `__root.tsx` at app level
+
+**Integration Changes:**
+- `apps/workspace/src/routes/__root.tsx` - Wrapped with `<VoiceCallProvider>` at root level
+- `apps/workspace/src/routeTree.gen.ts` - Auto-updated by TanStack Router
+- `apps/portal/src/routeTree.gen.ts` - Auto-updated (portal routes unchanged)
+
+**Key Features:**
+- **Real-time Presence:** Staff heartbeat keeps session alive (10s interval)
+- **Caller Lookup:** Fetch caller name from conversation/unknown caller placeholder
+- **Type-Safe Events:** Twilio SDK accept/reject with proper TypeScript types
+- **Ring Tone UX:** Web Audio API with fallback to native audio
+- **Error Resilience:** Toast notifications for all failure scenarios
+- **Memory Safe:** Cleanup all intervals/listeners on unmount
+
+**Security:**
+- API endpoints use staff JWT auth
+- Caller lookup validates conversation ownership
+- Presence token expires with session
+
 ## Backend Services
 
 ### Voice API Service (Phase 01-03)
 
 **Location:** `apps/api/src/services/voice/`, `apps/api/src/routes/voice/`, `apps/api/src/routes/webhooks/twilio.ts`
 
-**See [voice-api-guide.md](./voice-api-guide.md) for detailed documentation.**
+**See [phase-03-voicemail-system.md](./phase-03-voicemail-system.md) for Phase 03 Voicemail System details.**
 
 **Quick Summary:**
 - Phase 01: Backend token generation, TwiML routing, recording webhooks
-- Phase 02: Frontend browser calling + incoming call routing (NEW: rings staff browsers, voicemail routing)
-- Phase 03: Recording playback endpoints, AudioPlayer component, secure proxy
+- Phase 02: Frontend browser calling + incoming call routing (rings staff browsers, voicemail routing)
+- Phase 03: Unknown caller support with placeholder conversation creation (NEW); voicemail-recording webhook enhanced; helper functions (findConversationByPhone, createPlaceholderConversation, formatVoicemailDuration, isValidE164Phone, sanitizeRecordingDuration); transaction-based race condition handling; 55 unit tests
 
 **Endpoints (6 total):**
 - `POST /voice/token` - Get access token (returns JWT with VoiceGrant)
@@ -969,8 +1043,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-22
-**Status:** Phase 02 Incoming Call Routing (generateIncomingTwiml rings staff browsers, generateNoStaffTwiml + generateVoicemailTwiml Vietnamese voicemail, 3 webhooks incoming/dial-complete/voicemail-recording, call routing to online staff via StaffPresence, rate limiting 60req/min, signature validation HMAC-SHA1) + Client Floating Chatbox (Facebook Messenger-style popup, 15s polling, reuses MessageThread + QuickActionsBar, Escape key handler, error boundary) + Phase 03 Data Entry Tab (Responsive 4/3/2 col grid for verified docs, category-based grouping, key field extraction 2-3 fields/doc, copy all/individual fields, detail modal, ModalErrorFallback) + Phase 01 Unclassified Docs Card (Grid display UPLOADED/UNCLASSIFIED docs, responsive 4/3/2 cols, lazy PDF thumbnails, signed URL cache) + Phase 03 Voice Recording Playback (Recording endpoints with proxy auth, AudioPlayer component with lazy-load/seek/time, message-bubble integration, RecordingSid validation, memory-efficient streaming) + Phase 02 Voice Calls (Browser-based calling, Twilio Client SDK, active call modal, mute/end controls, duration timer, microphone permissions, token refresh, error sanitization)
+**Status:** Phase 04 Frontend Incoming Call UI (Accept/Reject modal, CallerInfo display, API methods: lookupCaller/registerPresence/unregisterPresence/heartbeat, Web Audio API ring-sound.ts generator, Twilio SDK accept/reject methods, useVoiceCall hook with incomingCall state + presence tracking + mounted guard + toast notifications, VoiceCallProvider context with error boundary, __root.tsx wrapper) + Phase 03 Voicemail System (Unknown caller placeholder creation via createPlaceholderConversation(), voicemail-recording webhook enhanced for known/unknown callers, helper functions with E.164 validation and duration sanitization, transaction-based race condition handling, 55 unit tests) + Phase 02 Incoming Call Routing (generateIncomingTwiml rings staff browsers, generateNoStaffTwiml + generateVoicemailTwiml Vietnamese voicemail, 3 webhooks incoming/dial-complete/voicemail-recording, call routing to online staff via StaffPresence, rate limiting 60req/min, signature validation HMAC-SHA1)
 **Branch:** feature/enhance-call
-**Architecture Version:** 8.4.0 (Phase 02 Incoming Call Routing - routes customer calls to staff browsers with voicemail fallback)
+**Architecture Version:** 8.6.0 (Phase 04 Frontend - Incoming call UI with accept/reject + presence tracking + ring tone)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

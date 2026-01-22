@@ -413,6 +413,30 @@ export const api = {
     // Get recording audio URL (returns full URL for <audio> src)
     getRecordingAudioUrl: (recordingSid: string) =>
       `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
+
+    // Lookup caller info for incoming call UI
+    lookupCaller: (phone: string) =>
+      request<CallerLookupResponse>(`/voice/caller/${encodeURIComponent(phone)}`),
+
+    // Register presence (called when Device.on('registered') fires)
+    registerPresence: () =>
+      request<PresenceResponse>('/voice/presence/register', {
+        method: 'POST',
+      }),
+
+    // Unregister presence (called when Device.on('unregistered') fires or tab closes)
+    unregisterPresence: () =>
+      request<PresenceResponse>('/voice/presence/unregister', {
+        method: 'POST',
+        retries: 0, // Don't retry on tab close
+      }),
+
+    // Heartbeat to keep presence alive (called periodically)
+    heartbeat: () =>
+      request<HeartbeatResponse>('/voice/presence/heartbeat', {
+        method: 'POST',
+        retries: 0,
+      }),
   },
 
   // Admin - Configuration management
@@ -1077,4 +1101,27 @@ export interface UpdateCallSidResponse {
   success: boolean
   messageId: string
   callSid: string
+}
+
+// Caller lookup response for incoming calls
+export interface CallerLookupResponse {
+  phone: string
+  conversation: {
+    id: string
+    caseId: string | null
+    clientName: string
+  } | null
+  lastContactStaffId: string | null
+}
+
+// Presence registration response
+export interface PresenceResponse {
+  success: boolean
+  deviceId?: string
+}
+
+// Heartbeat response
+export interface HeartbeatResponse {
+  success: boolean
+  reason?: string
 }

@@ -104,6 +104,11 @@ export interface TwilioDeviceInstance {
   updateToken(token: string): void
   register(): Promise<void> // Opens signaling WebSocket for receiving calls
   unregister(): Promise<void> // Closes signaling connection
+  // Overloaded on() for type-safe event handlers
+  on(event: 'incoming', handler: (call: TwilioCall) => void): void
+  on(event: 'registered' | 'unregistered', handler: () => void): void
+  on(event: 'error', handler: (error: unknown) => void): void
+  on(event: 'tokenWillExpire', handler: () => void): void
   on(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void
   off(event: TwilioDeviceEvent, handler: (...args: unknown[]) => void): void
   destroy(): void
@@ -157,6 +162,9 @@ export interface TwilioCall {
   // Get the local MediaStream (for debugging audio issues)
   getLocalStream(): MediaStream | null
   getRemoteStream(): MediaStream | null
+  // Incoming call methods (SDK 2.x)
+  accept(): void
+  reject(): void
 }
 
 // SDK 2.x call status values

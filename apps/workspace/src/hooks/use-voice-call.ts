@@ -1,16 +1,19 @@
 /**
  * useVoiceCall Hook
  * Manages Twilio Voice SDK device and call state for browser-based voice calls
- * Features: mic permission check, token refresh, error sanitization, proper cleanup
+ * Features: mic permission check, token refresh, error sanitization, proper cleanup,
+ *           incoming call handling, presence tracking
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { api } from '../lib/api-client'
+import { api, type CallerLookupResponse } from '../lib/api-client'
 import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
   type TwilioCall,
   type TwilioCallEvent,
 } from '../lib/twilio-sdk-loader'
+import { playRingSound, stopRingSound, cleanupRingSound } from '../lib/ring-sound'
+import { toast } from '../stores/toast-store'
 
 export type CallState =
   | 'idle'
@@ -20,6 +23,14 @@ export type CallState =
   | 'disconnecting'
   | 'error'
 
+// Caller info for incoming calls
+export interface CallerInfo {
+  phone: string
+  clientName: string | null
+  caseId: string | null
+  conversationId: string | null
+}
+
 export interface VoiceCallState {
   isAvailable: boolean
   isLoading: boolean
@@ -27,12 +38,18 @@ export interface VoiceCallState {
   isMuted: boolean
   duration: number
   error: string | null
+  // Incoming call state
+  incomingCall: TwilioCall | null
+  callerInfo: CallerInfo | null
 }
 
 export interface VoiceCallActions {
   initiateCall: (toPhone: string, caseId: string) => Promise<void>
   endCall: () => void
   toggleMute: () => void
+  // Incoming call actions
+  acceptIncoming: () => void
+  rejectIncoming: () => void
 }
 
 // User-friendly error messages (Vietnamese)
@@ -92,6 +109,9 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const [isMuted, setIsMuted] = useState(false)
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  // Incoming call state
+  const [incomingCall, setIncomingCall] = useState<TwilioCall | null>(null)
+  const [callerInfo, setCallerInfo] = useState<CallerInfo | null>(null)
 
   const deviceRef = useRef<TwilioDeviceInstance | null>(null)
   const callRef = useRef<TwilioCall | null>(null)
@@ -99,6 +119,9 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const tokenExpiryRef = useRef<number>(0)
   const callListenersRef = useRef<{ event: TwilioCallEvent; handler: () => void }[]>([])
   const messageIdRef = useRef<string | null>(null) // Track message ID for CallSid update
+  const incomingCallRef = useRef<TwilioCall | null>(null) // Track incoming call for timeout
+  const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
+  const mountedRef = useRef(true) // Track component mount status for cleanup
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -160,13 +183,18 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
     return () => {
       mounted = false
+      mountedRef.current = false // Mark as unmounted for async handlers
       cleanupCallListeners()
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+      }
       if (deviceRef.current) {
         deviceRef.current.destroy()
       }
+      cleanupRingSound()
     }
   }, [cleanupCallListeners])
 
@@ -207,6 +235,123 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
       deviceRef.current = device
       tokenExpiryRef.current = Date.now() + tokenResponse.expiresIn * 1000
+
+      // Setup incoming call handler
+      device.on('incoming', async (call: TwilioCall) => {
+        const fromPhone = call.parameters.From || 'Unknown'
+        console.log('[Voice] Incoming call from:', fromPhone)
+
+        // Don't accept if already in a call
+        if (callRef.current || callState !== 'idle') {
+          console.log('[Voice] Rejecting incoming - already in call')
+          call.reject()
+          return
+        }
+
+        // Store call reference
+        incomingCallRef.current = call
+        setIncomingCall(call)
+
+        // Fetch caller info from backend
+        try {
+          const info = await api.voice.lookupCaller(fromPhone)
+          setCallerInfo({
+            phone: fromPhone,
+            clientName: info.conversation?.clientName || null,
+            caseId: info.conversation?.caseId || null,
+            conversationId: info.conversation?.id || null,
+          })
+        } catch {
+          // Unknown caller
+          setCallerInfo({
+            phone: fromPhone,
+            clientName: null,
+            caseId: null,
+            conversationId: null,
+          })
+        }
+
+        // Play ring sound
+        playRingSound()
+
+        // Listen for cancel (caller hung up before answer)
+        call.on('cancel', () => {
+          console.log('[Voice] Incoming call cancelled by caller')
+          stopRingSound()
+          setIncomingCall(null)
+          setCallerInfo(null)
+          incomingCallRef.current = null
+        })
+
+        call.on('disconnect', () => {
+          console.log('[Voice] Incoming call disconnected')
+          stopRingSound()
+          setCallState('idle')
+          setIncomingCall(null)
+          setCallerInfo(null)
+          callRef.current = null
+          incomingCallRef.current = null
+          // Stop timer directly (stopTimer callback may not be available)
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+        })
+      })
+
+      // Setup presence registration handlers
+      device.on('registered', async () => {
+        // Guard: Skip if component unmounted
+        if (!mountedRef.current) return
+
+        console.log('[Voice] Device registered - registering presence')
+        try {
+          await api.voice.registerPresence()
+          // Guard: Skip heartbeat setup if unmounted during await
+          if (!mountedRef.current) return
+
+          // Notify user that voice is ready (info toast, auto-dismiss)
+          toast.info('Đã sẵn sàng nhận cuộc gọi đến', 2000)
+
+          // Start heartbeat every 30 seconds
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current)
+          }
+          heartbeatIntervalRef.current = window.setInterval(async () => {
+            // Guard: Skip if component unmounted
+            if (!mountedRef.current) {
+              if (heartbeatIntervalRef.current) {
+                clearInterval(heartbeatIntervalRef.current)
+                heartbeatIntervalRef.current = null
+              }
+              return
+            }
+            try {
+              await api.voice.heartbeat()
+            } catch {
+              // Heartbeat failed - device might be offline
+            }
+          }, 30000) // 30 second heartbeat
+        } catch (e) {
+          console.warn('[Voice] Failed to register presence:', e)
+          toast.error('Không thể đăng ký nhận cuộc gọi', 3000)
+        }
+      })
+
+      device.on('unregistered', async () => {
+        console.log('[Voice] Device unregistered - unregistering presence')
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current)
+          heartbeatIntervalRef.current = null
+        }
+        // Guard: Skip API call if component unmounted
+        if (!mountedRef.current) return
+        try {
+          await api.voice.unregisterPresence()
+        } catch {
+          // Fire and forget on unregister
+        }
+      })
 
       // Register device (establishes signaling connection)
       await device.register()
@@ -488,8 +633,62 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     }
   }, [])
 
+  // Accept incoming call
+  const acceptIncoming = useCallback(() => {
+    if (!incomingCall) return
+
+    stopRingSound()
+    incomingCall.accept()
+
+    // Transfer to active call ref
+    callRef.current = incomingCall
+    setCallState('connected')
+    startTimer()
+
+    // Setup additional listeners for accepted call
+    incomingCall.on('accept', () => {
+      setCallState('connected')
+      if (import.meta.env.DEV) {
+        console.log('[Voice] Incoming call accepted and connected')
+      }
+    })
+
+    // Clear incoming call state (call is now active)
+    setIncomingCall(null)
+    incomingCallRef.current = null
+  }, [incomingCall, startTimer])
+
+  // Reject incoming call (sends to voicemail)
+  const rejectIncoming = useCallback(() => {
+    if (!incomingCall) return
+
+    stopRingSound()
+    incomingCall.reject() // Sends busy signal - triggers voicemail on Twilio side
+
+    setIncomingCall(null)
+    setCallerInfo(null)
+    incomingCallRef.current = null
+
+    if (import.meta.env.DEV) {
+      console.log('[Voice] Incoming call rejected - routing to voicemail')
+    }
+  }, [incomingCall])
+
+  // Cleanup on beforeunload (tab close)
+  useEffect(() => {
+    function handleBeforeUnload() {
+      // Fire and forget - unregister presence
+      api.voice.unregisterPresence().catch(() => {})
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
   return [
-    { isAvailable, isLoading, callState, isMuted, duration, error },
-    { initiateCall, endCall, toggleMute },
+    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo },
+    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming },
   ]
 }

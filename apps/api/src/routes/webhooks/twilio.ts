@@ -15,6 +15,11 @@ import {
   generateIncomingTwiml,
   generateNoStaffTwiml,
   generateVoicemailTwiml,
+  findConversationByPhone,
+  createPlaceholderConversation,
+  formatVoicemailDuration,
+  isValidE164Phone,
+  sanitizeRecordingDuration,
 } from '../../services/voice'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
@@ -272,11 +277,10 @@ twilioWebhookRoute.post('/voice/recording', async (c) => {
   const callSid = formData.CallSid as string
   const recordingStatus = formData.RecordingStatus as string
 
-  // Validate and clamp duration
-  const rawDuration = parseInt(formData.RecordingDuration as string || '0', 10)
-  const recordingDuration = Math.min(Math.max(rawDuration, 0), MAX_RECORDING_DURATION)
+  // Use consistent duration sanitization
+  const recordingDuration = sanitizeRecordingDuration(formData.RecordingDuration as string | undefined, MAX_RECORDING_DURATION)
 
-  if (rawDuration <= 0) {
+  if (recordingDuration <= 0 && formData.RecordingDuration) {
     console.warn('[Recording Webhook] Invalid duration:', formData.RecordingDuration)
   }
 
@@ -300,7 +304,7 @@ twilioWebhookRoute.post('/voice/recording', async (c) => {
         data: {
           recordingUrl: `${recordingUrl}.mp3`,
           recordingDuration,
-          content: `Cuộc gọi (${formatDuration(recordingDuration)})`,
+          content: `Cuộc gọi (${formatVoicemailDuration(recordingDuration)})`,
         },
       })
     })
@@ -386,15 +390,6 @@ twilioWebhookRoute.post('/voice/status', async (c) => {
 
   return c.json({ received: true })
 })
-
-/**
- * Format duration in seconds to mm:ss
- */
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
 
 /**
  * Get Vietnamese message for call status
@@ -612,6 +607,7 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
 /**
  * POST /webhooks/twilio/voice/voicemail-recording - Handle voicemail recording completion
  * Stores recording URL in the inbound call message
+ * Handles unknown callers by creating placeholder conversation
  */
 twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
   const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
@@ -643,42 +639,101 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
   const recordingUrl = formData.RecordingUrl as string
   const callSid = formData.CallSid as string
   const recordingStatus = formData.RecordingStatus as string
-  const rawDuration = parseInt(formData.RecordingDuration as string || '0', 10)
-  const recordingDuration = Math.min(Math.max(rawDuration, 0), MAX_RECORDING_DURATION)
+  const callerPhone = formData.From as string // Original caller's phone number
+  const recordingDuration = sanitizeRecordingDuration(formData.RecordingDuration as string | undefined, MAX_RECORDING_DURATION)
 
-  console.log(`[Voicemail Recording] ${recordingSid}: status=${recordingStatus}, duration=${recordingDuration}s`)
+  console.log(`[Voicemail Recording] ${recordingSid}: status=${recordingStatus}, duration=${recordingDuration}s, from=${callerPhone}`)
 
   if (recordingStatus !== 'completed') {
     return c.json({ received: true, processed: false })
   }
 
   try {
-    // Update the inbound call message with voicemail recording
-    const result = await prisma.$transaction(async (tx) => {
-      const callMessage = await tx.message.findFirst({
-        where: { callSid },
+    // Try to find existing message by callSid first
+    const existingMessage = await prisma.message.findFirst({
+      where: { callSid },
+      include: { conversation: true },
+    })
+
+    if (existingMessage) {
+      // Known caller - update existing message with voicemail recording
+      const result = await prisma.$transaction(async (tx) => {
+        const updated = await tx.message.update({
+          where: { id: existingMessage.id },
+          data: {
+            recordingUrl: `${recordingUrl}.mp3`,
+            recordingDuration,
+            content: `Tin nhắn thoại (${formatVoicemailDuration(recordingDuration)})`,
+            callStatus: 'voicemail',
+          },
+        })
+
+        // Increment unreadCount on conversation
+        await tx.conversation.update({
+          where: { id: existingMessage.conversationId },
+          data: {
+            lastMessageAt: new Date(),
+            unreadCount: { increment: 1 },
+          },
+        })
+
+        return updated
       })
 
-      if (!callMessage) return null
+      console.log(`[Voicemail Recording] Updated message ${result.id} with voicemail, incremented unreadCount`)
+      return c.json({ received: true, processed: true })
+    }
 
-      return await tx.message.update({
-        where: { id: callMessage.id },
+    // Unknown caller - find or create conversation by phone
+    if (!callerPhone) {
+      console.warn('[Voicemail Recording] No caller phone and no existing message')
+      return c.json({ received: true, processed: false, warning: 'NO_CALLER_INFO' })
+    }
+
+    // Validate phone format before attempting database operations
+    if (!isValidE164Phone(callerPhone)) {
+      console.warn(`[Voicemail Recording] Invalid phone format: ${callerPhone}`)
+      return c.json({ received: true, processed: false, warning: 'INVALID_PHONE_FORMAT' })
+    }
+
+    // Find existing conversation or create placeholder
+    let conversation = await findConversationByPhone(callerPhone)
+
+    if (!conversation) {
+      console.log(`[Voicemail Recording] Unknown caller ${callerPhone}, creating placeholder conversation`)
+      conversation = await createPlaceholderConversation(callerPhone)
+    }
+
+    // Create new voicemail message
+    const result = await prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
         data: {
+          conversationId: conversation!.id,
+          channel: 'CALL',
+          direction: 'INBOUND',
+          content: `Tin nhắn thoại (${formatVoicemailDuration(recordingDuration)})`,
+          isSystem: false,
+          callSid,
           recordingUrl: `${recordingUrl}.mp3`,
           recordingDuration,
-          content: `Tin nhắn thoại (${formatDuration(recordingDuration)})`,
           callStatus: 'voicemail',
         },
       })
+
+      // Update conversation with new message and increment unreadCount
+      await tx.conversation.update({
+        where: { id: conversation!.id },
+        data: {
+          lastMessageAt: new Date(),
+          unreadCount: { increment: 1 },
+        },
+      })
+
+      return message
     })
 
-    if (!result) {
-      console.warn(`[Voicemail Recording] No message found for callSid: ${callSid}`)
-      return c.json({ received: true, processed: false, warning: 'MESSAGE_NOT_FOUND' })
-    }
-
-    console.log(`[Voicemail Recording] Updated message ${result.id} with voicemail`)
-    return c.json({ received: true, processed: true })
+    console.log(`[Voicemail Recording] Created voicemail message ${result.id} for caller ${callerPhone}`)
+    return c.json({ received: true, processed: true, created: true })
   } catch (error) {
     console.error('[Voicemail Recording] Error:', error)
     return c.json({ error: 'Processing failed' }, 500)

@@ -26,3 +26,13 @@ export {
   type TwimlIncomingOptions,
   type TwimlVoicemailOptions,
 } from './twiml-generator'
+
+// Voicemail helpers
+export {
+  findConversationByPhone,
+  createPlaceholderConversation,
+  formatVoicemailDuration,
+  isValidE164Phone,
+  sanitizePhone,
+  sanitizeRecordingDuration,
+} from './voicemail-helpers'

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node ./node_modules/dotenv-cli/cli.js -e .env -- tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --dts --noExternal @ella/db --noExternal @ella/shared",
+    "build": "tsup",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/",

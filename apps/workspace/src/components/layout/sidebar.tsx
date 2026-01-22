@@ -157,55 +157,42 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Voice status / Toggle online/offline button */}
+        {/* Voice status indicator (auto-registered on page load) */}
         {voiceState.isAvailable && (
-          <button
-            onClick={() => {
-              if (voiceState.isGoingOnline) return
-              if (voiceState.isOnline) {
-                // Go offline and disable auto-online
-                voiceActions.goOffline()
-                voiceActions.setAutoOnline(false)
-              } else {
-                // Go online and enable auto-online
-                voiceActions.goOnline()
-                voiceActions.setAutoOnline(true)
-              }
-            }}
-            disabled={voiceState.isGoingOnline}
+          <div
             className={cn(
-              'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-colors',
+              'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg',
               sidebarCollapsed && 'justify-center',
-              voiceState.isOnline
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
-                : voiceState.isGoingOnline
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-wait'
-                  : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
+              voiceState.isRegistered
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : voiceState.isRegistering
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'text-muted-foreground'
             )}
-            aria-label={voiceState.isOnline ? 'Nhấn để tắt nhận cuộc gọi' : 'Bật nhận cuộc gọi'}
-            title={voiceState.isOnline ? 'Nhấn để tắt nhận cuộc gọi' : 'Nhấn để bật nhận cuộc gọi đến'}
+            aria-label={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi' : 'Đang kết nối...'}
+            title={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi đến' : 'Hệ thống đang kết nối...'}
           >
-            {voiceState.isGoingOnline ? (
+            {voiceState.isRegistering ? (
               <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-            ) : voiceState.isOnline ? (
+            ) : voiceState.isRegistered ? (
               <Phone className="w-5 h-5" aria-hidden="true" />
             ) : (
               <PhoneOff className="w-5 h-5" aria-hidden="true" />
             )}
             {!sidebarCollapsed && (
               <span className="text-sm">
-                {voiceState.isGoingOnline
+                {voiceState.isRegistering
                   ? 'Đang kết nối...'
-                  : voiceState.isOnline
-                    ? 'Đang trực tuyến'
-                    : 'Bật nhận cuộc gọi'}
+                  : voiceState.isRegistered
+                    ? 'Sẵn sàng nhận cuộc gọi'
+                    : 'Chờ kết nối...'}
               </span>
             )}
             {/* Online indicator dot */}
-            {voiceState.isOnline && sidebarCollapsed && (
+            {voiceState.isRegistered && sidebarCollapsed && (
               <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             )}
-          </button>
+          </div>
         )}
 
         {/* Logout button */}

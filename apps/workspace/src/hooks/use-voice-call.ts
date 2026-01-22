@@ -41,11 +41,9 @@ export interface VoiceCallState {
   // Incoming call state
   incomingCall: TwilioCall | null
   callerInfo: CallerInfo | null
-  // Online status for receiving incoming calls
-  isOnline: boolean
-  isGoingOnline: boolean
-  // Auto-go-online preference (default: true)
-  autoOnline: boolean
+  // Device registration status (for UI indicator)
+  isRegistered: boolean
+  isRegistering: boolean
 }
 
 export interface VoiceCallActions {
@@ -55,35 +53,6 @@ export interface VoiceCallActions {
   // Incoming call actions
   acceptIncoming: () => void
   rejectIncoming: () => void
-  // Enable incoming calls (requires user gesture for AudioContext)
-  goOnline: () => Promise<boolean>
-  // Disable incoming calls
-  goOffline: () => void
-  // Toggle auto-go-online preference
-  setAutoOnline: (enabled: boolean) => void
-}
-
-// LocalStorage key for auto-go-online preference
-const AUTO_ONLINE_KEY = 'ella_voice_auto_online'
-
-// Get auto-online preference from localStorage (default: true)
-function getAutoOnlinePreference(): boolean {
-  try {
-    const stored = localStorage.getItem(AUTO_ONLINE_KEY)
-    // Default to true if not set
-    return stored === null ? true : stored === 'true'
-  } catch {
-    return true
-  }
-}
-
-// Save auto-online preference to localStorage
-function setAutoOnlinePreference(enabled: boolean): void {
-  try {
-    localStorage.setItem(AUTO_ONLINE_KEY, String(enabled))
-  } catch {
-    // Ignore localStorage errors
-  }
 }
 
 // User-friendly error messages (Vietnamese)
@@ -146,11 +115,9 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   // Incoming call state
   const [incomingCall, setIncomingCall] = useState<TwilioCall | null>(null)
   const [callerInfo, setCallerInfo] = useState<CallerInfo | null>(null)
-  // Online status for receiving incoming calls
-  const [isOnline, setIsOnline] = useState(false)
-  const [isGoingOnline, setIsGoingOnline] = useState(false)
-  // Auto-go-online preference (default: true, persisted in localStorage)
-  const [autoOnline, setAutoOnlineState] = useState(getAutoOnlinePreference)
+  // Device registration status (for UI indicator only)
+  const [isRegistered, setIsRegistered] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
 
   const deviceRef = useRef<TwilioDeviceInstance | null>(null)
   const callRef = useRef<TwilioCall | null>(null)
@@ -161,7 +128,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const incomingCallRef = useRef<TwilioCall | null>(null) // Track incoming call for timeout
   const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
   const mountedRef = useRef(true) // Track component mount status for cleanup
-  const autoOnlineTriggeredRef = useRef(false) // Track if auto-online has been triggered this session
+  const autoRegisterTriggeredRef = useRef(false) // Track if auto-register has been triggered this session
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -186,32 +153,35 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     let mounted = true
 
     async function init() {
+      console.log('[Voice] Init starting...')
       try {
         // Check if voice is available on server
         const status = await api.voice.getStatus()
+        console.log('[Voice] Status response:', status)
         if (!mounted) return
 
         if (!status.available) {
+          console.log('[Voice] Voice not available on server')
           setIsAvailable(false)
           setIsLoading(false)
           return
         }
 
         voiceAvailableRef.current = true
+        console.log('[Voice] Voice available, loading SDK...')
 
         // Preload Twilio SDK from CDN (doesn't create AudioContext)
         await loadTwilioSdk()
         if (!mounted) return
 
+        console.log('[Voice] SDK loaded, setting isAvailable=true')
         // Mark as available - Device will be created on first call (user gesture)
         // This avoids AudioContext being created before user interaction
         setIsAvailable(true)
         setIsLoading(false)
       } catch (e) {
+        console.error('[Voice] Init failed:', e)
         if (mounted) {
-          if (import.meta.env.DEV) {
-            console.error('[Voice] Init failed:', e)
-          }
           setError(sanitizeError(e))
           setIsAvailable(false)
           setIsLoading(false)
@@ -240,12 +210,15 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
   // Create and setup Twilio Device (called on first user gesture)
   const setupDevice = useCallback(async (): Promise<boolean> => {
+    console.log('[Voice] setupDevice called. deviceRef.current:', !!deviceRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
     if (deviceRef.current) return true // Already setup
     if (!voiceAvailableRef.current) return false
 
     try {
       // Get voice token from server
+      console.log('[Voice] Getting voice token...')
       const tokenResponse = await api.voice.getToken()
+      console.log('[Voice] Token received, creating Device...')
 
       // Create Twilio Device instance (SDK 2.x)
       // This creates AudioContext - MUST be after user gesture
@@ -276,21 +249,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       deviceRef.current = device
       tokenExpiryRef.current = Date.now() + tokenResponse.expiresIn * 1000
 
-      // Setup incoming call handler
+      // Setup incoming call handler - always show modal for staff to accept/reject
       device.on('incoming', async (call: TwilioCall) => {
         const fromPhone = call.parameters.From || 'Unknown'
-        console.log('[Voice] Incoming call from:', fromPhone)
-
-        // Reject if device is not registered (user went offline, race condition with pending calls)
-        if (deviceRef.current?.state !== 'registered') {
-          console.log('[Voice] Rejecting incoming - device not registered (user offline)')
-          call.reject()
-          return
-        }
 
         // Don't accept if already in a call
         if (callRef.current || callState !== 'idle') {
-          console.log('[Voice] Rejecting incoming - already in call')
           call.reject()
           return
         }
@@ -323,7 +287,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
         // Listen for cancel (caller hung up before answer)
         call.on('cancel', () => {
-          console.log('[Voice] Incoming call cancelled by caller')
           stopRingSound()
           setIncomingCall(null)
           setCallerInfo(null)
@@ -331,14 +294,13 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         })
 
         call.on('disconnect', () => {
-          console.log('[Voice] Incoming call disconnected')
           stopRingSound()
           setCallState('idle')
           setIncomingCall(null)
           setCallerInfo(null)
           callRef.current = null
           incomingCallRef.current = null
-          // Stop timer directly (stopTimer callback may not be available)
+          // Stop timer
           if (timerRef.current) {
             clearInterval(timerRef.current)
             timerRef.current = null
@@ -350,14 +312,14 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       // Note: Don't use mountedRef guard here - React Strict Mode causes false positives
       // The device will be destroyed on actual unmount, which handles cleanup
       device.on('registered', async () => {
-        console.log('[Voice] Device registered - registering presence')
+        console.log('[Voice] Device registered! Registering presence...')
         try {
           await api.voice.registerPresence()
-          console.log('[Voice] registerPresence() succeeded!')
+          console.log('[Voice] Presence registered! Setting isRegistered=true')
 
-          // Mark as online
-          setIsOnline(true)
-          setIsGoingOnline(false)
+          // Mark as registered
+          setIsRegistered(true)
+          setIsRegistering(false)
 
           // Notify user that voice is ready (info toast, auto-dismiss)
           toast.info('Đã sẵn sàng nhận cuộc gọi đến', 2000)
@@ -373,16 +335,14 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
               // Heartbeat failed - device might be offline
             }
           }, 30000) // 30 second heartbeat
-        } catch (e) {
-          console.warn('[Voice] Failed to register presence:', e)
-          setIsGoingOnline(false)
+        } catch {
+          setIsRegistering(false)
           toast.error('Không thể đăng ký nhận cuộc gọi', 3000)
         }
       })
 
       device.on('unregistered', async () => {
-        console.log('[Voice] Device unregistered - unregistering presence')
-        setIsOnline(false)
+        setIsRegistered(false)
         if (heartbeatIntervalRef.current) {
           clearInterval(heartbeatIntervalRef.current)
           heartbeatIntervalRef.current = null
@@ -398,10 +358,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
       // Register device (establishes signaling connection)
       await device.register()
-
-      if (import.meta.env.DEV) {
-        console.log('[Voice] Device created and registered after user gesture')
-      }
 
       // Select proper microphone input (avoid "Stereo Mix" which captures system audio)
       try {
@@ -712,115 +668,69 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     setCallerInfo(null)
     incomingCallRef.current = null
 
-    if (import.meta.env.DEV) {
-      console.log('[Voice] Incoming call rejected - routing to voicemail')
-    }
   }, [incomingCall])
 
-  // Go online to receive incoming calls (requires user gesture for AudioContext)
-  const goOnline = useCallback(async (): Promise<boolean> => {
-    if (isOnline || isGoingOnline) return true // Already online or going online
-    if (!voiceAvailableRef.current) {
-      toast.error('Tính năng gọi điện không khả dụng', 3000)
-      return false
-    }
-
-    setIsGoingOnline(true)
-    setError(null)
-
-    try {
-      // Check microphone permission first
-      const hasMicPermission = await checkMicrophonePermission()
-      if (!hasMicPermission) {
-        setError(ERROR_MESSAGES.NotAllowedError)
-        setIsGoingOnline(false)
-        return false
-      }
-
-      // Setup device (creates Twilio Device, registers it, which triggers presence registration)
-      const success = await setupDevice()
-      if (!success) {
-        setIsGoingOnline(false)
-        return false
-      }
-
-      // If device already exists but is unregistered (e.g., user went offline then back online),
-      // we need to re-register it. setupDevice() returns early if device exists.
-      if (deviceRef.current && deviceRef.current.state !== 'registered') {
-        if (import.meta.env.DEV) {
-          console.log('[Voice] Device exists but unregistered, re-registering...')
-        }
-        try {
-          await deviceRef.current.register()
-        } catch (e) {
-          if (import.meta.env.DEV) {
-            console.error('[Voice] Re-registration failed:', e)
-          }
-          setIsGoingOnline(false)
-          setError(sanitizeError(e))
-          return false
-        }
-      }
-
-      // Device setup and registration is async - isOnline will be set in 'registered' handler
-      return true
-    } catch (e) {
-      if (import.meta.env.DEV) {
-        console.error('[Voice] goOnline failed:', e)
-      }
-      setError(sanitizeError(e))
-      setIsGoingOnline(false)
-      return false
-    }
-  }, [isOnline, isGoingOnline, setupDevice])
-
-  // Go offline - unregister device from receiving incoming calls
-  const goOffline = useCallback(() => {
-    if (!deviceRef.current || !isOnline) return
-
-    if (import.meta.env.DEV) {
-      console.log('[Voice] Going offline')
-    }
-
-    // Unregister device (triggers 'unregistered' event which handles cleanup)
-    deviceRef.current.unregister()
-  }, [isOnline])
-
-  // Set auto-online preference
-  const setAutoOnline = useCallback((enabled: boolean) => {
-    setAutoOnlineState(enabled)
-    setAutoOnlinePreference(enabled)
-    if (import.meta.env.DEV) {
-      console.log('[Voice] Auto-online set to:', enabled)
-    }
-  }, [])
-
-  // Auto-go-online on first user interaction (always on page load)
-  // Browser requires user gesture for AudioContext creation
+  // Auto-register device on first user interaction (browser requires user gesture for AudioContext)
+  // Device stays registered until page unload - staff can accept/reject calls via modal
   useEffect(() => {
-    // Skip if voice not available, already online/going online, or already triggered this session
-    // Note: Always auto-go-online on page load, regardless of previous session preference
-    if (!isAvailable || isOnline || isGoingOnline || autoOnlineTriggeredRef.current) {
+    console.log('[Voice] Auto-register effect running. isAvailable:', isAvailable, 'isRegistered:', isRegistered, 'isRegistering:', isRegistering)
+
+    // Skip if voice not available or already registered/registering
+    if (!isAvailable || isRegistered || isRegistering) {
+      console.log('[Voice] Skipping auto-register effect - conditions not met')
       return
     }
 
-    const handleUserGesture = async () => {
-      // Only trigger once per session
-      if (autoOnlineTriggeredRef.current) return
-      autoOnlineTriggeredRef.current = true
+    console.log('[Voice] Adding click/keydown listeners for auto-registration')
 
-      if (import.meta.env.DEV) {
-        console.log('[Voice] Auto-going online after user gesture')
+    const handleUserGesture = async () => {
+      console.log('[Voice] User gesture detected! autoRegisterTriggeredRef:', autoRegisterTriggeredRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
+
+      // Prevent duplicate registration attempts
+      if (autoRegisterTriggeredRef.current) {
+        console.log('[Voice] Already triggered, skipping')
+        return
       }
 
-      // Small delay to ensure gesture context is valid
+      // Check voice availability BEFORE setting flag
+      if (!voiceAvailableRef.current) {
+        console.log('[Voice] Voice not available yet, skipping')
+        return
+      }
+
+      // Mark as triggered and set registering state immediately (before async work)
+      console.log('[Voice] Starting registration...')
+      autoRegisterTriggeredRef.current = true
+      setIsRegistering(true)
+      setError(null)
+
+      // Small delay to ensure gesture context is valid for AudioContext
       setTimeout(async () => {
         try {
-          await goOnline()
-        } catch (e) {
-          if (import.meta.env.DEV) {
-            console.warn('[Voice] Auto-go-online failed:', e)
+          // Check microphone permission first
+          console.log('[Voice] Checking microphone permission...')
+          const hasMicPermission = await checkMicrophonePermission()
+          console.log('[Voice] Microphone permission:', hasMicPermission)
+          if (!hasMicPermission) {
+            setError(ERROR_MESSAGES.NotAllowedError)
+            setIsRegistering(false)
+            autoRegisterTriggeredRef.current = false // Allow retry
+            return
           }
+
+          // Setup device (creates Twilio Device, registers it)
+          console.log('[Voice] Setting up device...')
+          const success = await setupDevice()
+          console.log('[Voice] setupDevice result:', success)
+          if (!success) {
+            setIsRegistering(false)
+            autoRegisterTriggeredRef.current = false // Allow retry on failure
+          }
+          // isRegistered will be set in 'registered' event handler
+        } catch (e) {
+          console.error('[Voice] Registration error:', e)
+          setIsRegistering(false)
+          autoRegisterTriggeredRef.current = false // Allow retry on error
         }
       }, 100)
     }
@@ -833,7 +743,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       document.removeEventListener('click', handleUserGesture)
       document.removeEventListener('keydown', handleUserGesture)
     }
-  }, [isAvailable, isOnline, isGoingOnline, goOnline])
+  }, [isAvailable, isRegistered, isRegistering, setupDevice])
 
   // Cleanup on beforeunload (tab close)
   useEffect(() => {
@@ -849,7 +759,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   }, [])
 
   return [
-    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isOnline, isGoingOnline, autoOnline },
-    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming, goOnline, goOffline, setAutoOnline },
+    { isAvailable, isLoading, callState, isMuted, duration, error, incomingCall, callerInfo, isRegistered, isRegistering },
+    { initiateCall, endCall, toggleMute, acceptIncoming, rejectIncoming },
   ]
 }

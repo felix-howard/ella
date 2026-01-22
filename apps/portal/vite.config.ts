@@ -16,5 +16,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: true, // Fail instead of auto-incrementing to prevent port collision
   },
 })

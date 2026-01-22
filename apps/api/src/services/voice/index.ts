@@ -23,6 +23,7 @@ export {
   generateIncomingTwiml,
   generateNoStaffTwiml,
   generateVoicemailTwiml,
+  generateVoicemailCompleteTwiml,
   type TwimlIncomingOptions,
   type TwimlVoicemailOptions,
 } from './twiml-generator'

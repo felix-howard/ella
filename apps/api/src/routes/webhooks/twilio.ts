@@ -15,6 +15,7 @@ import {
   generateIncomingTwiml,
   generateNoStaffTwiml,
   generateVoicemailTwiml,
+  generateVoicemailCompleteTwiml,
   findConversationByPhone,
   createPlaceholderConversation,
   formatVoicemailDuration,
@@ -476,6 +477,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       console.log(`[Incoming Webhook] No staff online, routing to voicemail`)
       const twiml = generateNoStaffTwiml({
         voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
+        voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
       })
       return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
     }
@@ -527,6 +529,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     // Return voicemail as fallback on error
     const twiml = generateNoStaffTwiml({
       voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
+      voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
     })
     return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
   }
@@ -601,8 +604,49 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
 
   const twiml = generateVoicemailTwiml({
     voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
+    voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
   })
 
+  return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
+})
+
+/**
+ * POST /webhooks/twilio/voice/voicemail-complete - Handle voicemail recording completion
+ * Returns TwiML with goodbye message and hangup - prevents looping
+ */
+twilioWebhookRoute.post('/voice/voicemail-complete', async (c) => {
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0] || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return c.text('Rate limit exceeded', 429)
+  }
+
+  // Signature validation
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'https'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || ''
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
+  const formData = await c.req.parseBody()
+
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn('[Voicemail Complete] Signature validation failed:', validationResult.error)
+    return c.text('Forbidden', 403)
+  }
+
+  const callSid = formData.CallSid as string
+  const recordingDuration = formData.RecordingDuration as string
+
+  console.log(`[Voicemail Complete] Call ${callSid} recording complete, duration: ${recordingDuration || 'unknown'}s`)
+
+  // Return TwiML to say goodbye and hang up (prevents looping)
+  const twiml = generateVoicemailCompleteTwiml()
   return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
 })
 

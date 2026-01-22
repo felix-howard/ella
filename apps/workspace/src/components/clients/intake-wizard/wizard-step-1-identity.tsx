@@ -14,6 +14,8 @@ import {
   IP_PIN_LENGTH,
   MAX_DEPENDENTS,
   MIN_DOB_YEAR,
+  MAX_OCCUPATION_LENGTH,
+  MAX_DL_NUMBER_LENGTH,
   getTodayDateString,
 } from './wizard-constants'
 import type { IntakeAnswers, DependentData } from './wizard-container'
@@ -112,8 +114,9 @@ export function WizardStep1Identity({
             <input
               type="text"
               value={answers.taxpayerOccupation || ''}
-              onChange={(e) => onChange('taxpayerOccupation', e.target.value)}
+              onChange={(e) => onChange('taxpayerOccupation', e.target.value.slice(0, MAX_OCCUPATION_LENGTH))}
               placeholder="VD: Kỹ sư phần mềm"
+              maxLength={MAX_OCCUPATION_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
                 'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
@@ -130,8 +133,9 @@ export function WizardStep1Identity({
             <input
               type="text"
               value={answers.taxpayerDLNumber || ''}
-              onChange={(e) => onChange('taxpayerDLNumber', e.target.value)}
+              onChange={(e) => onChange('taxpayerDLNumber', e.target.value.slice(0, MAX_DL_NUMBER_LENGTH))}
               placeholder="Số trên bằng lái"
+              maxLength={MAX_DL_NUMBER_LENGTH}
               className={cn(
                 'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
                 'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
@@ -274,8 +278,9 @@ export function WizardStep1Identity({
               <input
                 type="text"
                 value={answers.spouseOccupation || ''}
-                onChange={(e) => onChange('spouseOccupation', e.target.value)}
+                onChange={(e) => onChange('spouseOccupation', e.target.value.slice(0, MAX_OCCUPATION_LENGTH))}
                 placeholder="VD: Y tá"
+                maxLength={MAX_OCCUPATION_LENGTH}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
                   'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
@@ -292,8 +297,9 @@ export function WizardStep1Identity({
               <input
                 type="text"
                 value={answers.spouseDLNumber || ''}
-                onChange={(e) => onChange('spouseDLNumber', e.target.value)}
+                onChange={(e) => onChange('spouseDLNumber', e.target.value.slice(0, MAX_DL_NUMBER_LENGTH))}
                 placeholder="Số trên bằng lái"
+                maxLength={MAX_DL_NUMBER_LENGTH}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
                   'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',

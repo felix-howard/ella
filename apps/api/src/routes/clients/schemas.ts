@@ -8,6 +8,23 @@ const phoneSchema = z
   .string()
   .regex(/^\+1\d{10}$/, 'Phone must be +1XXXXXXXXXX format')
 
+/**
+ * ABA Routing Number Validation (H2 fix: server-side validation)
+ * Uses checksum algorithm per MICR standard
+ */
+function isValidRoutingNumber(routing: string): boolean {
+  if (!/^\d{9}$/.test(routing)) return false
+
+  // ABA checksum: 3×(d1+d4+d7) + 7×(d2+d5+d8) + (d3+d6+d9) ≡ 0 (mod 10)
+  const digits = routing.split('').map(Number)
+  const checksum =
+    3 * (digits[0] + digits[3] + digits[6]) +
+    7 * (digits[1] + digits[4] + digits[7]) +
+    (digits[2] + digits[5] + digits[8])
+
+  return checksum % 10 === 0
+}
+
 // Regex for valid intakeAnswer keys: alphanumeric, underscores, starts with letter
 // Prevents prototype pollution and ensures clean key names
 const VALID_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/
@@ -82,6 +99,15 @@ export const clientProfileSchema = z.object({
     .refine(
       (val) => !val || Object.keys(val).every((key) => !DANGEROUS_KEYS.has(key)),
       { message: 'Reserved key name not allowed (potential prototype pollution)' }
+    )
+    // H2 fix: Server-side bank routing number validation
+    .refine(
+      (val) => {
+        if (!val?.refundRoutingNumber) return true
+        const routing = String(val.refundRoutingNumber)
+        return isValidRoutingNumber(routing)
+      },
+      { message: 'Invalid bank routing number (ABA checksum failed)' }
     ),
 })
 
@@ -152,6 +178,15 @@ export const updateProfileSchema = z.object({
     .refine(
       (val) => !val || Object.keys(val).every((key) => !DANGEROUS_KEYS.has(key)),
       { message: 'Reserved key name not allowed (potential prototype pollution)' }
+    )
+    // H2 fix: Server-side bank routing number validation
+    .refine(
+      (val) => {
+        if (!val?.refundRoutingNumber) return true
+        const routing = String(val.refundRoutingNumber)
+        return isValidRoutingNumber(routing)
+      },
+      { message: 'Invalid bank routing number (ABA checksum failed)' }
     ),
 })
 

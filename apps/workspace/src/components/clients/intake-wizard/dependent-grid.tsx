@@ -12,6 +12,8 @@ import {
   FORMATTED_SSN_LENGTH,
   MONTHS_IN_YEAR,
   MIN_DOB_YEAR,
+  MAX_FIRST_NAME_LENGTH,
+  MAX_LAST_NAME_LENGTH,
   getTodayDateString,
 } from './wizard-constants'
 import type { DependentData } from './wizard-container'
@@ -35,12 +37,13 @@ function isDependentComplete(dep: DependentData): boolean {
   )
 }
 
-// Counter for unique ID generation to prevent collisions
-let idCounter = 0
-
-// Generate unique ID for new dependents
+// M4 fix: Use crypto.randomUUID() for better unique ID generation
 function generateId(): string {
-  return `dep_${Date.now()}_${++idCounter}_${Math.random().toString(36).substr(2, 9)}`
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `dep_${crypto.randomUUID()}`
+  }
+  // Fallback for older browsers
+  return `dep_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 }
 
 // Create empty dependent template
@@ -194,8 +197,9 @@ function DependentRow({
             id={`dep-${index}-firstName`}
             type="text"
             value={dependent.firstName}
-            onChange={(e) => onFieldChange('firstName', e.target.value)}
+            onChange={(e) => onFieldChange('firstName', e.target.value.slice(0, MAX_FIRST_NAME_LENGTH))}
             placeholder="Tên"
+            maxLength={MAX_FIRST_NAME_LENGTH}
             aria-invalid={!!getFieldError('firstName')}
             aria-describedby={getFieldError('firstName') ? `dep-${index}-firstName-error` : undefined}
             className={cn(
@@ -216,8 +220,9 @@ function DependentRow({
             id={`dep-${index}-lastName`}
             type="text"
             value={dependent.lastName}
-            onChange={(e) => onFieldChange('lastName', e.target.value)}
+            onChange={(e) => onFieldChange('lastName', e.target.value.slice(0, MAX_LAST_NAME_LENGTH))}
             placeholder="Họ"
+            maxLength={MAX_LAST_NAME_LENGTH}
             aria-invalid={!!getFieldError('lastName')}
             className={cn(
               'w-full px-3 py-2 rounded-lg border bg-card text-foreground text-sm',

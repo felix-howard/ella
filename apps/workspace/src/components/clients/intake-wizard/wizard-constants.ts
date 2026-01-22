@@ -22,6 +22,14 @@ export const MAX_ACCOUNT_NUMBER_LENGTH = 17
 // Date constraints
 export const MIN_DOB_YEAR = '1900-01-01' // Reasonable historical limit for DOB
 
+// Input max lengths (H1 fix: prevent DoS via large payloads)
+export const MAX_NAME_LENGTH = 100
+export const MAX_OCCUPATION_LENGTH = 100
+export const MAX_DL_NUMBER_LENGTH = 30
+export const MAX_NOTES_LENGTH = 2000
+export const MAX_FIRST_NAME_LENGTH = 50
+export const MAX_LAST_NAME_LENGTH = 50
+
 // Get today's date in YYYY-MM-DD format
 export function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0]

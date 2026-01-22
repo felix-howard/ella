@@ -17,7 +17,7 @@ import {
 import { CustomSelect } from '../../ui/custom-select'
 import { maskSSN } from '../../../lib/crypto'
 import { RELATIONSHIP_OPTIONS } from '../../../lib/intake-form-config'
-import { ROUTING_NUMBER_LENGTH, MAX_ACCOUNT_NUMBER_LENGTH } from './wizard-constants'
+import { ROUTING_NUMBER_LENGTH, MAX_ACCOUNT_NUMBER_LENGTH, MAX_NOTES_LENGTH } from './wizard-constants'
 import type { IntakeAnswers } from './wizard-container'
 
 interface WizardStep4ReviewProps {
@@ -279,15 +279,21 @@ export function WizardStep4Review({
         </label>
         <textarea
           value={answers.followUpNotes || ''}
-          onChange={(e) => onChange('followUpNotes', e.target.value)}
+          onChange={(e) => onChange('followUpNotes', e.target.value.slice(0, MAX_NOTES_LENGTH))}
           placeholder="Thông tin bổ sung hoặc câu hỏi cho CPA..."
           rows={3}
+          maxLength={MAX_NOTES_LENGTH}
           className={cn(
             'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             'border-border resize-none'
           )}
         />
+        {(answers.followUpNotes?.length ?? 0) > MAX_NOTES_LENGTH * 0.9 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {answers.followUpNotes?.length ?? 0}/{MAX_NOTES_LENGTH} ký tự
+          </p>
+        )}
       </section>
     </div>
   )

@@ -3,7 +3,7 @@
  * Manages step navigation, validation, and form state persistence
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { WizardStepIndicator } from './wizard-step-indicator'
@@ -224,6 +224,34 @@ export function WizardContainer({
           if (depErrors.length > 0) {
             newErrors.dependents = `Có ${depErrors.length} lỗi trong thông tin người phụ thuộc`
           }
+        }
+      }
+
+      // H3 fix: Check for duplicate SSNs across taxpayer, spouse, and dependents
+      const allSSNs: { ssn: string; label: string }[] = []
+      if (answers.taxpayerSSN) {
+        allSSNs.push({ ssn: answers.taxpayerSSN.replace(/\D/g, ''), label: 'Người khai thuế' })
+      }
+      if (filingStatus === 'MARRIED_FILING_JOINTLY' && answers.spouseSSN) {
+        allSSNs.push({ ssn: answers.spouseSSN.replace(/\D/g, ''), label: 'Vợ/Chồng' })
+      }
+      const dependentTotal = answers.dependentCount || 0
+      for (let i = 0; i < dependentTotal; i++) {
+        const dep = answers.dependents?.[i]
+        if (dep?.ssn) {
+          allSSNs.push({ ssn: dep.ssn.replace(/\D/g, ''), label: `Người phụ thuộc #${i + 1}` })
+        }
+      }
+
+      // Find duplicates
+      const seen = new Map<string, string>()
+      for (const { ssn, label } of allSSNs) {
+        if (ssn.length === 9) {
+          if (seen.has(ssn)) {
+            newErrors.duplicateSSN = `SSN trùng lặp: ${label} và ${seen.get(ssn)} có cùng SSN`
+            break
+          }
+          seen.set(ssn, label)
         }
       }
     }

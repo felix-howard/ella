@@ -220,7 +220,7 @@ export function WizardStep3Deductions({
 
                   return (
                     <div key={item.key}>
-                      {/* Checkbox Item */}
+                      {/* Checkbox Item - M2 fix: improved accessibility */}
                       <div
                         onClick={() => handleItemToggle(item)}
                         className={cn(
@@ -231,6 +231,7 @@ export function WizardStep3Deductions({
                         )}
                         role="checkbox"
                         aria-checked={isChecked}
+                        aria-label={`${item.label}${item.hint ? `. ${item.hint}` : ''}`}
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {

@@ -7,6 +7,7 @@ import { z } from 'zod'
 // Shared enums
 const TaxTypeEnum = z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])
 const FieldTypeEnum = z.enum(['BOOLEAN', 'SELECT', 'NUMBER', 'TEXT'])
+const MessageTemplateCategoryEnum = z.enum(['WELCOME', 'REMINDER', 'MISSING', 'BLURRY', 'COMPLETE', 'GENERAL'])
 
 /**
  * JSON string validator with size limit
@@ -158,6 +159,33 @@ export const updateDocTypeLibrarySchema = createDocTypeLibrarySchema.partial().o
   code: true,
 })
 
+// ============================================
+// MESSAGE TEMPLATES SCHEMAS
+// ============================================
+
+export const messageTemplateIdParamSchema = z.object({
+  id: z.string().min(1),
+})
+
+export const listMessageTemplatesQuerySchema = z.object({
+  category: MessageTemplateCategoryEnum.optional(),
+  isActive: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
+})
+
+export const createMessageTemplateSchema = z.object({
+  category: MessageTemplateCategoryEnum,
+  title: z.string().min(1).max(100),
+  content: z.string().min(1).max(2000),
+  placeholders: z.array(z.string().max(50)).max(10).default([]),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+})
+
+export const updateMessageTemplateSchema = createMessageTemplateSchema.partial()
+
 // Type exports
 export type CreateIntakeQuestionInput = z.infer<typeof createIntakeQuestionSchema>
 export type UpdateIntakeQuestionInput = z.infer<typeof updateIntakeQuestionSchema>
@@ -165,3 +193,5 @@ export type CreateChecklistTemplateInput = z.infer<typeof createChecklistTemplat
 export type UpdateChecklistTemplateInput = z.infer<typeof updateChecklistTemplateSchema>
 export type CreateDocTypeLibraryInput = z.infer<typeof createDocTypeLibrarySchema>
 export type UpdateDocTypeLibraryInput = z.infer<typeof updateDocTypeLibrarySchema>
+export type CreateMessageTemplateInput = z.infer<typeof createMessageTemplateSchema>
+export type UpdateMessageTemplateInput = z.infer<typeof updateMessageTemplateSchema>

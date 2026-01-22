@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette } from 'lucide-react'
+import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette, MessageSquare } from 'lucide-react'
 import { PageContainer } from '../components/layout'
 import { Card } from '@ella/ui'
 import { UI_TEXT } from '../lib/constants'
@@ -15,19 +15,21 @@ import {
   ChecklistConfigTab,
   IntakeQuestionsConfigTab,
   DocLibraryConfigTab,
+  MessageTemplateConfigTab,
 } from '../components/settings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
 })
 
-type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library'
+type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library' | 'message-templates'
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'appearance', label: 'Giao diện', icon: <Palette className="w-4 h-4" /> },
   { id: 'checklist', label: 'Checklist', icon: <ClipboardList className="w-4 h-4" /> },
   { id: 'questions', label: 'Câu hỏi Intake', icon: <HelpCircle className="w-4 h-4" /> },
   { id: 'doc-library', label: 'Thư viện tài liệu', icon: <FileText className="w-4 h-4" /> },
+  { id: 'message-templates', label: 'Mẫu tin nhắn', icon: <MessageSquare className="w-4 h-4" /> },
 ]
 
 function SettingsPage() {
@@ -66,6 +68,7 @@ function SettingsPage() {
         {activeTab === 'checklist' && <ChecklistConfigTab />}
         {activeTab === 'questions' && <IntakeQuestionsConfigTab />}
         {activeTab === 'doc-library' && <DocLibraryConfigTab />}
+        {activeTab === 'message-templates' && <MessageTemplateConfigTab />}
       </div>
     </PageContainer>
   )

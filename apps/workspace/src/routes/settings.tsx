@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette } from 'lucide-react'
+import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette, MessageSquare } from 'lucide-react'
 import { PageContainer } from '../components/layout'
 import { Card } from '@ella/ui'
 import { UI_TEXT } from '../lib/constants'
@@ -15,19 +15,21 @@ import {
   ChecklistConfigTab,
   IntakeQuestionsConfigTab,
   DocLibraryConfigTab,
+  MessageTemplateConfigTab,
 } from '../components/settings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
 })
 
-type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library'
+type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library' | 'message-templates'
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'appearance', label: 'Giao diện', icon: <Palette className="w-4 h-4" /> },
   { id: 'checklist', label: 'Checklist', icon: <ClipboardList className="w-4 h-4" /> },
   { id: 'questions', label: 'Câu hỏi Intake', icon: <HelpCircle className="w-4 h-4" /> },
   { id: 'doc-library', label: 'Thư viện tài liệu', icon: <FileText className="w-4 h-4" /> },
+  { id: 'message-templates', label: 'Mẫu tin nhắn', icon: <MessageSquare className="w-4 h-4" /> },
 ]
 
 function SettingsPage() {
@@ -66,6 +68,7 @@ function SettingsPage() {
         {activeTab === 'checklist' && <ChecklistConfigTab />}
         {activeTab === 'questions' && <IntakeQuestionsConfigTab />}
         {activeTab === 'doc-library' && <DocLibraryConfigTab />}
+        {activeTab === 'message-templates' && <MessageTemplateConfigTab />}
       </div>
     </PageContainer>
   )
@@ -80,59 +83,51 @@ interface AppearanceTabProps {
 function AppearanceTab({ theme, setTheme, settings }: AppearanceTabProps) {
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold text-foreground mb-4">{settings.appearance}</h2>
-
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-3 block">
-            {settings.theme}
-          </label>
-
-          <div className="flex gap-3">
-            <ThemeButton
-              theme="light"
-              currentTheme={theme}
-              onClick={() => setTheme('light')}
-              icon={<Sun className="w-5 h-5" />}
-              label={settings.lightMode}
-            />
-            <ThemeButton
-              theme="dark"
-              currentTheme={theme}
-              onClick={() => setTheme('dark')}
-              icon={<Moon className="w-5 h-5" />}
-              label={settings.darkMode}
-            />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+            {theme === 'dark' ? (
+              <Moon className="w-4 h-4 text-primary" />
+            ) : (
+              <Sun className="w-4 h-4 text-primary" />
+            )}
           </div>
+          <div>
+            <h3 className="text-sm font-medium text-foreground">{settings.theme}</h3>
+            <p className="text-xs text-muted-foreground">
+              {theme === 'dark' ? settings.darkMode : settings.lightMode}
+            </p>
+          </div>
+        </div>
+
+        {/* Toggle Switch - use bg-background in dark mode for contrast since bg-muted equals bg-card */}
+        <div className="flex items-center gap-2 p-1 rounded-full bg-muted dark:bg-background">
+          <button
+            onClick={() => setTheme('light')}
+            className={cn(
+              'p-2 rounded-full transition-all',
+              theme === 'light'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            title={settings.lightMode}
+          >
+            <Sun className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setTheme('dark')}
+            className={cn(
+              'p-2 rounded-full transition-all',
+              theme === 'dark'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            title={settings.darkMode}
+          >
+            <Moon className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </Card>
-  )
-}
-
-interface ThemeButtonProps {
-  theme: Theme
-  currentTheme: Theme
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
-}
-
-function ThemeButton({ theme, currentTheme, onClick, icon, label }: ThemeButtonProps) {
-  const isActive = theme === currentTheme
-
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all min-w-[100px]',
-        isActive
-          ? 'border-primary bg-primary-light text-primary'
-          : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
-      )}
-    >
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
-    </button>
   )
 }

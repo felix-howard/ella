@@ -65,6 +65,13 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
     })
   }
 
+  // Sanitize string for display (defense-in-depth against XSS)
+  const sanitizeString = (str: string): string => {
+    // Remove control characters (ASCII 0-31, 127) and limit length
+    // eslint-disable-next-line no-control-regex
+    return str.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 500)
+  }
+
   // Format value for display
   const formatValue = (
     key: string,
@@ -83,23 +90,23 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
               currency: 'USD',
               minimumFractionDigits: 0,
             }).format(value)
-          : String(value)
+          : sanitizeString(String(value))
       case 'number':
-        return typeof value === 'number' ? value.toLocaleString() : String(value)
+        return typeof value === 'number' ? value.toLocaleString() : sanitizeString(String(value))
       case 'select': {
         // Look up display label for select values
         const selectLabels = SELECT_LABELS[key]
         if (selectLabels && typeof value === 'string') {
-          return selectLabels[value] || value
+          return selectLabels[value] || sanitizeString(value)
         }
         // Check filing status
         if (key === 'filingStatus' && typeof value === 'string') {
-          return FILING_STATUS_LABELS[value as keyof typeof FILING_STATUS_LABELS] || value
+          return FILING_STATUS_LABELS[value as keyof typeof FILING_STATUS_LABELS] || sanitizeString(value)
         }
-        return String(value)
+        return sanitizeString(String(value))
       }
       default:
-        return String(value)
+        return typeof value === 'string' ? sanitizeString(value) : String(value)
     }
   }
 
@@ -166,7 +173,10 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
       const config = FIELD_CONFIG[key]
       if (!config) continue
 
-      const formattedValue = formatValue(key, value, config.format)
+      // Skip complex types (arrays, objects) that aren't simple display values
+      if (typeof value === 'object' && value !== null) continue
+
+      const formattedValue = formatValue(key, value as boolean | number | string | undefined, config.format)
       if (!sections[config.section]) {
         sections[config.section] = []
       }

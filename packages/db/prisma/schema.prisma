@@ -203,6 +203,15 @@ enum FieldType {
   TEXT
 }
 
+enum MessageTemplateCategory {
+  WELCOME
+  REMINDER
+  MISSING
+  BLURRY
+  COMPLETE
+  GENERAL
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -652,6 +661,27 @@ model DocTypeLibrary {
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// MESSAGE TEMPLATES
+// ============================================
+
+// Message templates for quick client communication
+model MessageTemplate {
+  id          String                  @id @default(cuid())
+  category    MessageTemplateCategory
+  title       String                  // Short title for list display
+  content     String                  @db.VarChar(2000)  // Template content with placeholders
+  placeholders String[]               // e.g., ["clientName", "docType"]
+  sortOrder   Int                     @default(0)
+  isActive    Boolean                 @default(true)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
   @@index([category])
   @@index([isActive])

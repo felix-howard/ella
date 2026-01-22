@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router'
 import { cn } from '@ella/ui'
-import { MessageSquare, RefreshCw, Bell, BellOff } from 'lucide-react'
+import { MessageSquare, RefreshCw } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
 import { useUIStore } from '../stores/ui-store'
 import { api } from '../lib/api-client'
@@ -23,7 +23,6 @@ function MessagesLayout() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [totalUnread, setTotalUnread] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { sidebarCollapsed } = useUIStore()
@@ -37,7 +36,6 @@ function MessagesLayout() {
 
     try {
       const response = await api.messages.listConversations({
-        unreadOnly: showUnreadOnly,
         limit: 50,
       })
       setConversations(response.conversations)
@@ -50,7 +48,7 @@ function MessagesLayout() {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [showUnreadOnly])
+  }, [])
 
   // Initial fetch
   useEffect(() => {
@@ -92,24 +90,6 @@ function MessagesLayout() {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowUnreadOnly(!showUnreadOnly)}
-              className={cn(
-                'p-2 rounded-lg transition-colors',
-                showUnreadOnly
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}
-              title={showUnreadOnly ? 'Hiện tất cả' : 'Chỉ chưa đọc'}
-              aria-label={showUnreadOnly ? 'Hiện tất cả tin nhắn' : 'Chỉ hiện tin chưa đọc'}
-              aria-pressed={showUnreadOnly}
-            >
-              {showUnreadOnly ? (
-                <Bell className="w-4 h-4" aria-hidden="true" />
-              ) : (
-                <BellOff className="w-4 h-4" aria-hidden="true" />
-              )}
-            </button>
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}

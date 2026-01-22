@@ -35,9 +35,10 @@ Design system inspired by VNEC Wallet's clean, modern, and friendly aesthetic.
 
 | Name | Hex | Usage |
 |------|-----|-------|
-| **Background** | `#F8FAFC` | Page background |
+| **Background** | `#EFF3F8` | Page background (enhanced contrast) |
 | **Card White** | `#FFFFFF` | Card backgrounds, modals |
-| **Border Light** | `#E2E8F0` | Card borders, dividers |
+| **Border Light** | `#CBD5E1` | Card borders, dividers, inputs (darker for contrast) |
+| **Muted** | `#E8F5EE` | Subtle backgrounds, mint tint |
 | **Text Primary** | `#1E293B` | Headings, primary text |
 | **Text Secondary** | `#64748B` | Descriptions, secondary info |
 | **Text Muted** | `#94A3B8` | Placeholders, disabled text |
@@ -107,9 +108,10 @@ Use 4px base unit with consistent multipliers:
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle elevation |
-| `md` | `0 4px 6px -1px rgba(0,0,0,0.1)` | Cards, dropdowns |
-| `lg` | `0 10px 15px -3px rgba(0,0,0,0.1)` | Modals, popovers |
+| `sm` | `0 1px 3px rgba(0,0,0,0.08)` | Subtle elevation |
+| `md` | `0 4px 6px -1px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(16,185,129,0.04)` | Cards, dropdowns (with mint undertone) |
+| `lg` | `0 10px 15px -3px rgba(0,0,0,0.12), 0 4px 6px -2px rgba(16,185,129,0.05)` | Modals, popovers (with mint undertone) |
+| `card` | `0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(16,185,129,0.03)` | Card-specific shadow with subtle mint accent |
 
 ---
 
@@ -133,7 +135,7 @@ box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 ```css
 background: white;
 color: #1E293B;
-border: 1px solid #E2E8F0;
+border: 1px solid #CBD5E1;
 padding: 10px 20px;
 border-radius: 9999px;
 ```
@@ -207,7 +209,7 @@ box-shadow: 0 4px 12px rgba(16,185,129,0.4);
 #### Input Field
 ```css
 background: white;
-border: 1px solid #E2E8F0;
+border: 1px solid #CBD5E1;
 border-radius: 8px;
 padding: 10px 14px;
 font-size: 14px;
@@ -220,7 +222,7 @@ font-size: 14px;
 width: 44px;
 height: 24px;
 border-radius: 12px;
-background: #E2E8F0; /* off */
+background: #CBD5E1; /* off */
 background: #10B981; /* on */
 
 /* Thumb */
@@ -244,7 +246,7 @@ border: 2px solid #10B981;
 #### Action Chip (Clickable)
 ```css
 background: white;
-border: 1px solid #E2E8F0;
+border: 1px solid #CBD5E1;
 border-radius: 9999px;
 padding: 8px 16px;
 font-size: 13px;
@@ -275,7 +277,7 @@ text-transform: uppercase;
 #### Pill Tabs
 ```css
 /* Container */
-background: #F1F5F9;
+background: #E8F5EE;
 border-radius: 9999px;
 padding: 4px;
 
@@ -314,7 +316,7 @@ box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
 #### Circular Progress
 ```css
 stroke: #10B981; /* progress */
-stroke: #E2E8F0; /* track */
+stroke: #CBD5E1; /* track */
 stroke-width: 8px;
 ```
 - Center: Large number + small label
@@ -323,7 +325,7 @@ stroke-width: 8px;
 ```css
 height: 8px;
 border-radius: 4px;
-background: #E2E8F0; /* track */
+background: #CBD5E1; /* track */
 /* Fill: gradient or solid green */
 ```
 
@@ -339,7 +341,7 @@ background: #E2E8F0; /* track */
 
 ```css
 padding: 12px 16px;
-border-bottom: 1px solid #F1F5F9;
+border-bottom: 1px solid #E8F5EE;
 ```
 - Left: Icon in colored circle
 - Center: Title + description
@@ -459,11 +461,11 @@ When implementing dark mode:
 
 | Light Mode | Dark Mode |
 |------------|-----------|
-| `#F8FAFC` (bg) | `#0F172A` |
+| `#EFF3F8` (bg) | `#0F172A` |
 | `#FFFFFF` (card) | `#1E293B` |
 | `#1E293B` (text) | `#F1F5F9` |
 | `#64748B` (secondary) | `#94A3B8` |
-| `#E2E8F0` (border) | `#334155` |
+| `#CBD5E1` (border) | `#334155` |
 
 Primary green (`#10B981`) remains consistent across modes.
 
@@ -503,9 +505,10 @@ Primary green (`#10B981`) remains consistent across modes.
   --color-error-light: #FEE2E2;
   --color-warning: #F59E0B;
 
-  --color-bg: #F8FAFC;
+  --color-bg: #EFF3F8;
   --color-card: #FFFFFF;
-  --color-border: #E2E8F0;
+  --color-muted: #E8F5EE;
+  --color-border: #CBD5E1;
   --color-text: #1E293B;
   --color-text-secondary: #64748B;
   --color-text-muted: #94A3B8;
@@ -526,9 +529,10 @@ Primary green (`#10B981`) remains consistent across modes.
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(16,185,129,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.12), 0 4px 6px -2px rgba(16,185,129,0.05);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(16,185,129,0.03);
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;

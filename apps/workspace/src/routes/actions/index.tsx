@@ -1,6 +1,6 @@
 /**
  * Action Queue Page - Lists all pending actions for staff
- * Features: Filter by type/priority, grouped sections, complete actions
+ * Features: Dashboard overview, quick actions, filter by type/priority, completed history
  */
 
 import { createFileRoute, useSearch, Link } from '@tanstack/react-router'
@@ -12,9 +12,19 @@ import {
   CheckSquare,
   SortAsc,
   RefreshCw,
-  Inbox,
   Loader2,
   AlertCircle,
+  FileCheck,
+  AlertTriangle,
+  ImageOff,
+  Clock,
+  MessageCircle,
+  Users,
+  TrendingUp,
+  CheckCircle,
+  ArrowRight,
+  History,
+  BarChart3,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { toast } from '../../stores/toast-store'
@@ -22,6 +32,7 @@ import {
   UI_TEXT,
   ACTION_TYPE_LABELS,
   ACTION_PRIORITY_LABELS,
+  ACTION_TYPE_COLORS,
 } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 import type { Action, ActionType, ActionPriority } from '../../lib/api-client'
@@ -30,6 +41,7 @@ import type { Action, ActionType, ActionPriority } from '../../lib/api-client'
 type ActionSearchParams = {
   type?: ActionType
   priority?: ActionPriority
+  tab?: 'pending' | 'completed'
 }
 
 export const Route = createFileRoute('/actions/')({
@@ -37,6 +49,7 @@ export const Route = createFileRoute('/actions/')({
   validateSearch: (search: Record<string, unknown>): ActionSearchParams => ({
     type: search.type as ActionType | undefined,
     priority: search.priority as ActionPriority | undefined,
+    tab: (search.tab as 'pending' | 'completed') || 'pending',
   }),
 })
 
@@ -51,12 +64,12 @@ interface ActionsGroupedResponse {
 
 function ActionsPage() {
   const queryClient = useQueryClient()
-  const { type: filterType, priority: filterPriority } = useSearch({
+  const { type: filterType, priority: filterPriority, tab = 'pending' } = useSearch({
     from: '/actions/',
   })
   const { actions: actionsText } = UI_TEXT
 
-  // Fetch actions from API
+  // Fetch pending actions
   const {
     data: actionsData,
     isLoading,
@@ -72,6 +85,19 @@ function ActionsPage() {
         priority: filterPriority,
         isCompleted: false,
       }) as Promise<ActionsGroupedResponse>,
+  })
+
+  // Fetch completed actions for history tab
+  const {
+    data: completedData,
+    isLoading: isLoadingCompleted,
+  } = useQuery({
+    queryKey: ['actions', 'completed'],
+    queryFn: () =>
+      api.actions.list({
+        isCompleted: true,
+      }) as Promise<ActionsGroupedResponse>,
+    enabled: tab === 'completed',
   })
 
   // Complete action mutation
@@ -91,6 +117,10 @@ function ActionsPage() {
     ? [...actionsData.urgent, ...actionsData.high, ...actionsData.normal, ...actionsData.low]
     : []
 
+  const allCompletedActions: Action[] = completedData
+    ? [...completedData.urgent, ...completedData.high, ...completedData.normal, ...completedData.low]
+    : []
+
   // Group by priority
   const groupedActions = groupActionsByPriority(allActions)
 
@@ -101,6 +131,8 @@ function ActionsPage() {
   const handleRefresh = () => {
     refetch()
   }
+
+  const stats = actionsData?.stats || { total: 0, urgent: 0, high: 0, normal: 0, low: 0 }
 
   return (
     <PageContainer>
@@ -115,7 +147,7 @@ function ActionsPage() {
               {actionsText.title}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {actionsData?.stats?.total || 0} {actionsText.pendingCount}
+              {stats.total} {actionsText.pendingCount}
             </p>
           </div>
         </div>
@@ -130,56 +162,319 @@ function ActionsPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <ActionFilters
-        selectedType={filterType}
-        selectedPriority={filterPriority}
-      />
+      {/* Dashboard Stats - Always visible */}
+      <ActionsDashboard stats={stats} isLoading={isLoading} />
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-          <p className="text-muted-foreground">Đang tải công việc...</p>
-        </div>
+      {/* Quick Actions - Always visible */}
+      <QuickActionsPanel stats={stats} />
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 mb-6">
+        <Link
+          to="/actions"
+          search={{ tab: 'pending' }}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            tab === 'pending'
+              ? 'bg-primary text-white'
+              : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary'
+          )}
+        >
+          <CheckSquare className="w-4 h-4" />
+          Đang chờ ({stats.total})
+        </Link>
+        <Link
+          to="/actions"
+          search={{ tab: 'completed' }}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            tab === 'completed'
+              ? 'bg-primary text-white'
+              : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary'
+          )}
+        >
+          <History className="w-4 h-4" />
+          Đã hoàn thành
+        </Link>
+      </div>
+
+      {/* Filters - Only for pending tab */}
+      {tab === 'pending' && (
+        <ActionFilters
+          selectedType={filterType}
+          selectedPriority={filterPriority}
+        />
       )}
 
-      {/* Error state */}
-      {isError && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
-          </p>
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Thử lại
-          </button>
-        </div>
-      )}
+      {/* Content based on tab */}
+      {tab === 'pending' ? (
+        <>
+          {/* Loading state */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+              <p className="text-muted-foreground">Đang tải công việc...</p>
+            </div>
+          )}
 
-      {/* Action List */}
-      {!isLoading && !isError && (
-        allActions.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-6">
-            {groupedActions.map(({ priority, actions }) => (
-              <ActionGroup
-                key={priority}
-                priority={priority}
-                actions={actions}
-                onComplete={handleComplete}
-              />
-            ))}
-          </div>
-        )
+          {/* Error state */}
+          {isError && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Thử lại
+              </button>
+            </div>
+          )}
+
+          {/* Action List */}
+          {!isLoading && !isError && (
+            allActions.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="space-y-6">
+                {groupedActions.map(({ priority, actions }) => (
+                  <ActionGroup
+                    key={priority}
+                    priority={priority}
+                    actions={actions}
+                    onComplete={handleComplete}
+                  />
+                ))}
+              </div>
+            )
+          )}
+        </>
+      ) : (
+        <CompletedActionsHistory
+          actions={allCompletedActions}
+          isLoading={isLoadingCompleted}
+        />
       )}
     </PageContainer>
+  )
+}
+
+// Dashboard stats component
+interface ActionsDashboardProps {
+  stats: { total: number; urgent: number; high: number; normal: number; low: number }
+  isLoading: boolean
+}
+
+function ActionsDashboard({ stats, isLoading }: ActionsDashboardProps) {
+  const statCards = [
+    {
+      label: 'Tổng việc chờ',
+      value: stats.total,
+      icon: BarChart3,
+      color: 'text-primary',
+      bg: 'bg-primary-light',
+    },
+    {
+      label: 'Khẩn cấp',
+      value: stats.urgent,
+      icon: AlertTriangle,
+      color: 'text-error',
+      bg: 'bg-error-light',
+    },
+    {
+      label: 'Ưu tiên cao',
+      value: stats.high,
+      icon: TrendingUp,
+      color: 'text-accent',
+      bg: 'bg-accent-light',
+    },
+    {
+      label: 'Bình thường',
+      value: stats.normal + stats.low,
+      icon: Clock,
+      color: 'text-muted-foreground',
+      bg: 'bg-muted',
+    },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {statCards.map((stat) => (
+        <div
+          key={stat.label}
+          className="bg-card rounded-xl border border-border p-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', stat.bg)}>
+              <stat.icon className={cn('w-5 h-5', stat.color)} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">
+                {isLoading ? '-' : stat.value}
+              </p>
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Quick actions panel
+interface QuickActionsPanelProps {
+  stats: { total: number; urgent: number; high: number; normal: number; low: number }
+}
+
+function QuickActionsPanel({ stats: _stats }: QuickActionsPanelProps) {
+  const quickActions = [
+    {
+      label: 'Xác minh tài liệu',
+      description: 'Tài liệu cần duyệt',
+      href: '/actions?type=VERIFY_DOCS',
+      icon: FileCheck,
+      color: 'text-primary',
+      bg: 'bg-primary-light',
+    },
+    {
+      label: 'AI lỗi nhận diện',
+      description: 'Phân loại thủ công',
+      href: '/actions?type=AI_FAILED',
+      icon: AlertTriangle,
+      color: 'text-error',
+      bg: 'bg-error-light',
+    },
+    {
+      label: 'Ảnh bị mờ',
+      description: 'Yêu cầu chụp lại',
+      href: '/actions?type=BLURRY_DETECTED',
+      icon: ImageOff,
+      color: 'text-warning',
+      bg: 'bg-warning-light',
+    },
+    {
+      label: 'Khách trả lời',
+      description: 'Tin nhắn mới',
+      href: '/actions?type=CLIENT_REPLIED',
+      icon: MessageCircle,
+      color: 'text-success',
+      bg: 'bg-success/10',
+    },
+  ]
+
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 mb-6">
+      <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+        <CheckCircle className="w-4 h-4 text-primary" />
+        Thao tác nhanh
+      </h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {quickActions.map((action) => (
+          <Link
+            key={action.href}
+            to={action.href as '/'}
+            className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-muted/50 transition-all group"
+          >
+            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', action.bg)}>
+              <action.icon className={cn('w-4 h-4', action.color)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{action.label}</p>
+              <p className="text-xs text-muted-foreground truncate">{action.description}</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Completed actions history
+interface CompletedActionsHistoryProps {
+  actions: Action[]
+  isLoading: boolean
+}
+
+function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistoryProps) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+        <p className="text-muted-foreground">Đang tải lịch sử...</p>
+      </div>
+    )
+  }
+
+  if (actions.length === 0) {
+    return (
+      <div className="bg-card rounded-xl border border-border p-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+          <History className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium text-foreground mb-2">
+          Chưa có lịch sử
+        </h3>
+        <p className="text-muted-foreground">
+          Công việc đã hoàn thành sẽ xuất hiện ở đây
+        </p>
+      </div>
+    )
+  }
+
+  // Sort by completion time (most recent first) - using createdAt as proxy
+  const sortedActions = [...actions].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+
+  return (
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="px-4 py-3 border-b border-border bg-muted/30">
+        <h3 className="text-sm font-medium text-foreground">
+          Đã hoàn thành ({actions.length})
+        </h3>
+      </div>
+      <div className="divide-y divide-border">
+        {sortedActions.slice(0, 20).map((action) => (
+          <CompletedActionItem key={action.id} action={action} />
+        ))}
+      </div>
+      {actions.length > 20 && (
+        <div className="px-4 py-3 bg-muted/30 text-center">
+          <p className="text-sm text-muted-foreground">
+            Hiển thị 20 / {actions.length} công việc
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CompletedActionItem({ action }: { action: Action }) {
+  const typeConfig = ACTION_TYPE_COLORS[action.type] || { bg: 'bg-muted', text: 'text-muted-foreground' }
+  const typeLabel = ACTION_TYPE_LABELS[action.type] || action.type
+
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
+      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', typeConfig.bg)}>
+        <CheckCircle className={cn('w-4 h-4', typeConfig.text)} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{action.title}</p>
+        <p className="text-xs text-muted-foreground">
+          {typeLabel} • {action.taxCase?.client?.name || 'Không rõ'}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-xs text-muted-foreground">
+          {formatRelativeTime(action.createdAt)}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -302,15 +597,22 @@ function EmptyState() {
 
   return (
     <div className="bg-card rounded-xl border border-border p-12 text-center">
-      <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-        <Inbox className="w-8 h-8 text-muted-foreground" />
+      <div className="w-16 h-16 rounded-full bg-success/10 mx-auto mb-4 flex items-center justify-center">
+        <CheckCircle className="w-8 h-8 text-success" />
       </div>
       <h3 className="text-lg font-medium text-foreground mb-2">
         {actionsText.noActions}
       </h3>
-      <p className="text-muted-foreground">
+      <p className="text-muted-foreground mb-4">
         {actionsText.allDone}
       </p>
+      <Link
+        to="/clients"
+        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+      >
+        <Users className="w-4 h-4" />
+        Xem danh sách khách hàng
+      </Link>
     </div>
   )
 }
@@ -339,4 +641,20 @@ function groupActionsByPriority(
       priority,
       actions: grouped.get(priority) || [],
     }))
+}
+
+// Helper to format relative time
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return 'Vừa xong'
+  if (diffMins < 60) return `${diffMins} phút trước`
+  if (diffHours < 24) return `${diffHours} giờ trước`
+  if (diffDays < 7) return `${diffDays} ngày trước`
+  return date.toLocaleDateString('vi-VN')
 }

@@ -21,13 +21,13 @@
   --color-warning-light: #FEF3C7;
 
   /* Neutral Colors */
-  --color-background: #F8FAFC;
+  --color-background: #EFF3F8;
   --color-foreground: #1E293B;
   --color-card: #ffffff;
   --color-card-foreground: #1E293B;
   --color-popover: #ffffff;
   --color-popover-foreground: #1E293B;
-  --color-muted: #F1F5F9;
+  --color-muted: #E8F5EE;
   --color-muted-foreground: #64748B;
   --color-secondary: #64748B;
   --color-secondary-foreground: #ffffff;
@@ -35,8 +35,8 @@
   --color-destructive-foreground: #ffffff;
 
   /* Borders & Inputs */
-  --color-border: #E2E8F0;
-  --color-input: #E2E8F0;
+  --color-border: #CBD5E1;
+  --color-input: #CBD5E1;
   --color-ring: #10B981;
 
   /* Typography - Quicksand Bold */
@@ -50,9 +50,10 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(16, 185, 129, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(16, 185, 129, 0.05);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(16, 185, 129, 0.03);
 
   /* Sidebar */
   --sidebar-width: 240px;

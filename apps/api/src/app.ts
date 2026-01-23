@@ -37,6 +37,7 @@ app.use('*', clerkMiddleware())
 
 // Public routes (no auth required)
 app.route('/health', healthRoute)
+app.route('/api/health', healthRoute) // Alias for Railway health check
 app.route('/portal', portalRoute)
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/api/inngest', inngestRoute)

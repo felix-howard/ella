@@ -446,7 +446,7 @@ function ChecklistItemRow({
               <DocumentThumbnail
                 key={doc.id}
                 doc={doc}
-                onDoubleClick={() => onDocVerify?.(doc)}
+                onClick={() => onDocVerify?.(doc)}
               />
             ))}
           </div>
@@ -490,14 +490,14 @@ function ChecklistItemRow({
 
 /**
  * DocumentThumbnail - Thumbnail preview of a document with filename
- * Double-click to open verification modal
+ * Click to open verification modal
  */
 interface DocumentThumbnailProps {
   doc: DigitalDoc
-  onDoubleClick: () => void
+  onClick: () => void
 }
 
-function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
+function DocumentThumbnail({ doc, onClick }: DocumentThumbnailProps) {
   const [imgError, setImgError] = useState(false)
   // Get signed URL for the raw image
   const rawImageId = doc.rawImageId || doc.rawImage?.id
@@ -517,8 +517,8 @@ function DocumentThumbnail({ doc, onDoubleClick }: DocumentThumbnailProps) {
         'bg-background w-28',
         getDocStatusBorderStyle(doc.status)
       )}
-      onDoubleClick={onDoubleClick}
-      title={`Nhấp đúp để xem: ${filename}`}
+      onClick={onClick}
+      title={`Nhấp để xem: ${filename}`}
     >
       {/* Preview - handles both images and PDFs */}
       <div className="w-24 h-24 rounded overflow-hidden bg-muted/30 flex items-center justify-center relative">

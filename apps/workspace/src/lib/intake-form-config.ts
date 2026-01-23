@@ -250,18 +250,20 @@ export const FIELD_CONFIG: Record<string, FieldConfigItem> = {
   hasK1Income: { label: 'Có K-1 Income', section: 'income', format: 'boolean' },
   k1Count: { label: 'Số K-1', section: 'income', format: 'number' },
 
-  // Home Sale
-  homeSaleGrossProceeds: { label: 'Tiền bán nhà (Gross)', section: 'income', format: 'currency' },
-  homeSaleGain: { label: 'Lợi nhuận bán nhà', section: 'income', format: 'currency' },
-  monthsLivedInHome: { label: 'Số tháng sống trong nhà', section: 'income', format: 'number' },
-  homeOfficeSqFt: { label: 'Diện tích Home Office (sqft)', section: 'income', format: 'number' },
+  // Home Sale (life_changes section - shown when hasBoughtSoldHome is true)
+  homeSaleGrossProceeds: { label: 'Tiền bán nhà (Gross)', section: 'life_changes', format: 'currency' },
+  homeSaleGain: { label: 'Lợi nhuận bán nhà', section: 'life_changes', format: 'currency' },
+  monthsLivedInHome: { label: 'Số tháng sống trong nhà', section: 'life_changes', format: 'number' },
+
+  // Home Office (business section - shown when hasHomeOffice is true)
+  homeOfficeSqFt: { label: 'Diện tích Home Office (sqft)', section: 'business', format: 'number' },
   homeOfficeMethod: {
     label: 'Phương pháp Home Office',
-    section: 'income',
+    section: 'business',
     format: 'select',
     options: [
-      { value: 'SIMPLIFIED', label: 'Simplified' },
-      { value: 'REGULAR', label: 'Regular' },
+      { value: 'SIMPLIFIED', label: 'Simplified ($5/sq ft, max 300)' },
+      { value: 'REGULAR', label: 'Regular (actual expenses)' },
     ]
   },
 

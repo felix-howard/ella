@@ -1,17 +1,21 @@
 /**
  * Floating Chatbox - Facebook Messenger-style popup chat window
  * Positioned fixed at bottom-right, reuses existing messaging components
+ * Includes voice calling integration via Twilio SDK
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
 import { ChatboxButton } from './chatbox-button'
 import { ChatboxHeader } from './chatbox-header'
 import { MessageThread } from '../messaging/message-thread'
 import { QuickActionsBar } from '../messaging/quick-actions-bar'
+import { ActiveCallModal } from '../messaging/active-call-modal'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
+import { useVoiceCall } from '../../hooks/use-voice-call'
+import { formatPhone } from '../../lib/formatters'
 
 // Constants for configuration
 const POLLING_INTERVAL_MS = 15000 // 15 seconds - balanced between real-time and performance
@@ -35,6 +39,10 @@ export function FloatingChatbox({
 }: FloatingChatboxProps) {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
+
+  // Voice call state
+  const [voiceState, voiceActions] = useVoiceCall()
+  const [showCallModal, setShowCallModal] = useState(false)
 
   // Fetch messages using consistent query key with full messages page
   const {
@@ -70,6 +78,23 @@ export function FloatingChatbox({
   // Handle open/close - simplified without minimize state
   const handleToggle = () => setIsOpen(!isOpen)
   const handleClose = () => setIsOpen(false)
+
+  // Handle call button click - uses Twilio voice calling
+  const handleCallClick = useCallback(() => {
+    if (clientPhone) {
+      setShowCallModal(true)
+      voiceActions.initiateCall(clientPhone, caseId)
+    }
+  }, [clientPhone, caseId, voiceActions])
+
+  // Auto-close call modal when call ends
+  useEffect(() => {
+    if (voiceState.callState === 'idle' && showCallModal) {
+      // Delay close to show completion state
+      const timer = setTimeout(() => setShowCallModal(false), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [voiceState.callState, showCallModal])
 
   // When chatbox opens, trigger unread count refresh
   useEffect(() => {
@@ -107,7 +132,7 @@ export function FloatingChatbox({
             clientName={clientName}
             clientPhone={clientPhone}
             onClose={handleClose}
-            onCall={clientPhone ? () => window.open(`tel:${clientPhone}`) : undefined}
+            onCall={clientPhone && voiceState.isAvailable ? handleCallClick : undefined}
           />
 
           {/* Message thread */}
@@ -136,6 +161,22 @@ export function FloatingChatbox({
         onClick={handleToggle}
         className="relative"
       />
+
+      {/* Active Call Modal */}
+      {showCallModal && clientPhone && (
+        <ActiveCallModal
+          isOpen={showCallModal}
+          callState={voiceState.callState}
+          isMuted={voiceState.isMuted}
+          duration={voiceState.duration}
+          clientName={clientName}
+          clientPhone={formatPhone(clientPhone)}
+          error={voiceState.error}
+          onEndCall={voiceActions.endCall}
+          onToggleMute={voiceActions.toggleMute}
+          onClose={() => setShowCallModal(false)}
+        />
+      )}
     </div>
   )
 }

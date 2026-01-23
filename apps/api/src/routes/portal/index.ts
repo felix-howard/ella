@@ -182,9 +182,24 @@ portalRoute.post('/:token/upload', async (c) => {
     }
   }
 
-  // Send all Inngest events in batch for efficiency
+  // Send Inngest events (non-blocking to prevent upload failure if Inngest unavailable)
   if (inngestEvents.length > 0) {
-    await inngest.send(inngestEvents)
+    inngest.send(inngestEvents).catch((err) => {
+      console.error('[Portal] Failed to queue AI processing:', err.message)
+      // Create manual review action as fallback
+      prisma.action
+        .create({
+          data: {
+            caseId,
+            type: 'VERIFY_DOCS',
+            priority: 'NORMAL',
+            title: 'Tài liệu cần phân loại',
+            description: `${createdImages.length} file được tải lên - cần phân loại thủ công`,
+            metadata: { rawImageIds: createdImages.map((img) => img.id) },
+          },
+        })
+        .catch(console.error)
+    })
   }
 
   // Update case activity timestamp (client uploaded documents)

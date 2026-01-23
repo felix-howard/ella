@@ -45,8 +45,9 @@ export type Events = {
 
 /**
  * Inngest client singleton
- * All background jobs should use this instance
+ * Event key required to send events to Inngest cloud
  */
 export const inngest = new Inngest({
   id: 'ella',
+  eventKey: process.env.INNGEST_EVENT_KEY,
 })

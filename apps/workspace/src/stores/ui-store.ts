@@ -8,7 +8,6 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 
 // View mode types
-export type ClientViewMode = 'kanban' | 'list'
 export type Theme = 'light' | 'dark'
 
 // Helper to apply theme class to document
@@ -32,10 +31,6 @@ interface UIState {
   sidebarCollapsed: boolean
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
-
-  // Client list view
-  clientViewMode: ClientViewMode
-  setClientViewMode: (mode: ClientViewMode) => void
 
   // Search
   globalSearch: string
@@ -67,10 +62,6 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
-      // Client view - default kanban
-      clientViewMode: 'kanban',
-      setClientViewMode: (mode) => set({ clientViewMode: mode }),
-
       // Search
       globalSearch: '',
       setGlobalSearch: (search) => set({ globalSearch: search }),
@@ -85,7 +76,6 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
-        clientViewMode: state.clientViewMode,
       }),
       onRehydrateStorage: () => (state) => {
         // Apply theme on rehydration (page load)
@@ -105,12 +95,6 @@ export const useSidebarState = () =>
     collapsed: state.sidebarCollapsed,
     toggle: state.toggleSidebar,
     setCollapsed: state.setSidebarCollapsed,
-  })))
-
-export const useClientViewState = () =>
-  useUIStore(useShallow((state) => ({
-    viewMode: state.clientViewMode,
-    setViewMode: state.setClientViewMode,
   })))
 
 export const useGlobalSearch = () =>

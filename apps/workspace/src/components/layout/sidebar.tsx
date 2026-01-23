@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useClerk, useUser } from '@clerk/clerk-react'
 import {
   LayoutDashboard,
-  CheckSquare,
   Users,
   MessageSquare,
   Settings,
@@ -25,12 +24,12 @@ import { api } from '../../lib/api-client'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
 
 // Navigation items with icons mapped from constants
+// NAV_ITEMS: [0]='/', [1]='/clients', [2]='/messages', [3]='/settings'
 const navItemsWithIcons = [
   { path: '/', label: NAV_ITEMS[0].label, icon: LayoutDashboard },
-  { path: '/actions', label: NAV_ITEMS[1].label, icon: CheckSquare },
-  { path: '/clients', label: NAV_ITEMS[2].label, icon: Users },
-  { path: '/messages', label: NAV_ITEMS[3].label, icon: MessageSquare },
-  { path: '/settings', label: NAV_ITEMS[4].label, icon: Settings },
+  { path: '/clients', label: NAV_ITEMS[1].label, icon: Users },
+  { path: '/messages', label: NAV_ITEMS[2].label, icon: MessageSquare },
+  { path: '/settings', label: NAV_ITEMS[3].label, icon: Settings },
 ] as const
 
 export function Sidebar() {

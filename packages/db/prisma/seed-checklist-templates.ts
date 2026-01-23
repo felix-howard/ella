@@ -712,22 +712,6 @@ const form1040Templates: ChecklistTemplateSeed[] = [
     expectedCount: 1,
     sortOrder: 93,
   },
-
-  // ============================================
-  // CATEGORY: OTHER (Always included - catch-all for unmatched docs)
-  // ============================================
-  {
-    taxType: TaxType.FORM_1040,
-    docType: DocType.OTHER,
-    labelVi: 'Tài liệu khác',
-    labelEn: 'Other Documents',
-    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
-    descriptionEn: 'Documents that do not belong to categories above',
-    isRequired: true, // Always included
-    category: 'other',
-    expectedCount: 10, // Flexible count
-    sortOrder: 999, // Always at bottom
-  },
 ]
 
 // ============================================
@@ -950,20 +934,6 @@ const form1120STemplates: ChecklistTemplateSeed[] = [
     expectedCount: 1,
     sortOrder: 61,
   },
-
-  // Category: Other (Always included - catch-all)
-  {
-    taxType: TaxType.FORM_1120S,
-    docType: DocType.OTHER,
-    labelVi: 'Tài liệu khác',
-    labelEn: 'Other Documents',
-    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
-    descriptionEn: 'Documents that do not belong to categories above',
-    isRequired: true,
-    category: 'other',
-    expectedCount: 10,
-    sortOrder: 999,
-  },
 ]
 
 // ============================================
@@ -1175,20 +1145,6 @@ const form1065Templates: ChecklistTemplateSeed[] = [
     category: 'assets',
     expectedCount: 1,
     sortOrder: 61,
-  },
-
-  // Category: Other (Always included - catch-all)
-  {
-    taxType: TaxType.FORM_1065,
-    docType: DocType.OTHER,
-    labelVi: 'Tài liệu khác',
-    labelEn: 'Other Documents',
-    descriptionVi: 'Các tài liệu không thuộc danh mục trên',
-    descriptionEn: 'Documents that do not belong to categories above',
-    isRequired: true,
-    category: 'other',
-    expectedCount: 10,
-    sortOrder: 999,
   },
 ]
 

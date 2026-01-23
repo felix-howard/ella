@@ -6,11 +6,10 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, LayoutGrid, List, RefreshCw, Filter, AlertCircle, Loader2, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, RefreshCw, Filter, AlertCircle, Loader2, ArrowUpDown } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { KanbanBoard, ClientListTable } from '../../components/clients'
-import { useClientViewState } from '../../stores/ui-store'
+import { ClientListTable } from '../../components/clients'
 import { useDebouncedValue } from '../../hooks'
 import { CASE_STATUS_LABELS, UI_TEXT, CLIENT_SORT_OPTIONS, type ClientSortOption } from '../../lib/constants'
 import { api, type TaxCaseStatus } from '../../lib/api-client'
@@ -20,7 +19,6 @@ export const Route = createFileRoute('/clients/')({
 })
 
 function ClientListPage() {
-  const { viewMode, setViewMode } = useClientViewState()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<ClientSortOption>('activity')
@@ -143,51 +141,13 @@ function ClientListPage() {
           >
             <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefetching && 'animate-spin')} />
           </button>
-
-          {/* View Toggle */}
-          <div className="flex items-center bg-muted/50 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                viewMode === 'kanban'
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label={clientsText.viewKanban}
-              aria-pressed={viewMode === 'kanban'}
-            >
-              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Kanban</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                viewMode === 'list'
-                  ? 'bg-primary text-white'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label={clientsText.viewList}
-              aria-pressed={viewMode === 'list'}
-            >
-              <List className="w-4 h-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Danh sách</span>
-            </button>
-          </div>
         </div>
       </div>
 
       {/* Content */}
       {isLoading ? (
-        // Loading skeleton
-        viewMode === 'kanban' ? (
-          <KanbanBoard clients={[]} isLoading />
-        ) : (
-          <ClientListTable clients={[]} isLoading />
-        )
+        <ClientListTable clients={[]} isLoading />
       ) : isError ? (
-        // Error state
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách khách hàng</h3>
@@ -202,8 +162,6 @@ function ClientListPage() {
             Thử lại
           </button>
         </div>
-      ) : viewMode === 'kanban' ? (
-        <KanbanBoard clients={clients} />
       ) : (
         <ClientListTable clients={clients} />
       )}

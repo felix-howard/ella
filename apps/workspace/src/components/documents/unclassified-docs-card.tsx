@@ -25,23 +25,19 @@ function isPdfFile(filename: string): boolean {
 
 /**
  * Card displaying unclassified documents in a grid layout
+ * Includes: UPLOADED, UNCLASSIFIED, and CLASSIFIED docs without checklist item
  * Returns null when no unclassified docs exist (hides card entirely)
  */
 export function UnclassifiedDocsCard({ rawImages, onClassify }: UnclassifiedDocsCardProps) {
-  // Filter to UPLOADED or UNCLASSIFIED status (AI failed)
+  // Filter to pending classification: UPLOADED, UNCLASSIFIED, or CLASSIFIED but not linked
   const unclassified = rawImages.filter((img) =>
-    ['UPLOADED', 'UNCLASSIFIED'].includes(img.status)
+    ['UPLOADED', 'UNCLASSIFIED'].includes(img.status) ||
+    (img.status === 'CLASSIFIED' && !img.checklistItem)
   )
 
-  // Show empty state when no unclassified docs
+  // Hide card entirely when no unclassified docs
   if (unclassified.length === 0) {
-    return (
-      <div className="bg-card rounded-xl border p-4">
-        <div className="text-center py-6 text-muted-foreground text-sm">
-          Không có tài liệu chờ phân loại
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (

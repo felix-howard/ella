@@ -1,6 +1,7 @@
 /**
  * Twilio Webhook Handler
  * Processes incoming SMS messages from clients
+ * Supports both known clients and unknown callers (creates placeholder conversation)
  */
 import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
@@ -8,6 +9,11 @@ import type { MessageChannel, MessageDirection, ActionType } from '@ella/db'
 import crypto from 'crypto'
 import { processMmsMedia } from './mms-media-handler'
 import { updateLastActivity } from '../activity-tracker'
+import {
+  isValidE164Phone,
+  createPlaceholderConversation,
+  sanitizePhone,
+} from '../voice/voicemail-helpers'
 
 export interface TwilioIncomingMessage {
   MessageSid: string
@@ -45,6 +51,7 @@ export interface ProcessIncomingResult {
   caseId?: string
   actionCreated?: boolean
   error?: string
+  isUnknownCaller?: boolean // True if message is from a number not in our client list
 }
 
 export interface SignatureValidationResult {
@@ -170,31 +177,60 @@ export async function processIncomingMessage(
     },
   })
 
-  if (!client) {
-    console.log(`[Webhook] No client found for phone: ${fromPhone}`)
-    return { success: false, error: 'CLIENT_NOT_FOUND' }
-  }
+  // Track whether this is an unknown caller (new number not in our system)
+  let isUnknownCaller = false
+  let caseId: string
+  let conversationId: string
 
-  const latestCase = client.taxCases[0]
-  if (!latestCase) {
-    console.log(`[Webhook] Client ${client.id} has no tax cases`)
-    return { success: false, error: 'NO_TAX_CASE' }
+  if (!client) {
+    // UNKNOWN CALLER: Create placeholder conversation for new number
+    console.log(`[Webhook] Unknown caller: ${fromPhone}, creating placeholder conversation`)
+
+    // Validate phone format for E.164 storage
+    if (!isValidE164Phone(fromPhone)) {
+      console.warn(`[Webhook] Invalid phone format from unknown caller: ${fromPhone}`)
+      return { success: false, error: 'INVALID_PHONE_FORMAT' }
+    }
+
+    isUnknownCaller = true
+
+    // Create placeholder client + tax case + conversation (atomic transaction)
+    const placeholderConversation = await createPlaceholderConversation(fromPhone)
+    conversationId = placeholderConversation.id
+
+    // Get the case ID from the conversation
+    const conversationWithCase = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { caseId: true },
+    })
+    caseId = conversationWithCase!.caseId
+  } else {
+    // KNOWN CLIENT: Use existing client's latest case
+    const latestCase = client.taxCases[0]
+    if (!latestCase) {
+      console.log(`[Webhook] Client ${client.id} has no tax cases`)
+      return { success: false, error: 'NO_TAX_CASE' }
+    }
+
+    caseId = latestCase.id
+
+    // Get or create conversation
+    const conversation = await prisma.conversation.upsert({
+      where: { caseId: latestCase.id },
+      update: {},
+      create: { caseId: latestCase.id },
+    })
+    conversationId = conversation.id
   }
 
   // Process MMS media (download from Twilio, upload to R2, create RawImage)
-  const mmsResult = await processMmsMedia(incomingMsg, latestCase.id)
-
-  // Get or create conversation
-  const conversation = await prisma.conversation.upsert({
-    where: { caseId: latestCase.id },
-    update: {},
-    create: { caseId: latestCase.id },
-  })
+  // Note: For unknown callers, media will be attached to their placeholder case
+  const mmsResult = await processMmsMedia(incomingMsg, caseId)
 
   // Create message record (with attachments if media present)
   const message = await prisma.message.create({
     data: {
-      conversationId: conversation.id,
+      conversationId,
       channel: 'SMS' as MessageChannel,
       direction: 'INBOUND' as MessageDirection,
       content,
@@ -206,7 +242,7 @@ export async function processIncomingMessage(
 
   // Update conversation with new message timestamp and unread count
   await prisma.conversation.update({
-    where: { id: conversation.id },
+    where: { id: conversationId },
     data: {
       lastMessageAt: new Date(),
       unreadCount: { increment: 1 },
@@ -214,33 +250,53 @@ export async function processIncomingMessage(
   })
 
   // Update case activity timestamp for computed status system
-  await updateLastActivity(latestCase.id)
+  await updateLastActivity(caseId)
 
   // Create action for staff to review
   // Escape user content to prevent XSS when displaying in admin dashboard
   const mediaCount = mmsResult.attachmentUrls.length
   const escapedContent = escapeXml(content)
-  const actionTitle = mediaCount > 0
-    ? content
-      ? `Khách hàng gửi: ${escapedContent.substring(0, 40)}${escapedContent.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
-      : `Khách hàng gửi ${mediaCount} ảnh`
-    : `Khách hàng trả lời: ${escapedContent.substring(0, 50)}${escapedContent.length > 50 ? '...' : ''}`
+  const safePhone = sanitizePhone(fromPhone)
+
+  // Different action title/type for unknown callers vs known clients
+  let actionTitle: string
+  let actionDescription: string
+  const actionType: ActionType = isUnknownCaller ? 'CLIENT_REPLIED' : 'CLIENT_REPLIED'
+
+  if (isUnknownCaller) {
+    // Unknown caller - highlight it's a NEW number
+    actionTitle = mediaCount > 0
+      ? content
+        ? `Số mới nhắn: ${escapedContent.substring(0, 35)}${escapedContent.length > 35 ? '...' : ''} + ${mediaCount} ảnh`
+        : `Số mới gửi ${mediaCount} ảnh`
+      : `Số mới nhắn: ${escapedContent.substring(0, 45)}${escapedContent.length > 45 ? '...' : ''}`
+    actionDescription = `Tin nhắn từ số mới: ${safePhone}${mediaCount > 0 ? ` (${mediaCount} file đính kèm)` : ''}`
+  } else {
+    // Known client - existing behavior
+    actionTitle = mediaCount > 0
+      ? content
+        ? `Khách hàng gửi: ${escapedContent.substring(0, 40)}${escapedContent.length > 40 ? '...' : ''} + ${mediaCount} ảnh`
+        : `Khách hàng gửi ${mediaCount} ảnh`
+      : `Khách hàng trả lời: ${escapedContent.substring(0, 50)}${escapedContent.length > 50 ? '...' : ''}`
+    actionDescription = mediaCount > 0
+      ? `MMS từ ${safePhone} với ${mediaCount} file đính kèm`
+      : `Tin nhắn mới từ ${safePhone}`
+  }
 
   const action = await prisma.action.create({
     data: {
-      type: 'CLIENT_REPLIED' as ActionType,
-      priority: 'NORMAL',
-      caseId: latestCase.id,
+      type: actionType,
+      priority: isUnknownCaller ? 'HIGH' : 'NORMAL', // Higher priority for unknown callers
+      caseId,
       title: actionTitle,
-      description: mediaCount > 0
-        ? `MMS từ ${escapeXml(fromPhone)} với ${mediaCount} file đính kèm`
-        : `Tin nhắn mới từ ${escapeXml(fromPhone)}`,
+      description: actionDescription,
       metadata: {
         messageId: message.id,
         preview: escapedContent.substring(0, 100), // Store escaped preview
         fromPhone,
         mediaCount,
         rawImageIds: mmsResult.rawImageIds,
+        isUnknownCaller,
       },
     },
   })
@@ -248,8 +304,9 @@ export async function processIncomingMessage(
   return {
     success: true,
     messageId: message.id,
-    caseId: latestCase.id,
+    caseId,
     actionCreated: Boolean(action),
+    isUnknownCaller,
   }
 }
 

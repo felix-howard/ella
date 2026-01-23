@@ -6,11 +6,12 @@ export default defineConfig({
   dts: true,
   clean: true,
   skipNodeModulesBundle: true,
-  noExternal: ['@ella/db', '@ella/shared'],
-  // Native modules must stay external for platform-specific binaries
+  noExternal: ['@ella/shared'],
+  // Native modules and Prisma must stay external
   external: [
     'sharp',
     '@prisma/client',
     'prisma',
+    '@ella/db', // Contains Prisma generated code with CommonJS requires
   ],
 })

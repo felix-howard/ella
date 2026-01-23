@@ -26,9 +26,10 @@ type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library' | 'm
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'appearance', label: 'Giao diện', icon: <Palette className="w-4 h-4" /> },
-  { id: 'checklist', label: 'Checklist', icon: <ClipboardList className="w-4 h-4" /> },
-  { id: 'questions', label: 'Câu hỏi Intake', icon: <HelpCircle className="w-4 h-4" /> },
-  { id: 'doc-library', label: 'Thư viện tài liệu', icon: <FileText className="w-4 h-4" /> },
+  // Temporarily hidden - uncomment when ready
+  // { id: 'checklist', label: 'Checklist', icon: <ClipboardList className="w-4 h-4" /> },
+  // { id: 'questions', label: 'Câu hỏi Intake', icon: <HelpCircle className="w-4 h-4" /> },
+  // { id: 'doc-library', label: 'Thư viện tài liệu', icon: <FileText className="w-4 h-4" /> },
   { id: 'message-templates', label: 'Mẫu tin nhắn', icon: <MessageSquare className="w-4 h-4" /> },
 ]
 

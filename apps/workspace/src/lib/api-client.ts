@@ -426,9 +426,26 @@ export const api = {
         body: JSON.stringify({ callSid }),
       }),
 
-    // Get recording audio URL (returns full URL for <audio> src)
-    getRecordingAudioUrl: (recordingSid: string) =>
-      `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`,
+    // Fetch recording audio as Blob (requires auth)
+    fetchRecordingAudio: async (recordingSid: string): Promise<Blob> => {
+      const url = `${API_BASE_URL}/voice/recordings/${recordingSid}/audio`
+      const headers: Record<string, string> = {}
+
+      if (getAuthToken) {
+        const token = await getAuthToken()
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+      }
+
+      const response = await fetch(url, { headers })
+
+      if (!response.ok) {
+        throw new ApiError(response.status, 'AUDIO_FETCH_FAILED', 'Failed to fetch recording')
+      }
+
+      return response.blob()
+    },
 
     // Lookup caller info for incoming call UI
     lookupCaller: (phone: string) =>

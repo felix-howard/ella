@@ -31,16 +31,18 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const progressRef = useRef<HTMLDivElement>(null)
 
-  // Load audio on first play (lazy loading)
-  const loadAudio = useCallback(() => {
+  // Load audio on first play (lazy loading with auth)
+  const loadAudio = useCallback(async () => {
     if (audioSrc) return true
 
     try {
-      // Get audio URL from API client (proxied through backend)
-      const url = api.voice.getRecordingAudioUrl(recordingSid)
-      setAudioSrc(url)
+      // Fetch audio with auth and create Blob URL
+      const blob = await api.voice.fetchRecordingAudio(recordingSid)
+      const blobUrl = URL.createObjectURL(blob)
+      setAudioSrc(blobUrl)
       return true
-    } catch {
+    } catch (e) {
+      console.error('[AudioPlayer] Failed to load audio:', e)
       setError('Không thể tải bản ghi')
       return false
     }
@@ -51,7 +53,7 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
     // First play - load audio
     if (!audioSrc) {
       setIsLoading(true)
-      const loaded = loadAudio()
+      const loaded = await loadAudio()
       if (!loaded) {
         setIsLoading(false)
         return
@@ -140,7 +142,6 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
     return () => {
       // Cleanup to prevent memory leaks
       audio.pause()
-      audio.src = ''
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('durationchange', handleDurationChange)
       audio.removeEventListener('play', handlePlay)
@@ -149,6 +150,12 @@ export function AudioPlayer({ recordingSid, duration: knownDuration, className }
       audio.removeEventListener('error', handleError)
       audio.removeEventListener('loadstart', handleLoadStart)
       audio.removeEventListener('canplay', handleCanPlay)
+
+      // Revoke blob URL to free memory
+      if (audioSrc?.startsWith('blob:')) {
+        URL.revokeObjectURL(audioSrc)
+      }
+      audio.src = ''
     }
   }, [audioSrc])
 

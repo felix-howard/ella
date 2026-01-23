@@ -35,15 +35,9 @@ export function UnclassifiedDocsCard({ rawImages, onClassify }: UnclassifiedDocs
     (img.status === 'CLASSIFIED' && !img.checklistItem)
   )
 
-  // Show empty state when no unclassified docs
+  // Hide card entirely when no unclassified docs
   if (unclassified.length === 0) {
-    return (
-      <div className="bg-card rounded-xl border p-4">
-        <div className="text-center py-6 text-muted-foreground text-sm">
-          Không có tài liệu chờ phân loại
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (

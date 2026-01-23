@@ -46,7 +46,17 @@ function ConversationDetailView() {
     try {
       const response = await api.messages.list(caseId)
       // Messages come in desc order from API, reverse for display
-      setMessages(response.messages.reverse())
+      const fetchedMessages = response.messages.reverse()
+
+      // Merge with existing messages to prevent duplicates from optimistic updates
+      // Use a Map to dedupe by ID, preferring fetched messages (they have complete data)
+      setMessages((prev) => {
+        const messageMap = new Map(prev.map((m) => [m.id, m]))
+        fetchedMessages.forEach((m) => messageMap.set(m.id, m))
+        return Array.from(messageMap.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+      })
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to fetch messages:', error)
@@ -120,7 +130,14 @@ function ConversationDetailView() {
           createdAt: new Date().toISOString(),
         }
 
-        setMessages((prev) => [...prev, newMessage])
+        // Use functional update with deduplication to prevent race condition
+        // with polling that may have already fetched this message
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev // Already exists, skip adding
+          }
+          return [...prev, newMessage]
+        })
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Failed to send message:', error)

@@ -192,7 +192,6 @@ export function getConfidenceLevel(confidence: number | null) {
 // Sidebar navigation items
 export const NAV_ITEMS = [
   { path: '/', label: 'Tổng quan', icon: 'LayoutDashboard' },
-  { path: '/actions', label: 'Việc cần làm', icon: 'CheckSquare' },
   { path: '/clients', label: 'Khách hàng', icon: 'Users' },
   { path: '/messages', label: 'Tin nhắn', icon: 'MessageSquare' },
   { path: '/settings', label: 'Cài đặt', icon: 'Settings' },

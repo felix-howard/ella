@@ -1,0 +1,67 @@
+Starting Container
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+linux is NOT supported.
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+linux is NOT supported.
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1
+> @ella/api@0.0.0 start /app/apps/api
+> node dist/index.js
+linux is NOT supported.
+/app/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @ella/api@0.0.0 start: `node dist/index.js`
+Exit status 1

@@ -49,7 +49,7 @@ export async function markImageProcessing(rawImageId: string) {
 /**
  * Link raw image to matching checklist item
  * Priority: 1) Item already linked to this image, 2) Item with existing images, 3) First by sortOrder
- * Fallback: If no matching docType found, link to "OTHER" checklist item
+ * Returns null if no matching checklist item found - document stays in pending classification
  * This prevents duplicate checklist items when multiple taxTypes have same docType (e.g., W2)
  */
 export async function linkToChecklistItem(
@@ -79,7 +79,7 @@ export async function linkToChecklistItem(
   }
 
   // Find all matching checklist items, prefer ones with existing images
-  let checklistItems = await prisma.checklistItem.findMany({
+  const checklistItems = await prisma.checklistItem.findMany({
     where: {
       caseId,
       template: { docType },
@@ -91,24 +91,9 @@ export async function linkToChecklistItem(
     orderBy: { template: { sortOrder: 'asc' } },
   })
 
-  // Fallback to "OTHER" checklist item if no matching docType found
+  // No matching checklist item found - document stays in pending classification
   if (checklistItems.length === 0) {
-    checklistItems = await prisma.checklistItem.findMany({
-      where: {
-        caseId,
-        template: { docType: 'OTHER' },
-      },
-      include: {
-        template: true,
-        _count: { select: { rawImages: true } },
-      },
-      orderBy: { template: { sortOrder: 'asc' } },
-    })
-
-    if (checklistItems.length === 0) {
-      // No "OTHER" checklist item found either
-      return null
-    }
+    return null
   }
 
   // Prefer checklist item that already has images (to group documents together)

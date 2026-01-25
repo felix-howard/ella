@@ -26,6 +26,7 @@ import {
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -266,11 +267,20 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
       include: { profile: true },
     })
 
+    // Find or create engagement for this client + year
+    const { engagementId } = await findOrCreateEngagement(
+      tx,
+      client.id,
+      profile.taxYear,
+      client.profile
+    )
+
     // Create tax case
     const taxCase = await tx.taxCase.create({
       data: {
         clientId: client.id,
         taxYear: profile.taxYear,
+        engagementId,
         taxTypes: profile.taxTypes as TaxType[],
         status: 'INTAKE',
       },

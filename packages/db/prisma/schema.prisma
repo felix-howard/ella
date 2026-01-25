@@ -280,6 +280,9 @@ model Client {
   @@index([name])
 }
 
+/// @deprecated Use TaxEngagement for year-specific profile data.
+/// Will be removed after all clients migrate to engagement-based queries.
+/// Target removal: 2026-Q3 (2 release cycles after migration)
 model ClientProfile {
   id        String  @id @default(cuid())
   clientId  String  @unique
@@ -352,12 +355,14 @@ model TaxEngagement {
 
 model TaxCase {
   id        String        @id @default(cuid())
+
+  // BACKWARD COMPAT: Keep clientId/taxYear for gradual migration (deprecate in Phase 5+)
   clientId  String
   client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  // Nullable FK for backward compatibility - will be required after Phase 3
-  engagementId String?
-  engagement   TaxEngagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  // Required engagement link (Phase 3: made non-nullable)
+  engagementId String
+  engagement   TaxEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
 
   taxYear   Int
   taxTypes  TaxType[]

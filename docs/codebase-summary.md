@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-22
-**Current Branch:** feature/enhance-call
-**Latest Phase:** Phase 04 Frontend Incoming Call UI - Accept/Reject Modal + Presence Tracking + Ring Tone
+**Current Date:** 2026-01-26
+**Current Branch:** feature/multi-tax-year
+**Latest Phase:** Phase 03 Schema Cleanup - Engagement Isolation + Client Profile Deprecation
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3 Schema Cleanup** | **Made engagementId required (NO nullable); Cascade onDelete; Deprecated ClientProfile (reads via engagement); New helper service engagement-helpers.ts; Verification scripts; Route layer uses engagement for all operations** | **2026-01-26** |
 | **Phase 1 Schema Migration** | **TaxEngagement model (year-specific profile); EngagementStatus enum (DRAFT/ACTIVE/COMPLETE/ARCHIVED); Client.engagements relation; TaxCase.engagementId FK (nullable for backward compat); Composite indexes (engagementId, status), (engagementId, lastActivityAt); AuditEntityType.TAX_ENGAGEMENT enum value** | **2026-01-25** |
 | **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
 | **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
@@ -573,7 +574,61 @@ See [phase-02-api-endpoints.md](./phase-02-api-endpoints.md) for full environmen
 
 See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detailed field mappings and verification workflow.
 
-## Phase 1 Schema Migration - Multi-Year Support (NEW - 2026-01-25)
+## Phase 3 Schema Cleanup - Engagement Isolation (NEW - 2026-01-26)
+
+**Location:** `packages/db/prisma/schema.prisma`, `apps/api/src/services/engagement-helpers.ts`, `packages/db/scripts/verify-phase2.ts`, `packages/db/scripts/verify-phase3.ts`
+
+**Summary:** Enforces TaxEngagement model as primary data source; deprecates ClientProfile single-year context.
+
+**Key Changes:**
+
+1. **TaxCase.engagementId Constraint** - NOW REQUIRED (was nullable)
+   - All TaxCases MUST link to TaxEngagement
+   - onDelete: Cascade (deleting engagement cascades to cases)
+   - Prevents orphaned records
+   - DB constraint enforced at schema level
+
+2. **ClientProfile Deprecation** - Marked read-only
+   - Legacy single-year profile maintained for backward compatibility
+   - All new operations use TaxEngagement profile snapshots
+   - Data reads from engagement's year-specific fields (filingStatus, hasW2, etc.)
+   - intakeAnswers now primary in TaxEngagement, not ClientProfile
+
+3. **Engagement Helper Service** (`engagement-helpers.ts` - NEW)
+   - `findOrCreateEngagement(tx, clientId, taxYear, profile?)` - Locates engagement or creates with profile copy
+   - Returns: `{ engagementId, isNew: boolean }`
+   - Used in case creation routes (cases/, clients/, voice/voicemail-helpers)
+   - Ensures all cases linked to engagement atomically
+
+4. **Route Layer Updates** (6 files)
+   - `apps/api/src/routes/cases/index.ts` - POST /cases uses findOrCreateEngagement
+   - `apps/api/src/routes/clients/index.ts` - POST /clients creates engagement + case atomically
+   - `apps/api/src/services/voice/voicemail-helpers.ts` - Placeholder conversation uses engagement
+   - All routes assume engagementId present on TaxCase
+   - No fallback to clientId-only queries
+
+5. **Verification Scripts** (NEW)
+   - `verify-phase2.ts` - Pre-Phase 3 checks: all cases linked, no orphaned engagements
+   - `verify-phase3.ts` - Post-Phase 3 checks: schema constraints satisfied, cascade tested
+   - Run via: `pnpm -F @ella/db run verify:phase2` and `verify:phase3`
+
+**Data Flow Change:**
+
+Old (Phase 1-2):
+```
+TaxCase → (nullable) engagementId → TaxEngagement
+       ↘ (fallback) clientId → ClientProfile
+```
+
+New (Phase 3):
+```
+TaxCase → (required) engagementId → TaxEngagement
+            (profile snapshot with year-specific data)
+```
+
+**Migration Path:** Phase 2 backfill script (`backfill-engagements.ts`) must run before Phase 3 deployment.
+
+## Phase 1 Schema Migration - Multi-Year Support (2026-01-25)
 
 **Location:** `packages/db/prisma/schema.prisma`
 
@@ -1116,9 +1171,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-22
-**Status:** Phase 04 Frontend Incoming Call UI + Phase 03 Voicemail System + Phase 02 Incoming Call Routing + Phase 4 Actionable Status Constants & Labels + Phase 3 Frontend Actionable Status + All prior enhancements
-**Branch:** feature/enhance-call (merging with dev)
-**Architecture Version:** 9.1.0 (Incoming Call UI + Actionable Status merged)
+**Last Updated:** 2026-01-26
+**Status:** Phase 3 Schema Cleanup + Phase 04 Frontend Incoming Call UI + Phase 03 Voicemail System + All enhancements
+**Branch:** feature/multi-tax-year (schema isolation)
+**Architecture Version:** 9.2 (Schema cleanup with required engagementId, cascade delete, deprecated ClientProfile)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

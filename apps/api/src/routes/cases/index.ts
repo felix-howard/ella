@@ -22,6 +22,7 @@ import {
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
+import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
@@ -84,10 +85,19 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
 
   // Create case and conversation in transaction
   const taxCase = await prisma.$transaction(async (tx) => {
+    // Find or create engagement for this client + year
+    const { engagementId } = await findOrCreateEngagement(
+      tx,
+      clientId,
+      taxYear,
+      client.profile
+    )
+
     const newCase = await tx.taxCase.create({
       data: {
         clientId,
         taxYear,
+        engagementId,
         taxTypes: taxTypes as TaxType[],
         status: 'INTAKE',
       },

@@ -453,6 +453,56 @@ See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Pha
   - Vietnamese error messages with sanitization
   - Focus trap modal (prevents page interaction during calls)
 
+**Engagement Helper Service (Phase 3 - NEW):**
+
+**Location:** `apps/api/src/services/engagement-helpers.ts`
+
+**Purpose:** Atomic find-or-create TaxEngagement for case creation workflows.
+
+**Core Function:** `findOrCreateEngagement(tx, clientId, taxYear, profile?)`
+
+- **Input:** Prisma transaction, clientId, taxYear, optional ClientProfile
+- **Output:** `{ engagementId, isNew: boolean }`
+- **Behavior:**
+  - Queries: `TaxEngagement.findUnique({ where: { clientId_taxYear } })`
+  - If exists: Return engagementId, isNew=false
+  - If not: Create with DRAFT status, copy profile fields with null-safety
+  - Profile copy: All fields (filingStatus, hasW2, ein, intakeAnswers, etc.)
+  - Used in: Case creation routes, voice voicemail helpers
+  - Atomic: Runs in Prisma transaction to ensure consistency
+
+**Usage Pattern:**
+```typescript
+const { engagementId, isNew } = await findOrCreateEngagement(
+  tx,
+  clientId,
+  taxYear,
+  clientProfile
+)
+
+const newCase = await tx.taxCase.create({
+  data: {
+    clientId,
+    engagementId,  // REQUIRED in Phase 3
+    taxYear,
+    // ...
+  }
+})
+```
+
+**Verification Scripts (Phase 3):**
+
+1. `verify-phase2.ts` - Pre-Phase 3 gate
+   - Checks: All TaxCases have engagementId (null count = 0)
+   - Checks: No orphaned engagementIds (referential integrity)
+   - Exit: Pass (0) / Fail (1) for CI/CD pipelines
+   - Run: `pnpm -F @ella/db run verify:phase2`
+
+2. `verify-phase3.ts` - Post-Phase 3 validation (if created)
+   - Checks: Schema constraint enforced (engagementId required)
+   - Checks: Cascade delete works (orphan records cleanup)
+   - Run: `pnpm -F @ella/db run verify:phase3`
+
 **Checklist Display Enhancement (Phase 4 - NEW):**
 
 - **Staff Override Capabilities:**
@@ -985,6 +1035,39 @@ Real-time updates via polling:
 - Accessibility: aria-labels, aria-pressed, semantic HTML
 - Vietnamese UI: "Tin nhắn", "Chọn cuộc hội thoại"
 
+### Phase 3 Schema Enforcement Flow
+
+```
+POST /cases (create new case)
+        ↓
+1. Fetch ClientProfile by clientId
+2. Call findOrCreateEngagement(tx, clientId, taxYear, profile)
+   ├─ Check: TaxEngagement exists? (clientId, taxYear composite key)
+   ├─ If yes: Return engagementId, isNew=false
+   ├─ If no: Create DRAFT engagement, copy profile fields
+   └─ Return: { engagementId, isNew=true }
+        ↓
+3. Create TaxCase with REQUIRED engagementId
+   └─ DB constraint enforced at schema level
+        ↓
+4. Generate checklist with engagement profile
+   └─ Uses TaxEngagement.intakeAnswers (not ClientProfile)
+        ↓
+5. Return case with engagementId populated
+        ↓
+[No fallback to clientId-only queries]
+        ↓
+If engagementId missing:
+   └─ DB constraint violation → 500 error (developer bug)
+
+**Benefits Phase 3:**
+- No orphaned TaxCases (all linked to engagement)
+- Cascade delete prevents dangling records
+- Year-specific profile always available
+- Profile snapshot preserved for audit trail
+- Type-safe: engagementId non-nullable everywhere
+```
+
 ### Authentication Flow
 
 ```
@@ -1279,9 +1362,9 @@ Poll Stops (unsubscribe):
 - Client Detail - Route that integrates polling + docs tracking
 ```
 
-## Database Schema (Phase 1 Schema Migration - Complete)
+## Database Schema (Phase 3 Schema Cleanup - Complete)
 
-**Core Models (15 - Phase 1.0 NEW: +1 TaxEngagement model, +1 EngagementStatus enum):**
+**Core Models (15 - Phase 3.0 UPDATE: TaxCase.engagementId now REQUIRED, onDelete Cascade):**
 
 ```
 AuditLog - Compliance & audit trail (Phase 01 NEW)
@@ -1301,29 +1384,31 @@ Client - Tax client management (permanent)
 ├── engagements (1:many TaxEngagement) - Year-specific engagement records
 ├── taxCases (1:many TaxCase) - Per-form filings
 
-ClientProfile - Tax situation questionnaire (legacy - deprecated after Phase 3)
+ClientProfile - Tax situation questionnaire (DEPRECATED - Phase 3 reads via TaxEngagement)
 ├── Dependents: hasKidsUnder17, numKidsUnder17, paysDaycare, hasKids17to24
 ├── Employment: hasW2, hasSelfEmployment
 ├── Investments: hasBankAccount, hasInvestments
 ├── Business: ein, businessName, hasEmployees, hasContractors, has1099K
 ├── Housing: hasRentalProperty
+├── NOTE: All new operations use TaxEngagement profile snapshot instead
+├── Maintained for backward compat only; reads fallback to engagement
 
-TaxEngagement - Year-specific client profile (Phase 1.0 NEW - Multi-year support)
-├── id, clientId (@fk), taxYear, status (DRAFT|ACTIVE|COMPLETE|ARCHIVED)
+TaxEngagement - Year-specific client profile (Phase 1.0 NEW - Multi-year support; Phase 3: PRIMARY data source)
+├── id, clientId (@fk, onDelete: Cascade), taxYear, status (DRAFT|ACTIVE|COMPLETE|ARCHIVED)
 ├── Profile fields (same as ClientProfile for year-specific storage)
-├── intakeAnswers (JSON) - Year-specific intake responses
-├── taxCases (1:many) - Tax forms for this engagement year
+├── intakeAnswers (JSON) - Year-specific intake responses [Phase 3: PRIMARY source, not ClientProfile]
+├── taxCases (1:many, onDelete: Cascade) - Tax forms for this engagement year
 ├── Unique constraint: (clientId, taxYear)
 ├── Indexes: (clientId), (taxYear), (status), (clientId, status)
-├── Purpose: Multi-year client support, year-specific profile snapshots
+├── Purpose: Multi-year client support, year-specific profile snapshots [Phase 3: All ops use engagement profile]
 
 TaxCase - Per-client per-year tax filing
-├── clientId, engagementId? (nullable @fk TaxEngagement for backward compat)
+├── clientId, engagementId (REQUIRED @fk TaxEngagement, onDelete: Cascade) [Phase 3 CHANGE]
 ├── taxYear, status (INTAKE→FILED), taxTypes[]
 ├── rawImages, digitalDocs, checklistItems, imageGroups (1:many)
 ├── conversation, magicLinks, actions (1:many)
 ├── Timestamps: lastContactAt, entryCompletedAt, filedAt
-├── Indexes: NEW (engagementId), (engagementId, status), (engagementId, lastActivityAt)
+├── Indexes: (engagementId), (engagementId, status), (engagementId, lastActivityAt)
 
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
@@ -2054,9 +2139,9 @@ clients: {
 
 ---
 
-**Last Updated:** 2026-01-21
-**Phase:** Phase 2 - Actionable Client Status System (API Layer Complete)
-**Architecture Version:** 7.0 (Actionable Status with Activity Tracking)
+**Last Updated:** 2026-01-26
+**Phase:** Phase 3 - Schema Cleanup (Engagement Isolation Complete)
+**Architecture Version:** 9.2 (Multi-Year Engagement Isolation with enforced constraints)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)

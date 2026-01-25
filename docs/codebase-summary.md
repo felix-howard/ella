@@ -620,6 +620,28 @@ See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detai
 - Historical data retention for compliance
 - Efficient queries via composite indexes
 
+## Phase 2 Data Migration - Backfill Engagements (NEW - 2026-01-25)
+
+**Location:** `packages/db/scripts/backfill-engagements.ts`
+
+**Purpose:** Migrate existing TaxCase data to multi-year engagement model by creating TaxEngagement records and linking cases.
+
+**Script Features:**
+- **Input:** All TaxCases without engagementId
+- **Grouping:** By (clientId, taxYear) composite key
+- **Engagement Creation:** One per unique pair, copies ClientProfile data to TaxEngagement
+- **Status Assignment:** Auto-calculated (DRAFT|ACTIVE|COMPLETE based on case states)
+- **Atomicity:** Transaction-based updates (prevents partial commits)
+- **Verification Suite (4 checks):**
+  1. No orphaned TaxCases (null engagementId)
+  2. Engagement count matches unique (clientId, taxYear) pairs
+  3. No referential integrity violations
+  4. No duplicate (clientId, taxYear) in TaxEngagement
+
+**Usage:** `pnpm -F @ella/db run backfill:engagements` (from root)
+
+**Statistics Logged:** Engagements created, cases linked, errors encountered
+
 ## Recent Feature: Client Messages Tab (NEW - 2026-01-15)
 
 **Location:** `apps/workspace/src/components/client-detail/`

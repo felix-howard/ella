@@ -19,6 +19,7 @@
     "studio": "dotenv -e ../../.env -- prisma studio",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "seed:test": "dotenv -e ../../.env -- tsx prisma/seed-test-data.ts",
+    "backfill:engagements": "dotenv -e ../../.env -- tsx scripts/backfill-engagements.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
   },

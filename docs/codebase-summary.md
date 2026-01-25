@@ -8,6 +8,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 1 Schema Migration** | **TaxEngagement model (year-specific profile); EngagementStatus enum (DRAFT/ACTIVE/COMPLETE/ARCHIVED); Client.engagements relation; TaxCase.engagementId FK (nullable for backward compat); Composite indexes (engagementId, status), (engagementId, lastActivityAt); AuditEntityType.TAX_ENGAGEMENT enum value** | **2026-01-25** |
 | **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
 | **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
 | **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
@@ -571,6 +572,53 @@ See [phase-02-api-endpoints.md](./phase-02-api-endpoints.md) for full environmen
 - Supports 24+ document types with type-safe field references
 
 See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detailed field mappings and verification workflow.
+
+## Phase 1 Schema Migration - Multi-Year Support (NEW - 2026-01-25)
+
+**Location:** `packages/db/prisma/schema.prisma`
+
+**Summary:** Introduced TaxEngagement model for multi-year client support with per-year profile snapshots and engagement lifecycle tracking.
+
+**Key Additions:**
+
+1. **EngagementStatus Enum** - Client engagement state tracking
+   - `DRAFT` - Engagement created, intake not complete
+   - `ACTIVE` - Intake complete, work in progress
+   - `COMPLETE` - All tax cases filed
+   - `ARCHIVED` - Past year, read-only
+
+2. **TaxEngagement Model** - Year-specific profile & engagement
+   - Unique constraint: `(clientId, taxYear)` - One engagement per year per client
+   - Profile fields: Copied from ClientProfile (filingStatus, hasW2, etc.) for year-specific snapshots
+   - `intakeAnswers (JSON)` - Year-specific intake responses
+   - `status (EngagementStatus)` - Current engagement state
+   - Relations: `taxCases (1:many)` - Tax forms for this year
+   - Indexes: (clientId), (taxYear), (status), (clientId, status) for efficient filtering
+
+3. **Client Model Update**
+   - Added `engagements TaxEngagement[]` relation (1:many)
+   - Maintains backward compatibility with existing single-year workflow
+
+4. **TaxCase Model Update**
+   - Added `engagementId String?` (nullable FK to TaxEngagement)
+   - Backward compatible: existing records null, new records link to engagement
+   - New indexes: (engagementId), (engagementId, status), (engagementId, lastActivityAt)
+   - Will become required in Phase 3
+
+5. **AuditEntityType Enum**
+   - Added `TAX_ENGAGEMENT` for audit trail tracking
+
+**Migration Strategy:**
+- **Phase 1 (Current):** Backward compatible, engagementId nullable
+- **Phase 2 (Future):** Add endpoint to create new-year engagements
+- **Phase 3 (Future):** Make engagementId required, drop single-year association
+
+**Benefits:**
+- Multi-year client support with separate profiles
+- Year-specific intake answers preserved per engagement
+- Engagement lifecycle tracking (DRAFT→ACTIVE→COMPLETE→ARCHIVED)
+- Historical data retention for compliance
+- Efficient queries via composite indexes
 
 ## Recent Feature: Client Messages Tab (NEW - 2026-01-15)
 

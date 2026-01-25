@@ -212,6 +212,13 @@ enum MessageTemplateCategory {
   GENERAL
 }
 
+enum EngagementStatus {
+  DRAFT      // Engagement created but intake not complete
+  ACTIVE     // Intake complete, work in progress
+  COMPLETE   // All tax cases filed
+  ARCHIVED   // Past year, read-only
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -262,8 +269,9 @@ model Client {
   email     String?
   language  Language @default(VI)
 
-  profile   ClientProfile?
-  taxCases  TaxCase[]
+  profile      ClientProfile?
+  engagements  TaxEngagement[]
+  taxCases     TaxCase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,10 +310,54 @@ model ClientProfile {
   updatedAt DateTime @updatedAt
 }
 
+// TaxEngagement: Year-specific client profile for multi-year support
+// Links Client (permanent) -> TaxEngagement (per-year) -> TaxCase (per-form)
+model TaxEngagement {
+  id        String           @id @default(cuid())
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear   Int
+  status    EngagementStatus @default(DRAFT)
+
+  // Profile fields (copied from ClientProfile for year-specific storage)
+  filingStatus       String?
+  hasW2              Boolean @default(false)
+  hasBankAccount     Boolean @default(false)
+  hasInvestments     Boolean @default(false)
+  hasKidsUnder17     Boolean @default(false)
+  numKidsUnder17     Int     @default(0)
+  paysDaycare        Boolean @default(false)
+  hasKids17to24      Boolean @default(false)
+  hasSelfEmployment  Boolean @default(false)
+  hasRentalProperty  Boolean @default(false)
+  businessName       String?
+  ein                String?
+  hasEmployees       Boolean @default(false)
+  hasContractors     Boolean @default(false)
+  has1099K           Boolean @default(false)
+  intakeAnswers      Json    @default("{}")
+
+  // Relations
+  taxCases  TaxCase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, taxYear])
+  @@index([clientId])
+  @@index([taxYear])
+  @@index([status])
+  @@index([clientId, status])  // Filter client's engagements by status
+}
+
 model TaxCase {
   id        String        @id @default(cuid())
   clientId  String
   client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Nullable FK for backward compatibility - will be required after Phase 3
+  engagementId String?
+  engagement   TaxEngagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
 
   taxYear   Int
   taxTypes  TaxType[]
@@ -341,6 +393,9 @@ model TaxCase {
   @@index([lastActivityAt])
   @@index([isInReview])
   @@index([isFiled])
+  @@index([engagementId])
+  @@index([engagementId, status])         // Filter engagement's cases by status
+  @@index([engagementId, lastActivityAt]) // Sort engagement's cases by activity
 }
 
 model RawImage {
@@ -696,6 +751,7 @@ enum AuditEntityType {
   CLIENT
   CLIENT_PROFILE
   TAX_CASE
+  TAX_ENGAGEMENT
 }
 
 // Audit log for tracking field-level changes

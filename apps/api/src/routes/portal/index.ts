@@ -134,8 +134,8 @@ portalRoute.post('/:token/upload', async (c) => {
   }
 
   // Process each file: upload to R2 + trigger background classification
-  const createdImages = []
-  const inngestEvents = []
+  const createdImages: { id: string; filename: string; status: string; createdAt: string }[] = []
+  const inngestEvents: { name: 'document/uploaded'; data: { rawImageId: string; caseId: string; r2Key: string; mimeType: string; uploadedAt: string } }[] = []
 
   for (const file of files) {
     // Read file buffer

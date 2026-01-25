@@ -1279,13 +1279,13 @@ Poll Stops (unsubscribe):
 - Client Detail - Route that integrates polling + docs tracking
 ```
 
-## Database Schema (Phase 1.1 - Complete)
+## Database Schema (Phase 1 Schema Migration - Complete)
 
-**Core Models (14 - Phase 01 NEW: +1 AuditLog model):**
+**Core Models (15 - Phase 1.0 NEW: +1 TaxEngagement model, +1 EngagementStatus enum):**
 
 ```
 AuditLog - Compliance & audit trail (Phase 01 NEW)
-├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT)
 ├── entityId, field, oldValue, newValue (Json)
 ├── changedById (optional), createdAt
 ├── Indexes: (entityType, entityId), (changedById), (createdAt)
@@ -1295,23 +1295,35 @@ Staff - Authentication & authorization
 ├── avatarUrl, isActive, timestamps
 ├── auditLogs (1:many AuditLog)
 
-Client - Tax client management
+Client - Tax client management (permanent)
 ├── id, name, phone (@unique), email, language (VI|EN)
-├── profile (1:1 ClientProfile)
-├── taxCases (1:many TaxCase)
+├── profile (1:1 ClientProfile) - Deprecated legacy global profile
+├── engagements (1:many TaxEngagement) - Year-specific engagement records
+├── taxCases (1:many TaxCase) - Per-form filings
 
-ClientProfile - Tax situation questionnaire
+ClientProfile - Tax situation questionnaire (legacy - deprecated after Phase 3)
 ├── Dependents: hasKidsUnder17, numKidsUnder17, paysDaycare, hasKids17to24
 ├── Employment: hasW2, hasSelfEmployment
 ├── Investments: hasBankAccount, hasInvestments
 ├── Business: ein, businessName, hasEmployees, hasContractors, has1099K
 ├── Housing: hasRentalProperty
 
+TaxEngagement - Year-specific client profile (Phase 1.0 NEW - Multi-year support)
+├── id, clientId (@fk), taxYear, status (DRAFT|ACTIVE|COMPLETE|ARCHIVED)
+├── Profile fields (same as ClientProfile for year-specific storage)
+├── intakeAnswers (JSON) - Year-specific intake responses
+├── taxCases (1:many) - Tax forms for this engagement year
+├── Unique constraint: (clientId, taxYear)
+├── Indexes: (clientId), (taxYear), (status), (clientId, status)
+├── Purpose: Multi-year client support, year-specific profile snapshots
+
 TaxCase - Per-client per-year tax filing
-├── clientId, taxYear, status (INTAKE→FILED), taxTypes[]
+├── clientId, engagementId? (nullable @fk TaxEngagement for backward compat)
+├── taxYear, status (INTAKE→FILED), taxTypes[]
 ├── rawImages, digitalDocs, checklistItems, imageGroups (1:many)
 ├── conversation, magicLinks, actions (1:many)
 ├── Timestamps: lastContactAt, entryCompletedAt, filedAt
+├── Indexes: NEW (engagementId), (engagementId, status), (engagementId, lastActivityAt)
 
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
@@ -1359,11 +1371,12 @@ Action - Staff tasks & reminders
 ├── isCompleted, completedAt, scheduledFor, metadata (JSON)
 ```
 
-**Enums (12):**
-- TaxCaseStatus, TaxType, DocType (21 document types)
+**Enums (13 - Phase 1.0 NEW: +1 EngagementStatus):**
+- TaxCaseStatus, TaxType, DocType (60+ document types)
 - RawImageStatus, DigitalDocStatus, ChecklistItemStatus
 - ActionType, ActionPriority, MessageChannel, MessageDirection
 - StaffRole, Language
+- **EngagementStatus** (NEW Phase 1.0) - DRAFT, ACTIVE, COMPLETE, ARCHIVED
 
 ## Monorepo Configuration
 
@@ -1502,6 +1515,98 @@ try {
   setError('Network error')
 }
 ```
+
+## Phase 1 Schema Migration - Multi-Year Support (2026-01-25)
+
+### Overview
+
+Phase 1 Schema Migration introduces **TaxEngagement** model to support multi-year client engagements. This enables clients to have multiple tax years managed separately while maintaining historical data and per-year profile snapshots.
+
+### Key Changes
+
+**New Enum: EngagementStatus**
+```
+DRAFT      // Engagement created but intake not complete
+ACTIVE     // Intake complete, work in progress
+COMPLETE   // All tax cases filed
+ARCHIVED   // Past year, read-only
+```
+
+**New Model: TaxEngagement**
+```prisma
+model TaxEngagement {
+  id        String           @id @default(cuid())
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear   Int
+  status    EngagementStatus @default(DRAFT)
+
+  // Year-specific profile snapshot (copied from ClientProfile schema)
+  filingStatus, hasW2, hasBankAccount, hasInvestments, hasKidsUnder17, numKidsUnder17,
+  paysDaycare, hasKids17to24, hasSelfEmployment, hasRentalProperty,
+  businessName, ein, hasEmployees, hasContractors, has1099K,
+  intakeAnswers (JSON)
+
+  // Relations
+  taxCases TaxCase[]
+
+  @@unique([clientId, taxYear])
+  @@index([clientId])
+  @@index([taxYear])
+  @@index([status])
+  @@index([clientId, status])  // Filter by status
+}
+```
+
+**Updated Models**
+- **Client:** Added `engagements TaxEngagement[]` relation (1:many)
+- **TaxCase:** Added `engagementId String?` (nullable FK for backward compatibility)
+- **TaxCase:** Added indexes: `(engagementId)`, `(engagementId, status)`, `(engagementId, lastActivityAt)`
+- **AuditEntityType:** Added `TAX_ENGAGEMENT` value
+
+### Migration Path
+
+**Phase 1 (Current):** Backward compatible - `engagementId` nullable, allows existing single-year workflow
+
+**Phase 2 (Future):** New endpoint `POST /clients/:id/engagements` to create new year engagements
+
+**Phase 3 (Future):** Make `engagementId` required on TaxCase (drop single-year direct association)
+
+### Benefits
+
+1. **Multi-Year Support** - Clients can file multiple years with separate profiles
+2. **Historical Data** - Year-specific intakeAnswers preserved per engagement
+3. **Status Tracking** - Engagement lifecycle (DRAFT → ACTIVE → COMPLETE → ARCHIVED)
+4. **Efficient Querying** - Composite indexes enable fast filtering by status & activity
+5. **Backward Compatible** - Existing TaxCase records work without engagementId
+
+### Data Model Hierarchy
+
+```
+Client (permanent)
+├── ClientProfile (legacy, per-client)
+└── TaxEngagement[] (per-year)
+    ├── status: EngagementStatus
+    ├── Profile snapshot (filingStatus, hasW2, etc.)
+    ├── intakeAnswers (year-specific)
+    └── TaxCase[] (per-form filings)
+        ├── status: TaxCaseStatus
+        └── Documents (RawImage, DigitalDoc, Checklist, etc.)
+```
+
+### Frontend/Backend Implications
+
+**Backend:**
+- Client profile queries should prefer `TaxEngagement.intakeAnswers` over `ClientProfile`
+- Checklist generation uses engagement-specific profile
+- Audit logging tracks changes per engagement year
+
+**Frontend:**
+- Case detail pages implicitly use engagement context
+- Future: Engagement selector UI for clients with multiple years
+- Profile updates save to both ClientProfile (legacy) and TaxEngagement (new)
+
+---
 
 ## Scaling Considerations
 

@@ -1,33 +1,32 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-25 ICT
-> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phase 1 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phase 1 Complete) + All prior enhancements
+> **Last Updated:** 2026-01-26 ICT
+> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + All prior enhancements
 
-### Phase 8: Multi-Year Client Engagement Model - In Progress (12.5% Complete) ⏳
+### Phase 8: Multi-Year Client Engagement Model - In Progress (66.67% Complete) ⏳
 **Started:** 2026-01-25 13:45 ICT
-**Target Completion:** 2026-01-25
+**Target Completion:** 2026-01-26
 **Deliverable:** Restructure data model to support returning clients across tax years with TaxEngagement layer
 
 **Phase Breakdown:**
 | Phase | Component | Status | Completion | Notes |
 |-------|-----------|--------|-----------|-------|
 | 8.1 | Schema Migration | ✅ DONE | 2026-01-25 13:45 | TaxEngagement model, FK, indexes, audit enum added |
-| 8.2 | Data Migration | ⏳ PENDING | - | Backfill engagements from ClientProfile+TaxCase |
-| 8.3 | Schema Cleanup | ⏳ PENDING | - | Make engagementId required, remove legacy fields |
-| 8.4 | API Updates | ⏳ PENDING | - | Add engagement CRUD, backward compat layer |
+| 8.2 | Data Migration | ✅ DONE | 2026-01-25 23:05 | Backfill engagements from ClientProfile+TaxCase |
+| 8.3 | Schema Cleanup | ✅ DONE | 2026-01-26 00:15 | Make engagementId required, remove legacy fields. Code review 9.5/10 |
+| 8.4 | API Updates | ✅ DONE | 2026-01-26 07:48 | All engagement CRUD, backward compat layer. Tests 464/464 passing, 9.5/10 review |
 | 8.5 | Frontend Updates | ⏳ PENDING | - | Engagement selector, copy-from-previous feature |
 | 8.6 | Testing & Validation | ⏳ PENDING | - | Unit + integration tests, data validation |
 
-**Completion Summary (Phase 8.1):**
-- TaxEngagement model: clientId FK, taxYear, all profile fields (filing status, income types, business info)
-- TaxCase.engagementId: nullable FK with cascade-to-null delete
-- Composite indexes: (clientId, taxYear) unique + individual indexes
-- AuditEntityType enum: Added TAX_ENGAGEMENT
-- EngagementStatus enum: DRAFT/ACTIVE/COMPLETE/ARCHIVED
-- Fixed pre-existing TypeScript error in portal/index.ts
+**Completion Summary (Phases 8.1-8.4):**
+- **8.1:** TaxEngagement model with clientId FK, taxYear, all profile fields, composite indexes, AuditEntityType enum
+- **8.2:** Backfill script migrated data from ClientProfile+TaxCase, verified zero data loss
+- **8.3:** Made engagementId required on TaxCase, removed legacy clientId/taxYear, deprecated ClientProfile (9.5/10 review)
+- **8.4:** All 6 engagement CRUD endpoints live, case creation auto-creates engagement, client creation creates engagement, backward compatibility maintained, deprecation headers implemented, 464/464 tests passing (9.5/10 review)
 - Branch: feature/multi-tax-year
 - Zero-downtime, fully backward compatible
+- **All critical success criteria met - Production ready for Phase 5**
 
 ---
 

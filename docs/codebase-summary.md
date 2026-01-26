@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-26
 **Current Branch:** feature/multi-tax-year
-**Latest Phase:** Phase 03 Schema Cleanup - Engagement Isolation + Client Profile Deprecation
+**Latest Phase:** Phase 04 API Updates - TaxEngagement CRUD Endpoints + Deprecation Headers
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 4 API Updates** | **6 TaxEngagement REST endpoints (GET list/detail, POST create with copy-from, PATCH update, DELETE with validation, GET copy-preview); Engagement-specific audit logging (logEngagementChanges); RFC 8594 deprecation headers middleware; Tax cases now support engagementId FK** | **2026-01-26** |
 | **Phase 3 Schema Cleanup** | **Made engagementId required (NO nullable); Cascade onDelete; Deprecated ClientProfile (reads via engagement); New helper service engagement-helpers.ts; Verification scripts; Route layer uses engagement for all operations** | **2026-01-26** |
 | **Phase 1 Schema Migration** | **TaxEngagement model (year-specific profile); EngagementStatus enum (DRAFT/ACTIVE/COMPLETE/ARCHIVED); Client.engagements relation; TaxCase.engagementId FK (nullable for backward compat); Composite indexes (engagementId, status), (engagementId, lastActivityAt); AuditEntityType.TAX_ENGAGEMENT enum value** | **2026-01-25** |
 | **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
@@ -104,7 +105,18 @@ See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI l
 ## Core Applications
 
 ### @ella/api
-**REST API (Hono framework, PORT 3002)** - 43+ endpoints across 8 modules with Zod validation, global error handling, OpenAPI docs, audit logging (Phase 01 NEW).
+**REST API (Hono framework, PORT 3002)** - 58+ endpoints across 9 modules with Zod validation, global error handling, OpenAPI docs, audit logging (Phase 01), deprecation headers (Phase 4).
+
+**Phase 4 New Files:**
+- `src/routes/engagements/index.ts` - TaxEngagement CRUD (GET list/detail, POST create with copy-from, PATCH update, DELETE, GET copy-preview)
+- `src/routes/engagements/schemas.ts` - Zod schemas for engagement validation (createEngagementSchema, updateEngagementSchema, listEngagementsQuerySchema)
+- `src/middleware/deprecation.ts` - RFC 8594 deprecation headers middleware (clientId→engagementId migration signals)
+
+**Phase 4 Enhancements:**
+- `src/services/audit-logger.ts` - Extended with logEngagementChanges() + computeEngagementDiff() for TaxEngagement tracking
+- `src/app.ts` - Registered /engagements routes with authMiddleware
+- `src/routes/cases/index.ts` - Added engagementId support (backward compat with clientId)
+- `src/routes/cases/schemas.ts` - Extended to support engagementId FK
 
 ### @ella/portal
 **Client-facing upload portal (React, PORT 5174)** - Passwordless magic link auth, mobile-optimized (max 448px), file validation, real-time progress.

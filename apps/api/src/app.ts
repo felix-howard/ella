@@ -3,10 +3,12 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { errorHandler } from './middleware/error-handler'
 import { clerkMiddleware, authMiddleware } from './middleware/auth'
+import { deprecationHeadersMiddleware } from './middleware/deprecation'
 import { config } from './lib/config'
 import { healthRoute } from './routes/health'
 import { clientsRoute } from './routes/clients'
 import { casesRoute } from './routes/cases'
+import { engagementsRoute } from './routes/engagements'
 import { actionsRoute } from './routes/actions'
 import { docsRoute } from './routes/docs'
 import { imagesRoute } from './routes/images'
@@ -45,6 +47,7 @@ app.route('/api/inngest', inngestRoute)
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)
 app.use('/cases/*', authMiddleware)
+app.use('/engagements/*', authMiddleware)
 app.use('/actions/*', authMiddleware)
 app.use('/docs/*', authMiddleware)
 app.use('/images/*', authMiddleware)
@@ -52,9 +55,12 @@ app.use('/messages/*', authMiddleware)
 app.use('/admin/*', authMiddleware)
 app.use('/voice/*', authMiddleware)
 
-// Routes
+// Routes (with deprecation headers for clientId-based queries)
+app.use('/clients/*', deprecationHeadersMiddleware)
+app.use('/cases/*', deprecationHeadersMiddleware)
 app.route('/clients', clientsRoute)
 app.route('/cases', casesRoute)
+app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)
 app.route('/docs', docsRoute)
 app.route('/images', imagesRoute)

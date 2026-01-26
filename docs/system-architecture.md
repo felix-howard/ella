@@ -101,7 +101,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (52 total - Phase 01-04 Voice + Phase 2 Actionable Status combined):**
+**Implemented Endpoints (58 total - Phase 01-04 Voice + Phase 2 Actionable Status + Phase 4 Engagements):**
+
+**Tax Engagements (6 - Phase 4 NEW: Multi-year client support):**
+- `GET /engagements` - List engagements with clientId/taxYear/status filters, pagination
+- `GET /engagements/:id` - Engagement details with client info & related tax cases
+- `POST /engagements` - Create engagement (with optional copy-from for year-to-year profile reuse)
+- `PATCH /engagements/:id` - Update engagement profile (status, filing info, intake answers with merge logic)
+- `DELETE /engagements/:id` - Delete engagement if no tax cases exist (prevents orphaned data)
+- `GET /engagements/:id/copy-preview` - Preview copyable fields from engagement (excludes intakeAnswers for privacy)
 
 **Voice Management (10 - Phase 01-04 Voice Calls):**
 - `POST /voice/token` - Generate staff access token with VoiceGrant (outbound + inbound)
@@ -130,11 +138,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
-**Tax Cases (10 - Phase 2 NEW: +3 status action endpoints):**
-- `GET /cases` - List with status/year/client filters, pagination
-- `POST /cases` - Create new case
-- `GET /cases/:id` - Case details with document counts, **isInReview/isFiled flags**, lastActivityAt
-- `PATCH /cases/:id` - Update status/metadata with transition validation
+**Tax Cases (10 - Phase 2 NEW: +3 status action endpoints; Phase 4: engagementId FK):**
+- `GET /cases` - List with status/year/client filters (NOTE: clientId deprecated; use engagementId), pagination
+- `POST /cases` - Create new case (now supports engagementId FK instead of direct clientId)
+- `GET /cases/:id` - Case details with document counts, **isInReview/isFiled flags**, lastActivityAt, engagementId
+- `PATCH /cases/:id` - Update status/metadata with transition validation (engagementId support)
 - `POST /cases/:id/send-to-review` - Move case to REVIEW state (Phase 2 NEW)
 - `POST /cases/:id/mark-filed` - Mark case as FILED with filedAt timestamp (Phase 2 NEW)
 - `POST /cases/:id/reopen` - Reopen filed case, returns to REVIEW (Phase 2 NEW)
@@ -264,6 +272,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Response includes audit metadata
 - No changes = no logging (efficiency optimization)
 
+**Phase 4 Extension: Engagement Audit Logging**
+- New function: **logEngagementChanges(engagementId, changes[], staffId?)** - Log TaxEngagement field changes
+  - Tracks creation events (clientId, taxYear, copySource)
+  - Tracks profile updates (filingStatus, intake answers, status transitions)
+  - Uses AuditEntityType.TAX_ENGAGEMENT enum value
+  - Non-blocking async pattern (fire-and-forget)
+- New function: **computeEngagementDiff(oldEngagement, newEngagement)** - Compute field-level changes
+  - Compares direct fields (filingStatus, hasW2, status, etc.)
+  - Handles intakeAnswers merge logic (partial update)
+  - Returns array of FieldChange objects
+- Integration with POST/PATCH /engagements endpoints for compliance tracking
+
 **Database Schema (AuditLog Model):**
 ```
 id: cuid (primary key)
@@ -309,6 +329,20 @@ if (allChanges.length > 0) {
 - Field masking: PII never stored in audit logs (values are audit records, not compliance records)
 - Staff attribution: Enables user activity tracking for compliance audits
 - Atomic updates: All changes for single request logged together
+
+**Deprecation Headers Middleware (Phase 4 NEW):**
+
+- Location: `src/middleware/deprecation.ts`
+- Implements RFC 8594 deprecation standards
+- Detects clientId usage in query params or URL paths
+- Adds headers to deprecated API calls:
+  - `Deprecation: true` - Signals deprecated endpoint
+  - `Sunset: Wed, 25 Jul 2026 00:00:00 GMT` - Removal date (6 months)
+  - `X-Deprecation-Reason` - Migration guidance (use engagementId instead)
+  - `Link: </docs/api-migration>; rel="deprecation"` - Documentation link
+- Helper function: **addDeprecationWarning()** - Adds warning to response body for deprecated fields
+- Migration path: All clientId-based queries should transition to engagementId queries
+- Sunset enforcement: System will remove clientId support after deadline
 
 **SMS Service Implementation (Phase 1.2+):**
 

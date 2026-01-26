@@ -21,6 +21,7 @@ export const createCaseSchema = z.object({
   taxTypes: z
     .array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065']))
     .min(1, 'At least one tax type required'),
+  engagementId: z.string().regex(/^c[a-z0-9]{24}$/).optional(), // Optional for backward compat
 })
 
 // Update case input

@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-26
 **Current Branch:** feature/multi-tax-year
-**Latest Phase:** Phase 04 API Updates - TaxEngagement CRUD Endpoints + Deprecation Headers
+**Latest Phase:** Phase 05 Frontend Updates - Multi-Year Client UI + Engagement History
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
 | **Phase 4 API Updates** | **6 TaxEngagement REST endpoints (GET list/detail, POST create with copy-from, PATCH update, DELETE with validation, GET copy-preview); Engagement-specific audit logging (logEngagementChanges); RFC 8594 deprecation headers middleware; Tax cases now support engagementId FK** | **2026-01-26** |
 | **Phase 3 Schema Cleanup** | **Made engagementId required (NO nullable); Cascade onDelete; Deprecated ClientProfile (reads via engagement); New helper service engagement-helpers.ts; Verification scripts; Route layer uses engagement for all operations** | **2026-01-26** |
 | **Phase 1 Schema Migration** | **TaxEngagement model (year-specific profile); EngagementStatus enum (DRAFT/ACTIVE/COMPLETE/ARCHIVED); Client.engagements relation; TaxCase.engagementId FK (nullable for backward compat); Composite indexes (engagementId, status), (engagementId, lastActivityAt); AuditEntityType.TAX_ENGAGEMENT enum value** | **2026-01-25** |
@@ -66,6 +67,60 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Phase 5 Frontend Updates - Multi-Year Client Support (NEW - 2026-01-26)
+
+**Location:** `packages/shared/src/types/tax-engagement.ts`, `packages/shared/src/utils/engagement-helpers.ts`, `apps/workspace/src/components/clients/`, `apps/workspace/src/lib/api-client.ts`, `apps/portal/src/lib/api-client.ts`
+
+**New Files (Shared Package):**
+
+1. **tax-engagement.ts** - TypeScript types for multi-year engagement
+   - `EngagementStatus` - DRAFT | ACTIVE | COMPLETE | ARCHIVED
+   - `TaxEngagement` - Full engagement with year-specific profile (filingStatus, hasW2, etc.), intakeAnswers, timestamps
+   - `TaxEngagementSummary` - Lightweight version for list views
+
+2. **engagement-helpers.ts** - Backward compatibility utilities during phase 3 transition
+   - `ProfileData` - Unified interface for engagement or legacy profile fields
+   - `getProfileData(taxCase, legacyProfile?)` - Extract profile from engagement (preferred) or fallback to legacy
+   - `normalizeTaxCase(taxCase)` - Guarantee engagementId present (uses case.id as fallback)
+   - `hasEngagementProfile(taxCase)` - Check if case has engagement-based profile
+
+**New Components (Workspace):**
+
+1. **engagement-history-section.tsx** - Multi-year engagement display
+   - Shows client engagement history grouped by tax year
+   - Status badges (DRAFT, ACTIVE, COMPLETE, ARCHIVED)
+   - Quick-access links to open engagement
+   - Last activity timestamp per engagement
+
+2. **returning-client-section.tsx** - Detect & suggest previous engagements
+   - Automatic detection of returning clients (prior engagements exist)
+   - Lists previous tax years with engagement status
+   - Quick-select button to open prior year engagement
+   - Integration in new client creation flow
+
+**API Client Enhancements (Workspace):**
+
+`apps/workspace/src/lib/api-client.ts` - New engagement methods:
+- `engagements.list(params?)` - GET /engagements with filters (clientId, taxYear, status, pagination)
+- `engagements.detail(id)` - GET /engagements/:id with full details
+- `engagements.create(data)` - POST /engagements (with optional copyFromId)
+- `engagements.update(id, data)` - PATCH /engagements/:id
+- `engagements.copyPreview(id)` - GET /engagements/:id/copy-preview
+- `engagements.delete(id)` - DELETE /engagements/:id
+
+**Portal Updates (API Client):**
+
+`apps/portal/src/lib/api-client.ts` - Added engagementId support:
+- PortalTaxCase now includes `engagementId` field
+- Enables portal to reference engagement for multi-year workflows
+
+**UI Integration:**
+
+- Client overview tab enhanced with engagement history display
+- New client creation detects returning clients and offers prior engagement quick-link
+- Engagement dropdown in client header for switching between years
+- Status indicators guide user through engagement lifecycle
 
 ## Architecture at a Glance
 
@@ -1184,8 +1239,8 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 ---
 
 **Last Updated:** 2026-01-26
-**Status:** Phase 3 Schema Cleanup + Phase 04 Frontend Incoming Call UI + Phase 03 Voicemail System + All enhancements
-**Branch:** feature/multi-tax-year (schema isolation)
-**Architecture Version:** 9.2 (Schema cleanup with required engagementId, cascade delete, deprecated ClientProfile)
+**Status:** Phase 5 Frontend Updates + Phase 3 Schema Cleanup + Phase 04 Frontend Incoming Call UI + All enhancements
+**Branch:** feature/multi-tax-year (multi-year client support)
+**Architecture Version:** 9.3 (Frontend engagement UI + engagement history + returning client detection)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

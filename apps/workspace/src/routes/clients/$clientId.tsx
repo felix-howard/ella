@@ -34,7 +34,7 @@ import {
   DuplicateDocsCard,
   DataEntryTab,
 } from '../../components/documents'
-import { ClientOverviewSections, ComputedStatusBadge } from '../../components/clients'
+import { ClientOverviewSections, ComputedStatusBadge, EngagementHistorySection } from '../../components/clients'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
@@ -487,7 +487,15 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <ClientOverviewSections client={client} />
+        <div className="space-y-6">
+          {/* Engagement History - shows multi-year filing history */}
+          <EngagementHistorySection
+            clientId={clientId}
+            currentTaxYear={latestCase?.taxYear}
+          />
+          {/* Client Profile Overview */}
+          <ClientOverviewSections client={client} />
+        </div>
       )}
 
       {activeTab === 'documents' && (

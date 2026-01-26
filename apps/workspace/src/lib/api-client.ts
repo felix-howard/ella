@@ -173,6 +173,17 @@ export const api = {
     list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' }) =>
       request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
 
+    // Search for existing client by phone (for returning client detection)
+    searchByPhone: async (phone: string) => {
+      // Normalize phone by removing non-digits
+      const normalizedPhone = phone.replace(/\D/g, '')
+      if (normalizedPhone.length < 10) return null
+      const result = await request<PaginatedResponse<ClientWithActions>>('/clients', {
+        params: { search: normalizedPhone, limit: 1 },
+      })
+      return result.data?.[0] ?? null
+    },
+
     get: (id: string) => request<ClientDetail>(`/clients/${id}`),
 
     create: (data: CreateClientInput) =>
@@ -577,6 +588,41 @@ export const api = {
     // Utility endpoints
     getSections: () => request<{ data: string[] }>('/admin/sections'),
     getCategories: () => request<{ data: string[] }>('/admin/categories'),
+  },
+
+  // TaxEngagement - Multi-year client support
+  engagements: {
+    // List engagements with filters
+    list: (params?: { clientId?: string; taxYear?: number; status?: EngagementStatus; page?: number; limit?: number }) =>
+      request<PaginatedResponse<TaxEngagement>>('/engagements', { params }),
+
+    // Get engagement details
+    get: (id: string) =>
+      request<{ data: TaxEngagementDetail }>(`/engagements/${id}`),
+
+    // Create new engagement (with optional copy from previous)
+    create: (data: CreateEngagementInput) =>
+      request<{ data: TaxEngagement }>('/engagements', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Update engagement profile
+    update: (id: string, data: UpdateEngagementInput) =>
+      request<{ data: TaxEngagement }>(`/engagements/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    // Preview what would be copied from an engagement
+    copyPreview: (id: string) =>
+      request<{ data: EngagementCopyPreview }>(`/engagements/${id}/copy-preview`),
+
+    // Delete engagement (only if no tax cases)
+    delete: (id: string) =>
+      request<{ success: boolean; message: string }>(`/engagements/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   // Client intake questions (public endpoint for forms)
@@ -1252,4 +1298,86 @@ export interface PresenceResponse {
 export interface HeartbeatResponse {
   success: boolean
   reason?: string
+}
+
+// TaxEngagement types for multi-year client support
+export type EngagementStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETE' | 'ARCHIVED'
+
+export interface TaxEngagement {
+  id: string
+  clientId: string
+  taxYear: number
+  status: EngagementStatus
+  filingStatus: string | null
+  hasW2: boolean
+  hasBankAccount: boolean
+  hasInvestments: boolean
+  hasKidsUnder17: boolean
+  numKidsUnder17: number
+  paysDaycare: boolean
+  hasKids17to24: boolean
+  hasSelfEmployment: boolean
+  hasRentalProperty: boolean
+  businessName: string | null
+  ein: string | null
+  hasEmployees: boolean
+  hasContractors: boolean
+  has1099K: boolean
+  intakeAnswers: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+  client?: { id: string; name: string; phone: string }
+  _count?: { taxCases: number }
+}
+
+export interface TaxEngagementDetail extends TaxEngagement {
+  client: Client
+  taxCases: TaxCaseSummary[]
+}
+
+export interface EngagementCopyPreview {
+  taxYear: number
+  filingStatus: string | null
+  hasW2: boolean
+  hasBankAccount: boolean
+  hasInvestments: boolean
+  hasKidsUnder17: boolean
+  numKidsUnder17: number
+  paysDaycare: boolean
+  hasKids17to24: boolean
+  hasSelfEmployment: boolean
+  hasRentalProperty: boolean
+  businessName: string | null
+  ein: string | null
+  hasEmployees: boolean
+  hasContractors: boolean
+  has1099K: boolean
+}
+
+export interface CreateEngagementInput {
+  clientId: string
+  taxYear: number
+  copyFromEngagementId?: string
+  filingStatus?: string
+  intakeAnswers?: Record<string, unknown>
+}
+
+export interface UpdateEngagementInput {
+  filingStatus?: string
+  status?: EngagementStatus
+  hasW2?: boolean
+  hasBankAccount?: boolean
+  hasInvestments?: boolean
+  hasKidsUnder17?: boolean
+  numKidsUnder17?: number
+  paysDaycare?: boolean
+  hasKids17to24?: boolean
+  hasSelfEmployment?: boolean
+  hasRentalProperty?: boolean
+  businessName?: string | null
+  ein?: string | null
+  hasEmployees?: boolean
+  hasContractors?: boolean
+  has1099K?: boolean
+  intakeAnswers?: Record<string, unknown>
 }

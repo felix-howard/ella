@@ -35,6 +35,10 @@ export type ApiResponse<T> = {
 export type UserId = string
 export type ClientId = string
 export type DocumentId = string
+export type EngagementId = string
 
 // Action counts types for client list
 export type { ActionCounts, ClientWithActions } from './action-counts'
+
+// TaxEngagement types for multi-year client support
+export type { TaxEngagement, EngagementStatus, TaxEngagementSummary } from './tax-engagement'

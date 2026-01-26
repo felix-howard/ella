@@ -1,18 +1,20 @@
 /**
  * Create Client Page - Multi-step form for adding new clients
  * Steps: 1. Basic Info → 2. Tax Selection → 3-6. Intake Wizard (4 steps)
+ * Supports returning client detection with copy-from-previous feature
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight, Check, User, FileText, ClipboardList } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { WizardContainer, type IntakeAnswers } from '../../components/clients/intake-wizard'
+import { ReturningClientSection } from '../../components/clients'
 import { CustomSelect } from '../../components/ui/custom-select'
 import { UI_TEXT, LANGUAGE_LABELS } from '../../lib/constants'
 import { formatPhone } from '../../lib/formatters'
-import { api, type Language, type TaxType } from '../../lib/api-client'
+import { api, type Language, type TaxType, type ClientWithActions } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/new')({
   component: CreateClientPage,
@@ -96,6 +98,11 @@ function CreateClientPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
 
+  // Returning client detection
+  const [existingClient, setExistingClient] = useState<ClientWithActions | null>(null)
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false)
+  const [copyFromEngagementId, setCopyFromEngagementId] = useState<string | null>(null)
+
   // Form data
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
     name: '',
@@ -110,6 +117,35 @@ function CreateClientPage() {
     taxTypes: ['FORM_1040'],
     filingStatus: '',
   })
+
+  // Check for existing client by phone (debounced)
+  const checkExistingClient = useCallback(async (phone: string) => {
+    const cleanedPhone = phone.replace(/\D/g, '')
+    if (cleanedPhone.length !== 10) {
+      setExistingClient(null)
+      return
+    }
+
+    setIsCheckingPhone(true)
+    try {
+      const client = await api.clients.searchByPhone(phone)
+      setExistingClient(client)
+      // If existing client found, pre-fill name from existing
+      if (client && !basicInfo.name) {
+        setBasicInfo((prev) => ({ ...prev, name: client.name }))
+      }
+    } catch {
+      // Ignore errors - just means no existing client found
+      setExistingClient(null)
+    } finally {
+      setIsCheckingPhone(false)
+    }
+  }, [basicInfo.name])
+
+  // Handle copy from previous engagement
+  const handleCopyFromPrevious = useCallback((engagementId: string | null, shouldCopy: boolean) => {
+    setCopyFromEngagementId(shouldCopy ? engagementId : null)
+  }, [])
 
   // Step indicators (outer steps - wizard has its own internal indicator)
   const steps = [
@@ -208,24 +244,41 @@ function CreateClientPage() {
         filingStatus: taxSelection.filingStatus,
       }
 
-      const response = await api.clients.create({
-        name: basicInfo.name.trim().slice(0, 100), // Limit name length
-        phone: formattedPhone,
-        email: sanitizedEmail || undefined,
-        language: basicInfo.language,
-        profile: {
-          taxYear: taxSelection.taxYear,
-          taxTypes: taxSelection.taxTypes,
-          filingStatus: taxSelection.filingStatus,
-          // Legacy fields for backward compatibility
-          ...mapWizardToLegacyFields(wizardAnswers),
-          // Full intake answers JSON (includes all wizard data)
-          intakeAnswers: allAnswers,
-        },
-      })
+      let clientId: string
 
-      // Navigate to new client detail
-      navigate({ to: '/clients/$clientId', params: { clientId: response.client.id } })
+      // Handle returning client: create new engagement instead of new client
+      if (existingClient) {
+        // Create new engagement for existing client (with optional copy from previous)
+        await api.engagements.create({
+          clientId: existingClient.id,
+          taxYear: taxSelection.taxYear,
+          copyFromEngagementId: copyFromEngagementId ?? undefined,
+          filingStatus: taxSelection.filingStatus,
+          intakeAnswers: allAnswers,
+        })
+        clientId = existingClient.id
+      } else {
+        // Create new client with profile
+        const response = await api.clients.create({
+          name: basicInfo.name.trim().slice(0, 100), // Limit name length
+          phone: formattedPhone,
+          email: sanitizedEmail || undefined,
+          language: basicInfo.language,
+          profile: {
+            taxYear: taxSelection.taxYear,
+            taxTypes: taxSelection.taxTypes,
+            filingStatus: taxSelection.filingStatus,
+            // Legacy fields for backward compatibility
+            ...mapWizardToLegacyFields(wizardAnswers),
+            // Full intake answers JSON (includes all wizard data)
+            intakeAnswers: allAnswers,
+          },
+        })
+        clientId = response.client.id
+      }
+
+      // Navigate to client detail
+      navigate({ to: '/clients/$clientId', params: { clientId } })
     } catch (error) {
       console.error('Failed to create client:', error)
       setSubmitError(
@@ -313,12 +366,25 @@ function CreateClientPage() {
         {/* Step 1: Basic Info */}
         {currentStep === 'basic' && (
           <>
-            <div className="bg-card rounded-xl border border-border p-6">
-              <BasicInfoForm
-                data={basicInfo}
-                onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
-                errors={errors.basic}
-              />
+            <div className="space-y-4">
+              <div className="bg-card rounded-xl border border-border p-6">
+                <BasicInfoForm
+                  data={basicInfo}
+                  onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
+                  errors={errors.basic}
+                  onPhoneBlur={checkExistingClient}
+                  isCheckingPhone={isCheckingPhone}
+                />
+              </div>
+
+              {/* Returning Client Section */}
+              {existingClient && (
+                <ReturningClientSection
+                  client={existingClient}
+                  selectedTaxYear={taxSelection.taxYear}
+                  onCopyFromPrevious={handleCopyFromPrevious}
+                />
+              )}
             </div>
             <div className="flex justify-between mt-6">
               <button
@@ -415,9 +481,11 @@ interface BasicInfoFormProps {
   data: BasicInfoData
   onChange: (data: Partial<BasicInfoData>) => void
   errors?: Partial<Record<keyof BasicInfoData, string>>
+  onPhoneBlur?: (phone: string) => void
+  isCheckingPhone?: boolean
 }
 
-function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
+function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }: BasicInfoFormProps) {
   const handlePhoneChange = (value: string) => {
     // Allow only digits and common phone characters
     const cleaned = value.replace(/[^\d\s\-()]/g, '')
@@ -455,18 +523,26 @@ function BasicInfoForm({ data, onChange, errors }: BasicInfoFormProps) {
           {UI_TEXT.form.phone}
           <span className="text-error ml-1">*</span>
         </label>
-        <input
-          type="tel"
-          value={data.phone}
-          onChange={(e) => handlePhoneChange(e.target.value)}
-          placeholder="(818) 222-3333 hoặc 8182223333"
-          className={cn(
-            'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-            'placeholder:text-muted-foreground',
-            errors?.phone ? 'border-error' : 'border-border'
+        <div className="relative">
+          <input
+            type="tel"
+            value={data.phone}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            onBlur={() => onPhoneBlur?.(data.phone)}
+            placeholder="(818) 222-3333 hoặc 8182223333"
+            className={cn(
+              'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'placeholder:text-muted-foreground',
+              errors?.phone ? 'border-error' : 'border-border'
+            )}
+          />
+          {isCheckingPhone && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
           )}
-        />
+        </div>
         {data.phone && !errors?.phone && (
           <p className="text-xs text-muted-foreground">
             Hiển thị: {formatPhone(data.phone)}

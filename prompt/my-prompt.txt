@@ -1,40 +1,25 @@
-tôi muốn nâng cấp màn hình tab Document của Client Detail
-giao diện hiện tại gồm: Danh sách tài liệu cần thu thập card + Quy trình xử lý tài liệu card
-tôi cảm thấy giao diện chưa tối ưu cho workflow của staff, và bị overlap tài liệu ở 2 card
+Ella là software giúp CPAs trong việc document chasing và chuẩn bị data cho việc data entry vào phần mềm thuế.
 
-tôi muốn giữ lại/nâng cấp Danh sách tài liệu cần thu thập card để có thể staff làm việc trực tiếp trên đây
-và loại bỏ/đơn giản hóa Quy trình xử lý tài liệu card
+Vấn đề: CPAs mất nhiều thời gian giao tiếp với khách hàng để đòi tài liệu, khách hàng chụp 1 đống tài liệu rồi quăng vào sms, CPAs phải giao tiếp với khách để lấy tài liệu, và phải tổng hợp tài liệu, rồi phải nhập liệu thủ công vào phần mềm thuế (OltPro, Tax Slayer). Nên CPAs muốn offshore cho nhân viên người Việt làm. Do đó, nhân viên người Việt cần một phần mềm để giúp streamline quá trình này
 
-Workflow hiện tại:
-client gửi docs
-docs nằm trong Quy trình xử lý tài liệu card, tab "Uploaded"
-AI tự phân loại
-docs chuyển sang nằm ở 2 nơi: trong Danh sách tài liệu cần thu thập card ở đúng mục checklist
-và ở trong tab "Need verify" trong Quy trình xử lý tài liệu card
-tôi qua tab "Need verify", nhấn nút "hoàn tất" để chuyển card sang tab "Verifed"
+Tôi cung cấp các hình ảnh screenshot hiện tại của Ella, và tôi sẽ miêu tả về quy trình làm việc trên Ella. Tôi muốn bạn đánh giá thẳng thắng, chỉ ra các điểm yếu, và cải thiện thiết kế phần mềm
 
-tôi cảm thấy card Danh sách tài liệu cần thu thập card  suboptimal for staff workflow
-tôi muốn 1 nơi tập trung làm việc
-và tại sao docs đã được classified, nằm ở cả 2 nơi.
+Workflow hiện tại của Ella:
+Vào trang Client. Tạo Client mới: Điền tên, số điện thoại. Sau đó chọn năm thuế + loại tờ khai + trình trạng hôn nhân. Sau đó trả lời các câu hỏi intake/questionaire về Thông tin người khai thuế, Người phụ thuộc, Nguồn thu nhập (check có W2 không, có 1099NEC không, etc), Khấu trừ, Xem lại & Hoàn tất.
 
+Sau khi tạo xong khách hàng, sẽ có trang danh sách khách hàng
+Khi chọn 1 khách hàng, sẽ thấy giao diện có 3 tab
+tổng quan, tài liệu, nhập liệu
+Trang tổng quan show thông tin về tax engagement năm đó, ví dụ, có W2 mấy tờ, số SSN, nguồn thu nhập có những khoảng gì, có những trấu trừ gì. Trang này có thể edit được
+Khi tạo 1 client = 1 Profile (chứa các thông tin về tax case của client của năm đó) = tất cả tài liệu của năm nào cũng lưu cùng 1 nơi trong 1 profile, hồ sơ năm sau đè hồ sơ năm trước
 
-tôi hình dung kiểu như
-có 1 card A, chưa tất cả tài liệu client gửi đến. Hay còn gọi là, cards chứa các tài liệu mà AI failed to classify
-có 1 card B, là checklist, card làm việc chính
+Trang tài liệu, dựa vào kết quả trả lời của các câu hỏi intake/questionaire lúc tạo client, sẽ tạo ra danh sách check list docs mà khách cần phải gửi.
+Sau khi tôi tạo khách hàng, ngay lập tức sẽ có 1 tin nhắn tự động, được gửi từ số twillio của Ella tới số SMS của khách hàng, nhắc nhở khách danh sách tài liệu cần gửi và kêu khách nộp vào link.
+Khách sẽ nộp vào link hoặc gửi thẳng qua sms của số twillio.
+Hệ thống AI (gemini) của tôi sẽ đọc tài liệu khách gửi, phân loại tài liệu này thuộc checklist nào. Điều này giúp staff nhận biết được khách đã gửi tài liệu nào, còn thiếu tài liệu nào
+Khi staff click vào tài liệu, sẽ có giao diện: bên trái là ảnh tài liệu (pdf/image reader) có thể phóng to thu nhỏ, bên phải là giá trị được gemini extracted ra. Trang này mục đích để staff verify giá trị mà AI extracted là chính xác chưa, nếu giá trị nào sai, thì staff sẽ sửa giá trị extract đó lại
+Sau đó, staff bấm hoàn tất verify.
+Lúc này ở tab Nhập liệu, sẽ xuất hiện 1 card, có tên của tài liệu vừa được verify.
+Mục đích của tab Nhập liệu, là khi staff đã có đủ tài liệu, staff sẽ qua tab nhập liệu, staff nhấn vào card, ví dụ W2, staff chỉ việc nhấn nút copy từ các giá trị đã được extracted của tab này, và paste vào phần mềm thuế (Tax Slayer, OltPro)
 
-khi client gửi docs, docs vào ngay trong card A
-AI chạy ngầm, nếu classify docs thành công, docs di chuyển vào trong card B, ở đúng mục trong checklist
-AI failed, docs còn nằm lại ở card A, để staff manually classify
-Mục đích của trang này chỉ để classify tài liệu khách gửi vào từng mục checklist cụ thể, để biết client còn thiếu docs nào
-
-trạng thái của checklist lúc này chuyển từ còn thiếu => đã nộp (màu xanh dương)
-Khi click vào tài liệu trong checklist, sẽ mở tài liệu raw bên trái, tài liệu digital extracted bên phải giống màn hình verification modal
-khi staff nhấn "hoàn tất" trong modal này, thì sẽ chuyển sang trạng thái đã xác minh, màu xanh lá
-
-về các digital extracted docs card, tôi nghĩ làm 1 tab mới, vì staff chỉ vào đây khi sẵn sàng nhập liệu
-ở tab này, sẽ hiện ra các digital extracted doc card. Các card này chứa các giá trị đã được extracted và verfied ở bước trước, có nút copy kế bên để staff dễ nhấn copy
-ở tab này, nên sắp xếp các card này sao cho staff dễ phân loại và nhập liệu, ví dụ tôi nghĩ là sẽ phân nhóm card kiểu, header, rồi bên dưới là list hàng ngang các digital verifed extracted card (giống như giao diện của các web xem phim: tên thể loại, và danh sách hàng ngang các phim)
-như vậy khi vào tab digital docs này, staff chỉ vào khi muốn quá trình data entry, staff sẽ nhấn vào từng card, nhấn copy rồi paste vào tax software
-
-
-bạn nghĩ sao về approach của tôi, đó chỉ là suy nghĩ sơ bộ của tôi thôi, tôi muốn nghe ý kiến của bạn, bạn có cải thiện gì vào approach của tôi, hay bạn có ý kiến hay hơn, hãy nói ra cho tôi xem xét
+Nhận xét về phần mềm Ella, chỉ ra các điểm yếu chết người cần cải thiện

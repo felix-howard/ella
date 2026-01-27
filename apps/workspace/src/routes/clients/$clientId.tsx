@@ -52,6 +52,9 @@ type TabType = 'overview' | 'documents' | 'data-entry'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
+  // Get engagement from URL search params (optional - for deep linking)
+  const search = Route.useSearch() as { engagement?: string }
+  const selectedEngagementId = search.engagement
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -61,6 +64,15 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+
+  // Handler for engagement selection - updates URL with engagement param
+  const handleEngagementSelect = useCallback((engagementId: string) => {
+    navigate({
+      to: '/clients/$clientId',
+      params: { clientId },
+      search: { engagement: engagementId } as Record<string, string>,
+    })
+  }, [navigate, clientId])
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -162,8 +174,29 @@ function ClientDetailPage() {
     queryFn: () => api.clients.get(clientId),
   })
 
-  // Get the latest case ID for fetching case-related data
-  const latestCaseId = client?.taxCases?.[0]?.id
+  // Fetch engagements to find case by engagement ID
+  const { data: engagementsData } = useQuery({
+    queryKey: ['engagements', clientId],
+    queryFn: () => api.engagements.list({ clientId, limit: 10 }),
+    enabled: !!clientId,
+  })
+
+  const engagements = engagementsData?.data ?? []
+
+  // Determine active engagement: from URL param or default to latest
+  const activeEngagementId = selectedEngagementId || engagements[0]?.id
+
+  // Find the case for the active engagement by matching engagementId
+  // Each TaxCase belongs to one engagement, so we need to find the matching case
+  const activeCaseForEngagement = client?.taxCases?.find(
+    (tc) => tc.engagementId === activeEngagementId
+  )
+
+  // Get the active case ID - either from selected engagement or fallback to latest
+  const activeCaseId = activeCaseForEngagement?.id || client?.taxCases?.[0]?.id
+
+  // For backward compat, keep latestCaseId reference
+  const latestCaseId = activeCaseId
 
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
@@ -261,18 +294,24 @@ function ClientDetailPage() {
     ? polledDocs
     : (docsResponse?.docs ?? [])
 
-  const latestCase = client.taxCases[0]
+  // Use active case (from selected engagement) or fallback to first case
+  const activeCase = activeCaseForEngagement || client.taxCases[0]
+  // Backward compat alias
+  const latestCase = activeCase
+
+  // Find the active engagement data for display
+  const activeEngagement = engagements.find((e) => e.id === activeEngagementId)
 
   // Compute status based on case data
-  const intakeAnswers = client.profile?.intakeAnswers as Record<string, unknown> || {}
+  const intakeAnswers = activeEngagement?.intakeAnswers as Record<string, unknown> || client.profile?.intakeAnswers as Record<string, unknown> || {}
   const hasIntakeAnswers = Object.keys(intakeAnswers).length > 0
   const missingDocsCount = checklistItems.filter(i => i.status === 'MISSING').length
   const extractedDocsCount = digitalDocs.filter(d => d.status === 'EXTRACTED').length
   const unverifiedDocsCount = digitalDocs.filter(d => d.status !== 'VERIFIED').length
   const pendingEntryCount = digitalDocs.filter(d => d.status === 'VERIFIED' && !d.entryCompleted).length
 
-  // Get isInReview and isFiled from latestCase (type-safe via TaxCaseSummary)
-  const isInReview = latestCase?.isInReview ?? false
+  // Get isInReview and isFiled from activeCase (type-safe via TaxCaseSummary)
+  const isInReview = activeCase?.isInReview ?? false
   const isFiled = latestCase?.isFiled ?? false
 
   const computedStatus: TaxCaseStatus | null = latestCase
@@ -488,10 +527,11 @@ function ClientDetailPage() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Engagement History - shows multi-year filing history */}
+          {/* Engagement History - shows multi-year filing history with clickable rows */}
           <EngagementHistorySection
             clientId={clientId}
-            currentTaxYear={latestCase?.taxYear}
+            currentEngagementId={activeEngagementId}
+            onEngagementSelect={handleEngagementSelect}
           />
           {/* Client Profile Overview */}
           <ClientOverviewSections client={client} />

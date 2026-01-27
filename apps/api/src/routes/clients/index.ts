@@ -375,7 +375,17 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
       profile: true,
       taxCases: {
         orderBy: { taxYear: 'desc' },
-        include: {
+        select: {
+          id: true,
+          clientId: true,
+          engagementId: true,
+          taxYear: true,
+          taxTypes: true,
+          status: true,
+          isInReview: true,
+          isFiled: true,
+          createdAt: true,
+          updatedAt: true,
           magicLinks: {
             where: { isActive: true },
             orderBy: { createdAt: 'desc' },

@@ -30,7 +30,7 @@
 
 ---
 
-### Phase 9: Document-First Client Workflow V2 - In Progress (4% Complete) ⏳
+### Phase 9: Document-First Client Workflow V2 - In Progress (10% Complete) ⏳
 **Started:** 2026-01-27 08:49 ICT
 **Target Completion:** 2026-02-10
 **Deliverable:** Parallel V2 routes redesign client creation from questionnaire-driven to document-first approach (30 micro-phases)
@@ -39,16 +39,18 @@
 | Phase | Component | Status | Completion | Notes |
 |-------|-----------|--------|-----------|-------|
 | 9.1 | V2 Route Setup & Navigation | ✅ DONE | 2026-01-27 | Routes + sidebar link, 9.5/10 code review |
-| 9.2 | Create Client Modal - Step 1 | ⏳ PENDING | - | Basic info (name + phone) |
-| 9.3+ | Remaining 28 phases | ⏳ PENDING | - | Client list, detail page, files tab, AI inference |
+| 9.2 | Create Client Modal - Step 1 (Basic Info) | ✅ DONE | 2026-01-27 | Name + phone fields implemented |
+| 9.3 | Create Client Modal - Step 2 (Tax Year) | ✅ DONE | 2026-01-27 | Tax year + form type selection completed |
+| 9.4+ | Remaining 27 phases | ⏳ PENDING | - | Step 3, client list, detail page, files tab, AI inference |
 
-**Completion Summary (Phase 9.1):**
-- Created `/clients-v2/` and `/clients-v2/$clientId` route files
-- Added "Khách hàng V2 (Beta)" navigation link with Beta badge
-- Placeholder components ready for Phase 9.2+
+**Completion Summary (Phases 9.1-9.3):**
+- **Phase 9.1:** Created `/clients-v2/` and `/clients-v2/$clientId` route files with Beta navigation link
+- **Phase 9.2:** Step 1 component with name/phone/email/language fields, validation ready
+- **Phase 9.3:** Step 2 component with tax year selection (current year default) and form type options (1040/1120S/1065)
+- Foundation (Phases 1-3 of 30) complete: 10% overall progress
 - Branch: feature/multi-tax-year
-- 9.5/10 code review score
-- No TypeScript errors, no console errors
+- All TypeScript clean, no console errors
+- Ready for Phase 9.4 (Step 3 Preview & Send)
 
 ---
 

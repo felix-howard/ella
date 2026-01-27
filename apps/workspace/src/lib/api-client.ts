@@ -762,6 +762,8 @@ export interface TaxCaseSummary {
   isInReview?: boolean
   /** Manual flag: case has been filed */
   isFiled?: boolean
+  /** Link to engagement (multi-year support) */
+  engagementId?: string
   _count: {
     rawImages: number
     digitalDocs: number

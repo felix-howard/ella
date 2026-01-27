@@ -55,10 +55,11 @@ const intakeAnswersValueSchema = z.union([
 ])
 
 // Client profile for intake questions
+// Phase 1 Simplify: taxTypes now has default ['FORM_1040'], filingStatus optional
 export const clientProfileSchema = z.object({
   taxTypes: z
     .array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065']))
-    .min(1, 'At least one tax type required'),
+    .default(['FORM_1040']),  // Default to individual form for simplified flow
   taxYear: z.number().int().min(2020).max(2030),
 
   // 1040 questions (legacy fields for backward compatibility)

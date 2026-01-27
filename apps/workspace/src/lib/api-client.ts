@@ -966,8 +966,8 @@ export interface CreateClientInput {
   email?: string
   language?: Language
   profile: {
-    taxTypes: TaxType[]
     taxYear: number
+    taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend
     filingStatus?: string
     // Legacy fields for backward compatibility
     hasW2?: boolean

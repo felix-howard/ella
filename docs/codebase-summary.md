@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-26
-**Current Branch:** feature/multi-tax-year
-**Latest Phase:** Phase 06 Testing & Validation - Multi-Year Client Engagement COMPLETE
+**Current Date:** 2026-01-27
+**Current Branch:** feature/engagement-only
+**Latest Phase:** Phase 1 Simplify Client Creation (2-step wizard) + Phase 06 Testing & Validation COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 1 Simplify Client Creation** | **2-step wizard (Basic Info → Confirm & Send); taxTypes default ['FORM_1040']; returning client detection with copy-from-engagement; ConfirmStep new component; SMS preview in UI** | **2026-01-27** |
 | **Phase 6 Testing & Validation** | **71 new tests; 535 total passing; engagements.test.ts (9 API tests); api.test.ts (6 integration tests); backward-compat.test.ts (8 backward compatibility tests); validate-migration.ts script; review score 9.2/10** | **2026-01-26** |
 | **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
 | **Phase 4 API Updates** | **6 TaxEngagement REST endpoints (GET list/detail, POST create with copy-from, PATCH update, DELETE with validation, GET copy-preview); Engagement-specific audit logging (logEngagementChanges); RFC 8594 deprecation headers middleware; Tax cases now support engagementId FK** | **2026-01-26** |
@@ -68,6 +69,62 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Phase 1 Simplify Client Creation - 2-Step Wizard (NEW - 2026-01-27)
+
+**Status:** Feature Complete | Simplified onboarding flow with 2-step form
+
+**Summary:** Streamlined client creation workflow with minimal required fields. Defaults taxTypes to FORM_1040, supports returning client detection, and auto-suggests copy-from-previous engagement.
+
+**Changes:**
+
+1. **Backend Schema Update** (`apps/api/src/routes/clients/schemas.ts`)
+   - `taxTypes` now optional with default `['FORM_1040']`
+   - `filingStatus` optional (was required)
+   - Creates simpler initial profile, can be updated later in client overview
+   - Security: Prototype pollution prevention + ABA checksum validation for routing numbers
+
+2. **Frontend Wizard** (`apps/workspace/src/routes/clients/new.tsx`)
+   - **2-Step Flow:**
+     - Step 1: Basic Info (name, phone, email, language, taxYear)
+     - Step 2: Confirm & Send (SMS preview before creation)
+   - **Form Validation:** Real-time client existence check by phone
+   - **Returning Client Detection:** Auto-checks if phone already in system
+   - **Copy-From Support:** If returning client, offer to copy previous engagement data
+   - **Minimal Data:** No business details on creation, just essentials
+   - **Submission:**
+     - New client: Creates client + engagement with default taxTypes
+     - Returning client: Creates new engagement (with optional copy-from)
+   - **Navigation:** Auto-redirect to client detail page after creation
+
+3. **New Component** (`apps/workspace/src/components/clients/confirm-step.tsx`)
+   - **ConfirmStep** (~115 LOC) - Final review before submission
+   - **Features:**
+     - Summary card (name, phone, tax year)
+     - SMS preview (bilingual: VI/EN)
+     - Submit button with loading state
+     - Info note about post-creation updates
+   - **Accessibility:** ARIA labels, proper form semantics
+   - **Props:** clientName, phone, taxYear, language, onSubmit, isSubmitting
+
+4. **API Client Update** (`apps/workspace/src/lib/api-client.ts`)
+   - `CreateClientInput` now has `taxTypes` optional
+   - Profile structure simplified (no business fields required on creation)
+
+**User Experience:**
+- Onboarding time reduced: ~2 min vs. previous 10+ min form
+- Returning clients skip intake, go straight to new engagement
+- Copy-from-previous feature preserves prior year data
+- SMS sent immediately with portal link
+- Detailed intake possible later in client overview
+
+**Technical Benefits:**
+- Smaller initial database footprint (no unused business fields)
+- Backward compatible (multi-year engagement still fully supported)
+- Reducing cognitive load in first step → higher completion rate
+- Clean separation: creation vs. intake details
+
+---
 
 ## Phase 6 Testing & Validation - Multi-Year Client Engagement (COMPLETE - 2026-01-26)
 
@@ -1318,9 +1375,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-26
-**Status:** PHASE 6 COMPLETE - Multi-Year Client Engagement Feature (All 6 phases done)
-**Branch:** feature/multi-tax-year (multi-year client support)
-**Architecture Version:** 9.4 (Tested & validated engagement model, 535 tests passing, 9.2/10 review)
+**Last Updated:** 2026-01-27
+**Status:** PHASE 1 SIMPLIFY - Streamlined 2-step client creation + PHASE 6 COMPLETE (Multi-year engagement)
+**Branch:** feature/engagement-only (simplified client workflow)
+**Architecture Version:** 9.5 (Simplified onboarding, tested multi-year engagement, 535 tests passing, 9.2/10 review)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

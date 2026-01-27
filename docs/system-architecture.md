@@ -808,22 +808,35 @@ if (!config.inngest.isProductionReady) {
 
 **Durable Step Structure:**
 
-1. **mark-processing** - Update RawImage.status = PROCESSING
+1. **check-idempotency** - Atomic compare-and-swap (prevents race conditions)
+   - Skip if already processed (PROCESSING, CLASSIFIED, LINKED, etc.)
+   - Mark status = PROCESSING only if status was UPLOADED
 2. **fetch-image** - Retrieve image from R2 via signed URL
-   - Returns: { buffer: base64, mimeType }
-3. **classify** - Gemini vision classification
-   - Returns: { success, docType, confidence, reasoning }
-4. **route-by-confidence** - Route by confidence thresholds
+   - Returns: { buffer: base64, mimeType, wasResized, isPdf }
+3. **check-duplicate** - Perceptual hash grouping (Phase 03)
+   - Generate 64-bit pHash from image (skip PDFs - pHash on images only)
+   - Find existing duplicates via Hamming distance (threshold: <10 bits)
+   - Create/join ImageGroup if duplicate found
+   - Early exit if duplicate (skip AI classification - cost saving)
+4. **classify** - Gemini vision classification
+   - Returns: { success, docType, confidence, reasoning, taxYear, source }
+   - Native PDF reading (no conversion needed)
+   - Handles service unavailability with retry
+5. **route-by-confidence** - Route by confidence thresholds
    - < 60%: UNCLASSIFIED, create AI_FAILED action
    - 60-85%: CLASSIFIED, create VERIFY_DOCS action
    - >= 85%: CLASSIFIED, auto-link, no action
    - Returns: { action, needsOcr, checklistItemId }
-5. **detect-duplicates** - Perceptual hash grouping (Phase 03)
-   - Generate 64-bit pHash from image
-   - Find existing duplicates via Hamming distance (threshold: <10 bits)
-   - Create/join ImageGroup if duplicate found
-   - Returns: { grouped, groupId, isNewGroup, imageCount }
-6. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
+6. **rename-file** - Auto-rename to meaningful filename (Phase 04)
+   - Skip if unclassified or classification failed
+   - Validate caseId format (CUID defense-in-depth)
+   - R2 copy+delete atomic pattern (idempotent, race-condition safe)
+   - Fetch client name from TaxCase record
+   - Rename: {r2Key} → {caseId}/docs/{TaxYear}_{DocType}_{Source}_{ClientName}
+   - Update RawImage.r2Key, displayName, category atomically
+   - Graceful degradation: failure doesn't break job
+   - Returns: { renamed, newKey, displayName, category, error? }
+7. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
    - Extract structured data with confidence score
    - Atomic DB transaction: upsert DigitalDoc + update ChecklistItem + mark LINKED
    - Returns: { digitalDocId }
@@ -834,12 +847,18 @@ if (!config.inngest.isProductionReady) {
   rawImageId: string
   classification: { docType: DocType, confidence: number }
   routing: 'auto-linked' | 'needs-review' | 'unclassified'
-  grouping: {
-    grouped: boolean
-    groupId: string | null
-    imageCount: number
+  rename: {
+    renamed: boolean
+    newKey: string | null
+    displayName: string | null
+    category: DocCategory
+  }
+  duplicateCheck: {
+    checked: boolean
+    imageHash: string | null
   }
   digitalDocId?: string
+  wasResized: boolean
 }
 ```
 
@@ -1350,11 +1369,15 @@ Validation errors (OCR confidence < 0.85):
 - Succeeds even if delete fails (orphaned old file is acceptable per design)
 - Returns error only if copy fails (new file not created)
 
-**Integration:**
-- Called during document verification/finalization (future phase)
-- Requires `DocumentNamingComponents` from AI classification (taxYear, docType, source, clientName)
-- Updates database separately to point to new R2 key
+**Integration (Phase 04 - INTEGRATED INTO classify-document JOB):**
+- Called as Step 5 in classifyDocumentJob after route-by-confidence (Step 4)
+- Automatic rename for all classified documents (confidence ≥ 60%)
+- Requires DocumentNamingComponents from classification: taxYear, docType, source, clientName
+- Client name fetched from TaxCase record (single DB query per classification)
+- Graceful degradation: rename failure doesn't break job or OCR steps
+- Updates RawImage.r2Key, displayName, and category atomically
 - Gracefully handles R2 not configured (returns success without operation)
+- Telemetry logged for rename failures (for debugging & monitoring)
 
 **Test Coverage (10 tests):**
 - Copy+delete pattern validation

@@ -67,7 +67,21 @@ Durable Step 4: route-by-confidence
      ├─ Create VERIFY_DOCS action (NORMAL priority)
      └─ Return { action: 'needs-review', needsOcr: true/false }
         ↓
-Durable Step 5: ocr-extract (conditional)
+Durable Step 5: rename-file (Phase 04 - AUTO-RENAME)
+  ├─ Skip if unclassified or classification failed
+  ├─ Validate caseId format (CUID defense-in-depth)
+  ├─ Fetch client name from TaxCase record
+  ├─ Call renameFile() - R2 copy+delete atomic pattern
+  │  ├─ Copy from {r2Key} → {caseId}/docs/{TaxYear}_{DocType}_{Source}_{ClientName}
+  │  └─ Delete old key (safe to fail - DB is source of truth)
+  ├─ If rename succeeds:
+  │  ├─ Update RawImage.r2Key = newKey
+  │  ├─ Update RawImage.displayName (via getDisplayNameFromKey())
+  │  └─ Update RawImage.category (via getCategoryFromDocType())
+  └─ If rename fails:
+     └─ Log telemetry + continue (graceful degradation)
+        ↓
+Durable Step 6: ocr-extract (conditional)
   ├─ If needsOcr && docType supports OCR:
   │  ├─ Decode base64 buffer
   │  ├─ Call extractDocumentData()
@@ -83,6 +97,7 @@ Durable Step 5: ocr-extract (conditional)
 Return final result
   ├─ rawImageId, docType, confidence
   ├─ routing action (auto-linked|needs-review|unclassified)
+  ├─ rename result { renamed, newKey, displayName, category, error? }
   └─ digitalDocId (if OCR extracted)
 ```
 
@@ -201,6 +216,115 @@ const classifyDocumentJob = inngest.createFunction(
 - ChecklistItem auto-linked
 - No action created (silent success)
 - OCR extraction triggers if docType supports it
+
+---
+
+## Rename File Step (Phase 04)
+
+### Purpose & Behavior
+
+After classification succeeds (confidence ≥ 60%), the rename step transforms generic R2 keys into meaningful filenames based on AI results:
+- **Before:** `cases/abc123/raw/1704033300000-w2.pdf`
+- **After:** `cases/abc123/docs/2025_W2_GoogleLlc_JohnSmith.pdf`
+
+**Skips rename for:**
+- Unclassified documents (confidence < 60%)
+- Failed classification
+- Missing/invalid caseId
+
+### Filename Convention
+
+Format: `{TaxYear}_{DocType}_{Source}_{ClientName}.{ext}`
+
+**Processing:**
+1. Extract TaxYear from classification result (defaults to current year)
+2. DocType from classification (e.g., W2, 1099-NEC)
+3. Source from classification (e.g., GoogleLlc, employer name)
+4. ClientName from TaxCase record (sanitized: Vietnamese diacritics removed, PascalCase)
+5. Extension preserved from original key (defaults to .pdf)
+
+**Sanitization (filename-sanitizer.ts):**
+- No spaces (replaced with underscores)
+- No Vietnamese diacritics (ă → a, đ → d, etc.)
+- No special characters (/, \, |, :, etc.)
+- Max 60 chars total per component
+- PascalCase for client name
+
+### Implementation Pattern (Race Condition Safe)
+
+Uses R2 copy+delete atomic pattern:
+
+```typescript
+// Step 1: Copy to new key (idempotent - safe for retries)
+await s3Client.send(new CopyObjectCommand({
+  Bucket: BUCKET_NAME,
+  CopySource: `${BUCKET_NAME}/${oldKey}`,
+  Key: newKey,
+}))
+
+// Step 2: Update database with new key (Inngest persists step result)
+await prisma.rawImage.update({
+  where: { id: rawImageId },
+  data: {
+    r2Key: newKey,
+    displayName: getDisplayNameFromKey(newKey),
+    category: getCategoryFromDocType(docType),
+  }
+})
+
+// Step 3: Delete old key (safe to fail - orphaned file acceptable)
+await s3Client.send(new DeleteObjectCommand({
+  Bucket: BUCKET_NAME,
+  Key: oldKey,
+}))
+```
+
+**Race Condition Safety:**
+1. Copy completes first (idempotent - can retry safely)
+2. DB update committed (Inngest records step result)
+3. Delete attempted (failures don't break job)
+4. If any step fails → Inngest retries entire step
+5. Retry-safety: copy is idempotent, DB update idempotent
+
+### Failure Handling
+
+**Rename Failure (copy fails):**
+- Logs error telemetry with context (rawImageId, caseId, r2Key, docType, error)
+- Returns `{ renamed: false, newKey: null, displayName: null, category, error }`
+- **Job continues** - graceful degradation (old key still usable)
+- RawImage category still set (from classification)
+- OCR and subsequent steps proceed normally
+
+**Delete Failure (old key orphaned):**
+- Acceptable per design - DB is source of truth
+- New key in DB points to renamed file
+- Orphaned old file cleaned up later by maintenance job
+
+### Database Updates
+
+When rename succeeds:
+
+```typescript
+RawImage {
+  r2Key: newKey              // Updated R2 location
+  displayName: string        // Human-readable name
+  category: DocCategory      // Set from docType
+  classifiedType: DocType    // From classification
+  aiConfidence: float        // From classification
+}
+```
+
+### Return Value
+
+```typescript
+interface RenameStepResult {
+  renamed: boolean           // true if copy succeeded
+  newKey: string | null      // New R2 key or null
+  displayName: string | null // Human name or null
+  category: DocCategory      // Always set (from docType)
+  error?: string            // 'INVALID_CASE_ID' or R2 error
+}
+```
 
 ---
 

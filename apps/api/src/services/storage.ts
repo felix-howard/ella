@@ -209,6 +209,18 @@ export interface RenameResult {
  * 2. Return new key (caller updates DB)
  * 3. Delete old key (safe to fail - orphaned file is acceptable)
  *
+ * Race Condition Safety:
+ * - Copy operation is idempotent (safe to retry)
+ * - Caller updates DB AFTER successful copy, BEFORE delete
+ * - Delete failure leaves orphan but doesn't break consistency
+ * - On retry: If copy succeeds but delete failed previously, retry is safe
+ *   because copy to same key is idempotent and delete will be retried
+ *
+ * Transaction Order (in classify-document job):
+ * 1. Copy file to new key (this function)
+ * 2. Update RawImage.r2Key in DB (caller)
+ * 3. Delete old key (this function) - allowed to fail
+ *
  * @param oldKey - Current R2 key
  * @param caseId - Case ID for path construction
  * @param components - Naming components from AI classification

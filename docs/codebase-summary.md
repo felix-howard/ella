@@ -46,6 +46,7 @@
 | **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
 | **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
 | **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
+| **Phase 02 AI Prompt Update** | **DocCategory enum + DOC_TYPE_TO_CATEGORY mapping (89 types → 7 categories); getCategoryFromDocType() utility; Classification result now returns category, taxYear, source; Extraction rules for automatic document naming** | **2026-01-27** |
 | **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
 | **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
 | **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |

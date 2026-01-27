@@ -118,6 +118,9 @@ export interface ClassificationResult {
     docType: SupportedDocType
     confidence: number
   }>
+  // Naming components for auto-rename feature
+  taxYear: number | null // e.g., 2025 - extracted from document period
+  source: string | null // Employer/bank/issuer name - extracted from document
 }
 
 /**
@@ -242,7 +245,11 @@ ${VIETNAMESE_NAME_HANDLING}
 ${CONFIDENCE_CALIBRATION}
 
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[]}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name"}
+
+EXTRACTION RULES FOR NAMING:
+- taxYear: Extract from Box period, statement date, form header "Tax Year 20XX", or document date. Use null if unclear.
+- source: Extract employer name (W2 Box c), bank name (1099-INT payer), issuer. Remove legal suffixes (case-insensitive): "Inc", "Inc.", "LLC", "Corp", "Corp.", "Corporation", "Co", "Co.", "Ltd", "Ltd.". Use null if not found or if only generic name remains.
 
 RULES:
 1. Confidence 0-1 scale, be conservative (rarely use > 0.95)
@@ -250,7 +257,9 @@ RULES:
 3. Key identifiers: form numbers (1099-K, W-2), titles, logos, issuer names
 4. For 1099 variants, ALWAYS verify the specific letter suffix (INT vs DIV vs NEC vs K vs R vs G)
 5. If unclear or unreadable, use UNKNOWN with low confidence
-6. Check for "CORRECTED" checkbox on any tax form`
+6. Check for "CORRECTED" checkbox on any tax form
+7. taxYear must be a 4-digit year between 2000-2100, or null
+8. source should be clean company/entity name without legal suffixes`
 }
 
 /**
@@ -273,6 +282,22 @@ export function validateClassificationResult(
 
   // Validate confidence range
   if (r.confidence < 0 || r.confidence > 1) return false
+
+  // Validate taxYear (optional, number or null)
+  // Range 2000-2100 covers historical documents and future-proofs for 70+ years
+  if ('taxYear' in r && r.taxYear !== null) {
+    if (typeof r.taxYear !== 'number' || r.taxYear < 2000 || r.taxYear > 2100) {
+      return false
+    }
+  }
+
+  // Validate source (optional, non-empty string or null)
+  // Treat empty strings as invalid - use null for missing source
+  if ('source' in r && r.source !== null) {
+    if (typeof r.source !== 'string' || r.source.trim() === '') {
+      return false
+    }
+  }
 
   return true
 }

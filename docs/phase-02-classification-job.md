@@ -49,7 +49,8 @@ Durable Step 2: fetch-image
 Durable Step 3: classify
   ├─ Decode base64 buffer
   ├─ Call Gemini vision classification
-  ├─ Extract { docType, confidence, reasoning }
+  ├─ Extract { docType, confidence, reasoning, taxYear, source }
+  ├─ Determine category via getCategoryFromDocType()
   └─ Return classification result
         ↓
 Durable Step 4: route-by-confidence
@@ -287,6 +288,54 @@ await prisma.$transaction(async (tx) => {
 
 ---
 
+## Type Definitions & Utilities
+
+### Document Category Mapping
+
+**File:** `packages/shared/src/types/doc-category.ts`
+
+Seven document categories for organizing classified documents:
+
+```typescript
+type DocCategory =
+  | 'IDENTITY'      // SSN, Driver License, Passport, Birth Certificate
+  | 'INCOME'        // W2, 1099-*, Schedule K-1
+  | 'EXPENSE'       // Receipts, deductions, property tax statements
+  | 'ASSET'         // Property docs, investment statements, mileage logs
+  | 'EDUCATION'     // 1098-T, 1098-E tuition statements
+  | 'HEALTHCARE'    // 1095-A, 1095-B, 1095-C insurance forms
+  | 'OTHER'         // Business docs, bank statements, misc documents
+```
+
+**Key Utilities:**
+
+```typescript
+// Deterministic mapping (89 document types → 7 categories)
+const DOC_TYPE_TO_CATEGORY: Record<DocType, DocCategory>
+
+// Get category from document type (returns 'OTHER' for null/unknown)
+export function getCategoryFromDocType(docType: DocType | string | null): DocCategory
+
+// UI labels (Vietnamese)
+export const CATEGORY_LABELS: Record<DocCategory, string>
+
+// Display order
+export const CATEGORY_ORDER: DocCategory[] = [
+  'IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER'
+]
+```
+
+**Integration in Classification:**
+
+```typescript
+// In document-classifier.ts
+const classificationResult = await classifyDocument(buffer, mimeType)
+const category = getCategoryFromDocType(classificationResult.docType)
+// Category automatically added to DocumentClassificationResult
+```
+
+---
+
 ## Service Layer
 
 ### Storage Service
@@ -314,6 +363,61 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
 
   return { buffer, mimeType }
 }
+```
+
+### AI Classification Prompt
+
+**File:** `apps/api/src/services/ai/prompts/classify.ts`
+
+Enhanced Gemini prompt with few-shot examples, Vietnamese name handling, and confidence calibration.
+
+**Classification Result Format (Phase 02 Update):**
+
+```typescript
+export interface ClassificationResult {
+  docType: SupportedDocType | 'UNKNOWN'
+  confidence: number                      // 0-1 scale, conservative (rarely > 0.95)
+  reasoning: string                       // Key identifiers referenced
+  alternativeTypes?: Array<{              // If confidence < 0.80
+    docType: SupportedDocType
+    confidence: number
+  }>
+  // NEW: Naming components extracted from document
+  taxYear: number | null                  // 4-digit year (2000-2100) or null
+  source: string | null                   // Cleaned issuer/employer name or null
+}
+```
+
+**Extraction Rules for taxYear & source:**
+
+- **taxYear:** Extract from Box period, statement date, form header "Tax Year 20XX", or document date
+  - Must be 4-digit number between 2000-2100, or null if unclear
+  - Examples: "Tax Year 2025" → 2025, "2025" → 2025, undated → null
+
+- **source:** Extract employer name (W2 Box c), bank name (1099-INT payer), issuer name
+  - Remove legal suffixes (case-insensitive): Inc, Inc., LLC, Corp, Corp., Corporation, Co, Co., Ltd, Ltd.
+  - Examples: "Microsoft Corporation" → "Microsoft", "Chase Bank Inc" → "Chase Bank"
+  - Use null if not found or only generic name remains
+
+**Prompt Features:**
+
+- Six few-shot examples covering common confusion cases (1099 variants, IDs)
+- Vietnamese name handling (family-first format, common names, middle names)
+- Confidence calibration guidance (0.85-0.95 HIGH, 0.60-0.84 MEDIUM, < 0.60 LOW/UNKNOWN)
+- 89 supported document types (matches DocType enum)
+
+**Usage in Classifier Service:**
+
+```typescript
+// In document-classifier.ts
+const prompt = getClassificationPrompt()
+const result = await analyzeImage<ClassificationResult>(buffer, mimeType, prompt)
+
+// Validation ensures all fields present
+validateClassificationResult(result.data)
+
+// Category automatically determined
+const category = getCategoryFromDocType(result.data.docType)
 ```
 
 ### PDF Conversion Service (Phase 3)

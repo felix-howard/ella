@@ -6,6 +6,8 @@ import { analyzeImage, isGeminiConfigured } from './gemini-client'
 import { getClassificationPrompt, validateClassificationResult } from './prompts/classify'
 import type { ClassificationResult, SupportedDocType } from './prompts/classify'
 import { config } from '../../lib/config'
+import { getCategoryFromDocType } from '@ella/shared'
+import type { DocCategory } from '@ella/shared'
 
 /**
  * Classification result with additional metadata
@@ -19,6 +21,10 @@ export interface DocumentClassificationResult {
     docType: SupportedDocType
     confidence: number
   }>
+  // Naming components for auto-rename feature
+  category: DocCategory
+  taxYear: number | null
+  source: string | null
   error?: string
   processingTimeMs?: number
 }
@@ -43,6 +49,9 @@ export async function classifyDocument(
       docType: 'UNKNOWN',
       confidence: 0,
       reasoning: 'AI service not configured',
+      category: 'OTHER',
+      taxYear: null,
+      source: null,
       error: 'Gemini API key not configured',
       processingTimeMs: Date.now() - startTime,
     }
@@ -63,6 +72,9 @@ export async function classifyDocument(
       docType: 'UNKNOWN',
       confidence: 0,
       reasoning: 'Unsupported file format',
+      category: 'OTHER',
+      taxYear: null,
+      source: null,
       error: `Unsupported MIME type: ${mimeType}`,
       processingTimeMs: Date.now() - startTime,
     }
@@ -78,6 +90,9 @@ export async function classifyDocument(
         docType: 'UNKNOWN',
         confidence: 0,
         reasoning: 'AI classification failed',
+        category: 'OTHER',
+        taxYear: null,
+        source: null,
         error: result.error || 'Unknown error during classification',
         processingTimeMs: Date.now() - startTime,
       }
@@ -90,6 +105,9 @@ export async function classifyDocument(
         docType: 'UNKNOWN',
         confidence: 0,
         reasoning: 'Invalid AI response structure',
+        category: 'OTHER',
+        taxYear: null,
+        source: null,
         error: 'AI returned invalid classification format',
         processingTimeMs: Date.now() - startTime,
       }
@@ -101,6 +119,9 @@ export async function classifyDocument(
       confidence: result.data.confidence,
       reasoning: result.data.reasoning,
       alternativeTypes: result.data.alternativeTypes,
+      category: getCategoryFromDocType(result.data.docType),
+      taxYear: result.data.taxYear ?? null,
+      source: result.data.source ?? null,
       processingTimeMs: Date.now() - startTime,
     }
   } catch (error) {
@@ -110,6 +131,9 @@ export async function classifyDocument(
       docType: 'UNKNOWN',
       confidence: 0,
       reasoning: 'Classification error occurred',
+      category: 'OTHER',
+      taxYear: null,
+      source: null,
       error: errorMessage,
       processingTimeMs: Date.now() - startTime,
     }

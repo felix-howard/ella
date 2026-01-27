@@ -257,6 +257,58 @@ export type User = z.infer<typeof userSchema>
 - `/types` - TypeScript types & inferred types
 - Default export from index includes all
 
+## Document Category & Type Utilities (@ella/shared - Phase 02 AI Prompt)
+
+**Location:** `packages/shared/src/types/doc-category.ts`
+
+Centralized document type definitions and categorization logic. Mirrors Prisma schema enums to avoid circular dependencies.
+
+**Type Definitions:**
+
+```typescript
+// 7 document categories for organizing classified documents
+export type DocCategory = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+
+// 89+ document types (matches Prisma DocType enum)
+export type DocType = 'SSN_CARD' | 'W2' | 'FORM_1099_INT' | ... | 'UNKNOWN'
+```
+
+**Deterministic Mapping & Utilities:**
+
+```typescript
+// 1. Map any DocType to single DocCategory
+export const DOC_TYPE_TO_CATEGORY: Record<DocType, DocCategory>
+
+// 2. Safe function with fallback
+export function getCategoryFromDocType(docType: string | null): DocCategory
+  // Returns 'OTHER' for null/unknown/invalid types
+
+// 3. UI Labels (Vietnamese)
+export const CATEGORY_LABELS: Record<DocCategory, string>
+  // { IDENTITY: 'Giấy tờ tùy thân', INCOME: 'Thu nhập', ... }
+
+// 4. Display order (for consistent UI rendering)
+export const CATEGORY_ORDER: DocCategory[]
+```
+
+**Design Rationale:**
+
+- **Shared Package:** Avoids circular import with @ella/db (Prisma)
+- **Type Sync:** Must manually sync with Prisma schema (comment at top)
+- **Exhaustive Mapping:** All 89 DocTypes covered (compile-time verification)
+- **Fallback Safety:** `getCategoryFromDocType()` returns 'OTHER' for unknown values
+
+**Usage in Classification:**
+
+```typescript
+// In apps/api/src/services/ai/document-classifier.ts
+import { getCategoryFromDocType, type DocCategory } from '@ella/shared'
+
+const classificationResult = await classifyDocument(buffer, mimeType)
+const category: DocCategory = getCategoryFromDocType(classificationResult.docType)
+// category now in DocumentClassificationResult
+```
+
 ## Computed Status & Activity Tracking (@ella/shared - Phase 1)
 
 **Location:** `packages/shared/src/utils/computed-status.ts` + `apps/api/src/services/activity-tracker.ts`

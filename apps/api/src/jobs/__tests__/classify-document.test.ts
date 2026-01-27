@@ -145,6 +145,9 @@ describe('classifyDocumentJob workflow', () => {
         docType: 'W2',
         confidence: 0.92,
         reasoning: 'W2 form identified by header',
+        category: 'INCOME',
+        taxYear: 2025,
+        source: 'Google',
       })
 
       mockRequiresOcr.mockReturnValue(true)
@@ -242,6 +245,9 @@ describe('classifyDocumentJob workflow', () => {
         docType: 'FORM_1099_NEC',
         confidence: 0.72,
         reasoning: '1099 form but specific type uncertain',
+        category: 'INCOME',
+        taxYear: 2025,
+        source: 'Acme Corp',
       })
 
       mockRequiresOcr.mockReturnValue(true)
@@ -301,6 +307,9 @@ describe('classifyDocumentJob workflow', () => {
         docType: 'UNKNOWN',
         confidence: 0.35,
         reasoning: 'Image too blurry to identify',
+        category: 'OTHER',
+        taxYear: null,
+        source: null,
       })
     })
 
@@ -450,6 +459,9 @@ describe('classifyDocumentJob workflow', () => {
         docType: 'UNKNOWN',
         confidence: 0,
         reasoning: 'API error',
+        category: 'OTHER',
+        taxYear: null,
+        source: null,
         error: 'Gemini API unavailable',
       })
 

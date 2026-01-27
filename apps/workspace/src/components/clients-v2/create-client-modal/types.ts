@@ -11,12 +11,12 @@ export interface CreateClientFormData {
   email: string
   language: 'VI' | 'EN'
 
-  // Step 2: Tax Year (Phase 03)
-  taxYear?: number
-  formType?: string
+  // Step 2: Tax Year
+  taxYear: number
+  formType: '1040' | '1120S' | '1065'
 
   // Step 3: Preview (Phase 04)
-  sendSmsOnCreate?: boolean
+  sendSmsOnCreate: boolean
 }
 
 /** Current step in the wizard (1-3) */

@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { Modal, ModalHeader, ModalTitle } from '@ella/ui'
 import { StepIndicator } from './step-indicator'
 import { Step1BasicInfo } from './step-1-basic-info'
+import { Step2TaxYear } from './step-2-tax-year'
 import type { CreateClientFormData, CreateClientStep } from './types'
 
 const STEPS = [
@@ -22,6 +23,7 @@ const INITIAL_FORM_DATA: CreateClientFormData = {
   email: '',
   language: 'VI',
   taxYear: new Date().getFullYear(),
+  formType: '1040',
   sendSmsOnCreate: true,
 }
 
@@ -71,28 +73,14 @@ export function CreateClientModal({
         />
       )}
 
-      {/* Step 2: Tax Year - Placeholder (Phase 03) */}
+      {/* Step 2: Tax Year */}
       {step === 2 && (
-        <div className="text-muted-foreground text-center py-8">
-          <p>Step 2 - Năm thuế</p>
-          <p className="text-sm mt-2">Sẽ được thêm trong Phase 03</p>
-          <div className="flex justify-between mt-6">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="text-sm text-primary hover:underline"
-            >
-              ← Quay lại
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep(3)}
-              className="text-sm text-primary hover:underline"
-            >
-              Tiếp tục →
-            </button>
-          </div>
-        </div>
+        <Step2TaxYear
+          formData={formData}
+          onUpdate={handleUpdate}
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
+        />
       )}
 
       {/* Step 3: Preview & Send - Placeholder (Phase 04) */}

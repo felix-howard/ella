@@ -35,7 +35,13 @@ import {
   DuplicateDocsCard,
   DataEntryTab,
 } from '../../components/documents'
-import { ClientOverviewSections, ComputedStatusBadge, EngagementHistorySection } from '../../components/clients'
+import {
+  ClientOverviewSections,
+  ComputedStatusBadge,
+  EngagementHistorySection,
+  YearSwitcher,
+  CreateEngagementModal,
+} from '../../components/clients'
 import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
@@ -63,14 +69,17 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+  // Multi-year engagement state
+  const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
+  const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
     mutationFn: (data: { docType: string; reason?: string; expectedCount?: number }) =>
-      api.cases.addChecklistItem(latestCaseId!, data),
+      api.cases.addChecklistItem(activeCaseId!, data),
     onSuccess: () => {
       toast.success('Đã thêm mục mới vào checklist')
-      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
       setIsAddItemModalOpen(false)
     },
     onError: () => {
@@ -81,10 +90,10 @@ function ClientDetailPage() {
   // Mutation for skipping checklist item
   const skipChecklistItemMutation = useMutation({
     mutationFn: ({ itemId, reason }: { itemId: string; reason: string }) =>
-      api.cases.skipChecklistItem(latestCaseId!, itemId, reason),
+      api.cases.skipChecklistItem(activeCaseId!, itemId, reason),
     onSuccess: () => {
       toast.success('Đã bỏ qua mục')
-      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
     },
     onError: () => {
       toast.error('Lỗi khi bỏ qua mục')
@@ -94,10 +103,10 @@ function ClientDetailPage() {
   // Mutation for unskipping checklist item
   const unskipChecklistItemMutation = useMutation({
     mutationFn: (itemId: string) =>
-      api.cases.unskipChecklistItem(latestCaseId!, itemId),
+      api.cases.unskipChecklistItem(activeCaseId!, itemId),
     onSuccess: () => {
       toast.success('Đã khôi phục mục')
-      queryClient.invalidateQueries({ queryKey: ['checklist', latestCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
     },
     onError: () => {
       toast.error('Lỗi khi khôi phục mục')
@@ -120,7 +129,7 @@ function ClientDetailPage() {
 
   // Status action mutations
   const sendToReviewMutation = useMutation({
-    mutationFn: () => api.cases.sendToReview(latestCaseId!),
+    mutationFn: () => api.cases.sendToReview(activeCaseId!),
     onSuccess: () => {
       toast.success('Đã gửi hồ sơ đi kiểm tra')
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
@@ -131,7 +140,7 @@ function ClientDetailPage() {
   })
 
   const markFiledMutation = useMutation({
-    mutationFn: () => api.cases.markFiled(latestCaseId!),
+    mutationFn: () => api.cases.markFiled(activeCaseId!),
     onSuccess: () => {
       toast.success('Đã đánh dấu hồ sơ đã nộp')
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
@@ -142,7 +151,7 @@ function ClientDetailPage() {
   })
 
   const reopenMutation = useMutation({
-    mutationFn: () => api.cases.reopen(latestCaseId!),
+    mutationFn: () => api.cases.reopen(activeCaseId!),
     onSuccess: () => {
       toast.success('Đã mở lại hồ sơ')
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
@@ -164,21 +173,39 @@ function ClientDetailPage() {
     queryFn: () => api.clients.get(clientId),
   })
 
-  // Get the latest case ID for fetching case-related data
-  const latestCaseId = client?.taxCases?.[0]?.id
+  // Fetch engagements for this client (multi-year support)
+  const { data: engagementsData } = useQuery({
+    queryKey: ['engagements', clientId],
+    queryFn: () => api.engagements.list({ clientId, limit: 10 }),
+    enabled: !!client,
+  })
+  const engagements = engagementsData?.data ?? []
+
+  // Determine which engagement is selected (default to most recent)
+  const selectedEngagement = selectedEngagementId
+    ? engagements.find((e) => e.id === selectedEngagementId)
+    : engagements[0]
+
+  // Find the tax case that matches the selected engagement's year
+  const selectedCase = selectedEngagement
+    ? client?.taxCases?.find((tc) => tc.taxYear === selectedEngagement.taxYear)
+    : client?.taxCases?.[0]
+
+  // Get the active case ID based on selected engagement
+  const activeCaseId = selectedCase?.id
 
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
-    queryKey: ['checklist', latestCaseId],
-    queryFn: () => api.cases.getChecklist(latestCaseId!),
-    enabled: !!latestCaseId,
+    queryKey: ['checklist', activeCaseId],
+    queryFn: () => api.cases.getChecklist(activeCaseId!),
+    enabled: !!activeCaseId,
   })
 
   // Fetch unread count for the specific case
   const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
-    queryKey: ['unread-count', latestCaseId],
-    queryFn: () => api.messages.getUnreadCount(latestCaseId!),
-    enabled: !!latestCaseId,
+    queryKey: ['unread-count', activeCaseId],
+    queryFn: () => api.messages.getUnreadCount(activeCaseId!),
+    enabled: !!activeCaseId,
     staleTime: 30000, // Cache for 30s
   })
   const unreadCount = unreadData?.unreadCount ?? 0
@@ -192,22 +219,22 @@ function ClientDetailPage() {
 
   // Fetch raw images for the latest case
   const { data: imagesResponse } = useQuery({
-    queryKey: ['images', latestCaseId],
-    queryFn: () => api.cases.getImages(latestCaseId!),
-    enabled: !!latestCaseId,
+    queryKey: ['images', activeCaseId],
+    queryFn: () => api.cases.getImages(activeCaseId!),
+    enabled: !!activeCaseId,
   })
 
   // Fetch digital docs for the latest case
   const { data: docsResponse } = useQuery({
-    queryKey: ['docs', latestCaseId],
-    queryFn: () => api.cases.getDocs(latestCaseId!),
-    enabled: !!latestCaseId,
+    queryKey: ['docs', activeCaseId],
+    queryFn: () => api.cases.getDocs(activeCaseId!),
+    enabled: !!activeCaseId,
   })
 
   // Enable polling for real-time classification updates when on files or checklist tab
   const isDocumentsTab = activeTab === 'files' || activeTab === 'checklist'
   const { images: polledImages, docs: polledDocs, processingCount, extractingCount } = useClassificationUpdates({
-    caseId: latestCaseId,
+    caseId: activeCaseId,
     enabled: isDocumentsTab,
     refetchInterval: 5000,
   })
@@ -263,7 +290,8 @@ function ClientDetailPage() {
     ? polledDocs
     : (docsResponse?.docs ?? [])
 
-  const latestCase = client.taxCases[0]
+  // Use selectedCase for current view (defaults to most recent if not selected)
+  const activeCase = selectedCase ?? client.taxCases[0]
 
   // Compute status based on case data
   const intakeAnswers = client.profile?.intakeAnswers as Record<string, unknown> || {}
@@ -273,11 +301,11 @@ function ClientDetailPage() {
   const unverifiedDocsCount = digitalDocs.filter(d => d.status !== 'VERIFIED').length
   const pendingEntryCount = digitalDocs.filter(d => d.status === 'VERIFIED' && !d.entryCompleted).length
 
-  // Get isInReview and isFiled from latestCase (type-safe via TaxCaseSummary)
-  const isInReview = latestCase?.isInReview ?? false
-  const isFiled = latestCase?.isFiled ?? false
+  // Get isInReview and isFiled from activeCase (type-safe via TaxCaseSummary)
+  const isInReview = activeCase?.isInReview ?? false
+  const isFiled = activeCase?.isFiled ?? false
 
-  const computedStatus: TaxCaseStatus | null = latestCase
+  const computedStatus: TaxCaseStatus | null = activeCase
     ? computeStatus({
         hasIntakeAnswers,
         missingDocsCount,
@@ -288,6 +316,27 @@ function ClientDetailPage() {
         isFiled,
       })
     : null
+
+  // Handler for year change from YearSwitcher
+  const handleYearChange = useCallback((year: number, engagementId: string) => {
+    setSelectedEngagementId(engagementId)
+    // Invalidate queries for the new case to ensure fresh data
+    const newCase = client?.taxCases?.find((tc) => tc.taxYear === year)
+    if (newCase?.id) {
+      queryClient.invalidateQueries({ queryKey: ['checklist', newCase.id] })
+      queryClient.invalidateQueries({ queryKey: ['images', newCase.id] })
+      queryClient.invalidateQueries({ queryKey: ['docs', newCase.id] })
+    }
+  }, [client?.taxCases, queryClient])
+
+  // Handler for new engagement created
+  const handleEngagementCreated = useCallback((newYear: number, engagementId: string) => {
+    // Select the newly created engagement
+    setSelectedEngagementId(engagementId)
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+  }, [clientId, queryClient])
 
   // Handler for opening manual classification modal
   const handleManualClassify = (image: RawImage) => {
@@ -360,10 +409,21 @@ function ClientDetailPage() {
                     {client.email}
                   </span>
                 )}
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4" aria-hidden="true" />
-                  {UI_TEXT.form.taxYear} {latestCase?.taxYear || '—'}
-                </span>
+                {/* Year Switcher - replaces static tax year display */}
+                {engagements.length > 0 && (
+                  <YearSwitcher
+                    engagements={engagements}
+                    selectedYear={selectedEngagement?.taxYear ?? activeCase?.taxYear ?? new Date().getFullYear()}
+                    onYearChange={handleYearChange}
+                    onCreateNew={() => setIsCreateEngagementOpen(true)}
+                  />
+                )}
+                {engagements.length === 0 && activeCase && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4" aria-hidden="true" />
+                    {UI_TEXT.form.taxYear} {activeCase.taxYear}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -371,12 +431,12 @@ function ClientDetailPage() {
           {/* Status & Actions */}
           <div className="flex items-center gap-2">
             {/* Computed Status Badge (read-only) */}
-            {latestCase && (
+            {activeCase && (
               <ComputedStatusBadge status={computedStatus} />
             )}
 
             {/* Action buttons based on state */}
-            {latestCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
+            {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
               <Button
                 onClick={() => sendToReviewMutation.mutate()}
                 disabled={sendToReviewMutation.isPending}
@@ -432,10 +492,10 @@ function ClientDetailPage() {
             )}
 
             {/* Message Button with Unread Badge */}
-            {latestCaseId && (
+            {activeCaseId && (
               <Link
                 to="/messages/$caseId"
-                params={{ caseId: latestCaseId }}
+                params={{ caseId: activeCaseId }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-foreground"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -494,16 +554,33 @@ function ClientDetailPage() {
           {/* Engagement History - shows multi-year filing history */}
           <EngagementHistorySection
             clientId={clientId}
-            currentTaxYear={latestCase?.taxYear}
+            currentTaxYear={activeCase?.taxYear}
           />
           {/* Client Profile Overview */}
           <ClientOverviewSections client={client} />
         </div>
       )}
 
-      {/* Files Tab - Primary document explorer view */}
-      {activeTab === 'files' && latestCaseId && (
-        <FilesTab caseId={latestCaseId} />
+      {/* Files Tab - Primary document explorer view with error boundary */}
+      {activeTab === 'files' && activeCaseId && (
+        <ErrorBoundary
+          fallback={
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <p className="text-muted-foreground">Lỗi khi tải tài liệu</p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="mt-4"
+                variant="outline"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Thử lại
+              </Button>
+            </div>
+          }
+        >
+          <FilesTab caseId={activeCaseId} />
+        </ErrorBoundary>
       )}
 
       {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}
@@ -513,7 +590,7 @@ function ClientDetailPage() {
           <DuplicateDocsCard
             rawImages={rawImages}
             onRefresh={() => {
-              queryClient.invalidateQueries({ queryKey: ['images', latestCaseId] })
+              queryClient.invalidateQueries({ queryKey: ['images', activeCaseId] })
             }}
           />
 
@@ -551,22 +628,22 @@ function ClientDetailPage() {
           />
 
           {/* Manual Classification Modal */}
-          {latestCaseId && (
+          {activeCaseId && (
             <ManualClassificationModal
               image={classifyImage}
               isOpen={isClassifyModalOpen}
               onClose={handleCloseClassifyModal}
-              caseId={latestCaseId}
+              caseId={activeCaseId}
             />
           )}
 
           {/* Verification Modal */}
-          {latestCaseId && verifyDoc && (
+          {activeCaseId && verifyDoc && (
             <VerificationModal
               doc={verifyDoc}
               isOpen={isVerifyModalOpen}
               onClose={handleCloseVerifyModal}
-              caseId={latestCaseId}
+              caseId={activeCaseId}
             />
           )}
 
@@ -578,7 +655,7 @@ function ClientDetailPage() {
       {activeTab === 'data-entry' && (
         <DataEntryTab
           docs={digitalDocs}
-          caseId={latestCaseId || ''}
+          caseId={activeCaseId || ''}
         />
       )}
 
@@ -617,8 +694,17 @@ function ClientDetailPage() {
         </ModalFooter>
       </Modal>
 
+      {/* Create Engagement Modal - for adding new tax year */}
+      <CreateEngagementModal
+        isOpen={isCreateEngagementOpen}
+        onClose={() => setIsCreateEngagementOpen(false)}
+        clientId={clientId}
+        existingEngagements={engagements}
+        onSuccess={handleEngagementCreated}
+      />
+
       {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
-      {latestCaseId && !isUnreadError && (
+      {activeCaseId && !isUnreadError && (
         <ErrorBoundary
           fallback={
             <div className="fixed bottom-6 right-6 z-50 text-xs text-muted-foreground">
@@ -627,7 +713,7 @@ function ClientDetailPage() {
           }
         >
           <FloatingChatbox
-            caseId={latestCaseId}
+            caseId={activeCaseId}
             clientName={client.name}
             clientPhone={client.phone}
             clientId={clientId}

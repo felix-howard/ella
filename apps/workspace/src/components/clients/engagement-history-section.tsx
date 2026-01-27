@@ -73,11 +73,16 @@ export function EngagementHistorySection({ clientId, currentTaxYear }: Engagemen
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Calendar className="w-4 h-4 text-primary" />
-        <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
-        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-          {engagements.length} năm
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-primary">Lịch sử khai thuế</h2>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            {engagements.length} năm
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          Dùng dropdown ở header để chuyển năm
         </span>
       </div>
 

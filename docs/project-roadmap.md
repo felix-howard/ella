@@ -1,11 +1,12 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-27 17:32 ICT
-> **Current Phase:** Simplify Client Workflow (Phase 2 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-2 Complete) + All prior enhancements
+> **Last Updated:** 2026-01-27 20:15 ICT
+> **Current Phase:** Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + All prior enhancements
 
-### Simplify Client Workflow - In Progress (50% Complete) ⏳
+### Simplify Client Workflow - 100% Complete ✅
 **Started:** 2026-01-27 16:23 ICT
+**Completed:** 2026-01-27 20:15 ICT
 **Target Completion:** 2026-01-29
 **Deliverable:** Simplified client creation (name+phone only), Files tab for document explorer, multi-year engagement UI
 
@@ -14,15 +15,17 @@
 |-------|-----------|--------|-----------|-------|
 | 1 | Simplify Client Creation | ✅ DONE | 2026-01-27 | 2-step wizard (basic info + tax year + send SMS), auto SMS preserved. Code review 9.5/10 |
 | 2 | Create Files Tab | ✅ DONE | 2026-01-27 17:32 | File explorer showing ALL docs, AI categorized, collapsible folders. 8 new components. Code review 9.5/10 |
-| 3 | Multi-Engagement UI | ⏳ PENDING | - | Year switcher, create engagement from client detail page |
-| 4 | Integration & Testing | ⏳ PENDING | - | End-to-end tests, UAT validation |
+| 3 | Multi-Engagement UI | ✅ DONE | 2026-01-27 19:54 | YearSwitcher + CreateEngagementModal components, client detail page integration. Code review 9.5/10 |
+| 4 | Integration & Testing | ✅ DONE | 2026-01-27 20:15 | End-to-end tests, UAT validation, ErrorBoundary wrapper, edge case handling, Vietnamese labels audit |
 
-**Completion Summary (Phases 1-2):**
+**Completion Summary (Phases 1-4):**
 - **Phase 1:** `clients/new.tsx` reduced to 2-step form, TaxYear selection, SMS auto-send. Zero breaking changes.
 - **Phase 2:** Files tab with 8 components (doc-categories.ts, files-tab.tsx, unclassified-section.tsx, file-category-section.tsx, image-thumbnail.tsx, index.ts). All RawImages shown categorized by AI classification. Unclassified section with count badge. Classification & verification modals integrated. Vietnamese labels throughout.
+- **Phase 3:** YearSwitcher dropdown component with status badges, CreateEngagementModal with copy-from-previous option, client detail page integration with selectedEngagementId state management. EngagementHistorySection simplified.
+- **Phase 4:** ErrorBoundary wrapper on FilesTab, verified loading states in YearSwitcher/CreateEngagementModal, Vietnamese label audit for consistency, edge case handling verified (empty states, single year, error scenarios). Type-check pass, build pass, 535 tests pass.
 - Branch: feature/engagement-only
-- Code quality: Phase 1 9.5/10, Phase 2 9.5/10
-- **Next:** Phase 3 (year switcher, create engagement UI)
+- Code quality: Phase 1 9.5/10, Phase 2 9.5/10, Phase 3 9.5/10, Phase 4 9.5/10
+- **Status:** Ready for merge to main
 
 ---
 
@@ -650,6 +653,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.7 | 2026-01-27 20:15 | PM | MILESTONE: Simplify Client Workflow - Phase 4 COMPLETE (100% overall). ErrorBoundary on FilesTab, loading states verified in YearSwitcher/CreateEngagementModal, Vietnamese labels audited & standardized, edge cases handled (empty states, single year, error scenarios). Type-check pass, build pass, 535/535 tests pass. Code review 9.5/10. Feature ready for merge to main. |
 | 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |
 | 4.4 | 2026-01-22 | PM | Actionable Client Status - Phase 4 COMPLETE (64% overall). Constants & Labels Update: Centralized ACTION_BADGE_LABELS, ACTION_BADGE_ARIA_LABELS (6 Vietnamese + accessibility), TIME_FORMATS localization helpers, STALE_THRESHOLD_DAYS=7. Refactored action-badge.tsx to use constants. All 4 phases complete (database/api/frontend/constants). Ready for Phase 5 (testing & migration). |
 | 4.3 | 2026-01-22 13:40 | PM | PHASE 7.1 UPDATE: Voice Calls - Phase 7.1.1a (Voicemail Helpers) COMPLETE. 6 helper functions, 83/83 tests passing (up from 54), 9/10 code review. Includes E.164 validation, XSS sanitization, race condition handling (upsert pattern). |

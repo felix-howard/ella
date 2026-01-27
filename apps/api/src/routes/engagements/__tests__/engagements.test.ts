@@ -63,8 +63,8 @@ describe('TaxEngagement Model', () => {
   const mockEngagementFindUnique = vi.mocked(prisma.taxEngagement.findUnique)
   const mockEngagementFindMany = vi.mocked(prisma.taxEngagement.findMany)
   const mockEngagementUpdate = vi.mocked(prisma.taxEngagement.update)
-  const mockEngagementDelete = vi.mocked(prisma.taxEngagement.delete)
-  const mockClientFindUnique = vi.mocked(prisma.client.findUnique)
+  const _mockEngagementDelete = vi.mocked(prisma.taxEngagement.delete)
+  const _mockClientFindUnique = vi.mocked(prisma.client.findUnique)
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -461,8 +461,6 @@ describe('Backward Compatibility', () => {
 
     it('should auto-create engagement when not provided', () => {
       // Simulating findOrCreateEngagement behavior
-      const clientId = 'cm123456789012345678901234'
-      const taxYear = 2025
       const existingEngagement = null  // None exists
 
       const shouldCreate = existingEngagement === null

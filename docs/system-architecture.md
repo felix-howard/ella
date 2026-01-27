@@ -1447,10 +1447,13 @@ TaxCase - Per-client per-year tax filing
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
 ├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
+├── category (DocCategory?) - AI-assigned document category (Phase 01: IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER)
+├── displayName (String? VarChar(255)) - Sanitized filename for display (Phase 01)
 ├── imageHash (pHash for duplicates), imageGroupId (duplicate grouping)
 ├── uploadedVia (SMS|PORTAL|SYSTEM)
 ├── reuploadRequested Boolean, reuploadRequestedAt DateTime (Phase 01)
 ├── reuploadReason String?, reuploadFields Json? (Phase 01)
+├── Indexes: (caseId), (status), (category) - Filter by document category
 
 ImageGroup - Duplicate document grouping (Phase 03)
 ├── caseId, docType, bestImageId (selected best image)
@@ -1490,12 +1493,56 @@ Action - Staff tasks & reminders
 ├── isCompleted, completedAt, scheduledFor, metadata (JSON)
 ```
 
-**Enums (13 - Phase 1.0 NEW: +1 EngagementStatus):**
+**Enums (14 - Phase 1.0 NEW: +1 EngagementStatus, Phase 01: +1 DocCategory):**
 - TaxCaseStatus, TaxType, DocType (60+ document types)
 - RawImageStatus, DigitalDocStatus, ChecklistItemStatus
 - ActionType, ActionPriority, MessageChannel, MessageDirection
 - StaffRole, Language
 - **EngagementStatus** (NEW Phase 1.0) - DRAFT, ACTIVE, COMPLETE, ARCHIVED
+- **DocCategory** (NEW Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
+
+## Phase 01 Database Schema Update - Document Categorization (2026-01-27)
+
+### DocCategory Enum & RawImage Fields
+
+**New Enum: DocCategory** (7 categories)
+```
+IDENTITY    - Giáy tờ tùy thân: SSN Card, Driver License, Passport, etc.
+INCOME      - Thu nhập: W2, all 1099 variants, K-1 forms
+EXPENSE     - Chi phí: Receipts, Invoices, Deduction documentation
+ASSET       - Tài sản: Property docs, Vehicle documents, Real estate
+EDUCATION   - Giáo dục: 1098-T, 1098-E (education credits)
+HEALTHCARE  - Y tế: 1095-A/B/C (health insurance forms)
+OTHER       - Khác: Unclassified or miscellaneous documents
+```
+
+**RawImage Schema Changes (Phase 01)**
+```prisma
+model RawImage {
+  // Existing fields...
+
+  // Phase 01: Document categorization
+  category        DocCategory?           // AI-assigned document category
+  displayName     String? @db.VarChar(255)  // Sanitized filename (naming convention)
+
+  // Indexes for filtering
+  @@index([category])                    // Filter by document category
+}
+```
+
+**Purpose & Usage**
+- **AI-Assigned Categorization:** When Gemini classifies documents, it assigns both `classifiedType` (specific type like W2) and `category` (broad category)
+- **Display Name:** Stores human-readable filename after sanitization (removes special chars, limits length)
+- **Indexing Strategy:** Category index enables efficient filtering by document class (e.g., "show all INCOME documents")
+- **Backward Compatibility:** Both fields optional; existing RawImages not affected
+
+**Implementation Notes**
+- Migration: Add columns (nullable, no data change required)
+- Gemini classifier prompt updated to infer category from docType classification
+- Frontend: New category filter in Document Gallery for staff navigation
+- Query optimization: Use `@@index([category])` for dashboard queries grouping docs by category
+
+---
 
 ## Monorepo Configuration
 
@@ -2173,7 +2220,116 @@ clients: {
 
 ---
 
-**Last Updated:** 2026-01-26
+## Codebase Overview (Generated 2026-01-27)
+
+### Project Structure
+
+```
+ella/
+├── .claude/                    # Claude Code configuration & skills
+├── .github/                    # GitHub Actions workflows
+├── packages/                   # Shared libraries
+│   ├── db/                     # Prisma database layer (@ella/db)
+│   │   ├── prisma/
+│   │   │   └── schema.prisma  # Database schema (14 enums, 26 models)
+│   │   └── src/
+│   │       ├── client.ts      # Singleton Prisma client
+│   │       └── generated/     # Auto-generated Prisma types
+│   ├── shared/                # Validation & types (@ella/shared)
+│   │   └── src/
+│   │       ├── schemas/       # Zod validation schemas
+│   │       ├── types/         # TypeScript types
+│   │       └── utils/         # Utilities (computeStatus, etc.)
+│   └── ui/                    # Component library (@ella/ui)
+│       └── src/
+│           ├── components/    # shadcn/ui components
+│           └── styles.css     # Tailwind globals
+├── apps/                       # Applications
+│   ├── api/                    # Hono backend server (3002)
+│   │   ├── src/
+│   │   │   ├── routes/        # API endpoints (58 total)
+│   │   │   ├── services/      # Business logic (AI, PDF, SMS, etc.)
+│   │   │   ├── jobs/          # Inngest background jobs
+│   │   │   ├── middleware/    # Auth, error handling, rate limiting
+│   │   │   └── lib/           # Config, utilities
+│   │   └── package.json
+│   ├── portal/                 # Client upload portal (React, 5173)
+│   │   ├── src/
+│   │   │   ├── routes/        # Client-side pages
+│   │   │   ├── components/    # UI components
+│   │   │   └── lib/           # Utilities, API client
+│   │   └── vite.config.ts
+│   └── workspace/              # Staff dashboard (React, 5174)
+│       ├── src/
+│       │   ├── routes/        # Pages (/clients, /cases, /messages, etc.)
+│       │   ├── components/    # 27+ feature components
+│       │   ├── stores/        # Zustand state management
+│       │   └── lib/           # Utilities, API client
+│       └── vite.config.ts
+├── docs/                       # Documentation (40+ files)
+├── pnpm-workspace.yaml        # Monorepo config
+├── turbo.json                 # Turbo build orchestration
+├── tsconfig.json              # TypeScript base config
+├── eslint.config.js           # Linting rules
+└── .prettierrc                 # Code formatting config
+```
+
+### Technology Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Backend** | Hono | 4.6+ |
+| **Database** | PostgreSQL + Prisma | Latest |
+| **Frontend** | React | 19 |
+| **Build** | Vite | 6 |
+| **Router** | TanStack Router | 1.94+ |
+| **Data Fetching** | React Query | 5.64+ |
+| **State** | Zustand | Latest |
+| **UI Framework** | shadcn/ui + Tailwind | v4 |
+| **AI Service** | Google Gemini | 2.5-flash |
+| **Jobs** | Inngest Cloud | Latest |
+| **SMS** | Twilio | Latest |
+| **Storage** | Cloudflare R2 | Latest |
+| **Auth** | JWT + Bcrypt | Session-based |
+
+### File Statistics
+
+- **Total Models:** 26 (TaxCase, RawImage, DigitalDoc, etc.)
+- **Total Enums:** 14 (TaxCaseStatus, DocType, DocCategory, etc.)
+- **API Endpoints:** 58 (clients, cases, docs, messages, voice, etc.)
+- **Frontend Components:** 27+ (Dashboard, Checklist, Gallery, etc.)
+- **Services:** 15+ (AI, PDF, SMS, Audit, etc.)
+- **Background Jobs:** 1 main (classifyDocumentJob with 6 durable steps)
+- **Database Migrations:** Auto-generated by Prisma
+
+### Feature Areas
+
+**Phase 01 Complete (Jan 2026)**
+- Database schema with multi-year support (TaxEngagement)
+- Backend API with 58 endpoints
+- Document upload & classification pipeline
+- AI-powered OCR extraction (Gemini)
+- SMS integration (Twilio)
+- Real-time polling for updates
+- Staff authentication & role-based access
+- Comprehensive audit logging
+
+**Phase 02 In Progress**
+- Document category system (DocCategory enum)
+- Enhanced document filtering & organization
+- Staff verification workflow
+- Client status computation
+
+**Phase 03-06 Planned**
+- WebSocket real-time updates
+- Advanced document deduplication
+- Multi-language support
+- Compliance automation
+- Comprehensive testing suite
+
+---
+
+**Last Updated:** 2026-01-27
 **Phase:** Phase 3 - Schema Cleanup (Engagement Isolation Complete)
 **Architecture Version:** 9.2 (Multi-Year Engagement Isolation with enforced constraints)
 **Completed Features (Phase 06):**

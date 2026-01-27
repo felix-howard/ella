@@ -219,6 +219,16 @@ enum EngagementStatus {
   ARCHIVED   // Past year, read-only
 }
 
+enum DocCategory {
+  IDENTITY    // Giay to tuy than: SSN, DL, PASSPORT
+  INCOME      // Thu nhap: W2, all 1099 variants, K-1
+  EXPENSE     // Chi phi: RECEIPT, INVOICE
+  ASSET       // Tai san: property, vehicle docs
+  EDUCATION   // Giao duc: 1098-T, 1098-E
+  HEALTHCARE  // Y te: 1095-A/B/C
+  OTHER       // Khac: unclassified
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -416,6 +426,8 @@ model RawImage {
 
   status          RawImageStatus @default(UPLOADED)
   classifiedType  DocType?
+  category        DocCategory?    // AI-assigned document category
+  displayName     String?         @db.VarChar(255)  // Sanitized filename for display (naming convention)
   aiConfidence    Float?
   blurScore       Float?
 
@@ -441,6 +453,7 @@ model RawImage {
 
   @@index([caseId])
   @@index([status])
+  @@index([category])                 // Filter by document category
   @@index([imageGroupId])
   @@index([caseId, classifiedType])  // For duplicate detection queries
   @@index([reuploadRequested])

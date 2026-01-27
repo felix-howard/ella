@@ -70,6 +70,7 @@ packages/{name}/
 - Model names: `PascalCase` (e.g., `User`, `Document`)
 - Field names: `camelCase` (e.g., `createdAt`, `isActive`)
 - Relations: plural for arrays (e.g., `documents: Document[]`)
+- Enum values: `UPPER_SNAKE_CASE` (e.g., `IDENTITY`, `INCOME`, `EXPENSE`)
 
 **Best Practices:**
 

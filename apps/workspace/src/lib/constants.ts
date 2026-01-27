@@ -193,6 +193,7 @@ export function getConfidenceLevel(confidence: number | null) {
 export const NAV_ITEMS = [
   { path: '/', label: 'Tổng quan', icon: 'LayoutDashboard' },
   { path: '/clients', label: 'Khách hàng', icon: 'Users' },
+  { path: '/clients-v2', label: 'Khách hàng V2', icon: 'Users', badge: 'Beta' },
   { path: '/messages', label: 'Tin nhắn', icon: 'MessageSquare' },
   { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
 ] as const

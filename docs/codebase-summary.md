@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-26
+**Current Date:** 2026-01-27
 **Current Branch:** feature/multi-tax-year
-**Latest Phase:** Phase 06 Testing & Validation - Multi-Year Client Engagement COMPLETE
+**Latest Phase:** Phase 01 Document-First Client V2 Workflow - Placeholder Routes + Navigation COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Document-First Client V2 Phase 01** | **2 placeholder routes (/clients-v2/, /clients-v2/$clientId); V2 navigation item (Khách hàng V2 - Beta badge); Dynamic icon mapping; Barrel export (clients-v2/index.ts); Vietnamese-first UI** | **2026-01-27** |
 | **Phase 6 Testing & Validation** | **71 new tests; 535 total passing; engagements.test.ts (9 API tests); api.test.ts (6 integration tests); backward-compat.test.ts (8 backward compatibility tests); validate-migration.ts script; review score 9.2/10** | **2026-01-26** |
 | **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
 | **Phase 4 API Updates** | **6 TaxEngagement REST endpoints (GET list/detail, POST create with copy-from, PATCH update, DELETE with validation, GET copy-preview); Engagement-specific audit logging (logEngagementChanges); RFC 8594 deprecation headers middleware; Tax cases now support engagementId FK** | **2026-01-26** |
@@ -68,6 +69,59 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Document-First Client V2 Phase 01 - Foundation Setup (NEW - 2026-01-27)
+
+**Status:** Routes & Navigation Ready | Foundation for Document-First Workflow
+
+**Summary:** Established foundation for V2 client interface with document-first workflow. Placeholder routes deployed with navigation integration and Beta badge indicator.
+
+**New Files (3 total):**
+
+1. **apps/workspace/src/routes/clients-v2/index.tsx** - Client list page placeholder
+   - Route: `/clients-v2/`
+   - Title: "Khách hàng (V2 Beta)"
+   - Layout: Sidebar-aware (uses CSS var `--sidebar-width`)
+   - Status: Ready for Phase 02+ component integration
+   - Component: `ClientListPageV2()` (21 LOC)
+
+2. **apps/workspace/src/routes/clients-v2/$clientId.tsx** - Client detail page placeholder
+   - Route: `/clients-v2/$clientId`
+   - Title: "Chi tiết khách hàng (V2)"
+   - Params: Accepts `$clientId` from URL
+   - Status: Ready for engagement/document components
+   - Component: `ClientDetailPageV2()` (23 LOC)
+
+3. **apps/workspace/src/components/clients-v2/index.ts** - Barrel export
+   - Purpose: Centralized component exports for V2 features
+   - Status: Placeholder (awaiting Phase 02+ components)
+
+**Modified Files (2 total):**
+
+1. **apps/workspace/src/lib/constants.ts**
+   - Added V2 nav item: `{ path: '/clients-v2', label: 'Khách hàng V2', icon: 'Users', badge: 'Beta' }`
+   - Maintains sidebar navigation consistency
+   - Beta badge for future phase indicator
+
+2. **apps/workspace/src/components/layout/sidebar.tsx**
+   - Updated path matching logic: `/clients` vs `/clients-v2` separation
+   - Prevents `/clients-v2` from matching legacy `/clients` route highlight
+   - Dynamic icon mapping validation
+
+**Navigation Integration:**
+
+- V2 link accessible from sidebar "Khách hàng V2" (Beta)
+- Isolated from legacy `/clients` routes (path normalization)
+- Ready for multi-year client engagement UI integration
+
+**Roadmap:**
+- Phase 02: Client list table + filter/sort
+- Phase 03: Client detail tabs (engagement history, documents)
+- Phase 04: Document upload/processing workflow
+- Phase 05: Data entry integration
+- Phase 06: Testing & validation
+
+---
 
 ## Phase 6 Testing & Validation - Multi-Year Client Engagement (COMPLETE - 2026-01-26)
 
@@ -167,13 +221,19 @@ Client (1:many) → TaxEngagement (1:many) → TaxCase
 
 **New Components (Workspace):**
 
-1. **engagement-history-section.tsx** - Multi-year engagement display
+1. **engagement-history-section.tsx** - Multi-year engagement display with switching
    - Shows client engagement history grouped by tax year
    - Status badges (DRAFT, ACTIVE, COMPLETE, ARCHIVED)
-   - Quick-access links to open engagement
-   - Last activity timestamp per engagement
+   - **Clickable rows** - switches page context to selected year's data
+   - "Thêm năm" button to create new engagement
+   - URL deep-linking support (`?engagement=xxx`)
 
-2. **returning-client-section.tsx** - Detect & suggest previous engagements
+2. **create-engagement-modal.tsx** - Create new tax year engagement
+   - Year selector (filters out existing years)
+   - Copy-from-previous checkbox option
+   - Integrates with engagement CRUD API
+
+3. **returning-client-section.tsx** - Detect & suggest previous engagements
    - Automatic detection of returning clients (prior engagements exist)
    - Lists previous tax years with engagement status
    - Quick-select button to open prior year engagement

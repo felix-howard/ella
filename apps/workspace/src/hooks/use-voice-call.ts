@@ -5,7 +5,7 @@
  *           incoming call handling, presence tracking
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { api, type CallerLookupResponse } from '../lib/api-client'
+import { api } from '../lib/api-client'
 import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
@@ -410,7 +410,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       setError(sanitizeError(e))
       return false
     }
-  }, [])
+  }, [callState])
 
   // Start duration timer
   const startTimer = useCallback(() => {

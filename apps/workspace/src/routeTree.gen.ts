@@ -15,10 +15,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MessagesIndexRouteImport } from './routes/messages/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
+import { Route as ClientsV2IndexRouteImport } from './routes/clients-v2/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
 import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
+import { Route as ClientsV2ClientIdRouteImport } from './routes/clients-v2/$clientId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
 import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
@@ -52,6 +54,11 @@ const ClientsIndexRoute = ClientsIndexRouteImport.update({
   path: '/clients/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsV2IndexRoute = ClientsV2IndexRouteImport.update({
+  id: '/clients-v2/',
+  path: '/clients-v2/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActionsIndexRoute = ActionsIndexRouteImport.update({
   id: '/actions/',
   path: '/actions/',
@@ -72,6 +79,11 @@ const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
   path: '/clients/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsV2ClientIdRoute = ClientsV2ClientIdRouteImport.update({
+  id: '/clients-v2/$clientId',
+  path: '/clients-v2/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CasesCaseIdMessagesRoute = CasesCaseIdMessagesRouteImport.update({
   id: '/cases/$caseId/messages',
   path: '/cases/$caseId/messages',
@@ -88,10 +100,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/clients-v2/$clientId': typeof ClientsV2ClientIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
+  '/clients-v2': typeof ClientsV2IndexRoute
   '/clients': typeof ClientsIndexRoute
   '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
@@ -101,10 +115,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/clients-v2/$clientId': typeof ClientsV2ClientIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
+  '/clients-v2': typeof ClientsV2IndexRoute
   '/clients': typeof ClientsIndexRoute
   '/messages': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
@@ -116,10 +132,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/clients-v2/$clientId': typeof ClientsV2ClientIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions/': typeof ActionsIndexRoute
+  '/clients-v2/': typeof ClientsV2IndexRoute
   '/clients/': typeof ClientsIndexRoute
   '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
@@ -132,10 +150,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/settings'
+    | '/clients-v2/$clientId'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
     | '/actions'
+    | '/clients-v2'
     | '/clients'
     | '/messages/'
     | '/cases/$caseId/entry'
@@ -145,10 +165,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/settings'
+    | '/clients-v2/$clientId'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
     | '/actions'
+    | '/clients-v2'
     | '/clients'
     | '/messages'
     | '/cases/$caseId/entry'
@@ -159,10 +181,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/settings'
+    | '/clients-v2/$clientId'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
     | '/actions/'
+    | '/clients-v2/'
     | '/clients/'
     | '/messages/'
     | '/cases/$caseId/entry'
@@ -174,9 +198,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
   SettingsRoute: typeof SettingsRoute
+  ClientsV2ClientIdRoute: typeof ClientsV2ClientIdRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
+  ClientsV2IndexRoute: typeof ClientsV2IndexRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
   CasesCaseIdEntryRoute: typeof CasesCaseIdEntryRoute
   CasesCaseIdMessagesRoute: typeof CasesCaseIdMessagesRoute
@@ -226,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients-v2/': {
+      id: '/clients-v2/'
+      path: '/clients-v2'
+      fullPath: '/clients-v2'
+      preLoaderRoute: typeof ClientsV2IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/actions/': {
       id: '/actions/'
       path: '/actions'
@@ -252,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/clients/$clientId'
       fullPath: '/clients/$clientId'
       preLoaderRoute: typeof ClientsClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients-v2/$clientId': {
+      id: '/clients-v2/$clientId'
+      path: '/clients-v2/$clientId'
+      fullPath: '/clients-v2/$clientId'
+      preLoaderRoute: typeof ClientsV2ClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cases/$caseId/messages': {
@@ -290,9 +330,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
   SettingsRoute: SettingsRoute,
+  ClientsV2ClientIdRoute: ClientsV2ClientIdRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
   ActionsIndexRoute: ActionsIndexRoute,
+  ClientsV2IndexRoute: ClientsV2IndexRoute,
   ClientsIndexRoute: ClientsIndexRoute,
   CasesCaseIdEntryRoute: CasesCaseIdEntryRoute,
   CasesCaseIdMessagesRoute: CasesCaseIdMessagesRoute,

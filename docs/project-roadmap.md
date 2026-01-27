@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-26 ICT
-> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + All prior enhancements
+> **Last Updated:** 2026-01-27 ICT
+> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + Document-First Client V2 (Phase 01 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Document-First V2 (Phase 01 Complete, 4% overall) + All prior enhancements
 
 ### Phase 8: Multi-Year Client Engagement Model - In Progress (66.67% Complete) ⏳
 **Started:** 2026-01-25 13:45 ICT
@@ -27,6 +27,28 @@
 - Branch: feature/multi-tax-year
 - Zero-downtime, fully backward compatible
 - **All critical success criteria met - Production ready for Phase 5**
+
+---
+
+### Phase 9: Document-First Client Workflow V2 - In Progress (4% Complete) ⏳
+**Started:** 2026-01-27 08:49 ICT
+**Target Completion:** 2026-02-10
+**Deliverable:** Parallel V2 routes redesign client creation from questionnaire-driven to document-first approach (30 micro-phases)
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 9.1 | V2 Route Setup & Navigation | ✅ DONE | 2026-01-27 | Routes + sidebar link, 9.5/10 code review |
+| 9.2 | Create Client Modal - Step 1 | ⏳ PENDING | - | Basic info (name + phone) |
+| 9.3+ | Remaining 28 phases | ⏳ PENDING | - | Client list, detail page, files tab, AI inference |
+
+**Completion Summary (Phase 9.1):**
+- Created `/clients-v2/` and `/clients-v2/$clientId` route files
+- Added "Khách hàng V2 (Beta)" navigation link with Beta badge
+- Placeholder components ready for Phase 9.2+
+- Branch: feature/multi-tax-year
+- 9.5/10 code review score
+- No TypeScript errors, no console errors
 
 ---
 

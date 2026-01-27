@@ -16,6 +16,7 @@ import {
   Phone,
   PhoneOff,
   Loader2,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
 import { useUIStore, useTheme } from '../../stores/ui-store'
@@ -23,14 +24,19 @@ import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
 
+// Icon mapping for navigation items
+const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  Settings,
+}
+
 // Navigation items with icons mapped from constants
-// NAV_ITEMS: [0]='/', [1]='/clients', [2]='/messages', [3]='/settings'
-const navItemsWithIcons = [
-  { path: '/', label: NAV_ITEMS[0].label, icon: LayoutDashboard },
-  { path: '/clients', label: NAV_ITEMS[1].label, icon: Users },
-  { path: '/messages', label: NAV_ITEMS[2].label, icon: MessageSquare },
-  { path: '/settings', label: NAV_ITEMS[3].label, icon: Settings },
-] as const
+const navItemsWithIcons = NAV_ITEMS.map((item) => ({
+  ...item,
+  icon: iconMap[item.icon] || Users,
+}))
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
@@ -40,7 +46,7 @@ export function Sidebar() {
   const currentPath = routerState.location.pathname
   const { signOut } = useClerk()
   const { user } = useUser()
-  const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
+  const { state: voiceState } = useVoiceCallContext()
 
   // Select logo based on theme
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
@@ -96,12 +102,17 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
         {navItemsWithIcons.map((item) => {
+          // Handle active state: exact match for '/', or startsWith for others
+          // Special case: /clients should not match /clients-v2
           const isActive = item.path === '/'
             ? currentPath === '/'
-            : currentPath.startsWith(item.path)
+            : item.path === '/clients'
+              ? currentPath === '/clients' || (currentPath.startsWith('/clients/') && !currentPath.startsWith('/clients-v2'))
+              : currentPath.startsWith(item.path)
           const Icon = item.icon
           const isMessages = item.path === '/messages'
-          const showBadge = isMessages && unreadCount > 0
+          const showUnreadBadge = isMessages && unreadCount > 0
+          const itemBadge = 'badge' in item ? item.badge : null
 
           return (
             <Link
@@ -117,8 +128,15 @@ export function Sidebar() {
               <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={isActive ? 2.5 : 2} />
               {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
 
+              {/* Static badge (e.g., "Beta") */}
+              {itemBadge && !sidebarCollapsed && (
+                <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium bg-accent/20 text-accent rounded">
+                  {itemBadge}
+                </span>
+              )}
+
               {/* Unread badge for messages */}
-              {showBadge && (
+              {showUnreadBadge && (
                 <span
                   className={cn(
                     'absolute bg-destructive text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center',

@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette, MessageSquare } from 'lucide-react'
+import { Sun, Moon, Palette, MessageSquare } from 'lucide-react'
 import { PageContainer } from '../components/layout'
 import { Card } from '@ella/ui'
 import { UI_TEXT } from '../lib/constants'

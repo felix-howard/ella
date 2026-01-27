@@ -1,6 +1,6 @@
 /**
  * Client Detail Page - Shows client info with tabbed sections
- * Tabs: Overview, Documents | Messages accessible via header button
+ * Tabs: Overview, Files (primary doc view), Checklist, Data Entry | Messages via header
  * Status: Read-only computed status with action buttons for transitions
  */
 
@@ -21,6 +21,7 @@ import {
   Link2,
   Trash2,
   ClipboardList,
+  FolderOpen,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
@@ -35,6 +36,7 @@ import {
   DataEntryTab,
 } from '../../components/documents'
 import { ClientOverviewSections, ComputedStatusBadge, EngagementHistorySection } from '../../components/clients'
+import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
@@ -48,7 +50,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'documents' | 'data-entry'
+type TabType = 'overview' | 'files' | 'checklist' | 'data-entry'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
@@ -202,8 +204,8 @@ function ClientDetailPage() {
     enabled: !!latestCaseId,
   })
 
-  // Enable polling for real-time classification updates when on documents tab
-  const isDocumentsTab = activeTab === 'documents'
+  // Enable polling for real-time classification updates when on files or checklist tab
+  const isDocumentsTab = activeTab === 'files' || activeTab === 'checklist'
   const { images: polledImages, docs: polledDocs, processingCount, extractingCount } = useClassificationUpdates({
     caseId: latestCaseId,
     enabled: isDocumentsTab,
@@ -315,7 +317,8 @@ function ClientDetailPage() {
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
-    { id: 'documents', label: clientsText.tabs.documents, icon: FileText },
+    { id: 'files', label: 'Tài liệu', icon: FolderOpen },
+    { id: 'checklist', label: 'Danh sách', icon: FileText },
     { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
   ]
 
@@ -498,7 +501,13 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {activeTab === 'documents' && (
+      {/* Files Tab - Primary document explorer view */}
+      {activeTab === 'files' && latestCaseId && (
+        <FilesTab caseId={latestCaseId} />
+      )}
+
+      {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}
+      {activeTab === 'checklist' && (
         <div className="space-y-6">
           {/* Card A: Duplicate Docs - shows when duplicates exist */}
           <DuplicateDocsCard
@@ -514,7 +523,7 @@ function ClientDetailPage() {
             onClassify={handleManualClassify}
           />
 
-          {/* Card B: Category-based Checklist */}
+          {/* Category-based Checklist */}
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-primary">
@@ -551,7 +560,7 @@ function ClientDetailPage() {
             />
           )}
 
-          {/* Verification Modal (Phase 05) */}
+          {/* Verification Modal */}
           {latestCaseId && verifyDoc && (
             <VerificationModal
               doc={verifyDoc}

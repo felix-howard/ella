@@ -1,8 +1,30 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-26 ICT
-> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + All prior enhancements
+> **Last Updated:** 2026-01-27 17:32 ICT
+> **Current Phase:** Simplify Client Workflow (Phase 2 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-2 Complete) + All prior enhancements
+
+### Simplify Client Workflow - In Progress (50% Complete) ⏳
+**Started:** 2026-01-27 16:23 ICT
+**Target Completion:** 2026-01-29
+**Deliverable:** Simplified client creation (name+phone only), Files tab for document explorer, multi-year engagement UI
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Simplify Client Creation | ✅ DONE | 2026-01-27 | 2-step wizard (basic info + tax year + send SMS), auto SMS preserved. Code review 9.5/10 |
+| 2 | Create Files Tab | ✅ DONE | 2026-01-27 17:32 | File explorer showing ALL docs, AI categorized, collapsible folders. 8 new components. Code review 9.5/10 |
+| 3 | Multi-Engagement UI | ⏳ PENDING | - | Year switcher, create engagement from client detail page |
+| 4 | Integration & Testing | ⏳ PENDING | - | End-to-end tests, UAT validation |
+
+**Completion Summary (Phases 1-2):**
+- **Phase 1:** `clients/new.tsx` reduced to 2-step form, TaxYear selection, SMS auto-send. Zero breaking changes.
+- **Phase 2:** Files tab with 8 components (doc-categories.ts, files-tab.tsx, unclassified-section.tsx, file-category-section.tsx, image-thumbnail.tsx, index.ts). All RawImages shown categorized by AI classification. Unclassified section with count badge. Classification & verification modals integrated. Vietnamese labels throughout.
+- Branch: feature/engagement-only
+- Code quality: Phase 1 9.5/10, Phase 2 9.5/10
+- **Next:** Phase 3 (year switcher, create engagement UI)
+
+---
 
 ### Phase 8: Multi-Year Client Engagement Model - In Progress (66.67% Complete) ⏳
 **Started:** 2026-01-25 13:45 ICT

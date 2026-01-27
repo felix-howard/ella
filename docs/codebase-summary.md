@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-27
 **Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 1 Simplify Client Creation (2-step wizard) + Phase 06 Testing & Validation COMPLETE
+**Latest Phase:** Phase 2 Create Files Tab + Phase 1 Simplify Client Creation (2-step wizard) + Phase 06 Testing & Validation COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 2 Create Files Tab** | **File explorer tab showing ALL uploaded documents; categorized by AI classification (8 categories); error boundary for PDFs; loading skeleton; keyboard nav; thumbnail caching; 5 new components** | **2026-01-27** |
 | **Phase 1 Simplify Client Creation** | **2-step wizard (Basic Info → Confirm & Send); taxTypes default ['FORM_1040']; returning client detection with copy-from-engagement; ConfirmStep new component; SMS preview in UI** | **2026-01-27** |
 | **Phase 6 Testing & Validation** | **71 new tests; 535 total passing; engagements.test.ts (9 API tests); api.test.ts (6 integration tests); backward-compat.test.ts (8 backward compatibility tests); validate-migration.ts script; review score 9.2/10** | **2026-01-26** |
 | **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
@@ -69,6 +70,105 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Phase 2 Create Files Tab - File Explorer UI (NEW - 2026-01-27)
+
+**Status:** Feature Complete | File explorer with AI-based categorization | 5 new components
+
+**Summary:** Added Files tab to client detail page showing all uploaded documents organized by AI classification categories. Replaces generic Documents tab with category-first layout. Supports image thumbnails, PDFs, keyboard navigation, error boundaries.
+
+**Changes:**
+
+1. **New Constants** (`apps/workspace/src/lib/doc-categories.ts`)
+   - `DOC_CATEGORIES` - 8 categories with Vietnamese labels, icons, docType mapping
+   - Categories: personal, employment_income, self_employment, investment_income, retirement, deductions, business, other
+   - Helpers: `getCategoryForDocType()`, `getCategory()` for type-safe lookups
+   - Lucide icons per category (User, Briefcase, Building, TrendingUp, Calendar, Receipt, Store, File)
+
+2. **FilesTab Component** (`apps/workspace/src/components/files/files-tab.tsx` - ~250 LOC)
+   - **Features:**
+     - Master view of ALL uploaded documents (both classified & unclassified)
+     - Category-based grouping (uses `DOC_CATEGORIES`)
+     - Empty state: "Không có tài liệu"
+     - Loading state: `FilesTabSkeleton` with shimmer animation
+   - **Props:** `caseId`, `isLoading?`, `onDocumentClick?`
+   - **Integration:** Part of client detail tabs (Overview | Files | Checklist | Data Entry)
+
+3. **FileCategorySection Component** (`apps/workspace/src/components/files/file-category-section.tsx` - ~180 LOC)
+   - **Display:**
+     - Category header (icon + Vietnamese label)
+     - File count per category (excludes empty)
+     - Expandable/collapsible sections (local state)
+   - **Props:** `category`, `documents`, `onDocumentClick?`
+   - **Styling:** Category-specific colors + icons
+
+4. **UnclassifiedSection Component** (`apps/workspace/src/components/files/unclassified-section.tsx` - ~140 LOC)
+   - **Purpose:** Dedicated section for UNCLASSIFIED documents (AI classification pending)
+   - **Features:**
+     - Separate from category sections
+     - Status badge: "Đang chờ phân loại" (Awaiting classification)
+     - Action button: "Phân loại" (Classify) with callback
+   - **Props:** `documents`, `onClassify?`
+
+5. **ImageThumbnail Component** (`apps/workspace/src/components/files/image-thumbnail.tsx` - ~120 LOC)
+   - **Features:**
+     - Responsive image display with fallback to document icon
+     - Error boundary: Graceful handling if image fails to load
+     - Filename tooltip on hover
+     - Uses `useSignedUrl` hook for lazy-loading (55 min cache)
+     - PDF support: First-page thumbnail via `LazyPdfThumbnail`
+   - **Props:** `src`, `alt`, `fileName`, `docType`
+   - **Performance:** Memoized to prevent re-renders during polling
+
+6. **Index Export** (`apps/workspace/src/components/files/index.ts`)
+   - Barrel export: `FilesTab`, `FileCategorySection`, `UnclassifiedSection`, `ImageThumbnail`
+
+**Tab Integration** (`apps/workspace/src/routes/clients/$clientId.tsx` - MODIFIED)
+   - **New Tab:** "Files" added between Overview and Checklist
+   - **Tab Order:** Overview | Files | Checklist | Data Entry
+   - **Props Passed:** `caseId`, `loading state`
+   - **Query:** Uses existing documents query (filtered by caseId)
+
+**Document Categorization Flow:**
+```
+RawImage (uploaded) → Classification Job → DigitalDoc (classified) or UNCLASSIFIED
+   ↓
+Category lookup via DOC_CATEGORIES
+   ↓
+FileCategorySection renders grouped by category
+```
+
+**Key Features:**
+- **8 Categories:** Personal, Employment, Self-Employment, Investment, Retirement, Deductions, Business, Other
+- **Keyboard Navigation:** Tab/Arrow keys traverse category sections and documents
+- **Error Resilience:** Error boundary catches PDF thumbnail failures
+- **Performance:** Signed URL caching (55 min), memoized components, lazy-loaded PDFs
+- **Accessibility:** ARIA labels, proper heading hierarchy, keyboard shortcuts
+- **i18n:** Full Vietnamese support in category labels and UI text
+
+**User Experience:**
+- Single unified Files tab replaces fragmented document views
+- Category-first layout helps users find documents by use case (not status)
+- Visual hierarchy with icons guides scanning
+- Loading skeleton prevents layout shift
+- Keyboard shortcuts for quick navigation
+
+**Technical Benefits:**
+- Cleaner separation of concerns (categories vs. status)
+- Reusable category lookup (`getCategoryForDocType()`)
+- Error boundary prevents component crashes on image failures
+- Memoization reduces re-renders during 5s polling
+- Modular component structure allows future enhancements (filters, search)
+
+**Next Steps:**
+1. Verify Files tab renders correctly with test data
+2. Test category grouping with mixed classified/unclassified docs
+3. Validate keyboard navigation (Tab/Shift-Tab, Arrow keys)
+4. Check PDF thumbnail loading on slow connections
+5. Test error scenarios (missing images, network errors)
+6. Update client detail route tests to include Files tab
+
+---
 
 ## Phase 1 Simplify Client Creation - 2-Step Wizard (NEW - 2026-01-27)
 
@@ -331,7 +431,7 @@ See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed comp
 **Staff management dashboard (React, PORT 5173)** - Vietnamese-first UI, Zustand state, 20+ components, real-time polling.
 
 **Pages:**
-- `/clients/$clientId` - Client detail (2 tabs: Overview, Documents + Header "Tin nhắn" button with unread badge)
+- `/clients/$clientId` - Client detail (4 tabs: Overview | Files | Checklist | Data Entry; Header "Tin nhắn" button with unread badge)
 
 **Features:**
 - 10s polling: active conversation

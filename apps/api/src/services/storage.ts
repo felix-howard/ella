@@ -5,8 +5,15 @@
  * Note: R2 integration will be fully implemented when R2 bucket is configured.
  * For now, this provides the interface and placeholder implementations.
  */
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { generateDocumentName, type DocumentNamingComponents } from '@ella/shared'
 
 // R2 client configuration
 const s3Client = new S3Client({
@@ -129,9 +136,6 @@ export async function deleteFile(key: string): Promise<boolean> {
     return false
   }
 
-  // Import DeleteObjectCommand when needed
-  const { DeleteObjectCommand } = await import('@aws-sdk/client-s3')
-
   try {
     await s3Client.send(
       new DeleteObjectCommand({
@@ -185,5 +189,84 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
   } catch (error) {
     console.error('[Storage] Failed to fetch image:', r2Key, error)
     return null
+  }
+}
+
+/**
+ * Result of a rename operation
+ */
+export interface RenameResult {
+  success: boolean
+  newKey: string
+  oldKey: string
+  error?: string
+}
+
+/**
+ * Rename a file in R2 storage using copy+delete pattern
+ * R2/S3 has no native rename, so we:
+ * 1. Copy to new key
+ * 2. Return new key (caller updates DB)
+ * 3. Delete old key (safe to fail - orphaned file is acceptable)
+ *
+ * @param oldKey - Current R2 key
+ * @param caseId - Case ID for path construction
+ * @param components - Naming components from AI classification
+ */
+export async function renameFile(
+  oldKey: string,
+  caseId: string,
+  components: DocumentNamingComponents
+): Promise<RenameResult> {
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, skipping rename')
+    return { success: false, newKey: oldKey, oldKey, error: 'R2_NOT_CONFIGURED' }
+  }
+
+  // Extract extension from old key (must contain a dot)
+  const parts = oldKey.split('.')
+  const ext = parts.length > 1 ? parts.pop()! : 'pdf'
+
+  // Generate new filename using naming convention
+  const displayName = generateDocumentName(components)
+  const newKey = `cases/${caseId}/docs/${displayName}.${ext}`
+
+  // Skip if same key (no rename needed)
+  if (oldKey === newKey) {
+    console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
+    return { success: true, newKey, oldKey }
+  }
+
+  try {
+    // Step 1: Copy to new location
+    console.log(`[Storage] Copying: ${oldKey} -> ${newKey}`)
+    await s3Client.send(
+      new CopyObjectCommand({
+        Bucket: BUCKET_NAME,
+        CopySource: `${BUCKET_NAME}/${oldKey}`,
+        Key: newKey,
+      })
+    )
+
+    // Step 2: Delete old file (can fail safely - DB is source of truth)
+    try {
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: oldKey,
+        })
+      )
+      console.log(`[Storage] Deleted old key: ${oldKey}`)
+    } catch (deleteError) {
+      // Log but don't fail - orphaned old file is acceptable
+      console.warn(`[Storage] Failed to delete old key (orphaned): ${oldKey}`, deleteError)
+    }
+
+    console.log(`[Storage] Rename complete: ${newKey}`)
+    return { success: true, newKey, oldKey }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[Storage] Rename failed: ${oldKey}`, error)
+    return { success: false, newKey: oldKey, oldKey, error: errorMessage }
   }
 }

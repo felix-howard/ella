@@ -1318,6 +1318,62 @@ Validation errors (OCR confidence < 0.85):
 - Phase 4 Priority 3: FORM_1098_T, FORM_1099_G, FORM_1099_MISC
 ```
 
+### Phase 03 Storage Rename - R2 File Renaming Operation (NEW)
+
+**Location:** `packages/shared/src/utils/filename-sanitizer.ts` | `apps/api/src/services/storage.ts`
+
+**Purpose:** Rename files in R2 storage from generic names (e.g., `cases/abc123/raw/123456.pdf`) to meaningful names based on AI classification results (e.g., `cases/abc123/docs/2025_W2_GoogleLlc_JohnSmith.pdf`).
+
+**Filename Convention:**
+- Format: `{TaxYear}_{DocType}_{Source}_{ClientName}`
+- Example: `2025_W2_GoogleLlc_JohnSmith.pdf`
+- Rules: No spaces (underscores), no Vietnamese diacritics, no special chars, max 60 chars total
+
+**Utilities (filename-sanitizer.ts):**
+- `removeDiacritics(text)` - Removes Vietnamese accents/tones (ă, â, đ, ê, ô, ơ, ư)
+- `toPascalCase(text)` - Converts to PascalCase ("google llc" → "GoogleLlc")
+- `sanitizeComponent(input, maxLength)` - Removes special chars, enforces length
+- `generateDocumentName(components)` - Generates final filename from naming components
+- `getDisplayNameFromKey(r2Key)` - Extracts display name from R2 key
+
+**Storage Service (storage.ts):**
+- `renameFile(oldKey, caseId, components): RenameResult` - Main rename operation
+  - Uses R2 copy+delete pattern (no native rename in S3/R2)
+  - Step 1: Copy object to new key in `cases/{caseId}/docs/` folder
+  - Step 2: Delete old key (safe to fail - orphaned file acceptable, DB is source of truth)
+  - Returns: `{ success, newKey, oldKey, error? }`
+
+**Behavior:**
+- Skips rename if keys are identical (no-op)
+- Preserves file extension from original key
+- Defaults to `.pdf` if extension not found
+- Succeeds even if delete fails (orphaned old file is acceptable per design)
+- Returns error only if copy fails (new file not created)
+
+**Integration:**
+- Called during document verification/finalization (future phase)
+- Requires `DocumentNamingComponents` from AI classification (taxYear, docType, source, clientName)
+- Updates database separately to point to new R2 key
+- Gracefully handles R2 not configured (returns success without operation)
+
+**Test Coverage (10 tests):**
+- Copy+delete pattern validation
+- Extension preservation & default handling
+- Identical key detection (no-op)
+- Copy failure handling (returns error)
+- Delete failure handling (succeeds with orphaned file)
+- Vietnamese character handling
+- Null taxYear defaulting to current year
+- Empty source handling
+- Complex docType handling
+
+**Filename Sanitizer Tests (33 tests):**
+- Diacritics removal (Vietnamese accents)
+- PascalCase conversion
+- Component sanitization (special char removal)
+- Document name generation
+- Display name extraction from R2 keys
+
 ### Real-Time Updates & Notifications Flow - Phase 05 Implementation
 
 ```

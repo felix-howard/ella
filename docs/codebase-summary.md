@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-27
 **Current Branch:** feature/multi-tax-year
-**Latest Phase:** Phase 01 Document-First Client V2 Workflow - Placeholder Routes + Navigation COMPLETE
+**Latest Phase:** Phase 02 Document-First Client V2 - Create Client Modal Step 1 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Document-First Client V2 Phase 02** | **4 new component files; Create client modal with 3-step flow; Step 1 (Basic Info) with form validation; Step indicator component; Type definitions; Code review 9.5/10** | **2026-01-27** |
 | **Document-First Client V2 Phase 01** | **2 placeholder routes (/clients-v2/, /clients-v2/$clientId); V2 navigation item (Khách hàng V2 - Beta badge); Dynamic icon mapping; Barrel export (clients-v2/index.ts); Vietnamese-first UI** | **2026-01-27** |
 | **Phase 6 Testing & Validation** | **71 new tests; 535 total passing; engagements.test.ts (9 API tests); api.test.ts (6 integration tests); backward-compat.test.ts (8 backward compatibility tests); validate-migration.ts script; review score 9.2/10** | **2026-01-26** |
 | **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
@@ -120,6 +121,134 @@
 - Phase 04: Document upload/processing workflow
 - Phase 05: Data entry integration
 - Phase 06: Testing & validation
+
+---
+
+## Document-First Client V2 Phase 02 - Create Client Modal Step 1 (COMPLETE - 2026-01-27)
+
+**Status:** Basic Info Step Complete | Multi-Step Modal Foundation Ready | Code Review: 9.5/10
+
+**Summary:** Implemented 3-step client creation modal with Step 1 (Basic Info) featuring form validation, accessibility features, and XSS prevention. Modal provides foundation for multi-step workflow with step indicator and form state management.
+
+**New Files (4 total):**
+
+1. **apps/workspace/src/components/clients-v2/create-client-modal/types.ts** - Type definitions
+   - `CreateClientFormData` interface: name, phone, email, language, taxYear, sendSmsOnCreate
+   - `CreateClientStep` type: union type (1 | 2 | 3) for step validation
+   - `StepProps` interface: Base props for all step components (formData, setFormData, onNext, onPrevious)
+   - Purpose: Centralized type defs prevent prop drilling, ensure consistency across all 3 steps
+
+2. **apps/workspace/src/components/clients-v2/create-client-modal/step-indicator.tsx** - Visual progress indicator
+   - **Component:** `StepIndicator` (~80 LOC)
+   - **Props:** `currentStep: CreateClientStep`, `totalSteps: number`, `steps: Array<{label: string}>`
+   - **Features:**
+     - 3-step visual progress (numbering: 1, 2, 3)
+     - Step states: completed (checkmark + green), active (current number + blue), pending (number + gray)
+     - Connecting line between steps (filled to current, empty ahead)
+     - Vietnamese labels: ["Thông tin cơ bản", "Năm thuế", "Xác nhận"]
+     - Accessibility: aria-current for active step, role="list" on container
+   - **Styling:** Tailwind utility classes, responsive line width
+
+3. **apps/workspace/src/components/clients-v2/create-client-modal/step-1-basic-info.tsx** - Basic info collection
+   - **Component:** `Step1BasicInfo` (~220 LOC)
+   - **Props:** StepProps (formData, setFormData, onNext, onPrevious) + mode ("create" | "edit")
+   - **Form Fields (4 total):**
+     1. **Name** - Text input (required, 2-100 chars)
+        - Validation: Non-empty, trimmed
+        - XSS prevention: `sanitizeTextInput()` before state update
+     2. **Phone** - Formatted input (required, 10-15 digits)
+        - Auto-formatting: Converts to XXX-XXX-XXXX display format
+        - Validation: 10-15 digits (regex: /\d{10,15}/)
+        - Storage: Normalized E.164 format (+1XXXXXXXXXX)
+     3. **Email** - Text input (required, RFC 5321 validation)
+        - Regex: RFC 5321 standard pattern
+        - Validation: Must match pattern or error message
+     4. **Language Toggle** - Radio group (VI | EN)
+        - Default: VI (Vietnamese)
+        - Labels: "Tiếng Việt" | "English"
+        - ARIA role: radiogroup with individual radio elements
+   - **Features:**
+     - Real-time validation with error messages
+     - XSS sanitization on all string inputs (500 char limit per field)
+     - Phone auto-formatting (visual + normalized storage)
+     - Email validation with helpful error (e.g., "Email không hợp lệ")
+     - ARIA accessibility: aria-invalid on errors, aria-describedby for hints
+     - Submit button disabled until all fields valid
+     - Vietnamese UI labels and error messages
+   - **Button Layout:**
+     - Cancel button (secondary) - clears form
+     - Next button (primary) - validates & advances to step 2
+
+4. **apps/workspace/src/components/clients-v2/create-client-modal/index.tsx** - Modal container
+   - **Component:** `CreateClientModal` (~280 LOC)
+   - **Props:** `isOpen: boolean`, `onClose: () => void`, `onSuccess?: (clientId: string) => void`
+   - **Features:**
+     - Modal dialog (fixed overlay, centered card, max-width 512px)
+     - Step management: currentStep state (1 | 2 | 3)
+     - Form data management: Shared state via formData hook (persists across steps)
+     - Header: "Tạo khách hàng mới" title + close button
+     - Body: Renders StepIndicator + active step component
+     - Step navigation: Previous/Next buttons (Next disabled on Step 1 until valid)
+   - **Step Placeholder Structure:**
+     - Step 1 (DONE): Step1BasicInfo component
+     - Step 2 (PLACEHOLDER): `<div>Step 2 - Tax Year Selection (Placeholder for Phase 03)</div>`
+     - Step 3 (PLACEHOLDER): `<div>Step 3 - Confirmation (Placeholder for Phase 04)</div>`
+   - **Form State Management:**
+     - `useState<CreateClientFormData>` initial state: empty name/phone/email, language=VI, taxYear=2024, sendSmsOnCreate=false
+     - State persists across step navigation (prevents data loss)
+   - **Keyboard Handling:**
+     - Escape key closes modal (via DialogClose)
+     - Enter key on Step 1 advances if valid
+   - **Error Handling:**
+     - Try-catch wrapper on step transitions
+     - Toast error notifications for failures
+
+**Updated Files (1 total):**
+
+1. **apps/workspace/src/components/clients-v2/index.ts** - Barrel export
+   - Added exports: `CreateClientModal`, `Step1BasicInfo`, `StepIndicator`
+   - Purpose: Clean import path for parent components: `import { CreateClientModal } from '@/components/clients-v2'`
+
+**Code Quality Metrics:**
+- **Review Score:** 9.5/10
+- **LOC:** ~800 total (well-structured, modular)
+- **Test Coverage:** Ready for Jest/Vitest integration (Phase 03)
+- **Accessibility:** ARIA labels (radiogroup, aria-invalid, aria-describedby) + keyboard support
+- **Security:** XSS sanitization + input validation on all fields
+- **Performance:** Lightweight form (no unnecessary re-renders), step-based lazy rendering
+
+**Validation Features:**
+- **Name:** Requires 2-100 chars, sanitized for XSS
+- **Phone:** 10-15 digits, auto-formatted, stored as E.164
+- **Email:** RFC 5321 regex validation, error feedback
+- **Language:** Default VI, enforced via radio group
+- **All fields:** Required before step advancement, real-time error display
+
+**Accessibility Features:**
+- Step indicator: `role="list"`, `aria-current="step"` on active
+- Form fields: `aria-invalid` + `aria-describedby` for errors
+- Language toggle: `role="radiogroup"` with individual radio elements
+- Modal: Escape key handling, focus management
+- Keyboard navigation: Tab through fields, Enter to submit
+
+**Vietnamese UI Elements:**
+- Modal title: "Tạo khách hàng mới"
+- Step labels: ["Thông tin cơ bản", "Năm thuế", "Xác nhận"]
+- Field labels: "Họ tên", "Số điện thoại", "Email", "Ngôn ngữ"
+- Button labels: "Hủy bỏ", "Tiếp theo", "Quay lại"
+- Error messages: "Vui lòng nhập họ tên", "Email không hợp lệ", etc.
+
+**Integration Points:**
+- Modal mounted in client V2 list page (Phase 02 frontend)
+- Uses shared API client (to be integrated in Phase 03)
+- Form state persists across step navigation
+- Steps 2-3 ready for Phase 03-04 implementation
+
+**Next Steps (Phase 03-04):**
+- Step 2: Tax year selection with multi-year support
+- Step 3: Summary review + API integration
+- Client list: Table display with filter/sort
+- Form submission: POST /clients API call + redirect to client detail
 
 ---
 

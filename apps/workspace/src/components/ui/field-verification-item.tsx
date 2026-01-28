@@ -133,14 +133,13 @@ export function FieldVerificationItem({
         data-field-key={fieldKey}
         onClick={!isEditing && !disabled ? handleStartEdit : undefined}
       >
-        {/* Status indicator */}
-        {status && (
+        {/* Status indicator - only show for verified/unreadable, not edited */}
+        {status && status !== 'edited' && (
           <div
             className="flex-shrink-0 mt-0.5"
-            title={status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}
+            title={status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
           >
             {status === 'verified' && <Check className="w-4 h-4 text-primary" />}
-            {status === 'edited' && <Pencil className="w-4 h-4 text-amber-500" />}
             {status === 'unreadable' && <AlertTriangle className="w-4 h-4 text-error" />}
           </div>
         )}
@@ -239,14 +238,13 @@ export function FieldVerificationItem({
         </div>
       )}
 
-      {/* Status indicator with icon for colorblind accessibility */}
-      {status && (
+      {/* Status indicator with icon for colorblind accessibility - only show for verified/unreadable */}
+      {status && status !== 'edited' && (
         <div className="flex items-center gap-1.5 mt-2">
           {status === 'verified' && <Check className="w-3.5 h-3.5 text-primary" />}
-          {status === 'edited' && <Pencil className="w-3.5 h-3.5 text-amber-500" />}
           {status === 'unreadable' && <AlertTriangle className="w-3.5 h-3.5 text-error" />}
           <span className="text-xs text-muted-foreground">
-            {status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}
+            {status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
           </span>
         </div>
       )}

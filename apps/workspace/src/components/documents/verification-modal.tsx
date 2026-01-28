@@ -99,6 +99,8 @@ export function VerificationModal({
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
   // Local state for instant optimistic UI updates (doesn't wait for query refetch)
   const [localVerifications, setLocalVerifications] = useState<Record<string, FieldVerificationStatus>>({})
+  // Local state for edited field values (prevents revert on query refetch)
+  const [localEditedValues, setLocalEditedValues] = useState<Record<string, string>>({})
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
@@ -146,6 +148,11 @@ export function VerificationModal({
       }
     }
 
+    // Apply local edited values (takes precedence over server data)
+    for (const [key, value] of Object.entries(localEditedValues)) {
+      flattenedData[key] = value
+    }
+
     // Filter to only show fields expected for this document type
     // Order by expected fields order for consistent display
     const orderedFields: Array<[string, unknown]> = []
@@ -165,12 +172,11 @@ export function VerificationModal({
       fields: orderedFields,
       fieldVerifications: verifications,
     }
-  }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications])
+  }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications, localEditedValues])
 
-  // AI confidence - reuse memoized extractedData
+  // AI confidence - reuse memoized extractedData (used in empty state message)
   const extractedConfidence = extractedData.aiConfidence
   const aiConfidence = doc.aiConfidence ?? (isNumber(extractedConfidence) ? extractedConfidence : 0)
-  const confidencePercent = Math.round(aiConfidence * 100)
 
   // Field verification mutation with optimistic updates
   const verifyFieldMutation = useMutation({
@@ -180,12 +186,18 @@ export function VerificationModal({
       // Instant local state update for immediate UI feedback
       setLocalVerifications((prev) => ({ ...prev, [field]: status }))
 
+      // Save edited value locally to prevent revert on query refetch
+      if (value !== undefined) {
+        setLocalEditedValues((prev) => ({ ...prev, [field]: value }))
+      }
+
       // Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey: ['case', caseId] })
 
       // Snapshot previous value
       const previousCase = queryClient.getQueryData(['case', caseId])
       const previousLocalVerifications = { ...localVerifications }
+      const previousLocalEditedValues = { ...localEditedValues }
 
       // Optimistically update query cache too
       queryClient.setQueryData(['case', caseId], (old: unknown) => {
@@ -206,7 +218,7 @@ export function VerificationModal({
         }
       })
 
-      return { previousCase, previousLocalVerifications }
+      return { previousCase, previousLocalVerifications, previousLocalEditedValues }
     },
     onSuccess: () => {
       // Move to next unverified field
@@ -221,6 +233,9 @@ export function VerificationModal({
       // Rollback local state on error
       if (context?.previousLocalVerifications) {
         setLocalVerifications(context.previousLocalVerifications)
+      }
+      if (context?.previousLocalEditedValues) {
+        setLocalEditedValues(context.previousLocalEditedValues)
       }
       // Rollback query cache on error
       if (context?.previousCase) {
@@ -339,6 +354,7 @@ export function VerificationModal({
     if (isOpen) {
       setCurrentFieldIndex(0)
       setLocalVerifications({}) // Clear local optimistic state for fresh doc
+      setLocalEditedValues({}) // Clear local edited values for fresh doc
     }
   }, [isOpen, doc.id])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -351,11 +367,6 @@ export function VerificationModal({
   // URL validation
   const validatedUrl =
     signedUrlData?.url && isValidSignedUrl(signedUrlData.url) ? signedUrlData.url : null
-
-  // Calculate verification progress
-  const verifiedCount = fields.filter(([key]) => fieldVerifications[key]).length
-  const totalFields = fields.length
-  const progressPercent = totalFields > 0 ? Math.round((verifiedCount / totalFields) * 100) : 0
 
   // Use portal to render at document.body level to avoid stacking context issues
   return createPortal(
@@ -392,9 +403,6 @@ export function VerificationModal({
               </p>
             </div>
             <div className="flex items-center gap-2 ml-2">
-              <Badge variant="outline" className="text-xs font-medium">
-                AI {confidencePercent}%
-              </Badge>
               {doc.status === 'VERIFIED' && (
                 <Badge variant="success" className="text-xs">
                   Đã xác minh
@@ -467,37 +475,21 @@ export function VerificationModal({
 
           {/* Right: Verification Panel */}
           <div className="h-1/2 md:h-full md:w-[40%] flex flex-col overflow-hidden bg-card">
-            {/* Progress & Status bar */}
+            {/* Status bar */}
             <div className="px-4 py-3 border-b border-border bg-muted/10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {doc.status === 'VERIFIED' ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                  )}
-                  <span className="text-sm font-medium text-foreground">
-                    {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
-                    {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
-                    {doc.status === 'PENDING' && 'Đang xử lý'}
-                    {doc.status === 'VERIFIED' && 'Đã xác minh'}
-                  </span>
-                </div>
-                {totalFields > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {verifiedCount}/{totalFields} trường
-                  </span>
+              <div className="flex items-center gap-2">
+                {doc.status === 'VERIFIED' ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Clock className="w-4 h-4 text-muted-foreground" />
                 )}
+                <span className="text-sm font-medium text-foreground">
+                  {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
+                  {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
+                  {doc.status === 'PENDING' && 'Đang xử lý'}
+                  {doc.status === 'VERIFIED' && 'Đã xác minh'}
+                </span>
               </div>
-              {/* Progress bar */}
-              {totalFields > 0 && (
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-300 rounded-full"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Fields list - Enhanced layout */}

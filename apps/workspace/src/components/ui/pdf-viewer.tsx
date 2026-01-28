@@ -1,21 +1,21 @@
 /**
- * PdfViewer - Internal PDF rendering component for ImageViewer
+ * PdfViewer - High-resolution PDF rendering for crisp zoom
+ * Renders at 2x resolution and scales down via CSS for sharp display
  * Lazy loaded to avoid bundling react-pdf (~150KB) for non-PDF users
- * Uses cdnjs for PDF.js worker (more reliable than unpkg)
  */
 
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Loader2 } from 'lucide-react'
 
 // Configure PDF.js worker from unpkg (serves npm packages directly)
-// This ensures exact version match with the bundled pdfjs-dist
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
+// Render at 2x resolution for crisp display when zoomed
+const RENDER_SCALE = 2
 
 export interface PdfViewerProps {
   /** PDF file URL */
   fileUrl: string
-  /** Zoom level */
-  zoom: number
   /** Rotation in degrees */
   rotation: number
   /** Current page number */
@@ -28,7 +28,6 @@ export interface PdfViewerProps {
 
 export default function PdfViewer({
   fileUrl,
-  zoom,
   rotation,
   currentPage,
   onLoadSuccess,
@@ -55,13 +54,14 @@ export default function PdfViewer({
       }
       className="flex justify-center"
     >
+      {/* Render at 2x scale, CSS scales down to 50% for crisp display */}
       <Page
         pageNumber={currentPage}
-        scale={zoom}
+        scale={RENDER_SCALE}
         rotate={rotation}
         renderTextLayer={false}
         renderAnnotationLayer={false}
-        className="shadow-md"
+        className="shadow-md [&>canvas]:!w-[50%] [&>canvas]:!h-auto"
         loading={
           <div className="w-[400px] h-[550px] bg-muted animate-pulse rounded" />
         }

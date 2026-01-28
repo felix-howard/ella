@@ -157,6 +157,8 @@ export function ImageViewer({
         minScale={MIN_ZOOM}
         maxScale={MAX_ZOOM}
         centerOnInit
+        // Allow panning beyond boundaries when zoomed in (critical for viewing full document)
+        limitToBounds={false}
         wheel={{ step: 0.2 }}
         doubleClick={{ mode: 'reset' }}
         panning={{ velocityDisabled: true }}
@@ -192,7 +194,6 @@ export function ImageViewer({
             >
               <PdfViewer
                 fileUrl={imageUrl}
-                zoom={1}
                 rotation={rotation}
                 currentPage={currentPage}
                 onLoadSuccess={handlePdfLoadSuccess}
@@ -207,6 +208,7 @@ export function ImageViewer({
                 className="max-w-full max-h-full object-contain select-none"
                 style={{
                   transform: rotation ? `rotate(${rotation}deg)` : undefined,
+                  imageRendering: 'crisp-edges',
                 }}
                 draggable={false}
                 onError={() => setError('Không thể tải hình ảnh')}

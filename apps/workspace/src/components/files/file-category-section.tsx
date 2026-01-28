@@ -76,19 +76,20 @@ export function FileCategorySection({
         </span>
       </button>
 
-      {/* File list */}
-      {isExpanded && (
-        <div className="border-t border-border divide-y divide-border bg-card">
-          {images.map((img) => (
-            <FileItemRow
-              key={img.id}
-              image={img}
-              doc={docs.find((d) => d.rawImageId === img.id)}
-              onVerify={onVerify}
-            />
-          ))}
-        </div>
-      )}
+      {/* File list - Use hidden instead of unmounting to prevent thumbnail reload flash */}
+      <div className={cn(
+        'border-t border-border divide-y divide-border bg-card',
+        !isExpanded && 'hidden'
+      )}>
+        {images.map((img) => (
+          <FileItemRow
+            key={img.id}
+            image={img}
+            doc={docs.find((d) => d.rawImageId === img.id)}
+            onVerify={onVerify}
+          />
+        ))}
+      </div>
     </div>
   )
 }

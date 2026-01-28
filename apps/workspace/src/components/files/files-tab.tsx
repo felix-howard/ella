@@ -85,8 +85,10 @@ export function FilesTab({ caseId }: FilesTabProps) {
   const images = useMemo(() => imagesData?.images ?? [], [imagesData?.images])
 
   // Group images by DB category field (not computed from docType)
-  const { unclassified, categorized } = useMemo(() => {
-    const unclassified: RawImage[] = []
+  // "Chờ phân loại" only shows docs still being processed (UPLOADED/PROCESSING)
+  // AI-failed docs now go directly to "Khác" (OTHER) category
+  const { processing, categorized } = useMemo(() => {
+    const processing: RawImage[] = []
     const byCategory: Record<DocCategoryKey, RawImage[]> = {
       IDENTITY: [],
       INCOME: [],
@@ -98,20 +100,19 @@ export function FilesTab({ caseId }: FilesTabProps) {
     }
 
     for (const img of images) {
-      // Unclassified: no category, invalid category, or unclassified/uploaded status
-      if (
-        !isValidCategory(img.category) ||
-        img.status === 'UNCLASSIFIED' ||
-        img.status === 'UPLOADED'
-      ) {
-        unclassified.push(img)
-      } else {
+      // Processing: still being uploaded or AI is working on it
+      if (img.status === 'UPLOADED' || img.status === 'PROCESSING') {
+        processing.push(img)
+      } else if (isValidCategory(img.category)) {
         // Use validated DB category field
         byCategory[img.category].push(img)
+      } else {
+        // Fallback: docs without valid category go to OTHER
+        byCategory.OTHER.push(img)
       }
     }
 
-    return { unclassified, categorized: byCategory }
+    return { processing, categorized: byCategory }
   }, [images])
 
   // Handlers
@@ -176,8 +177,8 @@ export function FilesTab({ caseId }: FilesTabProps) {
       onDragEnter={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Unclassified Section - Always at top */}
-      <UnclassifiedSection images={unclassified} onClassify={handleClassify} />
+      {/* Processing Section - Shows docs still being processed by AI */}
+      <UnclassifiedSection images={processing} onClassify={handleClassify} />
 
       {/* Categorized Sections - Using CATEGORY_ORDER for consistent display */}
       {CATEGORY_ORDER.map((categoryKey) => {

@@ -240,8 +240,12 @@ export const classifyDocumentJob = inngest.createFunction(
         if (!result.success && result.error && isServiceUnavailable(result.error)) {
           const errorInfo = getVietnameseError(result.error)
 
-          // Mark for manual classification and create action with Vietnamese message
-          await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', 0)
+          // Put in OTHER category (not unclassified) and create action
+          await updateRawImageStatus(rawImageId, 'CLASSIFIED', 0, 'OTHER' as DocType)
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: { category: 'OTHER' },
+          })
           await createAction({
             caseId,
             type: 'AI_FAILED',
@@ -294,13 +298,14 @@ export const classifyDocumentJob = inngest.createFunction(
     const routing = await step.run('route-by-confidence', async () => {
       const { confidence, docType, success, error } = classification
 
-      // Failed classification or very low confidence → unclassified
+      // Failed classification or very low confidence → put in OTHER category (not unclassified)
       if (!success || confidence < LOW_CONFIDENCE) {
         const errorInfo = getVietnameseError(error || classification.reasoning)
 
-        await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', confidence)
+        // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
+        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
 
-        // Create AI_FAILED action with Vietnamese message for CPA visibility
+        // Still create AI_FAILED action for CPA visibility
         await createAction({
           caseId,
           type: 'AI_FAILED',
@@ -316,7 +321,7 @@ export const classifyDocumentJob = inngest.createFunction(
           },
         })
 
-        return { action: 'unclassified', needsOcr: false, checklistItemId: null }
+        return { action: 'ai-failed-to-other', needsOcr: false, checklistItemId: null }
       }
 
       // Cast docType to proper enum type
@@ -364,8 +369,22 @@ export const classifyDocumentJob = inngest.createFunction(
     }
 
     const renameResult = await step.run('rename-file', async (): Promise<RenameStepResult> => {
-      // Skip rename for unclassified or low confidence
-      if (routing.action === 'unclassified' || !classification.success) {
+      // For AI-failed docs, skip rename but set category to OTHER
+      if (routing.action === 'ai-failed-to-other') {
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: { category: 'OTHER' },
+        })
+        return {
+          renamed: false,
+          newKey: null,
+          displayName: null,
+          category: 'OTHER',
+        }
+      }
+
+      // Skip rename for other non-success cases
+      if (!classification.success) {
         return {
           renamed: false,
           newKey: null,

@@ -1,11 +1,11 @@
 /**
- * UnclassifiedSection - Collapsible list display of pending classification documents
- * Shows at top of Files Tab when unclassified docs exist
- * Consistent UI with FileCategorySection
+ * UnclassifiedSection - Collapsible list display of processing documents
+ * Shows at top of Files Tab when docs are still being processed by AI
+ * AI-failed docs now go directly to "Khác" category instead of here
  */
 
 import { useState, memo, type KeyboardEvent } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Tag } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, Tag } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { RawImage } from '../../lib/api-client'
 import { sanitizeText } from '../../lib/formatters'
@@ -33,17 +33,17 @@ export function UnclassifiedSection({ images, onClassify }: UnclassifiedSectionP
   }
 
   return (
-    <div className="rounded-xl border border-warning/30 overflow-hidden">
-      {/* Header - Collapsible with warning color */}
+    <div className="rounded-xl border border-primary/30 overflow-hidden">
+      {/* Header - Collapsible with primary color for processing state */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         aria-expanded={isExpanded}
-        aria-label={`Chờ phân loại - ${images.length} documents`}
+        aria-label={`Đang xử lý - ${images.length} documents`}
         className={cn(
           'w-full flex items-center gap-3 p-4',
-          'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-warning/50 focus:ring-inset transition-all',
-          'bg-warning/10'
+          'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
+          'bg-primary/10'
         )}
       >
         {isExpanded ? (
@@ -51,8 +51,8 @@ export function UnclassifiedSection({ images, onClassify }: UnclassifiedSectionP
         ) : (
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         )}
-        <AlertTriangle className="w-5 h-5 text-warning" />
-        <span className="font-semibold text-warning">Chờ phân loại</span>
+        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+        <span className="font-semibold text-primary">Đang xử lý</span>
         <span className="text-sm text-muted-foreground">
           ({images.length})
         </span>
@@ -106,7 +106,7 @@ const UnclassifiedFileRow = memo(function UnclassifiedFileRow({
           {displayName}
         </p>
         <p className="text-xs text-muted-foreground">
-          Chưa phân loại
+          Đang xử lý...
         </p>
       </div>
 

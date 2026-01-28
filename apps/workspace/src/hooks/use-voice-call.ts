@@ -321,9 +321,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           setIsRegistered(true)
           setIsRegistering(false)
 
-          // Notify user that voice is ready (info toast, auto-dismiss)
-          toast.info('Đã sẵn sàng nhận cuộc gọi đến', 2000)
-
           // Start heartbeat every 30 seconds
           if (heartbeatIntervalRef.current) {
             clearInterval(heartbeatIntervalRef.current)

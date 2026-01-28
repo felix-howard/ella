@@ -1,6 +1,7 @@
 /**
  * FileActionDropdown - Context menu for file actions in Files Tab
- * Actions: Rename, Download, Move to Category
+ * Actions: Rename, Download, Move to Category (submenu), Delete
+ * Uses nested submenu pattern like Windows File Explorer
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type MouseEvent } from 'react'
@@ -13,8 +14,8 @@ import {
   FolderInput,
   Loader2,
   Check,
-  X,
   Trash2,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type RawImage, type DocCategory } from '../../lib/api-client'
@@ -26,33 +27,38 @@ export interface FileActionDropdownProps {
   image: RawImage
   caseId: string
   currentCategory?: DocCategoryKey | null
+  /** Callback to trigger inline rename mode */
+  onRenameClick?: () => void
 }
 
 /**
- * Dropdown menu with file actions: rename, download, move to category
+ * Dropdown menu with file actions: rename, download, move to category (submenu), delete
  */
 export function FileActionDropdown({
   image,
   caseId,
   currentCategory,
+  onRenameClick,
 }: FileActionDropdownProps) {
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
-  const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [newFilename, setNewFilename] = useState('')
+  const [showCategorySubmenu, setShowCategorySubmenu] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 0, openLeft: false })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const submenuRef = useRef<HTMLDivElement>(null)
+  const submenuTriggerRef = useRef<HTMLDivElement>(null)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Calculate dropdown position
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return
 
     const rect = triggerRef.current.getBoundingClientRect()
-    const dropdownWidth = 288 // w-72 = 18rem = 288px
-    const dropdownHeight = 400 // Approximate max height
+    const dropdownWidth = 220 // Narrower main dropdown
+    const dropdownHeight = 200 // Shorter height without inline categories
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
 
@@ -77,6 +83,41 @@ export function FileActionDropdown({
     setDropdownPosition({ top, left })
   }, [])
 
+  // Calculate submenu position
+  const updateSubmenuPosition = useCallback(() => {
+    if (!submenuTriggerRef.current || !dropdownRef.current) return
+
+    const triggerRect = submenuTriggerRef.current.getBoundingClientRect()
+    const dropdownRect = dropdownRef.current.getBoundingClientRect()
+    const submenuWidth = 200
+    const submenuHeight = 280 // Approximate height of category list
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Try to position to the right of the trigger
+    let left = dropdownRect.right - 4
+    let openLeft = false
+
+    // Check if submenu would overflow right side
+    if (left + submenuWidth > viewportWidth - 8) {
+      // Open to the left instead
+      left = dropdownRect.left - submenuWidth + 4
+      openLeft = true
+    }
+
+    // Vertical position aligned with the trigger item
+    let top = triggerRect.top - 4
+
+    // Check if submenu would overflow bottom
+    if (top + submenuHeight > viewportHeight - 8) {
+      top = viewportHeight - submenuHeight - 8
+    }
+    // Check if submenu would overflow top
+    if (top < 8) top = 8
+
+    setSubmenuPosition({ top, left, openLeft })
+  }, [])
+
   // Update position on open and scroll
   useLayoutEffect(() => {
     if (isOpen) {
@@ -84,17 +125,27 @@ export function FileActionDropdown({
     }
   }, [isOpen, updatePosition])
 
+  // Update submenu position when shown
+  useLayoutEffect(() => {
+    if (showCategorySubmenu) {
+      updateSubmenuPosition()
+    }
+  }, [showCategorySubmenu, updateSubmenuPosition])
+
   // Update position when scrolling
   useEffect(() => {
     if (!isOpen) return
 
     const handleScroll = () => {
       requestAnimationFrame(updatePosition)
+      if (showCategorySubmenu) {
+        requestAnimationFrame(updateSubmenuPosition)
+      }
     }
 
     window.addEventListener('scroll', handleScroll, true)
     return () => window.removeEventListener('scroll', handleScroll, true)
-  }, [isOpen, updatePosition])
+  }, [isOpen, showCategorySubmenu, updatePosition, updateSubmenuPosition])
 
   // Fetch signed URL for download
   const { data: signedUrlData } = useSignedUrl(image.id, {
@@ -108,10 +159,11 @@ export function FileActionDropdown({
       const target = event.target as Node
       const clickedTrigger = triggerRef.current?.contains(target)
       const clickedDropdown = dropdownRef.current?.contains(target)
+      const clickedSubmenu = submenuRef.current?.contains(target)
 
-      if (!clickedTrigger && !clickedDropdown) {
+      if (!clickedTrigger && !clickedDropdown && !clickedSubmenu) {
         setIsOpen(false)
-        setIsRenaming(false)
+        setShowCategorySubmenu(false)
       }
     }
 
@@ -121,27 +173,14 @@ export function FileActionDropdown({
     }
   }, [isOpen])
 
-  // Focus input when renaming
+  // Clean up hover timeout on unmount
   useEffect(() => {
-    if (isRenaming && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
     }
-  }, [isRenaming])
-
-  // Rename mutation
-  const renameMutation = useMutation({
-    mutationFn: (filename: string) => api.images.rename(image.id, filename),
-    onSuccess: () => {
-      toast.success('Đã đổi tên tệp')
-      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
-      setIsRenaming(false)
-      setIsOpen(false)
-    },
-    onError: () => {
-      toast.error('Lỗi đổi tên tệp')
-    },
-  })
+  }, [])
 
   // Change category mutation
   const changeCategoryMutation = useMutation({
@@ -171,6 +210,7 @@ export function FileActionDropdown({
       toast.success(`Đã chuyển sang "${categoryConfig.labelVi}"`)
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       setIsOpen(false)
+      setShowCategorySubmenu(false)
     },
     onError: (_error, _category, context) => {
       if (context?.previousImages) {
@@ -183,21 +223,13 @@ export function FileActionDropdown({
   const handleToggle = (e: MouseEvent) => {
     e.stopPropagation()
     setIsOpen(!isOpen)
-    setIsRenaming(false)
+    setShowCategorySubmenu(false)
   }
 
   const handleRename = () => {
-    setNewFilename(image.displayName || image.filename)
-    setIsRenaming(true)
-  }
-
-  const handleSaveRename = () => {
-    const trimmed = newFilename.trim()
-    if (!trimmed || trimmed === (image.displayName || image.filename)) {
-      setIsRenaming(false)
-      return
-    }
-    renameMutation.mutate(trimmed)
+    setIsOpen(false)
+    setShowCategorySubmenu(false)
+    onRenameClick?.()
   }
 
   const handleDownload = () => {
@@ -221,9 +253,44 @@ export function FileActionDropdown({
   const handleCategoryChange = (category: DocCategoryKey) => {
     if (category === currentCategory) {
       setIsOpen(false)
+      setShowCategorySubmenu(false)
       return
     }
     changeCategoryMutation.mutate(category)
+  }
+
+  // Hover handlers for submenu with delay
+  const handleCategoryTriggerEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowCategorySubmenu(true)
+    }, 100) // Small delay to prevent accidental triggers
+  }
+
+  const handleCategoryTriggerLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowCategorySubmenu(false)
+    }, 150) // Delay before hiding to allow moving to submenu
+  }
+
+  const handleSubmenuEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+  }
+
+  const handleSubmenuLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowCategorySubmenu(false)
+    }, 100)
   }
 
   // Delete mutation
@@ -264,6 +331,7 @@ export function FileActionDropdown({
   const handleDelete = () => {
     setShowDeleteConfirm(true)
     setIsOpen(false)
+    setShowCategorySubmenu(false)
   }
 
   const confirmDelete = () => {
@@ -281,60 +349,16 @@ export function FileActionDropdown({
         left: dropdownPosition.left,
         zIndex: 9999,
       }}
-      className="w-72 max-h-[calc(100vh-16px)] overflow-y-auto bg-card border border-border rounded-lg shadow-lg"
+      className="w-56 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
     >
-      {/* Rename Section */}
-      {isRenaming ? (
-        <div className="p-3 border-b border-border">
-          <label className="text-xs text-muted-foreground mb-1.5 block">Tên tệp mới</label>
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newFilename}
-              onChange={(e) => setNewFilename(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveRename()
-                if (e.key === 'Escape') setIsRenaming(false)
-              }}
-              disabled={renameMutation.isPending}
-              className={cn(
-                'flex-1 min-w-0 px-3 py-2 text-sm',
-                'border border-border rounded-md bg-background',
-                'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
-                'disabled:opacity-50'
-              )}
-              placeholder="Nhập tên tệp..."
-            />
-            <button
-              onClick={handleSaveRename}
-              disabled={renameMutation.isPending}
-              className="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
-            >
-              {renameMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
-              )}
-            </button>
-            <button
-              onClick={() => setIsRenaming(false)}
-              disabled={renameMutation.isPending}
-              className="px-3 py-2 rounded-md border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={handleRename}
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors"
-        >
-          <Pencil className="w-4 h-4 text-muted-foreground" />
-          Đổi tên
-        </button>
-      )}
+      {/* Rename - triggers inline edit in row */}
+      <button
+        onClick={handleRename}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors"
+      >
+        <Pencil className="w-4 h-4 text-muted-foreground" />
+        Đổi tên
+      </button>
 
       {/* Download */}
       <button
@@ -346,42 +370,21 @@ export function FileActionDropdown({
         Tải xuống
       </button>
 
-      {/* Move to Category - inline list instead of submenu */}
-      <div className="border-t border-border">
-        <div className="px-3 py-2 text-xs text-muted-foreground font-medium flex items-center gap-2">
-          <FolderInput className="w-3.5 h-3.5" />
-          Chuyển danh mục
+      {/* Move to Category - shows submenu on hover */}
+      <div
+        ref={submenuTriggerRef}
+        onMouseEnter={handleCategoryTriggerEnter}
+        onMouseLeave={handleCategoryTriggerLeave}
+        className={cn(
+          'w-full flex items-center justify-between px-3 py-2.5 text-sm cursor-pointer transition-colors',
+          showCategorySubmenu ? 'bg-muted' : 'hover:bg-muted'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <FolderInput className="w-4 h-4 text-muted-foreground" />
+          Chuyển sang mục
         </div>
-        <div className="pb-1">
-          {CATEGORY_ORDER.map((categoryKey) => {
-            const config = DOC_CATEGORIES[categoryKey]
-            const Icon = config.icon
-            const isCurrentCategory = categoryKey === currentCategory
-
-            return (
-              <button
-                key={categoryKey}
-                onClick={() => handleCategoryChange(categoryKey)}
-                disabled={changeCategoryMutation.isPending}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                  isCurrentCategory
-                    ? 'bg-primary/10 text-primary'
-                    : 'hover:bg-muted',
-                  changeCategoryMutation.isPending && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                <Icon className={cn('w-4 h-4', config.textColor)} />
-                <span className={isCurrentCategory ? 'font-medium' : ''}>
-                  {config.labelVi}
-                </span>
-                {isCurrentCategory && (
-                  <Check className="w-3.5 h-3.5 ml-auto text-primary" />
-                )}
-              </button>
-            )
-          })}
-        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground" />
       </div>
 
       {/* Delete */}
@@ -399,6 +402,52 @@ export function FileActionDropdown({
           Xóa tệp
         </button>
       </div>
+    </div>,
+    document.body
+  )
+
+  // Category submenu rendered in portal
+  const categorySubmenu = isOpen && showCategorySubmenu && createPortal(
+    <div
+      ref={submenuRef}
+      onMouseEnter={handleSubmenuEnter}
+      onMouseLeave={handleSubmenuLeave}
+      style={{
+        position: 'fixed',
+        top: submenuPosition.top,
+        left: submenuPosition.left,
+        zIndex: 10000,
+      }}
+      className="w-52 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
+    >
+      {CATEGORY_ORDER.map((categoryKey) => {
+        const config = DOC_CATEGORIES[categoryKey]
+        const Icon = config.icon
+        const isCurrentCategory = categoryKey === currentCategory
+
+        return (
+          <button
+            key={categoryKey}
+            onClick={() => handleCategoryChange(categoryKey)}
+            disabled={changeCategoryMutation.isPending}
+            className={cn(
+              'w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors',
+              isCurrentCategory
+                ? 'bg-primary/10 text-primary'
+                : 'hover:bg-muted',
+              changeCategoryMutation.isPending && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <Icon className={cn('w-4 h-4', config.textColor)} />
+            <span className={isCurrentCategory ? 'font-medium' : ''}>
+              {config.labelVi}
+            </span>
+            {isCurrentCategory && (
+              <Check className="w-3.5 h-3.5 ml-auto text-primary" />
+            )}
+          </button>
+        )
+      })}
     </div>,
     document.body
   )
@@ -467,6 +516,9 @@ export function FileActionDropdown({
 
       {/* Dropdown Menu rendered in portal */}
       {dropdownContent}
+
+      {/* Category Submenu rendered in portal */}
+      {categorySubmenu}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal}

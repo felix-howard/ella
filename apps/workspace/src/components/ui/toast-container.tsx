@@ -1,13 +1,13 @@
 /**
  * Toast Container - Uses react-hot-toast for notifications
- * Positioned at bottom-center of screen
+ * Positioned at bottom-right of screen
  */
 import { Toaster } from 'react-hot-toast'
 
 export function ToastContainer() {
   return (
     <Toaster
-      position="bottom-center"
+      position="bottom-right"
       toastOptions={{
         duration: 3000,
         style: {

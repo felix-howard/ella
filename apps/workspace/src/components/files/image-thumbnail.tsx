@@ -53,7 +53,9 @@ export const ImageThumbnail = memo(function ImageThumbnail({
   const { data, isLoading, error } = useSignedUrl(imageId, { staleTime: 55 * 60 * 1000 })
   const isPdf = isPdfFile(filename)
 
-  if (isLoading) {
+  // Only show loading spinner on initial load (no cached data)
+  // This prevents flash when switching tabs since URLs are cached
+  if (isLoading && !data) {
     return (
       <div className={`${className} flex items-center justify-center`}>
         <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />

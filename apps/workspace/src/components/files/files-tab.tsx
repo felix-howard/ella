@@ -153,8 +153,9 @@ export function FilesTab({ caseId }: FilesTabProps) {
     setIsDraggingFile(false)
   }, [])
 
-  // Loading state with skeleton
-  if (imagesLoading) {
+  // Loading state with skeleton - only show on initial load (no cached data)
+  // This prevents flash when switching tabs since data is already cached
+  if (imagesLoading && !imagesData) {
     return <FilesTabSkeleton />
   }
 

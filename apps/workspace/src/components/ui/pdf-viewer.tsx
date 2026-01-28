@@ -1,6 +1,6 @@
 /**
- * PdfViewer - High-resolution PDF rendering for crisp zoom
- * Renders at 2x resolution and scales down via CSS for sharp display
+ * PdfViewer - PDF rendering with native scale-based zoom (always crisp)
+ * Uses react-pdf scale prop for re-rendering at zoom resolution
  * Lazy loaded to avoid bundling react-pdf (~150KB) for non-PDF users
  */
 
@@ -10,12 +10,11 @@ import { Loader2 } from 'lucide-react'
 // Configure PDF.js worker from unpkg (serves npm packages directly)
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
-// Render at 2x resolution for crisp display when zoomed
-const RENDER_SCALE = 2
-
 export interface PdfViewerProps {
   /** PDF file URL */
   fileUrl: string
+  /** Zoom scale (1 = 100%, 2 = 200%, etc.) */
+  scale: number
   /** Rotation in degrees */
   rotation: number
   /** Current page number */
@@ -28,6 +27,7 @@ export interface PdfViewerProps {
 
 export default function PdfViewer({
   fileUrl,
+  scale,
   rotation,
   currentPage,
   onLoadSuccess,
@@ -42,6 +42,10 @@ export default function PdfViewer({
     onLoadError()
   }
 
+  // When zoomed > 1, use inline-block to allow full scroll range
+  // When at 1x, center the content
+  const isZoomed = scale > 1
+
   return (
     <Document
       file={fileUrl}
@@ -52,16 +56,15 @@ export default function PdfViewer({
           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
         </div>
       }
-      className="flex justify-center"
+      className={isZoomed ? 'inline-block' : 'flex justify-center'}
     >
-      {/* Render at 2x scale, CSS scales down to 50% for crisp display */}
       <Page
         pageNumber={currentPage}
-        scale={RENDER_SCALE}
+        scale={scale}
         rotate={rotation}
         renderTextLayer={false}
         renderAnnotationLayer={false}
-        className="shadow-md [&>canvas]:!w-[50%] [&>canvas]:!h-auto"
+        className="shadow-md"
         loading={
           <div className="w-[400px] h-[550px] bg-muted animate-pulse rounded" />
         }

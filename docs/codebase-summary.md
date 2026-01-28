@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-27
+**Current Date:** 2026-01-28
 **Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 4 Integration & Testing COMPLETE | Phase 3 Multi-Engagement UI + Phase 2 Create Files Tab + Phase 1 Simplify Client Creation
+**Latest Phase:** Phase 5 Frontend Category UI COMPLETE | Phase 4 Integration & Testing | Phase 3 Multi-Engagement UI
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 05 Frontend Category UI** | **7-category system (IDENTITY/INCOME/EXPENSE/ASSET/EDUCATION/HEALTHCARE/OTHER); RawImage type updated with category + displayName fields; DOC_CATEGORIES config with Vietnamese labels + icons; FilesTab uses DB category field with isValidCategory() runtime check; unclassified section for legacy docs; displayName fallback to filename; empty categories hidden; color styling per category** | **2026-01-28** |
 | **Phase 4 Integration & Testing** | **ErrorBoundary for FilesTab (Vietnamese: "Lỗi khi tải tài liệu" + retry button); loading states verified in YearSwitcher/CreateEngagementModal/FilesTab; edge cases (empty states, single year, API errors); Type-check pass, build succeeds; 535 tests pass (all passing); Code review 9/10** | **2026-01-27** |
 | **Phase 3 Multi-Engagement UI** | **Year switcher dropdown in client header; Create engagement modal with copy-from-previous-year; Tab content updates on year change; Vietnamese labels; engagement history section in overview** | **2026-01-27** |
 | **Phase 2 Create Files Tab** | **File explorer tab showing ALL uploaded documents; categorized by AI classification (8 categories); error boundary for PDFs; loading skeleton; keyboard nav; thumbnail caching; 5 new components** | **2026-01-27** |
@@ -74,7 +75,117 @@
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
 
-## Phase 3 Multi-Engagement UI - Year Switching & Engagement Management (NEW - 2026-01-27)
+## Phase 05 Frontend Category UI - 7-Category Document Grouping System (NEW - 2026-01-28)
+
+**Status:** ✅ COMPLETE | 7-category system fully implemented, DB integration, fallback handling
+
+**Summary:** Frontend implementation of the document categorization system completed Phase 04 backend. FilesTab now groups documents by DB category field (instead of computed classification). Supports 7 categories: IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER. Includes Vietnamese labels, category-specific icons/colors, unclassified section for legacy documents, and displayName support.
+
+**Key Changes:**
+
+1. **API Client Type Updates** (`apps/workspace/src/lib/api-client.ts`)
+   - Added `DocCategory` type: `'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'`
+   - Extended `RawImage` interface:
+     - `category: DocCategory | null` - DB category from Phase 04
+     - `displayName: string | null` - AI-generated filename from storage rename
+   - Types sync with backend DocCategory enum
+
+2. **Category Configuration** (`apps/workspace/src/lib/doc-categories.ts` - 113 LOC)
+   - **DocCategoryConfig interface:** labelVi, labelEn, icon (Lucide), bgColor, textColor, borderColor
+   - **7 Categories with Vietnamese Labels:**
+     - IDENTITY: "Giấy tờ tùy thân" (purple icons: User)
+     - INCOME: "Thu nhập" (emerald icons: DollarSign)
+     - EXPENSE: "Chi phí" (orange icons: Receipt)
+     - ASSET: "Tài sản" (blue icons: Home)
+     - EDUCATION: "Giáo dục" (indigo icons: GraduationCap)
+     - HEALTHCARE: "Y tế" (red icons: Heart)
+     - OTHER: "Khác" (gray icons: File)
+   - **Helper functions:**
+     - `getCategory(key)` - Lookup config by category key
+     - `isValidCategory(value)` - Runtime validation for DB values (handles null/undefined/invalid)
+   - **CATEGORY_ORDER array** - Display sequence (used by FilesTab)
+
+3. **FilesTab Grouping Logic** (`apps/workspace/src/components/files/files-tab.tsx`)
+   - **Previous:** `getCategoryForDocType(classifiedType)` - computed client-side
+   - **Current:** Uses `img.category` field directly from DB
+   - **Grouping logic (useMemo):**
+     - Unclassified array: docs with null/invalid category OR status UPLOADED/UNCLASSIFIED
+     - Categorized: 7-key object, validated via `isValidCategory()`
+   - **Runtime validation:** Prevents crashes if DB has unexpected values
+   - **Rendering:** Unclassified section at top, then CATEGORY_ORDER, empty categories hidden
+
+4. **FileCategorySection Component** (`apps/workspace/src/components/files/file-category-section.tsx`)
+   - **Props:** categoryKey, config (DocCategoryConfig), images[], docs[], onVerify callback
+   - **Visual Design:**
+     - Expandable header with category icon, Vietnamese label, document count
+     - Color styling: bg/text/border from config
+     - Chevron icon for expand/collapse state
+   - **File Rows:**
+     - Thumbnail (from r2Url)
+     - displayName fallback: `image.displayName || image.filename`
+     - Classification type + confidence percentage
+     - Verify button for unverified documents
+   - **Accessibility:** Keyboard navigation, focus management
+
+5. **UnclassifiedSection Component** (existing, reused)
+   - Shows documents without category (legacy documents)
+   - Allows manual classification
+   - Placed at top of FilesTab (before categorized sections)
+
+**Data Flow:**
+
+```
+Phase 04 Backend: AI Classification
+    ↓
+DocClassificationJob → rawImage.category = 'IDENTITY'
+rawImage.displayName = 'Passport_Generated_Name'
+    ↓
+Phase 05 Frontend: Display Grouping
+    ↓
+FilesTab queries images (via api.cases.getImages)
+    ↓
+useMemo grouping logic:
+  - Validate category with isValidCategory()
+  - Separate unclassified from categorized
+  - Build 7-key object by category
+    ↓
+Render: UnclassifiedSection + FileCategorySection×7
+    ↓
+Each section shows displayName + confidence + verify button
+```
+
+**Key Features:**
+
+- **7-Category System:** Reduced from 8 to 7 (combined deductions/business into OTHER)
+- **DB Integration:** Reads category field directly, no client-side computation
+- **Fallback Handling:** Gracefully handles null, invalid, or legacy (no category) documents
+- **Vietnamese Labels:** Full i18n support via DOC_CATEGORIES config
+- **Color Coding:** Each category has distinct visual identity (icon + color palette)
+- **Empty Category Hiding:** Sections with 0 docs don't render
+- **Display Name Priority:** Shows AI-renamed filename (displayName) with fallback to original filename
+- **Type Safety:** Runtime validation with isValidCategory() prevents crashes
+- **Memoization:** useMemo grouping prevents unnecessary re-renders
+
+**Backward Compatibility:**
+
+- Handles RawImages without category (legacy documents before Phase 04)
+- Invalid categories treated as unclassified
+- Fallback to filename if displayName is null
+- No breaking changes to RawImage API
+
+**Testing Completed:**
+
+- [x] Files grouped by DB category field
+- [x] 7 categories displayed (not 8)
+- [x] Unclassified section shows docs without category
+- [x] displayName shown instead of original filename
+- [x] Category colors/icons match spec
+- [x] Empty categories hidden
+- [x] All 7 category groups functional
+
+---
+
+## Phase 3 Multi-Engagement UI - Year Switching & Engagement Management (2026-01-27)
 
 **Status:** Feature Complete | Interactive year switcher + create engagement modal | 3 new components
 

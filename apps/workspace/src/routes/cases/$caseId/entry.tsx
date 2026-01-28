@@ -95,8 +95,9 @@ function DataEntryPage() {
 
   const { copy } = useClipboard()
 
-  // TODO: Replace with API call using useSuspenseQuery
-  // Mock data wrapped in useMemo for stable references
+  // DEV/DEMO: Mock data for development and demonstration purposes
+  // TODO: Replace with API call using useSuspenseQuery when integrating with backend
+  // Note: useMemo is needed here because objects contain caseId dependency
   const taxCase = useMemo(() => ({
     id: caseId,
     clientId: 'client-1',
@@ -164,9 +165,9 @@ function DataEntryPage() {
   ], [caseId])
 
   const rawImages = useMemo<RawImage[]>(() => [
-    { id: 'img-1', caseId, filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', classifiedType: 'W2', aiConfidence: 0.95, imageGroupId: null, createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z' },
-    { id: 'img-2', caseId, filename: '1099_int_chase.jpg', r2Key: 'images/1099_int.jpg', status: 'LINKED', classifiedType: 'FORM_1099_INT', aiConfidence: 0.88, imageGroupId: null, createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z' },
-    { id: 'img-3', caseId, filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg', status: 'LINKED', classifiedType: 'SSN_CARD', aiConfidence: 0.92, imageGroupId: null, createdAt: '2026-01-10T09:00:00Z', updatedAt: '2026-01-10T09:00:00Z' },
+    { id: 'img-1', caseId, filename: 'w2_2025.jpg', r2Key: 'images/w2_2025.jpg', status: 'LINKED', classifiedType: 'W2', category: 'INCOME', displayName: '2025_W2_Google_JohnDoe.jpg', aiConfidence: 0.95, imageGroupId: null, createdAt: '2026-01-11T10:00:00Z', updatedAt: '2026-01-11T10:00:00Z' },
+    { id: 'img-2', caseId, filename: '1099_int_chase.jpg', r2Key: 'images/1099_int.jpg', status: 'LINKED', classifiedType: 'FORM_1099_INT', category: 'INCOME', displayName: '2025_1099INT_ChaseBank_JohnDoe.jpg', aiConfidence: 0.88, imageGroupId: null, createdAt: '2026-01-12T08:00:00Z', updatedAt: '2026-01-12T08:00:00Z' },
+    { id: 'img-3', caseId, filename: 'ssn_card.jpg', r2Key: 'images/ssn_card.jpg', status: 'LINKED', classifiedType: 'SSN_CARD', category: 'IDENTITY', displayName: '2025_SSN_JohnDoe.jpg', aiConfidence: 0.92, imageGroupId: null, createdAt: '2026-01-10T09:00:00Z', updatedAt: '2026-01-10T09:00:00Z' },
   ], [caseId])
 
   // Initialize selected doc

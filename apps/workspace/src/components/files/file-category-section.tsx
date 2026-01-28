@@ -1,37 +1,37 @@
 /**
  * FileCategorySection - Collapsible folder view for categorized documents
- * Shows verified/total count with file rows
+ * Shows category with color styling and displayName for files
  */
 
 import { useState, memo, type KeyboardEvent } from 'react'
-import { ChevronDown, ChevronRight, Folder, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { RawImage, DigitalDoc } from '../../lib/api-client'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
-import type { LucideIcon } from 'lucide-react'
+import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 
 export interface FileCategorySectionProps {
-  categoryKey: string
-  label: string
-  Icon: LucideIcon
+  categoryKey: DocCategoryKey
+  config: DocCategoryConfig
   images: RawImage[]
   docs: DigitalDoc[]
   onVerify: (doc: DigitalDoc) => void
 }
 
 /**
- * Collapsible category section showing files grouped by document type
+ * Collapsible category section with color styling
  */
 export function FileCategorySection({
   categoryKey: _categoryKey,
-  label,
-  Icon,
+  config,
   images,
   docs,
   onVerify,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const Icon = config.icon
 
   // Count verified documents
   const verifiedCount = images.filter((img) => {
@@ -49,33 +49,36 @@ export function FileCategorySection({
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header - Collapsible */}
+    <div className={cn('rounded-xl border overflow-hidden', config.borderColor)}>
+      {/* Header - Collapsible with category color */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         aria-expanded={isExpanded}
-        aria-label={`${label} - ${verifiedCount} of ${images.length} verified`}
-        className="w-full flex items-center justify-between p-4 hover:bg-muted/50 focus:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-colors"
+        aria-label={`${config.labelVi} - ${verifiedCount} of ${images.length} verified`}
+        className={cn(
+          'w-full flex items-center gap-3 p-4',
+          'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
+          config.bgColor
+        )}
       >
-        <div className="flex items-center gap-3">
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          )}
-          <Folder className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-foreground">{label}</span>
-          <span className="text-sm text-muted-foreground">
-            ({verifiedCount}/{images.length})
-          </span>
-        </div>
-        <Icon className="w-4 h-4 text-muted-foreground" />
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        )}
+        <Icon className={cn('w-5 h-5', config.textColor)} />
+        <span className={cn('font-semibold', config.textColor)}>
+          {config.labelVi}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          ({verifiedCount}/{images.length})
+        </span>
       </button>
 
       {/* File list */}
       {isExpanded && (
-        <div className="border-t border-border divide-y divide-border">
+        <div className="border-t border-border divide-y divide-border bg-card">
           {images.map((img) => (
             <FileItemRow
               key={img.id}
@@ -97,7 +100,7 @@ interface FileItemRowProps {
 }
 
 /**
- * Single file row with thumbnail, name, and status/action
+ * Single file row with thumbnail, displayName, and status/action
  */
 const FileItemRow = memo(function FileItemRow({
   image,
@@ -107,6 +110,10 @@ const FileItemRow = memo(function FileItemRow({
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? 'Chưa phân loại'
+
+  // Show displayName if available, fallback to original filename
+  // Sanitize to prevent XSS (extra safety layer beyond React's default escaping)
+  const displayName = sanitizeText(image.displayName || image.filename)
 
   return (
     <div className={cn(
@@ -118,10 +125,17 @@ const FileItemRow = memo(function FileItemRow({
         <ImageThumbnail imageId={image.id} filename={image.filename} />
       </div>
 
-      {/* Info */}
+      {/* Info - Show displayName as primary, docType as secondary */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{docLabel}</p>
-        <p className="text-xs text-muted-foreground truncate">{image.filename}</p>
+        <p className="font-medium text-foreground truncate" title={displayName}>
+          {displayName}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          {docLabel}
+          {image.aiConfidence && (
+            <span className="ml-1">• {Math.round(image.aiConfidence * 100)}%</span>
+          )}
+        </p>
       </div>
 
       {/* Status & Action */}

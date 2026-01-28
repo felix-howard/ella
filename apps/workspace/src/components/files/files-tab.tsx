@@ -1,13 +1,13 @@
 /**
  * FilesTab - Main container for document file explorer view
- * Shows all documents grouped by AI-classified category
+ * Shows all documents grouped by AI-classified category from DB
  */
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
-import { DOC_CATEGORIES, getCategoryForDocType, type DocCategoryKey } from '../../lib/doc-categories'
+import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { UnclassifiedSection } from './unclassified-section'
 import { FileCategorySection } from './file-category-section'
 import { ManualClassificationModal, VerificationModal } from '../documents'
@@ -18,7 +18,7 @@ export interface FilesTabProps {
 
 /**
  * Files Tab - Document explorer view showing all uploaded files
- * Grouped by AI classification category, unclassified at top
+ * Grouped by DB category field, unclassified at top
  */
 export function FilesTab({ caseId }: FilesTabProps) {
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -43,32 +43,30 @@ export function FilesTab({ caseId }: FilesTabProps) {
   // Memoize images array to maintain stable reference
   const images = useMemo(() => imagesData?.images ?? [], [imagesData?.images])
 
-  // Group images by category
+  // Group images by DB category field (not computed from docType)
   const { unclassified, categorized } = useMemo(() => {
     const unclassified: RawImage[] = []
     const byCategory: Record<DocCategoryKey, RawImage[]> = {
-      personal: [],
-      employment_income: [],
-      self_employment: [],
-      investment_income: [],
-      retirement: [],
-      deductions: [],
-      business: [],
-      other: [],
+      IDENTITY: [],
+      INCOME: [],
+      EXPENSE: [],
+      ASSET: [],
+      EDUCATION: [],
+      HEALTHCARE: [],
+      OTHER: [],
     }
 
     for (const img of images) {
-      // Unclassified: UPLOADED, UNCLASSIFIED, or CLASSIFIED but not linked to checklist
+      // Unclassified: no category, invalid category, or unclassified/uploaded status
       if (
-        !img.classifiedType ||
+        !isValidCategory(img.category) ||
         img.status === 'UNCLASSIFIED' ||
-        img.status === 'UPLOADED' ||
-        (img.status === 'CLASSIFIED' && !img.checklistItem)
+        img.status === 'UPLOADED'
       ) {
         unclassified.push(img)
       } else {
-        const category = getCategoryForDocType(img.classifiedType)
-        byCategory[category].push(img)
+        // Use validated DB category field
+        byCategory[img.category].push(img)
       }
     }
 
@@ -119,8 +117,8 @@ export function FilesTab({ caseId }: FilesTabProps) {
       {/* Unclassified Section - Always at top */}
       <UnclassifiedSection images={unclassified} onClassify={handleClassify} />
 
-      {/* Categorized Sections */}
-      {(Object.keys(DOC_CATEGORIES) as DocCategoryKey[]).map((categoryKey) => {
+      {/* Categorized Sections - Using CATEGORY_ORDER for consistent display */}
+      {CATEGORY_ORDER.map((categoryKey) => {
         const config = DOC_CATEGORIES[categoryKey]
         const categoryImages = categorized[categoryKey]
 
@@ -130,8 +128,7 @@ export function FilesTab({ caseId }: FilesTabProps) {
           <FileCategorySection
             key={categoryKey}
             categoryKey={categoryKey}
-            label={config.labelVi}
-            Icon={config.icon}
+            config={config}
             images={categoryImages}
             docs={docs}
             onVerify={handleVerify}

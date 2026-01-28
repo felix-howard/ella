@@ -845,6 +845,9 @@ export interface ChecklistResponse {
   }
 }
 
+// Document category enum (matches DocCategory in Prisma schema)
+export type DocCategory = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+
 // Image & Document types
 export interface RawImage {
   id: string
@@ -853,6 +856,8 @@ export interface RawImage {
   r2Key: string
   status: string
   classifiedType: string | null
+  category: DocCategory | null
+  displayName: string | null
   aiConfidence: number | null
   imageGroupId: string | null
   createdAt: string

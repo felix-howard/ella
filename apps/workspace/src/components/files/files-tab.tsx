@@ -3,13 +3,15 @@
  * Shows all documents grouped by AI-classified category from DB
  */
 
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
-import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { api, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
+import { toast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { UnclassifiedSection } from './unclassified-section'
 import { FileCategorySection } from './file-category-section'
+import { EmptyCategoryDropZone } from './empty-category-drop-zone'
 import { ManualClassificationModal, VerificationModal } from '../documents'
 
 export interface FilesTabProps {
@@ -21,15 +23,54 @@ export interface FilesTabProps {
  * Grouped by DB category field, unclassified at top
  */
 export function FilesTab({ caseId }: FilesTabProps) {
+  const queryClient = useQueryClient()
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
 
   // Fetch all raw images for case
   const { data: imagesData, isLoading: imagesLoading } = useQuery({
     queryKey: ['images', caseId],
     queryFn: () => api.cases.getImages(caseId),
+  })
+
+  // Mutation for changing file category (drag and drop)
+  const changeCategoryMutation = useMutation({
+    mutationFn: ({ imageId, category }: { imageId: string; category: DocCategory }) =>
+      api.images.changeCategory(imageId, category),
+    onMutate: async ({ imageId, category }) => {
+      await queryClient.cancelQueries({ queryKey: ['images', caseId] })
+      const previousImages = queryClient.getQueryData(['images', caseId])
+
+      // Optimistic update
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              img.id === imageId ? { ...img, category } : img
+            ),
+          }
+        }
+      )
+
+      return { previousImages }
+    },
+    onSuccess: (_data, { category }) => {
+      const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
+      toast.success(`Đã chuyển sang "${categoryConfig.labelVi}"`)
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousImages) {
+        queryClient.setQueryData(['images', caseId], context.previousImages)
+      }
+      toast.error('Lỗi chuyển danh mục')
+    },
   })
 
   // Fetch digital docs for verification status
@@ -94,6 +135,23 @@ export function FilesTab({ caseId }: FilesTabProps) {
     setTimeout(() => setVerifyDoc(null), 200)
   }
 
+  // Handler for drag and drop between categories
+  const handleFileDrop = useCallback(
+    (imageId: string, targetCategory: DocCategoryKey) => {
+      changeCategoryMutation.mutate({ imageId, category: targetCategory })
+    },
+    [changeCategoryMutation]
+  )
+
+  // Track global drag state for showing empty category drop zones
+  const handleDragStart = useCallback(() => {
+    setIsDraggingFile(true)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setIsDraggingFile(false)
+  }, [])
+
   // Loading state with skeleton
   if (imagesLoading) {
     return <FilesTabSkeleton />
@@ -113,7 +171,11 @@ export function FilesTab({ caseId }: FilesTabProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4 pb-64"
+      onDragEnter={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       {/* Unclassified Section - Always at top */}
       <UnclassifiedSection images={unclassified} onClassify={handleClassify} />
 
@@ -122,7 +184,20 @@ export function FilesTab({ caseId }: FilesTabProps) {
         const config = DOC_CATEGORIES[categoryKey]
         const categoryImages = categorized[categoryKey]
 
-        if (categoryImages.length === 0) return null
+        // Show empty drop zone when dragging, or category section if has images
+        if (categoryImages.length === 0) {
+          // Show drop zone for empty categories when dragging
+          if (isDraggingFile) {
+            return (
+              <EmptyCategoryDropZone
+                key={categoryKey}
+                categoryKey={categoryKey}
+                onFileDrop={handleFileDrop}
+              />
+            )
+          }
+          return null
+        }
 
         return (
           <FileCategorySection
@@ -131,7 +206,9 @@ export function FilesTab({ caseId }: FilesTabProps) {
             config={config}
             images={categoryImages}
             docs={docs}
+            caseId={caseId}
             onVerify={handleVerify}
+            onFileDrop={handleFileDrop}
           />
         )
       })}

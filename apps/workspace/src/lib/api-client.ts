@@ -390,6 +390,13 @@ export const api = {
       request<{ success: boolean; message: string }>(`/images/${id}/classify-anyway`, {
         method: 'POST',
       }),
+
+    // Change document category (for drag-drop between categories)
+    changeCategory: (id: string, category: DocCategory) =>
+      request<{ success: boolean; id: string; category: DocCategory }>(`/images/${id}/category`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category }),
+      }),
   },
 
   // Messages

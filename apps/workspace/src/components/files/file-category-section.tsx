@@ -1,15 +1,17 @@
 /**
  * FileCategorySection - Collapsible folder view for categorized documents
  * Shows category with color styling and displayName for files
+ * Supports drag-and-drop between categories
  */
 
-import { useState, memo, type KeyboardEvent } from 'react'
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { useState, memo, type KeyboardEvent, type DragEvent } from 'react'
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { RawImage, DigitalDoc } from '../../lib/api-client'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
+import { FileActionDropdown } from './file-action-dropdown'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 
 export interface FileCategorySectionProps {
@@ -17,20 +19,25 @@ export interface FileCategorySectionProps {
   config: DocCategoryConfig
   images: RawImage[]
   docs: DigitalDoc[]
+  caseId: string
   onVerify: (doc: DigitalDoc) => void
+  onFileDrop?: (imageId: string, targetCategory: DocCategoryKey) => void
 }
 
 /**
  * Collapsible category section with color styling
  */
 export function FileCategorySection({
-  categoryKey: _categoryKey,
+  categoryKey,
   config,
   images,
   docs,
+  caseId,
   onVerify,
+  onFileDrop,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
 
   // Count verified documents
@@ -48,9 +55,48 @@ export function FileCategorySection({
     }
   }
 
+  // Drag and drop handlers for the category header (drop target)
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Check if this is a file drag from our app
+    if (e.dataTransfer.types.includes('application/x-ella-file')) {
+      setIsDragOver(true)
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const imageId = e.dataTransfer.getData('application/x-ella-file')
+    const sourceCategory = e.dataTransfer.getData('application/x-ella-category')
+
+    if (imageId && sourceCategory !== categoryKey && onFileDrop) {
+      onFileDrop(imageId, categoryKey)
+    }
+  }
+
   return (
-    <div className={cn('rounded-xl border overflow-hidden', config.borderColor)}>
-      {/* Header - Collapsible with category color */}
+    <div
+      className={cn(
+        'rounded-xl border overflow-hidden transition-all',
+        config.borderColor,
+        isDragOver && 'ring-2 ring-primary ring-offset-2'
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Header - Collapsible with category color, also drop target */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
@@ -59,7 +105,8 @@ export function FileCategorySection({
         className={cn(
           'w-full flex items-center gap-3 p-4',
           'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
-          config.bgColor
+          config.bgColor,
+          isDragOver && 'bg-primary/20'
         )}
       >
         {isExpanded ? (
@@ -74,6 +121,11 @@ export function FileCategorySection({
         <span className="text-sm text-muted-foreground">
           ({verifiedCount}/{images.length})
         </span>
+        {isDragOver && (
+          <span className="ml-auto text-xs text-primary font-medium">
+            Thả vào đây
+          </span>
+        )}
       </button>
 
       {/* File list - Use hidden instead of unmounting to prevent thumbnail reload flash */}
@@ -86,6 +138,8 @@ export function FileCategorySection({
             key={img.id}
             image={img}
             doc={docs.find((d) => d.rawImageId === img.id)}
+            caseId={caseId}
+            categoryKey={categoryKey}
             onVerify={onVerify}
           />
         ))}
@@ -97,17 +151,23 @@ export function FileCategorySection({
 interface FileItemRowProps {
   image: RawImage
   doc?: DigitalDoc
+  caseId: string
+  categoryKey: DocCategoryKey
   onVerify: (doc: DigitalDoc) => void
 }
 
 /**
  * Single file row with thumbnail, displayName, and status/action
+ * Supports drag to move between categories
  */
 const FileItemRow = memo(function FileItemRow({
   image,
   doc,
+  caseId,
+  categoryKey,
   onVerify,
 }: FileItemRowProps) {
+  const [isDragging, setIsDragging] = useState(false)
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? 'Chưa phân loại'
@@ -116,11 +176,34 @@ const FileItemRow = memo(function FileItemRow({
   // Sanitize to prevent XSS (extra safety layer beyond React's default escaping)
   const displayName = sanitizeText(image.displayName || image.filename)
 
+  // Drag handlers for file row
+  const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('application/x-ella-file', image.id)
+    e.dataTransfer.setData('application/x-ella-category', categoryKey)
+    e.dataTransfer.effectAllowed = 'move'
+    setIsDragging(true)
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+  }
+
   return (
-    <div className={cn(
-      'flex items-center gap-4 p-3',
-      'hover:bg-muted/30 transition-colors'
-    )}>
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={cn(
+        'flex items-center gap-4 p-3',
+        'hover:bg-muted/30 transition-colors cursor-grab active:cursor-grabbing',
+        isDragging && 'opacity-50'
+      )}
+    >
+      {/* Drag Handle */}
+      <div className="flex-shrink-0 opacity-40 hover:opacity-70 transition-opacity">
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+      </div>
+
       {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
         <ImageThumbnail imageId={image.id} filename={image.filename} />
@@ -163,6 +246,13 @@ const FileItemRow = memo(function FileItemRow({
             <span className="hidden sm:inline">Đang xử lý</span>
           </span>
         )}
+
+        {/* File Actions Dropdown */}
+        <FileActionDropdown
+          image={image}
+          caseId={caseId}
+          currentCategory={categoryKey}
+        />
       </div>
     </div>
   )

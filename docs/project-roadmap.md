@@ -1,8 +1,32 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-27 21:55 ICT
-> **Current Phase:** Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + Auto-Rename Documents (Phase 1 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + Auto-Rename Documents & Category Grouping (Phase 1 Complete, 20%) + All prior enhancements
+> **Last Updated:** 2026-01-28 23:55 ICT
+> **Current Phase:** Schedule C Expense Collection (Phase 3 Complete: 60% Overall) + Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Schedule C Phase 3 Complete (60% Overall) + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + Auto-Rename Documents & Category Grouping (Phase 1 Complete, 20%) + All prior enhancements
+
+### Schedule C Expense Collection - Phase 3 Complete (60% Overall) ✅
+**Started:** 2026-01-28 09:42 ICT
+**Target Completion:** 2026-02-01
+**Deliverable:** Self-employed expense collection via SMS-delivered magic link forms with auto-prefilled 1099-NEC income
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema | ✅ DONE | 2026-01-28 | ScheduleCExpense model, 20+ expense fields, version history, migration. Tests: 578/578 passing. Code review: 10/10 |
+| 2 | API Endpoints | ✅ DONE | 2026-01-28 | 8 endpoints (5 staff + 3 public), magic link integration, SMS templates. Tests: 578/578 passing. Code review: 9.2/10 |
+| 3 | Portal Expense Form | ✅ DONE | 2026-01-28 23:55 | 18 files, 2,400 LOC, Vietnamese-first form, 10 UI components, 2 hooks, 3 utilities, auto-save, accessibility. Tests: 578/578 passing. Code review: 8.7/10 |
+| 4 | Workspace Schedule C Tab | ⏳ PENDING | - | Case detail tab, summary view, version history, send/lock/resend actions |
+| 5 | Testing & Polish | ⏳ PENDING | - | Integration tests, edge cases, performance optimization |
+
+**Completion Summary (Phases 1-3):**
+- **Phase 1:** ScheduleCExpense model with income + 20+ expense fields, version history tracking, Prisma migration. 578/578 tests passing. Code review: 10/10.
+- **Phase 2:** Staff endpoints (send, view, lock, resend) + Public endpoints (GET/POST/PATCH). Magic link type extension (SCHEDULE_C). SMS template generation + sending. Expense calculator service (income prefill from 1099-NECs). Version history tracking. 578/578 tests passing. Code review: 9.2/10.
+- **Phase 3:** Portal expense form (18 files, 2,400 LOC) with 10 components (ExpenseForm, IncomeSection, ExpenseSection, CarExpenseSection, VehicleInfoSection, ExpenseField, ProgressIndicator, AutoSaveIndicator, SuccessMessage, ExpenseErrorBoundary), 2 hooks (useExpenseForm, useAutoSave), 3 utilities (expense-api, expense-categories, form-utils). Route layer: $token.tsx (layout) + $token/index.tsx (page). **Features:** 28 IRS Schedule C expense categories (7 groups: income, general, professional, property, financial, people, car, other) + vehicle info section (mileage/commute/personal miles + date in service). Car mileage vs actual expense toggle. Auto-save (30s debounce, 2.5KB payload limit). Version history snapshots. Locked form handling. Magic link validation. Vietnamese-first labels + tooltips. **Accessibility:** ARIA labels (role, aria-describedby), keyboard navigation (Tab/Enter), error announcements. **Form states:** Loading, success, error, locked. Tests: 578/578 passing. Type-check pass, build pass (407.86 kB). Code review: 8.7/10.
+- Branch: feature/engagement-only
+- API + Portal form fully functional
+- **Next:** Phase 4 (Workspace Schedule C Tab)
+
+---
 
 ### Simplify Client Workflow - 100% Complete ✅
 **Started:** 2026-01-27 16:23 ICT
@@ -653,6 +677,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.8 | 2026-01-28 00:28 | PM | NEW PROJECT: Schedule C Expense Collection - Phase 2 COMPLETE (33% overall). 8 endpoints implemented (5 staff + 3 public), magic link SCHEDULE_C type, SMS templates, expense calculator service. 578/578 tests passing. Code review: 9.2/10. Phase 3 (Portal Expense Form) pending. |
 | 4.7 | 2026-01-27 20:15 | PM | MILESTONE: Simplify Client Workflow - Phase 4 COMPLETE (100% overall). ErrorBoundary on FilesTab, loading states verified in YearSwitcher/CreateEngagementModal, Vietnamese labels audited & standardized, edge cases handled (empty states, single year, error scenarios). Type-check pass, build pass, 535/535 tests pass. Code review 9.5/10. Feature ready for merge to main. |
 | 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |
 | 4.4 | 2026-01-22 | PM | Actionable Client Status - Phase 4 COMPLETE (64% overall). Constants & Labels Update: Centralized ACTION_BADGE_LABELS, ACTION_BADGE_ARIA_LABELS (6 Vietnamese + accessibility), TIME_FORMATS localization helpers, STALE_THRESHOLD_DAYS=7. Refactored action-badge.tsx to use constants. All 4 phases complete (database/api/frontend/constants). Ready for Phase 5 (testing & migration). |

@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-28
 **Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 5 Frontend Category UI COMPLETE | Phase 4 Integration & Testing | Phase 3 Multi-Engagement UI
+**Latest Phase:** Phase 1 Schedule C Expense Collection COMPLETE | Phase 5 Frontend Category UI | Phase 4 Integration & Testing
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Schedule C Expense Collection Phase 1** | **Database schema: MagicLinkType enum (PORTAL, SCHEDULE_C); ScheduleCStatus enum (DRAFT, SUBMITTED, LOCKED); ScheduleCExpense model (50+ fields for IRS Schedule C); TaxCase.scheduleCExpense relation; MagicLink.type field with default PORTAL; 27 IRS expense categories + vehicle info + version tracking; Verification script (verify-schedule-c-schema.ts)** | **2026-01-28** |
 | **Phase 05 Frontend Category UI** | **7-category system (IDENTITY/INCOME/EXPENSE/ASSET/EDUCATION/HEALTHCARE/OTHER); RawImage type updated with category + displayName fields; DOC_CATEGORIES config with Vietnamese labels + icons; FilesTab uses DB category field with isValidCategory() runtime check; unclassified section for legacy docs; displayName fallback to filename; empty categories hidden; color styling per category** | **2026-01-28** |
 | **Phase 4 Integration & Testing** | **ErrorBoundary for FilesTab (Vietnamese: "Lỗi khi tải tài liệu" + retry button); loading states verified in YearSwitcher/CreateEngagementModal/FilesTab; edge cases (empty states, single year, API errors); Type-check pass, build succeeds; 535 tests pass (all passing); Code review 9/10** | **2026-01-27** |
 | **Phase 3 Multi-Engagement UI** | **Year switcher dropdown in client header; Create engagement modal with copy-from-previous-year; Tab content updates on year change; Vietnamese labels; engagement history section in overview** | **2026-01-27** |
@@ -75,7 +76,73 @@
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
 
-## Phase 05 Frontend Category UI - 7-Category Document Grouping System (NEW - 2026-01-28)
+## Schedule C Expense Collection Phase 1 - Database Foundation (NEW - 2026-01-28)
+
+**Status:** ✅ COMPLETE | Database schema finalized, enums defined, verification script included
+
+**Summary:** Phase 1 establishes database infrastructure for self-employed Schedule C expense collection via magic link forms. Clients receive time-limited links to fill expense forms; CPAs lock after review. Supports 27 IRS expense categories, vehicle mileage tracking, version history, and status workflow.
+
+**Architecture:**
+
+```
+Magic Link (type=SCHEDULE_C)
+    ↓
+Client opens form + enters expenses
+    ↓
+ScheduleCExpense (status=DRAFT)
+    ↓
+Client submits form
+    ↓
+ScheduleCExpense (status=SUBMITTED)
+    ↓
+CPA reviews + locks
+    ↓
+ScheduleCExpense (status=LOCKED, versionHistory)
+```
+
+**Key Changes:**
+
+1. **Enums** (`packages/db/prisma/schema.prisma`)
+   - `MagicLinkType`: PORTAL (existing), SCHEDULE_C (new expense form)
+   - `ScheduleCStatus`: DRAFT (editing), SUBMITTED (awaiting review), LOCKED (CPA finalized)
+
+2. **ScheduleCExpense Model** (1-to-1 with TaxCase)
+   - **Business Info:** businessName, businessDesc
+   - **Income (Part I):** grossReceipts, returns, costOfGoods, otherIncome
+   - **Expenses (Part II - 20 categories):** advertising, carExpense, commissions, contractLabor, depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther, legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs, supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses
+   - **Vehicle Info (Part IV):** vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles, vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten
+   - **Version Tracking:** version (Int), versionHistory (JSON array with historical snapshots)
+   - **Status & Timestamps:** status, submittedAt, lockedAt, lockedById, createdAt, updatedAt
+   - **All monetary fields:** Decimal(12,2) for precision ($0.00 to $999,999,999.99)
+
+3. **MagicLink Updates** (`packages/db/prisma/schema.prisma`)
+   - Added `type` field with default PORTAL (backward compatible)
+   - Existing links auto-default to PORTAL, new links can specify type
+   - Index on `type` for filtering
+
+4. **TaxCase Relation** (`packages/db/prisma/schema.prisma`)
+   - `scheduleCExpense ScheduleCExpense?` (optional, 1-to-1)
+   - Cascade delete for cleanup
+
+5. **Verification Script** (`packages/db/scripts/verify-schedule-c-schema.ts`)
+   - Validates MagicLink types (all existing = PORTAL)
+   - Checks ScheduleCExpense table exists
+   - Tests create/read/delete operations
+   - Run: `pnpm -F @ella/db verify-schedule-c`
+
+**Database Schema Snapshot:**
+- `ScheduleCExpense` fields: 50+ columns covering IRS Schedule C form
+- Indexes on: `status`, `taxCaseId,status`
+- Cascade deletes cascade from TaxCase for data consistency
+- No UI/API yet (Phase 2+)
+
+**Next Steps:**
+- Phase 2: API endpoints (GET/POST/PATCH ScheduleCExpense)
+- Phase 3: Frontend form components (expense sections, validation)
+- Phase 4: Magic link portal update (form routing by type)
+- Phase 5: CPA review interface + locking workflow
+
+## Phase 05 Frontend Category UI - 7-Category Document Grouping System (2026-01-28)
 
 **Status:** ✅ COMPLETE | 7-category system fully implemented, DB integration, fallback handling
 

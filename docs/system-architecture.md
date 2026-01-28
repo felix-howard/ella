@@ -1563,8 +1563,24 @@ Message - SMS/portal/system messages
 ├── attachmentUrls[], isSystem, templateUsed
 
 MagicLink - Passwordless access tokens
-├── caseId, token (@unique), expiresAt, isActive
-├── lastUsedAt, usageCount
+├── caseId, token (@unique), type (PORTAL|SCHEDULE_C - Phase 1 NEW)
+├── expiresAt, isActive, lastUsedAt, usageCount
+
+ScheduleCExpense - Self-employed Schedule C expense data (Phase 1 NEW - 1:1 with TaxCase)
+├── taxCaseId (@unique), status (DRAFT|SUBMITTED|LOCKED)
+├── Business: businessName, businessDesc
+├── Income (Part I): grossReceipts, returns, costOfGoods, otherIncome
+├── Expenses (Part II - 20 categories): advertising, carExpense, commissions, contractLabor,
+│   depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther,
+│   legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs,
+│   supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses (+ otherExpensesNotes)
+├── Vehicle Info (Part IV): vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles,
+│   vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten
+├── All monetary fields: Decimal(12,2) [$0.00 - $999,999,999.99]
+├── Version tracking: version (Int), versionHistory (Json array of historical snapshots)
+├── Timestamps: submittedAt, lockedAt, lockedById, createdAt, updatedAt
+├── Indexes: (status), (taxCaseId, status)
+├── Purpose: Expense data collection for self-employed Form 1040 Schedule C
 
 Action - Staff tasks & reminders
 ├── caseId, type (VERIFY_DOCS|AI_FAILED|BLURRY_DETECTED|REMINDER_DUE|CLIENT_REPLIED)
@@ -1572,13 +1588,15 @@ Action - Staff tasks & reminders
 ├── isCompleted, completedAt, scheduledFor, metadata (JSON)
 ```
 
-**Enums (14 - Phase 1.0 NEW: +1 EngagementStatus, Phase 01: +1 DocCategory):**
+**Enums (16 - Phase 1.0 NEW: +1 EngagementStatus, Phase 01: +1 DocCategory, Phase 1 (Schedule C): +2 MagicLinkType/ScheduleCStatus):**
 - TaxCaseStatus, TaxType, DocType (60+ document types)
 - RawImageStatus, DigitalDocStatus, ChecklistItemStatus
 - ActionType, ActionPriority, MessageChannel, MessageDirection
 - StaffRole, Language
-- **EngagementStatus** (NEW Phase 1.0) - DRAFT, ACTIVE, COMPLETE, ARCHIVED
-- **DocCategory** (NEW Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
+- **EngagementStatus** (Phase 1.0) - DRAFT, ACTIVE, COMPLETE, ARCHIVED
+- **DocCategory** (Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
+- **MagicLinkType** (Phase 1 Schedule C NEW) - PORTAL (document upload), SCHEDULE_C (expense form)
+- **ScheduleCStatus** (Phase 1 Schedule C NEW) - DRAFT (client editing), SUBMITTED (awaiting CPA review), LOCKED (CPA finalized)
 
 ## Phase 01 Database Schema Update - Document Categorization (2026-01-27)
 
@@ -1620,6 +1638,126 @@ model RawImage {
 - Gemini classifier prompt updated to infer category from docType classification
 - Frontend: New category filter in Document Gallery for staff navigation
 - Query optimization: Use `@@index([category])` for dashboard queries grouping docs by category
+
+---
+
+## Phase 1 Schedule C Expense Collection - Database Schema (2026-01-28)
+
+**Status:** ✅ COMPLETE | Database foundation established for self-employed expense forms
+
+**Overview:** Introduces infrastructure for time-limited magic link forms allowing clients to enter Schedule C expenses. Supports full IRS Schedule C Part I-IV structure: business info, income, 20+ expense categories, and vehicle mileage tracking.
+
+### Design Pattern
+
+```
+MagicLink (type=SCHEDULE_C)
+    → Client receives link via SMS/email
+    → Portal route checks link type
+    → Displays ScheduleCExpense form (Phase 2+)
+    → Client enters data (status=DRAFT)
+    → Client submits (status=SUBMITTED)
+    → CPA reviews (status=LOCKED via API)
+    → versionHistory tracks all snapshots
+```
+
+### MagicLinkType Enum
+
+```prisma
+enum MagicLinkType {
+  PORTAL      // Existing: document upload form
+  SCHEDULE_C  // New: self-employed expense form
+}
+```
+
+**Field Changes:**
+- `MagicLink.type` added (required, default: PORTAL for backward compatibility)
+- Index on `type` for filtering links by purpose
+- No changes to token/expiry/usage logic
+
+### ScheduleCStatus Enum
+
+```prisma
+enum ScheduleCStatus {
+  DRAFT       // Client still editing (can save/delete)
+  SUBMITTED   // Client done; CPA can review (read-only to client)
+  LOCKED      // CPA locked; no further edits (immutable)
+}
+```
+
+### ScheduleCExpense Model (1:1 with TaxCase)
+
+**Field Grouping by IRS Form Structure:**
+
+| Section | Fields | Type | Notes |
+|---------|--------|------|-------|
+| **Business Info** | businessName, businessDesc | String(200/500) | Optional; populated from intake |
+| **Part I: Income** | grossReceipts, returns, costOfGoods, otherIncome | Decimal(12,2) | All optional; use null if $0 |
+| **Part II: Expenses** | advertising, carExpense, commissions, contractLabor, depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther, legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs, supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses | Decimal(12,2) | 20 expense lines from IRS Schedule C; otherExpenses includes otherExpensesNotes (String 1000) |
+| **Part IV: Vehicle** | vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles, vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten | Int, DateTime, Boolean | Optional; zero if not applicable |
+| **Status & History** | status, version, versionHistory, submittedAt, lockedAt, lockedById | ScheduleCStatus, Int, Json, DateTime | version starts at 1; versionHistory stores snapshots + timestamps + change notes |
+| **Metadata** | taxCaseId, createdAt, updatedAt | Relation, DateTime | Cascade delete if TaxCase deleted |
+
+**Constraints:**
+- `taxCaseId` @unique (max 1 Schedule C per case)
+- `onDelete: Cascade` (delete expense if case deleted)
+- All monetary fields nullable (represent $0 as null, not 0.00)
+- Indexes: `(status)`, `(taxCaseId, status)` for filtering
+
+### Version History Structure
+
+```typescript
+interface VersionSnapshot {
+  version: number        // 1, 2, 3, ... (increments on each submission)
+  submittedAt: string   // ISO 8601 timestamp
+  data: {               // Snapshot of all expense fields at submission time
+    businessName?: string
+    grossReceipts?: number
+    advertising?: number
+    // ... all 50+ fields
+  }
+  changes: string[]     // Human-readable list of changed fields
+  changedBy?: string    // Staff ID if CPA modified (Phase 2+)
+}
+```
+
+**Example versionHistory JSON:**
+```json
+[
+  {
+    "version": 1,
+    "submittedAt": "2026-01-25T14:30:00Z",
+    "data": { "businessName": "Acme Corp", "grossReceipts": 50000, "advertising": 1500 },
+    "changes": ["grossReceipts: 0 → 50000", "advertising: 0 → 1500"]
+  },
+  {
+    "version": 2,
+    "submittedAt": "2026-01-26T10:15:00Z",
+    "data": { "businessName": "Acme Corp", "grossReceipts": 55000, "advertising": 2000 },
+    "changes": ["grossReceipts: 50000 → 55000", "advertising: 1500 → 2000"]
+  }
+]
+```
+
+### Workflow States
+
+| State | Actor | Data Mode | Next State | Notes |
+|-------|-------|-----------|-----------|-------|
+| **DRAFT** | Client | Read+Write | SUBMITTED, (delete) | Client has magic link; can save work multiple times |
+| **SUBMITTED** | CPA | Read-only (client) | LOCKED, (reject back to DRAFT) | Client lost edit access; CPA reviews before filing |
+| **LOCKED** | CPA | Immutable | (none) | Finalized for tax return; historical record complete |
+
+### Backward Compatibility
+
+**Existing magic links:**
+- All current PORTAL links unaffected
+- MagicLink.type defaults to PORTAL in migrations
+- Query filtering by type: `WHERE type = 'PORTAL'` for document uploads
+
+**Future phases:**
+- Phase 2: API endpoints (CRUD ScheduleCExpense)
+- Phase 3: Frontend form components (6-section wizard)
+- Phase 4: Portal link routing (portal/schedule-c/:token)
+- Phase 5: CPA review interface + lock workflow
 
 ---
 

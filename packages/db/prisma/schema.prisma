@@ -378,13 +378,14 @@ model TaxCase {
   taxTypes  TaxType[]
   status    TaxCaseStatus @default(INTAKE)
 
-  rawImages       RawImage[]
-  digitalDocs     DigitalDoc[]
-  checklistItems  ChecklistItem[]
-  conversation    Conversation?
-  magicLinks      MagicLink[]
-  actions         Action[]
-  imageGroups     ImageGroup[]
+  rawImages         RawImage[]
+  digitalDocs       DigitalDoc[]
+  checklistItems    ChecklistItem[]
+  conversation      Conversation?
+  magicLinks        MagicLink[]
+  actions           Action[]
+  imageGroups       ImageGroup[]
+  scheduleCExpense  ScheduleCExpense?
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -637,6 +638,7 @@ model MagicLink {
   taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   token     String   @unique @default(cuid())
+  type      MagicLinkType @default(PORTAL)  // PORTAL for docs, SCHEDULE_C for expense form
 
   lastUsedAt DateTime?
   usageCount Int      @default(0)
@@ -650,6 +652,7 @@ model MagicLink {
   @@index([token])
   @@index([caseId])
   @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
+  @@index([type])  // Filter by link type
 }
 
 model Action {
@@ -772,6 +775,18 @@ enum AuditEntityType {
   TAX_ENGAGEMENT
 }
 
+// Schedule C expense form types
+enum MagicLinkType {
+  PORTAL       // Existing document upload
+  SCHEDULE_C   // Self-employed expense collection form
+}
+
+enum ScheduleCStatus {
+  DRAFT       // Client editing
+  SUBMITTED   // Client submitted, CPA can review
+  LOCKED      // CPA locked, no more edits
+}
+
 // Audit log for tracking field-level changes
 model AuditLog {
   id          String          @id @default(cuid())
@@ -787,4 +802,82 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([changedById])
   @@index([createdAt])
+}
+
+// ============================================
+// SCHEDULE C EXPENSE COLLECTION
+// ============================================
+
+// Schedule C (Form 1040) expense data for self-employed clients
+// Stores income, 20+ IRS Part II expense categories, vehicle info
+// One Schedule C per TaxCase (multi-business out of scope)
+model ScheduleCExpense {
+  id        String          @id @default(cuid())
+  taxCaseId String          @unique
+  taxCase   TaxCase         @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  status    ScheduleCStatus @default(DRAFT)
+
+  // === Business Information ===
+  businessName    String?   @db.VarChar(200)  // Principal business or profession
+  businessDesc    String?   @db.VarChar(500)  // Business description / product or service
+
+  // === Income Section (Part I) ===
+  // All monetary fields use Decimal(12,2) for precision up to $999,999,999.99
+  grossReceipts   Decimal?  @db.Decimal(12, 2)  // Line 1: Gross receipts or sales
+  returns         Decimal?  @db.Decimal(12, 2)  // Line 2: Returns and allowances
+  costOfGoods     Decimal?  @db.Decimal(12, 2)  // Line 4: Cost of goods sold (Part III total)
+  otherIncome     Decimal?  @db.Decimal(12, 2)  // Line 6: Other income
+
+  // === Expenses (Part II) - IRS Schedule C Line 8-27 ===
+  // Note: carExpense (Line 9) and vehicleMiles are mutually exclusive - use one method only
+  advertising             Decimal?  @db.Decimal(12, 2)  // Line 8
+  carExpense              Decimal?  @db.Decimal(12, 2)  // Line 9: Actual car/truck expenses (OR use mileage)
+  commissions             Decimal?  @db.Decimal(12, 2)  // Line 10
+  contractLabor           Decimal?  @db.Decimal(12, 2)  // Line 11
+  depletion               Decimal?  @db.Decimal(12, 2)  // Line 12
+  depreciation            Decimal?  @db.Decimal(12, 2)  // Line 13: Depreciation and Sec 179
+  employeeBenefits        Decimal?  @db.Decimal(12, 2)  // Line 14
+  insurance               Decimal?  @db.Decimal(12, 2)  // Line 15: Insurance (other than health)
+  interestMortgage        Decimal?  @db.Decimal(12, 2)  // Line 16a
+  interestOther           Decimal?  @db.Decimal(12, 2)  // Line 16b
+  legalServices           Decimal?  @db.Decimal(12, 2)  // Line 17
+  officeExpense           Decimal?  @db.Decimal(12, 2)  // Line 18
+  pensionPlans            Decimal?  @db.Decimal(12, 2)  // Line 19
+  rentEquipment           Decimal?  @db.Decimal(12, 2)  // Line 20a
+  rentProperty            Decimal?  @db.Decimal(12, 2)  // Line 20b
+  repairs                 Decimal?  @db.Decimal(12, 2)  // Line 21
+  supplies                Decimal?  @db.Decimal(12, 2)  // Line 22
+  taxesAndLicenses        Decimal?  @db.Decimal(12, 2)  // Line 23
+  travel                  Decimal?  @db.Decimal(12, 2)  // Line 24a
+  meals                   Decimal?  @db.Decimal(12, 2)  // Line 24b: Deductible meals (50%)
+  utilities               Decimal?  @db.Decimal(12, 2)  // Line 25
+  wages                   Decimal?  @db.Decimal(12, 2)  // Line 26
+  otherExpenses           Decimal?  @db.Decimal(12, 2)  // Line 27a
+  otherExpensesNotes      String?   @db.VarChar(1000)   // Line 27a description
+
+  // === Vehicle Information (Part IV) ===
+  vehicleMiles            Int?      // Total business miles driven
+  vehicleCommuteMiles     Int?      // Commuting miles (not deductible)
+  vehicleOtherMiles       Int?      // Other personal miles
+  vehicleDateInService    DateTime? // Date vehicle placed in service
+  vehicleUsedForCommute   Boolean   @default(false)
+  vehicleAnotherAvailable Boolean   @default(false) // Another vehicle for personal use
+  vehicleEvidenceWritten  Boolean   @default(false) // Written evidence to support deduction
+
+  // === Version Tracking ===
+  // versionHistory JSON structure:
+  // [{ version: number, data: {...expense fields}, submittedAt: string, changes: string[] }]
+  version         Int     @default(1)
+  versionHistory  Json    @default("[]")
+
+  // === Timestamps ===
+  submittedAt DateTime?  // When client submitted (status -> SUBMITTED)
+  lockedAt    DateTime?  // When CPA locked (status -> LOCKED)
+  lockedById  String?    // Staff who locked
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([taxCaseId, status])
 }

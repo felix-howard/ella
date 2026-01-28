@@ -18,6 +18,8 @@ import { twilioWebhookRoute } from './routes/webhooks'
 import { inngestRoute } from './routes/inngest'
 import { adminRoute } from './routes/admin'
 import { voiceRoutes } from './routes/voice'
+import { scheduleCRoute } from './routes/schedule-c'
+import { expenseRoute } from './routes/expense'
 
 const app = new OpenAPIHono()
 
@@ -41,6 +43,7 @@ app.use('*', clerkMiddleware())
 app.route('/health', healthRoute)
 app.route('/api/health', healthRoute) // Alias for Railway health check
 app.route('/portal', portalRoute)
+app.route('/expense', expenseRoute) // Public Schedule C expense form
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 
@@ -54,6 +57,7 @@ app.use('/images/*', authMiddleware)
 app.use('/messages/*', authMiddleware)
 app.use('/admin/*', authMiddleware)
 app.use('/voice/*', authMiddleware)
+app.use('/schedule-c/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -67,6 +71,7 @@ app.route('/images', imagesRoute)
 app.route('/messages', messagesRoute)
 app.route('/admin', adminRoute)
 app.route('/voice', voiceRoutes)
+app.route('/schedule-c', scheduleCRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

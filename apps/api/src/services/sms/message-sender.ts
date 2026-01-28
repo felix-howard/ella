@@ -9,6 +9,7 @@ import {
   generateMissingDocsMessage,
   generateBlurryResendMessage,
   generateCompleteMessage,
+  generateScheduleCMessage,
   type TemplateName,
   type SmsLanguage,
 } from './templates'
@@ -267,6 +268,20 @@ async function sendAndRecordMessage(
     smsSent,
     error: smsError,
   }
+}
+
+/**
+ * Send Schedule C expense form link to client
+ */
+export async function sendScheduleCFormMessage(
+  caseId: string,
+  clientName: string,
+  clientPhone: string,
+  magicLink: string,
+  language: SmsLanguage = 'VI'
+): Promise<SendMessageResult> {
+  const body = generateScheduleCMessage({ clientName, magicLink, language })
+  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_c')
 }
 
 /**

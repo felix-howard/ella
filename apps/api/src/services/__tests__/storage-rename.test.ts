@@ -61,7 +61,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: 'Google LLC',
-          clientName: 'John Smith',
+          recipientName: 'John Smith',
         }
       )
 
@@ -80,7 +80,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'DRIVER_LICENSE',
           source: null,
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -95,7 +95,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: 'Google',
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -115,7 +115,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: 'Google',
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -138,7 +138,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: null,
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -159,7 +159,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: 'Công ty ABC',
-          clientName: 'Nguyễn Văn A',
+          recipientName: 'Nguyễn Văn A',
         }
       )
 
@@ -177,7 +177,7 @@ describe('Storage Rename', () => {
           taxYear: null,
           docType: 'SSN_CARD',
           source: null,
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -194,7 +194,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'W2',
           source: null,
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -213,7 +213,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'PASSPORT',
           source: '',
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 
@@ -230,7 +230,7 @@ describe('Storage Rename', () => {
           taxYear: 2025,
           docType: 'SCHEDULE_K1_1065',
           source: 'Partnership Inc',
-          clientName: 'John',
+          recipientName: 'John',
         }
       )
 

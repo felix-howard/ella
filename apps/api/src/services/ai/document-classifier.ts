@@ -25,6 +25,7 @@ export interface DocumentClassificationResult {
   category: DocCategory
   taxYear: number | null
   source: string | null
+  recipientName: string | null // Person's name extracted from document
   error?: string
   processingTimeMs?: number
 }
@@ -52,6 +53,7 @@ export async function classifyDocument(
       category: 'OTHER',
       taxYear: null,
       source: null,
+      recipientName: null,
       error: 'Gemini API key not configured',
       processingTimeMs: Date.now() - startTime,
     }
@@ -75,6 +77,7 @@ export async function classifyDocument(
       category: 'OTHER',
       taxYear: null,
       source: null,
+      recipientName: null,
       error: `Unsupported MIME type: ${mimeType}`,
       processingTimeMs: Date.now() - startTime,
     }
@@ -93,6 +96,7 @@ export async function classifyDocument(
         category: 'OTHER',
         taxYear: null,
         source: null,
+        recipientName: null,
         error: result.error || 'Unknown error during classification',
         processingTimeMs: Date.now() - startTime,
       }
@@ -108,6 +112,7 @@ export async function classifyDocument(
         category: 'OTHER',
         taxYear: null,
         source: null,
+        recipientName: null,
         error: 'AI returned invalid classification format',
         processingTimeMs: Date.now() - startTime,
       }
@@ -122,6 +127,7 @@ export async function classifyDocument(
       category: getCategoryFromDocType(result.data.docType),
       taxYear: result.data.taxYear ?? null,
       source: result.data.source ?? null,
+      recipientName: result.data.recipientName ?? null,
       processingTimeMs: Date.now() - startTime,
     }
   } catch (error) {
@@ -134,6 +140,7 @@ export async function classifyDocument(
       category: 'OTHER',
       taxYear: null,
       source: null,
+      recipientName: null,
       error: errorMessage,
       processingTimeMs: Date.now() - startTime,
     }

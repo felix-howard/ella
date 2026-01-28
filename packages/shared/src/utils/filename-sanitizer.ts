@@ -63,12 +63,12 @@ export interface DocumentNamingComponents {
   taxYear: number | null
   docType: string
   source: string | null
-  clientName: string
+  recipientName: string | null // Person's name extracted from document (employee, recipient, etc.)
 }
 
 /**
  * Generate document display name from components
- * Format: {TaxYear}_{DocType}_{Source}_{ClientName}
+ * Format: {TaxYear}_{DocType}_{Source}_{RecipientName}
  * Example: 2025_W2_GoogleLLC_AndyNguyen
  */
 export function generateDocumentName(components: DocumentNamingComponents): string {
@@ -85,9 +85,9 @@ export function generateDocumentName(components: DocumentNamingComponents): stri
   const source = sanitizeComponent(components.source, 20)
   if (source) parts.push(source)
 
-  // Client name (sanitized)
-  const clientName = sanitizeComponent(components.clientName, 20)
-  if (clientName) parts.push(clientName)
+  // Recipient name from document (sanitized, optional)
+  const recipientName = sanitizeComponent(components.recipientName, 20)
+  if (recipientName) parts.push(recipientName)
 
   const name = parts.join('_')
 

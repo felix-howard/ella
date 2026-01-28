@@ -327,9 +327,6 @@ const FileItemRow = memo(function FileItemRow({
             </p>
             <p className="text-xs text-muted-foreground truncate">
               {docLabel}
-              {image.aiConfidence && (
-                <span className="ml-1">• {Math.round(image.aiConfidence * 100)}%</span>
-              )}
             </p>
           </>
         )}

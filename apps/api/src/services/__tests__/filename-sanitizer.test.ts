@@ -128,7 +128,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'W2',
         source: 'Google LLC',
-        clientName: 'Nguyễn Văn A',
+        recipientName: 'Nguyễn Văn A',
       })
       expect(result).toBe('2025_W2_GoogleLlc_NguyenVanA')
     })
@@ -139,7 +139,7 @@ describe('Filename Sanitizer', () => {
         taxYear: null,
         docType: 'W2',
         source: 'Google',
-        clientName: 'John',
+        recipientName: 'John',
       })
       expect(result).toContain(String(currentYear))
     })
@@ -149,7 +149,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'SSN_CARD',
         source: null,
-        clientName: 'John Smith',
+        recipientName: 'John Smith',
       })
       expect(result).toBe('2025_SSN_CARD_JohnSmith')
     })
@@ -159,7 +159,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'PASSPORT',
         source: '',
-        clientName: 'John',
+        recipientName: 'John',
       })
       expect(result).toBe('2025_PASSPORT_John')
     })
@@ -169,7 +169,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'W2',
         source: 'Google',
-        clientName: '',
+        recipientName: '',
       })
       expect(result).toBe('2025_W2_Google')
     })
@@ -179,7 +179,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'FORM_1099_MISC',
         source: 'A Very Long Company Name',
-        clientName: 'Nguyễn Văn Extremely Long Name',
+        recipientName: 'Nguyễn Văn Extremely Long Name',
       })
       expect(result.length).toBeLessThanOrEqual(60)
     })
@@ -189,7 +189,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2024,
         docType: 'SCHEDULE_K1_1065',
         source: 'Partnership Inc',
-        clientName: 'John',
+        recipientName: 'John',
       })
       expect(result).toBe('2024_SCHEDULE_K1_1065_PartnershipInc_John')
     })
@@ -230,7 +230,7 @@ describe('Filename Sanitizer', () => {
         taxYear: 2025,
         docType: 'FORM_1099_NEC',
         source: 'Công ty ABC',
-        clientName: 'Nguyễn Thị Đẹp',
+        recipientName: 'Nguyễn Thị Đẹp',
       })
       // Verify no special chars or diacritics
       expect(result).toMatch(/^[A-Za-z0-9_]+$/)

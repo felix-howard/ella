@@ -148,6 +148,7 @@ describe('classifyDocumentJob workflow', () => {
         category: 'INCOME',
         taxYear: 2025,
         source: 'Google',
+        recipientName: 'John Smith',
       })
 
       mockRequiresOcr.mockReturnValue(true)
@@ -248,6 +249,7 @@ describe('classifyDocumentJob workflow', () => {
         category: 'INCOME',
         taxYear: 2025,
         source: 'Acme Corp',
+        recipientName: 'Jane Doe',
       })
 
       mockRequiresOcr.mockReturnValue(true)
@@ -310,6 +312,7 @@ describe('classifyDocumentJob workflow', () => {
         category: 'OTHER',
         taxYear: null,
         source: null,
+        recipientName: null,
       })
     })
 
@@ -462,6 +465,7 @@ describe('classifyDocumentJob workflow', () => {
         category: 'OTHER',
         taxYear: null,
         source: null,
+        recipientName: null,
         error: 'Gemini API unavailable',
       })
 

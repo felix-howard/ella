@@ -121,6 +121,7 @@ export interface ClassificationResult {
   // Naming components for auto-rename feature
   taxYear: number | null // e.g., 2025 - extracted from document period
   source: string | null // Employer/bank/issuer name - extracted from document
+  recipientName: string | null // Person's name from document (employee, recipient, account holder)
 }
 
 /**
@@ -245,11 +246,20 @@ ${VIETNAMESE_NAME_HANDLING}
 ${CONFIDENCE_CALIBRATION}
 
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name"}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name"}
 
 EXTRACTION RULES FOR NAMING:
 - taxYear: Extract from Box period, statement date, form header "Tax Year 20XX", or document date. Use null if unclear.
 - source: Extract employer name (W2 Box c), bank name (1099-INT payer), issuer. Remove legal suffixes (case-insensitive): "Inc", "Inc.", "LLC", "Corp", "Corp.", "Corporation", "Co", "Co.", "Ltd", "Ltd.". Use null if not found or if only generic name remains.
+- recipientName: Extract the person's name from the document:
+  - W2: Employee name (Box e - Employee's first name and initial, Box f - Employee's last name)
+  - 1099-NEC/MISC/K/R/G/B/S/C: Recipient's name
+  - 1099-INT/DIV: Account holder's name
+  - SSN_CARD: Name on card
+  - DRIVER_LICENSE: Name on license
+  - PASSPORT: Name on passport
+  - Other documents: Person's name if clearly identifiable
+  - Use null if no person name found or unclear
 
 RULES:
 1. Confidence 0-1 scale, be conservative (rarely use > 0.95)
@@ -295,6 +305,13 @@ export function validateClassificationResult(
   // Treat empty strings as invalid - use null for missing source
   if ('source' in r && r.source !== null) {
     if (typeof r.source !== 'string' || r.source.trim() === '') {
+      return false
+    }
+  }
+
+  // Validate recipientName (optional, non-empty string or null)
+  if ('recipientName' in r && r.recipientName !== null) {
+    if (typeof r.recipientName !== 'string' || r.recipientName.trim() === '') {
       return false
     }
   }

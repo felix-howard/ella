@@ -272,6 +272,7 @@ export const classifyDocumentJob = inngest.createFunction(
           error: result.error,
           taxYear: result.taxYear,
           source: result.source,
+          recipientName: result.recipientName,
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -290,6 +291,7 @@ export const classifyDocumentJob = inngest.createFunction(
           error: errorMessage,
           taxYear: null,
           source: null,
+          recipientName: null,
         }
       }
     })
@@ -410,30 +412,15 @@ export const classifyDocumentJob = inngest.createFunction(
       // Returns 'OTHER' for unknown types as fallback
       const category = getCategoryFromDocType(validDocType)
 
-      // Fetch client name for naming convention
-      const taxCase = await prisma.taxCase.findUnique({
-        where: { id: caseId },
-        include: { client: { select: { name: true } } },
-      })
-
-      if (!taxCase?.client) {
-        console.warn(`[classify-document] Case ${caseId} not found, skipping rename`)
-        return {
-          renamed: false,
-          newKey: null,
-          displayName: null,
-          category,
-        }
-      }
-
       // Call rename service (uses copy-delete pattern for atomic rename)
       // Race condition safety: Copy completes first, then DB update, then delete
       // If any step fails, retry is safe because copy is idempotent
+      // recipientName is extracted from document by AI (employee name, recipient, etc.)
       const result = await renameFile(r2Key, caseId, {
         taxYear: classification.taxYear,
         docType: validDocType,
         source: classification.source,
-        clientName: taxCase.client.name,
+        recipientName: classification.recipientName,
       })
 
       if (!result.success) {

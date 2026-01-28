@@ -3,32 +3,12 @@
  * Fetches signed URL and displays image/PDF preview
  */
 
-import { memo, lazy, Suspense, Component, type ReactNode } from 'react'
+import { memo, lazy, Suspense } from 'react'
 import { Loader2, FileText, Image as ImageIcon } from 'lucide-react'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 
-// Lazy load PDF thumbnail to reduce bundle size
-const LazyPdfThumbnail = lazy(() => import('../documents/pdf-thumbnail'))
-
-// Error boundary for PDF thumbnail failures
-interface ErrorBoundaryState {
-  hasError: boolean
-}
-
-class PdfErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false }
-
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true }
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback
-    }
-    return this.props.children
-  }
-}
+// Lazy load PDF thumbnail for code splitting (~150KB savings)
+const PdfThumbnail = lazy(() => import('../documents/pdf-thumbnail'))
 
 interface ImageThumbnailProps {
   imageId: string
@@ -75,24 +55,20 @@ export const ImageThumbnail = memo(function ImageThumbnail({
     )
   }
 
+  // PDF files: use lazy-loaded PDF thumbnail with Suspense
   if (isPdf) {
-    const pdfFallback = (
-      <div className={`${className} flex items-center justify-center bg-muted`}>
-        <FileText className="w-6 h-6 text-muted-foreground" />
-      </div>
-    )
     return (
-      <PdfErrorBoundary fallback={pdfFallback}>
+      <div className={`${className} relative overflow-hidden`}>
         <Suspense
           fallback={
-            <div className={`${className} flex items-center justify-center bg-muted`}>
+            <div className="w-full h-full flex items-center justify-center bg-muted">
               <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
             </div>
           }
         >
-          <LazyPdfThumbnail url={data.url} />
+          <PdfThumbnail url={data.url} width={120} />
         </Suspense>
-      </PdfErrorBoundary>
+      </div>
     )
   }
 

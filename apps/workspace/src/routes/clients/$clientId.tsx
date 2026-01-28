@@ -162,9 +162,10 @@ function ClientDetailPage() {
   })
 
   // Fetch client detail from API
+  // Use isPending (not isLoading) - only true when NO cached data exists
   const {
     data: client,
-    isLoading: isClientLoading,
+    isPending: isClientLoading,
     isError: isClientError,
     error: clientError,
     refetch: refetchClient,
@@ -239,20 +240,8 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
-  // Loading state
-  if (isClientLoading) {
-    return (
-      <PageContainer>
-        <div className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-          <p className="text-muted-foreground">Đang tải thông tin khách hàng...</p>
-        </div>
-      </PageContainer>
-    )
-  }
-
-  // Error state
-  if (isClientError || !client) {
+  // Error state - only show when actual error or no data after loading complete
+  if (isClientError || (!isClientLoading && !client)) {
     return (
       <PageContainer>
         <Link
@@ -275,6 +264,39 @@ function ClientDetailPage() {
             <RefreshCw className="w-4 h-4" />
             Thử lại
           </button>
+        </div>
+      </PageContainer>
+    )
+  }
+
+  // Loading skeleton - shows header/tabs structure while loading
+  // This ensures no full-page flash when switching tabs
+  if (!client) {
+    return (
+      <PageContainer>
+        <div className="mb-6 animate-pulse">
+          <div className="h-5 w-32 bg-muted rounded mb-4" />
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-full bg-muted flex-shrink-0" />
+            <div className="space-y-2">
+              <div className="h-7 w-48 bg-muted rounded" />
+              <div className="flex gap-4">
+                <div className="h-4 w-32 bg-muted rounded" />
+                <div className="h-4 w-24 bg-muted rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="border-b border-border mb-6">
+          <div className="flex gap-1">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 w-24 bg-muted rounded" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-32 bg-muted rounded-xl" />
+          <div className="h-48 bg-muted rounded-xl" />
         </div>
       </PageContainer>
     )
@@ -561,26 +583,13 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Files Tab - Primary document explorer view with error boundary */}
+      {/* Files Tab - Primary document explorer view */}
       {activeTab === 'files' && activeCaseId && (
-        <ErrorBoundary
-          fallback={
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-              <p className="text-muted-foreground">Lỗi khi tải tài liệu</p>
-              <Button
-                onClick={() => window.location.reload()}
-                className="mt-4"
-                variant="outline"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Thử lại
-              </Button>
-            </div>
-          }
-        >
-          <FilesTab caseId={activeCaseId} />
-        </ErrorBoundary>
+        <FilesTab
+          caseId={activeCaseId}
+          images={rawImages}
+          docs={digitalDocs}
+        />
       )}
 
       {/* Checklist Tab - Requirement-based document view (renamed from Documents) */}

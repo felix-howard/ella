@@ -16,13 +16,19 @@ import { ManualClassificationModal, VerificationModal } from '../documents'
 
 export interface FilesTabProps {
   caseId: string
+  /** Pre-fetched images from parent (optional - for consistent loading with other tabs) */
+  images?: RawImage[]
+  /** Pre-fetched docs from parent (optional) */
+  docs?: DigitalDoc[]
+  /** Loading state from parent */
+  isLoading?: boolean
 }
 
 /**
  * Files Tab - Document explorer view showing all uploaded files
  * Grouped by DB category field, unclassified at top
  */
-export function FilesTab({ caseId }: FilesTabProps) {
+export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoading: parentLoading }: FilesTabProps) {
   const queryClient = useQueryClient()
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
@@ -30,10 +36,11 @@ export function FilesTab({ caseId }: FilesTabProps) {
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
 
-  // Fetch all raw images for case
-  const { data: imagesData, isLoading: imagesLoading } = useQuery({
+  // Fetch images only if not provided by parent (backward compatibility)
+  const { data: imagesData, isPending: imagesLoading } = useQuery({
     queryKey: ['images', caseId],
     queryFn: () => api.cases.getImages(caseId),
+    enabled: !parentImages, // Skip fetch if parent provides data
   })
 
   // Mutation for changing file category (drag and drop)
@@ -73,16 +80,24 @@ export function FilesTab({ caseId }: FilesTabProps) {
     },
   })
 
-  // Fetch digital docs for verification status
+  // Fetch digital docs only if not provided by parent
   const { data: docsData } = useQuery({
     queryKey: ['docs', caseId],
     queryFn: () => api.cases.getDocs(caseId),
+    enabled: !parentDocs, // Skip fetch if parent provides data
   })
 
-  const docs = docsData?.docs ?? []
+  // Use parent data if provided, otherwise use fetched data
+  const docs = parentDocs ?? docsData?.docs ?? []
 
-  // Memoize images array to maintain stable reference
-  const images = useMemo(() => imagesData?.images ?? [], [imagesData?.images])
+  // Memoize images array - prefer parent data over fetched
+  const images = useMemo(
+    () => parentImages ?? imagesData?.images ?? [],
+    [parentImages, imagesData?.images]
+  )
+
+  // Loading state - only show skeleton if parent says loading OR we're fetching without parent data
+  const showLoading = parentLoading || (!parentImages && imagesLoading)
 
   // Group images by DB category field (not computed from docType)
   // "Chờ phân loại" only shows docs still being processed (UPLOADED/PROCESSING)
@@ -153,9 +168,8 @@ export function FilesTab({ caseId }: FilesTabProps) {
     setIsDraggingFile(false)
   }, [])
 
-  // Loading state with skeleton - only show on initial load (no cached data)
-  // This prevents flash when switching tabs since data is already cached
-  if (imagesLoading && !imagesData) {
+  // Loading state - show skeleton only when actually loading
+  if (showLoading) {
     return <FilesTabSkeleton />
   }
 

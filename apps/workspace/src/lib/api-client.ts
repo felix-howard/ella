@@ -637,6 +637,37 @@ export const api = {
     request<{ data: IntakeQuestion[] }>('/clients/intake-questions', {
       params: { taxTypes: taxTypes.join(',') },
     }),
+
+  // Schedule C - Staff endpoints for expense form management
+  scheduleC: {
+    // Get Schedule C data for a case
+    get: (caseId: string) =>
+      request<ScheduleCResponse>(`/schedule-c/${caseId}`),
+
+    // Send expense form to client
+    send: (caseId: string) =>
+      request<ScheduleCSendResponse>(`/schedule-c/${caseId}/send`, {
+        method: 'POST',
+      }),
+
+    // Lock form to prevent client edits
+    lock: (caseId: string) =>
+      request<ScheduleCLockResponse>(`/schedule-c/${caseId}/lock`, {
+        method: 'PATCH',
+      }),
+
+    // Unlock a locked form
+    unlock: (caseId: string) =>
+      request<ScheduleCUnlockResponse>(`/schedule-c/${caseId}/unlock`, {
+        method: 'PATCH',
+      }),
+
+    // Resend form link (extend TTL)
+    resend: (caseId: string) =>
+      request<ScheduleCResendResponse>(`/schedule-c/${caseId}/resend`, {
+        method: 'POST',
+      }),
+  },
 }
 
 // Type definitions
@@ -1392,4 +1423,121 @@ export interface UpdateEngagementInput {
   hasContractors?: boolean
   has1099K?: boolean
   intakeAnswers?: Record<string, unknown>
+}
+
+// Schedule C types for expense form management
+export type ScheduleCStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED'
+
+export interface ScheduleCExpense {
+  id: string
+  taxCaseId: string
+  status: ScheduleCStatus
+  version: number
+  // Business Info
+  businessName: string | null
+  businessDesc: string | null
+  // Income
+  grossReceipts: string | null
+  returns: string | null
+  costOfGoods: string | null
+  otherIncome: string | null
+  // Expenses (all as strings for decimal display)
+  advertising: string | null
+  carExpense: string | null
+  commissions: string | null
+  contractLabor: string | null
+  depletion: string | null
+  depreciation: string | null
+  employeeBenefits: string | null
+  insurance: string | null
+  interestMortgage: string | null
+  interestOther: string | null
+  legalServices: string | null
+  officeExpense: string | null
+  pensionPlans: string | null
+  rentEquipment: string | null
+  rentProperty: string | null
+  repairs: string | null
+  supplies: string | null
+  taxesAndLicenses: string | null
+  travel: string | null
+  meals: string | null
+  utilities: string | null
+  wages: string | null
+  otherExpenses: string | null
+  otherExpensesNotes: string | null
+  // Vehicle info
+  vehicleMiles: number | null
+  vehicleCommuteMiles: number | null
+  vehicleOtherMiles: number | null
+  vehicleDateInService: string | null
+  vehicleUsedForCommute: boolean
+  vehicleAnotherAvailable: boolean
+  vehicleEvidenceWritten: boolean
+  // Version history
+  versionHistory: VersionHistoryEntry[] | null
+  // Timestamps
+  createdAt: string
+  updatedAt: string
+  submittedAt: string | null
+  lockedAt: string | null
+  lockedById: string | null
+}
+
+export interface VersionHistoryEntry {
+  version: number
+  submittedAt: string
+  changes: string[]
+  data: Partial<Record<string, string | number | null>>
+}
+
+export interface ScheduleCMagicLink {
+  id: string
+  token: string
+  isActive: boolean
+  expiresAt: string | null
+  lastUsedAt: string | null
+  usageCount: number
+}
+
+export interface ScheduleCTotals {
+  grossReceipts: string
+  returns: string
+  costOfGoods: string
+  grossIncome: string
+  totalExpenses: string
+  mileageDeduction: string
+  netProfit: string
+}
+
+export interface ScheduleCResponse {
+  expense: ScheduleCExpense | null
+  magicLink: ScheduleCMagicLink | null
+  totals: ScheduleCTotals | null
+}
+
+export interface ScheduleCSendResponse {
+  success: boolean
+  magicLink: string
+  messageSent: boolean
+  expiresAt: string
+  expenseId: string
+  prefilledGrossReceipts: string
+}
+
+export interface ScheduleCLockResponse {
+  success: boolean
+  status: 'LOCKED'
+  lockedAt: string
+}
+
+export interface ScheduleCUnlockResponse {
+  success: boolean
+  status: 'SUBMITTED'
+}
+
+export interface ScheduleCResendResponse {
+  success: boolean
+  expiresAt: string
+  messageSent: boolean
 }

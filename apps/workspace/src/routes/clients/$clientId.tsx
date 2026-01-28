@@ -22,11 +22,13 @@ import {
   Trash2,
   ClipboardList,
   FolderOpen,
+  Calculator,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
+import { ScheduleCTab } from '../../components/cases/tabs/schedule-c-tab'
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -46,6 +48,7 @@ import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
+import { useScheduleC } from '../../hooks/use-schedule-c'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
@@ -56,7 +59,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'data-entry'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'data-entry'
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
@@ -240,6 +243,12 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
+  // Schedule C data for tab visibility
+  const { showScheduleCTab } = useScheduleC({
+    caseId: activeCaseId,
+    enabled: !!activeCaseId,
+  })
+
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
     return (
@@ -390,6 +399,8 @@ function ClientDetailPage() {
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'files', label: 'Tài liệu', icon: FolderOpen },
     { id: 'checklist', label: 'Danh sách', icon: FileText },
+    // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
+    ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
     { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
   ]
 
@@ -659,6 +670,11 @@ function ClientDetailPage() {
           {/* Upload Progress - shows when images are processing */}
           <UploadProgress processingCount={processingCount} extractingCount={extractingCount} />
         </div>
+      )}
+
+      {/* Schedule C Tab - Self-employment expense collection */}
+      {activeTab === 'schedule-c' && activeCaseId && (
+        <ScheduleCTab caseId={activeCaseId} />
       )}
 
       {activeTab === 'data-entry' && (

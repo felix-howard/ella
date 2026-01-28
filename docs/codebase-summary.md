@@ -2,12 +2,14 @@
 
 **Current Date:** 2026-01-28
 **Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 2 Schedule C API Implementation COMPLETE | Phase 5 Frontend Category UI | Phase 4 Integration & Testing
+**Latest Phase:** Phase 4 Schedule C Workspace Viewer COMPLETE | Phase 5 Frontend Category UI | Phase 4 Integration & Testing
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Schedule C Expense Collection Phase 4** | **11 new workspace components (956 LOC); api.scheduleC client methods; useScheduleC + useScheduleCActions hooks; 4-state router (empty/waiting/submitted/locked); Income/expense/vehicle display tables; Version history viewer; Staff action controls (send/lock/unlock/resend); Integration with client detail tab** | **2026-01-28** |
+| **Schedule C Expense Collection Phase 3** | **Portal form (Phase 3) - See separate doc: schedule-c-phase-3-portal-expense-form.md (Production-ready client expense form, 28 IRS categories, auto-save, 578 tests passing)** | **2026-01-28** |
 | **Schedule C Expense Collection Phase 2** | **5 staff endpoints (POST send, GET, PATCH lock/unlock, POST resend); 3 public endpoints (GET validate token, POST submit, PATCH auto-save draft); Expense calculator with gross receipts auto-fill from 1099-NEC; Version history tracking with snapshots; SMS templates for expense form links; Composite MagicLink index (caseId, type, isActive); MILEAGE_RATE_CENTS env var (67¢ default)** | **2026-01-28** |
 | **Schedule C Expense Collection Phase 1** | **Database schema: MagicLinkType enum (PORTAL, SCHEDULE_C); ScheduleCStatus enum (DRAFT, SUBMITTED, LOCKED); ScheduleCExpense model (50+ fields for IRS Schedule C); TaxCase.scheduleCExpense relation; MagicLink.type field with default PORTAL; 27 IRS expense categories + vehicle info + version tracking; Verification script (verify-schedule-c-schema.ts)** | **2026-01-28** |
 | **Phase 05 Frontend Category UI** | **7-category system (IDENTITY/INCOME/EXPENSE/ASSET/EDUCATION/HEALTHCARE/OTHER); RawImage type updated with category + displayName fields; DOC_CATEGORIES config with Vietnamese labels + icons; FilesTab uses DB category field with isValidCategory() runtime check; unclassified section for legacy docs; displayName fallback to filename; empty categories hidden; color styling per category** | **2026-01-28** |
@@ -76,6 +78,62 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Schedule C Expense Collection Phase 4 - Workspace Viewer (NEW - 2026-01-28)
+
+**Status:** ✅ COMPLETE | Staff-facing dashboard for expense review & management
+
+**Summary:** Phase 4 delivers workspace viewer for Schedule C expense forms. Staff can view submitted expenses, review calculations, manage form workflow (send/lock/unlock/resend), and track version history. Fully integrated with backend APIs + portal form. 11 components, 956 LOC. See full details: `./schedule-c-phase-4-workspace-viewer.md`
+
+**Key Components:**
+
+| Component | Purpose | LOC |
+|-----------|---------|-----|
+| ScheduleCTab | 4-state router (empty/waiting/submitted/locked) | 80 |
+| ScheduleCEmptyState | "No form yet" + send button (when 1099-NEC detected) | 60 |
+| ScheduleCWaiting | "Awaiting client" + resend/copy link buttons | 120 |
+| ScheduleCSummary | Form data display + action controls | 85 |
+| ScheduleCActions | Lock/unlock/resend buttons + confirmations | 140 |
+| IncomeTable | Part I (gross receipts, returns, COGS) | 65 |
+| ExpenseTable | Part II (20 expense categories grouped by type) | 130 |
+| NetProfitCard | Summary: gross - expenses - mileage = profit | 70 |
+| VersionHistory | Version list with timestamps | 80 |
+| useScheduleC | Query: expense + 1099-NEC detection + totals | 85 |
+| useScheduleCActions | Mutations: send/lock/unlock/resend + toasts | 95 |
+
+**API Integration:**
+
+- `api.scheduleC.get(caseId)` → GET /schedule-c/:caseId
+- `api.scheduleC.send(caseId)` → POST /schedule-c/:caseId/send
+- `api.scheduleC.lock(caseId)` → PATCH /schedule-c/:caseId/lock
+- `api.scheduleC.unlock(caseId)` → PATCH /schedule-c/:caseId/unlock
+- `api.scheduleC.resend(caseId)` → POST /schedule-c/:caseId/resend
+
+**State Flow:**
+
+```
+If no expense exists & 1099-NEC found → Show empty state
+If expense exists & status=DRAFT → Show waiting (resend option)
+If expense exists & status=SUBMITTED/LOCKED → Show summary + actions
+```
+
+**Features:**
+
+- 1099-NEC detection: Auto-show tab only when relevant
+- Calculated totals: Gross income, total expenses, net profit, mileage deduction
+- Version tracking: All saved versions with timestamps
+- Staff actions: Send to client, lock form, unlock for re-editing, resend link
+- Vietnamese UI + error messages
+- Responsive layout: Mobile/tablet/desktop
+- Error handling: Retry on network failures
+
+**Integration:**
+
+- Tab in client detail page (`/clients/:clientId`)
+- Works with multi-engagement cases
+- Messaging can reference Schedule C status
+
+---
 
 ## Schedule C Expense Collection Phase 2 - API Implementation (NEW - 2026-01-28)
 

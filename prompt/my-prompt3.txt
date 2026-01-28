@@ -1,5 +1,77 @@
-ok, wireframe mà bạn vừa vẽ giải quyết vấn đề staff verify docs theo kiểu phân loại docs với AI assisted, vậy màn hình, view mà
-staff nhìn docs, biết docs gì, thấy checklist còn thiếu gì, để biết client này còn thiếu docs gì ở đâu
-quá trình ocr này, staff nên chủ động nhắn chọn từng docs rồi nhấn nút ocr hay ocr tự chạy, rồi sau khi ocr thì sao, giả sử client chỉ mới gửi 1 vài docs chứ chưa gửi hết, thì staff có được quyền vào docs bấm ocr không? sau khi ocr xong, staff sửa lại giá trị, rồi thì phiên bản extracted docs đó có được lưu không, để sau này khi đủ ocr digital docs thì dùng những docs này để data entry
-có nên làm 2 phiên bản docs không, một phiên bản là raw images của client, một phiên bản digital verified docs từ OCR và human verified, lưu cả 2 phiên bản, khi staff ocr docs nào thì tạo ra phiên bản digital của docs đó lưu vào, khi nào staff ocr tất cả các docs thì có tất cả digital docs thì khi đó tất cả checklist item mới green và mới được data entry, khi đó dùng digital ocr verified docs để data entry
-nếu vậy thì verify docs ở đây là gì, là quá trình categorize docs khách gửi (để biết docs là w2 hay 1099) để phân loại vào đúng mục trong checklist, rồi dựa vào checklist nhìn trực quan biết thiếu docs gì, và quá trình verify thực sự là quá trình chuyển raw image thành digital docs, nếu chuyển thành công (tất cả value trong ảnh đều rõ, ocr hoặc human đọc được, extracted được) thì  gọi là verified, green, còn nếu ocr đọc fail, human đọc cũng không được thì verify fail, request reupload) . its just my 2 cents, tôi muốn nghe ý kiến của bạn
+Với bài toán của Ella (phần mềm Tax Automation), quy tắc đặt tên file (Naming Convention) không chỉ để "cho đẹp" mà phải phục vụ 2 mục đích cốt tử:
+
+Human Readability: CPA nhìn vào tên file là biết ngay nội dung, không cần mở ra xem.
+
+Machine Sortable: Khi tải về máy tính, file phải tự động sắp xếp theo thứ tự logic (Theo năm -> Theo loại -> Theo tên).
+
+Dưới đây là "Công thức Vàng" (The Golden Standard) được cộng đồng IT và Accounting khuyên dùng:
+
+Công thức chuẩn cho Ella:
+[TaxYear]_[DocType]_[Source/Entity]_[ClientName]_[Sequence].[ext]
+
+Ví dụ thực tế sau khi AI của bạn xử lý:
+
+2025_W2_GoogleLLC_AndyNguyen.pdf
+
+2025_1099NEC_UberTechnologies_AndyNguyen.pdf
+
+2025_DL_AndyNguyen.jpg (Driver License - Có thể bỏ TaxYear nếu là giấy tờ vĩnh viễn)
+
+Giải thích chi tiết từng thành phần:
+1. [TaxYear] (Năm thuế) - Quan trọng nhất
+Định dạng: YYYY (Ví dụ: 2024, 2025).
+
+Tại sao đặt đầu tiên? Để khi CPA lưu vào máy, các file sẽ tự động sort theo năm. File 2025 sẽ không bao giờ bị lẫn lộn vào đám giấy tờ 2024.
+
+Lưu ý: Đây phải là Năm Thuế (Tax Year) ghi trên tờ form, không phải năm hiện tại (Current Year) hay ngày upload.
+
+2. [DocType] (Loại tài liệu)
+Định dạng: Viết tắt chuẩn ngành thuế (Uppercase).
+
+Ví dụ: W2, 1099NEC, 1099INT, 1098T, DL (Driver License), SSN.
+
+Tại sao? Giúp gom nhóm. Tất cả file W2 sẽ nằm cạnh nhau, tất cả file 1099 sẽ nằm cạnh nhau.
+
+3. [Source/Entity] (Nguồn phát hành) - Giá trị gia tăng từ AI
+Định dạng: PascalCase (Viết hoa chữ cái đầu, không dấu cách) hoặc gạch dưới.
+
+Ví dụ: Google, ChaseBank, Uber, UniversityOfTexas.
+
+Tại sao? Đây là cái CPA quan tâm nhất để phân biệt. Khách có 3 cái W2, nếu chỉ đặt là W2_01, W2_02 thì vô nghĩa. Phải là W2_Google và W2_Facebook.
+
+4. [ClientName] (Tên khách hàng)
+Định dạng: LastNameFirstName hoặc FirstName_LastName.
+
+Tại sao? Đề phòng trường hợp CPA tải file ra Desktop hoặc folder chung (Bulk Download). Nếu file chỉ tên là 2025_W2_Google.pdf thì CPA sẽ không biết là của khách hàng nào.
+
+5. [Sequence] (Số thứ tự - Optional)
+Định dạng: _01, _02.
+
+Dùng khi: AI phát hiện trùng lặp (Ví dụ: Khách làm 2 job đều ở Google, có 2 tờ W2 Google khác nhau).
+
+Các quy tắc kỹ thuật (Technical Rules) cho Dev
+Khi bạn code tính năng đổi tên (Rename) cho Ella, hãy tuân thủ các quy tắc "Sanitization" (Làm sạch) sau để file tương thích mọi hệ điều hành (Windows, Mac, Linux):
+
+NO SPACES (Không dùng dấu cách):
+
+❌ Tệ: 2025 W2 Google Andy.pdf (Dễ gây lỗi khi upload lên server hoặc gửi qua URL).
+
+✅ Tốt: 2025_W2_Google_Andy.pdf hoặc 2025-W2-Google-Andy.pdf.
+
+Khuyên dùng: Underscore _ làm phân cách chính, vì nó dễ đọc hơn dấu gạch ngang -.
+
+Date Format ISO 8601 (Nếu cần ngày tháng cụ thể):
+
+Nếu file là hóa đơn (Receipt) cần ngày tháng, luôn dùng: YYYY-MM-DD.
+
+Ví dụ: 2025-01-31_Receipt_HomeDepot.pdf. (Sẽ luôn sort đúng thứ tự thời gian).
+
+Loại bỏ ký tự đặc biệt (Special Characters):
+
+Tuyệt đối loại bỏ: / \ : * ? " < > | (Các ký tự cấm của Windows).
+
+Loại bỏ dấu tiếng Việt: Nguyễn Văn A -> NguyenVanA.
+
+Độ dài tối đa:
+
+Cố gắng giữ tên file dưới 50-60 ký tự. Windows có giới hạn đường dẫn (Path limit 260 ký tự), nếu tên file quá dài cộng với tên thư mục dài sẽ gây lỗi không mở được file.

@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-01-28
 **Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 1 Schedule C Expense Collection COMPLETE | Phase 5 Frontend Category UI | Phase 4 Integration & Testing
+**Latest Phase:** Phase 2 Schedule C API Implementation COMPLETE | Phase 5 Frontend Category UI | Phase 4 Integration & Testing
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Schedule C Expense Collection Phase 2** | **5 staff endpoints (POST send, GET, PATCH lock/unlock, POST resend); 3 public endpoints (GET validate token, POST submit, PATCH auto-save draft); Expense calculator with gross receipts auto-fill from 1099-NEC; Version history tracking with snapshots; SMS templates for expense form links; Composite MagicLink index (caseId, type, isActive); MILEAGE_RATE_CENTS env var (67¢ default)** | **2026-01-28** |
 | **Schedule C Expense Collection Phase 1** | **Database schema: MagicLinkType enum (PORTAL, SCHEDULE_C); ScheduleCStatus enum (DRAFT, SUBMITTED, LOCKED); ScheduleCExpense model (50+ fields for IRS Schedule C); TaxCase.scheduleCExpense relation; MagicLink.type field with default PORTAL; 27 IRS expense categories + vehicle info + version tracking; Verification script (verify-schedule-c-schema.ts)** | **2026-01-28** |
 | **Phase 05 Frontend Category UI** | **7-category system (IDENTITY/INCOME/EXPENSE/ASSET/EDUCATION/HEALTHCARE/OTHER); RawImage type updated with category + displayName fields; DOC_CATEGORIES config with Vietnamese labels + icons; FilesTab uses DB category field with isValidCategory() runtime check; unclassified section for legacy docs; displayName fallback to filename; empty categories hidden; color styling per category** | **2026-01-28** |
 | **Phase 4 Integration & Testing** | **ErrorBoundary for FilesTab (Vietnamese: "Lỗi khi tải tài liệu" + retry button); loading states verified in YearSwitcher/CreateEngagementModal/FilesTab; edge cases (empty states, single year, API errors); Type-check pass, build succeeds; 535 tests pass (all passing); Code review 9/10** | **2026-01-27** |
@@ -75,6 +76,214 @@
 | Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
+
+## Schedule C Expense Collection Phase 2 - API Implementation (NEW - 2026-01-28)
+
+**Status:** ✅ COMPLETE | Full REST API for staff & client expense form workflows
+
+**Summary:** Phase 2 implements comprehensive Schedule C expense form APIs. Staff endpoints manage form distribution, status tracking, and locking. Public endpoints allow clients to view, edit, and submit expense data via magic link authentication. Includes automatic gross receipts prefilling from verified 1099-NEC documents, version history tracking with change snapshots, and SMS delivery of form links.
+
+**Architecture:**
+
+```
+Staff Workflow:
+POST /schedule-c/:caseId/send → Create form + magic link → Send SMS
+    ↓
+GET /schedule-c/:caseId → Review submitted data + version history
+    ↓
+PATCH /schedule-c/:caseId/lock → Finalize form (prevent edits)
+
+Client Workflow:
+GET /expense/:token → Validate link, fetch form + prefilled data
+    ↓
+PATCH /expense/:token/draft → Auto-save intermediate progress
+    ↓
+POST /expense/:token → Submit final version + create snapshot
+```
+
+**Key Changes:**
+
+1. **Staff Routes** (`apps/api/src/routes/schedule-c/index.ts` - Authenticated)
+   - **POST /schedule-c/:caseId/send**
+     - Validate case + client phone
+     - Auto-calculate gross receipts from verified 1099-NECs
+     - Upsert ScheduleCExpense with prefilled data (only if empty)
+     - Create magic link with atomic deactivation of existing links
+     - Send SMS notification to client
+     - Response: magicLink URL, expiresAt, messageSent flag, prefilledGrossReceipts
+
+   - **GET /schedule-c/:caseId**
+     - Fetch expense data with calculated totals (gross income, total expenses, net profit, mileage deduction)
+     - Retrieve active magic link status
+     - Convert Decimal fields to 2-decimal-place strings
+     - Response: expense object, magicLink metadata, totals
+
+   - **PATCH /schedule-c/:caseId/lock**
+     - Validate form SUBMITTED status (not DRAFT/LOCKED)
+     - Atomic transaction: update status → LOCKED + deactivate all magic links
+     - Record lockedById (staff ID) + lockedAt timestamp
+     - Prevents further client edits
+
+   - **PATCH /schedule-c/:caseId/unlock**
+     - Revert LOCKED form back to SUBMITTED status
+     - Clear lockedById + lockedAt fields
+     - Allows client to re-edit if needed
+
+   - **POST /schedule-c/:caseId/resend**
+     - Extend TTL on existing active link OR create new if none exists
+     - Validate form not LOCKED
+     - Resend SMS with updated magic link
+     - Response: updated expiresAt, messageSent flag
+
+2. **Public Routes** (`apps/api/src/routes/expense/index.ts` - No Auth)
+   - **GET /expense/:token**
+     - Validate Schedule C magic link token (checks: valid, active, not expired, correct type)
+     - Return error messages in Vietnamese (INVALID_TOKEN, EXPIRED_TOKEN, FORM_LOCKED)
+     - Fetch ScheduleCExpense if exists (may be null on first visit)
+     - Auto-calculate gross receipts from verified 1099-NECs (prefilling)
+     - Calculate totals if expense exists (7-field summary: grossReceipts, returns, costOfGoods, grossIncome, totalExpenses, mileageDeduction, netProfit)
+     - Response: client metadata, taxYear, expense data (all fields converted to 2-decimal strings), prefilledGrossReceipts, totals
+
+   - **POST /expense/:token**
+     - Validate token + parse request body (expenseSubmitSchema)
+     - Determine version number (1 if new, incremented if update)
+     - Create or update ScheduleCExpense
+     - Automatic version history creation:
+       - First submission: create initial snapshot
+       - Subsequent updates: snapshot previous state + create version entry
+     - Track submittedAt on first DRAFT→SUBMITTED transition
+     - Response: success flag, new version, status=SUBMITTED, Vietnamese success message
+
+   - **PATCH /expense/:token/draft**
+     - Same validation as POST
+     - Auto-save partial data (no submission, no version history)
+     - Upsert with partial update (only provided fields)
+     - Status remains DRAFT if no existing record, or keeps current status
+     - Used for intermediate saves during form fill
+
+3. **Expense Calculator Service** (`apps/api/src/services/schedule-c/expense-calculator.ts`)
+   - **calculateGrossReceipts(caseId)**
+     - Query verified 1099-NEC documents for case
+     - Sum box 1 (Non-employee compensation)
+     - Return Decimal with 2-place precision
+     - Used to prefill form on first visit
+
+   - **calculateScheduleCTotals(expense)**
+     - Part I totals: returns, costOfGoods → grossIncome
+     - Part II sum: all 20 expense categories → totalExpenses
+     - Calculate mileageDeduction: vehicleMiles × (MILEAGE_RATE_CENTS / 100)
+     - Net profit: grossIncome - totalExpenses - mileageDeduction
+     - All calculations use Decimal for precision
+     - Response: 7-field object (all Decimal type)
+
+4. **Version History Service** (`apps/api/src/services/schedule-c/version-history.ts`)
+   - **createExpenseSnapshot(expense)**
+     - Serialize current ScheduleCExpense state
+     - Store all monetary + vehicle fields
+     - Used for "previous version" comparison
+
+   - **createVersionEntry(updated, previous, version)**
+     - Create version history object: { version, changedAt, previousValues?, changedFields[] }
+     - Calculate diff: fields that changed between previous snapshot + current
+     - Track which fields modified (for audit trail)
+     - Response: JSON-serializable version entry
+
+   - **appendVersionHistory(history, entry)**
+     - Append new entry to versionHistory JSON array
+     - Maintain array of all version snapshots
+     - Max 10 entries (oldest removed if exceeded)
+
+5. **SMS Templates** (`apps/api/src/services/sms/templates/schedule-c.ts`)
+   - **Vietnamese:** Form link + 48-hour expiry + "Không trả lời tin này"
+   - **English:** English form link text
+   - Links include magic link token in URL: `/expense/:token`
+   - Configurable template via sendScheduleCFormMessage()
+
+6. **Database Schema Updates** (`packages/db/prisma/schema.prisma`)
+   - **Composite Index on MagicLink:**
+     - `@@index([caseId, type, isActive])` - For filtering active Schedule C links
+   - **Environment Configuration:** MILEAGE_RATE_CENTS (default 67, from IRS 2026 standard deduction)
+
+7. **Type Schemas** (`apps/api/src/routes/expense/schemas.ts`)
+   - **expenseSubmitSchema** - Full expense submission validation (Zod)
+   - **expenseDraftSchema** - Partial expense draft validation (all fields optional)
+   - Validates 30+ fields: business info, income, expenses (20 categories), vehicle details
+   - Numeric precision: cents-based (stored as Decimal, transmitted as number)
+
+**Data Flow:**
+
+```
+CPA sends form:
+  POST /schedule-c/:caseId/send
+    ├─ Calculate grossReceipts from 1099-NECs
+    ├─ Upsert ScheduleCExpense (status=DRAFT)
+    └─ Create magic link → Send SMS
+
+Client opens link:
+  GET /expense/:token
+    ├─ Validate token (active, not expired, type=SCHEDULE_C)
+    ├─ Fetch ScheduleCExpense (may be null)
+    ├─ Calculate prefilledGrossReceipts
+    └─ Return form data + prefilled values
+
+Client saves progress (auto-save):
+  PATCH /expense/:token/draft
+    ├─ Validate token
+    └─ Partial update (status=DRAFT)
+
+Client submits:
+  POST /expense/:token
+    ├─ Validate token + data
+    ├─ Upsert ScheduleCExpense (status=SUBMITTED)
+    ├─ Create version snapshot
+    └─ Set submittedAt timestamp
+
+CPA reviews & locks:
+  GET /schedule-c/:caseId (review data)
+    ├─ Calculate totals
+    └─ Check version history
+  PATCH /schedule-c/:caseId/lock
+    ├─ Update status=LOCKED
+    └─ Deactivate magic link (atomic)
+
+CPA needs to re-edit:
+  PATCH /schedule-c/:caseId/unlock
+    └─ Revert status=SUBMITTED
+```
+
+**Key Features:**
+
+- **Atomic Operations:** Deactivation of existing links when sending/locking (prevents duplicate form access)
+- **Auto-Prefilling:** Gross receipts auto-calculated from verified 1099-NECs on form open
+- **Decimal Precision:** All monetary fields use Prisma Decimal(12,2) for exact cent-level calculations
+- **Version Tracking:** Snapshots stored in versionHistory JSON array with previous values + changed fields
+- **Magic Link Typing:** Composite queries filter by (caseId, type=SCHEDULE_C, isActive=true)
+- **Mileage Deduction:** Auto-calculated from vehicleMiles × rate (configurable via MILEAGE_RATE_CENTS env var)
+- **SMS Delivery:** Integrated with Twilio via sendScheduleCFormMessage() service
+- **Validation:** Server-side Zod schemas + token validation + Vietnamese error messages
+
+**Configuration:**
+
+| Env Variable | Default | Purpose |
+|---|---|---|
+| `MILEAGE_RATE_CENTS` | 67 | Mileage deduction rate per mile (2026 IRS standard) |
+| `PORTAL_URL` | http://localhost:5173 | Base URL for magic link generation |
+
+**Files Modified/Created:**
+
+- New: `apps/api/src/routes/schedule-c/index.ts` (5 endpoints, 354 LOC)
+- New: `apps/api/src/routes/expense/index.ts` (3 endpoints, 400+ LOC)
+- New: `apps/api/src/services/schedule-c/expense-calculator.ts` (expense math)
+- New: `apps/api/src/services/schedule-c/version-history.ts` (snapshot tracking)
+- New: `apps/api/src/services/sms/templates/schedule-c.ts` (Vietnamese + English)
+- Updated: `apps/api/src/lib/config.ts` (MILEAGE_RATE_CENTS config)
+- Updated: `packages/db/prisma/schema.prisma` (composite index)
+
+**Next Steps:**
+
+- Phase 3: Frontend Schedule C form component (expense sections, vehicle info, calculation display)
+- Phase 4: Client portal route + magic link verification UI
+- Phase 5: CPA review dashboard + version comparison view + lock/unlock controls
 
 ## Schedule C Expense Collection Phase 1 - Database Foundation (NEW - 2026-01-28)
 

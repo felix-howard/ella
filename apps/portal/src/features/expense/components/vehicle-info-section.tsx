@@ -4,6 +4,7 @@
  * Only shown if car expenses or mileage are claimed
  */
 import { useMemo } from 'react'
+import { FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import { VEHICLE_FIELDS } from '../lib/expense-categories'
 import { ExpenseField } from './expense-field'
@@ -41,7 +42,7 @@ export function VehicleInfoSection({
     <Card className="border-amber-200 bg-amber-50/30">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-          <span aria-hidden="true">📝</span>
+          <FileText className="w-5 h-5 text-primary" aria-hidden="true" />
           Thông tin xe (Part IV)
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">

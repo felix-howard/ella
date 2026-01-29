@@ -3,7 +3,7 @@
  * Toggle between mileage rate deduction OR actual car expenses
  * IRS allows only one method, not both
  */
-import { useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Car, Calculator } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import { cn } from '@ella/ui'
@@ -17,20 +17,23 @@ interface CarExpenseSectionProps {
   onChange: (field: string, value: unknown) => void
 }
 
+// Derive initial method from form data values
+function deriveMethodFromData(formData: Record<string, unknown>): DeductionMethod {
+  const hasCarExpense = formData.carExpense !== null && formData.carExpense !== undefined && formData.carExpense !== 0
+  const hasMileage = formData.vehicleMiles !== null && formData.vehicleMiles !== undefined && formData.vehicleMiles !== 0
+  if (hasCarExpense && !hasMileage) return 'actual'
+  // Default to mileage
+  return 'mileage'
+}
+
 export function CarExpenseSection({
   formData,
   onChange,
 }: CarExpenseSectionProps) {
-  // Determine current method based on which field has a value
-  const currentMethod: DeductionMethod | null = useMemo(() => {
-    const hasCarExpense = formData.carExpense !== null && formData.carExpense !== undefined && formData.carExpense !== 0
-    const hasMileage = formData.vehicleMiles !== null && formData.vehicleMiles !== undefined && formData.vehicleMiles !== 0
-
-    if (hasCarExpense && !hasMileage) return 'actual'
-    if (hasMileage && !hasCarExpense) return 'mileage'
-    if (hasCarExpense || hasMileage) return hasMileage ? 'mileage' : 'actual'
-    return null
-  }, [formData.carExpense, formData.vehicleMiles])
+  // Track selected method explicitly (default: derived from data, fallback mileage)
+  const [selectedMethod, setSelectedMethod] = useState<DeductionMethod>(() =>
+    deriveMethodFromData(formData)
+  )
 
   // Get car expense category
   const carExpenseCategory = useMemo(
@@ -44,6 +47,7 @@ export function CarExpenseSection({
 
   // Handle method change
   const handleMethodChange = useCallback((method: DeductionMethod) => {
+    setSelectedMethod(method)
     if (method === 'mileage') {
       // Clear actual expense when switching to mileage
       onChange('carExpense', null)
@@ -59,7 +63,7 @@ export function CarExpenseSection({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-          <span aria-hidden="true">🚗</span>
+          <Car className="w-5 h-5 text-primary" aria-hidden="true" />
           Chi phí xe & Mileage
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
@@ -76,7 +80,7 @@ export function CarExpenseSection({
             onClick={() => handleMethodChange('mileage')}
             className={cn(
               'p-4 rounded-lg border-2 text-left transition-all',
-              currentMethod === 'mileage' || currentMethod === null
+              selectedMethod === 'mileage'
                 ? 'border-primary bg-primary/5'
                 : 'border-border hover:border-primary/50'
             )}
@@ -88,7 +92,7 @@ export function CarExpenseSection({
             <p className="text-xs text-muted-foreground">
               ${MILEAGE_RATE_2025}/dặm × số dặm kinh doanh
             </p>
-            {currentMethod === 'mileage' && (
+            {selectedMethod === 'mileage' && (
               <div className="mt-2 pt-2 border-t border-primary/20">
                 <span className="text-sm font-semibold text-primary">
                   Khuyên dùng
@@ -103,7 +107,7 @@ export function CarExpenseSection({
             onClick={() => handleMethodChange('actual')}
             className={cn(
               'p-4 rounded-lg border-2 text-left transition-all',
-              currentMethod === 'actual'
+              selectedMethod === 'actual'
                 ? 'border-primary bg-primary/5'
                 : 'border-border hover:border-primary/50'
             )}
@@ -119,7 +123,7 @@ export function CarExpenseSection({
         </div>
 
         {/* Mileage fields */}
-        {(currentMethod === 'mileage' || currentMethod === null) && (
+        {selectedMethod === 'mileage' && (
           <div className="space-y-4 pt-2">
             <div className="p-3 bg-muted rounded-lg">
               <label
@@ -177,7 +181,7 @@ export function CarExpenseSection({
         )}
 
         {/* Actual expense field */}
-        {currentMethod === 'actual' && carExpenseCategory && (
+        {selectedMethod === 'actual' && carExpenseCategory && (
           <div className="pt-2">
             <ExpenseField
               category={carExpenseCategory}

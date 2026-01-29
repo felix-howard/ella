@@ -14,7 +14,6 @@ import { IncomeSection } from './income-section'
 import { ExpenseSection } from './expense-section'
 import { CarExpenseSection } from './car-expense-section'
 import { VehicleInfoSection } from './vehicle-info-section'
-import { ProgressIndicator } from './progress-indicator'
 import { AutoSaveIndicator } from './auto-save-indicator'
 import { SuccessMessage } from './success-message'
 
@@ -33,7 +32,6 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
     isDirty,
     status,
     errorMessage,
-    progress,
     updateField,
     submit,
     resetError,
@@ -80,13 +78,6 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
     <div className="pb-32">
       {/* Form sections */}
       <div className="space-y-4 px-4">
-        {/* Progress indicator */}
-        <ProgressIndicator
-          filled={progress.filled}
-          total={progress.total}
-          className="py-2"
-        />
-
         {/* Locked warning */}
         {isLocked && (
           <div className="p-4 bg-error/10 border border-error/20 rounded-lg flex items-start gap-3">
@@ -173,19 +164,21 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isLocked || status === 'submitting'}
-            className="w-full h-12 text-base font-medium gap-2"
+            className="w-full h-12 text-base font-medium"
           >
-            {status === 'submitting' ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Đang gửi...
-              </>
-            ) : (
-              <>
-                <Send className="w-5 h-5" />
-                {buttonText}
-              </>
-            )}
+            <span className="inline-flex items-center justify-center gap-2">
+              {status === 'submitting' ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Đang gửi...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5" />
+                  <span>{buttonText}</span>
+                </>
+              )}
+            </span>
           </Button>
         </div>
       </div>

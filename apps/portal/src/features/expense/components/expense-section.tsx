@@ -4,21 +4,22 @@
  * Optimized with memo to prevent unnecessary re-renders
  */
 import { useMemo, memo } from 'react'
+import { ClipboardList, Briefcase, Home, Landmark, Users, Car, FileText, Package } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import { ExpenseField } from './expense-field'
 import { getCategoriesByGroup, GROUP_LABELS, type CategoryGroup } from '../lib/expense-categories'
 
-// Icons for each group
+// Lucide icons for each expense group
 const GROUP_ICONS: Record<CategoryGroup, React.ReactNode> = {
   income: null,
-  general: '📋',
-  professional: '💼',
-  property: '🏠',
-  financial: '💰',
-  people: '👥',
-  car: '🚗',
-  vehicle: '📝',
-  other: '📦',
+  general: <ClipboardList className="w-5 h-5 text-primary" />,
+  professional: <Briefcase className="w-5 h-5 text-primary" />,
+  property: <Home className="w-5 h-5 text-primary" />,
+  financial: <Landmark className="w-5 h-5 text-primary" />,
+  people: <Users className="w-5 h-5 text-primary" />,
+  car: <Car className="w-5 h-5 text-primary" />,
+  vehicle: <FileText className="w-5 h-5 text-primary" />,
+  other: <Package className="w-5 h-5 text-primary" />,
 }
 
 interface ExpenseSectionProps {
@@ -78,7 +79,7 @@ export const ExpenseSection = memo(function ExpenseSection({
       </CardHeader>
 
       <CardContent className="pt-0">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           {categories.map((category) => (
             <ExpenseField
               key={category.field}

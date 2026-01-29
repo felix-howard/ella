@@ -33,11 +33,11 @@ export interface FieldVerificationItemProps {
   className?: string
 }
 
-// Status border/bg styles (dark-mode friendly)
+// Status border/bg styles with left accent (dark-mode friendly)
 const STATUS_STYLES: Record<string, string> = {
-  verified: 'border-primary/50 bg-primary/5',
-  edited: 'border-amber-500/50 bg-amber-500/10',
-  unreadable: 'border-error/50 bg-error/5',
+  verified: 'border-l-2 border-l-primary border-primary/50 bg-primary/5',
+  edited: 'border-l-2 border-l-amber-500 border-amber-500/50 bg-amber-500/10',
+  unreadable: 'border-l-2 border-l-error border-error/50 bg-error/5',
 }
 
 export function FieldVerificationItem({
@@ -54,6 +54,8 @@ export function FieldVerificationItem({
   const [editValue, setEditValue] = useState(value)
   const [justSaved, setJustSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Prevents auto-save on blur when user clicks Cancel
+  const cancellingRef = useRef(false)
 
   // Update editValue when value prop changes
   useEffect(() => {
@@ -91,7 +93,11 @@ export function FieldVerificationItem({
   }, [value])
 
   const handleBlur = useCallback(() => {
-    // Auto-save on blur (per validation decision: auto-save on blur immediate)
+    // Skip auto-save if user is clicking Cancel
+    if (cancellingRef.current) {
+      cancellingRef.current = false
+      return
+    }
     handleSaveEdit()
   }, [handleSaveEdit])
 
@@ -150,7 +156,7 @@ export function FieldVerificationItem({
         )}
 
         {/* Label */}
-        <span className="text-sm text-muted-foreground flex-shrink-0 w-[140px]">{label}:</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0 w-[140px]">{label}:</span>
 
         {/* Value / Edit input */}
         {isEditing ? (
@@ -165,6 +171,7 @@ export function FieldVerificationItem({
               inputSize="sm"
             />
             <button
+              onMouseDown={() => { cancellingRef.current = true }}
               onClick={handleCancelEdit}
               className="p-1.5 rounded-md hover:bg-muted"
               aria-label="Hủy"
@@ -173,7 +180,7 @@ export function FieldVerificationItem({
             </button>
           </div>
         ) : (
-          <span className="flex-1 text-sm font-medium text-foreground">
+          <span className="flex-1 text-sm font-semibold text-foreground">
             {value || <span className="text-muted-foreground italic">Trống</span>}
           </span>
         )}
@@ -225,6 +232,7 @@ export function FieldVerificationItem({
           <Button
             size="sm"
             variant="ghost"
+            onMouseDown={() => { cancellingRef.current = true }}
             onClick={handleCancelEdit}
             className="h-8 w-8 p-0"
             aria-label="Hủy"

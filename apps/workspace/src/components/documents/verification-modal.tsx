@@ -8,13 +8,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, CheckCircle2, Clock } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
 import { getDocTypeFields } from '../../lib/doc-type-fields'
+import { DOC_TYPE_FIELD_GROUPS } from '../../lib/doc-type-field-groups'
 import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -117,8 +118,8 @@ export function VerificationModal({
     [doc.extractedData]
   )
 
-  // Extract and filter fields based on doc-type-specific fields
-  const { fields, fieldVerifications } = useMemo(() => {
+  // Extract, filter and group fields based on doc-type-specific fields
+  const { fields, fieldVerifications, groupedSections, ungroupedFields, fieldIndexMap } = useMemo(() => {
     // Merge server state with local optimistic state (local takes precedence for instant feedback)
     const serverVerifications = isRecord(doc.fieldVerifications)
       ? (doc.fieldVerifications as Record<string, FieldVerificationStatus>)
@@ -153,24 +154,45 @@ export function VerificationModal({
       flattenedData[key] = value
     }
 
-    // Filter to only show fields expected for this document type
-    // Order by expected fields order for consistent display
+    // Build flat ordered fields (for keyboard navigation)
     const orderedFields: Array<[string, unknown]> = []
     for (const fieldKey of expectedFields) {
       if (fieldKey in flattenedData) {
         orderedFields.push([fieldKey, flattenedData[fieldKey]])
       }
     }
-    // Add any extra extracted fields not in expected list (at the end)
     for (const [key, value] of Object.entries(flattenedData)) {
       if (!expectedFieldsSet.has(key)) {
         orderedFields.push([key, value])
       }
     }
 
+    // Build grouped sections for rendering
+    const docGroups = DOC_TYPE_FIELD_GROUPS[doc.docType] || []
+    const groupedKeys = new Set(docGroups.flatMap((g) => g.fields))
+
+    const sections = docGroups
+      .map((group) => {
+        const gFields = group.fields
+          .filter((key) => key in flattenedData)
+          .map((key) => [key, flattenedData[key]] as [string, unknown])
+        return { group, fields: gFields }
+      })
+      .filter((s) => s.fields.length > 0)
+
+    // Ungrouped: fields in orderedFields but not in any group
+    const ungrouped = orderedFields.filter(([key]) => !groupedKeys.has(key))
+
+    // Build O(1) lookup map for flat index (keyboard navigation)
+    const indexMap = new Map<string, number>()
+    orderedFields.forEach(([key], idx) => indexMap.set(key, idx))
+
     return {
       fields: orderedFields,
       fieldVerifications: verifications,
+      groupedSections: sections,
+      ungroupedFields: ungrouped,
+      fieldIndexMap: indexMap,
     }
   }, [extractedData, doc.fieldVerifications, doc.docType, localVerifications, localEditedValues])
 
@@ -526,28 +548,87 @@ export function VerificationModal({
                   </Button>
                 </div>
               ) : (
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <div className="divide-y divide-border/50">
-                    {fields.map(([key, value], index) => (
-                      <div
-                        key={key}
-                        className={cn(
-                          'transition-colors',
-                          index === currentFieldIndex && 'bg-primary/5',
-                          fieldVerifications[key] && 'bg-green-500/5'
-                        )}
-                      >
-                        <FieldVerificationItem
-                          fieldKey={key}
-                          label={getFieldLabelForDocType(key, doc.docType)}
-                          value={String(value ?? '')}
-                          status={fieldVerifications[key] || null}
-                          onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
-                          disabled={verifyFieldMutation.isPending}
-                        />
+                <div className="space-y-2">
+                  {/* Grouped sections */}
+                  {groupedSections.map(({ group, fields: groupFields }) => {
+                    const Icon = group.icon
+                    return (
+                      <section key={group.key} className="rounded-lg border border-border overflow-hidden">
+                        <div className="flex items-center gap-2 px-3 py-1.5 border-l-4 border-l-primary bg-muted/20">
+                          <div className="p-1 rounded-md bg-primary/10 text-primary">
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            {group.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">({groupFields.length})</span>
+                        </div>
+                        <div className="divide-y divide-border/50">
+                          {groupFields.map(([key, value]) => {
+                            const flatIndex = fieldIndexMap.get(key) ?? -1
+                            return (
+                              <div
+                                key={key}
+                                className={cn(
+                                  'transition-colors',
+                                  flatIndex === currentFieldIndex && 'bg-primary/5',
+                                  fieldVerifications[key] && 'bg-green-500/5'
+                                )}
+                              >
+                                <FieldVerificationItem
+                                  fieldKey={key}
+                                  label={getFieldLabelForDocType(key, doc.docType)}
+                                  value={String(value ?? '')}
+                                  status={fieldVerifications[key] || null}
+                                  onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
+                                  disabled={verifyFieldMutation.isPending}
+                                />
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </section>
+                    )
+                  })}
+
+                  {/* Ungrouped fields */}
+                  {ungroupedFields.length > 0 && (
+                    <section className="rounded-lg border border-border overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-1.5 border-l-4 border-l-primary bg-muted/20">
+                        <div className="p-1 rounded-md bg-primary/10 text-primary">
+                          <FileText className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Thông tin khác
+                        </span>
+                        <span className="text-xs text-muted-foreground">({ungroupedFields.length})</span>
                       </div>
-                    ))}
-                  </div>
+                      <div className="divide-y divide-border/50">
+                        {ungroupedFields.map(([key, value]) => {
+                          const flatIndex = fieldIndexMap.get(key) ?? -1
+                          return (
+                            <div
+                              key={key}
+                              className={cn(
+                                'transition-colors',
+                                flatIndex === currentFieldIndex && 'bg-primary/5',
+                                fieldVerifications[key] && 'bg-green-500/5'
+                              )}
+                            >
+                              <FieldVerificationItem
+                                fieldKey={key}
+                                label={getFieldLabelForDocType(key, doc.docType)}
+                                value={String(value ?? '')}
+                                status={fieldVerifications[key] || null}
+                                onVerify={(status, newValue) => handleVerifyField(key, status, newValue)}
+                                disabled={verifyFieldMutation.isPending}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
             </div>

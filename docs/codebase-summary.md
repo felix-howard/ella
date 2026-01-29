@@ -79,6 +79,24 @@
 | Phase 1.2 | Backend API Endpoints | 2026-01-13 |
 | Phase 1.1 | Database Schema | 2026-01-12 |
 
+## Verification Modal UI Enhancement Phase 4 - Shared Field Groups & Auto-Save (NEW - 2026-01-29)
+
+**Status:** ✅ COMPLETE | Refactored field grouping config into shared module + auto-save on blur
+
+**Summary:** Extracted `DOC_TYPE_FIELD_GROUPS` (field category config) into shared module for reuse across 3 components (verification-modal, ocr-verification-panel, data-entry-modal). Implemented field grouping UI with Vietnamese labels + icons. Added auto-save on blur in FieldEditForm with cancellingRef race condition fix. Updated field-verification-item with status-based left borders + font weight adjustments. See full details: `./phase-05-verification-modal.md`
+
+**Key Changes:**
+- NEW: `doc-type-field-groups.ts` - Shared FieldGroup interface + DOC_TYPE_FIELD_GROUPS config (137 LOC)
+- UPDATED: verification-modal.tsx - Grouped field rendering (field groups → sections with icons)
+- UPDATED: ocr-verification-panel.tsx - Field grouping + always-visible touch-friendly buttons
+- UPDATED: field-edit-form.tsx - Auto-save on blur + cancellingRef pattern for race condition safety
+- UPDATED: field-verification-item.tsx - Status borders (verified=primary, edited=amber) + font weight updates
+- UPDATED: data-entry-modal.tsx - Import from shared module (DRY)
+
+**Benefits:** DRY principle, UI consistency across surfaces, faster verification workflow (no manual save), race condition safe field switching
+
+---
+
 ## Schedule C Expense Collection Phase 4 - Workspace Viewer (NEW - 2026-01-28)
 
 **Status:** ✅ COMPLETE | Staff-facing dashboard for expense review & management

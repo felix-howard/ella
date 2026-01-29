@@ -27,22 +27,14 @@ export function FieldEditForm({
   const [localValue, setLocalValue] = useState(formatValueForInput(value, type))
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Prevents auto-save on blur when user clicks Cancel
+  const cancellingRef = useRef(false)
 
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [])
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSave()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onCancel()
-    }
-  }
 
   const handleSave = () => {
     // Validate based on type
@@ -55,6 +47,25 @@ export function FieldEditForm({
     // Convert to appropriate type
     const convertedValue = convertValue(localValue, type)
     onSave(convertedValue)
+  }
+
+  const handleBlur = () => {
+    // Skip auto-save if user is clicking Cancel
+    if (cancellingRef.current) {
+      cancellingRef.current = false
+      return
+    }
+    handleSave()
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      onCancel()
+    }
   }
 
   // TypeIcon available for future use
@@ -77,6 +88,7 @@ export function FieldEditForm({
               setError(null)
             }}
             onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
             className={cn(
               'w-full rounded-lg border bg-card text-foreground',
               'placeholder:text-muted-foreground',
@@ -99,6 +111,7 @@ export function FieldEditForm({
           <Check className="w-4 h-4" />
         </button>
         <button
+          onMouseDown={() => { cancellingRef.current = true }}
           onClick={onCancel}
           className={cn(
             'p-2 rounded-lg bg-muted text-muted-foreground',
@@ -111,7 +124,7 @@ export function FieldEditForm({
       </div>
       {error && <p className="text-xs text-error">{error}</p>}
       <p className="text-xs text-muted-foreground">
-        Enter để lưu • Escape để hủy
+        Enter để lưu • Escape để hủy • Tự lưu khi rời ô
       </p>
     </div>
   )

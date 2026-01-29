@@ -114,7 +114,6 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
             group={group}
             formData={formData}
             onChange={handleFieldChange}
-            defaultExpanded={group === 'general'}
           />
         ))}
 

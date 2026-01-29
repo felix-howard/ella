@@ -1,12 +1,10 @@
 /**
  * ExpenseSection Component
- * Groups related expense categories into a collapsible section
+ * Groups related expense categories into an always-expanded section
  * Optimized with memo to prevent unnecessary re-renders
  */
-import { useState, useMemo, useCallback, memo } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useMemo, memo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
-import { cn } from '@ella/ui'
 import { ExpenseField } from './expense-field'
 import { getCategoriesByGroup, GROUP_LABELS, type CategoryGroup } from '../lib/expense-categories'
 
@@ -27,6 +25,7 @@ interface ExpenseSectionProps {
   group: CategoryGroup
   formData: Record<string, unknown>
   onChange: (field: string, value: unknown) => void
+  /** @deprecated All sections are always expanded now */
   defaultExpanded?: boolean
 }
 
@@ -34,10 +33,7 @@ export const ExpenseSection = memo(function ExpenseSection({
   group,
   formData,
   onChange,
-  defaultExpanded = true,
 }: ExpenseSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
-
   // Get categories for this group
   const categories = useMemo(() => getCategoriesByGroup(group), [group])
 
@@ -60,26 +56,9 @@ export const ExpenseSection = memo(function ExpenseSection({
     }).length
   }, [categories, formData])
 
-  // Toggle expansion
-  const toggleExpanded = useCallback(() => {
-    setIsExpanded(prev => !prev)
-  }, [])
-
   return (
     <Card>
-      <CardHeader
-        className="cursor-pointer select-none"
-        onClick={toggleExpanded}
-        role="button"
-        aria-expanded={isExpanded}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            toggleExpanded()
-          }
-        }}
-      >
+      <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-base font-semibold text-foreground">
             <span aria-hidden="true">{GROUP_ICONS[group]}</span>
@@ -90,40 +69,26 @@ export const ExpenseSection = memo(function ExpenseSection({
               </span>
             )}
           </span>
-          <span className="flex items-center gap-3">
-            {sectionTotal > 0 && (
-              <span className="text-sm font-medium text-primary">
-                ${sectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            )}
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground" />
-            )}
-          </span>
+          {sectionTotal > 0 && (
+            <span className="text-sm font-medium text-primary">
+              ${sectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
 
-      <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-in-out',
-          isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-        )}
-      >
-        <CardContent className="pt-0">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {categories.map((category) => (
-              <ExpenseField
-                key={category.field}
-                category={category}
-                value={formData[category.field] as number | string | null}
-                onChange={(value) => onChange(category.field, value)}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </div>
+      <CardContent className="pt-0">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {categories.map((category) => (
+            <ExpenseField
+              key={category.field}
+              category={category}
+              value={formData[category.field] as number | string | null}
+              onChange={(value) => onChange(category.field, value)}
+            />
+          ))}
+        </div>
+      </CardContent>
     </Card>
   )
 })

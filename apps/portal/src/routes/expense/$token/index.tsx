@@ -11,7 +11,11 @@ import { expenseApi, type ExpenseFormData } from '../../../features/expense/lib/
 import { ExpenseErrorBoundary } from '../../../features/expense/components/expense-error-boundary'
 
 // Lazy load ExpenseForm (heaviest component with 20+ fields, hooks, sections)
-const ExpenseForm = lazy(() => import('../../../features/expense/components/expense-form').then(m => ({ default: m.ExpenseForm })))
+const ExpenseForm = lazy(() =>
+  import('../../../features/expense/components/expense-form').then((m) => ({
+    default: m.ExpenseForm,
+  }))
+)
 
 export const Route = createFileRoute('/expense/$token/')({
   component: ExpenseFormPage,
@@ -128,61 +132,44 @@ function ExpenseFormPage() {
       {/* Header */}
       <header className="px-6 pt-6 pb-4">
         <div className="flex items-center gap-3 mb-4">
-          <img
-            src={EllaLogoLight}
-            alt="Ella Tax"
-            className="w-10 h-10"
-          />
+          <img src={EllaLogoLight} alt="Ella Tax" className="h-10" />
           <div>
-            <h1 className="text-lg font-semibold text-foreground">
-              Form Chi Phí Kinh Doanh
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Năm thuế {data.taxYear}
-            </p>
+            <h1 className="text-lg font-semibold text-foreground">Form Chi Phí Kinh Doanh</h1>
+            <p className="text-sm text-muted-foreground">Năm thuế {data.taxYear}</p>
           </div>
         </div>
 
         {/* Client greeting */}
         <p className="text-sm text-muted-foreground">
-          Xin chào{' '}
-          <span className="font-medium text-accent">{data.client.name}</span>!
-          Vui lòng điền các chi phí kinh doanh của bạn bên dưới.
+          Xin chào <span className="font-medium text-accent">{data.client.name}</span>! Vui lòng
+          điền các chi phí kinh doanh của bạn bên dưới.
         </p>
       </header>
 
       {/* Form with error boundary (lazy loaded) */}
       <ExpenseErrorBoundary>
-        <Suspense fallback={
-          <div className="flex-1 flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 text-primary animate-spin" />
-          </div>
-        }>
+        <Suspense
+          fallback={
+            <div className="flex-1 flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          }
+        >
           <ExpenseForm token={token} initialData={data} />
         </Suspense>
       </ExpenseErrorBoundary>
 
       {/* Footer */}
       <footer className="px-6 py-4 text-center mt-auto">
-        <p className="text-xs text-muted-foreground">
-          Câu hỏi? Liên hệ CPA của bạn
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Ella Tax Document System
-        </p>
+        <p className="text-xs text-muted-foreground">Câu hỏi? Liên hệ CPA của bạn</p>
+        <p className="text-xs text-muted-foreground mt-1">Ella Tax Document System</p>
       </footer>
     </div>
   )
 }
 
 // Error view component
-function ErrorView({
-  error,
-  onRetry,
-}: {
-  error: ErrorState | null
-  onRetry: () => void
-}) {
+function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () => void }) {
   const isInvalidLink = useMemo(
     () =>
       error?.code === 'INVALID_TOKEN' ||
@@ -193,11 +180,7 @@ function ErrorView({
   )
 
   return (
-    <div
-      className="flex-1 flex items-center justify-center p-6"
-      role="alert"
-      aria-live="polite"
-    >
+    <div className="flex-1 flex items-center justify-center p-6" role="alert" aria-live="polite">
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-8 h-8 text-error" aria-hidden="true" />

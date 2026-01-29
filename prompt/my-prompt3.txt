@@ -1,77 +1,48 @@
-Với bài toán của Ella (phần mềm Tax Automation), quy tắc đặt tên file (Naming Convention) không chỉ để "cho đẹp" mà phải phục vụ 2 mục đích cốt tử:
+I ask
+"Ella của tôi đã giải quyết được bài toán
+khách hàng upload tài liệu thông qua sms hoặc portal
+lưu trữ tài liệu trong ella, tự động rename, và phân chia category, tự động extract data, staff verify extracted data rồi
 
-Human Readability: CPA nhìn vào tên file là biết ngay nội dung, không cần mở ra xem.
+nhưng vấn đề tiếp theo là
+tôi có nghe CPAs nói gì đó, tôi nhớ không rõ lắm mà kiểu như là
+"Form 1099 NEC nó rất vô dụng, chị (CPAs) không có nhập form 1099 NEC vào phần mềm Olt Pro vì nó rất phiền, thường chị sẽ kiểm tra xem client có form 1099 NEC không, nếu client có, chị sẽ tạo ra Schedult C (tôi chả biết Schedule C là cái quái gì), chị sẽ gửi cho client một link, đó là link để client vào điền một form kể ra các expense của Client, rồi chị tạo schedule C, cột gross chị sẽ lấy tổng của các form 1099 NEC của khách (tôi chả biết form 1099 NEC là gì luôn), rồi chị sẽ điền các chi phí mà khách đã điền trong form"
+NÓi chung tôi chỉ nghe sơ sơ không rõ lắm, tôi kể có thể không chính xác lắm nhưng mà đại ý là như vậy, bạn hãy giải thích lại cho tôi
+Ngoài ra sau cuộc nói chuyện, chị CPAs có gửi tôi cái mail này, tôi cũng không hiểu làm gì
 
-Machine Sortable: Khi tải về máy tính, file phải tự động sắp xếp theo thứ tự logic (Theo năm -> Theo loại -> Theo tên).
+"Schedule C
+Basic business info
+•       Proprietor’s name and Social Security Number
+•       Business name (if any) and address
+•       Principal business or profession (Line A) – short description of what you do
 
-Dưới đây là "Công thức Vàng" (The Golden Standard) được cộng đồng IT và Accounting khuyên dùng:
+Part I – Income
+•       Line 1: Gross receipts or sales – total income, including 1099‑NEC and 1099‑K amounts
+•       Line 2: Returns and allowances – refunds/price adjustments you gave customers
+•       Line 4: Cost of goods sold – from Part III, if you sell products
+•       Line 6: Other income – business income not reported elsewhere
+•       Line 7: Gross income – income after subtracting returns and cost of goods sold
 
-Công thức chuẩn cho Ella:
-[TaxYear]_[DocType]_[Source/Entity]_[ClientName]_[Sequence].[ext]
+Part II – Expenses
+•       Advertising
+•       Car and truck expenses (or standard mileage, if you qualify)
+•       Commissions and fees
+•       Contract labor (e.g., freelancers you pay)
+•       Depreciation and section 179 expense
+•       Insurance (other than health)
+•       Legal and professional services (tax prep, attorneys, bookkeeping)
+•       Office expense (supplies, postage, small equipment)
+•       Rent or lease (vehicles/equipment on 20a; other business property on 20b)
+•       Repairs and maintenance (non‑improvement work)
+•       Supplies (like materials you consume in your work)
+•       Taxes and licenses (sales tax, business licenses, payroll taxes, etc.)
+•       Travel, meals (business‑related)
+•       Utilities
+•       Wages (if you have employees)
+•       Other expenses (with description in Part V)
 
-Ví dụ thực tế sau khi AI của bạn xử lý:
+Part IV & V – Vehicles and “other expenses”
+•       Part IV: Information on your vehicle – when placed in service, total and business miles, commuting miles, and whether you have written mileage records if you claim car expenses
+•       Part V: Other expenses – detailed list of deductible business costs that do not have a preprinted line in Part II""
 
-2025_W2_GoogleLLC_AndyNguyen.pdf
-
-2025_1099NEC_UberTechnologies_AndyNguyen.pdf
-
-2025_DL_AndyNguyen.jpg (Driver License - Có thể bỏ TaxYear nếu là giấy tờ vĩnh viễn)
-
-Giải thích chi tiết từng thành phần:
-1. [TaxYear] (Năm thuế) - Quan trọng nhất
-Định dạng: YYYY (Ví dụ: 2024, 2025).
-
-Tại sao đặt đầu tiên? Để khi CPA lưu vào máy, các file sẽ tự động sort theo năm. File 2025 sẽ không bao giờ bị lẫn lộn vào đám giấy tờ 2024.
-
-Lưu ý: Đây phải là Năm Thuế (Tax Year) ghi trên tờ form, không phải năm hiện tại (Current Year) hay ngày upload.
-
-2. [DocType] (Loại tài liệu)
-Định dạng: Viết tắt chuẩn ngành thuế (Uppercase).
-
-Ví dụ: W2, 1099NEC, 1099INT, 1098T, DL (Driver License), SSN.
-
-Tại sao? Giúp gom nhóm. Tất cả file W2 sẽ nằm cạnh nhau, tất cả file 1099 sẽ nằm cạnh nhau.
-
-3. [Source/Entity] (Nguồn phát hành) - Giá trị gia tăng từ AI
-Định dạng: PascalCase (Viết hoa chữ cái đầu, không dấu cách) hoặc gạch dưới.
-
-Ví dụ: Google, ChaseBank, Uber, UniversityOfTexas.
-
-Tại sao? Đây là cái CPA quan tâm nhất để phân biệt. Khách có 3 cái W2, nếu chỉ đặt là W2_01, W2_02 thì vô nghĩa. Phải là W2_Google và W2_Facebook.
-
-4. [ClientName] (Tên khách hàng)
-Định dạng: LastNameFirstName hoặc FirstName_LastName.
-
-Tại sao? Đề phòng trường hợp CPA tải file ra Desktop hoặc folder chung (Bulk Download). Nếu file chỉ tên là 2025_W2_Google.pdf thì CPA sẽ không biết là của khách hàng nào.
-
-5. [Sequence] (Số thứ tự - Optional)
-Định dạng: _01, _02.
-
-Dùng khi: AI phát hiện trùng lặp (Ví dụ: Khách làm 2 job đều ở Google, có 2 tờ W2 Google khác nhau).
-
-Các quy tắc kỹ thuật (Technical Rules) cho Dev
-Khi bạn code tính năng đổi tên (Rename) cho Ella, hãy tuân thủ các quy tắc "Sanitization" (Làm sạch) sau để file tương thích mọi hệ điều hành (Windows, Mac, Linux):
-
-NO SPACES (Không dùng dấu cách):
-
-❌ Tệ: 2025 W2 Google Andy.pdf (Dễ gây lỗi khi upload lên server hoặc gửi qua URL).
-
-✅ Tốt: 2025_W2_Google_Andy.pdf hoặc 2025-W2-Google-Andy.pdf.
-
-Khuyên dùng: Underscore _ làm phân cách chính, vì nó dễ đọc hơn dấu gạch ngang -.
-
-Date Format ISO 8601 (Nếu cần ngày tháng cụ thể):
-
-Nếu file là hóa đơn (Receipt) cần ngày tháng, luôn dùng: YYYY-MM-DD.
-
-Ví dụ: 2025-01-31_Receipt_HomeDepot.pdf. (Sẽ luôn sort đúng thứ tự thời gian).
-
-Loại bỏ ký tự đặc biệt (Special Characters):
-
-Tuyệt đối loại bỏ: / \ : * ? " < > | (Các ký tự cấm của Windows).
-
-Loại bỏ dấu tiếng Việt: Nguyễn Văn A -> NguyenVanA.
-
-Độ dài tối đa:
-
-Cố gắng giữ tên file dưới 50-60 ký tự. Windows có giới hạn đường dẫn (Path limit 260 ký tự), nếu tên file quá dài cộng với tên thư mục dài sẽ gây lỗi không mở được file.
+Gemini answer
+"Bạn đang gặp đúng một trong những nghiệp vụ quan trọng nhất (và sinh lời nhất) của các CPA: Xử lý hồ sơ doanh nghiệp nhỏ/Freelancer.Đừng lo, những gì chị CPA nói là hoàn toàn chính xác về mặt chuyên môn, chỉ là cách diễn đạt hơi tắt. Để tôi giải thích tường tận cho bạn hiểu "Schedule C" và "1099-NEC" là gì dưới góc độ lập trình viên nhé.1. Giải mã khái niệm (CPA Dictionary)Để hiểu được logic của chị CPA, bạn cần hiểu 2 đối tượng này:A. Form 1099-NEC là gì? (Non-Employee Compensation)Hiểu đơn giản: Đây là "bằng chứng thu nhập" của những người làm nghề tự do (Freelancer), thợ nail, tài xế Uber, hoặc contractor.Khác gì W-2?W-2: Là đi làm thuê. Công ty đã trừ thuế giùm rồi. Bạn nhận lương ròng.1099-NEC: Là làm tư. Công ty trả cục tiền (Gross), chưa trừ đồng thuế nào.Hậu quả: Nếu chỉ nhập 1099-NEC vào phần mềm thuế, IRS sẽ hiểu là "Anh này kiếm được 100 triệu, chưa đóng thuế, hãy đánh thuế anh ta trên toàn bộ 100 triệu này". -> Thuế cực cao.B. Schedule C là gì? (Profit or Loss from Business)Hiểu đơn giản: Đây là một "bảng tính lỗ lãi" (Income Statement) dành cho cá nhân kinh doanh.Công thức thần thánh:$$Net Profit (Lãi ròng) = Income (Thu nhập) - Expenses (Chi phí)$$Vai trò: Mục đích của CPA là tạo ra cái Schedule C này để kê khai thêm chi phí (Expenses) vào.Ví dụ: Khách có 1099-NEC là $10,000.Nếu không có Schedule C: Đóng thuế trên $10,000.Nếu có Schedule C: Khách khai thêm tiền xăng xe, tiền quảng cáo, tiền mua kềm cắt móng... tổng cộng $4,000. -> Lãi ròng chỉ còn $6,000. -> Chỉ đóng thuế trên $6,000.2. Tại sao CPA lại có quy trình làm việc như vậy?Quay lại câu nói của chị CPA: "Form 1099-NEC nó rất vô dụng... chị sẽ kiểm tra xem client có form 1099 NEC không, nếu có chị sẽ gửi link điền expense..."Lý do là đây:Dữ liệu thiếu: Form 1099-NEC chỉ cho biết Đầu vào (Income). Nó hoàn toàn không chứa thông tin về Đầu ra (Expenses).Workflow của CPA:Bước 1: Nhìn thấy 1099-NEC -> Biết ngay khách này là chủ doanh nghiệp nhỏ (Sole Proprietorship).Bước 2: Phải đi tìm Chi phí (Expenses) để giảm thuế cho khách. Tài liệu này khách thường không gửi (vì nó lắt nhắt, hóa đơn lẻ tẻ).Bước 3: Gửi một cái form (Link) để khách tự liệt kê: "Năm qua chạy bao nhiêu dặm? Mua bao nhiêu vật tư?".Bước 4: CPA tổng hợp lại vào Schedule C.3. Phân tích cái Email chị CPA gửi bạnCái email đó chính là Cấu trúc dữ liệu (Data Schema) cho tính năng mới mà bạn cần xây dựng trên Ella. Chị ấy đang liệt kê các dòng (Line) trong tờ khai thuế Schedule C.Part I - Income: Tổng thu nhập (CPA sẽ cộng các tờ 1099-NEC lại điền vào đây).Part II - Expenses: Đây là phần quan trọng nhất. Chị ấy liệt kê các loại chi phí được phép trừ thuế:Advertising: Tiền chạy quảng cáo FB/Google.Car and truck expenses: Tiền xăng xe, hoặc tính theo dặm (mileage).Supplies: Mua đồ nghề (kềm, dũa, sơn...).Rent/Lease: Tiền thuê chỗ (thuê ghế trong tiệm nail).Wages: Tiền trả cho nhân viên (nếu có thuê người phụ).4. Giải pháp nâng cấp Ella (Action Plan)Hiện tại Ella đang dừng ở việc "Extract Data" từ 1099-NEC. Nhưng để thực sự hữu dụng ("Make Schedule C easier"), Ella cần thêm quy trình "Expense Collection" (Thu thập chi phí).User Flow đề xuất cho Ella:Phát hiện (Detection):Khách upload tài liệu.AI của Ella detect thấy có file loại 1099-NEC hoặc 1099-K.Kích hoạt (Trigger):Ella hiển thị gợi ý cho Staff: "Khách này có 1099-NEC, có muốn gửi form thu thập chi phí (Schedule C Organizer) không?"Thu thập (Collection):Staff bấm "Gửi".Khách nhận được SMS/Link mở ra một Web Form đơn giản (chính là nội dung cái email kia).Khách điền số tiền ước lượng vào các ô: Quảng cáo, Xăng xe, Vật tư... -> Bấm Gửi.Tổng hợp (Summary):Ella tạo ra một bản báo cáo "Draft Schedule C".Trong đó:Income = Tổng các form 1099-NEC đã extract.Expenses = Số liệu khách vừa điền trong Web Form.Staff chỉ cần nhìn bản Draft này và nhập vào phần mềm OltPro là xong.Kết luận:Chị CPA nói đúng. 1099-NEC chỉ là "phần nổi của tảng băng chìm". Phần chìm (chi phí) mới là thứ CPA cần để làm việc. Email chị ấy gửi chính là "đề bài" để bạn xây dựng form thu thập chi phí trên Ella đấy."

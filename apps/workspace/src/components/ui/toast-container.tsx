@@ -15,9 +15,9 @@ export function ToastContainer() {
           padding: '10px 16px',
           fontSize: '14px',
           fontWeight: 500,
-          background: 'hsl(var(--card))',
-          color: 'hsl(var(--foreground))',
-          border: '1px solid hsl(var(--border))',
+          background: 'hsl(222 47% 16%)',
+          color: 'white',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         },
         success: {
           duration: 3000,

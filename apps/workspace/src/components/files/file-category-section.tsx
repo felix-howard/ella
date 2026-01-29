@@ -336,10 +336,14 @@ const FileItemRow = memo(function FileItemRow({
       {!isRenaming && (
         <div className="flex items-center gap-2 flex-shrink-0">
           {isVerified && (
-            <span className="flex items-center gap-1 text-xs text-success">
+            <button
+              onClick={() => onVerify(doc)}
+              aria-label={`Xác minh lại ${docLabel}`}
+              className="flex items-center gap-1 text-xs text-success hover:text-success/80 focus:outline-none focus:ring-2 focus:ring-success/50 rounded px-1 transition-colors"
+            >
               <CheckCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Đã xác minh</span>
-            </span>
+            </button>
           )}
           {needsVerification && (
             <button

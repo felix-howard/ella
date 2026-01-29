@@ -800,6 +800,8 @@ export interface TaxCaseSummary {
   isInReview?: boolean
   /** Manual flag: case has been filed */
   isFiled?: boolean
+  /** Portal URL specific to this tax case/year */
+  portalUrl?: string | null
   _count: {
     rawImages: number
     digitalDocs: number

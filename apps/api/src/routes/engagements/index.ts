@@ -21,7 +21,8 @@ import {
 } from './schemas'
 import { strictRateLimit } from '../../middleware/rate-limiter'
 import { logEngagementChanges, computeEngagementDiff, type FieldChange } from '../../services/audit-logger'
-import type { EngagementStatus, Prisma } from '@ella/db'
+import { createMagicLink } from '../../services/magic-link'
+import type { EngagementStatus, Prisma, TaxType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 
 const engagementsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -179,6 +180,32 @@ engagementsRoute.post('/', strictRateLimit, zValidator('json', createEngagementS
     },
     include: { client: { select: { id: true, name: true } } },
   })
+
+  // Create TaxCase for this engagement (copy taxTypes from most recent case or default)
+  const latestCase = await prisma.taxCase.findFirst({
+    where: { clientId },
+    orderBy: { createdAt: 'desc' },
+    select: { taxTypes: true },
+  })
+  const taxTypes = (latestCase?.taxTypes as TaxType[]) ?? ['FORM_1040']
+
+  const taxCase = await prisma.taxCase.create({
+    data: {
+      clientId,
+      taxYear,
+      engagementId: engagement.id,
+      taxTypes,
+      status: 'INTAKE',
+    },
+  })
+
+  // Create conversation for the case (for messaging)
+  await prisma.conversation.create({
+    data: { caseId: taxCase.id, lastMessageAt: new Date() },
+  })
+
+  // Create magic link for portal access (async, non-blocking)
+  createMagicLink(taxCase.id).catch(() => {})
 
   // Audit log: Log creation (async, non-blocking)
   const createChanges: FieldChange[] = [

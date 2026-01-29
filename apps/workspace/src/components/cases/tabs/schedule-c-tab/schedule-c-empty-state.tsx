@@ -38,7 +38,7 @@ export function ScheduleCEmptyState({ caseId, count1099NEC }: ScheduleCEmptyStat
           onClick={() => sendForm.mutate()}
           disabled={sendForm.isPending}
           size="lg"
-          className="gap-2"
+          className="gap-2 px-16"
           aria-label="Gửi form thu thập chi phí Schedule C"
         >
           {sendForm.isPending ? (

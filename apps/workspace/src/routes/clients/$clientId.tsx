@@ -40,7 +40,6 @@ import {
 import {
   ClientOverviewSections,
   ComputedStatusBadge,
-  EngagementHistorySection,
   YearSwitcher,
   CreateEngagementModal,
 } from '../../components/clients'
@@ -398,7 +397,8 @@ function ClientDetailPage() {
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'files', label: 'Tài liệu', icon: FolderOpen },
-    { id: 'checklist', label: 'Danh sách', icon: FileText },
+    // TODO: Temporarily hidden - re-enable when needed
+    // { id: 'checklist', label: 'Danh sách', icon: FileText },
     // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
     ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
     { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
@@ -510,10 +510,10 @@ function ClientDetailPage() {
               </Button>
             )}
 
-            {/* Portal Link - Open button only */}
-            {client.portalUrl && (
+            {/* Portal Link - scoped to selected engagement's tax case */}
+            {(selectedCase?.portalUrl || client.portalUrl) && (
               <a
-                href={client.portalUrl}
+                href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
@@ -584,11 +584,6 @@ function ClientDetailPage() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Engagement History - shows multi-year filing history */}
-          <EngagementHistorySection
-            clientId={clientId}
-            currentTaxYear={activeCase?.taxYear}
-          />
           {/* Client Profile Overview */}
           <ClientOverviewSections client={client} />
         </div>

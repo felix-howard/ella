@@ -15,30 +15,30 @@ export function ToastContainer() {
           padding: '10px 16px',
           fontSize: '14px',
           fontWeight: 500,
-          background: 'hsl(222 47% 16%)',
-          color: 'white',
+          background: '#1E293B',
+          color: '#F1F5F9',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         },
         success: {
           duration: 3000,
           style: {
-            background: 'hsl(var(--success))',
+            background: '#059669',
             color: 'white',
           },
           iconTheme: {
             primary: 'white',
-            secondary: 'hsl(var(--success))',
+            secondary: '#059669',
           },
         },
         error: {
           duration: 4000,
           style: {
-            background: 'hsl(var(--error))',
+            background: '#EF4444',
             color: 'white',
           },
           iconTheme: {
             primary: 'white',
-            secondary: 'hsl(var(--error))',
+            secondary: '#EF4444',
           },
         },
       }}

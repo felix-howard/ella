@@ -69,8 +69,8 @@ export function YearSwitcher({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors',
-          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/30',
-          isOpen ? 'border-primary bg-primary-light/30' : 'border-border'
+          'hover:bg-muted focus:outline-none',
+          'border-border'
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}

@@ -12,7 +12,7 @@ import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
 import { updateLastActivity } from '../../services/activity-tracker'
-import type { DocType, ChecklistItemStatus, RawImageStatus, Language } from '@ella/db'
+import type { DocType, ChecklistItemStatus, RawImageStatus, Language, DocCategory } from '@ella/db'
 
 const imagesRoute = new Hono()
 
@@ -37,6 +37,11 @@ const requestReuploadSchema = z.object({
 // Schema for renaming file
 const renameSchema = z.object({
   filename: z.string().min(1, 'Filename is required').max(255, 'Filename too long'),
+})
+
+// Schema for changing category
+const changeCategorySchema = z.object({
+  category: z.enum(['IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
 })
 
 /**
@@ -512,6 +517,45 @@ imagesRoute.patch(
       success: true,
       id: updated.id,
       filename: updated.filename,
+    })
+  }
+)
+
+/**
+ * PATCH /images/:id/category - Change document category
+ * Used for drag-and-drop between categories in Files tab
+ */
+imagesRoute.patch(
+  '/:id/category',
+  zValidator('json', changeCategorySchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { category } = c.req.valid('json')
+
+    // Find and update the raw image
+    const rawImage = await prisma.rawImage.findUnique({
+      where: { id },
+      select: { id: true, category: true, caseId: true },
+    })
+
+    if (!rawImage) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Image not found' },
+        404
+      )
+    }
+
+    // Update category
+    const updated = await prisma.rawImage.update({
+      where: { id },
+      data: { category: category as DocCategory },
+      select: { id: true, category: true },
+    })
+
+    return c.json({
+      success: true,
+      id: updated.id,
+      category: updated.category,
     })
   }
 )

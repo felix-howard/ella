@@ -74,6 +74,7 @@ export interface PortalTaxCase {
   id: string
   taxYear: number
   status: string
+  engagementId?: string  // Added for multi-year support (Phase 5)
 }
 
 export interface ChecklistDoc {

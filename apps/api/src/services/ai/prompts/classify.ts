@@ -118,6 +118,10 @@ export interface ClassificationResult {
     docType: SupportedDocType
     confidence: number
   }>
+  // Naming components for auto-rename feature
+  taxYear: number | null // e.g., 2025 - extracted from document period
+  source: string | null // Employer/bank/issuer name - extracted from document
+  recipientName: string | null // Person's name from document (employee, recipient, account holder)
 }
 
 /**
@@ -242,7 +246,20 @@ ${VIETNAMESE_NAME_HANDLING}
 ${CONFIDENCE_CALIBRATION}
 
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[]}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name"}
+
+EXTRACTION RULES FOR NAMING:
+- taxYear: Extract from Box period, statement date, form header "Tax Year 20XX", or document date. Use null if unclear.
+- source: Extract employer name (W2 Box c), bank name (1099-INT payer), issuer. Remove legal suffixes (case-insensitive): "Inc", "Inc.", "LLC", "Corp", "Corp.", "Corporation", "Co", "Co.", "Ltd", "Ltd.". Use null if not found or if only generic name remains.
+- recipientName: Extract the person's name from the document:
+  - W2: Employee name (Box e - Employee's first name and initial, Box f - Employee's last name)
+  - 1099-NEC/MISC/K/R/G/B/S/C: Recipient's name
+  - 1099-INT/DIV: Account holder's name
+  - SSN_CARD: Name on card
+  - DRIVER_LICENSE: Name on license
+  - PASSPORT: Name on passport
+  - Other documents: Person's name if clearly identifiable
+  - Use null if no person name found or unclear
 
 RULES:
 1. Confidence 0-1 scale, be conservative (rarely use > 0.95)
@@ -250,7 +267,9 @@ RULES:
 3. Key identifiers: form numbers (1099-K, W-2), titles, logos, issuer names
 4. For 1099 variants, ALWAYS verify the specific letter suffix (INT vs DIV vs NEC vs K vs R vs G)
 5. If unclear or unreadable, use UNKNOWN with low confidence
-6. Check for "CORRECTED" checkbox on any tax form`
+6. Check for "CORRECTED" checkbox on any tax form
+7. taxYear must be a 4-digit year between 2000-2100, or null
+8. source should be clean company/entity name without legal suffixes`
 }
 
 /**
@@ -273,6 +292,29 @@ export function validateClassificationResult(
 
   // Validate confidence range
   if (r.confidence < 0 || r.confidence > 1) return false
+
+  // Validate taxYear (optional, number or null)
+  // Range 2000-2100 covers historical documents and future-proofs for 70+ years
+  if ('taxYear' in r && r.taxYear !== null) {
+    if (typeof r.taxYear !== 'number' || r.taxYear < 2000 || r.taxYear > 2100) {
+      return false
+    }
+  }
+
+  // Validate source (optional, non-empty string or null)
+  // Treat empty strings as invalid - use null for missing source
+  if ('source' in r && r.source !== null) {
+    if (typeof r.source !== 'string' || r.source.trim() === '') {
+      return false
+    }
+  }
+
+  // Validate recipientName (optional, non-empty string or null)
+  if ('recipientName' in r && r.recipientName !== null) {
+    if (typeof r.recipientName !== 'string' || r.recipientName.trim() === '') {
+      return false
+    }
+  }
 
   return true
 }

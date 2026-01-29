@@ -26,6 +26,12 @@ import {
   type CompleteTemplateParams,
 } from './complete'
 
+import {
+  generateScheduleCMessage,
+  SCHEDULE_C_TEMPLATE_NAME,
+  type ScheduleCTemplateParams,
+} from './schedule-c'
+
 // Re-export everything
 export {
   generateWelcomeMessage,
@@ -36,6 +42,8 @@ export {
   BLURRY_RESEND_TEMPLATE_NAME,
   generateCompleteMessage,
   COMPLETE_TEMPLATE_NAME,
+  generateScheduleCMessage,
+  SCHEDULE_C_TEMPLATE_NAME,
 }
 
 export type {
@@ -43,6 +51,7 @@ export type {
   MissingDocsTemplateParams,
   BlurryResendTemplateParams,
   CompleteTemplateParams,
+  ScheduleCTemplateParams,
 }
 
 // Template name union type
@@ -51,6 +60,7 @@ export type TemplateName =
   | typeof MISSING_DOCS_TEMPLATE_NAME
   | typeof BLURRY_RESEND_TEMPLATE_NAME
   | typeof COMPLETE_TEMPLATE_NAME
+  | typeof SCHEDULE_C_TEMPLATE_NAME
 
 // Language type
 export type SmsLanguage = 'VI' | 'EN'

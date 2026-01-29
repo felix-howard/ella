@@ -33,11 +33,11 @@ export interface FieldVerificationItemProps {
   className?: string
 }
 
-// Status border/bg styles (dark-mode friendly)
+// Status border/bg styles with left accent (dark-mode friendly)
 const STATUS_STYLES: Record<string, string> = {
-  verified: 'border-primary/50 bg-primary/5',
-  edited: 'border-amber-500/50 bg-amber-500/10',
-  unreadable: 'border-error/50 bg-error/5',
+  verified: 'border-l-2 border-l-primary border-primary/50',
+  edited: '',
+  unreadable: 'border-l-2 border-l-error border-error/50 bg-error/5',
 }
 
 export function FieldVerificationItem({
@@ -54,6 +54,8 @@ export function FieldVerificationItem({
   const [editValue, setEditValue] = useState(value)
   const [justSaved, setJustSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Prevents auto-save on blur when user clicks Cancel
+  const cancellingRef = useRef(false)
 
   // Update editValue when value prop changes
   useEffect(() => {
@@ -91,7 +93,11 @@ export function FieldVerificationItem({
   }, [value])
 
   const handleBlur = useCallback(() => {
-    // Auto-save on blur (per validation decision: auto-save on blur immediate)
+    // Skip auto-save if user is clicking Cancel
+    if (cancellingRef.current) {
+      cancellingRef.current = false
+      return
+    }
     handleSaveEdit()
   }, [handleSaveEdit])
 
@@ -133,14 +139,13 @@ export function FieldVerificationItem({
         data-field-key={fieldKey}
         onClick={!isEditing && !disabled ? handleStartEdit : undefined}
       >
-        {/* Status indicator */}
-        {status && (
+        {/* Status indicator - only show for verified/unreadable, not edited */}
+        {status && status !== 'edited' && (
           <div
             className="flex-shrink-0 mt-0.5"
-            title={status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}
+            title={status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
           >
             {status === 'verified' && <Check className="w-4 h-4 text-primary" />}
-            {status === 'edited' && <Pencil className="w-4 h-4 text-amber-500" />}
             {status === 'unreadable' && <AlertTriangle className="w-4 h-4 text-error" />}
           </div>
         )}
@@ -151,33 +156,39 @@ export function FieldVerificationItem({
         )}
 
         {/* Label */}
-        <span className="text-sm text-muted-foreground flex-shrink-0 w-[140px]">{label}:</span>
+        <span className="text-xs text-muted-foreground flex-shrink-0 w-[140px]">{label}:</span>
 
-        {/* Value / Edit input */}
-        {isEditing ? (
-          <div className="flex-1 flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-            <Input
-              ref={inputRef}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              className="flex-1 h-8 text-sm py-1 px-3 focus:ring-1 focus:ring-primary"
-              inputSize="sm"
-            />
-            <button
-              onClick={handleCancelEdit}
-              className="p-1.5 rounded-md hover:bg-muted"
-              aria-label="Hủy"
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-        ) : (
-          <span className="flex-1 text-sm font-medium text-foreground">
-            {value || <span className="text-muted-foreground italic">Trống</span>}
-          </span>
-        )}
+        {/* Value / Edit input — fixed height to prevent layout jump */}
+        <div className="flex-1 flex items-center min-h-[28px]">
+          {isEditing ? (
+            <div className="flex-1 flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
+              <Input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                className="flex-1 h-7 text-sm py-0 px-2 focus:ring-1 focus:ring-primary"
+                inputSize="sm"
+              />
+              <button
+                onMouseDown={() => { cancellingRef.current = true }}
+                onClick={handleCancelEdit}
+                className="p-1 rounded-md hover:bg-muted flex-shrink-0"
+                aria-label="Hủy"
+              >
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          ) : (
+            <span className={cn(
+              'flex-1 text-sm font-semibold',
+              status === 'edited' ? 'text-amber-500' : 'text-foreground'
+            )}>
+              {value || <span className="text-muted-foreground italic">Trống</span>}
+            </span>
+          )}
+        </div>
 
         {/* Edit icon - visible on hover when not editing */}
         {!isEditing && !disabled && (
@@ -226,6 +237,7 @@ export function FieldVerificationItem({
           <Button
             size="sm"
             variant="ghost"
+            onMouseDown={() => { cancellingRef.current = true }}
             onClick={handleCancelEdit}
             className="h-8 w-8 p-0"
             aria-label="Hủy"
@@ -234,19 +246,18 @@ export function FieldVerificationItem({
           </Button>
         </div>
       ) : (
-        <div className="font-medium text-foreground">
+        <div className={cn('font-medium', status === 'edited' ? 'text-amber-500' : 'text-foreground')}>
           {value || <span className="text-muted-foreground italic">Trống</span>}
         </div>
       )}
 
-      {/* Status indicator with icon for colorblind accessibility */}
-      {status && (
+      {/* Status indicator with icon for colorblind accessibility - only show for verified/unreadable */}
+      {status && status !== 'edited' && (
         <div className="flex items-center gap-1.5 mt-2">
           {status === 'verified' && <Check className="w-3.5 h-3.5 text-primary" />}
-          {status === 'edited' && <Pencil className="w-3.5 h-3.5 text-amber-500" />}
           {status === 'unreadable' && <AlertTriangle className="w-3.5 h-3.5 text-error" />}
           <span className="text-xs text-muted-foreground">
-            {status === 'verified' ? 'Đã xác minh' : status === 'edited' ? 'Đã sửa' : 'Không đọc được'}
+            {status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
           </span>
         </div>
       )}

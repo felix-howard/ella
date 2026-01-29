@@ -1,8 +1,81 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-22 ICT
-> **Current Phase:** Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Incoming Call UI Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + All prior enhancements
+> **Last Updated:** 2026-01-28 23:55 ICT
+> **Current Phase:** Schedule C Expense Collection (Phase 3 Complete: 60% Overall) + Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
+> **Overall Project Progress:** 100% MVP + Schedule C Phase 3 Complete (60% Overall) + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + Auto-Rename Documents & Category Grouping (Phase 1 Complete, 20%) + All prior enhancements
+
+### Schedule C Expense Collection - Phase 3 Complete (60% Overall) ✅
+**Started:** 2026-01-28 09:42 ICT
+**Target Completion:** 2026-02-01
+**Deliverable:** Self-employed expense collection via SMS-delivered magic link forms with auto-prefilled 1099-NEC income
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema | ✅ DONE | 2026-01-28 | ScheduleCExpense model, 20+ expense fields, version history, migration. Tests: 578/578 passing. Code review: 10/10 |
+| 2 | API Endpoints | ✅ DONE | 2026-01-28 | 8 endpoints (5 staff + 3 public), magic link integration, SMS templates. Tests: 578/578 passing. Code review: 9.2/10 |
+| 3 | Portal Expense Form | ✅ DONE | 2026-01-28 23:55 | 18 files, 2,400 LOC, Vietnamese-first form, 10 UI components, 2 hooks, 3 utilities, auto-save, accessibility. Tests: 578/578 passing. Code review: 8.7/10 |
+| 4 | Workspace Schedule C Tab | ⏳ PENDING | - | Case detail tab, summary view, version history, send/lock/resend actions |
+| 5 | Testing & Polish | ⏳ PENDING | - | Integration tests, edge cases, performance optimization |
+
+**Completion Summary (Phases 1-3):**
+- **Phase 1:** ScheduleCExpense model with income + 20+ expense fields, version history tracking, Prisma migration. 578/578 tests passing. Code review: 10/10.
+- **Phase 2:** Staff endpoints (send, view, lock, resend) + Public endpoints (GET/POST/PATCH). Magic link type extension (SCHEDULE_C). SMS template generation + sending. Expense calculator service (income prefill from 1099-NECs). Version history tracking. 578/578 tests passing. Code review: 9.2/10.
+- **Phase 3:** Portal expense form (18 files, 2,400 LOC) with 10 components (ExpenseForm, IncomeSection, ExpenseSection, CarExpenseSection, VehicleInfoSection, ExpenseField, ProgressIndicator, AutoSaveIndicator, SuccessMessage, ExpenseErrorBoundary), 2 hooks (useExpenseForm, useAutoSave), 3 utilities (expense-api, expense-categories, form-utils). Route layer: $token.tsx (layout) + $token/index.tsx (page). **Features:** 28 IRS Schedule C expense categories (7 groups: income, general, professional, property, financial, people, car, other) + vehicle info section (mileage/commute/personal miles + date in service). Car mileage vs actual expense toggle. Auto-save (30s debounce, 2.5KB payload limit). Version history snapshots. Locked form handling. Magic link validation. Vietnamese-first labels + tooltips. **Accessibility:** ARIA labels (role, aria-describedby), keyboard navigation (Tab/Enter), error announcements. **Form states:** Loading, success, error, locked. Tests: 578/578 passing. Type-check pass, build pass (407.86 kB). Code review: 8.7/10.
+- Branch: feature/engagement-only
+- API + Portal form fully functional
+- **Next:** Phase 4 (Workspace Schedule C Tab)
+
+---
+
+### Simplify Client Workflow - 100% Complete ✅
+**Started:** 2026-01-27 16:23 ICT
+**Completed:** 2026-01-27 20:15 ICT
+**Target Completion:** 2026-01-29
+**Deliverable:** Simplified client creation (name+phone only), Files tab for document explorer, multi-year engagement UI
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Simplify Client Creation | ✅ DONE | 2026-01-27 | 2-step wizard (basic info + tax year + send SMS), auto SMS preserved. Code review 9.5/10 |
+| 2 | Create Files Tab | ✅ DONE | 2026-01-27 17:32 | File explorer showing ALL docs, AI categorized, collapsible folders. 8 new components. Code review 9.5/10 |
+| 3 | Multi-Engagement UI | ✅ DONE | 2026-01-27 19:54 | YearSwitcher + CreateEngagementModal components, client detail page integration. Code review 9.5/10 |
+| 4 | Integration & Testing | ✅ DONE | 2026-01-27 20:15 | End-to-end tests, UAT validation, ErrorBoundary wrapper, edge case handling, Vietnamese labels audit |
+
+**Completion Summary (Phases 1-4):**
+- **Phase 1:** `clients/new.tsx` reduced to 2-step form, TaxYear selection, SMS auto-send. Zero breaking changes.
+- **Phase 2:** Files tab with 8 components (doc-categories.ts, files-tab.tsx, unclassified-section.tsx, file-category-section.tsx, image-thumbnail.tsx, index.ts). All RawImages shown categorized by AI classification. Unclassified section with count badge. Classification & verification modals integrated. Vietnamese labels throughout.
+- **Phase 3:** YearSwitcher dropdown component with status badges, CreateEngagementModal with copy-from-previous option, client detail page integration with selectedEngagementId state management. EngagementHistorySection simplified.
+- **Phase 4:** ErrorBoundary wrapper on FilesTab, verified loading states in YearSwitcher/CreateEngagementModal, Vietnamese label audit for consistency, edge case handling verified (empty states, single year, error scenarios). Type-check pass, build pass, 535 tests pass.
+- Branch: feature/engagement-only
+- Code quality: Phase 1 9.5/10, Phase 2 9.5/10, Phase 3 9.5/10, Phase 4 9.5/10
+- **Status:** Ready for merge to main
+
+---
+
+### Phase 8: Multi-Year Client Engagement Model - In Progress (66.67% Complete) ⏳
+**Started:** 2026-01-25 13:45 ICT
+**Target Completion:** 2026-01-26
+**Deliverable:** Restructure data model to support returning clients across tax years with TaxEngagement layer
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 8.1 | Schema Migration | ✅ DONE | 2026-01-25 13:45 | TaxEngagement model, FK, indexes, audit enum added |
+| 8.2 | Data Migration | ✅ DONE | 2026-01-25 23:05 | Backfill engagements from ClientProfile+TaxCase |
+| 8.3 | Schema Cleanup | ✅ DONE | 2026-01-26 00:15 | Make engagementId required, remove legacy fields. Code review 9.5/10 |
+| 8.4 | API Updates | ✅ DONE | 2026-01-26 07:48 | All engagement CRUD, backward compat layer. Tests 464/464 passing, 9.5/10 review |
+| 8.5 | Frontend Updates | ⏳ PENDING | - | Engagement selector, copy-from-previous feature |
+| 8.6 | Testing & Validation | ⏳ PENDING | - | Unit + integration tests, data validation |
+
+**Completion Summary (Phases 8.1-8.4):**
+- **8.1:** TaxEngagement model with clientId FK, taxYear, all profile fields, composite indexes, AuditEntityType enum
+- **8.2:** Backfill script migrated data from ClientProfile+TaxCase, verified zero data loss
+- **8.3:** Made engagementId required on TaxCase, removed legacy clientId/taxYear, deprecated ClientProfile (9.5/10 review)
+- **8.4:** All 6 engagement CRUD endpoints live, case creation auto-creates engagement, client creation creates engagement, backward compatibility maintained, deprecation headers implemented, 464/464 tests passing (9.5/10 review)
+- Branch: feature/multi-tax-year
+- Zero-downtime, fully backward compatible
+- **All critical success criteria met - Production ready for Phase 5**
 
 ---
 
@@ -604,11 +677,14 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 4.8 | 2026-01-28 00:28 | PM | NEW PROJECT: Schedule C Expense Collection - Phase 2 COMPLETE (33% overall). 8 endpoints implemented (5 staff + 3 public), magic link SCHEDULE_C type, SMS templates, expense calculator service. 578/578 tests passing. Code review: 9.2/10. Phase 3 (Portal Expense Form) pending. |
+| 4.7 | 2026-01-27 20:15 | PM | MILESTONE: Simplify Client Workflow - Phase 4 COMPLETE (100% overall). ErrorBoundary on FilesTab, loading states verified in YearSwitcher/CreateEngagementModal, Vietnamese labels audited & standardized, edge cases handled (empty states, single year, error scenarios). Type-check pass, build pass, 535/535 tests pass. Code review 9.5/10. Feature ready for merge to main. |
 | 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |
 | 4.4 | 2026-01-22 | PM | Actionable Client Status - Phase 4 COMPLETE (64% overall). Constants & Labels Update: Centralized ACTION_BADGE_LABELS, ACTION_BADGE_ARIA_LABELS (6 Vietnamese + accessibility), TIME_FORMATS localization helpers, STALE_THRESHOLD_DAYS=7. Refactored action-badge.tsx to use constants. All 4 phases complete (database/api/frontend/constants). Ready for Phase 5 (testing & migration). |
 | 4.3 | 2026-01-22 13:40 | PM | PHASE 7.1 UPDATE: Voice Calls - Phase 7.1.1a (Voicemail Helpers) COMPLETE. 6 helper functions, 83/83 tests passing (up from 54), 9/10 code review. Includes E.164 validation, XSS sanitization, race condition handling (upsert pattern). |
 | 4.3 | 2026-01-21 22:06 | PM | NEW PROJECT: Actionable Client Status System - Phase 1 COMPLETE (16% overall). Database & Backend Foundation: Schema changes (isInReview, isFiled, lastActivityAt), computed status utility, action counts types, activity tracker service. 23/23 tests passing, 9/10 code review. |
-| 4.2 | 2026-01-21 12:00 | PM | ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 03 COMPLETE (75% overall). Data Entry Tab (299 lines, 9/10 code review). Shows VERIFIED docs in responsive 4/3/2 grid, no scroll. Copy/view actions + XSS sanitization + ErrorBoundary. All success criteria met. Phase 04 (Integration) pending. |
+| 4.6 | 2026-01-25 | PM | NEW PHASE: Multi-Year Client Engagement Model - Phase 8.1 (Schema Migration) COMPLETE. TaxEngagement model with all profile fields, composite indexes, FK on TaxCase, audit enum extended. Zero-downtime, fully backward compatible. 12.5% overall progress (Phase 8 of 6). |
+| 4.5 | 2026-01-21 12:00 | PM | ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 03 COMPLETE (75% overall). Data Entry Tab (299 lines, 9/10 code review). Shows VERIFIED docs in responsive 4/3/2 grid, no scroll. Copy/view actions + XSX sanitization + ErrorBoundary. All success criteria met. Phase 04 (Integration) pending. |
 | 4.1 | 2026-01-21 10:40 | PM | NEW ENHANCEMENT TRACK: Document Tab UX Redesign - Phase 01 COMPLETE. Unclassified docs card (168 lines, 9/10 code review). UPLOADED/UNCLASSIFIED filtering, responsive 4/3/2 grid, ManualClassificationModal integration. Ready for Phase 02 (category-based checklist). |
 | 4.0 | 2026-01-20 22:40 | PM | NEW PHASE: Phase 7.1 Twilio Voice Calls - Phase 01 (Backend Voice API) COMPLETE. Token generation, TwiML webhooks, signature validation, rate limiting, 54/54 tests passing. Production ready for Phase 02 frontend. |
 | 3.9 | 2026-01-20 21:24 | PM | ENHANCEMENT TRACK: Section-Edit Modals - 100% COMPLETE (Phase 05 Testing & Polish Done). 91 total tests (22 profile-update + 22 audit-logger), 100% pass rate. Security fixes: prototype pollution blocklist, XSS sanitization. Code review 9/10. All 5 phases complete, ready for merge. |

@@ -8,14 +8,16 @@
  * 3. Check for duplicates (pHash) - skip AI if duplicate found
  * 4. Classify with Gemini (with error handling for unavailability)
  * 5. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 6. OCR extraction (if confidence >= 60% and doc type supports OCR)
- * 7. Update DB with results
+ * 6. Rename file with naming convention (classified docs only)
+ * 7. OCR extraction (if confidence >= 60% and doc type supports OCR)
+ * 8. Update DB with results
  */
 
 import sharp from 'sharp'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
-import { fetchImageBuffer } from '../services/storage'
+import { fetchImageBuffer, renameFile } from '../services/storage'
+import { getCategoryFromDocType, getDisplayNameFromKey } from '@ella/shared'
 import { classifyDocument, requiresOcrExtraction } from '../services/ai'
 // Simple PDF check (pdf-poppler removed)
 const isPdfMimeType = (mimeType: string) => mimeType === 'application/pdf'
@@ -33,7 +35,7 @@ import {
   getActionPriority,
 } from '../services/ai/ai-error-messages'
 import { generateImageHash, findDuplicateInCase } from '../services/ai/duplicate-detector'
-import type { DocType } from '@ella/db'
+import type { DocType, DocCategory } from '@ella/db'
 
 // Confidence thresholds from plan
 const HIGH_CONFIDENCE = 0.85
@@ -238,8 +240,12 @@ export const classifyDocumentJob = inngest.createFunction(
         if (!result.success && result.error && isServiceUnavailable(result.error)) {
           const errorInfo = getVietnameseError(result.error)
 
-          // Mark for manual classification and create action with Vietnamese message
-          await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', 0)
+          // Put in OTHER category (not unclassified) and create action
+          await updateRawImageStatus(rawImageId, 'CLASSIFIED', 0, 'OTHER' as DocType)
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: { category: 'OTHER' },
+          })
           await createAction({
             caseId,
             type: 'AI_FAILED',
@@ -264,6 +270,9 @@ export const classifyDocumentJob = inngest.createFunction(
           confidence: result.confidence,
           reasoning: result.reasoning,
           error: result.error,
+          taxYear: result.taxYear,
+          source: result.source,
+          recipientName: result.recipientName,
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -280,6 +289,9 @@ export const classifyDocumentJob = inngest.createFunction(
           confidence: 0,
           reasoning: 'Classification error occurred',
           error: errorMessage,
+          taxYear: null,
+          source: null,
+          recipientName: null,
         }
       }
     })
@@ -288,13 +300,14 @@ export const classifyDocumentJob = inngest.createFunction(
     const routing = await step.run('route-by-confidence', async () => {
       const { confidence, docType, success, error } = classification
 
-      // Failed classification or very low confidence → unclassified
+      // Failed classification or very low confidence → put in OTHER category (not unclassified)
       if (!success || confidence < LOW_CONFIDENCE) {
         const errorInfo = getVietnameseError(error || classification.reasoning)
 
-        await updateRawImageStatus(rawImageId, 'UNCLASSIFIED', confidence)
+        // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
+        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
 
-        // Create AI_FAILED action with Vietnamese message for CPA visibility
+        // Still create AI_FAILED action for CPA visibility
         await createAction({
           caseId,
           type: 'AI_FAILED',
@@ -310,7 +323,7 @@ export const classifyDocumentJob = inngest.createFunction(
           },
         })
 
-        return { action: 'unclassified', needsOcr: false, checklistItemId: null }
+        return { action: 'ai-failed-to-other', needsOcr: false, checklistItemId: null }
       }
 
       // Cast docType to proper enum type
@@ -348,7 +361,111 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     })
 
-    // Step 4: OCR extraction (only if confidence >= 60% and doc type supports OCR)
+    // Step 4: Rename file with naming convention (only for classified docs)
+    interface RenameStepResult {
+      renamed: boolean
+      newKey: string | null
+      displayName: string | null
+      category: DocCategory | null
+      error?: string
+    }
+
+    const renameResult = await step.run('rename-file', async (): Promise<RenameStepResult> => {
+      // For AI-failed docs, skip rename but set category to OTHER
+      if (routing.action === 'ai-failed-to-other') {
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: { category: 'OTHER' },
+        })
+        return {
+          renamed: false,
+          newKey: null,
+          displayName: null,
+          category: 'OTHER',
+        }
+      }
+
+      // Skip rename for other non-success cases
+      if (!classification.success) {
+        return {
+          renamed: false,
+          newKey: null,
+          displayName: null,
+          category: null,
+        }
+      }
+
+      // Defense-in-depth: Validate caseId format (CUID)
+      if (!caseId || !/^c[a-z0-9]{24,}$/i.test(caseId)) {
+        console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+        return {
+          renamed: false,
+          newKey: null,
+          displayName: null,
+          category: null,
+          error: 'INVALID_CASE_ID',
+        }
+      }
+
+      const validDocType = classification.docType as DocType
+      // TypeScript exhaustiveness: getCategoryFromDocType handles all DocType values
+      // Returns 'OTHER' for unknown types as fallback
+      const category = getCategoryFromDocType(validDocType)
+
+      // Call rename service (uses copy-delete pattern for atomic rename)
+      // Race condition safety: Copy completes first, then DB update, then delete
+      // If any step fails, retry is safe because copy is idempotent
+      // recipientName is extracted from document by AI (employee name, recipient, etc.)
+      const result = await renameFile(r2Key, caseId, {
+        taxYear: classification.taxYear,
+        docType: validDocType,
+        source: classification.source,
+        recipientName: classification.recipientName,
+      })
+
+      if (!result.success) {
+        // Telemetry: Log rename failure with context for debugging
+        console.error(`[classify-document] Rename failed`, {
+          rawImageId,
+          caseId,
+          r2Key,
+          docType: validDocType,
+          error: result.error,
+          timestamp: new Date().toISOString(),
+        })
+        // Don't fail job - continue with old key, category still set
+        return {
+          renamed: false,
+          newKey: null,
+          displayName: null,
+          category,
+          error: result.error,
+        }
+      }
+
+      // Update DB with new key + metadata
+      const displayName = getDisplayNameFromKey(result.newKey)
+
+      await prisma.rawImage.update({
+        where: { id: rawImageId },
+        data: {
+          r2Key: result.newKey,
+          displayName,
+          category,
+        },
+      })
+
+      console.log(`[classify-document] Renamed: ${r2Key} -> ${result.newKey}`)
+
+      return {
+        renamed: true,
+        newKey: result.newKey,
+        displayName,
+        category,
+      }
+    })
+
+    // Step 5: OCR extraction (only if confidence >= 60% and doc type supports OCR)
     // Gemini 2.5 reads PDFs directly for better accuracy
     let digitalDocId: string | undefined
     if (routing.needsOcr) {
@@ -390,6 +507,12 @@ export const classifyDocumentJob = inngest.createFunction(
         confidence: classification.confidence,
       },
       routing: routing.action,
+      rename: {
+        renamed: renameResult.renamed,
+        newKey: renameResult.newKey,
+        displayName: renameResult.displayName,
+        category: renameResult.category,
+      },
       duplicateCheck: {
         checked: !duplicateCheck.skipped,
         imageHash: duplicateCheck.imageHash,

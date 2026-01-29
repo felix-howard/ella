@@ -1,21 +1,20 @@
 /**
- * PdfViewer - Internal PDF rendering component for ImageViewer
+ * PdfViewer - PDF rendering with native scale-based zoom (always crisp)
+ * Uses react-pdf scale prop for re-rendering at zoom resolution
  * Lazy loaded to avoid bundling react-pdf (~150KB) for non-PDF users
- * Uses cdnjs for PDF.js worker (more reliable than unpkg)
  */
 
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Loader2 } from 'lucide-react'
 
 // Configure PDF.js worker from unpkg (serves npm packages directly)
-// This ensures exact version match with the bundled pdfjs-dist
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 export interface PdfViewerProps {
   /** PDF file URL */
   fileUrl: string
-  /** Zoom level */
-  zoom: number
+  /** Zoom scale (1 = 100%, 2 = 200%, etc.) */
+  scale: number
   /** Rotation in degrees */
   rotation: number
   /** Current page number */
@@ -28,7 +27,7 @@ export interface PdfViewerProps {
 
 export default function PdfViewer({
   fileUrl,
-  zoom,
+  scale,
   rotation,
   currentPage,
   onLoadSuccess,
@@ -43,6 +42,10 @@ export default function PdfViewer({
     onLoadError()
   }
 
+  // When zoomed > 1, use inline-block to allow full scroll range
+  // When at 1x, center the content
+  const isZoomed = scale > 1
+
   return (
     <Document
       file={fileUrl}
@@ -53,11 +56,11 @@ export default function PdfViewer({
           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
         </div>
       }
-      className="flex justify-center"
+      className={isZoomed ? 'inline-block' : 'flex justify-center'}
     >
       <Page
         pageNumber={currentPage}
-        scale={zoom}
+        scale={scale}
         rotate={rotation}
         renderTextLayer={false}
         renderAnnotationLayer={false}

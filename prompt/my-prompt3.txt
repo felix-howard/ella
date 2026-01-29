@@ -1,5 +1,48 @@
-ok, wireframe mà bạn vừa vẽ giải quyết vấn đề staff verify docs theo kiểu phân loại docs với AI assisted, vậy màn hình, view mà
-staff nhìn docs, biết docs gì, thấy checklist còn thiếu gì, để biết client này còn thiếu docs gì ở đâu
-quá trình ocr này, staff nên chủ động nhắn chọn từng docs rồi nhấn nút ocr hay ocr tự chạy, rồi sau khi ocr thì sao, giả sử client chỉ mới gửi 1 vài docs chứ chưa gửi hết, thì staff có được quyền vào docs bấm ocr không? sau khi ocr xong, staff sửa lại giá trị, rồi thì phiên bản extracted docs đó có được lưu không, để sau này khi đủ ocr digital docs thì dùng những docs này để data entry
-có nên làm 2 phiên bản docs không, một phiên bản là raw images của client, một phiên bản digital verified docs từ OCR và human verified, lưu cả 2 phiên bản, khi staff ocr docs nào thì tạo ra phiên bản digital của docs đó lưu vào, khi nào staff ocr tất cả các docs thì có tất cả digital docs thì khi đó tất cả checklist item mới green và mới được data entry, khi đó dùng digital ocr verified docs để data entry
-nếu vậy thì verify docs ở đây là gì, là quá trình categorize docs khách gửi (để biết docs là w2 hay 1099) để phân loại vào đúng mục trong checklist, rồi dựa vào checklist nhìn trực quan biết thiếu docs gì, và quá trình verify thực sự là quá trình chuyển raw image thành digital docs, nếu chuyển thành công (tất cả value trong ảnh đều rõ, ocr hoặc human đọc được, extracted được) thì  gọi là verified, green, còn nếu ocr đọc fail, human đọc cũng không được thì verify fail, request reupload) . its just my 2 cents, tôi muốn nghe ý kiến của bạn
+I ask
+"Ella của tôi đã giải quyết được bài toán
+khách hàng upload tài liệu thông qua sms hoặc portal
+lưu trữ tài liệu trong ella, tự động rename, và phân chia category, tự động extract data, staff verify extracted data rồi
+
+nhưng vấn đề tiếp theo là
+tôi có nghe CPAs nói gì đó, tôi nhớ không rõ lắm mà kiểu như là
+"Form 1099 NEC nó rất vô dụng, chị (CPAs) không có nhập form 1099 NEC vào phần mềm Olt Pro vì nó rất phiền, thường chị sẽ kiểm tra xem client có form 1099 NEC không, nếu client có, chị sẽ tạo ra Schedult C (tôi chả biết Schedule C là cái quái gì), chị sẽ gửi cho client một link, đó là link để client vào điền một form kể ra các expense của Client, rồi chị tạo schedule C, cột gross chị sẽ lấy tổng của các form 1099 NEC của khách (tôi chả biết form 1099 NEC là gì luôn), rồi chị sẽ điền các chi phí mà khách đã điền trong form"
+NÓi chung tôi chỉ nghe sơ sơ không rõ lắm, tôi kể có thể không chính xác lắm nhưng mà đại ý là như vậy, bạn hãy giải thích lại cho tôi
+Ngoài ra sau cuộc nói chuyện, chị CPAs có gửi tôi cái mail này, tôi cũng không hiểu làm gì
+
+"Schedule C
+Basic business info
+•       Proprietor’s name and Social Security Number
+•       Business name (if any) and address
+•       Principal business or profession (Line A) – short description of what you do
+
+Part I – Income
+•       Line 1: Gross receipts or sales – total income, including 1099‑NEC and 1099‑K amounts
+•       Line 2: Returns and allowances – refunds/price adjustments you gave customers
+•       Line 4: Cost of goods sold – from Part III, if you sell products
+•       Line 6: Other income – business income not reported elsewhere
+•       Line 7: Gross income – income after subtracting returns and cost of goods sold
+
+Part II – Expenses
+•       Advertising
+•       Car and truck expenses (or standard mileage, if you qualify)
+•       Commissions and fees
+•       Contract labor (e.g., freelancers you pay)
+•       Depreciation and section 179 expense
+•       Insurance (other than health)
+•       Legal and professional services (tax prep, attorneys, bookkeeping)
+•       Office expense (supplies, postage, small equipment)
+•       Rent or lease (vehicles/equipment on 20a; other business property on 20b)
+•       Repairs and maintenance (non‑improvement work)
+•       Supplies (like materials you consume in your work)
+•       Taxes and licenses (sales tax, business licenses, payroll taxes, etc.)
+•       Travel, meals (business‑related)
+•       Utilities
+•       Wages (if you have employees)
+•       Other expenses (with description in Part V)
+
+Part IV & V – Vehicles and “other expenses”
+•       Part IV: Information on your vehicle – when placed in service, total and business miles, commuting miles, and whether you have written mileage records if you claim car expenses
+•       Part V: Other expenses – detailed list of deductible business costs that do not have a preprinted line in Part II""
+
+Gemini answer
+"Bạn đang gặp đúng một trong những nghiệp vụ quan trọng nhất (và sinh lời nhất) của các CPA: Xử lý hồ sơ doanh nghiệp nhỏ/Freelancer.Đừng lo, những gì chị CPA nói là hoàn toàn chính xác về mặt chuyên môn, chỉ là cách diễn đạt hơi tắt. Để tôi giải thích tường tận cho bạn hiểu "Schedule C" và "1099-NEC" là gì dưới góc độ lập trình viên nhé.1. Giải mã khái niệm (CPA Dictionary)Để hiểu được logic của chị CPA, bạn cần hiểu 2 đối tượng này:A. Form 1099-NEC là gì? (Non-Employee Compensation)Hiểu đơn giản: Đây là "bằng chứng thu nhập" của những người làm nghề tự do (Freelancer), thợ nail, tài xế Uber, hoặc contractor.Khác gì W-2?W-2: Là đi làm thuê. Công ty đã trừ thuế giùm rồi. Bạn nhận lương ròng.1099-NEC: Là làm tư. Công ty trả cục tiền (Gross), chưa trừ đồng thuế nào.Hậu quả: Nếu chỉ nhập 1099-NEC vào phần mềm thuế, IRS sẽ hiểu là "Anh này kiếm được 100 triệu, chưa đóng thuế, hãy đánh thuế anh ta trên toàn bộ 100 triệu này". -> Thuế cực cao.B. Schedule C là gì? (Profit or Loss from Business)Hiểu đơn giản: Đây là một "bảng tính lỗ lãi" (Income Statement) dành cho cá nhân kinh doanh.Công thức thần thánh:$$Net Profit (Lãi ròng) = Income (Thu nhập) - Expenses (Chi phí)$$Vai trò: Mục đích của CPA là tạo ra cái Schedule C này để kê khai thêm chi phí (Expenses) vào.Ví dụ: Khách có 1099-NEC là $10,000.Nếu không có Schedule C: Đóng thuế trên $10,000.Nếu có Schedule C: Khách khai thêm tiền xăng xe, tiền quảng cáo, tiền mua kềm cắt móng... tổng cộng $4,000. -> Lãi ròng chỉ còn $6,000. -> Chỉ đóng thuế trên $6,000.2. Tại sao CPA lại có quy trình làm việc như vậy?Quay lại câu nói của chị CPA: "Form 1099-NEC nó rất vô dụng... chị sẽ kiểm tra xem client có form 1099 NEC không, nếu có chị sẽ gửi link điền expense..."Lý do là đây:Dữ liệu thiếu: Form 1099-NEC chỉ cho biết Đầu vào (Income). Nó hoàn toàn không chứa thông tin về Đầu ra (Expenses).Workflow của CPA:Bước 1: Nhìn thấy 1099-NEC -> Biết ngay khách này là chủ doanh nghiệp nhỏ (Sole Proprietorship).Bước 2: Phải đi tìm Chi phí (Expenses) để giảm thuế cho khách. Tài liệu này khách thường không gửi (vì nó lắt nhắt, hóa đơn lẻ tẻ).Bước 3: Gửi một cái form (Link) để khách tự liệt kê: "Năm qua chạy bao nhiêu dặm? Mua bao nhiêu vật tư?".Bước 4: CPA tổng hợp lại vào Schedule C.3. Phân tích cái Email chị CPA gửi bạnCái email đó chính là Cấu trúc dữ liệu (Data Schema) cho tính năng mới mà bạn cần xây dựng trên Ella. Chị ấy đang liệt kê các dòng (Line) trong tờ khai thuế Schedule C.Part I - Income: Tổng thu nhập (CPA sẽ cộng các tờ 1099-NEC lại điền vào đây).Part II - Expenses: Đây là phần quan trọng nhất. Chị ấy liệt kê các loại chi phí được phép trừ thuế:Advertising: Tiền chạy quảng cáo FB/Google.Car and truck expenses: Tiền xăng xe, hoặc tính theo dặm (mileage).Supplies: Mua đồ nghề (kềm, dũa, sơn...).Rent/Lease: Tiền thuê chỗ (thuê ghế trong tiệm nail).Wages: Tiền trả cho nhân viên (nếu có thuê người phụ).4. Giải pháp nâng cấp Ella (Action Plan)Hiện tại Ella đang dừng ở việc "Extract Data" từ 1099-NEC. Nhưng để thực sự hữu dụng ("Make Schedule C easier"), Ella cần thêm quy trình "Expense Collection" (Thu thập chi phí).User Flow đề xuất cho Ella:Phát hiện (Detection):Khách upload tài liệu.AI của Ella detect thấy có file loại 1099-NEC hoặc 1099-K.Kích hoạt (Trigger):Ella hiển thị gợi ý cho Staff: "Khách này có 1099-NEC, có muốn gửi form thu thập chi phí (Schedule C Organizer) không?"Thu thập (Collection):Staff bấm "Gửi".Khách nhận được SMS/Link mở ra một Web Form đơn giản (chính là nội dung cái email kia).Khách điền số tiền ước lượng vào các ô: Quảng cáo, Xăng xe, Vật tư... -> Bấm Gửi.Tổng hợp (Summary):Ella tạo ra một bản báo cáo "Draft Schedule C".Trong đó:Income = Tổng các form 1099-NEC đã extract.Expenses = Số liệu khách vừa điền trong Web Form.Staff chỉ cần nhìn bản Draft này và nhập vào phần mềm OltPro là xong.Kết luận:Chị CPA nói đúng. 1099-NEC chỉ là "phần nổi của tảng băng chìm". Phần chìm (chi phí) mới là thứ CPA cần để làm việc. Email chị ấy gửi chính là "đề bài" để bạn xây dựng form thu thập chi phí trên Ella đấy."

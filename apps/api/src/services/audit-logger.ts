@@ -111,3 +111,73 @@ export function computeProfileFieldDiff(
 
   return changes
 }
+
+/**
+ * Log engagement changes to AuditLog table (async, non-blocking)
+ * @param engagementId - Engagement ID (used as entityId)
+ * @param changes - Array of field changes to log
+ * @param staffId - Optional staff ID who made the change
+ */
+export async function logEngagementChanges(
+  engagementId: string,
+  changes: FieldChange[],
+  staffId?: string
+): Promise<void> {
+  if (changes.length === 0) return
+
+  try {
+    const auditEntries: Prisma.AuditLogCreateManyInput[] = changes.map((change) => ({
+      entityType: 'TAX_ENGAGEMENT' as AuditEntityType,
+      entityId: engagementId,
+      field: change.field,
+      oldValue: change.oldValue !== undefined ? (change.oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+      newValue: change.newValue !== undefined ? (change.newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+      changedById: staffId || undefined,
+    }))
+
+    await prisma.auditLog.createMany({
+      data: auditEntries,
+    })
+
+    console.log(`[AuditLog] Logged ${changes.length} engagement changes for ${engagementId}`)
+  } catch (error) {
+    console.error('[AuditLog] CRITICAL: Failed to log engagement changes', {
+      engagementId,
+      changesCount: changes.length,
+      staffId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      fields: changes.map((c) => c.field),
+    })
+  }
+}
+
+/**
+ * Compute diff between old and new engagement data
+ * Compares all engagement profile fields
+ */
+export function computeEngagementDiff(
+  oldData: Record<string, unknown>,
+  newData: Record<string, unknown>
+): FieldChange[] {
+  const changes: FieldChange[] = []
+
+  // Fields to track for engagements
+  const trackFields = [
+    'status', 'filingStatus', 'hasW2', 'hasBankAccount', 'hasInvestments',
+    'hasKidsUnder17', 'numKidsUnder17', 'paysDaycare', 'hasKids17to24',
+    'hasSelfEmployment', 'hasRentalProperty', 'businessName', 'ein',
+    'hasEmployees', 'hasContractors', 'has1099K', 'intakeAnswers',
+  ]
+
+  for (const field of trackFields) {
+    if (newData[field] !== undefined) {
+      const oldVal = oldData[field]
+      const newVal = newData[field]
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        changes.push({ field, oldValue: oldVal, newValue: newVal })
+      }
+    }
+  }
+
+  return changes
+}

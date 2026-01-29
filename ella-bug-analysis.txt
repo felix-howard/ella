@@ -1,0 +1,14 @@
+# Batch Processing Results
+
+## 1. C:\Users\Admin\Videos\Captures\ella-bug.mp4
+
+**Status**: success
+
+**Response**:
+
+When the user clicks the "Tài liệu" tab:
+
+1.  The "Tài liệu" tab itself immediately highlights in green, indicating it is the active tab.
+2.  The content in the main content area *instantly changes* from the "Tổng quan" information (Lịch sử khai thuế, Thông tin cá nhân, etc.) to display the "Thu nhập (0/4)" section.
+3.  **There is no flash or white screen observed in the content area during this transition.** The background remains dark, and the content swaps seamlessly and instantaneously, without any noticeable delay or blank state.
+

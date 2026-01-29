@@ -29,7 +29,8 @@ export function useSignedUrl(imageId: string | null, options: UseSignedUrlOption
     enabled: enabled && !!imageId,
     staleTime, // URL valid for ~1 hour, refresh at 50 min
     gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
-    retry: 2,
+    retry: 3, // Increased for better resilience with R2 signed URLs
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff for new uploads
     refetchOnWindowFocus: false,
   })
 }

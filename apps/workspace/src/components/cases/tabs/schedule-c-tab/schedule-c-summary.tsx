@@ -3,7 +3,7 @@
  * Displays income, expenses, net profit, and version history
  */
 import { Lock } from 'lucide-react'
-import type { ScheduleCExpense, ScheduleCMagicLink, ScheduleCTotals } from '../../../../lib/api-client'
+import type { ScheduleCExpense, ScheduleCMagicLink, ScheduleCTotals, NecBreakdownItem } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
 import { ExpenseTable } from './expense-table'
@@ -17,9 +17,10 @@ interface ScheduleCSummaryProps {
   magicLink: ScheduleCMagicLink | null
   totals: ScheduleCTotals | null
   caseId: string
+  necBreakdown?: NecBreakdownItem[]
 }
 
-export function ScheduleCSummary({ expense, magicLink, totals, caseId }: ScheduleCSummaryProps) {
+export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakdown = [] }: ScheduleCSummaryProps) {
   const isLocked = expense.status === 'LOCKED'
 
   return (
@@ -53,7 +54,7 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId }: Schedul
         <h3 className="text-sm font-medium text-foreground uppercase tracking-wide mb-3 pb-2 border-b border-border">
           Phần I - Thu nhập
         </h3>
-        <IncomeTable expense={expense} totals={totals} showGrossIncome />
+        <IncomeTable expense={expense} totals={totals} showGrossIncome necBreakdown={necBreakdown} />
       </div>
 
       {/* Part II - Expenses */}

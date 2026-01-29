@@ -12,7 +12,7 @@ import {
   extendMagicLinkExpiry,
 } from '../../services/magic-link'
 import { sendScheduleCFormMessage } from '../../services/sms/message-sender'
-import { calculateGrossReceipts, calculateScheduleCTotals } from '../../services/schedule-c/expense-calculator'
+import { calculateGrossReceipts, calculateScheduleCTotals, getGrossReceiptsBreakdown } from '../../services/schedule-c/expense-calculator'
 import type { SmsLanguage } from '../../services/sms/templates'
 import type { Prisma } from '@ella/db'
 
@@ -111,6 +111,23 @@ scheduleCRoute.get('/:caseId', async (c) => {
     return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
   }
 
+  // Get 1099-NEC payer breakdown (single query, reused for total)
+  const necBreakdown = await getGrossReceiptsBreakdown(caseId)
+
+  // Auto-update grossReceipts if DRAFT (handles new 1099-NEC verified after send)
+  if (taxCase.scheduleCExpense?.status === 'DRAFT') {
+    const currentGross = await calculateGrossReceipts(caseId, necBreakdown)
+    const storedGross = taxCase.scheduleCExpense.grossReceipts
+    if (!storedGross || !currentGross.equals(storedGross)) {
+      // Use optimistic locking: only update if still DRAFT (prevents race with client submission)
+      await prisma.scheduleCExpense.updateMany({
+        where: { id: taxCase.scheduleCExpense.id, status: 'DRAFT' },
+        data: { grossReceipts: currentGross.isZero() ? null : currentGross },
+      })
+      taxCase.scheduleCExpense.grossReceipts = currentGross.isZero() ? null : currentGross
+    }
+  }
+
   // Get Schedule C magic link
   const magicLink = await prisma.magicLink.findFirst({
     where: {
@@ -185,6 +202,7 @@ scheduleCRoute.get('/:caseId', async (c) => {
         }
       : null,
     totals,
+    necBreakdown,
   })
 })
 

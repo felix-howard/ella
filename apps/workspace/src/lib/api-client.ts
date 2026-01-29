@@ -1512,10 +1512,17 @@ export interface ScheduleCTotals {
   netProfit: string
 }
 
+export interface NecBreakdownItem {
+  docId: string
+  payerName: string | null
+  nonemployeeCompensation: string
+}
+
 export interface ScheduleCResponse {
   expense: ScheduleCExpense | null
   magicLink: ScheduleCMagicLink | null
   totals: ScheduleCTotals | null
+  necBreakdown: NecBreakdownItem[]
 }
 
 export interface ScheduleCSendResponse {

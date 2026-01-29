@@ -5,13 +5,16 @@
 import { AlertTriangle, Send, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
+import type { NecBreakdownItem } from '../../../../lib/api-client'
+import { formatUSD } from './format-utils'
 
 interface ScheduleCEmptyStateProps {
   caseId: string
   count1099NEC: number
+  necBreakdown?: NecBreakdownItem[]
 }
 
-export function ScheduleCEmptyState({ caseId, count1099NEC }: ScheduleCEmptyStateProps) {
+export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }: ScheduleCEmptyStateProps) {
   const { sendForm } = useScheduleCActions({ caseId })
 
   return (
@@ -28,10 +31,28 @@ export function ScheduleCEmptyState({ caseId, count1099NEC }: ScheduleCEmptyStat
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-muted-foreground mb-6 max-w-md">
+        <p className="text-sm text-muted-foreground mb-4 max-w-md">
           Đã phát hiện {count1099NEC} mẫu 1099-NEC đã xác minh.
           Gửi form thu thập chi phí để hoàn thành Schedule C cho khách hàng này.
         </p>
+
+        {/* Payer Breakdown Preview */}
+        {necBreakdown.length > 0 && (
+          <div className="w-full max-w-sm mb-6 text-left">
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
+              {necBreakdown.map((item) => (
+                <div key={item.docId} className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground truncate mr-2">
+                    {item.payerName || 'Không rõ'}
+                  </span>
+                  <span className="font-medium text-foreground whitespace-nowrap">
+                    {formatUSD(item.nonemployeeCompensation)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Send Button */}
         <Button

@@ -14,7 +14,7 @@ interface ScheduleCTabProps {
 }
 
 export function ScheduleCTab({ caseId }: ScheduleCTabProps) {
-  const { expense, magicLink, totals, has1099NEC, count1099NEC, isLoading, error, refetch } = useScheduleC({
+  const { expense, magicLink, totals, has1099NEC, count1099NEC, necBreakdown, isLoading, error, refetch } = useScheduleC({
     caseId,
     enabled: true,
   })
@@ -49,12 +49,12 @@ export function ScheduleCTab({ caseId }: ScheduleCTabProps) {
 
   // State 1: No Schedule C exists, but 1099-NEC detected → Show empty state with send button
   if (!expense && has1099NEC) {
-    return <ScheduleCEmptyState caseId={caseId} count1099NEC={count1099NEC} />
+    return <ScheduleCEmptyState caseId={caseId} count1099NEC={count1099NEC} necBreakdown={necBreakdown} />
   }
 
   // State 2: Schedule C exists but status is DRAFT → Show waiting state
   if (expense?.status === 'DRAFT') {
-    return <ScheduleCWaiting expense={expense} magicLink={magicLink} caseId={caseId} />
+    return <ScheduleCWaiting expense={expense} magicLink={magicLink} caseId={caseId} necBreakdown={necBreakdown} />
   }
 
   // State 3 & 4: Schedule C is SUBMITTED or LOCKED → Show summary
@@ -65,6 +65,7 @@ export function ScheduleCTab({ caseId }: ScheduleCTabProps) {
         magicLink={magicLink}
         totals={totals}
         caseId={caseId}
+        necBreakdown={necBreakdown}
       />
     )
   }

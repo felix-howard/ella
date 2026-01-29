@@ -19,15 +19,6 @@ function checkHas1099NEC(docs: DigitalDoc[]): boolean {
   )
 }
 
-/**
- * Count verified 1099-NEC documents
- */
-function count1099NECs(docs: DigitalDoc[]): number {
-  return docs.filter(
-    (doc) => doc.docType === 'FORM_1099_NEC' && doc.status === 'VERIFIED'
-  ).length
-}
-
 export function useScheduleC({ caseId, enabled = true }: UseScheduleCOptions) {
   // Fetch Schedule C data
   const {
@@ -55,7 +46,7 @@ export function useScheduleC({ caseId, enabled = true }: UseScheduleCOptions) {
 
   const docs = docsResponse?.docs ?? []
   const has1099NEC = checkHas1099NEC(docs)
-  const count1099NEC = count1099NECs(docs)
+  const necBreakdown = scheduleCData?.necBreakdown ?? []
 
   // Determine if we should show the Schedule C tab
   // Show if: 1099-NEC detected OR Schedule C already exists
@@ -66,9 +57,11 @@ export function useScheduleC({ caseId, enabled = true }: UseScheduleCOptions) {
     expense: scheduleCData?.expense ?? null,
     magicLink: scheduleCData?.magicLink ?? null,
     totals: scheduleCData?.totals ?? null,
-    // 1099-NEC detection
+    // 1099-NEC breakdown from API (per-payer detail)
+    necBreakdown,
+    // 1099-NEC detection (from docs query - includes unverified for tab visibility)
     has1099NEC,
-    count1099NEC,
+    count1099NEC: necBreakdown.length,
     // Tab visibility
     showScheduleCTab,
     // Loading/error states

@@ -1761,6 +1761,170 @@ interface VersionSnapshot {
 
 ---
 
+## Phase 4 Schedule C 1099-NEC Breakdown Feature (2026-01-29)
+
+**Status:** ✅ COMPLETE | Per-payer NEC breakdown display with auto-update logic
+
+**Overview:** Enhances Schedule C expense management with detailed per-payer 1099-NEC breakdown. Staff can now see individual payer names and compensation amounts, with automatic recalculation when new 1099-NECs are verified after form was sent.
+
+### Architecture
+
+```
+Backend (Service Layer)
+│
+├─ getGrossReceiptsBreakdown(caseId)
+│   └─ Query: VERIFIED 1099-NECs from digitalDoc
+│       └─ Return: [{ docId, payerName, nonemployeeCompensation }]
+│
+├─ calculateGrossReceipts(caseId, breakdown?)
+│   └─ Refactored: accepts optional breakdown parameter
+│       └─ Reuses data to avoid duplicate queries
+│
+└─ GET /schedule-c/:caseId
+    ├─ Fetches necBreakdown once
+    ├─ Auto-updates DRAFT grossReceipts (optimistic locking)
+    └─ Returns: { expense, magicLink, totals, necBreakdown[] }
+
+Frontend (React Component Chain)
+│
+├─ useScheduleC hook
+│   ├─ Extracts necBreakdown from API
+│   ├─ Derives count1099NEC from breakdown length
+│   └─ Exposes both in return object
+│
+├─ ScheduleCEmptyState
+│   └─ Shows "X payers detected" before form sent
+│
+├─ ScheduleCWaiting & ScheduleCSummary
+│   └─ Pass necBreakdown to IncomeTable
+│
+└─ IncomeTable + NecBreakdownList
+    ├─ Dynamic label: "1099-NEC Gross Receipts (X payers)"
+    ├─ Renders breakdown list below gross receipts
+    └─ Each item: payer name + copyable amount
+```
+
+### Data Flow: Auto-Update Logic
+
+```
+Timeline: Form sent (DRAFT) → New 1099-NEC uploaded & verified
+
+1. GET /schedule-c/:caseId called
+   ├─ Fetch necBreakdown (all VERIFIED 1099-NECs)
+   └─ Staff sees current breakdown
+
+2. Backend auto-update (optimistic locking)
+   ├─ Check: is status still DRAFT?
+   │   └─ YES: Recalculate gross receipts from necBreakdown
+   │   └─ NO: Skip (client already submitted)
+   ├─ Compare: stored grossReceipts vs. calculated
+   │   └─ Changed: UPDATE ScheduleCExpense (only if DRAFT)
+   │   └─ Unchanged: No-op
+   └─ Return: updated necBreakdown + gross receipts
+
+3. Frontend updates UI
+   ├─ Income table shows new total
+   ├─ Breakdown list shows all payers (new one included)
+   └─ Staff can lock form with accurate data
+```
+
+### Data Structures
+
+**NecBreakdownItem Interface:**
+```typescript
+interface NecBreakdownItem {
+  docId: string                          // digitalDoc.id
+  payerName: string | null               // From extractedData
+  nonemployeeCompensation: string        // Formatted "5000.00"
+}
+```
+
+**API Response Updated:**
+```typescript
+interface ScheduleCResponse {
+  expense: ScheduleCExpense | null
+  magicLink: ScheduleCMagicLink | null
+  totals: ScheduleCTotals | null
+  necBreakdown: NecBreakdownItem[]       // NEW
+}
+```
+
+### Key Implementation Details
+
+**Backend Query (getGrossReceiptsBreakdown):**
+- Filters: `docType='FORM_1099_NEC' AND status='VERIFIED'`
+- Extracts: `payerName` + `nonemployeeCompensation` from extractedData JSONB
+- Filters: excludes docs with null extractedData or missing nonemployeeCompensation
+- Ordering: chronological by createdAt (preserves 1099 order)
+- Formatting: nonemployeeCompensation always 2 decimals ("5000.00")
+
+**Auto-Update Logic (GET /schedule-c/:caseId):**
+- Single query for necBreakdown (reused for total calculation)
+- Optimistic locking: only update if status='DRAFT' (prevents race with client submission)
+- No overwrites if SUBMITTED/LOCKED (immutable after CPA review)
+
+**Frontend Component (NecBreakdownList):**
+- Conditional render: hidden if items.length = 0
+- Nullable payerName: displays "Không rõ" (Unknown) fallback
+- Copyable values: raw number + formatted USD display
+- Compact styling: text-xs, left border accent, truncated names
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| expense-calculator.ts | +interface NecBreakdownItem, +function getGrossReceiptsBreakdown(), refactor calculateGrossReceipts() |
+| schedule-c/index.ts | +necBreakdown in GET response, +auto-update logic with optimistic locking |
+| api-client.ts | +NecBreakdownItem type, +necBreakdown to ScheduleCResponse |
+| use-schedule-c.ts | +extract necBreakdown, +derive count1099NEC |
+| nec-breakdown-list.tsx (NEW) | Display per-payer breakdown |
+| income-table.tsx | +necBreakdown prop, +dynamic label, +NecBreakdownList render |
+| schedule-c-empty-state.tsx | +count1099NEC display |
+| index.tsx | +props forwarding |
+| schedule-c-waiting.tsx | +necBreakdown pass-through |
+| schedule-c-summary.tsx | +necBreakdown pass-through |
+| expense-calculator.test.ts | +6 tests for getGrossReceiptsBreakdown() |
+
+### Error Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| No verified 1099-NECs | necBreakdown = [], breakdown list hidden |
+| payerName missing | Shows "Không rõ" in list |
+| API error | useScheduleC error state, "Lỗi khi tải dữ liệu" toast |
+| Race condition (auto-update) | Optimistic locking prevents overwrite if SUBMITTED/LOCKED |
+
+### Backward Compatibility
+
+- **API:** New `necBreakdown` array in response; existing fields unchanged
+- **Components:** necBreakdown optional prop; graceful degradation if not passed
+- **Calculations:** No breaking changes to calculateGrossReceipts() signature (optional param added)
+
+### Integration Points
+
+- **Phase 4 Workspace:** Seamless integration into existing Schedule C tab
+- **Phase 3 Portal:** No changes to client-facing form
+- **Phase 1-2 Backend:** Pure additive; no impact on existing functions
+
+### Testing
+
+**6 New Unit Tests (getGrossReceiptsBreakdown):**
+1. Returns per-payer breakdown with docId, payerName, amount
+2. Returns empty array when no verified 1099-NECs
+3. Returns null payerName when not in extractedData
+4. Filters out docs without nonemployeeCompensation
+5. Handles numeric compensation values
+6. Queries with correct filters and ordering
+
+### Performance Considerations
+
+- **Single Query:** getGrossReceiptsBreakdown() fetches once, used for both total + display
+- **Optimistic Locking:** updateMany() only touches DRAFT records, preventing wasted updates
+- **Component Memoization:** NecBreakdownList memoized to prevent cascading re-renders
+- **Stale Time:** 30s cache on useScheduleC hook (same as existing Schedule C data)
+
+---
+
 ## Monorepo Configuration
 
 ### pnpm Workspaces

@@ -33,6 +33,7 @@ import {
   calculateNetProfit,
   calculateScheduleCTotals,
   getMileageRateCents,
+  getGrossReceiptsBreakdown,
 } from '../expense-calculator'
 import { createExpense } from './schedule-c-test-helpers'
 
@@ -103,13 +104,15 @@ describe('Expense Calculator', () => {
       mockFindMany.mockResolvedValueOnce([])
       await calculateGrossReceipts('case-123')
 
+      // Now delegates to getGrossReceiptsBreakdown which includes id + orderBy
       expect(mockFindMany).toHaveBeenCalledWith({
         where: {
           caseId: 'case-123',
           docType: 'FORM_1099_NEC',
           status: 'VERIFIED',
         },
-        select: { extractedData: true },
+        select: { id: true, extractedData: true },
+        orderBy: { createdAt: 'asc' },
       })
     })
   })
@@ -270,6 +273,76 @@ describe('Expense Calculator', () => {
     it('returns zero when no data', () => {
       const expense = createExpense()
       expect(calculateNetProfit(expense).isZero()).toBe(true)
+    })
+  })
+
+  describe('getGrossReceiptsBreakdown', () => {
+    const mockFindMany = vi.mocked(prisma.digitalDoc.findMany)
+
+    it('returns per-payer breakdown with docId, payerName, amount', async () => {
+      mockFindMany.mockResolvedValueOnce([
+        { id: 'doc-1', extractedData: { payerName: 'ABC Corp', nonemployeeCompensation: '5000.00' } },
+        { id: 'doc-2', extractedData: { payerName: 'XYZ Inc', nonemployeeCompensation: '3000.50' } },
+      ] as any)
+
+      const result = await getGrossReceiptsBreakdown('case-1')
+      expect(result).toEqual([
+        { docId: 'doc-1', payerName: 'ABC Corp', nonemployeeCompensation: '5000.00' },
+        { docId: 'doc-2', payerName: 'XYZ Inc', nonemployeeCompensation: '3000.50' },
+      ])
+    })
+
+    it('returns empty array when no verified 1099-NECs', async () => {
+      mockFindMany.mockResolvedValueOnce([])
+      const result = await getGrossReceiptsBreakdown('case-1')
+      expect(result).toEqual([])
+    })
+
+    it('returns null payerName when not in extractedData', async () => {
+      mockFindMany.mockResolvedValueOnce([
+        { id: 'doc-1', extractedData: { nonemployeeCompensation: '2000' } },
+      ] as any)
+
+      const result = await getGrossReceiptsBreakdown('case-1')
+      expect(result).toEqual([
+        { docId: 'doc-1', payerName: null, nonemployeeCompensation: '2000.00' },
+      ])
+    })
+
+    it('filters out docs without nonemployeeCompensation', async () => {
+      mockFindMany.mockResolvedValueOnce([
+        { id: 'doc-1', extractedData: { otherField: '999' } },
+        { id: 'doc-2', extractedData: { nonemployeeCompensation: '1500' } },
+        { id: 'doc-3', extractedData: null },
+      ] as any)
+
+      const result = await getGrossReceiptsBreakdown('case-1')
+      expect(result).toHaveLength(1)
+      expect(result[0].docId).toBe('doc-2')
+    })
+
+    it('handles numeric compensation values', async () => {
+      mockFindMany.mockResolvedValueOnce([
+        { id: 'doc-1', extractedData: { payerName: 'Test', nonemployeeCompensation: 7500 } },
+      ] as any)
+
+      const result = await getGrossReceiptsBreakdown('case-1')
+      expect(result[0].nonemployeeCompensation).toBe('7500.00')
+    })
+
+    it('queries with correct filters and ordering', async () => {
+      mockFindMany.mockResolvedValueOnce([])
+      await getGrossReceiptsBreakdown('case-123')
+
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: {
+          caseId: 'case-123',
+          docType: 'FORM_1099_NEC',
+          status: 'VERIFIED',
+        },
+        select: { id: true, extractedData: true },
+        orderBy: { createdAt: 'asc' },
+      })
     })
   })
 

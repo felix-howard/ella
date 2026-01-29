@@ -502,5 +502,19 @@ type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'data-entry'
 
 ---
 
-**Last Updated:** 2026-01-28 23:50 ICT
+---
+
+## Phase 4 Enhancement: 1099-NEC Breakdown Feature
+
+**Status:** Complete (2026-01-29)
+**See:** [Schedule C 1099-NEC Breakdown Feature](./schedule-c-nec-breakdown-feature.md)
+
+Per-payer breakdown now displayed under gross receipts. Shows individual payer names + compensation amounts from verified 1099-NECs. Includes auto-update logic for DRAFT forms when new 1099s are verified.
+
+**Files Modified:** 11 + 1 new component (nec-breakdown-list.tsx)
+**Tests Added:** 6 new tests for getGrossReceiptsBreakdown()
+
+---
+
+**Last Updated:** 2026-01-29 (Phase 4 + NEC Breakdown Feature)
 **Prepared by:** Documentation Manager

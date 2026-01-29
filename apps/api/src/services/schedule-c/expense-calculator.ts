@@ -23,31 +23,60 @@ export function getMileageRateCents(): number {
 }
 
 /**
- * Calculate gross receipts from verified 1099-NEC documents
- * Sums nonemployeeCompensation (box 1) from all verified 1099-NECs
+ * Per-payer breakdown item from verified 1099-NEC
  */
-export async function calculateGrossReceipts(caseId: string): Promise<Decimal> {
+export interface NecBreakdownItem {
+  docId: string
+  payerName: string | null
+  nonemployeeCompensation: string // formatted "5000.00"
+}
+
+/**
+ * Get per-payer gross receipts breakdown from verified 1099-NEC documents
+ */
+export async function getGrossReceiptsBreakdown(caseId: string): Promise<NecBreakdownItem[]> {
   const verifiedDocs = await prisma.digitalDoc.findMany({
     where: {
       caseId,
       docType: 'FORM_1099_NEC',
       status: 'VERIFIED',
     },
-    select: {
-      extractedData: true,
-    },
+    select: { id: true, extractedData: true },
+    orderBy: { createdAt: 'asc' },
   })
 
+  return verifiedDocs
+    .filter((doc) => {
+      const data = doc.extractedData as { nonemployeeCompensation?: string | number } | null
+      return data?.nonemployeeCompensation
+    })
+    .map((doc) => {
+      const data = doc.extractedData as {
+        nonemployeeCompensation: string | number
+        payerName?: string
+      }
+      return {
+        docId: doc.id,
+        payerName: data.payerName || null,
+        nonemployeeCompensation: new Decimal(data.nonemployeeCompensation).toFixed(2),
+      }
+    })
+}
+
+/**
+ * Calculate gross receipts from verified 1099-NEC documents
+ * Sums nonemployeeCompensation (box 1) from all verified 1099-NECs.
+ * Accepts optional pre-fetched breakdown to avoid duplicate query.
+ */
+export async function calculateGrossReceipts(
+  caseId: string,
+  breakdown?: NecBreakdownItem[]
+): Promise<Decimal> {
+  const items = breakdown ?? await getGrossReceiptsBreakdown(caseId)
   let total = new Decimal(0)
-
-  for (const doc of verifiedDocs) {
-    const data = doc.extractedData as { nonemployeeCompensation?: string | number } | null
-    if (data?.nonemployeeCompensation) {
-      const amount = new Decimal(data.nonemployeeCompensation)
-      total = total.plus(amount)
-    }
+  for (const item of items) {
+    total = total.plus(new Decimal(item.nonemployeeCompensation))
   }
-
   return total
 }
 

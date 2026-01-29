@@ -3,7 +3,7 @@
  * Displays magic link status and prefilled income
  */
 import { Send, Eye, Clock } from 'lucide-react'
-import type { ScheduleCExpense, ScheduleCMagicLink } from '../../../../lib/api-client'
+import type { ScheduleCExpense, ScheduleCMagicLink, NecBreakdownItem } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
 import { ScheduleCActions } from './schedule-c-actions'
@@ -13,9 +13,10 @@ interface ScheduleCWaitingProps {
   expense: ScheduleCExpense
   magicLink: ScheduleCMagicLink | null
   caseId: string
+  necBreakdown?: NecBreakdownItem[]
 }
 
-export function ScheduleCWaiting({ expense, magicLink, caseId }: ScheduleCWaitingProps) {
+export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = [] }: ScheduleCWaitingProps) {
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       {/* Header with Status */}
@@ -91,7 +92,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId }: ScheduleCWaitin
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Thu nhập đã điền sẵn (từ 1099-NEC)
         </h3>
-        <IncomeTable expense={expense} />
+        <IncomeTable expense={expense} necBreakdown={necBreakdown} />
       </div>
 
       {/* Actions */}

@@ -111,9 +111,9 @@ CREATE TABLE "ScheduleCExpense" (
 -- AlterTable: Add engagementId as NULLABLE first
 ALTER TABLE "TaxCase" ADD COLUMN "engagementId" TEXT;
 
--- Backfill: Create TaxEngagement for each existing TaxCase and link them
+-- Backfill: Create TaxEngagement for each unique client+year from existing TaxCases
 INSERT INTO "TaxEngagement" ("id", "clientId", "taxYear", "status", "intakeAnswers", "createdAt", "updatedAt")
-SELECT
+SELECT DISTINCT ON (tc."clientId", tc."taxYear")
   gen_random_uuid()::text,
   tc."clientId",
   tc."taxYear",
@@ -123,7 +123,7 @@ SELECT
   tc."updatedAt"
 FROM "TaxCase" tc
 WHERE tc."engagementId" IS NULL
-ON CONFLICT ("clientId", "taxYear") DO NOTHING;
+ORDER BY tc."clientId", tc."taxYear", tc."createdAt" ASC;
 
 -- Link existing TaxCases to their newly created TaxEngagements
 UPDATE "TaxCase" tc

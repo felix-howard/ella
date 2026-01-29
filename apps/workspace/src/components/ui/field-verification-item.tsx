@@ -35,7 +35,7 @@ export interface FieldVerificationItemProps {
 
 // Status border/bg styles with left accent (dark-mode friendly)
 const STATUS_STYLES: Record<string, string> = {
-  verified: 'border-l-2 border-l-primary border-primary/50 bg-primary/5',
+  verified: 'border-l-2 border-l-primary border-primary/50',
   edited: '',
   unreadable: 'border-l-2 border-l-error border-error/50 bg-error/5',
 }

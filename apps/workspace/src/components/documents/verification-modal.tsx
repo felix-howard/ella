@@ -571,9 +571,7 @@ export function VerificationModal({
                                 key={key}
                                 className={cn(
                                   'transition-colors',
-                                  flatIndex === currentFieldIndex && 'bg-primary/5',
-                                  fieldVerifications[key] && 'bg-green-500/5'
-                                )}
+                                                                                                    )}
                               >
                                 <FieldVerificationItem
                                   fieldKey={key}
@@ -611,9 +609,7 @@ export function VerificationModal({
                               key={key}
                               className={cn(
                                 'transition-colors',
-                                flatIndex === currentFieldIndex && 'bg-primary/5',
-                                fieldVerifications[key] && 'bg-green-500/5'
-                              )}
+                                                                                              )}
                             >
                               <FieldVerificationItem
                                 fieldKey={key}

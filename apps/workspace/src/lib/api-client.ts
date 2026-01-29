@@ -1269,7 +1269,7 @@ export interface CreateDocTypeLibraryInput {
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
 
 // Admin types - Message Templates
-export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL'
+export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL' | 'SCHEDULE_C'
 
 export interface MessageTemplate {
   id: string

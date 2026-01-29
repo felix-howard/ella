@@ -4,7 +4,7 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Clock, AlertTriangle, CheckCircle, FileText } from 'lucide-react'
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Clock, AlertTriangle, CheckCircle, FileText, Receipt } from 'lucide-react'
 import { Card, Button } from '@ella/ui'
 import { cn } from '@ella/ui'
 import { api, type MessageTemplate, type MessageTemplateCategory } from '../../lib/api-client'
@@ -18,6 +18,7 @@ const CATEGORY_CONFIG: Record<MessageTemplateCategory, { label: string; icon: ty
   BLURRY: { label: 'Ảnh mờ', icon: AlertTriangle, color: 'text-warning' },
   COMPLETE: { label: 'Hoàn thành', icon: CheckCircle, color: 'text-success' },
   GENERAL: { label: 'Chung', icon: FileText, color: 'text-muted-foreground' },
+  SCHEDULE_C: { label: 'Chi phí (Schedule C)', icon: Receipt, color: 'text-primary', description: 'Tin nhắn gửi form chi phí kinh doanh' },
 }
 
 export function MessageTemplateConfigTab() {
@@ -145,6 +146,7 @@ export function MessageTemplateConfigTab() {
         onClose={handleCloseModal}
         template={editingTemplate}
         hasWelcomeTemplate={templates.some((t) => t.category === 'WELCOME')}
+        hasScheduleCTemplate={templates.some((t) => t.category === 'SCHEDULE_C')}
       />
     </div>
   )

@@ -114,14 +114,15 @@ scheduleCRoute.get('/:caseId', async (c) => {
   // Get 1099-NEC payer breakdown (single query, reused for total)
   const necBreakdown = await getGrossReceiptsBreakdown(caseId)
 
-  // Auto-update grossReceipts if DRAFT (handles new 1099-NEC verified after send)
-  if (taxCase.scheduleCExpense?.status === 'DRAFT') {
+  // Auto-update grossReceipts if DRAFT or SUBMITTED (handles new 1099-NEC verified after send)
+  // Only LOCKED forms are immutable
+  if (taxCase.scheduleCExpense && taxCase.scheduleCExpense.status !== 'LOCKED') {
     const currentGross = await calculateGrossReceipts(caseId, necBreakdown)
     const storedGross = taxCase.scheduleCExpense.grossReceipts
     if (!storedGross || !currentGross.equals(storedGross)) {
-      // Use optimistic locking: only update if still DRAFT (prevents race with client submission)
+      // Use optimistic locking: only update if not LOCKED (prevents race)
       await prisma.scheduleCExpense.updateMany({
-        where: { id: taxCase.scheduleCExpense.id, status: 'DRAFT' },
+        where: { id: taxCase.scheduleCExpense.id, status: { not: 'LOCKED' } },
         data: { grossReceipts: currentGross.isZero() ? null : currentGross },
       })
       taxCase.scheduleCExpense.grossReceipts = currentGross.isZero() ? null : currentGross

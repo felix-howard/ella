@@ -2,7 +2,7 @@
  * Schedule C Empty State - Shows when 1099-NEC detected but no form sent yet
  * Displays detection notice and send button
  */
-import { AlertTriangle, Send, Loader2 } from 'lucide-react'
+import { FileText, Send, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
 import type { NecBreakdownItem } from '../../../../lib/api-client'
@@ -20,9 +20,9 @@ export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }:
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex flex-col items-center text-center py-8">
-        {/* Alert Icon */}
-        <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4" aria-hidden="true">
-          <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        {/* Icon */}
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4" aria-hidden="true">
+          <FileText className="w-6 h-6 text-primary" />
         </div>
 
         {/* Title */}

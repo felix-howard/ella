@@ -5,7 +5,7 @@
  */
 import { useState, useCallback } from 'react'
 import { Loader2, Send, AlertCircle } from 'lucide-react'
-import { Button, Modal, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@ella/ui'
+import { Button } from '@ella/ui'
 import type { ExpenseFormData } from '../lib/expense-api'
 import { EXPENSE_GROUPS } from '../lib/expense-categories'
 import { useExpenseForm } from '../hooks/use-expense-form'
@@ -24,7 +24,6 @@ interface ExpenseFormProps {
 }
 
 export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
-  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [submittedVersion, setSubmittedVersion] = useState(1)
 
@@ -52,21 +51,15 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
     updateField(field, value)
   }, [isLocked, updateField])
 
-  // Handle submit button click
-  const handleSubmitClick = useCallback(() => {
+  // Handle submit - directly submit without modal
+  const handleSubmit = useCallback(async () => {
     if (isLocked) return
-    setShowConfirmModal(true)
-  }, [isLocked])
-
-  // Handle confirm submission
-  const handleConfirmSubmit = useCallback(async () => {
-    setShowConfirmModal(false)
     const success = await submit()
     if (success) {
       setSubmittedVersion((initialData.expense?.version || 0) + 1)
       setShowSuccess(true)
     }
-  }, [submit, initialData.expense?.version])
+  }, [isLocked, submit, initialData.expense?.version])
 
   // Handle edit after success
   const handleEdit = useCallback(() => {
@@ -165,7 +158,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
       </div>
 
       {/* Sticky submit button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border p-4 shadow-lg">
         <div className="max-w-lg mx-auto">
           {/* Auto-save indicator */}
           <div className="mb-2 flex justify-center">
@@ -178,7 +171,8 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
 
           {/* Submit button */}
           <Button
-            onClick={handleSubmitClick}
+            type="button"
+            onClick={handleSubmit}
             disabled={isLocked || status === 'submitting'}
             className="w-full h-12 text-base font-medium gap-2"
           >
@@ -196,35 +190,6 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
           </Button>
         </div>
       </div>
-
-      {/* Confirmation Modal */}
-      <Modal
-        open={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-      >
-        <ModalHeader>
-          <ModalTitle>Xác nhận gửi?</ModalTitle>
-        </ModalHeader>
-        <ModalBody>
-          <p className="text-muted-foreground">
-            Bạn có chắc muốn gửi thông tin chi phí này cho CPA?
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Bạn vẫn có thể chỉnh sửa sau khi gửi.
-          </p>
-        </ModalBody>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setShowConfirmModal(false)}
-          >
-            Hủy
-          </Button>
-          <Button onClick={handleConfirmSubmit}>
-            Xác nhận gửi
-          </Button>
-        </ModalFooter>
-      </Modal>
     </div>
   )
 }

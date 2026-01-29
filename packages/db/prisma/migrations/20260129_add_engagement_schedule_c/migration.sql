@@ -27,10 +27,7 @@ ALTER TABLE "RawImage" DROP COLUMN "deletedAt",
 ADD COLUMN     "category" "DocCategory",
 ADD COLUMN     "displayName" VARCHAR(255);
 
--- AlterTable
-ALTER TABLE "TaxCase" ADD COLUMN     "engagementId" TEXT NOT NULL;
-
--- CreateTable
+-- CreateTable (must exist before TaxCase references it)
 CREATE TABLE "TaxEngagement" (
     "id" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -110,6 +107,34 @@ CREATE TABLE "ScheduleCExpense" (
 
     CONSTRAINT "ScheduleCExpense_pkey" PRIMARY KEY ("id")
 );
+
+-- AlterTable: Add engagementId as NULLABLE first
+ALTER TABLE "TaxCase" ADD COLUMN "engagementId" TEXT;
+
+-- Backfill: Create TaxEngagement for each existing TaxCase and link them
+INSERT INTO "TaxEngagement" ("id", "clientId", "taxYear", "status", "intakeAnswers", "createdAt", "updatedAt")
+SELECT
+  gen_random_uuid()::text,
+  tc."clientId",
+  tc."taxYear",
+  'ACTIVE'::"EngagementStatus",
+  '{}',
+  tc."createdAt",
+  tc."updatedAt"
+FROM "TaxCase" tc
+WHERE tc."engagementId" IS NULL
+ON CONFLICT ("clientId", "taxYear") DO NOTHING;
+
+-- Link existing TaxCases to their newly created TaxEngagements
+UPDATE "TaxCase" tc
+SET "engagementId" = te."id"
+FROM "TaxEngagement" te
+WHERE tc."clientId" = te."clientId"
+  AND tc."taxYear" = te."taxYear"
+  AND tc."engagementId" IS NULL;
+
+-- Now make engagementId NOT NULL
+ALTER TABLE "TaxCase" ALTER COLUMN "engagementId" SET NOT NULL;
 
 -- CreateIndex
 CREATE INDEX "TaxEngagement_clientId_idx" ON "TaxEngagement"("clientId");

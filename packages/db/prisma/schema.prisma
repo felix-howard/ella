@@ -211,6 +211,7 @@ enum MessageTemplateCategory {
   BLURRY
   COMPLETE
   GENERAL
+  SCHEDULE_C
 }
 
 enum EngagementStatus {

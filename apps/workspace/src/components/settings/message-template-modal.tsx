@@ -15,6 +15,7 @@ const CATEGORY_OPTIONS: { value: MessageTemplateCategory; label: string; descrip
   { value: 'BLURRY', label: 'Ảnh mờ' },
   { value: 'COMPLETE', label: 'Hoàn thành' },
   { value: 'GENERAL', label: 'Chung' },
+  { value: 'SCHEDULE_C', label: 'Chi phí (Schedule C)', description: 'Tin nhắn gửi form chi phí kinh doanh' },
 ]
 
 // Common placeholders with descriptions
@@ -23,6 +24,7 @@ const COMMON_PLACEHOLDERS = [
   { name: 'portalUrl', desc: 'Link gửi tài liệu' },
   { name: 'taxYear', desc: 'Năm thuế (VD: 2025)' },
   { name: 'docType', desc: 'Loại tài liệu' },
+  { name: 'expenseUrl', desc: 'Link form chi phí (Schedule C)' },
 ]
 
 interface MessageTemplateModalProps {
@@ -30,14 +32,17 @@ interface MessageTemplateModalProps {
   onClose: () => void
   template?: MessageTemplate | null
   hasWelcomeTemplate?: boolean
+  hasScheduleCTemplate?: boolean
 }
 
-export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemplate }: MessageTemplateModalProps) {
+export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemplate, hasScheduleCTemplate }: MessageTemplateModalProps) {
   const queryClient = useQueryClient()
   const isEditing = !!template
 
   // Check if WELCOME should be disabled (already exists and not editing the existing welcome template)
   const isWelcomeDisabled = hasWelcomeTemplate && (!isEditing || template?.category !== 'WELCOME')
+  // Check if SCHEDULE_C should be disabled (already exists and not editing the existing schedule_c template)
+  const isScheduleCDisabled = hasScheduleCTemplate && (!isEditing || template?.category !== 'SCHEDULE_C')
 
   // Form state
   const [formData, setFormData] = useState<CreateMessageTemplateInput>({
@@ -185,7 +190,9 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
               {isCategoryDropdownOpen && (
                 <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
                   {CATEGORY_OPTIONS.map((opt) => {
-                    const isDisabled = opt.value === 'WELCOME' && isWelcomeDisabled
+                    const isDisabled =
+                      (opt.value === 'WELCOME' && isWelcomeDisabled) ||
+                      (opt.value === 'SCHEDULE_C' && isScheduleCDisabled)
                     return (
                       <button
                         key={opt.value}

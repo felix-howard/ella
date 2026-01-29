@@ -212,6 +212,23 @@ enum MessageTemplateCategory {
   GENERAL
 }
 
+enum EngagementStatus {
+  DRAFT      // Engagement created but intake not complete
+  ACTIVE     // Intake complete, work in progress
+  COMPLETE   // All tax cases filed
+  ARCHIVED   // Past year, read-only
+}
+
+enum DocCategory {
+  IDENTITY    // Giay to tuy than: SSN, DL, PASSPORT
+  INCOME      // Thu nhap: W2, all 1099 variants, K-1
+  EXPENSE     // Chi phi: RECEIPT, INVOICE
+  ASSET       // Tai san: property, vehicle docs
+  EDUCATION   // Giao duc: 1098-T, 1098-E
+  HEALTHCARE  // Y te: 1095-A/B/C
+  OTHER       // Khac: unclassified
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -262,8 +279,9 @@ model Client {
   email     String?
   language  Language @default(VI)
 
-  profile   ClientProfile?
-  taxCases  TaxCase[]
+  profile      ClientProfile?
+  engagements  TaxEngagement[]
+  taxCases     TaxCase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -272,6 +290,9 @@ model Client {
   @@index([name])
 }
 
+/// @deprecated Use TaxEngagement for year-specific profile data.
+/// Will be removed after all clients migrate to engagement-based queries.
+/// Target removal: 2026-Q3 (2 release cycles after migration)
 model ClientProfile {
   id        String  @id @default(cuid())
   clientId  String  @unique
@@ -302,22 +323,69 @@ model ClientProfile {
   updatedAt DateTime @updatedAt
 }
 
+// TaxEngagement: Year-specific client profile for multi-year support
+// Links Client (permanent) -> TaxEngagement (per-year) -> TaxCase (per-form)
+model TaxEngagement {
+  id        String           @id @default(cuid())
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear   Int
+  status    EngagementStatus @default(DRAFT)
+
+  // Profile fields (copied from ClientProfile for year-specific storage)
+  filingStatus       String?
+  hasW2              Boolean @default(false)
+  hasBankAccount     Boolean @default(false)
+  hasInvestments     Boolean @default(false)
+  hasKidsUnder17     Boolean @default(false)
+  numKidsUnder17     Int     @default(0)
+  paysDaycare        Boolean @default(false)
+  hasKids17to24      Boolean @default(false)
+  hasSelfEmployment  Boolean @default(false)
+  hasRentalProperty  Boolean @default(false)
+  businessName       String?
+  ein                String?
+  hasEmployees       Boolean @default(false)
+  hasContractors     Boolean @default(false)
+  has1099K           Boolean @default(false)
+  intakeAnswers      Json    @default("{}")
+
+  // Relations
+  taxCases  TaxCase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, taxYear])
+  @@index([clientId])
+  @@index([taxYear])
+  @@index([status])
+  @@index([clientId, status])  // Filter client's engagements by status
+}
+
 model TaxCase {
   id        String        @id @default(cuid())
+
+  // BACKWARD COMPAT: Keep clientId/taxYear for gradual migration (deprecate in Phase 5+)
   clientId  String
   client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Required engagement link (Phase 3: made non-nullable)
+  engagementId String
+  engagement   TaxEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
 
   taxYear   Int
   taxTypes  TaxType[]
   status    TaxCaseStatus @default(INTAKE)
 
-  rawImages       RawImage[]
-  digitalDocs     DigitalDoc[]
-  checklistItems  ChecklistItem[]
-  conversation    Conversation?
-  magicLinks      MagicLink[]
-  actions         Action[]
-  imageGroups     ImageGroup[]
+  rawImages         RawImage[]
+  digitalDocs       DigitalDoc[]
+  checklistItems    ChecklistItem[]
+  conversation      Conversation?
+  magicLinks        MagicLink[]
+  actions           Action[]
+  imageGroups       ImageGroup[]
+  scheduleCExpense  ScheduleCExpense?
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -341,6 +409,9 @@ model TaxCase {
   @@index([lastActivityAt])
   @@index([isInReview])
   @@index([isFiled])
+  @@index([engagementId])
+  @@index([engagementId, status])         // Filter engagement's cases by status
+  @@index([engagementId, lastActivityAt]) // Sort engagement's cases by activity
 }
 
 model RawImage {
@@ -356,6 +427,8 @@ model RawImage {
 
   status          RawImageStatus @default(UPLOADED)
   classifiedType  DocType?
+  category        DocCategory?    // AI-assigned document category
+  displayName     String?         @db.VarChar(255)  // Sanitized filename for display (naming convention)
   aiConfidence    Float?
   blurScore       Float?
 
@@ -381,6 +454,7 @@ model RawImage {
 
   @@index([caseId])
   @@index([status])
+  @@index([category])                 // Filter by document category
   @@index([imageGroupId])
   @@index([caseId, classifiedType])  // For duplicate detection queries
   @@index([reuploadRequested])
@@ -564,6 +638,7 @@ model MagicLink {
   taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   token     String   @unique @default(cuid())
+  type      MagicLinkType @default(PORTAL)  // PORTAL for docs, SCHEDULE_C for expense form
 
   lastUsedAt DateTime?
   usageCount Int      @default(0)
@@ -577,6 +652,8 @@ model MagicLink {
   @@index([token])
   @@index([caseId])
   @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
+  @@index([type])  // Filter by link type
+  @@index([caseId, type, isActive])  // Phase 02: Composite index for Schedule C queries
 }
 
 model Action {
@@ -696,6 +773,19 @@ enum AuditEntityType {
   CLIENT
   CLIENT_PROFILE
   TAX_CASE
+  TAX_ENGAGEMENT
+}
+
+// Schedule C expense form types
+enum MagicLinkType {
+  PORTAL       // Existing document upload
+  SCHEDULE_C   // Self-employed expense collection form
+}
+
+enum ScheduleCStatus {
+  DRAFT       // Client editing
+  SUBMITTED   // Client submitted, CPA can review
+  LOCKED      // CPA locked, no more edits
 }
 
 // Audit log for tracking field-level changes
@@ -713,4 +803,82 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([changedById])
   @@index([createdAt])
+}
+
+// ============================================
+// SCHEDULE C EXPENSE COLLECTION
+// ============================================
+
+// Schedule C (Form 1040) expense data for self-employed clients
+// Stores income, 20+ IRS Part II expense categories, vehicle info
+// One Schedule C per TaxCase (multi-business out of scope)
+model ScheduleCExpense {
+  id        String          @id @default(cuid())
+  taxCaseId String          @unique
+  taxCase   TaxCase         @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  status    ScheduleCStatus @default(DRAFT)
+
+  // === Business Information ===
+  businessName    String?   @db.VarChar(200)  // Principal business or profession
+  businessDesc    String?   @db.VarChar(500)  // Business description / product or service
+
+  // === Income Section (Part I) ===
+  // All monetary fields use Decimal(12,2) for precision up to $999,999,999.99
+  grossReceipts   Decimal?  @db.Decimal(12, 2)  // Line 1: Gross receipts or sales
+  returns         Decimal?  @db.Decimal(12, 2)  // Line 2: Returns and allowances
+  costOfGoods     Decimal?  @db.Decimal(12, 2)  // Line 4: Cost of goods sold (Part III total)
+  otherIncome     Decimal?  @db.Decimal(12, 2)  // Line 6: Other income
+
+  // === Expenses (Part II) - IRS Schedule C Line 8-27 ===
+  // Note: carExpense (Line 9) and vehicleMiles are mutually exclusive - use one method only
+  advertising             Decimal?  @db.Decimal(12, 2)  // Line 8
+  carExpense              Decimal?  @db.Decimal(12, 2)  // Line 9: Actual car/truck expenses (OR use mileage)
+  commissions             Decimal?  @db.Decimal(12, 2)  // Line 10
+  contractLabor           Decimal?  @db.Decimal(12, 2)  // Line 11
+  depletion               Decimal?  @db.Decimal(12, 2)  // Line 12
+  depreciation            Decimal?  @db.Decimal(12, 2)  // Line 13: Depreciation and Sec 179
+  employeeBenefits        Decimal?  @db.Decimal(12, 2)  // Line 14
+  insurance               Decimal?  @db.Decimal(12, 2)  // Line 15: Insurance (other than health)
+  interestMortgage        Decimal?  @db.Decimal(12, 2)  // Line 16a
+  interestOther           Decimal?  @db.Decimal(12, 2)  // Line 16b
+  legalServices           Decimal?  @db.Decimal(12, 2)  // Line 17
+  officeExpense           Decimal?  @db.Decimal(12, 2)  // Line 18
+  pensionPlans            Decimal?  @db.Decimal(12, 2)  // Line 19
+  rentEquipment           Decimal?  @db.Decimal(12, 2)  // Line 20a
+  rentProperty            Decimal?  @db.Decimal(12, 2)  // Line 20b
+  repairs                 Decimal?  @db.Decimal(12, 2)  // Line 21
+  supplies                Decimal?  @db.Decimal(12, 2)  // Line 22
+  taxesAndLicenses        Decimal?  @db.Decimal(12, 2)  // Line 23
+  travel                  Decimal?  @db.Decimal(12, 2)  // Line 24a
+  meals                   Decimal?  @db.Decimal(12, 2)  // Line 24b: Deductible meals (50%)
+  utilities               Decimal?  @db.Decimal(12, 2)  // Line 25
+  wages                   Decimal?  @db.Decimal(12, 2)  // Line 26
+  otherExpenses           Decimal?  @db.Decimal(12, 2)  // Line 27a
+  otherExpensesNotes      String?   @db.VarChar(1000)   // Line 27a description
+
+  // === Vehicle Information (Part IV) ===
+  vehicleMiles            Int?      // Total business miles driven
+  vehicleCommuteMiles     Int?      // Commuting miles (not deductible)
+  vehicleOtherMiles       Int?      // Other personal miles
+  vehicleDateInService    DateTime? // Date vehicle placed in service
+  vehicleUsedForCommute   Boolean   @default(false)
+  vehicleAnotherAvailable Boolean   @default(false) // Another vehicle for personal use
+  vehicleEvidenceWritten  Boolean   @default(false) // Written evidence to support deduction
+
+  // === Version Tracking ===
+  // versionHistory JSON structure:
+  // [{ version: number, data: {...expense fields}, submittedAt: string, changes: string[] }]
+  version         Int     @default(1)
+  versionHistory  Json    @default("[]")
+
+  // === Timestamps ===
+  submittedAt DateTime?  // When client submitted (status -> SUBMITTED)
+  lockedAt    DateTime?  // When CPA locked (status -> LOCKED)
+  lockedById  String?    // Staff who locked
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([taxCaseId, status])
 }

@@ -22,6 +22,7 @@ import {
 } from './schemas'
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
+import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
@@ -70,7 +71,7 @@ casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
 
 // POST /cases - Create new tax case for existing client
 casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
-  const { clientId, taxYear, taxTypes } = c.req.valid('json')
+  const { clientId, taxYear, taxTypes, engagementId: providedEngagementId } = c.req.valid('json')
 
   // Get client profile for checklist generation
   const client = await prisma.client.findUnique({
@@ -82,12 +83,30 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
   }
 
+  // If engagementId provided, validate it belongs to this client
+  if (providedEngagementId) {
+    const engagement = await prisma.taxEngagement.findUnique({
+      where: { id: providedEngagementId },
+    })
+    if (!engagement || engagement.clientId !== clientId) {
+      return c.json({ error: 'INVALID_ENGAGEMENT', message: 'Engagement not found or does not belong to this client' }, 400)
+    }
+  }
+
   // Create case and conversation in transaction
   const taxCase = await prisma.$transaction(async (tx) => {
+    // Use provided engagementId or find/create one
+    let engagementId = providedEngagementId
+    if (!engagementId) {
+      const result = await findOrCreateEngagement(tx, clientId, taxYear, client.profile)
+      engagementId = result.engagementId
+    }
+
     const newCase = await tx.taxCase.create({
       data: {
         clientId,
         taxYear,
+        engagementId,
         taxTypes: taxTypes as TaxType[],
         status: 'INTAKE',
       },
@@ -109,6 +128,7 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
     {
       id: taxCase.id,
       clientId: taxCase.clientId,
+      engagementId: taxCase.engagementId,  // Include engagementId in response
       taxYear: taxCase.taxYear,
       taxTypes: taxCase.taxTypes,
       status: taxCase.status,
@@ -126,6 +146,7 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
     where: { id },
     include: {
       client: true,
+      engagement: true,  // Include engagement data for multi-year support
       checklistItems: {
         include: { template: true },
         orderBy: { template: { sortOrder: 'asc' } },
@@ -154,6 +175,9 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
 
   return c.json({
     ...taxCase,
+    // Ensure both clientId and engagementId are in response for dual-field support
+    clientId: taxCase.clientId,
+    engagementId: taxCase.engagementId,
     stats,
     createdAt: taxCase.createdAt.toISOString(),
     updatedAt: taxCase.updatedAt.toISOString(),

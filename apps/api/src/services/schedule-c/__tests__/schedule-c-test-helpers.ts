@@ -1,0 +1,58 @@
+/**
+ * Shared test helpers for Schedule C tests
+ * Creates minimal ScheduleCExpense-like objects for unit testing
+ */
+
+/** Create a minimal ScheduleCExpense-like object with optional field overrides */
+export function createExpense(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'exp-1',
+    taxCaseId: 'case-1',
+    status: 'SUBMITTED',
+    version: 1,
+    businessName: null,
+    businessDesc: null,
+    grossReceipts: null,
+    returns: null,
+    costOfGoods: null,
+    otherIncome: null,
+    advertising: null,
+    carExpense: null,
+    commissions: null,
+    contractLabor: null,
+    depletion: null,
+    depreciation: null,
+    employeeBenefits: null,
+    insurance: null,
+    interestMortgage: null,
+    interestOther: null,
+    legalServices: null,
+    officeExpense: null,
+    pensionPlans: null,
+    rentEquipment: null,
+    rentProperty: null,
+    repairs: null,
+    supplies: null,
+    taxesAndLicenses: null,
+    travel: null,
+    meals: null,
+    utilities: null,
+    wages: null,
+    otherExpenses: null,
+    otherExpensesNotes: null,
+    vehicleMiles: null,
+    vehicleCommuteMiles: null,
+    vehicleOtherMiles: null,
+    vehicleDateInService: null,
+    vehicleUsedForCommute: false,
+    vehicleAnotherAvailable: false,
+    vehicleEvidenceWritten: false,
+    versionHistory: [],
+    submittedAt: null,
+    lockedAt: null,
+    lockedById: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as any
+}

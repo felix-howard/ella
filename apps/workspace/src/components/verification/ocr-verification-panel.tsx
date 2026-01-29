@@ -1,9 +1,9 @@
 /**
  * OCR Verification Panel - Side panel for verifying/editing extracted OCR data
- * Shows extracted fields with inline editing capability
+ * Shows extracted fields grouped by category with inline editing
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { cn } from '@ella/ui'
 import {
   X,
@@ -14,74 +14,15 @@ import {
   Clock,
   FileText,
   Copy,
-  ChevronDown,
-  ChevronUp,
   Image as ImageIcon,
   ZoomIn,
 } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
+import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
 import { copyToClipboard } from '../../lib/formatters'
+import { DOC_TYPE_FIELD_GROUPS } from '../../lib/doc-type-field-groups'
 import { FieldEditForm } from './field-edit-form'
 import type { DigitalDoc, RawImage } from '../../lib/api-client'
-
-// Field configuration for different document types
-const FIELD_CONFIGS: Record<string, { key: string; label: string; type: 'text' | 'number' | 'date' }[]> = {
-  W2: [
-    { key: 'employerName', label: 'Tên công ty', type: 'text' },
-    { key: 'employerEin', label: 'EIN công ty', type: 'text' },
-    { key: 'employeeSSN', label: 'SSN nhân viên', type: 'text' },
-    { key: 'employeeName', label: 'Tên nhân viên', type: 'text' },
-    { key: 'wagesTips', label: 'Lương (Box 1)', type: 'number' },
-    { key: 'federalTaxWithheld', label: 'Thuế đã khấu (Box 2)', type: 'number' },
-    { key: 'socialSecurityWages', label: 'SS Wages (Box 3)', type: 'number' },
-    { key: 'socialSecurityTax', label: 'SS Tax (Box 4)', type: 'number' },
-    { key: 'medicareWages', label: 'Medicare Wages (Box 5)', type: 'number' },
-    { key: 'medicareTax', label: 'Medicare Tax (Box 6)', type: 'number' },
-  ],
-  SSN_CARD: [
-    { key: 'name', label: 'Họ tên', type: 'text' },
-    { key: 'ssn', label: 'SSN', type: 'text' },
-  ],
-  DRIVER_LICENSE: [
-    { key: 'name', label: 'Họ tên', type: 'text' },
-    { key: 'licenseNumber', label: 'Số bằng lái', type: 'text' },
-    { key: 'address', label: 'Địa chỉ', type: 'text' },
-    { key: 'dateOfBirth', label: 'Ngày sinh', type: 'date' },
-    { key: 'expirationDate', label: 'Ngày hết hạn', type: 'date' },
-    { key: 'state', label: 'Tiểu bang', type: 'text' },
-  ],
-  FORM_1099_INT: [
-    { key: 'payerName', label: 'Tên ngân hàng', type: 'text' },
-    { key: 'payerTin', label: 'TIN ngân hàng', type: 'text' },
-    { key: 'recipientName', label: 'Tên người nhận', type: 'text' },
-    { key: 'recipientTin', label: 'TIN người nhận', type: 'text' },
-    { key: 'interestIncome', label: 'Tiền lãi (Box 1)', type: 'number' },
-    { key: 'earlyWithdrawalPenalty', label: 'Phạt rút sớm (Box 2)', type: 'number' },
-    { key: 'federalTaxWithheld', label: 'Thuế đã khấu (Box 4)', type: 'number' },
-  ],
-  FORM_1099_NEC: [
-    { key: 'payerName', label: 'Tên người trả', type: 'text' },
-    { key: 'payerTin', label: 'TIN người trả', type: 'text' },
-    { key: 'recipientName', label: 'Tên người nhận', type: 'text' },
-    { key: 'recipientTin', label: 'TIN người nhận', type: 'text' },
-    { key: 'nonemployeeCompensation', label: 'Thu nhập (Box 1)', type: 'number' },
-    { key: 'federalTaxWithheld', label: 'Thuế đã khấu (Box 4)', type: 'number' },
-  ],
-  FORM_1099_DIV: [
-    { key: 'payerName', label: 'Tên công ty', type: 'text' },
-    { key: 'payerTin', label: 'TIN công ty', type: 'text' },
-    { key: 'ordinaryDividends', label: 'Cổ tức (Box 1a)', type: 'number' },
-    { key: 'qualifiedDividends', label: 'Qualified (Box 1b)', type: 'number' },
-    { key: 'capitalGainDistributions', label: 'Capital Gains (Box 2a)', type: 'number' },
-    { key: 'federalTaxWithheld', label: 'Thuế đã khấu (Box 4)', type: 'number' },
-  ],
-  BANK_STATEMENT: [
-    { key: 'bankName', label: 'Tên ngân hàng', type: 'text' },
-    { key: 'accountNumber', label: 'Số tài khoản', type: 'text' },
-    { key: 'routingNumber', label: 'Routing Number', type: 'text' },
-    { key: 'accountHolderName', label: 'Tên chủ tài khoản', type: 'text' },
-  ],
-}
 
 type DocStatus = 'EXTRACTED' | 'VERIFIED' | 'PARTIAL' | 'FAILED'
 
@@ -115,15 +56,43 @@ export function OCRVerificationPanel({
   const [localData, setLocalData] = useState<Record<string, unknown>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showAllFields, setShowAllFields] = useState(false)
 
   // Initialize local data when doc changes
-  useState(() => {
+  useEffect(() => {
     if (doc) {
       setLocalData({ ...doc.extractedData })
       setEditingField(null)
     }
-  })
+  }, [doc])
+
+  // Compute grouped fields from shared config
+  const { groupedSections, ungroupedFields } = useMemo(() => {
+    if (!doc) return { groupedSections: [], ungroupedFields: [] }
+
+    const data = localData || {}
+    const docGroups = DOC_TYPE_FIELD_GROUPS[doc.docType] || []
+    const groupedKeys = new Set(docGroups.flatMap((g) => g.fields))
+
+    // Build grouped sections with data values (skip null/undefined/empty)
+    const sections = docGroups
+      .map((group) => {
+        const fields = group.fields
+          .filter((key) => {
+            const val = data[key]
+            return val !== undefined && val !== null && val !== ''
+          })
+          .map((key) => ({ key, value: data[key] }))
+        return { group, fields }
+      })
+      .filter((s) => s.fields.length > 0)
+
+    // Collect ungrouped fields (in extractedData but not in any group)
+    const ungrouped = Object.entries(data)
+      .filter(([key]) => !groupedKeys.has(key) && !isExcludedField(key) && typeof data[key] !== 'object')
+      .map(([key, value]) => ({ key, value }))
+
+    return { groupedSections: sections, ungroupedFields: ungrouped }
+  }, [doc, localData])
 
   const handleCopy = useCallback(async (value: unknown, fieldKey: string) => {
     const success = await copyToClipboard(String(value))
@@ -169,20 +138,72 @@ export function OCRVerificationPanel({
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.EXTRACTED
   const StatusIcon = statusConfig.icon
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
-  const fieldConfig = FIELD_CONFIGS[doc.docType] || []
-
-  // Get all fields: configured + extra from extractedData
-  const configuredKeys = new Set(fieldConfig.map((f) => f.key))
-  const extraFields = Object.keys(doc.extractedData || {})
-    .filter((key) => !configuredKeys.has(key))
-    .map((key) => ({ key, label: key, type: 'text' as const }))
-
-  const allFields = [...fieldConfig, ...extraFields]
-  const displayFields = showAllFields ? allFields : allFields.slice(0, 8)
-  const hasMoreFields = allFields.length > 8
-
-  // Check if there are unsaved changes
   const hasChanges = JSON.stringify(localData) !== JSON.stringify(doc.extractedData)
+
+  // Infer field type from value for FieldEditForm
+  const inferFieldType = (value: unknown): 'text' | 'number' | 'date' => {
+    if (typeof value === 'number') return 'number'
+    return 'text'
+  }
+
+  // Render a single field row (reused for grouped and ungrouped)
+  const renderFieldRow = (key: string, value: unknown) => {
+    const isEditing = editingField === key
+    const isCopied = copiedField === key
+    const label = getFieldLabelForDocType(key, doc.docType)
+    const fieldType = inferFieldType(value)
+
+    if (isEditing) {
+      return (
+        <div key={key} className="p-3">
+          <FieldEditForm
+            fieldKey={key}
+            label={label}
+            value={value}
+            type={fieldType}
+            onSave={(newValue) => handleFieldSave(key, newValue)}
+            onCancel={() => setEditingField(null)}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div key={key} className="group flex items-center justify-between p-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-sm font-semibold text-foreground truncate">
+            {value !== undefined && value !== null && value !== ''
+              ? formatDisplayValue(value, fieldType)
+              : <span className="text-muted-foreground italic">—</span>}
+          </p>
+        </div>
+        {/* Always-visible action buttons for touch support */}
+        <div className="flex items-center gap-1">
+          {value !== undefined && value !== null && value !== '' && (
+            <button
+              onClick={() => handleCopy(value, key)}
+              className="p-1.5 rounded hover:bg-muted transition-colors"
+              aria-label={`Copy ${label}`}
+            >
+              {isCopied ? (
+                <Check className="w-4 h-4 text-success" />
+              ) : (
+                <Copy className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => setEditingField(key)}
+            className="p-1.5 rounded hover:bg-muted transition-colors"
+            aria-label={`Sửa ${label}`}
+          >
+            <Edit2 className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -236,90 +257,40 @@ export function OCRVerificationPanel({
         </button>
       )}
 
-      {/* Fields List */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-1">
-          {displayFields.map((field) => {
-            const value = localData[field.key]
-            const isEditing = editingField === field.key
-            const isCopied = copiedField === field.key
-
-            return (
-              <div
-                key={field.key}
-                className={cn(
-                  'group rounded-lg border border-transparent',
-                  'hover:border-border hover:bg-muted/30 transition-colors'
-                )}
-              >
-                {isEditing ? (
-                  <div className="p-3">
-                    <FieldEditForm
-                      fieldKey={field.key}
-                      label={field.label}
-                      value={value}
-                      type={field.type}
-                      onSave={(newValue) => handleFieldSave(field.key, newValue)}
-                      onCancel={() => setEditingField(null)}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground">{field.label}</p>
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {value !== undefined && value !== null && value !== ''
-                          ? formatDisplayValue(value, field.type)
-                          : <span className="text-muted-foreground italic">—</span>}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {value !== undefined && value !== null && value !== '' && (
-                        <button
-                          onClick={() => handleCopy(value, field.key)}
-                          className="p-1.5 rounded hover:bg-muted transition-colors"
-                          aria-label={`Copy ${field.label}`}
-                        >
-                          {isCopied ? (
-                            <Check className="w-4 h-4 text-success" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-muted-foreground" />
-                          )}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setEditingField(field.key)}
-                        className="p-1.5 rounded hover:bg-muted transition-colors"
-                        aria-label={`Sửa ${field.label}`}
-                      >
-                        <Edit2 className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+      {/* Fields List - Grouped */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {groupedSections.map(({ group, fields }) => {
+          const Icon = group.icon
+          return (
+            <section key={group.key} className="rounded-lg border border-border overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-l-4 border-l-primary bg-muted/30">
+                <div className="p-1 rounded-md bg-primary/10 text-primary">
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+                <span className="text-xs text-muted-foreground">({fields.length})</span>
               </div>
-            )
-          })}
-        </div>
+              <div className="divide-y divide-border/50">
+                {fields.map(({ key, value }) => renderFieldRow(key, value))}
+              </div>
+            </section>
+          )
+        })}
 
-        {/* Show More/Less Button */}
-        {hasMoreFields && (
-          <button
-            onClick={() => setShowAllFields(!showAllFields)}
-            className="w-full flex items-center justify-center gap-2 mt-4 py-2 text-sm text-primary hover:text-primary-dark"
-          >
-            {showAllFields ? (
-              <>
-                <ChevronUp className="w-4 h-4" />
-                <span>Thu gọn</span>
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4" />
-                <span>Xem thêm {allFields.length - 8} trường</span>
-              </>
-            )}
-          </button>
+        {/* Ungrouped fields */}
+        {ungroupedFields.length > 0 && (
+          <section className="rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-l-4 border-l-primary bg-muted/30">
+              <div className="p-1 rounded-md bg-primary/10 text-primary">
+                <FileText className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground">Thông tin khác</h3>
+              <span className="text-xs text-muted-foreground">({ungroupedFields.length})</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {ungroupedFields.map(({ key, value }) => renderFieldRow(key, value))}
+            </div>
+          </section>
         )}
       </div>
 
@@ -367,14 +338,11 @@ export function OCRVerificationPanel({
   )
 }
 
-/**
- * Format value for display based on field type
- */
+/** Format value for display based on field type */
 function formatDisplayValue(value: unknown, type: 'text' | 'number' | 'date'): string {
   if (value === null || value === undefined) return ''
 
   if (type === 'number' && typeof value === 'number') {
-    // Format as currency if large number
     return value >= 100 ? `$${value.toLocaleString()}` : String(value)
   }
 

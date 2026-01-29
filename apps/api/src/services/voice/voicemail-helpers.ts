@@ -4,6 +4,7 @@
  */
 import { prisma } from '../../lib/db'
 import type { Prisma } from '@ella/db'
+import { findOrCreateEngagement } from '../engagement-helpers'
 
 // Transaction client type for type-safe transactions
 type TransactionClient = Prisma.TransactionClient
@@ -142,10 +143,20 @@ export async function createPlaceholderConversation(
 
     // Create tax case for current year
     const currentYear = new Date().getFullYear()
+
+    // Find or create engagement for this client + year
+    const { engagementId } = await findOrCreateEngagement(
+      tx,
+      client.id,
+      currentYear,
+      null // No profile available in voicemail context
+    )
+
     const taxCase = await tx.taxCase.create({
       data: {
         clientId: client.id,
         taxYear: currentYear,
+        engagementId,
         taxTypes: ['FORM_1040'], // Default to individual return
         status: 'INTAKE',
       },

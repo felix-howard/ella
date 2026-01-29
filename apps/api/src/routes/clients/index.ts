@@ -26,6 +26,7 @@ import {
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -266,11 +267,20 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
       include: { profile: true },
     })
 
+    // Find or create engagement for this client + year
+    const { engagementId } = await findOrCreateEngagement(
+      tx,
+      client.id,
+      profile.taxYear,
+      client.profile
+    )
+
     // Create tax case
     const taxCase = await tx.taxCase.create({
       data: {
         clientId: client.id,
         taxYear: profile.taxYear,
+        engagementId,
         taxTypes: profile.taxTypes as TaxType[],
         status: 'INTAKE',
       },
@@ -387,28 +397,34 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
   }
 
-  // Build portal URL from active magic link (require PORTAL_URL in production)
-  const latestCase = client.taxCases[0]
-  const activeMagicLink = latestCase?.magicLinks?.[0]
+  // Build portal URL per taxCase from active magic links
   const portalBaseUrl = process.env.PORTAL_URL
-  const portalUrl = activeMagicLink && portalBaseUrl
-    ? `${portalBaseUrl}/u/${activeMagicLink.token}`
-    : null
 
   // Check SMS configuration status
   const smsEnabled = isSmsEnabled()
+
+  const taxCasesWithPortal = client.taxCases.map((tc) => {
+    const activeMagicLink = tc.magicLinks?.[0]
+    const portalUrl = activeMagicLink && portalBaseUrl
+      ? `${portalBaseUrl}/u/${activeMagicLink.token}`
+      : null
+    return {
+      ...tc,
+      magicLinks: undefined,
+      portalUrl,
+      createdAt: tc.createdAt.toISOString(),
+      updatedAt: tc.updatedAt.toISOString(),
+    }
+  })
+
+  // Keep top-level portalUrl for backwards compatibility (latest case)
+  const portalUrl = taxCasesWithPortal[0]?.portalUrl ?? null
 
   return c.json({
     ...client,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
-    taxCases: client.taxCases.map((tc) => ({
-      ...tc,
-      // Exclude magicLinks from response (token is sensitive)
-      magicLinks: undefined,
-      createdAt: tc.createdAt.toISOString(),
-      updatedAt: tc.updatedAt.toISOString(),
-    })),
+    taxCases: taxCasesWithPortal,
     portalUrl,
     smsEnabled,
   })

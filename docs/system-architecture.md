@@ -101,7 +101,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Build: `pnpm -F @ella/api build` (tsup → ESM + type defs)
 - Start: `pnpm -F @ella/api start` (runs dist/index.js)
 
-**Implemented Endpoints (52 total - Phase 01-04 Voice + Phase 2 Actionable Status combined):**
+**Implemented Endpoints (58 total - Phase 01-04 Voice + Phase 2 Actionable Status + Phase 4 Engagements):**
+
+**Tax Engagements (6 - Phase 4 NEW: Multi-year client support):**
+- `GET /engagements` - List engagements with clientId/taxYear/status filters, pagination
+- `GET /engagements/:id` - Engagement details with client info & related tax cases
+- `POST /engagements` - Create engagement (with optional copy-from for year-to-year profile reuse)
+- `PATCH /engagements/:id` - Update engagement profile (status, filing info, intake answers with merge logic)
+- `DELETE /engagements/:id` - Delete engagement if no tax cases exist (prevents orphaned data)
+- `GET /engagements/:id/copy-preview` - Preview copyable fields from engagement (excludes intakeAnswers for privacy)
 
 **Voice Management (10 - Phase 01-04 Voice Calls):**
 - `POST /voice/token` - Generate staff access token with VoiceGrant (outbound + inbound)
@@ -130,11 +138,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /clients/:id/resend-sms` - Resend welcome message with magic link (requires PORTAL_URL)
 - `DELETE /clients/:id` - Delete client
 
-**Tax Cases (10 - Phase 2 NEW: +3 status action endpoints):**
-- `GET /cases` - List with status/year/client filters, pagination
-- `POST /cases` - Create new case
-- `GET /cases/:id` - Case details with document counts, **isInReview/isFiled flags**, lastActivityAt
-- `PATCH /cases/:id` - Update status/metadata with transition validation
+**Tax Cases (10 - Phase 2 NEW: +3 status action endpoints; Phase 4: engagementId FK):**
+- `GET /cases` - List with status/year/client filters (NOTE: clientId deprecated; use engagementId), pagination
+- `POST /cases` - Create new case (now supports engagementId FK instead of direct clientId)
+- `GET /cases/:id` - Case details with document counts, **isInReview/isFiled flags**, lastActivityAt, engagementId
+- `PATCH /cases/:id` - Update status/metadata with transition validation (engagementId support)
 - `POST /cases/:id/send-to-review` - Move case to REVIEW state (Phase 2 NEW)
 - `POST /cases/:id/mark-filed` - Mark case as FILED with filedAt timestamp (Phase 2 NEW)
 - `POST /cases/:id/reopen` - Reopen filed case, returns to REVIEW (Phase 2 NEW)
@@ -264,6 +272,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Response includes audit metadata
 - No changes = no logging (efficiency optimization)
 
+**Phase 4 Extension: Engagement Audit Logging**
+- New function: **logEngagementChanges(engagementId, changes[], staffId?)** - Log TaxEngagement field changes
+  - Tracks creation events (clientId, taxYear, copySource)
+  - Tracks profile updates (filingStatus, intake answers, status transitions)
+  - Uses AuditEntityType.TAX_ENGAGEMENT enum value
+  - Non-blocking async pattern (fire-and-forget)
+- New function: **computeEngagementDiff(oldEngagement, newEngagement)** - Compute field-level changes
+  - Compares direct fields (filingStatus, hasW2, status, etc.)
+  - Handles intakeAnswers merge logic (partial update)
+  - Returns array of FieldChange objects
+- Integration with POST/PATCH /engagements endpoints for compliance tracking
+
 **Database Schema (AuditLog Model):**
 ```
 id: cuid (primary key)
@@ -309,6 +329,20 @@ if (allChanges.length > 0) {
 - Field masking: PII never stored in audit logs (values are audit records, not compliance records)
 - Staff attribution: Enables user activity tracking for compliance audits
 - Atomic updates: All changes for single request logged together
+
+**Deprecation Headers Middleware (Phase 4 NEW):**
+
+- Location: `src/middleware/deprecation.ts`
+- Implements RFC 8594 deprecation standards
+- Detects clientId usage in query params or URL paths
+- Adds headers to deprecated API calls:
+  - `Deprecation: true` - Signals deprecated endpoint
+  - `Sunset: Wed, 25 Jul 2026 00:00:00 GMT` - Removal date (6 months)
+  - `X-Deprecation-Reason` - Migration guidance (use engagementId instead)
+  - `Link: </docs/api-migration>; rel="deprecation"` - Documentation link
+- Helper function: **addDeprecationWarning()** - Adds warning to response body for deprecated fields
+- Migration path: All clientId-based queries should transition to engagementId queries
+- Sunset enforcement: System will remove clientId support after deadline
 
 **SMS Service Implementation (Phase 1.2+):**
 
@@ -452,6 +486,56 @@ See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) and [Pha
   - CALL channel in message bubbles with PhoneCall icon
   - Vietnamese error messages with sanitization
   - Focus trap modal (prevents page interaction during calls)
+
+**Engagement Helper Service (Phase 3 - NEW):**
+
+**Location:** `apps/api/src/services/engagement-helpers.ts`
+
+**Purpose:** Atomic find-or-create TaxEngagement for case creation workflows.
+
+**Core Function:** `findOrCreateEngagement(tx, clientId, taxYear, profile?)`
+
+- **Input:** Prisma transaction, clientId, taxYear, optional ClientProfile
+- **Output:** `{ engagementId, isNew: boolean }`
+- **Behavior:**
+  - Queries: `TaxEngagement.findUnique({ where: { clientId_taxYear } })`
+  - If exists: Return engagementId, isNew=false
+  - If not: Create with DRAFT status, copy profile fields with null-safety
+  - Profile copy: All fields (filingStatus, hasW2, ein, intakeAnswers, etc.)
+  - Used in: Case creation routes, voice voicemail helpers
+  - Atomic: Runs in Prisma transaction to ensure consistency
+
+**Usage Pattern:**
+```typescript
+const { engagementId, isNew } = await findOrCreateEngagement(
+  tx,
+  clientId,
+  taxYear,
+  clientProfile
+)
+
+const newCase = await tx.taxCase.create({
+  data: {
+    clientId,
+    engagementId,  // REQUIRED in Phase 3
+    taxYear,
+    // ...
+  }
+})
+```
+
+**Verification Scripts (Phase 3):**
+
+1. `verify-phase2.ts` - Pre-Phase 3 gate
+   - Checks: All TaxCases have engagementId (null count = 0)
+   - Checks: No orphaned engagementIds (referential integrity)
+   - Exit: Pass (0) / Fail (1) for CI/CD pipelines
+   - Run: `pnpm -F @ella/db run verify:phase2`
+
+2. `verify-phase3.ts` - Post-Phase 3 validation (if created)
+   - Checks: Schema constraint enforced (engagementId required)
+   - Checks: Cascade delete works (orphan records cleanup)
+   - Run: `pnpm -F @ella/db run verify:phase3`
 
 **Checklist Display Enhancement (Phase 4 - NEW):**
 
@@ -724,22 +808,35 @@ if (!config.inngest.isProductionReady) {
 
 **Durable Step Structure:**
 
-1. **mark-processing** - Update RawImage.status = PROCESSING
+1. **check-idempotency** - Atomic compare-and-swap (prevents race conditions)
+   - Skip if already processed (PROCESSING, CLASSIFIED, LINKED, etc.)
+   - Mark status = PROCESSING only if status was UPLOADED
 2. **fetch-image** - Retrieve image from R2 via signed URL
-   - Returns: { buffer: base64, mimeType }
-3. **classify** - Gemini vision classification
-   - Returns: { success, docType, confidence, reasoning }
-4. **route-by-confidence** - Route by confidence thresholds
+   - Returns: { buffer: base64, mimeType, wasResized, isPdf }
+3. **check-duplicate** - Perceptual hash grouping (Phase 03)
+   - Generate 64-bit pHash from image (skip PDFs - pHash on images only)
+   - Find existing duplicates via Hamming distance (threshold: <10 bits)
+   - Create/join ImageGroup if duplicate found
+   - Early exit if duplicate (skip AI classification - cost saving)
+4. **classify** - Gemini vision classification
+   - Returns: { success, docType, confidence, reasoning, taxYear, source }
+   - Native PDF reading (no conversion needed)
+   - Handles service unavailability with retry
+5. **route-by-confidence** - Route by confidence thresholds
    - < 60%: UNCLASSIFIED, create AI_FAILED action
    - 60-85%: CLASSIFIED, create VERIFY_DOCS action
    - >= 85%: CLASSIFIED, auto-link, no action
    - Returns: { action, needsOcr, checklistItemId }
-5. **detect-duplicates** - Perceptual hash grouping (Phase 03)
-   - Generate 64-bit pHash from image
-   - Find existing duplicates via Hamming distance (threshold: <10 bits)
-   - Create/join ImageGroup if duplicate found
-   - Returns: { grouped, groupId, isNewGroup, imageCount }
-6. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
+6. **rename-file** - Auto-rename to meaningful filename (Phase 04)
+   - Skip if unclassified or classification failed
+   - Validate caseId format (CUID defense-in-depth)
+   - R2 copy+delete atomic pattern (idempotent, race-condition safe)
+   - Fetch client name from TaxCase record
+   - Rename: {r2Key} → {caseId}/docs/{TaxYear}_{DocType}_{Source}_{ClientName}
+   - Update RawImage.r2Key, displayName, category atomically
+   - Graceful degradation: failure doesn't break job
+   - Returns: { renamed, newKey, displayName, category, error? }
+7. **ocr-extract** - Conditional OCR extraction (if confidence >= 60%)
    - Extract structured data with confidence score
    - Atomic DB transaction: upsert DigitalDoc + update ChecklistItem + mark LINKED
    - Returns: { digitalDocId }
@@ -750,12 +847,18 @@ if (!config.inngest.isProductionReady) {
   rawImageId: string
   classification: { docType: DocType, confidence: number }
   routing: 'auto-linked' | 'needs-review' | 'unclassified'
-  grouping: {
-    grouped: boolean
-    groupId: string | null
-    imageCount: number
+  rename: {
+    renamed: boolean
+    newKey: string | null
+    displayName: string | null
+    category: DocCategory
+  }
+  duplicateCheck: {
+    checked: boolean
+    imageHash: string | null
   }
   digitalDocId?: string
+  wasResized: boolean
 }
 ```
 
@@ -985,6 +1088,39 @@ Real-time updates via polling:
 - Accessibility: aria-labels, aria-pressed, semantic HTML
 - Vietnamese UI: "Tin nhắn", "Chọn cuộc hội thoại"
 
+### Phase 3 Schema Enforcement Flow
+
+```
+POST /cases (create new case)
+        ↓
+1. Fetch ClientProfile by clientId
+2. Call findOrCreateEngagement(tx, clientId, taxYear, profile)
+   ├─ Check: TaxEngagement exists? (clientId, taxYear composite key)
+   ├─ If yes: Return engagementId, isNew=false
+   ├─ If no: Create DRAFT engagement, copy profile fields
+   └─ Return: { engagementId, isNew=true }
+        ↓
+3. Create TaxCase with REQUIRED engagementId
+   └─ DB constraint enforced at schema level
+        ↓
+4. Generate checklist with engagement profile
+   └─ Uses TaxEngagement.intakeAnswers (not ClientProfile)
+        ↓
+5. Return case with engagementId populated
+        ↓
+[No fallback to clientId-only queries]
+        ↓
+If engagementId missing:
+   └─ DB constraint violation → 500 error (developer bug)
+
+**Benefits Phase 3:**
+- No orphaned TaxCases (all linked to engagement)
+- Cascade delete prevents dangling records
+- Year-specific profile always available
+- Profile snapshot preserved for audit trail
+- Type-safe: engagementId non-nullable everywhere
+```
+
 ### Authentication Flow
 
 ```
@@ -1201,6 +1337,66 @@ Validation errors (OCR confidence < 0.85):
 - Phase 4 Priority 3: FORM_1098_T, FORM_1099_G, FORM_1099_MISC
 ```
 
+### Phase 03 Storage Rename - R2 File Renaming Operation (NEW)
+
+**Location:** `packages/shared/src/utils/filename-sanitizer.ts` | `apps/api/src/services/storage.ts`
+
+**Purpose:** Rename files in R2 storage from generic names (e.g., `cases/abc123/raw/123456.pdf`) to meaningful names based on AI classification results (e.g., `cases/abc123/docs/2025_W2_GoogleLlc_JohnSmith.pdf`).
+
+**Filename Convention:**
+- Format: `{TaxYear}_{DocType}_{Source}_{ClientName}`
+- Example: `2025_W2_GoogleLlc_JohnSmith.pdf`
+- Rules: No spaces (underscores), no Vietnamese diacritics, no special chars, max 60 chars total
+
+**Utilities (filename-sanitizer.ts):**
+- `removeDiacritics(text)` - Removes Vietnamese accents/tones (ă, â, đ, ê, ô, ơ, ư)
+- `toPascalCase(text)` - Converts to PascalCase ("google llc" → "GoogleLlc")
+- `sanitizeComponent(input, maxLength)` - Removes special chars, enforces length
+- `generateDocumentName(components)` - Generates final filename from naming components
+- `getDisplayNameFromKey(r2Key)` - Extracts display name from R2 key
+
+**Storage Service (storage.ts):**
+- `renameFile(oldKey, caseId, components): RenameResult` - Main rename operation
+  - Uses R2 copy+delete pattern (no native rename in S3/R2)
+  - Step 1: Copy object to new key in `cases/{caseId}/docs/` folder
+  - Step 2: Delete old key (safe to fail - orphaned file acceptable, DB is source of truth)
+  - Returns: `{ success, newKey, oldKey, error? }`
+
+**Behavior:**
+- Skips rename if keys are identical (no-op)
+- Preserves file extension from original key
+- Defaults to `.pdf` if extension not found
+- Succeeds even if delete fails (orphaned old file is acceptable per design)
+- Returns error only if copy fails (new file not created)
+
+**Integration (Phase 04 - INTEGRATED INTO classify-document JOB):**
+- Called as Step 5 in classifyDocumentJob after route-by-confidence (Step 4)
+- Automatic rename for all classified documents (confidence ≥ 60%)
+- Requires DocumentNamingComponents from classification: taxYear, docType, source, clientName
+- Client name fetched from TaxCase record (single DB query per classification)
+- Graceful degradation: rename failure doesn't break job or OCR steps
+- Updates RawImage.r2Key, displayName, and category atomically
+- Gracefully handles R2 not configured (returns success without operation)
+- Telemetry logged for rename failures (for debugging & monitoring)
+
+**Test Coverage (10 tests):**
+- Copy+delete pattern validation
+- Extension preservation & default handling
+- Identical key detection (no-op)
+- Copy failure handling (returns error)
+- Delete failure handling (succeeds with orphaned file)
+- Vietnamese character handling
+- Null taxYear defaulting to current year
+- Empty source handling
+- Complex docType handling
+
+**Filename Sanitizer Tests (33 tests):**
+- Diacritics removal (Vietnamese accents)
+- PascalCase conversion
+- Component sanitization (special char removal)
+- Document name generation
+- Display name extraction from R2 keys
+
 ### Real-Time Updates & Notifications Flow - Phase 05 Implementation
 
 ```
@@ -1279,13 +1475,13 @@ Poll Stops (unsubscribe):
 - Client Detail - Route that integrates polling + docs tracking
 ```
 
-## Database Schema (Phase 1.1 - Complete)
+## Database Schema (Phase 3 Schema Cleanup - Complete)
 
-**Core Models (14 - Phase 01 NEW: +1 AuditLog model):**
+**Core Models (15 - Phase 3.0 UPDATE: TaxCase.engagementId now REQUIRED, onDelete Cascade):**
 
 ```
 AuditLog - Compliance & audit trail (Phase 01 NEW)
-├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT)
 ├── entityId, field, oldValue, newValue (Json)
 ├── changedById (optional), createdAt
 ├── Indexes: (entityType, entityId), (changedById), (createdAt)
@@ -1295,31 +1491,48 @@ Staff - Authentication & authorization
 ├── avatarUrl, isActive, timestamps
 ├── auditLogs (1:many AuditLog)
 
-Client - Tax client management
+Client - Tax client management (permanent)
 ├── id, name, phone (@unique), email, language (VI|EN)
-├── profile (1:1 ClientProfile)
-├── taxCases (1:many TaxCase)
+├── profile (1:1 ClientProfile) - Deprecated legacy global profile
+├── engagements (1:many TaxEngagement) - Year-specific engagement records
+├── taxCases (1:many TaxCase) - Per-form filings
 
-ClientProfile - Tax situation questionnaire
+ClientProfile - Tax situation questionnaire (DEPRECATED - Phase 3 reads via TaxEngagement)
 ├── Dependents: hasKidsUnder17, numKidsUnder17, paysDaycare, hasKids17to24
 ├── Employment: hasW2, hasSelfEmployment
 ├── Investments: hasBankAccount, hasInvestments
 ├── Business: ein, businessName, hasEmployees, hasContractors, has1099K
 ├── Housing: hasRentalProperty
+├── NOTE: All new operations use TaxEngagement profile snapshot instead
+├── Maintained for backward compat only; reads fallback to engagement
+
+TaxEngagement - Year-specific client profile (Phase 1.0 NEW - Multi-year support; Phase 3: PRIMARY data source)
+├── id, clientId (@fk, onDelete: Cascade), taxYear, status (DRAFT|ACTIVE|COMPLETE|ARCHIVED)
+├── Profile fields (same as ClientProfile for year-specific storage)
+├── intakeAnswers (JSON) - Year-specific intake responses [Phase 3: PRIMARY source, not ClientProfile]
+├── taxCases (1:many, onDelete: Cascade) - Tax forms for this engagement year
+├── Unique constraint: (clientId, taxYear)
+├── Indexes: (clientId), (taxYear), (status), (clientId, status)
+├── Purpose: Multi-year client support, year-specific profile snapshots [Phase 3: All ops use engagement profile]
 
 TaxCase - Per-client per-year tax filing
-├── clientId, taxYear, status (INTAKE→FILED), taxTypes[]
+├── clientId, engagementId (REQUIRED @fk TaxEngagement, onDelete: Cascade) [Phase 3 CHANGE]
+├── taxYear, status (INTAKE→FILED), taxTypes[]
 ├── rawImages, digitalDocs, checklistItems, imageGroups (1:many)
 ├── conversation, magicLinks, actions (1:many)
 ├── Timestamps: lastContactAt, entryCompletedAt, filedAt
+├── Indexes: (engagementId), (engagementId, status), (engagementId, lastActivityAt)
 
 RawImage - Document uploads
 ├── caseId, r2Key, r2Url, filename, fileSize
 ├── status (UPLOADED→LINKED), classifiedType, aiConfidence, blurScore
+├── category (DocCategory?) - AI-assigned document category (Phase 01: IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER)
+├── displayName (String? VarChar(255)) - Sanitized filename for display (Phase 01)
 ├── imageHash (pHash for duplicates), imageGroupId (duplicate grouping)
 ├── uploadedVia (SMS|PORTAL|SYSTEM)
 ├── reuploadRequested Boolean, reuploadRequestedAt DateTime (Phase 01)
 ├── reuploadReason String?, reuploadFields Json? (Phase 01)
+├── Indexes: (caseId), (status), (category) - Filter by document category
 
 ImageGroup - Duplicate document grouping (Phase 03)
 ├── caseId, docType, bestImageId (selected best image)
@@ -1350,8 +1563,24 @@ Message - SMS/portal/system messages
 ├── attachmentUrls[], isSystem, templateUsed
 
 MagicLink - Passwordless access tokens
-├── caseId, token (@unique), expiresAt, isActive
-├── lastUsedAt, usageCount
+├── caseId, token (@unique), type (PORTAL|SCHEDULE_C - Phase 1 NEW)
+├── expiresAt, isActive, lastUsedAt, usageCount
+
+ScheduleCExpense - Self-employed Schedule C expense data (Phase 1 NEW - 1:1 with TaxCase)
+├── taxCaseId (@unique), status (DRAFT|SUBMITTED|LOCKED)
+├── Business: businessName, businessDesc
+├── Income (Part I): grossReceipts, returns, costOfGoods, otherIncome
+├── Expenses (Part II - 20 categories): advertising, carExpense, commissions, contractLabor,
+│   depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther,
+│   legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs,
+│   supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses (+ otherExpensesNotes)
+├── Vehicle Info (Part IV): vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles,
+│   vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten
+├── All monetary fields: Decimal(12,2) [$0.00 - $999,999,999.99]
+├── Version tracking: version (Int), versionHistory (Json array of historical snapshots)
+├── Timestamps: submittedAt, lockedAt, lockedById, createdAt, updatedAt
+├── Indexes: (status), (taxCaseId, status)
+├── Purpose: Expense data collection for self-employed Form 1040 Schedule C
 
 Action - Staff tasks & reminders
 ├── caseId, type (VERIFY_DOCS|AI_FAILED|BLURRY_DETECTED|REMINDER_DUE|CLIENT_REPLIED)
@@ -1359,11 +1588,342 @@ Action - Staff tasks & reminders
 ├── isCompleted, completedAt, scheduledFor, metadata (JSON)
 ```
 
-**Enums (12):**
-- TaxCaseStatus, TaxType, DocType (21 document types)
+**Enums (16 - Phase 1.0 NEW: +1 EngagementStatus, Phase 01: +1 DocCategory, Phase 1 (Schedule C): +2 MagicLinkType/ScheduleCStatus):**
+- TaxCaseStatus, TaxType, DocType (60+ document types)
 - RawImageStatus, DigitalDocStatus, ChecklistItemStatus
 - ActionType, ActionPriority, MessageChannel, MessageDirection
 - StaffRole, Language
+- **EngagementStatus** (Phase 1.0) - DRAFT, ACTIVE, COMPLETE, ARCHIVED
+- **DocCategory** (Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
+- **MagicLinkType** (Phase 1 Schedule C NEW) - PORTAL (document upload), SCHEDULE_C (expense form)
+- **ScheduleCStatus** (Phase 1 Schedule C NEW) - DRAFT (client editing), SUBMITTED (awaiting CPA review), LOCKED (CPA finalized)
+
+## Phase 01 Database Schema Update - Document Categorization (2026-01-27)
+
+### DocCategory Enum & RawImage Fields
+
+**New Enum: DocCategory** (7 categories)
+```
+IDENTITY    - Giáy tờ tùy thân: SSN Card, Driver License, Passport, etc.
+INCOME      - Thu nhập: W2, all 1099 variants, K-1 forms
+EXPENSE     - Chi phí: Receipts, Invoices, Deduction documentation
+ASSET       - Tài sản: Property docs, Vehicle documents, Real estate
+EDUCATION   - Giáo dục: 1098-T, 1098-E (education credits)
+HEALTHCARE  - Y tế: 1095-A/B/C (health insurance forms)
+OTHER       - Khác: Unclassified or miscellaneous documents
+```
+
+**RawImage Schema Changes (Phase 01)**
+```prisma
+model RawImage {
+  // Existing fields...
+
+  // Phase 01: Document categorization
+  category        DocCategory?           // AI-assigned document category
+  displayName     String? @db.VarChar(255)  // Sanitized filename (naming convention)
+
+  // Indexes for filtering
+  @@index([category])                    // Filter by document category
+}
+```
+
+**Purpose & Usage**
+- **AI-Assigned Categorization:** When Gemini classifies documents, it assigns both `classifiedType` (specific type like W2) and `category` (broad category)
+- **Display Name:** Stores human-readable filename after sanitization (removes special chars, limits length)
+- **Indexing Strategy:** Category index enables efficient filtering by document class (e.g., "show all INCOME documents")
+- **Backward Compatibility:** Both fields optional; existing RawImages not affected
+
+**Implementation Notes**
+- Migration: Add columns (nullable, no data change required)
+- Gemini classifier prompt updated to infer category from docType classification
+- Frontend: New category filter in Document Gallery for staff navigation
+- Query optimization: Use `@@index([category])` for dashboard queries grouping docs by category
+
+---
+
+## Phase 1 Schedule C Expense Collection - Database Schema (2026-01-28)
+
+**Status:** ✅ COMPLETE | Database foundation established for self-employed expense forms
+
+**Overview:** Introduces infrastructure for time-limited magic link forms allowing clients to enter Schedule C expenses. Supports full IRS Schedule C Part I-IV structure: business info, income, 20+ expense categories, and vehicle mileage tracking.
+
+### Design Pattern
+
+```
+MagicLink (type=SCHEDULE_C)
+    → Client receives link via SMS/email
+    → Portal route checks link type
+    → Displays ScheduleCExpense form (Phase 2+)
+    → Client enters data (status=DRAFT)
+    → Client submits (status=SUBMITTED)
+    → CPA reviews (status=LOCKED via API)
+    → versionHistory tracks all snapshots
+```
+
+### MagicLinkType Enum
+
+```prisma
+enum MagicLinkType {
+  PORTAL      // Existing: document upload form
+  SCHEDULE_C  // New: self-employed expense form
+}
+```
+
+**Field Changes:**
+- `MagicLink.type` added (required, default: PORTAL for backward compatibility)
+- Index on `type` for filtering links by purpose
+- No changes to token/expiry/usage logic
+
+### ScheduleCStatus Enum
+
+```prisma
+enum ScheduleCStatus {
+  DRAFT       // Client still editing (can save/delete)
+  SUBMITTED   // Client done; CPA can review (read-only to client)
+  LOCKED      // CPA locked; no further edits (immutable)
+}
+```
+
+### ScheduleCExpense Model (1:1 with TaxCase)
+
+**Field Grouping by IRS Form Structure:**
+
+| Section | Fields | Type | Notes |
+|---------|--------|------|-------|
+| **Business Info** | businessName, businessDesc | String(200/500) | Optional; populated from intake |
+| **Part I: Income** | grossReceipts, returns, costOfGoods, otherIncome | Decimal(12,2) | All optional; use null if $0 |
+| **Part II: Expenses** | advertising, carExpense, commissions, contractLabor, depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther, legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs, supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses | Decimal(12,2) | 20 expense lines from IRS Schedule C; otherExpenses includes otherExpensesNotes (String 1000) |
+| **Part IV: Vehicle** | vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles, vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten | Int, DateTime, Boolean | Optional; zero if not applicable |
+| **Status & History** | status, version, versionHistory, submittedAt, lockedAt, lockedById | ScheduleCStatus, Int, Json, DateTime | version starts at 1; versionHistory stores snapshots + timestamps + change notes |
+| **Metadata** | taxCaseId, createdAt, updatedAt | Relation, DateTime | Cascade delete if TaxCase deleted |
+
+**Constraints:**
+- `taxCaseId` @unique (max 1 Schedule C per case)
+- `onDelete: Cascade` (delete expense if case deleted)
+- All monetary fields nullable (represent $0 as null, not 0.00)
+- Indexes: `(status)`, `(taxCaseId, status)` for filtering
+
+### Version History Structure
+
+```typescript
+interface VersionSnapshot {
+  version: number        // 1, 2, 3, ... (increments on each submission)
+  submittedAt: string   // ISO 8601 timestamp
+  data: {               // Snapshot of all expense fields at submission time
+    businessName?: string
+    grossReceipts?: number
+    advertising?: number
+    // ... all 50+ fields
+  }
+  changes: string[]     // Human-readable list of changed fields
+  changedBy?: string    // Staff ID if CPA modified (Phase 2+)
+}
+```
+
+**Example versionHistory JSON:**
+```json
+[
+  {
+    "version": 1,
+    "submittedAt": "2026-01-25T14:30:00Z",
+    "data": { "businessName": "Acme Corp", "grossReceipts": 50000, "advertising": 1500 },
+    "changes": ["grossReceipts: 0 → 50000", "advertising: 0 → 1500"]
+  },
+  {
+    "version": 2,
+    "submittedAt": "2026-01-26T10:15:00Z",
+    "data": { "businessName": "Acme Corp", "grossReceipts": 55000, "advertising": 2000 },
+    "changes": ["grossReceipts: 50000 → 55000", "advertising: 1500 → 2000"]
+  }
+]
+```
+
+### Workflow States
+
+| State | Actor | Data Mode | Next State | Notes |
+|-------|-------|-----------|-----------|-------|
+| **DRAFT** | Client | Read+Write | SUBMITTED, (delete) | Client has magic link; can save work multiple times |
+| **SUBMITTED** | CPA | Read-only (client) | LOCKED, (reject back to DRAFT) | Client lost edit access; CPA reviews before filing |
+| **LOCKED** | CPA | Immutable | (none) | Finalized for tax return; historical record complete |
+
+### Backward Compatibility
+
+**Existing magic links:**
+- All current PORTAL links unaffected
+- MagicLink.type defaults to PORTAL in migrations
+- Query filtering by type: `WHERE type = 'PORTAL'` for document uploads
+
+**Future phases:**
+- Phase 2: API endpoints (CRUD ScheduleCExpense)
+- Phase 3: Frontend form components (6-section wizard)
+- Phase 4: Portal link routing (portal/schedule-c/:token)
+- Phase 5: CPA review interface + lock workflow
+
+---
+
+## Phase 4 Schedule C 1099-NEC Breakdown Feature (2026-01-29)
+
+**Status:** ✅ COMPLETE | Per-payer NEC breakdown display with auto-update logic
+
+**Overview:** Enhances Schedule C expense management with detailed per-payer 1099-NEC breakdown. Staff can now see individual payer names and compensation amounts, with automatic recalculation when new 1099-NECs are verified after form was sent.
+
+### Architecture
+
+```
+Backend (Service Layer)
+│
+├─ getGrossReceiptsBreakdown(caseId)
+│   └─ Query: VERIFIED 1099-NECs from digitalDoc
+│       └─ Return: [{ docId, payerName, nonemployeeCompensation }]
+│
+├─ calculateGrossReceipts(caseId, breakdown?)
+│   └─ Refactored: accepts optional breakdown parameter
+│       └─ Reuses data to avoid duplicate queries
+│
+└─ GET /schedule-c/:caseId
+    ├─ Fetches necBreakdown once
+    ├─ Auto-updates DRAFT grossReceipts (optimistic locking)
+    └─ Returns: { expense, magicLink, totals, necBreakdown[] }
+
+Frontend (React Component Chain)
+│
+├─ useScheduleC hook
+│   ├─ Extracts necBreakdown from API
+│   ├─ Derives count1099NEC from breakdown length
+│   └─ Exposes both in return object
+│
+├─ ScheduleCEmptyState
+│   └─ Shows "X payers detected" before form sent
+│
+├─ ScheduleCWaiting & ScheduleCSummary
+│   └─ Pass necBreakdown to IncomeTable
+│
+└─ IncomeTable + NecBreakdownList
+    ├─ Dynamic label: "1099-NEC Gross Receipts (X payers)"
+    ├─ Renders breakdown list below gross receipts
+    └─ Each item: payer name + copyable amount
+```
+
+### Data Flow: Auto-Update Logic
+
+```
+Timeline: Form sent (DRAFT) → New 1099-NEC uploaded & verified
+
+1. GET /schedule-c/:caseId called
+   ├─ Fetch necBreakdown (all VERIFIED 1099-NECs)
+   └─ Staff sees current breakdown
+
+2. Backend auto-update (optimistic locking)
+   ├─ Check: is status still DRAFT?
+   │   └─ YES: Recalculate gross receipts from necBreakdown
+   │   └─ NO: Skip (client already submitted)
+   ├─ Compare: stored grossReceipts vs. calculated
+   │   └─ Changed: UPDATE ScheduleCExpense (only if DRAFT)
+   │   └─ Unchanged: No-op
+   └─ Return: updated necBreakdown + gross receipts
+
+3. Frontend updates UI
+   ├─ Income table shows new total
+   ├─ Breakdown list shows all payers (new one included)
+   └─ Staff can lock form with accurate data
+```
+
+### Data Structures
+
+**NecBreakdownItem Interface:**
+```typescript
+interface NecBreakdownItem {
+  docId: string                          // digitalDoc.id
+  payerName: string | null               // From extractedData
+  nonemployeeCompensation: string        // Formatted "5000.00"
+}
+```
+
+**API Response Updated:**
+```typescript
+interface ScheduleCResponse {
+  expense: ScheduleCExpense | null
+  magicLink: ScheduleCMagicLink | null
+  totals: ScheduleCTotals | null
+  necBreakdown: NecBreakdownItem[]       // NEW
+}
+```
+
+### Key Implementation Details
+
+**Backend Query (getGrossReceiptsBreakdown):**
+- Filters: `docType='FORM_1099_NEC' AND status='VERIFIED'`
+- Extracts: `payerName` + `nonemployeeCompensation` from extractedData JSONB
+- Filters: excludes docs with null extractedData or missing nonemployeeCompensation
+- Ordering: chronological by createdAt (preserves 1099 order)
+- Formatting: nonemployeeCompensation always 2 decimals ("5000.00")
+
+**Auto-Update Logic (GET /schedule-c/:caseId):**
+- Single query for necBreakdown (reused for total calculation)
+- Optimistic locking: only update if status='DRAFT' (prevents race with client submission)
+- No overwrites if SUBMITTED/LOCKED (immutable after CPA review)
+
+**Frontend Component (NecBreakdownList):**
+- Conditional render: hidden if items.length = 0
+- Nullable payerName: displays "Không rõ" (Unknown) fallback
+- Copyable values: raw number + formatted USD display
+- Compact styling: text-xs, left border accent, truncated names
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| expense-calculator.ts | +interface NecBreakdownItem, +function getGrossReceiptsBreakdown(), refactor calculateGrossReceipts() |
+| schedule-c/index.ts | +necBreakdown in GET response, +auto-update logic with optimistic locking |
+| api-client.ts | +NecBreakdownItem type, +necBreakdown to ScheduleCResponse |
+| use-schedule-c.ts | +extract necBreakdown, +derive count1099NEC |
+| nec-breakdown-list.tsx (NEW) | Display per-payer breakdown |
+| income-table.tsx | +necBreakdown prop, +dynamic label, +NecBreakdownList render |
+| schedule-c-empty-state.tsx | +count1099NEC display |
+| index.tsx | +props forwarding |
+| schedule-c-waiting.tsx | +necBreakdown pass-through |
+| schedule-c-summary.tsx | +necBreakdown pass-through |
+| expense-calculator.test.ts | +6 tests for getGrossReceiptsBreakdown() |
+
+### Error Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| No verified 1099-NECs | necBreakdown = [], breakdown list hidden |
+| payerName missing | Shows "Không rõ" in list |
+| API error | useScheduleC error state, "Lỗi khi tải dữ liệu" toast |
+| Race condition (auto-update) | Optimistic locking prevents overwrite if SUBMITTED/LOCKED |
+
+### Backward Compatibility
+
+- **API:** New `necBreakdown` array in response; existing fields unchanged
+- **Components:** necBreakdown optional prop; graceful degradation if not passed
+- **Calculations:** No breaking changes to calculateGrossReceipts() signature (optional param added)
+
+### Integration Points
+
+- **Phase 4 Workspace:** Seamless integration into existing Schedule C tab
+- **Phase 3 Portal:** No changes to client-facing form
+- **Phase 1-2 Backend:** Pure additive; no impact on existing functions
+
+### Testing
+
+**6 New Unit Tests (getGrossReceiptsBreakdown):**
+1. Returns per-payer breakdown with docId, payerName, amount
+2. Returns empty array when no verified 1099-NECs
+3. Returns null payerName when not in extractedData
+4. Filters out docs without nonemployeeCompensation
+5. Handles numeric compensation values
+6. Queries with correct filters and ordering
+
+### Performance Considerations
+
+- **Single Query:** getGrossReceiptsBreakdown() fetches once, used for both total + display
+- **Optimistic Locking:** updateMany() only touches DRAFT records, preventing wasted updates
+- **Component Memoization:** NecBreakdownList memoized to prevent cascading re-renders
+- **Stale Time:** 30s cache on useScheduleC hook (same as existing Schedule C data)
+
+---
 
 ## Monorepo Configuration
 
@@ -1502,6 +2062,98 @@ try {
   setError('Network error')
 }
 ```
+
+## Phase 1 Schema Migration - Multi-Year Support (2026-01-25)
+
+### Overview
+
+Phase 1 Schema Migration introduces **TaxEngagement** model to support multi-year client engagements. This enables clients to have multiple tax years managed separately while maintaining historical data and per-year profile snapshots.
+
+### Key Changes
+
+**New Enum: EngagementStatus**
+```
+DRAFT      // Engagement created but intake not complete
+ACTIVE     // Intake complete, work in progress
+COMPLETE   // All tax cases filed
+ARCHIVED   // Past year, read-only
+```
+
+**New Model: TaxEngagement**
+```prisma
+model TaxEngagement {
+  id        String           @id @default(cuid())
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear   Int
+  status    EngagementStatus @default(DRAFT)
+
+  // Year-specific profile snapshot (copied from ClientProfile schema)
+  filingStatus, hasW2, hasBankAccount, hasInvestments, hasKidsUnder17, numKidsUnder17,
+  paysDaycare, hasKids17to24, hasSelfEmployment, hasRentalProperty,
+  businessName, ein, hasEmployees, hasContractors, has1099K,
+  intakeAnswers (JSON)
+
+  // Relations
+  taxCases TaxCase[]
+
+  @@unique([clientId, taxYear])
+  @@index([clientId])
+  @@index([taxYear])
+  @@index([status])
+  @@index([clientId, status])  // Filter by status
+}
+```
+
+**Updated Models**
+- **Client:** Added `engagements TaxEngagement[]` relation (1:many)
+- **TaxCase:** Added `engagementId String?` (nullable FK for backward compatibility)
+- **TaxCase:** Added indexes: `(engagementId)`, `(engagementId, status)`, `(engagementId, lastActivityAt)`
+- **AuditEntityType:** Added `TAX_ENGAGEMENT` value
+
+### Migration Path
+
+**Phase 1 (Current):** Backward compatible - `engagementId` nullable, allows existing single-year workflow
+
+**Phase 2 (Future):** New endpoint `POST /clients/:id/engagements` to create new year engagements
+
+**Phase 3 (Future):** Make `engagementId` required on TaxCase (drop single-year direct association)
+
+### Benefits
+
+1. **Multi-Year Support** - Clients can file multiple years with separate profiles
+2. **Historical Data** - Year-specific intakeAnswers preserved per engagement
+3. **Status Tracking** - Engagement lifecycle (DRAFT → ACTIVE → COMPLETE → ARCHIVED)
+4. **Efficient Querying** - Composite indexes enable fast filtering by status & activity
+5. **Backward Compatible** - Existing TaxCase records work without engagementId
+
+### Data Model Hierarchy
+
+```
+Client (permanent)
+├── ClientProfile (legacy, per-client)
+└── TaxEngagement[] (per-year)
+    ├── status: EngagementStatus
+    ├── Profile snapshot (filingStatus, hasW2, etc.)
+    ├── intakeAnswers (year-specific)
+    └── TaxCase[] (per-form filings)
+        ├── status: TaxCaseStatus
+        └── Documents (RawImage, DigitalDoc, Checklist, etc.)
+```
+
+### Frontend/Backend Implications
+
+**Backend:**
+- Client profile queries should prefer `TaxEngagement.intakeAnswers` over `ClientProfile`
+- Checklist generation uses engagement-specific profile
+- Audit logging tracks changes per engagement year
+
+**Frontend:**
+- Case detail pages implicitly use engagement context
+- Future: Engagement selector UI for clients with multiple years
+- Profile updates save to both ClientProfile (legacy) and TaxEngagement (new)
+
+---
 
 ## Scaling Considerations
 
@@ -1949,9 +2601,118 @@ clients: {
 
 ---
 
-**Last Updated:** 2026-01-21
-**Phase:** Phase 2 - Actionable Client Status System (API Layer Complete)
-**Architecture Version:** 7.0 (Actionable Status with Activity Tracking)
+## Codebase Overview (Generated 2026-01-27)
+
+### Project Structure
+
+```
+ella/
+├── .claude/                    # Claude Code configuration & skills
+├── .github/                    # GitHub Actions workflows
+├── packages/                   # Shared libraries
+│   ├── db/                     # Prisma database layer (@ella/db)
+│   │   ├── prisma/
+│   │   │   └── schema.prisma  # Database schema (14 enums, 26 models)
+│   │   └── src/
+│   │       ├── client.ts      # Singleton Prisma client
+│   │       └── generated/     # Auto-generated Prisma types
+│   ├── shared/                # Validation & types (@ella/shared)
+│   │   └── src/
+│   │       ├── schemas/       # Zod validation schemas
+│   │       ├── types/         # TypeScript types
+│   │       └── utils/         # Utilities (computeStatus, etc.)
+│   └── ui/                    # Component library (@ella/ui)
+│       └── src/
+│           ├── components/    # shadcn/ui components
+│           └── styles.css     # Tailwind globals
+├── apps/                       # Applications
+│   ├── api/                    # Hono backend server (3002)
+│   │   ├── src/
+│   │   │   ├── routes/        # API endpoints (58 total)
+│   │   │   ├── services/      # Business logic (AI, PDF, SMS, etc.)
+│   │   │   ├── jobs/          # Inngest background jobs
+│   │   │   ├── middleware/    # Auth, error handling, rate limiting
+│   │   │   └── lib/           # Config, utilities
+│   │   └── package.json
+│   ├── portal/                 # Client upload portal (React, 5173)
+│   │   ├── src/
+│   │   │   ├── routes/        # Client-side pages
+│   │   │   ├── components/    # UI components
+│   │   │   └── lib/           # Utilities, API client
+│   │   └── vite.config.ts
+│   └── workspace/              # Staff dashboard (React, 5174)
+│       ├── src/
+│       │   ├── routes/        # Pages (/clients, /cases, /messages, etc.)
+│       │   ├── components/    # 27+ feature components
+│       │   ├── stores/        # Zustand state management
+│       │   └── lib/           # Utilities, API client
+│       └── vite.config.ts
+├── docs/                       # Documentation (40+ files)
+├── pnpm-workspace.yaml        # Monorepo config
+├── turbo.json                 # Turbo build orchestration
+├── tsconfig.json              # TypeScript base config
+├── eslint.config.js           # Linting rules
+└── .prettierrc                 # Code formatting config
+```
+
+### Technology Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Backend** | Hono | 4.6+ |
+| **Database** | PostgreSQL + Prisma | Latest |
+| **Frontend** | React | 19 |
+| **Build** | Vite | 6 |
+| **Router** | TanStack Router | 1.94+ |
+| **Data Fetching** | React Query | 5.64+ |
+| **State** | Zustand | Latest |
+| **UI Framework** | shadcn/ui + Tailwind | v4 |
+| **AI Service** | Google Gemini | 2.5-flash |
+| **Jobs** | Inngest Cloud | Latest |
+| **SMS** | Twilio | Latest |
+| **Storage** | Cloudflare R2 | Latest |
+| **Auth** | JWT + Bcrypt | Session-based |
+
+### File Statistics
+
+- **Total Models:** 26 (TaxCase, RawImage, DigitalDoc, etc.)
+- **Total Enums:** 14 (TaxCaseStatus, DocType, DocCategory, etc.)
+- **API Endpoints:** 58 (clients, cases, docs, messages, voice, etc.)
+- **Frontend Components:** 27+ (Dashboard, Checklist, Gallery, etc.)
+- **Services:** 15+ (AI, PDF, SMS, Audit, etc.)
+- **Background Jobs:** 1 main (classifyDocumentJob with 6 durable steps)
+- **Database Migrations:** Auto-generated by Prisma
+
+### Feature Areas
+
+**Phase 01 Complete (Jan 2026)**
+- Database schema with multi-year support (TaxEngagement)
+- Backend API with 58 endpoints
+- Document upload & classification pipeline
+- AI-powered OCR extraction (Gemini)
+- SMS integration (Twilio)
+- Real-time polling for updates
+- Staff authentication & role-based access
+- Comprehensive audit logging
+
+**Phase 02 In Progress**
+- Document category system (DocCategory enum)
+- Enhanced document filtering & organization
+- Staff verification workflow
+- Client status computation
+
+**Phase 03-06 Planned**
+- WebSocket real-time updates
+- Advanced document deduplication
+- Multi-language support
+- Compliance automation
+- Comprehensive testing suite
+
+---
+
+**Last Updated:** 2026-01-27
+**Phase:** Phase 3 - Schema Cleanup (Engagement Isolation Complete)
+**Architecture Version:** 9.2 (Multi-Year Engagement Isolation with enforced constraints)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)

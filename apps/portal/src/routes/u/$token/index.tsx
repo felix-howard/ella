@@ -141,7 +141,7 @@ function PortalPage() {
   // Success state - Phase 3 simplified layout
   return (
     <div className="flex-1 flex flex-col">
-      <WelcomeHeader clientName={data.client.name} language={language} />
+      <WelcomeHeader clientName={data.client.name} language={language} taxYear={data.taxCase.taxYear} />
 
       {/* Upload button - primary action at top */}
       <div className="px-6 py-6">
@@ -153,10 +153,10 @@ function PortalPage() {
         />
       </div>
 
-      {/* Missing docs list */}
-      <div className="flex-1 px-6 py-4">
+      {/* TODO: Re-enable checklist when engagement flow creates checklist upfront */}
+      {/* <div className="flex-1 px-6 py-4">
         <MissingDocsList docs={data.checklist.missing} language={language} />
-      </div>
+      </div> */}
 
       {/* Footer */}
       <footer className="px-6 py-4 text-center">

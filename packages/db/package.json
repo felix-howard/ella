@@ -19,6 +19,10 @@
     "studio": "dotenv -e ../../.env -- prisma studio",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "seed:test": "dotenv -e ../../.env -- tsx prisma/seed-test-data.ts",
+    "backfill:engagements": "dotenv -e ../../.env -- tsx scripts/backfill-engagements.ts",
+    "validate:migration": "dotenv -e ../../.env -- tsx scripts/validate-migration.ts",
+    "verify:phase2": "dotenv -e ../../.env -- tsx scripts/verify-phase2.ts",
+    "verify:phase3": "dotenv -e ../../.env -- tsx scripts/verify-phase3.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
   },

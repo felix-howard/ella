@@ -1,10 +1,10 @@
 /**
  * ImageViewer - Zoomable, pannable, rotatable image/PDF viewer
- * Uses react-zoom-pan-pinch for smooth pan/zoom/pinch gestures
- * Features: zoom (0.5-4x), pan, rotation, PDF page navigation
+ * PDF: Uses native scale-based zoom (always crisp) + scroll for pan
+ * Images: Uses react-zoom-pan-pinch for smooth gestures
  */
 
-import { useState, useCallback, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch'
 import { cn } from '@ella/ui'
 import {
@@ -36,19 +36,80 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.5
 
-// Controls component that uses the transform context
-function ViewerControls({
+// PDF zoom controls (standalone, no TransformWrapper context)
+function PdfControls({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  onRotate,
+}: {
+  zoom: number
+  onZoomIn: () => void
+  onZoomOut: () => void
+  onReset: () => void
+  onRotate: () => void
+}) {
+  return (
+    <div
+      className="absolute top-2 right-2 z-10 flex gap-1 bg-black/70 rounded-full px-2 py-1"
+      role="toolbar"
+      aria-label="Điều khiển xem PDF"
+    >
+      <button
+        onClick={onZoomOut}
+        disabled={zoom <= MIN_ZOOM}
+        className="p-1.5 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50"
+        aria-label="Thu nhỏ"
+        title="Thu nhỏ (-)"
+      >
+        <ZoomOut className="h-4 w-4 text-white" />
+      </button>
+      <span
+        className="text-white text-xs flex items-center min-w-[3rem] justify-center font-medium"
+        aria-live="polite"
+      >
+        {Math.round(zoom * 100)}%
+      </span>
+      <button
+        onClick={onZoomIn}
+        disabled={zoom >= MAX_ZOOM}
+        className="p-1.5 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50"
+        aria-label="Phóng to"
+        title="Phóng to (+)"
+      >
+        <ZoomIn className="h-4 w-4 text-white" />
+      </button>
+      <div className="w-px bg-white/30 mx-1" aria-hidden="true" />
+      <button
+        onClick={onReset}
+        className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+        aria-label="Đặt lại"
+        title="Đặt lại (0)"
+      >
+        <Maximize2 className="h-4 w-4 text-white" />
+      </button>
+      <button
+        onClick={onRotate}
+        className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+        aria-label="Xoay"
+        title="Xoay (R)"
+      >
+        <RotateCw className="h-4 w-4 text-white" />
+      </button>
+    </div>
+  )
+}
+
+// Image controls (uses TransformWrapper context)
+function ImageControls({
   zoom,
   onRotate,
-  showControls,
 }: {
   zoom: number
   onRotate: () => void
-  showControls: boolean
 }) {
   const { zoomIn, zoomOut, resetTransform } = useControls()
-
-  if (!showControls) return null
 
   return (
     <div
@@ -109,10 +170,23 @@ export function ImageViewer({
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [currentZoom, setCurrentZoom] = useState(1)
+  const [pdfZoom, setPdfZoom] = useState(1)
+  const [imageZoom, setImageZoom] = useState(1)
 
   const handleRotate = useCallback(() => {
     setRotation((r) => (r + 90) % 360)
+  }, [])
+
+  const handlePdfZoomIn = useCallback(() => {
+    setPdfZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))
+  }, [])
+
+  const handlePdfZoomOut = useCallback(() => {
+    setPdfZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))
+  }, [])
+
+  const handlePdfZoomReset = useCallback(() => {
+    setPdfZoom(1)
   }, [])
 
   const handlePdfLoadSuccess = useCallback((pages: number) => {
@@ -150,39 +224,87 @@ export function ImageViewer({
     )
   }
 
-  return (
-    <div className={cn('relative overflow-hidden bg-muted/50 rounded-lg', className)}>
-      <TransformWrapper
-        initialScale={1}
-        minScale={MIN_ZOOM}
-        maxScale={MAX_ZOOM}
-        centerOnInit
-        wheel={{ step: 0.2 }}
-        doubleClick={{ mode: 'reset' }}
-        panning={{ velocityDisabled: true }}
-        onTransformed={(_, state) => {
-          setCurrentZoom(state.scale)
-        }}
-      >
-        {/* Controls toolbar */}
-        <ViewerControls
-          zoom={currentZoom}
-          onRotate={handleRotate}
-          showControls={showControls}
-        />
+  // Handle mouse wheel zoom for PDF
+  const handlePdfWheel = useCallback(
+    (e: React.WheelEvent) => {
+      // Only zoom when Ctrl is NOT pressed (native scroll when Ctrl+wheel)
+      // deltaY < 0 = scroll up = zoom in, deltaY > 0 = scroll down = zoom out
+      if (e.ctrlKey) return // Let browser handle Ctrl+wheel (native zoom)
 
-        {/* Main content area */}
-        <TransformComponent
-          wrapperClass="!w-full !h-full"
-          contentClass="!w-full !h-full flex items-center justify-center"
+      e.preventDefault()
+      if (e.deltaY < 0) {
+        setPdfZoom((z) => Math.min(MAX_ZOOM, z + 0.2))
+      } else {
+        setPdfZoom((z) => Math.max(MIN_ZOOM, z - 0.2))
+      }
+    },
+    []
+  )
+
+  // Drag-to-pan for PDF viewer
+  const pdfContainerRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
+
+  const handlePdfMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!pdfContainerRef.current) return
+    setIsDragging(true)
+    dragStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: pdfContainerRef.current.scrollLeft,
+      scrollTop: pdfContainerRef.current.scrollTop,
+    }
+  }, [])
+
+  const handlePdfMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || !pdfContainerRef.current) return
+      const dx = e.clientX - dragStart.current.x
+      const dy = e.clientY - dragStart.current.y
+      pdfContainerRef.current.scrollLeft = dragStart.current.scrollLeft - dx
+      pdfContainerRef.current.scrollTop = dragStart.current.scrollTop - dy
+    },
+    [isDragging]
+  )
+
+  const handlePdfMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // PDF Viewer - uses native scale zoom (crisp) + scroll for pan
+  if (isPdf) {
+    return (
+      <div className={cn('relative overflow-hidden bg-muted/50 rounded-lg', className)}>
+        {/* PDF Controls */}
+        {showControls && (
+          <PdfControls
+            zoom={pdfZoom}
+            onZoomIn={handlePdfZoomIn}
+            onZoomOut={handlePdfZoomOut}
+            onReset={handlePdfZoomReset}
+            onRotate={handleRotate}
+          />
+        )}
+
+        {/* Scrollable PDF container for panning - wheel zooms, click-drag pans */}
+        <div
+          ref={pdfContainerRef}
+          className={cn(
+            'w-full h-full overflow-auto select-none',
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          )}
+          onWheel={handlePdfWheel}
+          onMouseDown={handlePdfMouseDown}
+          onMouseMove={handlePdfMouseMove}
+          onMouseUp={handlePdfMouseUp}
+          onMouseLeave={handlePdfMouseUp}
         >
-          {error && (
-            <div className="flex items-center justify-center">
+          {error ? (
+            <div className="flex items-center justify-center h-full">
               <p className="text-error text-sm">{error}</p>
             </div>
-          )}
-
-          {!error && isPdf ? (
+          ) : (
             <Suspense
               fallback={
                 <div className="flex items-center justify-center py-8">
@@ -192,61 +314,93 @@ export function ImageViewer({
             >
               <PdfViewer
                 fileUrl={imageUrl}
-                zoom={1}
+                scale={pdfZoom}
                 rotation={rotation}
                 currentPage={currentPage}
                 onLoadSuccess={handlePdfLoadSuccess}
                 onLoadError={handlePdfLoadError}
               />
             </Suspense>
+          )}
+        </div>
+
+        {/* PDF page navigation */}
+        {numPages && numPages > 1 && showControls && (
+          <div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 rounded-full px-3 py-1.5 z-10"
+            role="navigation"
+            aria-label="Điều hướng trang PDF"
+          >
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage <= 1}
+              className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Trang trước"
+            >
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <span
+              className="text-white text-xs min-w-[4rem] text-center font-medium"
+              aria-live="polite"
+            >
+              {currentPage} / {numPages}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage >= numPages}
+              className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Trang sau"
+            >
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Image Viewer - uses react-zoom-pan-pinch (CSS transform OK for images)
+  return (
+    <div className={cn('relative overflow-hidden bg-muted/50 rounded-lg', className)}>
+      <TransformWrapper
+        initialScale={1}
+        minScale={MIN_ZOOM}
+        maxScale={MAX_ZOOM}
+        centerOnInit
+        limitToBounds={false}
+        wheel={{ step: 0.2 }}
+        doubleClick={{ mode: 'reset' }}
+        panning={{ velocityDisabled: true }}
+        onTransformed={(_, state) => {
+          setImageZoom(state.scale)
+        }}
+      >
+        {showControls && (
+          <ImageControls zoom={imageZoom} onRotate={handleRotate} />
+        )}
+
+        <TransformComponent
+          wrapperClass="!w-full !h-full"
+          contentClass="!w-full !h-full flex items-center justify-center"
+        >
+          {error ? (
+            <div className="flex items-center justify-center">
+              <p className="text-error text-sm">{error}</p>
+            </div>
           ) : (
-            !error && (
-              <img
-                src={imageUrl}
-                alt="Document preview"
-                className="max-w-full max-h-full object-contain select-none"
-                style={{
-                  transform: rotation ? `rotate(${rotation}deg)` : undefined,
-                }}
-                draggable={false}
-                onError={() => setError('Không thể tải hình ảnh')}
-              />
-            )
+            <img
+              src={imageUrl}
+              alt="Document preview"
+              className="max-w-full max-h-full object-contain select-none"
+              style={{
+                transform: rotation ? `rotate(${rotation}deg)` : undefined,
+              }}
+              draggable={false}
+              onError={() => setError('Không thể tải hình ảnh')}
+            />
           )}
         </TransformComponent>
       </TransformWrapper>
-
-      {/* PDF page navigation */}
-      {isPdf && numPages && numPages > 1 && showControls && (
-        <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 rounded-full px-3 py-1.5 z-10"
-          role="navigation"
-          aria-label="Điều hướng trang PDF"
-        >
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage <= 1}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Trang trước"
-          >
-            <ChevronLeft className="h-4 w-4 text-white" />
-          </button>
-          <span
-            className="text-white text-xs min-w-[4rem] text-center font-medium"
-            aria-live="polite"
-          >
-            {currentPage} / {numPages}
-          </span>
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage >= numPages}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Trang sau"
-          >
-            <ChevronRight className="h-4 w-4 text-white" />
-          </button>
-        </div>
-      )}
     </div>
   )
 }

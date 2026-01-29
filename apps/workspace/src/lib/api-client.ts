@@ -173,6 +173,17 @@ export const api = {
     list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' }) =>
       request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
 
+    // Search for existing client by phone (for returning client detection)
+    searchByPhone: async (phone: string) => {
+      // Normalize phone by removing non-digits
+      const normalizedPhone = phone.replace(/\D/g, '')
+      if (normalizedPhone.length < 10) return null
+      const result = await request<PaginatedResponse<ClientWithActions>>('/clients', {
+        params: { search: normalizedPhone, limit: 1 },
+      })
+      return result.data?.[0] ?? null
+    },
+
     get: (id: string) => request<ClientDetail>(`/clients/${id}`),
 
     create: (data: CreateClientInput) =>
@@ -379,6 +390,13 @@ export const api = {
       request<{ success: boolean; message: string }>(`/images/${id}/classify-anyway`, {
         method: 'POST',
       }),
+
+    // Change document category (for drag-drop between categories)
+    changeCategory: (id: string, category: DocCategory) =>
+      request<{ success: boolean; id: string; category: DocCategory }>(`/images/${id}/category`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category }),
+      }),
   },
 
   // Messages
@@ -579,11 +597,77 @@ export const api = {
     getCategories: () => request<{ data: string[] }>('/admin/categories'),
   },
 
+  // TaxEngagement - Multi-year client support
+  engagements: {
+    // List engagements with filters
+    list: (params?: { clientId?: string; taxYear?: number; status?: EngagementStatus; page?: number; limit?: number }) =>
+      request<PaginatedResponse<TaxEngagement>>('/engagements', { params }),
+
+    // Get engagement details
+    get: (id: string) =>
+      request<{ data: TaxEngagementDetail }>(`/engagements/${id}`),
+
+    // Create new engagement (with optional copy from previous)
+    create: (data: CreateEngagementInput) =>
+      request<{ data: TaxEngagement }>('/engagements', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    // Update engagement profile
+    update: (id: string, data: UpdateEngagementInput) =>
+      request<{ data: TaxEngagement }>(`/engagements/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    // Preview what would be copied from an engagement
+    copyPreview: (id: string) =>
+      request<{ data: EngagementCopyPreview }>(`/engagements/${id}/copy-preview`),
+
+    // Delete engagement (only if no tax cases)
+    delete: (id: string) =>
+      request<{ success: boolean; message: string }>(`/engagements/${id}`, {
+        method: 'DELETE',
+      }),
+  },
+
   // Client intake questions (public endpoint for forms)
   getIntakeQuestions: (taxTypes: TaxType[]) =>
     request<{ data: IntakeQuestion[] }>('/clients/intake-questions', {
       params: { taxTypes: taxTypes.join(',') },
     }),
+
+  // Schedule C - Staff endpoints for expense form management
+  scheduleC: {
+    // Get Schedule C data for a case
+    get: (caseId: string) =>
+      request<ScheduleCResponse>(`/schedule-c/${caseId}`),
+
+    // Send expense form to client
+    send: (caseId: string) =>
+      request<ScheduleCSendResponse>(`/schedule-c/${caseId}/send`, {
+        method: 'POST',
+      }),
+
+    // Lock form to prevent client edits
+    lock: (caseId: string) =>
+      request<ScheduleCLockResponse>(`/schedule-c/${caseId}/lock`, {
+        method: 'PATCH',
+      }),
+
+    // Unlock a locked form
+    unlock: (caseId: string) =>
+      request<ScheduleCUnlockResponse>(`/schedule-c/${caseId}/unlock`, {
+        method: 'PATCH',
+      }),
+
+    // Resend form link (extend TTL)
+    resend: (caseId: string) =>
+      request<ScheduleCResendResponse>(`/schedule-c/${caseId}/resend`, {
+        method: 'POST',
+      }),
+  },
 }
 
 // Type definitions
@@ -716,6 +800,8 @@ export interface TaxCaseSummary {
   isInReview?: boolean
   /** Manual flag: case has been filed */
   isFiled?: boolean
+  /** Portal URL specific to this tax case/year */
+  portalUrl?: string | null
   _count: {
     rawImages: number
     digitalDocs: number
@@ -799,6 +885,9 @@ export interface ChecklistResponse {
   }
 }
 
+// Document category enum (matches DocCategory in Prisma schema)
+export type DocCategory = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+
 // Image & Document types
 export interface RawImage {
   id: string
@@ -807,6 +896,8 @@ export interface RawImage {
   r2Key: string
   status: string
   classifiedType: string | null
+  category: DocCategory | null
+  displayName: string | null
   aiConfidence: number | null
   imageGroupId: string | null
   createdAt: string
@@ -920,8 +1011,8 @@ export interface CreateClientInput {
   email?: string
   language?: Language
   profile: {
-    taxTypes: TaxType[]
     taxYear: number
+    taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend
     filingStatus?: string
     // Legacy fields for backward compatibility
     hasW2?: boolean
@@ -1252,4 +1343,210 @@ export interface PresenceResponse {
 export interface HeartbeatResponse {
   success: boolean
   reason?: string
+}
+
+// TaxEngagement types for multi-year client support
+export type EngagementStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETE' | 'ARCHIVED'
+
+export interface TaxEngagement {
+  id: string
+  clientId: string
+  taxYear: number
+  status: EngagementStatus
+  filingStatus: string | null
+  hasW2: boolean
+  hasBankAccount: boolean
+  hasInvestments: boolean
+  hasKidsUnder17: boolean
+  numKidsUnder17: number
+  paysDaycare: boolean
+  hasKids17to24: boolean
+  hasSelfEmployment: boolean
+  hasRentalProperty: boolean
+  businessName: string | null
+  ein: string | null
+  hasEmployees: boolean
+  hasContractors: boolean
+  has1099K: boolean
+  intakeAnswers: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+  client?: { id: string; name: string; phone: string }
+  _count?: { taxCases: number }
+}
+
+export interface TaxEngagementDetail extends TaxEngagement {
+  client: Client
+  taxCases: TaxCaseSummary[]
+}
+
+export interface EngagementCopyPreview {
+  taxYear: number
+  filingStatus: string | null
+  hasW2: boolean
+  hasBankAccount: boolean
+  hasInvestments: boolean
+  hasKidsUnder17: boolean
+  numKidsUnder17: number
+  paysDaycare: boolean
+  hasKids17to24: boolean
+  hasSelfEmployment: boolean
+  hasRentalProperty: boolean
+  businessName: string | null
+  ein: string | null
+  hasEmployees: boolean
+  hasContractors: boolean
+  has1099K: boolean
+}
+
+export interface CreateEngagementInput {
+  clientId: string
+  taxYear: number
+  copyFromEngagementId?: string
+  filingStatus?: string
+  intakeAnswers?: Record<string, unknown>
+}
+
+export interface UpdateEngagementInput {
+  filingStatus?: string
+  status?: EngagementStatus
+  hasW2?: boolean
+  hasBankAccount?: boolean
+  hasInvestments?: boolean
+  hasKidsUnder17?: boolean
+  numKidsUnder17?: number
+  paysDaycare?: boolean
+  hasKids17to24?: boolean
+  hasSelfEmployment?: boolean
+  hasRentalProperty?: boolean
+  businessName?: string | null
+  ein?: string | null
+  hasEmployees?: boolean
+  hasContractors?: boolean
+  has1099K?: boolean
+  intakeAnswers?: Record<string, unknown>
+}
+
+// Schedule C types for expense form management
+export type ScheduleCStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED'
+
+export interface ScheduleCExpense {
+  id: string
+  taxCaseId: string
+  status: ScheduleCStatus
+  version: number
+  // Business Info
+  businessName: string | null
+  businessDesc: string | null
+  // Income
+  grossReceipts: string | null
+  returns: string | null
+  costOfGoods: string | null
+  otherIncome: string | null
+  // Expenses (all as strings for decimal display)
+  advertising: string | null
+  carExpense: string | null
+  commissions: string | null
+  contractLabor: string | null
+  depletion: string | null
+  depreciation: string | null
+  employeeBenefits: string | null
+  insurance: string | null
+  interestMortgage: string | null
+  interestOther: string | null
+  legalServices: string | null
+  officeExpense: string | null
+  pensionPlans: string | null
+  rentEquipment: string | null
+  rentProperty: string | null
+  repairs: string | null
+  supplies: string | null
+  taxesAndLicenses: string | null
+  travel: string | null
+  meals: string | null
+  utilities: string | null
+  wages: string | null
+  otherExpenses: string | null
+  otherExpensesNotes: string | null
+  // Vehicle info
+  vehicleMiles: number | null
+  vehicleCommuteMiles: number | null
+  vehicleOtherMiles: number | null
+  vehicleDateInService: string | null
+  vehicleUsedForCommute: boolean
+  vehicleAnotherAvailable: boolean
+  vehicleEvidenceWritten: boolean
+  // Version history
+  versionHistory: VersionHistoryEntry[] | null
+  // Timestamps
+  createdAt: string
+  updatedAt: string
+  submittedAt: string | null
+  lockedAt: string | null
+  lockedById: string | null
+}
+
+export interface VersionHistoryEntry {
+  version: number
+  submittedAt: string
+  changes: string[]
+  data: Partial<Record<string, string | number | null>>
+}
+
+export interface ScheduleCMagicLink {
+  id: string
+  token: string
+  isActive: boolean
+  expiresAt: string | null
+  lastUsedAt: string | null
+  usageCount: number
+}
+
+export interface ScheduleCTotals {
+  grossReceipts: string
+  returns: string
+  costOfGoods: string
+  grossIncome: string
+  totalExpenses: string
+  mileageDeduction: string
+  netProfit: string
+}
+
+export interface NecBreakdownItem {
+  docId: string
+  payerName: string | null
+  nonemployeeCompensation: string
+}
+
+export interface ScheduleCResponse {
+  expense: ScheduleCExpense | null
+  magicLink: ScheduleCMagicLink | null
+  totals: ScheduleCTotals | null
+  necBreakdown: NecBreakdownItem[]
+}
+
+export interface ScheduleCSendResponse {
+  success: boolean
+  magicLink: string
+  messageSent: boolean
+  expiresAt: string
+  expenseId: string
+  prefilledGrossReceipts: string
+}
+
+export interface ScheduleCLockResponse {
+  success: boolean
+  status: 'LOCKED'
+  lockedAt: string
+}
+
+export interface ScheduleCUnlockResponse {
+  success: boolean
+  status: 'SUBMITTED'
+}
+
+export interface ScheduleCResendResponse {
+  success: boolean
+  expiresAt: string
+  messageSent: boolean
 }

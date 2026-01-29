@@ -6,7 +6,7 @@
  * Phase 01 Upgrade: Added compound AND/OR conditions, numeric operators, cascading cleanup
  */
 import { prisma } from '../lib/db'
-import type { TaxType, ClientProfile, ChecklistTemplate, Prisma } from '@ella/db'
+import type { TaxType, ClientProfile, TaxEngagement, ChecklistTemplate, Prisma } from '@ella/db'
 import {
   isSimpleCondition,
   isCompoundCondition,
@@ -70,12 +70,22 @@ const BANK_STATEMENT_DEFAULT_COUNT = 12
 const MAX_CONDITION_DEPTH = 3
 
 /**
+ * Profile data type for checklist generation
+ * Accepts either ClientProfile (legacy) or TaxEngagement (multi-year)
+ * Both have the same profile fields so we use a union type
+ */
+type ProfileData = ClientProfile | TaxEngagement
+
+/**
  * Generate checklist items for a tax case based on tax types and client profile
+ * @param caseId - Tax case ID
+ * @param taxTypes - Array of tax types for this case
+ * @param profile - Profile data (ClientProfile or TaxEngagement)
  */
 export async function generateChecklist(
   caseId: string,
   taxTypes: TaxType[],
-  profile: ClientProfile
+  profile: ProfileData
 ): Promise<void> {
   // Build condition context from profile
   const context = buildConditionContext(profile)
@@ -326,9 +336,10 @@ function parseIntakeAnswers(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Build condition context from client profile
+ * Build condition context from client profile or engagement
+ * Both ClientProfile and TaxEngagement have the same profile fields
  */
-function buildConditionContext(profile: ClientProfile): ConditionContext {
+function buildConditionContext(profile: ProfileData): ConditionContext {
   const intakeAnswers = parseIntakeAnswers(profile.intakeAnswers)
   const legacyProfile = {
     hasW2: profile.hasW2,

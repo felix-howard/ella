@@ -111,6 +111,13 @@ export const config = {
         ? Boolean(process.env.INNGEST_SIGNING_KEY)
         : true,
   },
+
+  // Schedule C Configuration
+  scheduleC: {
+    // IRS standard mileage rate in cents (2024: 67 cents/mile)
+    // Update annually when IRS publishes new rate
+    mileageRateCents: parseInt(process.env.MILEAGE_RATE_CENTS || '67', 10),
+  },
 } as const
 
 export type Config = typeof config

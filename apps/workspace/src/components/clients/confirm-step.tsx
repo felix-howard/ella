@@ -72,7 +72,7 @@ export function ConfirmStep({
           <MessageSquare className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">Tin nhắn sẽ được gửi:</span>
         </div>
-        <div className="bg-white rounded-lg p-3 text-sm border border-border shadow-sm">
+        <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground border border-border shadow-sm">
           {smsMessage}
         </div>
         <p className="text-xs text-muted-foreground mt-2">

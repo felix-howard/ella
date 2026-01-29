@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -28,7 +28,7 @@ import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
-import { ScheduleCTab } from '../../components/cases/tabs/schedule-c-tab'
+const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -672,9 +672,13 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Schedule C Tab - Self-employment expense collection */}
+      {/* Schedule C Tab - Self-employment expense collection (lazy loaded) */}
       {activeTab === 'schedule-c' && activeCaseId && (
-        <ScheduleCTab caseId={activeCaseId} />
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Lỗi tải Schedule C. Vui lòng tải lại trang.</div>}>
+          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Đang tải...</div>}>
+            <ScheduleCTab caseId={activeCaseId} />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {activeTab === 'data-entry' && (

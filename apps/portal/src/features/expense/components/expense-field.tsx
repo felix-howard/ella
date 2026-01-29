@@ -152,11 +152,11 @@ export const ExpenseField = memo(function ExpenseField({
           <HelpCircle className="w-4 h-4" />
         </button>
 
-        {/* Tooltip */}
+        {/* Tooltip - z-[60] to overlay above form inputs (z-10) and sticky submit button (z-40) */}
         {showTooltip && (
           <div
             role="tooltip"
-            className="absolute left-0 top-full mt-1 z-50 w-64 p-3 bg-foreground text-background text-xs rounded-lg shadow-lg"
+            className="absolute left-0 top-full mt-1 z-[60] w-64 p-3 bg-foreground text-background text-xs rounded-lg shadow-lg"
           >
             {category.tooltip}
             <div className="absolute -top-1 left-4 w-2 h-2 bg-foreground rotate-45" />
@@ -191,7 +191,7 @@ export const ExpenseField = memo(function ExpenseField({
           <input
             ref={inputRef}
             id={`expense-${category.field}`}
-            type={category.type === 'text' ? 'text' : 'text'}
+            type="text"
             inputMode={category.type === 'currency' ? 'decimal' : category.type === 'integer' ? 'numeric' : 'text'}
             value={inputValue}
             onChange={handleChange}

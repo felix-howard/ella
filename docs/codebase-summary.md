@@ -2139,11 +2139,57 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 **Typography:** System font stack, 10-24px sizes
 **Spacing:** 4-32px scale, rounded 6-full
 
+## Schedule C Expense Collection Feature (Phases 1-5: Complete)
+
+**Overview:** Complete Schedule C (self-employed income/expenses) workflow from database schema → API → client portal form → workspace staff viewer.
+
+**Phases:**
+1. **Phase 1 (Database):** ScheduleCExpense, ScheduleCMagicLink tables, version history JSONB, 1099-NEC relation
+2. **Phase 2 (API):** GET/POST/PATCH /expense/:token routes, auto-save versioning, magic link validation
+3. **Phase 3 (Portal):** Vietnamese client-facing expense form (28 IRS categories + vehicle info), auto-save, version history
+4. **Phase 4 (Workspace):** Staff viewer dashboard, status management (DRAFT/SUBMITTED/LOCKED), total calculations
+5. **Phase 5 (Testing & Polish):** Comprehensive test suite (85 tests across 4 test files), error boundaries, retry logic with exponential backoff, lazy loading with error boundaries
+
+**Key Components (Portal - apps/portal/src/features/expense/):**
+- `use-expense-form.ts` - Form state, validation, submit logic
+- `use-auto-save.ts` - 30s debounce, rate limiting (1/10s), version snapshots
+- `expense-section.tsx` - 7 category groups (general, professional, property, financial, people, car, other)
+- `car-expense-section.tsx` - Toggle: mileage rate (0.67/mile) vs actual expense
+- `vehicle-info-section.tsx` - Part IV: mileage tracking, date in service
+- `expense-categories.ts` - 28 IRS Schedule C categories + 4 vehicle fields
+
+**Key Components (Workspace - apps/workspace/src/components/cases/tabs/schedule-c-tab/):**
+- `use-schedule-c.ts` - Query hook with 1099-NEC detection
+- `use-schedule-c-actions.ts` - Mutations: send/lock/unlock/resend with toast feedback
+- `schedule-c-summary.tsx` - Submitted form display with income/expense tables
+- `expense-table.tsx` - Part II (20 expense categories, grouped by section)
+- `version-history.tsx` - Versioning timeline display
+
+**Test Coverage:** 85 tests (expense-routes: 16, schedule-c-routes: 20, expense-calculator: 28, version-history: 21) in `apps/api/src/routes/*/__tests__/` and `apps/api/src/services/schedule-c/__tests__/`
+
+**Features:**
+- Auto-save with exponential backoff retry (max 3 attempts)
+- Version history snapshots (incremental tracking)
+- Lazy-loaded form with error boundary
+- Mobile-responsive tables with column width optimization
+- Magic link validation with expiry
+- Form locking (read-only after SUBMITTED status)
+
+**Integration:**
+- TaxCase.scheduleCExpense relation
+- MagicLink SCHEDULE_C token type
+- 1099-NEC document type integration (auto-detect for staff)
+- Inngest events: expense submitted → workspace tab refresh
+
+---
+
 ## Documentation Structure
 
 | File | Purpose |
 |------|---------|
 | [codebase-summary.md](./codebase-summary.md) | This file - quick reference |
+| [schedule-c-phase-3-portal-expense-form.md](./schedule-c-phase-3-portal-expense-form.md) | Phase 3 (Portal form) detailed reference |
+| [schedule-c-phase-4-workspace-viewer.md](./schedule-c-phase-4-workspace-viewer.md) | Phase 4 (Workspace viewer) detailed reference |
 | [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) | UI library detailed reference |
 | [client-messages-tab-feature.md](./client-messages-tab-feature.md) | Client Messages Tab implementation |
 | [system-architecture.md](./system-architecture.md) | System design & data flow |
@@ -2152,9 +2198,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-27
-**Status:** PHASE 3 MULTI-ENGAGEMENT UI - Year switcher + engagement modal + PHASE 1 SIMPLIFY - Streamlined 2-step client creation + PHASE 6 COMPLETE (Multi-year engagement)
-**Branch:** feature/engagement-only (multi-year engagement UI controls)
-**Architecture Version:** 9.6 (Year switcher dropdown, create engagement modal, query-driven tab updates, 535 tests, 9.2/10 review)
+**Last Updated:** 2026-01-29
+**Status:** SCHEDULE C COMPLETE (Phases 1-5) + PHASE 3 MULTI-ENGAGEMENT UI - Year switcher + engagement modal
+**Branch:** feature/engagement-only (Schedule C + multi-year engagement)
+**Architecture Version:** 9.7 (Schedule C fully integrated, 85 tests passing, 9.0/10 review)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

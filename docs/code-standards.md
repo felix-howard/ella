@@ -2099,9 +2099,81 @@ function mapWizardToLegacyFields(wizardAnswers: IntakeAnswers) {
 - Easy to reuse wizard in other flows (edit client, bulk import)
 - Full answer history in intakeAnswers JSON for audit/analytics
 
+## Auto-Save with Exponential Backoff Pattern (Schedule C - Phase 5)
+
+**Use Case:** Persist user edits to database with debounce and resilient retry logic.
+
+**Pattern:**
+
+```typescript
+// Hook implementation with retry strategy
+export function useAutoSave(token: string, data: ExpenseFormData) {
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const debounceTimer = useRef<NodeJS.Timeout>()
+
+  const triggerAutoSave = useCallback(async () => {
+    setAutoSaveStatus('saving')
+    const maxRetries = 3
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await expenseApi.autoSave(token, data)
+        setAutoSaveStatus('saved')
+        setTimeout(() => setAutoSaveStatus('idle'), 2000)
+        return result
+      } catch (error) {
+        lastError = error as Error
+        const isTransient = /network|timeout|50[0-3]|overloaded/i.test(error.message)
+
+        if (!isTransient || attempt >= maxRetries) {
+          setAutoSaveStatus('error')
+          break
+        }
+
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt) * 1000
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+
+    setAutoSaveStatus('error')
+  }, [token, data])
+
+  // Debounce: wait 30s after last change before saving
+  const handleChange = useCallback((field: string, value: unknown) => {
+    setData(prev => ({ ...prev, [field]: value }))
+
+    clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      triggerAutoSave()
+    }, 30000) // 30s debounce
+  }, [triggerAutoSave])
+
+  useEffect(() => {
+    return () => clearTimeout(debounceTimer.current)
+  }, [])
+
+  return { autoSaveStatus, handleChange }
+}
+```
+
+**Key Patterns:**
+- **Exponential Backoff:** Delay = 2^attempt × base (1s → 2s → 4s)
+- **Transient Detection:** Check error message for network/timeout/5xx patterns
+- **Debounce:** 30s wait after last edit before triggering save
+- **Rate Limiting:** Max 1 save per 10s (client-side enforcement)
+- **Cleanup:** Abort pending timers in useEffect return
+
+**Benefits:**
+- Survives temporary network hiccups (auto-retries)
+- Reduces server load (debounce + rate limit)
+- User-friendly status feedback (saving/saved/error states)
+- Preserves unsaved edits until confirmed saved
+
 ---
 
-**Last Updated:** 2026-01-22 20:53
-**Phase:** Phase 03 Intake Wizard Refactor Complete Integration
-**Standards Version:** 1.7
-**Added:** Input sanitization patterns, prototype pollution protection, intake wizard integration pattern
+**Last Updated:** 2026-01-29
+**Phase:** Phase 05 Schedule C Testing & Polish Complete
+**Standards Version:** 1.8
+**Added:** Schedule C auto-save exponential backoff pattern, version history snapshot tracking

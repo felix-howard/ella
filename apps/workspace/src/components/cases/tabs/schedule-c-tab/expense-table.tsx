@@ -63,7 +63,7 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
           <span className="text-muted-foreground">
             Chi phí xe ({expense.vehicleMiles?.toLocaleString()} dặm × $0.67)
           </span>
-          <span className="font-medium text-foreground tabular-nums">
+          <span className="font-medium text-foreground tabular-nums w-24 text-right flex-shrink-0">
             {formatUSD(mileageDeduction)}
           </span>
         </div>
@@ -73,7 +73,7 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
       {expenseRows.map((row) => (
         <div key={row.key} className="flex justify-between text-sm">
           <span className="text-muted-foreground">{row.label}</span>
-          <span className="font-medium text-foreground tabular-nums">
+          <span className="font-medium text-foreground tabular-nums w-24 text-right flex-shrink-0">
             {formatUSD(row.value)}
           </span>
         </div>
@@ -97,7 +97,7 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
       {totals && (
         <div className="flex justify-between text-sm pt-2 mt-2 border-t border-border">
           <span className="font-medium text-foreground">TỔNG CHI PHÍ</span>
-          <span className="font-bold text-foreground tabular-nums">
+          <span className="font-bold text-foreground tabular-nums w-24 text-right flex-shrink-0">
             {formatUSD(totals.totalExpenses)}
           </span>
         </div>

@@ -29,6 +29,10 @@ const MIN_SAVE_INTERVAL = 20000
 // Maximum saves per minute
 const MAX_SAVES_PER_MINUTE = 3
 
+// Retry config: exponential backoff (2s, 4s, 8s)
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY = 2000
+
 export function useAutoSave(
   token: string,
   formData: Record<string, unknown>,
@@ -46,6 +50,8 @@ export function useAutoSave(
   const isSavingRef = useRef(false)
   const lastSaveTimeRef = useRef<number>(0)
   const saveCountRef = useRef<number[]>([]) // timestamps of recent saves
+  const retryCountRef = useRef(0)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep refs updated
   useEffect(() => {
@@ -75,7 +81,7 @@ export function useAutoSave(
     return true
   }, [])
 
-  // Save function
+  // Save function with retry support
   const performSave = useCallback(async () => {
     // Don't save if form is being submitted
     if (formStatus === 'submitting' || formStatus === 'submitted') return
@@ -86,8 +92,8 @@ export function useAutoSave(
     // Don't save if not dirty
     if (!isDirtyRef.current) return
 
-    // Rate limiting check
-    if (!canSave()) {
+    // Rate limiting check (skip during retries)
+    if (retryCountRef.current === 0 && !canSave()) {
       return
     }
 
@@ -95,23 +101,49 @@ export function useAutoSave(
     setStatus('saving')
     setError(null)
 
+    const saveStartTime = Date.now()
+
     try {
       const input = toApiInput(formDataRef.current)
       await expenseApi.saveDraft(token, input)
+
+      // Reset retry counter on success
+      retryCountRef.current = 0
 
       // Update rate limiting trackers
       const now = Date.now()
       lastSaveTimeRef.current = now
       saveCountRef.current.push(now)
 
-      setStatus('saved')
       setLastSaved(new Date())
 
-      // Reset to idle after 3 seconds (longer visibility)
+      // Timing: ensure 'saving' indicator visible ≥800ms to prevent flashing,
+      // then show 'saved' for 3s before returning to idle.
+      // Uses nested setTimeout: outer waits for min display, inner controls saved duration.
+      const elapsed = Date.now() - saveStartTime
+      const remainingDelay = Math.max(0, 800 - elapsed)
+
       setTimeout(() => {
-        setStatus('idle')
-      }, 3000)
+        setStatus('saved')
+        setTimeout(() => {
+          setStatus('idle')
+        }, 3000)
+      }, remainingDelay)
     } catch (err) {
+      isSavingRef.current = false
+
+      // Retry with exponential backoff (2s, 4s, 8s) before showing error
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current += 1
+        const delay = RETRY_BASE_DELAY * Math.pow(2, retryCountRef.current - 1)
+        retryTimerRef.current = setTimeout(() => {
+          performSave()
+        }, delay)
+        return
+      }
+
+      // All retries exhausted - show error
+      retryCountRef.current = 0
       const message = err instanceof Error ? err.message : 'Không thể lưu tự động'
       setError(message)
       setStatus('error')
@@ -141,6 +173,9 @@ export function useAutoSave(
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current)
+      }
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current)
       }
     }
   }, [isDirty, formData, formStatus, performSave])

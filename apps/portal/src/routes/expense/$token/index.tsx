@@ -2,14 +2,16 @@
  * Expense Form Page
  * Client-facing Schedule C expense collection via magic link
  */
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button, EllaLogoLight } from '@ella/ui'
 import { ApiError } from '../../../lib/api-client'
 import { expenseApi, type ExpenseFormData } from '../../../features/expense/lib/expense-api'
-import { ExpenseForm } from '../../../features/expense/components/expense-form'
 import { ExpenseErrorBoundary } from '../../../features/expense/components/expense-error-boundary'
+
+// Lazy load ExpenseForm (heaviest component with 20+ fields, hooks, sections)
+const ExpenseForm = lazy(() => import('../../../features/expense/components/expense-form').then(m => ({ default: m.ExpenseForm })))
 
 export const Route = createFileRoute('/expense/$token/')({
   component: ExpenseFormPage,
@@ -149,9 +151,15 @@ function ExpenseFormPage() {
         </p>
       </header>
 
-      {/* Form with error boundary */}
+      {/* Form with error boundary (lazy loaded) */}
       <ExpenseErrorBoundary>
-        <ExpenseForm token={token} initialData={data} />
+        <Suspense fallback={
+          <div className="flex-1 flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        }>
+          <ExpenseForm token={token} initialData={data} />
+        </Suspense>
       </ExpenseErrorBoundary>
 
       {/* Footer */}

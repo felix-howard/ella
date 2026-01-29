@@ -38,21 +38,21 @@ export function VersionHistory({ history }: VersionHistoryProps) {
         {displayedHistory.map((entry) => (
           <div
             key={entry.version}
-            className="flex items-start gap-3 text-sm"
+            className="flex items-start gap-2 sm:gap-3 text-sm"
           >
             {/* Version badge */}
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex-shrink-0">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex-shrink-0 mt-0.5">
               v{entry.version}
             </span>
 
             <div className="flex-1 min-w-0">
               {/* Timestamp */}
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 {formatDateTime(entry.submittedAt, 'DATETIME_FULL')}
               </p>
 
               {/* Changes */}
-              <p className="text-foreground">
+              <p className="text-foreground break-words">
                 {entry.changes.length > 0
                   ? entry.changes.join(', ')
                   : 'Tạo mới'}

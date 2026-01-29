@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_STAGING }}
 
     steps:
       - name: Checkout code
@@ -54,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
 
     steps:
       - name: Checkout code

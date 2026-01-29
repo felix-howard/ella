@@ -193,7 +193,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       onDragEnd={handleDragEnd}
     >
       {/* Processing Section - Shows docs still being processed by AI */}
-      <UnclassifiedSection images={processing} onClassify={handleClassify} />
+      <UnclassifiedSection images={processing} />
 
       {/* Categorized Sections - Using CATEGORY_ORDER for consistent display */}
       {CATEGORY_ORDER.map((categoryKey) => {

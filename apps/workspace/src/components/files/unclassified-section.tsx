@@ -5,7 +5,7 @@
  */
 
 import { useState, memo, type KeyboardEvent } from 'react'
-import { Loader2, ChevronDown, ChevronRight, Tag } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { RawImage } from '../../lib/api-client'
 import { sanitizeText } from '../../lib/formatters'
@@ -13,14 +13,13 @@ import { ImageThumbnail } from './image-thumbnail'
 
 export interface UnclassifiedSectionProps {
   images: RawImage[]
-  onClassify: (image: RawImage) => void
 }
 
 /**
  * Section displaying unclassified documents awaiting manual classification
  * Collapsible list layout consistent with FileCategorySection
  */
-export function UnclassifiedSection({ images, onClassify }: UnclassifiedSectionProps) {
+export function UnclassifiedSection({ images }: UnclassifiedSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   if (images.length === 0) return null
@@ -67,7 +66,6 @@ export function UnclassifiedSection({ images, onClassify }: UnclassifiedSectionP
           <UnclassifiedFileRow
             key={img.id}
             image={img}
-            onClick={() => onClassify(img)}
           />
         ))}
       </div>
@@ -77,15 +75,13 @@ export function UnclassifiedSection({ images, onClassify }: UnclassifiedSectionP
 
 interface UnclassifiedFileRowProps {
   image: RawImage
-  onClick: () => void
 }
 
 /**
- * Single unclassified file row with thumbnail and classify action
+ * Single unclassified file row with thumbnail and processing status
  */
 const UnclassifiedFileRow = memo(function UnclassifiedFileRow({
   image,
-  onClick,
 }: UnclassifiedFileRowProps) {
   // Sanitize filename for display
   const displayName = sanitizeText(image.displayName || image.filename)
@@ -108,18 +104,6 @@ const UnclassifiedFileRow = memo(function UnclassifiedFileRow({
         <p className="text-xs text-muted-foreground">
           Đang xử lý...
         </p>
-      </div>
-
-      {/* Classify Action */}
-      <div className="flex-shrink-0">
-        <button
-          onClick={onClick}
-          aria-label={`Phân loại ${displayName}`}
-          className="flex items-center gap-1 text-xs text-warning hover:text-warning/80 focus:outline-none focus:ring-2 focus:ring-warning/50 rounded px-1 transition-colors"
-        >
-          <Tag className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Phân loại</span>
-        </button>
       </div>
     </div>
   )

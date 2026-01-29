@@ -5,6 +5,7 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { formatUSD, parseAmount } from './format-utils'
+import { CopyableValue } from './copyable-value'
 
 interface NetProfitCardProps {
   netProfit: string | number
@@ -35,12 +36,14 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
             {isProfit ? 'LỢI NHUẬN RÒNG' : 'LỖ RÒNG'}
           </span>
         </div>
-        <span className={cn(
-          'text-xl font-bold tabular-nums',
-          isProfit ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
-        )}>
-          {formatUSD(netProfit)}
-        </span>
+        <CopyableValue
+          formatted={formatUSD(netProfit)}
+          rawValue={netProfit}
+          className={cn(
+            'text-xl font-bold',
+            isProfit ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+          )}
+        />
       </div>
       <p className="text-xs text-muted-foreground mt-1">
         Schedule C Dòng 31 (Thu nhập gộp - Tổng chi phí)

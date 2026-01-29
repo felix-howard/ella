@@ -3,6 +3,7 @@
  */
 import type { ScheduleCExpense, ScheduleCTotals } from '../../../../lib/api-client'
 import { formatUSD } from './format-utils'
+import { CopyableValue } from './copyable-value'
 
 interface IncomeTableProps {
   expense: ScheduleCExpense
@@ -26,22 +27,26 @@ export function IncomeTable({ expense, totals, showGrossIncome = false }: Income
         if (row.label !== 'Tổng thu (từ 1099-NEC)' && numValue === 0) return null
 
         return (
-          <div key={row.label} className="flex justify-between text-sm">
+          <div key={row.label} className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">{row.label}</span>
-            <span className="font-medium text-foreground tabular-nums">
-              {formatUSD(row.value)}
-            </span>
+            <CopyableValue
+              formatted={formatUSD(row.value)}
+              rawValue={row.value}
+              className="font-medium text-foreground"
+            />
           </div>
         )
       })}
 
       {/* Gross Income Total (if requested) */}
       {showGrossIncome && totals && (
-        <div className="flex justify-between text-sm pt-2 mt-2 border-t border-border">
+        <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border">
           <span className="font-medium text-foreground">THU NHẬP GỘP</span>
-          <span className="font-bold text-foreground tabular-nums">
-            {formatUSD(totals.grossIncome)}
-          </span>
+          <CopyableValue
+            formatted={formatUSD(totals.grossIncome)}
+            rawValue={totals.grossIncome}
+            className="font-bold text-foreground"
+          />
         </div>
       )}
     </div>

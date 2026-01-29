@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import type { ScheduleCExpense, ScheduleCTotals } from '../../../../lib/api-client'
 import { formatUSD, isPositive } from './format-utils'
+import { CopyableValue } from './copyable-value'
 
 interface ExpenseTableProps {
   expense: ScheduleCExpense
@@ -59,23 +60,27 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
     <div className="space-y-2">
       {/* Mileage deduction (if using standard mileage method) */}
       {hasMileage && isPositive(mileageDeduction) && (
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between items-center text-sm">
           <span className="text-muted-foreground">
             Chi phí xe ({expense.vehicleMiles?.toLocaleString()} dặm × $0.67)
           </span>
-          <span className="font-medium text-foreground tabular-nums w-24 text-right flex-shrink-0">
-            {formatUSD(mileageDeduction)}
-          </span>
+          <CopyableValue
+            formatted={formatUSD(mileageDeduction)}
+            rawValue={mileageDeduction}
+            className="font-medium text-foreground w-28 justify-end flex-shrink-0"
+          />
         </div>
       )}
 
       {/* Expense rows */}
       {expenseRows.map((row) => (
-        <div key={row.key} className="flex justify-between text-sm">
+        <div key={row.key} className="flex justify-between items-center text-sm">
           <span className="text-muted-foreground">{row.label}</span>
-          <span className="font-medium text-foreground tabular-nums w-24 text-right flex-shrink-0">
-            {formatUSD(row.value)}
-          </span>
+          <CopyableValue
+            formatted={formatUSD(row.value)}
+            rawValue={row.value}
+            className="font-medium text-foreground w-28 justify-end flex-shrink-0"
+          />
         </div>
       ))}
 
@@ -95,11 +100,13 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
 
       {/* Total Expenses */}
       {totals && (
-        <div className="flex justify-between text-sm pt-2 mt-2 border-t border-border">
+        <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border">
           <span className="font-medium text-foreground">TỔNG CHI PHÍ</span>
-          <span className="font-bold text-foreground tabular-nums w-24 text-right flex-shrink-0">
-            {formatUSD(totals.totalExpenses)}
-          </span>
+          <CopyableValue
+            formatted={formatUSD(totals.totalExpenses)}
+            rawValue={totals.totalExpenses}
+            className="font-bold text-foreground w-28 justify-end flex-shrink-0"
+          />
         </div>
       )}
     </div>

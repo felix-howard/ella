@@ -66,9 +66,10 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
 
   // Format time
-  const time = new Date(message.createdAt).toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
+  const time = new Date(message.createdAt).toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   })
 
   // Sanitize content to prevent XSS

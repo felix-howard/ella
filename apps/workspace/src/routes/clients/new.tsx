@@ -11,7 +11,7 @@ import { ArrowLeft, ArrowRight, User, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ReturningClientSection, ConfirmStep } from '../../components/clients'
-import { UI_TEXT, LANGUAGE_LABELS } from '../../lib/constants'
+import { UI_TEXT } from '../../lib/constants'
 import { formatPhone } from '../../lib/formatters'
 import { api, type Language, type ClientWithActions } from '../../lib/api-client'
 
@@ -34,9 +34,10 @@ interface FormErrors {
   basic?: Partial<Record<keyof BasicInfoData, string>>
 }
 
-// Generate available tax years dynamically (current year + 2 previous)
+// Tax years: previous year (default), then 2 more prior years
+// In 2026, we tax for 2025 or before, so options are 2025, 2024, 2023
 const currentYear = new Date().getFullYear()
-const TAX_YEARS = [currentYear, currentYear - 1, currentYear - 2]
+const TAX_YEARS = [currentYear - 1, currentYear - 2, currentYear - 3]
 
 function CreateClientPage() {
   const navigate = useNavigate()
@@ -56,7 +57,7 @@ function CreateClientPage() {
     phone: '',
     email: '',
     language: 'VI',
-    taxYear: currentYear,
+    taxYear: currentYear - 1,
   })
 
   // Check for existing client by phone (debounced)
@@ -466,30 +467,6 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
           )}
         />
         {errors?.email && <p id="email-error" className="text-sm text-error" role="alert">{errors.email}</p>}
-      </div>
-
-      {/* Language */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-foreground">
-          {UI_TEXT.form.language}
-        </label>
-        <div className="flex gap-3">
-          {(['VI', 'EN'] as Language[]).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              onClick={() => onChange({ language: lang })}
-              className={cn(
-                'flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                data.language === lang
-                  ? 'bg-primary text-white'
-                  : 'bg-muted text-foreground hover:bg-muted/80'
-              )}
-            >
-              {LANGUAGE_LABELS[lang]}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Tax Year */}

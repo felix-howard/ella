@@ -8,7 +8,7 @@
  * 3. Generate 64-bit hash based on mean comparison
  * 4. Compare hashes using Hamming distance
  *
- * Threshold: <10 bits difference = duplicate
+ * Threshold: <5 bits difference = duplicate
  */
 
 import sharp from 'sharp'
@@ -18,7 +18,7 @@ import type { DocType } from '@ella/db'
 // Constants
 const HASH_SIZE = 8 // 8x8 = 64 bits
 const HASH_BIT_LENGTH = HASH_SIZE * HASH_SIZE // 64 bits
-const DUPLICATE_THRESHOLD = 10 // Hamming distance: lower = stricter, higher = more lenient
+const DUPLICATE_THRESHOLD = 5 // Hamming distance: lower = stricter, higher = more lenient
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024 // 50MB max input size for DoS protection
 const VALID_HASH_REGEX = /^[01]{64}$/ // 64-character binary string
 

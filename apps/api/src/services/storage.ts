@@ -14,6 +14,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { generateDocumentName, type DocumentNamingComponents } from '@ella/shared'
+import { prisma } from '../lib/db'
 
 // R2 client configuration
 const s3Client = new S3Client({
@@ -106,6 +107,7 @@ export async function getSignedDownloadUrl(
 
 /**
  * Generate a unique key for a file upload
+ * Uses timestamp + random suffix to prevent key collision on concurrent uploads
  */
 export function generateFileKey(
   caseId: string,
@@ -113,9 +115,10 @@ export function generateFileKey(
   prefix = 'raw'
 ): string {
   const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 6) // 4-char random suffix
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_')
   const ext = sanitizedFilename.split('.').pop() || 'jpg'
-  return `cases/${caseId}/${prefix}/${timestamp}.${ext}`
+  return `cases/${caseId}/${prefix}/${timestamp}-${random}.${ext}`
 }
 
 /**
@@ -170,26 +173,51 @@ export function getStorageStatus(): {
 /**
  * Fetch image buffer from R2 storage
  * Used by background jobs to get image data for AI processing
+ * Retries with exponential backoff to handle R2 replication lag on concurrent uploads
  */
 export async function fetchImageBuffer(r2Key: string): Promise<{
   buffer: Buffer
   mimeType: string
 } | null> {
-  const signedUrl = await getSignedDownloadUrl(r2Key)
-  if (!signedUrl) return null
+  const MAX_RETRIES = 4
+  const BASE_DELAY_MS = 500
 
-  try {
-    const response = await fetch(signedUrl)
-    if (!response.ok) return null
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const signedUrl = await getSignedDownloadUrl(r2Key)
+    if (!signedUrl) return null
 
-    const buffer = Buffer.from(await response.arrayBuffer())
-    const mimeType = response.headers.get('content-type') || 'image/jpeg'
+    try {
+      const response = await fetch(signedUrl)
+      if (response.ok) {
+        const buffer = Buffer.from(await response.arrayBuffer())
+        const mimeType = response.headers.get('content-type') || 'image/jpeg'
+        return { buffer, mimeType }
+      }
 
-    return { buffer, mimeType }
-  } catch (error) {
-    console.error('[Storage] Failed to fetch image:', r2Key, error)
-    return null
+      // 404 = file may not be replicated yet, retry with backoff
+      if (response.status === 404 && attempt < MAX_RETRIES - 1) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt) // 500ms, 1s, 2s, 4s
+        console.warn(`[Storage] R2 returned 404 for ${r2Key}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+
+      // Non-404 error or final attempt
+      console.error(`[Storage] Failed to fetch from R2: ${r2Key} (status ${response.status})`)
+      return null
+    } catch (error) {
+      if (attempt < MAX_RETRIES - 1) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+        console.warn(`[Storage] Network error fetching ${r2Key}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`, error)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+      console.error('[Storage] Failed to fetch image:', r2Key, error)
+      return null
+    }
   }
+
+  return null
 }
 
 /**
@@ -241,12 +269,27 @@ export async function renameFile(
 
   // Generate new filename using naming convention
   const displayName = generateDocumentName(components)
-  const newKey = `cases/${caseId}/docs/${displayName}.${ext}`
+  let newKey = `cases/${caseId}/docs/${displayName}.${ext}`
 
   // Skip if same key (no rename needed)
   if (oldKey === newKey) {
     console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
     return { success: true, newKey, oldKey }
+  }
+
+  // Check for r2Key collision in DB and append sequence number if needed
+  // e.g. 2024_FORM_1099_NEC_Google_FionaPham.pdf -> 2024_FORM_1099_NEC_Google_FionaPham (2).pdf
+  const MAX_COLLISION_ATTEMPTS = 10
+  for (let seq = 2; seq <= MAX_COLLISION_ATTEMPTS + 1; seq++) {
+    const existing = await prisma.rawImage.findUnique({
+      where: { r2Key: newKey },
+      select: { id: true },
+    })
+    if (!existing) break // No collision, use this key
+
+    // Append sequence number
+    newKey = `cases/${caseId}/docs/${displayName} (${seq}).${ext}`
+    console.log(`[Storage] Key collision detected, trying: ${newKey}`)
   }
 
   try {

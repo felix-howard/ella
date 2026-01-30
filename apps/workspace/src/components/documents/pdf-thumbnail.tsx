@@ -17,12 +17,14 @@ export interface PdfThumbnailProps {
   url: string
   /** Width of the thumbnail in pixels (default: 180) */
   width?: number
+  /** Called when PDF fails to load (e.g., 404 from renamed R2 file) */
+  onError?: () => void
 }
 
 /**
  * PDF Thumbnail - Renders first page of PDF as preview
  */
-export default function PdfThumbnail({ url, width = 180 }: PdfThumbnailProps) {
+export default function PdfThumbnail({ url, width = 180, onError }: PdfThumbnailProps) {
   const [hasError, setHasError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -48,6 +50,7 @@ export default function PdfThumbnail({ url, width = 180 }: PdfThumbnailProps) {
         onLoadError={() => {
           setHasError(true)
           setIsLoading(false)
+          onError?.()
         }}
         loading={null}
         className="flex items-center justify-center"

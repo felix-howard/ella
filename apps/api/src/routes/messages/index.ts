@@ -8,6 +8,7 @@ import { prisma } from '../../lib/db'
 import {
   getPaginationParams,
   buildPaginationResponse,
+  API_URL,
 } from '../../lib/constants'
 import {
   sendMessageSchema,
@@ -20,7 +21,7 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
-import { refreshAttachmentUrls } from '../../services/sms/mms-media-handler'
+import { getSignedDownloadUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
 /**
@@ -135,6 +136,66 @@ messagesRoute.get(
   }
 )
 
+// GET /messages/media/:messageId/:index - Proxy endpoint to serve message attachments
+// Bypasses CORS issues with direct R2 signed URLs by proxying through the API
+messagesRoute.get('/media/:messageId/:index', async (c) => {
+  const messageId = c.req.param('messageId')
+  const index = parseInt(c.req.param('index'), 10)
+
+  if (isNaN(index) || index < 0) {
+    return c.json({ error: 'INVALID_INDEX', message: 'Invalid attachment index' }, 400)
+  }
+
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { attachmentR2Keys: true, attachmentUrls: true },
+  })
+
+  if (!message) {
+    return c.json({ error: 'NOT_FOUND', message: 'Message not found' }, 404)
+  }
+
+  // Get R2 key for the requested attachment index
+  let r2Key: string | undefined
+
+  if (message.attachmentR2Keys && message.attachmentR2Keys[index]) {
+    r2Key = message.attachmentR2Keys[index]
+  } else if (message.attachmentUrls && message.attachmentUrls[index]) {
+    // Fallback: extract R2 key from stored URL
+    const keys = extractR2KeysFromUrls([message.attachmentUrls[index]])
+    r2Key = keys[0]
+  }
+
+  if (!r2Key) {
+    return c.json({ error: 'NO_ATTACHMENT', message: 'Attachment not found at index' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(r2Key)
+  if (!signedUrl) {
+    return c.json({ error: 'STORAGE_ERROR', message: 'Could not access file in storage' }, 500)
+  }
+
+  try {
+    const response = await fetch(signedUrl)
+    if (!response.ok) {
+      return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const contentType = response.headers.get('content-type') || 'image/jpeg'
+
+    return new Response(arrayBuffer, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
+  } catch (error) {
+    console.error(`[Messages] Failed to proxy media for message ${messageId}:`, error)
+    return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)
+  }
+})
+
 // GET /messages/:caseId/unread - Get unread count for a specific case
 messagesRoute.get('/:caseId/unread', async (c) => {
   const caseId = c.req.param('caseId')
@@ -183,54 +244,43 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
     })
   }
 
-  // Refresh signed URLs for messages with attachments (URLs expire after 1 hour)
-  const messagesWithRefreshedUrls = await Promise.all(
-    messages.map(async (m) => {
-      // If message has R2 keys, generate fresh signed URLs
-      if (m.attachmentR2Keys && m.attachmentR2Keys.length > 0) {
-        const freshUrls = await refreshAttachmentUrls(m.attachmentR2Keys)
-        return {
-          ...m,
-          attachmentUrls: freshUrls,
-          createdAt: m.createdAt.toISOString(),
-          updatedAt: m.updatedAt.toISOString(),
-        }
+  // Build proxy URLs for messages with attachments
+  // Uses /messages/media/:messageId/:index proxy to bypass R2 CORS restrictions
+  const messagesWithProxyUrls = messages.map((m) => {
+    // Auto-repair: extract R2 keys from stored URLs if keys are missing
+    if ((!m.attachmentR2Keys || m.attachmentR2Keys.length === 0) &&
+        m.attachmentUrls && m.attachmentUrls.length > 0) {
+      const extractedKeys = extractR2KeysFromUrls(m.attachmentUrls)
+      if (extractedKeys.length > 0) {
+        console.log(`[Messages] Auto-repairing message ${m.id}: extracted ${extractedKeys.length} R2 keys from URLs`)
+        // Update the message with extracted R2 keys (fire and forget)
+        prisma.message.update({
+          where: { id: m.id },
+          data: { attachmentR2Keys: extractedKeys },
+        }).catch(err => console.error(`[Messages] Failed to update R2 keys for message ${m.id}:`, err))
+
+        // Set keys so proxy URLs are generated below
+        m.attachmentR2Keys = extractedKeys
       }
+    }
 
-      // AUTO-REPAIR: Message has R2 URLs but no R2 keys stored
-      // This happens for messages created before R2 key storage was added
-      // Extract the R2 key from the URL and update the message
-      if (m.attachmentUrls && m.attachmentUrls.length > 0) {
-        const extractedKeys = extractR2KeysFromUrls(m.attachmentUrls)
+    // Generate proxy URLs for attachments
+    const hasR2Keys = m.attachmentR2Keys && m.attachmentR2Keys.length > 0
+    const attachmentCount = hasR2Keys
+      ? m.attachmentR2Keys!.length
+      : (m.attachmentUrls?.length || 0)
 
-        if (extractedKeys.length > 0) {
-          console.log(`[Messages] Auto-repairing message ${m.id}: extracted ${extractedKeys.length} R2 keys from URLs`)
+    const proxyUrls = attachmentCount > 0
+      ? Array.from({ length: attachmentCount }, (_, i) => `${API_URL}/messages/media/${m.id}/${i}`)
+      : m.attachmentUrls || []
 
-          // Update the message with extracted R2 keys (fire and forget)
-          prisma.message.update({
-            where: { id: m.id },
-            data: { attachmentR2Keys: extractedKeys },
-          }).catch(err => console.error(`[Messages] Failed to update R2 keys for message ${m.id}:`, err))
-
-          // Generate fresh URLs
-          const freshUrls = await refreshAttachmentUrls(extractedKeys)
-          return {
-            ...m,
-            attachmentUrls: freshUrls,
-            attachmentR2Keys: extractedKeys,
-            createdAt: m.createdAt.toISOString(),
-            updatedAt: m.updatedAt.toISOString(),
-          }
-        }
-      }
-
-      return {
-        ...m,
-        createdAt: m.createdAt.toISOString(),
-        updatedAt: m.updatedAt.toISOString(),
-      }
-    })
-  )
+    return {
+      ...m,
+      attachmentUrls: proxyUrls,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+    }
+  })
 
   return c.json({
     conversation: {
@@ -238,7 +288,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
     },
-    messages: messagesWithRefreshedUrls,
+    messages: messagesWithProxyUrls,
     pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })

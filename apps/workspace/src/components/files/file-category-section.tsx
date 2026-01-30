@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -23,6 +23,7 @@ export interface FileCategorySectionProps {
   docs: DigitalDoc[]
   caseId: string
   onVerify: (doc: DigitalDoc) => void
+  onViewImage?: (imageId: string) => void
   onFileDrop?: (imageId: string, targetCategory: DocCategoryKey) => void
 }
 
@@ -36,6 +37,7 @@ export function FileCategorySection({
   docs,
   caseId,
   onVerify,
+  onViewImage,
   onFileDrop,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
@@ -143,6 +145,7 @@ export function FileCategorySection({
             caseId={caseId}
             categoryKey={categoryKey}
             onVerify={onVerify}
+            onViewImage={onViewImage}
           />
         ))}
       </div>
@@ -156,6 +159,7 @@ interface FileItemRowProps {
   caseId: string
   categoryKey: DocCategoryKey
   onVerify: (doc: DigitalDoc) => void
+  onViewImage?: (imageId: string) => void
 }
 
 /**
@@ -168,6 +172,7 @@ const FileItemRow = memo(function FileItemRow({
   caseId,
   categoryKey,
   onVerify,
+  onViewImage,
 }: FileItemRowProps) {
   const queryClient = useQueryClient()
   const [isDragging, setIsDragging] = useState(false)
@@ -177,6 +182,9 @@ const FileItemRow = memo(function FileItemRow({
 
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
+  // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
+  const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
+  const isStillProcessing = !doc && !isProcessedNoDoc
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? 'Chưa phân loại'
 
   // Show displayName if available, fallback to original filename
@@ -262,74 +270,100 @@ const FileItemRow = memo(function FileItemRow({
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </div>
 
-      {/* Thumbnail */}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-        <ImageThumbnail imageId={image.id} filename={image.filename} />
-      </div>
-
-      {/* Info - Show displayName as primary, docType as secondary */}
-      <div className="flex-1 min-w-0">
-        {isRenaming ? (
-          // Inline rename input
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newFilename}
-              onChange={(e) => setNewFilename(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveRename()
-                if (e.key === 'Escape') handleCancelRename()
-              }}
-              onBlur={() => {
-                // Auto-save on blur if changed, otherwise cancel
-                if (newFilename.trim() && newFilename.trim() !== (image.displayName || image.filename)) {
-                  handleSaveRename()
-                } else {
-                  handleCancelRename()
-                }
-              }}
-              disabled={renameMutation.isPending}
-              className={cn(
-                'flex-1 min-w-0 px-2 py-1 text-sm font-medium',
-                'border border-primary rounded bg-background',
-                'focus:outline-none focus:ring-2 focus:ring-primary/30',
-                'disabled:opacity-50'
-              )}
-              placeholder="Nhập tên tệp..."
-            />
-            <button
-              onClick={handleSaveRename}
-              disabled={renameMutation.isPending}
-              className="p-1.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
-              title="Lưu"
-            >
-              {renameMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Check className="w-3.5 h-3.5" />
-              )}
-            </button>
-            <button
-              onClick={handleCancelRename}
-              disabled={renameMutation.isPending}
-              className="p-1.5 rounded border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
-              title="Hủy"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          // Normal display
-          <>
-            <p className="font-medium text-foreground truncate" title={displayName}>
-              {displayName}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {docLabel}
-            </p>
-          </>
+      {/* Clickable area: thumbnail + file info - opens verification modal or image viewer */}
+      <div
+        className={cn(
+          'flex items-center gap-4 flex-1 min-w-0',
+          (doc || isProcessedNoDoc) && !isRenaming && 'cursor-pointer'
         )}
+        onClick={() => {
+          if (isRenaming) return
+          if (doc) onVerify(doc)
+          else if (isProcessedNoDoc) onViewImage?.(image.id)
+        }}
+        role={(doc || isProcessedNoDoc) && !isRenaming ? 'button' : undefined}
+        tabIndex={(doc || isProcessedNoDoc) && !isRenaming ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (isRenaming) return
+          if ((e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            if (doc) onVerify(doc)
+            else if (isProcessedNoDoc) onViewImage?.(image.id)
+          }
+        }}
+        aria-label={(doc || isProcessedNoDoc) && !isRenaming ? `Mở ${displayName}` : undefined}
+      >
+        {/* Thumbnail */}
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+          <ImageThumbnail imageId={image.id} filename={image.filename} />
+        </div>
+
+        {/* Info - Show displayName as primary, docType as secondary */}
+        <div className="flex-1 min-w-0">
+          {isRenaming ? (
+            // Inline rename input - stop click propagation so clicking input doesn't open modal
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={newFilename}
+                onChange={(e) => setNewFilename(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveRename()
+                  if (e.key === 'Escape') handleCancelRename()
+                }}
+                onBlur={() => {
+                  // Auto-save on blur if changed, otherwise cancel
+                  if (newFilename.trim() && newFilename.trim() !== (image.displayName || image.filename)) {
+                    handleSaveRename()
+                  } else {
+                    handleCancelRename()
+                  }
+                }}
+                disabled={renameMutation.isPending}
+                className={cn(
+                  'flex-1 min-w-0 px-2 py-1 text-sm font-medium',
+                  'border border-primary rounded bg-background',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/30',
+                  'disabled:opacity-50'
+                )}
+                placeholder="Nhập tên tệp..."
+              />
+              <button
+                onClick={handleSaveRename}
+                disabled={renameMutation.isPending}
+                className="p-1.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
+                title="Lưu"
+              >
+                {renameMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <button
+                onClick={handleCancelRename}
+                disabled={renameMutation.isPending}
+                className="p-1.5 rounded border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
+                title="Hủy"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            // Normal display
+            <>
+              <p className="font-medium text-foreground truncate" title={displayName}>
+                {displayName}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="truncate">{docLabel}</span>
+                <FileTypeBadge filename={image.filename} />
+                <UploadSourceBadge uploadedVia={image.uploadedVia} />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Status & Action - hide when renaming */}
@@ -355,11 +389,21 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">Xác minh</span>
             </button>
           )}
-          {!doc && (
+          {isStillProcessing && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Đang xử lý</span>
             </span>
+          )}
+          {isProcessedNoDoc && (
+            <button
+              onClick={() => onViewImage?.(image.id)}
+              aria-label={`Xem ${displayName}`}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Xem</span>
+            </button>
           )}
 
           {/* File Actions Dropdown */}
@@ -374,3 +418,44 @@ const FileItemRow = memo(function FileItemRow({
     </div>
   )
 })
+
+/**
+ * Small badge showing file extension (e.g. PDF, PNG, JPG)
+ */
+function FileTypeBadge({ filename }: { filename: string }) {
+  const ext = filename.split('.').pop()?.toUpperCase()
+  if (!ext) return null
+
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+      {ext}
+    </span>
+  )
+}
+
+/**
+ * Small badge indicating upload source: Portal or MMS (SMS)
+ */
+function UploadSourceBadge({ uploadedVia }: { uploadedVia?: string }) {
+  if (!uploadedVia) return null
+
+  if (uploadedVia === 'PORTAL') {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+        <Globe className="w-2.5 h-2.5" />
+        Portal
+      </span>
+    )
+  }
+
+  if (uploadedVia === 'SMS') {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+        <Phone className="w-2.5 h-2.5" />
+        MMS
+      </span>
+    )
+  }
+
+  return null
+}

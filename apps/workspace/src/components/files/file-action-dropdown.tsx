@@ -1,6 +1,6 @@
 /**
  * FileActionDropdown - Context menu for file actions in Files Tab
- * Actions: Rename, Download, Move to Category (submenu), Delete
+ * Actions: Rename, Open in New Tab, Download, Move to Category (submenu), Delete
  * Uses nested submenu pattern like Windows File Explorer
  */
 
@@ -11,6 +11,7 @@ import {
   MoreVertical,
   Pencil,
   Download,
+  ExternalLink,
   FolderInput,
   Loader2,
   Check,
@@ -32,7 +33,7 @@ export interface FileActionDropdownProps {
 }
 
 /**
- * Dropdown menu with file actions: rename, download, move to category (submenu), delete
+ * Dropdown menu with file actions: rename, open in new tab, download, move to category (submenu), delete
  */
 export function FileActionDropdown({
   image,
@@ -232,20 +233,37 @@ export function FileActionDropdown({
     onRenameClick?.()
   }
 
-  const handleDownload = () => {
+  const handleOpenInNewTab = () => {
     if (!signedUrlData?.url) {
-      toast.error('Không thể tải tệp')
+      toast.error('Không thể mở tệp')
       return
     }
 
-    // Create a temporary link and trigger download
-    const link = document.createElement('a')
-    link.href = signedUrlData.url
-    link.download = image.displayName || image.filename
-    link.target = '_blank'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    window.open(signedUrlData.url, '_blank')
+    setIsOpen(false)
+  }
+
+  const handleDownload = async () => {
+    try {
+      // Use API proxy endpoint to bypass CORS issues with R2 signed URLs for images
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+      const response = await fetch(`${apiBase}/cases/images/${image.id}/file`, { credentials: 'include' })
+      if (!response.ok) throw new Error('Download failed')
+
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = image.displayName || image.filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.error('Không thể tải tệp')
+    }
 
     setIsOpen(false)
   }
@@ -360,6 +378,16 @@ export function FileActionDropdown({
         Đổi tên
       </button>
 
+      {/* Open in new tab */}
+      <button
+        onClick={handleOpenInNewTab}
+        disabled={!signedUrlData?.url}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ExternalLink className="w-4 h-4 text-muted-foreground" />
+        Mở trong tab mới
+      </button>
+
       {/* Download */}
       <button
         onClick={handleDownload}
@@ -461,7 +489,7 @@ export function FileActionDropdown({
         onClick={() => setShowDeleteConfirm(false)}
       />
       {/* Modal */}
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6">
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6">
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-full bg-destructive/10">
             <Trash2 className="w-6 h-6 text-destructive" />

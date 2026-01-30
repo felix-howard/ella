@@ -358,6 +358,7 @@ const FileItemRow = memo(function FileItemRow({
               </p>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{docLabel}</span>
+                <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
               </div>
             </>
@@ -417,6 +418,20 @@ const FileItemRow = memo(function FileItemRow({
     </div>
   )
 })
+
+/**
+ * Small badge showing file extension (e.g. PDF, PNG, JPG)
+ */
+function FileTypeBadge({ filename }: { filename: string }) {
+  const ext = filename.split('.').pop()?.toUpperCase()
+  if (!ext) return null
+
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+      {ext}
+    </span>
+  )
+}
 
 /**
  * Small badge indicating upload source: Portal or MMS (SMS)

@@ -171,12 +171,14 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 
   const signedUrl = await getSignedDownloadUrl(r2Key)
   if (!signedUrl) {
+    console.error(`[Messages] No signed URL for R2 key: ${r2Key} (message: ${messageId})`)
     return c.json({ error: 'STORAGE_ERROR', message: 'Could not access file in storage' }, 500)
   }
 
   try {
     const response = await fetch(signedUrl)
     if (!response.ok) {
+      console.error(`[Messages] R2 fetch failed: ${response.status} for key ${r2Key} (message: ${messageId})`)
       return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
     }
 

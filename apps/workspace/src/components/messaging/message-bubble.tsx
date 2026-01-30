@@ -3,7 +3,7 @@
  * Inspired by WhatsApp, iMessage, Telegram for clean visual design
  */
 
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, useRef } from 'react'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
@@ -250,6 +250,7 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   // For relative paths (proxy endpoints), fetch with auth and create blob URL
   // For absolute URLs, use directly
@@ -262,30 +263,31 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
       return
     }
 
-    let revoked = false
+    let cancelled = false
     fetchMediaBlobUrl(url)
       .then((objectUrl) => {
-        if (!revoked) {
+        if (!cancelled) {
+          blobUrlRef.current = objectUrl
           setBlobUrl(objectUrl)
         } else {
           URL.revokeObjectURL(objectUrl)
         }
       })
       .catch(() => {
-        if (!revoked) {
+        if (!cancelled) {
           setLoading(false)
           setError(true)
         }
       })
 
     return () => {
-      revoked = true
-      if (blobUrl && isRelativePath) {
-        URL.revokeObjectURL(blobUrl)
+      cancelled = true
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url])
+  }, [url, isRelativePath])
 
   // Error state
   if (error) {

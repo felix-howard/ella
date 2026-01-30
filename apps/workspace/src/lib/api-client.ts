@@ -127,25 +127,35 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
 /**
  * Fetch a media file with auth headers and return a blob URL for <img> rendering.
  * Used for attachment proxy endpoints that require authentication.
+ * Includes a 15s timeout to prevent hanging requests from blocking the UI.
  */
 export async function fetchMediaBlobUrl(relativePath: string): Promise<string> {
   const url = `${API_BASE_URL}${relativePath}`
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-  let authHeaders: Record<string, string> = {}
-  if (getAuthToken) {
-    const token = await getAuthToken()
-    if (token) {
-      authHeaders = { Authorization: `Bearer ${token}` }
+  try {
+    let authHeaders: Record<string, string> = {}
+    if (getAuthToken) {
+      const token = await getAuthToken()
+      if (token) {
+        authHeaders = { Authorization: `Bearer ${token}` }
+      }
     }
-  }
 
-  const response = await fetch(url, { headers: authHeaders })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch media: ${response.status}`)
-  }
+    const response = await fetch(url, {
+      headers: authHeaders,
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch media: ${response.status}`)
+    }
 
-  const blob = await response.blob()
-  return URL.createObjectURL(blob)
+    const blob = await response.blob()
+    return URL.createObjectURL(blob)
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 // Core fetch wrapper with error handling, timeout, and retry logic

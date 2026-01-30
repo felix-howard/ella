@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -23,6 +23,7 @@ export interface FileCategorySectionProps {
   docs: DigitalDoc[]
   caseId: string
   onVerify: (doc: DigitalDoc) => void
+  onViewImage?: (imageId: string) => void
   onFileDrop?: (imageId: string, targetCategory: DocCategoryKey) => void
 }
 
@@ -36,6 +37,7 @@ export function FileCategorySection({
   docs,
   caseId,
   onVerify,
+  onViewImage,
   onFileDrop,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
@@ -143,6 +145,7 @@ export function FileCategorySection({
             caseId={caseId}
             categoryKey={categoryKey}
             onVerify={onVerify}
+            onViewImage={onViewImage}
           />
         ))}
       </div>
@@ -156,6 +159,7 @@ interface FileItemRowProps {
   caseId: string
   categoryKey: DocCategoryKey
   onVerify: (doc: DigitalDoc) => void
+  onViewImage?: (imageId: string) => void
 }
 
 /**
@@ -168,6 +172,7 @@ const FileItemRow = memo(function FileItemRow({
   caseId,
   categoryKey,
   onVerify,
+  onViewImage,
 }: FileItemRowProps) {
   const queryClient = useQueryClient()
   const [isDragging, setIsDragging] = useState(false)
@@ -177,6 +182,9 @@ const FileItemRow = memo(function FileItemRow({
 
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
+  // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
+  const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
+  const isStillProcessing = !doc && !isProcessedNoDoc
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? 'Chưa phân loại'
 
   // Show displayName if available, fallback to original filename
@@ -262,24 +270,28 @@ const FileItemRow = memo(function FileItemRow({
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </div>
 
-      {/* Clickable area: thumbnail + file info - opens verification modal */}
+      {/* Clickable area: thumbnail + file info - opens verification modal or image viewer */}
       <div
         className={cn(
           'flex items-center gap-4 flex-1 min-w-0',
-          doc && !isRenaming && 'cursor-pointer'
+          (doc || isProcessedNoDoc) && !isRenaming && 'cursor-pointer'
         )}
         onClick={() => {
-          if (doc && !isRenaming) onVerify(doc)
+          if (isRenaming) return
+          if (doc) onVerify(doc)
+          else if (isProcessedNoDoc) onViewImage?.(image.id)
         }}
-        role={doc && !isRenaming ? 'button' : undefined}
-        tabIndex={doc && !isRenaming ? 0 : undefined}
+        role={(doc || isProcessedNoDoc) && !isRenaming ? 'button' : undefined}
+        tabIndex={(doc || isProcessedNoDoc) && !isRenaming ? 0 : undefined}
         onKeyDown={(e) => {
-          if (doc && !isRenaming && (e.key === 'Enter' || e.key === ' ')) {
+          if (isRenaming) return
+          if ((e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
-            onVerify(doc)
+            if (doc) onVerify(doc)
+            else if (isProcessedNoDoc) onViewImage?.(image.id)
           }
         }}
-        aria-label={doc && !isRenaming ? `Mở xác minh ${displayName}` : undefined}
+        aria-label={(doc || isProcessedNoDoc) && !isRenaming ? `Mở ${displayName}` : undefined}
       >
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -344,9 +356,10 @@ const FileItemRow = memo(function FileItemRow({
               <p className="font-medium text-foreground truncate" title={displayName}>
                 {displayName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {docLabel}
-              </p>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="truncate">{docLabel}</span>
+                <UploadSourceBadge uploadedVia={image.uploadedVia} />
+              </div>
             </>
           )}
         </div>
@@ -375,11 +388,21 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">Xác minh</span>
             </button>
           )}
-          {!doc && (
+          {isStillProcessing && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Đang xử lý</span>
             </span>
+          )}
+          {isProcessedNoDoc && (
+            <button
+              onClick={() => onViewImage?.(image.id)}
+              aria-label={`Xem ${displayName}`}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Xem</span>
+            </button>
           )}
 
           {/* File Actions Dropdown */}
@@ -394,3 +417,30 @@ const FileItemRow = memo(function FileItemRow({
     </div>
   )
 })
+
+/**
+ * Small badge indicating upload source: Portal or MMS (SMS)
+ */
+function UploadSourceBadge({ uploadedVia }: { uploadedVia?: string }) {
+  if (!uploadedVia) return null
+
+  if (uploadedVia === 'PORTAL') {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+        <Globe className="w-2.5 h-2.5" />
+        Portal
+      </span>
+    )
+  }
+
+  if (uploadedVia === 'SMS') {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0">
+        <Phone className="w-2.5 h-2.5" />
+        MMS
+      </span>
+    )
+  }
+
+  return null
+}

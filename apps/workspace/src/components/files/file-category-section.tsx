@@ -262,74 +262,94 @@ const FileItemRow = memo(function FileItemRow({
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </div>
 
-      {/* Thumbnail */}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-        <ImageThumbnail imageId={image.id} filename={image.filename} />
-      </div>
-
-      {/* Info - Show displayName as primary, docType as secondary */}
-      <div className="flex-1 min-w-0">
-        {isRenaming ? (
-          // Inline rename input
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newFilename}
-              onChange={(e) => setNewFilename(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveRename()
-                if (e.key === 'Escape') handleCancelRename()
-              }}
-              onBlur={() => {
-                // Auto-save on blur if changed, otherwise cancel
-                if (newFilename.trim() && newFilename.trim() !== (image.displayName || image.filename)) {
-                  handleSaveRename()
-                } else {
-                  handleCancelRename()
-                }
-              }}
-              disabled={renameMutation.isPending}
-              className={cn(
-                'flex-1 min-w-0 px-2 py-1 text-sm font-medium',
-                'border border-primary rounded bg-background',
-                'focus:outline-none focus:ring-2 focus:ring-primary/30',
-                'disabled:opacity-50'
-              )}
-              placeholder="Nhập tên tệp..."
-            />
-            <button
-              onClick={handleSaveRename}
-              disabled={renameMutation.isPending}
-              className="p-1.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
-              title="Lưu"
-            >
-              {renameMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Check className="w-3.5 h-3.5" />
-              )}
-            </button>
-            <button
-              onClick={handleCancelRename}
-              disabled={renameMutation.isPending}
-              className="p-1.5 rounded border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
-              title="Hủy"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          // Normal display
-          <>
-            <p className="font-medium text-foreground truncate" title={displayName}>
-              {displayName}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {docLabel}
-            </p>
-          </>
+      {/* Clickable area: thumbnail + file info - opens verification modal */}
+      <div
+        className={cn(
+          'flex items-center gap-4 flex-1 min-w-0',
+          doc && !isRenaming && 'cursor-pointer'
         )}
+        onClick={() => {
+          if (doc && !isRenaming) onVerify(doc)
+        }}
+        role={doc && !isRenaming ? 'button' : undefined}
+        tabIndex={doc && !isRenaming ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (doc && !isRenaming && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            onVerify(doc)
+          }
+        }}
+        aria-label={doc && !isRenaming ? `Mở xác minh ${displayName}` : undefined}
+      >
+        {/* Thumbnail */}
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+          <ImageThumbnail imageId={image.id} filename={image.filename} />
+        </div>
+
+        {/* Info - Show displayName as primary, docType as secondary */}
+        <div className="flex-1 min-w-0">
+          {isRenaming ? (
+            // Inline rename input - stop click propagation so clicking input doesn't open modal
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={newFilename}
+                onChange={(e) => setNewFilename(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveRename()
+                  if (e.key === 'Escape') handleCancelRename()
+                }}
+                onBlur={() => {
+                  // Auto-save on blur if changed, otherwise cancel
+                  if (newFilename.trim() && newFilename.trim() !== (image.displayName || image.filename)) {
+                    handleSaveRename()
+                  } else {
+                    handleCancelRename()
+                  }
+                }}
+                disabled={renameMutation.isPending}
+                className={cn(
+                  'flex-1 min-w-0 px-2 py-1 text-sm font-medium',
+                  'border border-primary rounded bg-background',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/30',
+                  'disabled:opacity-50'
+                )}
+                placeholder="Nhập tên tệp..."
+              />
+              <button
+                onClick={handleSaveRename}
+                disabled={renameMutation.isPending}
+                className="p-1.5 rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex-shrink-0"
+                title="Lưu"
+              >
+                {renameMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <button
+                onClick={handleCancelRename}
+                disabled={renameMutation.isPending}
+                className="p-1.5 rounded border border-border hover:bg-muted disabled:opacity-50 flex-shrink-0"
+                title="Hủy"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            // Normal display
+            <>
+              <p className="font-medium text-foreground truncate" title={displayName}>
+                {displayName}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {docLabel}
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Status & Action - hide when renaming */}

@@ -904,6 +904,8 @@ export interface RawImage {
   updatedAt: string
   checklistItem?: { template: ChecklistTemplate } | null
   imageGroup?: ImageGroup | null
+  // Upload source tracking (PORTAL, SMS, SYSTEM, CALL)
+  uploadedVia?: string
   // Phase 01: Re-upload request tracking
   reuploadRequested?: boolean
   reuploadRequestedAt?: string | null

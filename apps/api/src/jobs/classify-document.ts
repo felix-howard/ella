@@ -117,6 +117,10 @@ export const classifyDocumentJob = inngest.createFunction(
 
     // Step 1: Fetch file from R2 with resize for large images
     // PDFs are sent directly to Gemini (native PDF support for better accuracy)
+    // NOTE: Buffer stored outside step to avoid Inngest step output size limit (~4MB).
+    // Inngest serializes step results; large base64 buffers exceed this limit.
+    let fileBuffer: Buffer | null = null
+
     const imageData = await step.run('fetch-image', async () => {
       const result = await fetchImageBuffer(r2Key)
       if (!result) {
@@ -145,20 +149,46 @@ export const classifyDocumentJob = inngest.createFunction(
         wasResized = true
       }
 
-      // PDFs: Send directly to Gemini (no conversion needed)
-      // Gemini 2.0/2.5 Flash has native PDF support with better accuracy
       if (isPdf) {
         console.log(`[classify-document] Using native PDF reading (no conversion)`)
       }
 
-      // Store as base64 for step durability (Inngest serializes step results)
+      // Store buffer outside step output to avoid Inngest serialization size limit
+      fileBuffer = buffer
+
+      // Only return lightweight metadata (no buffer) to stay under Inngest step output limit
       return {
-        buffer: buffer.toString('base64'),
         mimeType,
         wasResized,
         isPdf,
       }
     })
+
+    // On Inngest replay (retry after later step failure), fetch-image won't re-execute
+    // so fileBuffer will be null. Re-fetch the buffer in that case.
+    // Note: the rename step may have moved the file to a new R2 key, so try DB lookup if original key fails.
+    if (!fileBuffer) {
+      let refetch = await fetchImageBuffer(r2Key)
+      if (!refetch) {
+        // Original key may have been renamed -- look up current key from DB
+        const current = await prisma.rawImage.findUnique({
+          where: { id: rawImageId },
+          select: { r2Key: true },
+        })
+        if (current && current.r2Key !== r2Key) {
+          refetch = await fetchImageBuffer(current.r2Key)
+        }
+        if (!refetch) throw new Error(`Failed to re-fetch file from R2: ${r2Key}`)
+      }
+      let buffer = refetch.buffer
+      if (!imageData.isPdf && buffer.length > MAX_IMAGE_SIZE) {
+        buffer = await sharp(buffer)
+          .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer()
+      }
+      fileBuffer = buffer
+    }
 
     // Step 1.5: Check for duplicates BEFORE AI classification (cost saving)
     // Skip if: 1) flag set (classify-anyway), 2) PDF (pHash doesn't work well), 3) was resized
@@ -183,7 +213,7 @@ export const classifyDocumentJob = inngest.createFunction(
       }
 
       try {
-        const buffer = Buffer.from(imageData.buffer, 'base64')
+        const buffer = fileBuffer!
         const imageHash = await generateImageHash(buffer)
 
         // Check for duplicates in this case
@@ -231,7 +261,7 @@ export const classifyDocumentJob = inngest.createFunction(
 
     // Step 2: Classify with Gemini (with service unavailability handling)
     const classification = await step.run('classify', async () => {
-      const buffer = Buffer.from(imageData.buffer, 'base64')
+      const buffer = fileBuffer!
 
       try {
         const result = await classifyDocument(buffer, imageData.mimeType)
@@ -470,7 +500,7 @@ export const classifyDocumentJob = inngest.createFunction(
     let digitalDocId: string | undefined
     if (routing.needsOcr) {
       digitalDocId = await step.run('ocr-extract', async () => {
-        const buffer = Buffer.from(imageData.buffer, 'base64')
+        const buffer = fileBuffer!
         const validDocType = classification.docType as DocType
 
         const ocrResult = await extractDocumentData(

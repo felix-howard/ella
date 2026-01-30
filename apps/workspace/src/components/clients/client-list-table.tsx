@@ -5,12 +5,11 @@
 
 import { memo, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Phone, Mail, Calendar, ChevronRight, Users } from 'lucide-react'
+import { Mail, Calendar, ChevronRight, Users } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { TAX_TYPE_LABELS, LANGUAGE_LABELS, UI_TEXT } from '../../lib/constants'
+import { TAX_TYPE_LABELS, UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { ActionBadge } from './action-badge'
-import { ComputedStatusBadge } from './computed-status-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
 interface ClientListTableProps {
@@ -39,17 +38,11 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.phone}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                {UI_TEXT.form.language}
-              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.taxYear}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {UI_TEXT.form.taxTypes}
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
-                Trạng thái
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 Việc cần làm
@@ -113,17 +106,7 @@ const ClientRow = memo(function ClientRow({ client, isLast }: ClientRowProps) {
 
       {/* Phone column */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>{formatPhone(client.phone)}</span>
-        </div>
-      </td>
-
-      {/* Language column */}
-      <td className="px-4 py-3 hidden md:table-cell">
-        <span className="text-muted-foreground">
-          {LANGUAGE_LABELS[client.language] || client.language}
-        </span>
+        <span className="text-muted-foreground">{formatPhone(client.phone)}</span>
       </td>
 
       {/* Tax Year column */}
@@ -154,11 +137,6 @@ const ClientRow = memo(function ClientRow({ client, isLast }: ClientRowProps) {
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
-      </td>
-
-      {/* Status column - computed status */}
-      <td className="px-4 py-3">
-        <ComputedStatusBadge status={computedStatus} size="sm" />
       </td>
 
       {/* Action badges column */}
@@ -223,16 +201,10 @@ export function ClientListTableSkeleton() {
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
@@ -256,17 +228,11 @@ export function ClientListTableSkeleton() {
                 <td className="px-4 py-3">
                   <div className="h-4 w-28 bg-muted rounded animate-pulse" />
                 </td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-                </td>
                 <td className="px-4 py-3">
                   <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">

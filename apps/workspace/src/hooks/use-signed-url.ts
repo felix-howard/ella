@@ -1,9 +1,11 @@
 /**
  * useSignedUrl - Hook to fetch and cache signed URLs for images
  * Automatically refreshes when URL expires
+ * Supports invalidation when R2 file is renamed during classification
  */
 
-import { useQuery, type QueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 
 interface UseSignedUrlOptions {
@@ -19,8 +21,9 @@ interface UseSignedUrlOptions {
  */
 export function useSignedUrl(imageId: string | null, options: UseSignedUrlOptions = {}) {
   const { enabled = true, staleTime = 50 * 60 * 1000 } = options // 50 minutes default
+  const queryClient = useQueryClient()
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['signedUrl', imageId],
     queryFn: async () => {
       if (!imageId) throw new Error('No image ID provided')
@@ -33,6 +36,18 @@ export function useSignedUrl(imageId: string | null, options: UseSignedUrlOption
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff for new uploads
     refetchOnWindowFocus: false,
   })
+
+  /**
+   * Invalidate cached signed URL and refetch.
+   * Called when an image/PDF fails to load (e.g., R2 file renamed during classification).
+   * The refetch will read the updated r2Key from DB and generate a new valid signed URL.
+   */
+  const invalidateAndRefetch = useCallback(() => {
+    if (!imageId) return
+    queryClient.invalidateQueries({ queryKey: ['signedUrl', imageId] })
+  }, [imageId, queryClient])
+
+  return { ...query, invalidateAndRefetch }
 }
 
 /**

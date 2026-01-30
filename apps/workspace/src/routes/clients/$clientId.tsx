@@ -39,7 +39,6 @@ import {
 } from '../../components/documents'
 import {
   ClientOverviewSections,
-  ComputedStatusBadge,
   YearSwitcher,
   CreateEngagementModal,
 } from '../../components/clients'
@@ -463,11 +462,6 @@ function ClientDetailPage() {
 
           {/* Status & Actions */}
           <div className="flex items-center gap-2">
-            {/* Computed Status Badge (read-only) */}
-            {activeCase && (
-              <ComputedStatusBadge status={computedStatus} />
-            )}
-
             {/* Action buttons based on state */}
             {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
               <Button

@@ -185,6 +185,7 @@ scheduleCRoute.get('/:caseId', async (c) => {
           utilities: formatDecimal(taxCase.scheduleCExpense.utilities),
           wages: formatDecimal(taxCase.scheduleCExpense.wages),
           otherExpenses: formatDecimal(taxCase.scheduleCExpense.otherExpenses),
+          customExpenses: taxCase.scheduleCExpense.customExpenses ?? [],
           createdAt: taxCase.scheduleCExpense.createdAt.toISOString(),
           updatedAt: taxCase.scheduleCExpense.updatedAt.toISOString(),
           submittedAt: taxCase.scheduleCExpense.submittedAt?.toISOString() ?? null,

@@ -1269,7 +1269,7 @@ export interface CreateDocTypeLibraryInput {
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
 
 // Admin types - Message Templates
-export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL'
+export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL' | 'SCHEDULE_C'
 
 export interface MessageTemplate {
   id: string
@@ -1468,6 +1468,8 @@ export interface ScheduleCExpense {
   wages: string | null
   otherExpenses: string | null
   otherExpensesNotes: string | null
+  // Custom expenses (dynamic "Other" list)
+  customExpenses: Array<{ name: string; amount: number }> | null
   // Vehicle info
   vehicleMiles: number | null
   vehicleCommuteMiles: number | null

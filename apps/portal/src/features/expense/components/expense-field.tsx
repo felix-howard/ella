@@ -164,6 +164,13 @@ export const ExpenseField = memo(function ExpenseField({
         )}
       </div>
 
+      {/* Description text */}
+      {category.description && (
+        <p className="text-xs text-muted-foreground mb-1.5 -mt-0.5">
+          {category.description}
+        </p>
+      )}
+
       {/* Input field */}
       <div className="relative">
         {category.type === 'currency' && (

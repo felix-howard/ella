@@ -272,6 +272,7 @@ async function sendAndRecordMessage(
 
 /**
  * Send Schedule C expense form link to client
+ * Uses database template if available (SCHEDULE_C category), otherwise fallback to hardcoded
  */
 export async function sendScheduleCFormMessage(
   caseId: string,
@@ -280,7 +281,28 @@ export async function sendScheduleCFormMessage(
   magicLink: string,
   language: SmsLanguage = 'VI'
 ): Promise<SendMessageResult> {
-  const body = generateScheduleCMessage({ clientName, magicLink, language })
+  let body: string
+
+  // Try to get Schedule C template from database
+  const dbTemplate = await prisma.messageTemplate.findFirst({
+    where: {
+      category: 'SCHEDULE_C',
+      isActive: true,
+    },
+    orderBy: { sortOrder: 'asc' },
+  })
+
+  if (dbTemplate) {
+    // Use database template with placeholder replacement
+    body = replacePlaceholders(dbTemplate.content, {
+      clientName,
+      expenseUrl: magicLink,
+    })
+  } else {
+    // Fallback to hardcoded template
+    body = generateScheduleCMessage({ clientName, magicLink, language })
+  }
+
   return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_c')
 }
 

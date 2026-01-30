@@ -58,6 +58,8 @@ export interface ExpenseData {
   wages: string | null
   otherExpenses: string | null
   otherExpensesNotes: string | null
+  // Custom expenses (dynamic "Other" list)
+  customExpenses: Array<{ name: string; amount: number }> | null
   // Vehicle info
   vehicleMiles: number | null
   vehicleCommuteMiles: number | null
@@ -120,6 +122,7 @@ export interface ExpenseFormInput {
   wages?: number | null
   otherExpenses?: number | null
   otherExpensesNotes?: string | null
+  customExpenses?: Array<{ name: string; amount: number }> | null
   vehicleMiles?: number | null
   vehicleCommuteMiles?: number | null
   vehicleOtherMiles?: number | null

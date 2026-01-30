@@ -211,6 +211,7 @@ enum MessageTemplateCategory {
   BLURRY
   COMPLETE
   GENERAL
+  SCHEDULE_C
 }
 
 enum EngagementStatus {
@@ -857,6 +858,9 @@ model ScheduleCExpense {
   wages                   Decimal?  @db.Decimal(12, 2)  // Line 26
   otherExpenses           Decimal?  @db.Decimal(12, 2)  // Line 27a
   otherExpensesNotes      String?   @db.VarChar(1000)   // Line 27a description
+
+  // === Custom Expenses (dynamic "Other" list) ===
+  customExpenses          Json?     @default("[]")  // [{name: string, amount: number}]
 
   // === Vehicle Information (Part IV) ===
   vehicleMiles            Int?      // Total business miles driven

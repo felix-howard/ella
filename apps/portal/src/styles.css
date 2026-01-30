@@ -3,3 +3,12 @@
 
 @source "../src/**/*.{ts,tsx}";
 @source "../../packages/ui/src/**/*.{ts,tsx}";
+
+/* Prevent iOS auto-zoom on input focus (all iOS browsers use WebKit which zooms when font-size < 16px) */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

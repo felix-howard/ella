@@ -142,6 +142,16 @@ export function calculateTotalExpenses(expense: ScheduleCExpense): Decimal {
     }
   }
 
+  // Add custom expenses (JSONB array of {name, amount})
+  if (expense.customExpenses) {
+    const items = expense.customExpenses as Array<{ name: string; amount: number }>
+    for (const item of items) {
+      if (item.amount > 0) {
+        total = total.plus(new Decimal(item.amount))
+      }
+    }
+  }
+
   return total
 }
 

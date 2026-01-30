@@ -1,25 +1,20 @@
 /**
- * useExpenseForm Hook
- * State management, validation, and submission for expense form
+ * useExpenseForm Hook (Simplified)
+ * State management, validation, and submission for simplified expense form
+ * CPA-approved: 5 fields + customExpenses dynamic list
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { expenseApi, type ExpenseFormData } from '../lib/expense-api'
-import { EXPENSE_CATEGORIES, VEHICLE_FIELDS, countFilledFields } from '../lib/expense-categories'
-import { toApiInput, validateDateRange } from '../lib/form-utils'
+import { toApiInput } from '../lib/form-utils'
 
 export type FormStatus = 'idle' | 'saving' | 'submitting' | 'submitted' | 'error'
 
 export interface UseExpenseFormReturn {
-  // Form data
   formData: Record<string, unknown>
   initialData: ExpenseFormData | null
-  // Form state
   isDirty: boolean
   status: FormStatus
   errorMessage: string | null
-  // Progress
-  progress: { filled: number; total: number }
-  // Methods
   updateField: (field: string, value: unknown) => void
   updateMultipleFields: (fields: Record<string, unknown>) => void
   submit: () => Promise<boolean>
@@ -36,56 +31,34 @@ function parseNumber(value: string | null | undefined): number | null {
 // Initialize form data from API response
 function initializeFormData(data: ExpenseFormData | null): Record<string, unknown> {
   if (!data?.expense) {
-    // Empty form with prefilled gross receipts
+    // Empty form: prefilled gross receipts + default Equipment example row
     return {
       grossReceipts: parseNumber(data?.prefilledGrossReceipts) || null,
-      businessName: null,
-      businessDesc: null,
+      travel: null,
+      meals: null,
+      supplies: null,
+      vehicleMiles: null,
+      carExpense: null,
+      customExpenses: [{ name: 'Equipment', amount: null }],
     }
   }
 
   const expense = data.expense
+
+  // Parse existing customExpenses or create default example row
+  let customExpenses: Array<{ name: string; amount: number | null }> = [{ name: 'Equipment', amount: null }]
+  if (expense.customExpenses && Array.isArray(expense.customExpenses) && expense.customExpenses.length > 0) {
+    customExpenses = expense.customExpenses
+  }
+
   return {
-    businessName: expense.businessName,
-    businessDesc: expense.businessDesc,
-    // Income - use prefilled if no expense grossReceipts
     grossReceipts: parseNumber(expense.grossReceipts) || parseNumber(data.prefilledGrossReceipts),
-    returns: parseNumber(expense.returns),
-    costOfGoods: parseNumber(expense.costOfGoods),
-    otherIncome: parseNumber(expense.otherIncome),
-    // Expenses
-    advertising: parseNumber(expense.advertising),
-    carExpense: parseNumber(expense.carExpense),
-    commissions: parseNumber(expense.commissions),
-    contractLabor: parseNumber(expense.contractLabor),
-    depletion: parseNumber(expense.depletion),
-    depreciation: parseNumber(expense.depreciation),
-    employeeBenefits: parseNumber(expense.employeeBenefits),
-    insurance: parseNumber(expense.insurance),
-    interestMortgage: parseNumber(expense.interestMortgage),
-    interestOther: parseNumber(expense.interestOther),
-    legalServices: parseNumber(expense.legalServices),
-    officeExpense: parseNumber(expense.officeExpense),
-    pensionPlans: parseNumber(expense.pensionPlans),
-    rentEquipment: parseNumber(expense.rentEquipment),
-    rentProperty: parseNumber(expense.rentProperty),
-    repairs: parseNumber(expense.repairs),
-    supplies: parseNumber(expense.supplies),
-    taxesAndLicenses: parseNumber(expense.taxesAndLicenses),
     travel: parseNumber(expense.travel),
     meals: parseNumber(expense.meals),
-    utilities: parseNumber(expense.utilities),
-    wages: parseNumber(expense.wages),
-    otherExpenses: parseNumber(expense.otherExpenses),
-    otherExpensesNotes: expense.otherExpensesNotes,
-    // Vehicle
+    supplies: parseNumber(expense.supplies),
     vehicleMiles: expense.vehicleMiles,
-    vehicleCommuteMiles: expense.vehicleCommuteMiles,
-    vehicleOtherMiles: expense.vehicleOtherMiles,
-    vehicleDateInService: expense.vehicleDateInService,
-    vehicleUsedForCommute: expense.vehicleUsedForCommute,
-    vehicleAnotherAvailable: expense.vehicleAnotherAvailable,
-    vehicleEvidenceWritten: expense.vehicleEvidenceWritten,
+    carExpense: parseNumber(expense.carExpense),
+    customExpenses,
   }
 }
 
@@ -93,33 +66,26 @@ function initializeFormData(data: ExpenseFormData | null): Record<string, unknow
 function validateFormData(data: Record<string, unknown>): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  // Check currency fields for negative values
-  const currencyFields = EXPENSE_CATEGORIES.filter(c => c.type === 'currency').map(c => c.field)
-  for (const field of currencyFields) {
+  // Validate currency fields are not negative
+  for (const field of ['travel', 'meals', 'supplies', 'carExpense']) {
     const value = data[field]
     if (typeof value === 'number' && value < 0) {
-      const category = EXPENSE_CATEGORIES.find(c => c.field === field)
-      errors.push(`${category?.label || field}: không được âm`)
+      errors.push(`${field}: không được âm`)
     }
   }
 
-  // Check integer fields (vehicle miles)
-  const integerFields = VEHICLE_FIELDS.filter(c => c.type === 'integer').map(c => c.field)
-  for (const field of integerFields) {
-    const value = data[field]
-    if (value !== null && value !== undefined) {
-      if (typeof value === 'number' && (value < 0 || !Number.isInteger(value))) {
-        const category = VEHICLE_FIELDS.find(c => c.field === field)
-        errors.push(`${category?.label || field}: phải là số nguyên không âm`)
+  // Validate customExpenses: require both name+amount or neither
+  const items = data.customExpenses as Array<{ name: string; amount: number | null }> | undefined
+  if (items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.name && (item.amount === null || item.amount === undefined)) {
+        errors.push(`Chi phí khác "${item.name}": cần nhập số tiền`)
+      }
+      if (item.amount !== null && item.amount !== undefined && !item.name) {
+        errors.push(`Chi phí khác dòng ${i + 1}: cần nhập tên chi phí`)
       }
     }
-  }
-
-  // Validate date fields
-  const dateStr = data.vehicleDateInService as string | null
-  const dateError = validateDateRange(dateStr)
-  if (dateError) {
-    errors.push(`Ngày bắt đầu sử dụng: ${dateError}`)
   }
 
   return { valid: errors.length === 0, errors }
@@ -135,9 +101,6 @@ export function useExpenseForm(
   const [isDirty, setIsDirty] = useState(false)
   const [status, setStatus] = useState<FormStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  // Calculate progress
-  const progress = useMemo(() => countFilledFields(formData), [formData])
 
   // Update single field
   const updateField = useCallback((field: string, value: unknown) => {
@@ -163,7 +126,6 @@ export function useExpenseForm(
 
   // Submit form
   const submit = useCallback(async (): Promise<boolean> => {
-    // Validate before submission
     const { valid, errors } = validateFormData(formData)
     if (!valid) {
       setErrorMessage(errors.join('. '))
@@ -194,7 +156,6 @@ export function useExpenseForm(
     isDirty,
     status,
     errorMessage,
-    progress,
     updateField,
     updateMultipleFields,
     submit,

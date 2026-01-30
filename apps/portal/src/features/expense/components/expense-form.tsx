@@ -1,19 +1,19 @@
 /**
- * ExpenseForm Component
+ * ExpenseForm Component (Simplified)
  * Main container for Schedule C expense form
- * Includes income section, expense sections, car section, vehicle info
+ * CPA-approved: 5 fields + dynamic "Other" list instead of 28 IRS fields
  */
 import { useState, useCallback } from 'react'
-import { Loader2, Send, AlertCircle } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { Loader2, Send, AlertCircle, Receipt } from 'lucide-react'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import type { ExpenseFormData } from '../lib/expense-api'
-import { EXPENSE_GROUPS } from '../lib/expense-categories'
+import { SIMPLIFIED_EXPENSE_FIELDS } from '../lib/expense-categories'
 import { useExpenseForm } from '../hooks/use-expense-form'
 import { useAutoSave } from '../hooks/use-auto-save'
 import { IncomeSection } from './income-section'
-import { ExpenseSection } from './expense-section'
+import { ExpenseField } from './expense-field'
 import { CarExpenseSection } from './car-expense-section'
-import { VehicleInfoSection } from './vehicle-info-section'
+import { OtherExpenseList, type CustomExpenseItem } from './other-expense-list'
 import { AutoSaveIndicator } from './auto-save-indicator'
 import { SuccessMessage } from './success-message'
 
@@ -49,7 +49,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
     updateField(field, value)
   }, [isLocked, updateField])
 
-  // Handle submit - directly submit without modal
+  // Handle submit
   const handleSubmit = useCallback(async () => {
     if (isLocked) return
     const success = await submit()
@@ -91,53 +91,44 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
           </div>
         )}
 
-        {/* Income section */}
+        {/* Income section (read-only gross receipts) */}
         <IncomeSection
           formData={formData}
           prefilledGrossReceipts={initialData.prefilledGrossReceipts}
-          onChange={handleFieldChange}
         />
 
-        {/* Expense sections - grouped */}
-        {EXPENSE_GROUPS.filter(g => g !== 'car').map((group) => (
-          <ExpenseSection
-            key={group}
-            group={group}
-            formData={formData}
-            onChange={handleFieldChange}
-          />
-        ))}
+        {/* Simplified expense fields (travel, meals, supplies) */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Receipt className="w-5 h-5 text-primary" />
+              Chi phí kinh doanh
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {SIMPLIFIED_EXPENSE_FIELDS.map((category) => (
+              <ExpenseField
+                key={category.field}
+                category={category}
+                value={formData[category.field] as number | null}
+                onChange={(value) => handleFieldChange(category.field, value)}
+              />
+            ))}
+          </CardContent>
+        </Card>
 
-        {/* Car expense section (special handling) */}
+        {/* Car expense section (mileage/actual toggle — IRS-required) */}
         <CarExpenseSection
           formData={formData}
           onChange={handleFieldChange}
         />
 
-        {/* Vehicle info section (conditional) */}
-        <VehicleInfoSection
-          formData={formData}
-          onChange={handleFieldChange}
+        {/* Other expenses (dynamic add/delete list) */}
+        <OtherExpenseList
+          items={(formData.customExpenses as CustomExpenseItem[]) || []}
+          onChange={(items) => handleFieldChange('customExpenses', items)}
+          disabled={isLocked}
         />
-
-        {/* Other expenses notes */}
-        <div className="px-1">
-          <label
-            htmlFor="otherExpensesNotes"
-            className="block text-sm font-medium text-foreground mb-1.5"
-          >
-            Ghi chú chi phí khác (tùy chọn)
-          </label>
-          <textarea
-            id="otherExpensesNotes"
-            value={(formData.otherExpensesNotes as string) || ''}
-            onChange={(e) => handleFieldChange('otherExpensesNotes', e.target.value || null)}
-            placeholder="Mô tả chi tiết các chi phí khác nếu có..."
-            disabled={isLocked}
-            rows={3}
-            className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
 
         {/* Error message */}
         {errorMessage && (

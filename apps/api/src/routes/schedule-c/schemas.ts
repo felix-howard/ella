@@ -42,6 +42,12 @@ export const scheduleCExpenseSchema = z.object({
   otherExpenses: z.number().nonnegative().optional().nullable(),
   otherExpensesNotes: z.string().max(1000).optional().nullable(),
 
+  // Custom expenses (dynamic "Other" list)
+  customExpenses: z.array(z.object({
+    name: z.string().min(1).max(100),
+    amount: z.number().nonnegative(),
+  })).max(20).optional().nullable(),
+
   // Vehicle Information
   vehicleMiles: z.number().int().nonnegative().optional().nullable(),
   vehicleCommuteMiles: z.number().int().nonnegative().optional().nullable(),
@@ -63,7 +69,11 @@ export const scheduleCResponseSchema = z.object({
     version: z.number(),
     businessName: z.string().nullable(),
     businessDesc: z.string().nullable(),
-    // ... all fields
+    // ... all fields (including customExpenses JSONB array)
+    customExpenses: z.array(z.object({
+      name: z.string(),
+      amount: z.number(),
+    })).nullable().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
     submittedAt: z.string().nullable(),

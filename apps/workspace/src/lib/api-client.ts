@@ -1468,6 +1468,8 @@ export interface ScheduleCExpense {
   wages: string | null
   otherExpenses: string | null
   otherExpensesNotes: string | null
+  // Custom expenses (dynamic "Other" list)
+  customExpenses: Array<{ name: string; amount: number }> | null
   // Vehicle info
   vehicleMiles: number | null
   vehicleCommuteMiles: number | null

@@ -166,9 +166,20 @@ export const classifyDocumentJob = inngest.createFunction(
 
     // On Inngest replay (retry after later step failure), fetch-image won't re-execute
     // so fileBuffer will be null. Re-fetch the buffer in that case.
+    // Note: the rename step may have moved the file to a new R2 key, so try DB lookup if original key fails.
     if (!fileBuffer) {
-      const refetch = await fetchImageBuffer(r2Key)
-      if (!refetch) throw new Error(`Failed to re-fetch file from R2: ${r2Key}`)
+      let refetch = await fetchImageBuffer(r2Key)
+      if (!refetch) {
+        // Original key may have been renamed -- look up current key from DB
+        const current = await prisma.rawImage.findUnique({
+          where: { id: rawImageId },
+          select: { r2Key: true },
+        })
+        if (current && current.r2Key !== r2Key) {
+          refetch = await fetchImageBuffer(current.r2Key)
+        }
+        if (!refetch) throw new Error(`Failed to re-fetch file from R2: ${r2Key}`)
+      }
       let buffer = refetch.buffer
       if (!imageData.isPdf && buffer.length > MAX_IMAGE_SIZE) {
         buffer = await sharp(buffer)

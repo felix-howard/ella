@@ -52,6 +52,9 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
     [expense]
   )
 
+  // Custom expenses from new simplified form (JSONB array)
+  const hasCustomExpenses = expense.customExpenses && Array.isArray(expense.customExpenses) && expense.customExpenses.length > 0
+
   // Calculate mileage if vehicleMiles is set
   const hasMileage = expense.vehicleMiles && expense.vehicleMiles > 0
   const mileageDeduction = totals?.mileageDeduction
@@ -84,8 +87,29 @@ export function ExpenseTable({ expense, totals }: ExpenseTableProps) {
         </div>
       ))}
 
-      {/* Other expenses notes */}
-      {expense.otherExpensesNotes && isPositive(expense.otherExpenses) && (
+      {/* Custom expenses (dynamic "Other" list from new simplified form) */}
+      {hasCustomExpenses && (
+        <>
+          <div className="pt-2 mt-2 border-t border-border/50">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Chi phí khác (chi tiết)
+            </span>
+          </div>
+          {(expense.customExpenses as Array<{ name: string; amount: number }>).map((item, index) => (
+            <div key={index} className="flex justify-between items-center text-sm pl-3">
+              <span className="text-muted-foreground">{item.name}</span>
+              <CopyableValue
+                formatted={formatUSD(item.amount.toFixed(2))}
+                rawValue={item.amount.toFixed(2)}
+                className="font-medium text-foreground w-28 justify-end flex-shrink-0"
+              />
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* Other expenses notes (legacy — hidden when customExpenses present) */}
+      {expense.otherExpensesNotes && isPositive(expense.otherExpenses) && !hasCustomExpenses && (
         <div className="text-xs text-muted-foreground pl-4 italic">
           Ghi chú: {expense.otherExpensesNotes}
         </div>

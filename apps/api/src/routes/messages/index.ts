@@ -169,28 +169,57 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
     return c.json({ error: 'NO_ATTACHMENT', message: 'Attachment not found at index' }, 404)
   }
 
-  const signedUrl = await getSignedDownloadUrl(r2Key)
-  if (!signedUrl) {
-    console.error(`[Messages] No signed URL for R2 key: ${r2Key} (message: ${messageId})`)
-    return c.json({ error: 'STORAGE_ERROR', message: 'Could not access file in storage' }, 500)
-  }
+  // Helper: fetch file from R2 by key and return Response
+  const fetchFromR2 = async (key: string) => {
+    const signedUrl = await getSignedDownloadUrl(key)
+    if (!signedUrl) return null
 
-  try {
     const response = await fetch(signedUrl)
-    if (!response.ok) {
-      console.error(`[Messages] R2 fetch failed: ${response.status} for key ${r2Key} (message: ${messageId})`)
-      return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
-    }
+    if (!response.ok) return null
 
     const arrayBuffer = await response.arrayBuffer()
     const contentType = response.headers.get('content-type') || 'image/jpeg'
-
     return new Response(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'private, max-age=3600',
       },
     })
+  }
+
+  try {
+    // Try fetching with stored R2 key first
+    const result = await fetchFromR2(r2Key)
+    if (result) return result
+
+    // Fallback: the file may have been renamed by AI classification.
+    // Look up the RawImage by original filename (extracted from old key) to find current key.
+    const originalFilename = r2Key.split('/').pop()
+    if (originalFilename) {
+      const rawImage = await prisma.rawImage.findFirst({
+        where: { filename: originalFilename },
+        select: { r2Key: true },
+      })
+
+      if (rawImage && rawImage.r2Key !== r2Key) {
+        console.log(`[Messages] R2 key renamed: ${r2Key} -> ${rawImage.r2Key} (message: ${messageId})`)
+        const renamedResult = await fetchFromR2(rawImage.r2Key)
+        if (renamedResult) {
+          // Auto-repair: update message with current R2 key (fire and forget)
+          const updatedKeys = [...(message.attachmentR2Keys || [])]
+          updatedKeys[index] = rawImage.r2Key
+          prisma.message.update({
+            where: { id: messageId },
+            data: { attachmentR2Keys: updatedKeys },
+          }).catch(err => console.error(`[Messages] Failed to repair R2 key for message ${messageId}:`, err))
+
+          return renamedResult
+        }
+      }
+    }
+
+    console.error(`[Messages] R2 fetch failed for key ${r2Key} (message: ${messageId})`)
+    return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
   } catch (error) {
     console.error(`[Messages] Failed to proxy media for message ${messageId}:`, error)
     return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)

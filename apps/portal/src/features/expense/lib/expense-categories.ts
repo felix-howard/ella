@@ -24,6 +24,8 @@ export interface ExpenseCategory {
   group: CategoryGroup
   /** Field name in API */
   field: string
+  /** Short description shown below label to help clients understand */
+  description?: string
 }
 
 // Current IRS mileage rate for 2025 tax year (67 cents per mile)
@@ -35,6 +37,7 @@ export const SIMPLIFIED_EXPENSE_FIELDS: ExpenseCategory[] = [
     line: 24,
     label: 'Chi phí đi lại',
     tooltip: 'Chi phí công tác: vé máy bay, khách sạn, taxi (không bao gồm ăn uống).',
+    description: 'Vé máy bay, khách sạn, taxi, Uber cho công việc',
     placeholder: 'VD: 2,000.00',
     type: 'currency',
     group: 'other',
@@ -44,6 +47,7 @@ export const SIMPLIFIED_EXPENSE_FIELDS: ExpenseCategory[] = [
     line: 24,
     label: 'Ăn uống kinh doanh',
     tooltip: 'Chi phí ăn uống với khách hàng, đối tác kinh doanh (chỉ được khấu trừ 50%).',
+    description: 'Ăn uống với khách hàng hoặc đối tác (được khấu trừ 50%)',
     placeholder: 'VD: 800.00',
     type: 'currency',
     group: 'other',
@@ -53,6 +57,7 @@ export const SIMPLIFIED_EXPENSE_FIELDS: ExpenseCategory[] = [
     line: 22,
     label: 'Vật tư & Dụng cụ',
     tooltip: 'Vật tư tiêu hao cho kinh doanh: dụng cụ làm việc, vật liệu, đồ dùng.',
+    description: 'Dụng cụ làm nail, vật liệu, đồ dùng tiêu hao',
     placeholder: 'VD: 600.00',
     type: 'currency',
     group: 'other',

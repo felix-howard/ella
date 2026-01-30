@@ -8,7 +8,6 @@ import { prisma } from '../../lib/db'
 import {
   getPaginationParams,
   buildPaginationResponse,
-  API_URL,
 } from '../../lib/constants'
 import {
   sendMessageSchema,
@@ -271,7 +270,7 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       : (m.attachmentUrls?.length || 0)
 
     const proxyUrls = attachmentCount > 0
-      ? Array.from({ length: attachmentCount }, (_, i) => `${API_URL}/messages/media/${m.id}/${i}`)
+      ? Array.from({ length: attachmentCount }, (_, i) => `/messages/media/${m.id}/${i}`)
       : m.attachmentUrls || []
 
     return {

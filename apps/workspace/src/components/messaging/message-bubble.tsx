@@ -3,11 +3,12 @@
  * Inspired by WhatsApp, iMessage, Telegram for clean visual design
  */
 
-import { memo, useState } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
+import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
 
 export interface MessageBubbleProps {
@@ -248,6 +249,43 @@ interface MessageImageProps {
 function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: MessageImageProps) {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  // For relative paths (proxy endpoints), fetch with auth and create blob URL
+  // For absolute URLs, use directly
+  const isRelativePath = url.startsWith('/')
+
+  useEffect(() => {
+    if (!isRelativePath) {
+      // Absolute URL - use directly (e.g. already signed R2 URLs)
+      setBlobUrl(url)
+      return
+    }
+
+    let revoked = false
+    fetchMediaBlobUrl(url)
+      .then((objectUrl) => {
+        if (!revoked) {
+          setBlobUrl(objectUrl)
+        } else {
+          URL.revokeObjectURL(objectUrl)
+        }
+      })
+      .catch(() => {
+        if (!revoked) {
+          setLoading(false)
+          setError(true)
+        }
+      })
+
+    return () => {
+      revoked = true
+      if (blobUrl && isRelativePath) {
+        URL.revokeObjectURL(blobUrl)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url])
 
   // Error state
   if (error) {
@@ -278,23 +316,25 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
           <div className="w-6 h-6 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
         </div>
       )}
-      <img
-        src={url}
-        alt="Attachment"
-        className={cn(
-          'cursor-pointer transition-all duration-200 hover:brightness-95',
-          isStandalone
-            ? 'max-w-[280px] max-h-[280px] w-auto h-auto object-cover'
-            : 'w-full max-h-[300px] object-cover',
-          loading && 'opacity-0'
-        )}
-        onLoad={() => setLoading(false)}
-        onError={() => {
-          setLoading(false)
-          setError(true)
-        }}
-        onClick={() => window.open(url, '_blank')}
-      />
+      {blobUrl && (
+        <img
+          src={blobUrl}
+          alt="Attachment"
+          className={cn(
+            'cursor-pointer transition-all duration-200 hover:brightness-95',
+            isStandalone
+              ? 'max-w-[280px] max-h-[280px] w-auto h-auto object-cover'
+              : 'w-full max-h-[300px] object-cover',
+            loading && 'opacity-0'
+          )}
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setLoading(false)
+            setError(true)
+          }}
+          onClick={() => window.open(blobUrl, '_blank')}
+        />
+      )}
     </div>
   )
 }

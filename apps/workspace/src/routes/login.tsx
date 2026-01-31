@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
 import { useTheme } from '../stores/ui-store'
+import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -19,6 +20,7 @@ function LoginPage() {
   const { signIn, setActive } = useSignIn()
   const navigate = useNavigate()
   const { theme } = useTheme()
+  const { t } = useTranslation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -68,11 +70,11 @@ function LoginPage() {
         }
         setNeeds2FA(true)
       } else {
-        setError('Đăng nhập không thành công. Vui lòng thử lại.')
+        setError(t('login.loginFailed'))
       }
     } catch (err: unknown) {
       const clerkError = err as { errors?: Array<{ message?: string }> }
-      const errorMessage = clerkError.errors?.[0]?.message || 'Đăng nhập không thành công. Vui lòng thử lại.'
+      const errorMessage = clerkError.errors?.[0]?.message || t('login.loginFailed')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -97,11 +99,11 @@ function LoginPage() {
         await setActive({ session: result.createdSessionId })
         navigate({ to: '/' })
       } else {
-        setError('Xác thực không thành công. Vui lòng thử lại.')
+        setError(t('login.verificationFailed'))
       }
     } catch (err: unknown) {
       const clerkError = err as { errors?: Array<{ message?: string }> }
-      const errorMessage = clerkError.errors?.[0]?.message || 'Mã xác thực không đúng. Vui lòng thử lại.'
+      const errorMessage = clerkError.errors?.[0]?.message || t('login.codeIncorrect')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -135,7 +137,7 @@ function LoginPage() {
           <form onSubmit={handle2FASubmit} className="space-y-0">
             <div className="text-center mb-6">
               <p className="text-muted-foreground text-sm">
-                Nhập mã xác thực đã gửi đến email của bạn
+                {t('login.enterCodeFromEmail')}
               </p>
             </div>
 
@@ -145,7 +147,7 @@ function LoginPage() {
                 type="text"
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Nhập mã từ email"
+                placeholder={t('login.enterCodePlaceholder')}
                 required
                 autoFocus
                 className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest"
@@ -169,10 +171,10 @@ function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang xác thực...
+                  {t('login.verifying')}
                 </>
               ) : (
-                'Xác nhận'
+                t('login.confirmButton')
               )}
             </button>
 
@@ -187,7 +189,7 @@ function LoginPage() {
                   setError('')
                 }}
               >
-                Quay lại đăng nhập
+                {t('login.backToLogin')}
               </button>
             </div>
           </form>
@@ -201,7 +203,7 @@ function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
+                  placeholder={t('login.emailPlaceholder')}
                   required
                   className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                   disabled={isLoading}
@@ -214,7 +216,7 @@ function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mật khẩu"
+                  placeholder={t('login.passwordPlaceholder')}
                   required
                   className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
                   disabled={isLoading}
@@ -245,10 +247,10 @@ function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang đăng nhập...
+                    {t('login.loggingIn')}
                   </>
                 ) : (
-                  'Đăng nhập'
+                  t('login.loginButton')
                 )}
               </button>
             </form>
@@ -260,10 +262,10 @@ function LoginPage() {
                 className="text-primary hover:text-primary-dark transition-colors text-sm"
                 onClick={() => {
                   // TODO: Implement forgot password flow
-                  alert('Tính năng đang phát triển')
+                  alert(t('login.featureInDevelopment'))
                 }}
               >
-                Quên mật khẩu?
+                {t('login.forgotPassword')}
               </button>
             </div>
           </>

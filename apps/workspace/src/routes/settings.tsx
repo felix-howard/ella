@@ -1,20 +1,19 @@
 /**
  * Settings Page - User preferences and app configuration
- * Contains theme toggle and admin configuration tabs
+ * Contains theme toggle, language switcher, and admin configuration tabs
  */
 
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Sun, Moon, ClipboardList, HelpCircle, FileText, Palette, MessageSquare } from 'lucide-react'
+import { Sun, Moon, Palette, MessageSquare, Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '../components/layout'
 import { Card } from '@ella/ui'
-import { UI_TEXT } from '../lib/constants'
 import { useTheme, type Theme } from '../stores/ui-store'
 import { cn } from '@ella/ui'
+import { useLanguageSync } from '../hooks/use-language-sync'
+import type { Language } from '../lib/api-client'
 import {
-  ChecklistConfigTab,
-  IntakeQuestionsConfigTab,
-  DocLibraryConfigTab,
   MessageTemplateConfigTab,
 } from '../components/settings'
 
@@ -22,26 +21,23 @@ export const Route = createFileRoute('/settings')({
   component: SettingsPage,
 })
 
-type SettingsTab = 'appearance' | 'checklist' | 'questions' | 'doc-library' | 'message-templates'
-
-const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'appearance', label: 'Giao diện', icon: <Palette className="w-4 h-4" /> },
-  // Temporarily hidden - uncomment when ready
-  // { id: 'checklist', label: 'Checklist', icon: <ClipboardList className="w-4 h-4" /> },
-  // { id: 'questions', label: 'Câu hỏi Intake', icon: <HelpCircle className="w-4 h-4" /> },
-  // { id: 'doc-library', label: 'Thư viện tài liệu', icon: <FileText className="w-4 h-4" /> },
-  { id: 'message-templates', label: 'Mẫu tin nhắn', icon: <MessageSquare className="w-4 h-4" /> },
-]
+type SettingsTab = 'appearance' | 'message-templates'
 
 function SettingsPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
   const { theme, setTheme } = useTheme()
-  const { settings } = UI_TEXT
+  const { currentLanguage, changeLanguage } = useLanguageSync()
+
+  const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'appearance', label: t('settings.appearance'), icon: <Palette className="w-4 h-4" /> },
+    { id: 'message-templates', label: t('settings.messageTemplates'), icon: <MessageSquare className="w-4 h-4" /> },
+  ]
 
   return (
     <PageContainer>
       <div className="max-w-5xl">
-        <h1 className="text-2xl font-bold text-foreground mb-6">{settings.title}</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-6">{t('settings.title')}</h1>
 
         {/* Tabs */}
         <div className="flex gap-2 border-b border-border mb-6">
@@ -64,24 +60,20 @@ function SettingsPage() {
 
         {/* Tab Content */}
         {activeTab === 'appearance' && (
-          <AppearanceTab theme={theme} setTheme={setTheme} settings={settings} />
+          <div className="space-y-4">
+            <ThemeCard theme={theme} setTheme={setTheme} />
+            <LanguageCard currentLanguage={currentLanguage} changeLanguage={changeLanguage} />
+          </div>
         )}
-        {activeTab === 'checklist' && <ChecklistConfigTab />}
-        {activeTab === 'questions' && <IntakeQuestionsConfigTab />}
-        {activeTab === 'doc-library' && <DocLibraryConfigTab />}
         {activeTab === 'message-templates' && <MessageTemplateConfigTab />}
       </div>
     </PageContainer>
   )
 }
 
-interface AppearanceTabProps {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  settings: typeof UI_TEXT.settings
-}
+function ThemeCard({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+  const { t } = useTranslation()
 
-function AppearanceTab({ theme, setTheme, settings }: AppearanceTabProps) {
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between">
@@ -94,14 +86,13 @@ function AppearanceTab({ theme, setTheme, settings }: AppearanceTabProps) {
             )}
           </div>
           <div>
-            <h3 className="text-sm font-medium text-foreground">{settings.theme}</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('settings.theme')}</h3>
             <p className="text-xs text-muted-foreground">
-              {theme === 'dark' ? settings.darkMode : settings.lightMode}
+              {theme === 'dark' ? t('settings.darkMode') : t('settings.lightMode')}
             </p>
           </div>
         </div>
 
-        {/* Toggle Switch - use bg-background in dark mode for contrast since bg-muted equals bg-card */}
         <div className="flex items-center gap-2 p-1 rounded-full bg-muted dark:bg-background">
           <button
             onClick={() => setTheme('light')}
@@ -111,7 +102,7 @@ function AppearanceTab({ theme, setTheme, settings }: AppearanceTabProps) {
                 ? 'bg-card text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            title={settings.lightMode}
+            title={t('settings.lightMode')}
           >
             <Sun className="w-4 h-4" />
           </button>
@@ -123,9 +114,56 @@ function AppearanceTab({ theme, setTheme, settings }: AppearanceTabProps) {
                 ? 'bg-card text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            title={settings.darkMode}
+            title={t('settings.darkMode')}
           >
             <Moon className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function LanguageCard({ currentLanguage, changeLanguage }: { currentLanguage: Language; changeLanguage: (lang: Language) => void }) {
+  const { t } = useTranslation()
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+            <Globe className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-foreground">{t('settings.language')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {currentLanguage === 'VI' ? 'Tiếng Việt' : 'English'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 p-1 rounded-full bg-muted dark:bg-background">
+          <button
+            onClick={() => changeLanguage('VI')}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+              currentLanguage === 'VI'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            VI
+          </button>
+          <button
+            onClick={() => changeLanguage('EN')}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+              currentLanguage === 'EN'
+                ? 'bg-card text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            EN
           </button>
         </div>
       </div>

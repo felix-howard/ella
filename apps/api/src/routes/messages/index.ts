@@ -147,7 +147,11 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 
   const message = await prisma.message.findUnique({
     where: { id: messageId },
-    select: { attachmentR2Keys: true, attachmentUrls: true },
+    select: {
+      attachmentR2Keys: true,
+      attachmentUrls: true,
+      conversation: { select: { caseId: true } },
+    },
   })
 
   if (!message) {
@@ -192,22 +196,26 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
     const result = await fetchFromR2(r2Key)
     if (result) return result
 
-    // Fallback: the file may have been renamed by AI classification.
-    // Look up the RawImage by original filename (extracted from old key) to find current key.
-    const originalFilename = r2Key.split('/').pop()
-    if (originalFilename) {
-      const rawImage = await prisma.rawImage.findFirst({
-        where: { filename: originalFilename },
+    // Fallback: the file was likely renamed by AI classification.
+    // The old raw key (e.g. cases/{caseId}/raw/{ts}-{rand}.jpg) no longer exists in R2.
+    // Look up renamed RawImages for this case that were uploaded via SMS.
+    const caseId = message.conversation?.caseId
+    if (caseId) {
+      const smsImages = await prisma.rawImage.findMany({
+        where: { caseId, uploadedVia: 'SMS' },
         select: { r2Key: true },
+        orderBy: { createdAt: 'asc' },
       })
 
-      if (rawImage && rawImage.r2Key !== r2Key) {
-        console.log(`[Messages] R2 key renamed: ${r2Key} -> ${rawImage.r2Key} (message: ${messageId})`)
-        const renamedResult = await fetchFromR2(rawImage.r2Key)
+      // Try the image at the same index position (MMS attachments are ordered)
+      const candidate = smsImages[index]
+      if (candidate && candidate.r2Key !== r2Key) {
+        console.log(`[Messages] R2 key renamed: ${r2Key} -> ${candidate.r2Key} (message: ${messageId})`)
+        const renamedResult = await fetchFromR2(candidate.r2Key)
         if (renamedResult) {
           // Auto-repair: update message with current R2 key (fire and forget)
           const updatedKeys = [...(message.attachmentR2Keys || [])]
-          updatedKeys[index] = rawImage.r2Key
+          updatedKeys[index] = candidate.r2Key
           prisma.message.update({
             where: { id: messageId },
             data: { attachmentR2Keys: updatedKeys },

@@ -485,6 +485,27 @@ export const classifyDocumentJob = inngest.createFunction(
         },
       })
 
+      // Sync renamed key to any Message that references the old key
+      // This prevents the media proxy from returning 500 for renamed files
+      try {
+        const messagesWithOldKey = await prisma.message.findMany({
+          where: { attachmentR2Keys: { has: r2Key } },
+          select: { id: true, attachmentR2Keys: true },
+        })
+        for (const msg of messagesWithOldKey) {
+          const updatedKeys = msg.attachmentR2Keys.map(k => k === r2Key ? result.newKey : k)
+          await prisma.message.update({
+            where: { id: msg.id },
+            data: { attachmentR2Keys: updatedKeys },
+          })
+        }
+        if (messagesWithOldKey.length > 0) {
+          console.log(`[classify-document] Updated ${messagesWithOldKey.length} message(s) with renamed R2 key`)
+        }
+      } catch (syncErr) {
+        console.warn(`[classify-document] Failed to sync renamed key to messages:`, syncErr)
+      }
+
       console.log(`[classify-document] Renamed: ${r2Key} -> ${result.newKey}`)
 
       return {

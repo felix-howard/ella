@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } fro
 import { createFileRoute } from '@tanstack/react-router'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button, EllaLogoLight } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../../lib/api-client'
 import { expenseApi, type ExpenseFormData } from '../../../features/expense/lib/expense-api'
 import { ExpenseErrorBoundary } from '../../../features/expense/components/expense-error-boundary'
@@ -30,6 +31,7 @@ interface ErrorState {
 
 function ExpenseFormPage() {
   const { token } = Route.useParams()
+  const { t, i18n } = useTranslation()
 
   const [state, setState] = useState<PageState>('loading')
   const [data, setData] = useState<ExpenseFormData | null>(null)
@@ -60,7 +62,7 @@ function ExpenseFormPage() {
           } else {
             setError({
               code: 'UNKNOWN',
-              message: 'Không thể tải dữ liệu. Vui lòng thử lại.',
+              message: t('expense.cannotLoadData'),
             })
           }
         }
@@ -95,7 +97,7 @@ function ExpenseFormPage() {
           } else {
             setError({
               code: 'UNKNOWN',
-              message: 'Không thể tải dữ liệu. Vui lòng thử lại.',
+              message: t('expense.cannotLoadData'),
             })
           }
         }
@@ -108,14 +110,14 @@ function ExpenseFormPage() {
       <div
         className="flex-1 flex items-center justify-center"
         role="status"
-        aria-label="Đang tải..."
+        aria-label={t('common.loading')}
       >
         <div className="text-center">
           <Loader2
             className="w-10 h-10 text-primary animate-spin mx-auto mb-4"
             aria-hidden="true"
           />
-          <p className="text-muted-foreground">Đang tải form chi phí...</p>
+          <p className="text-muted-foreground">{t('expense.loadingForm')}</p>
         </div>
       </div>
     )
@@ -131,19 +133,33 @@ function ExpenseFormPage() {
     <div className="flex-1 flex flex-col">
       {/* Header */}
       <header className="px-6 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-4">
-          <img src={EllaLogoLight} alt="Ella Tax" className="h-10" />
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Form Chi Phí Kinh Doanh</h1>
-            <p className="text-sm text-muted-foreground">Năm thuế {data.taxYear}</p>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <img src={EllaLogoLight} alt="Ella Tax" className="h-10" />
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">{t('expense.formTitle')}</h1>
+              <p className="text-sm text-muted-foreground">{t('portal.taxYear')} {data.taxYear}</p>
+            </div>
           </div>
+
+          {/* Language toggle button */}
+          <button
+            onClick={() => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
+            className="px-3 py-1 text-xs font-medium rounded-full border border-border bg-muted hover:bg-muted/80 transition-colors"
+          >
+            {i18n.language === 'vi' ? 'EN' : 'VI'}
+          </button>
         </div>
 
         {/* Client greeting */}
-        <p className="text-sm text-muted-foreground">
-          Xin chào <span className="font-medium text-accent">{data.client.name}</span>! Vui lòng
-          điền các chi phí kinh doanh của bạn bên dưới.
-        </p>
+        <p
+          className="text-sm text-muted-foreground"
+          dangerouslySetInnerHTML={{
+            __html: t('expense.greeting', { clientName: data.client.name })
+              .replace('<1>', '<span class="font-medium text-accent">')
+              .replace('</1>', '</span>')
+          }}
+        />
       </header>
 
       {/* Form with error boundary (lazy loaded) */}
@@ -161,8 +177,8 @@ function ExpenseFormPage() {
 
       {/* Footer */}
       <footer className="px-6 py-4 text-center mt-auto">
-        <p className="text-xs text-muted-foreground">Câu hỏi? Liên hệ CPA của bạn</p>
-        <p className="text-xs text-muted-foreground mt-1">Ella Tax Document System</p>
+        <p className="text-xs text-muted-foreground">{t('footer.questionsContact')}</p>
+        <p className="text-xs text-muted-foreground mt-1">{t('footer.systemName')}</p>
       </footer>
     </div>
   )
@@ -170,6 +186,7 @@ function ExpenseFormPage() {
 
 // Error view component
 function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () => void }) {
+  const { t } = useTranslation()
   const isInvalidLink = useMemo(
     () =>
       error?.code === 'INVALID_TOKEN' ||
@@ -187,23 +204,23 @@ function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () =
         </div>
 
         <h2 className="text-xl font-semibold text-foreground mb-2">
-          {isInvalidLink ? 'Link không hợp lệ' : 'Không thể tải dữ liệu'}
+          {isInvalidLink ? t('expense.invalidLinkTitle') : t('expense.cannotLoadData')}
         </h2>
 
         <p className="text-muted-foreground mb-6">
-          {error?.message || 'Vui lòng liên hệ văn phòng thuế để được hỗ trợ.'}
+          {error?.message || t('expense.errorMessage')}
         </p>
 
         {!isInvalidLink && (
-          <Button onClick={onRetry} className="gap-2" aria-label="Thử lại">
+          <Button onClick={onRetry} className="gap-2" aria-label={t('common.tryAgain')}>
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            Thử lại
+            {t('common.tryAgain')}
           </Button>
         )}
 
         {isInvalidLink && (
           <p className="text-sm text-muted-foreground">
-            Vui lòng liên hệ CPA để được gửi link mới.
+            {t('expense.contactCPA')}
           </p>
         )}
       </div>

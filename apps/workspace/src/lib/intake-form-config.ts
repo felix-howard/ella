@@ -5,30 +5,53 @@
  */
 
 import type { FieldType } from './api-client'
+import i18n from './i18n'
 
-// Section configuration with Vietnamese labels
-export const SECTION_CONFIG: Record<string, { title: string }> = {
-  personal_info: { title: 'Thông tin cá nhân' },
-  tax_info: { title: 'Thông tin thuế' },
-  identity: { title: 'Nhận dạng' },
-  client_status: { title: 'Trạng thái khách hàng' },
-  prior_year: { title: 'Năm trước & Extension' },
-  life_changes: { title: 'Thay đổi trong năm' },
-  income: { title: 'Nguồn thu nhập' },
-  dependents: { title: 'Người phụ thuộc' },
-  health: { title: 'Bảo hiểm sức khỏe' },
-  deductions: { title: 'Khấu trừ' },
-  credits: { title: 'Tín dụng thuế' },
-  foreign: { title: 'Thu nhập nước ngoài' },
-  business: { title: 'Thông tin doanh nghiệp' },
-  filing: { title: 'Giao nhận tờ khai' },
-  bank: { title: 'Thông tin ngân hàng' },
-  entity_info: { title: 'Thông tin pháp nhân' },
-  ownership: { title: 'Cấu trúc sở hữu' },
-  expenses: { title: 'Chi phí kinh doanh' },
-  assets: { title: 'Tài sản' },
-  state: { title: 'Thuế tiểu bang' },
+// Section configuration with i18n keys - titles resolve dynamically via Proxy
+const SECTION_CONFIG_KEYS: Record<string, { titleKey: string }> = {
+  personal_info: { titleKey: 'section.personalInfo' },
+  tax_info: { titleKey: 'section.taxInfo' },
+  identity: { titleKey: 'section.identity' },
+  client_status: { titleKey: 'section.clientStatus' },
+  prior_year: { titleKey: 'section.priorYear' },
+  life_changes: { titleKey: 'section.lifeChanges' },
+  income: { titleKey: 'section.income' },
+  dependents: { titleKey: 'section.dependents' },
+  health: { titleKey: 'section.health' },
+  deductions: { titleKey: 'section.deductions' },
+  credits: { titleKey: 'section.credits' },
+  foreign: { titleKey: 'section.foreign' },
+  business: { titleKey: 'section.business' },
+  filing: { titleKey: 'section.filing' },
+  bank: { titleKey: 'section.bank' },
+  entity_info: { titleKey: 'section.entityInfo' },
+  ownership: { titleKey: 'section.ownership' },
+  expenses: { titleKey: 'section.expenses' },
+  assets: { titleKey: 'section.assets' },
+  state: { titleKey: 'section.state' },
 }
+
+export const SECTION_CONFIG: Record<string, { title: string }> = new Proxy(
+  {} as Record<string, { title: string }>,
+  {
+    get(_, prop: string) {
+      const cfg = SECTION_CONFIG_KEYS[prop]
+      if (!cfg) return undefined
+      return { title: i18n.t(cfg.titleKey) }
+    },
+    has(_, prop: string) {
+      return prop in SECTION_CONFIG_KEYS
+    },
+    ownKeys() {
+      return Object.keys(SECTION_CONFIG_KEYS)
+    },
+    getOwnPropertyDescriptor(_, prop: string) {
+      if (prop in SECTION_CONFIG_KEYS) {
+        return { configurable: true, enumerable: true }
+      }
+    },
+  }
+)
 
 // Section display order
 export const SECTION_ORDER = [
@@ -137,286 +160,235 @@ export const US_STATES_OPTIONS = [
   { value: 'DC', label: 'Washington D.C.' },
 ]
 
-// Dependent relationship options
-export const RELATIONSHIP_OPTIONS = [
-  { value: 'SON', label: 'Con trai' },
-  { value: 'DAUGHTER', label: 'Con gái' },
-  { value: 'STEPSON', label: 'Con trai riêng' },
-  { value: 'STEPDAUGHTER', label: 'Con gái riêng' },
-  { value: 'FOSTER_CHILD', label: 'Con nuôi' },
-  { value: 'GRANDCHILD', label: 'Cháu' },
-  { value: 'NIECE_NEPHEW', label: 'Cháu trai/gái' },
-  { value: 'SIBLING', label: 'Anh/Chị/Em' },
-  { value: 'PARENT', label: 'Cha/Mẹ' },
-  { value: 'OTHER', label: 'Khác' },
+// Dependent relationship options with i18n keys
+const RELATIONSHIP_OPTIONS_DATA = [
+  { value: 'SON', i18nKey: 'relationship.son' },
+  { value: 'DAUGHTER', i18nKey: 'relationship.daughter' },
+  { value: 'STEPSON', i18nKey: 'relationship.stepson' },
+  { value: 'STEPDAUGHTER', i18nKey: 'relationship.stepdaughter' },
+  { value: 'FOSTER_CHILD', i18nKey: 'relationship.fosterChild' },
+  { value: 'GRANDCHILD', i18nKey: 'relationship.grandchild' },
+  { value: 'NIECE_NEPHEW', i18nKey: 'relationship.nieceNephew' },
+  { value: 'SIBLING', i18nKey: 'relationship.sibling' },
+  { value: 'PARENT', i18nKey: 'relationship.parent' },
+  { value: 'OTHER', i18nKey: 'relationship.other' },
 ]
 
-// Field display configuration - centralized for all components
-export const FIELD_CONFIG: Record<string, FieldConfigItem> = {
+export const RELATIONSHIP_OPTIONS = new Proxy([] as any, {
+  get(_, prop: string | symbol) {
+    if (prop === 'length') return RELATIONSHIP_OPTIONS_DATA.length
+    if (typeof prop === 'symbol' || prop === 'constructor') return (RELATIONSHIP_OPTIONS_DATA as any)[prop]
+    const index = Number(prop)
+    if (!isNaN(index) && index >= 0 && index < RELATIONSHIP_OPTIONS_DATA.length) {
+      const item = RELATIONSHIP_OPTIONS_DATA[index]
+      return { value: item.value, label: i18n.t(item.i18nKey) }
+    }
+    // Support array iteration methods (map, filter, forEach, etc.)
+    if (prop === 'map' || prop === 'filter' || prop === 'forEach' || prop === 'find' || prop === 'some' || prop === 'every' || prop === 'reduce' || prop === 'flatMap') {
+      return (...args: any[]) => {
+        const resolved = RELATIONSHIP_OPTIONS_DATA.map((item: { value: string; i18nKey: string }) => ({ value: item.value, label: i18n.t(item.i18nKey) }))
+        return (resolved as any)[prop](...args)
+      }
+    }
+    return (RELATIONSHIP_OPTIONS_DATA as any)[prop]
+  },
+  ownKeys() {
+    return Object.keys(RELATIONSHIP_OPTIONS_DATA)
+  },
+})
+
+// Field configuration data with i18n keys
+const FIELD_CONFIG_DATA: Record<string, { i18nKey: string; section: string; format?: FormatType; options?: { value: string; label: string }[] }> = {
   // Identity - Taxpayer
-  taxpayerSSN: { label: 'Số An sinh Xã hội', section: 'identity', format: 'ssn' },
-  taxpayerDOB: { label: 'Ngày sinh', section: 'identity', format: 'date' },
-  taxpayerOccupation: { label: 'Nghề nghiệp', section: 'identity', format: 'text' },
-  taxpayerDLNumber: { label: 'Số bằng lái', section: 'identity', format: 'text' },
-  taxpayerDLIssueDate: { label: 'Ngày cấp bằng lái', section: 'identity', format: 'date' },
-  taxpayerDLExpDate: { label: 'Ngày hết hạn bằng lái', section: 'identity', format: 'date' },
-  taxpayerDLState: {
-    label: 'Tiểu bang cấp bằng lái',
-    section: 'identity',
-    format: 'select',
-    options: US_STATES_OPTIONS,
-  },
-  taxpayerIPPIN: { label: 'IP PIN (6 số)', section: 'identity', format: 'text' },
-
-  // Identity - Spouse (conditional on MFJ filing status)
-  spouseSSN: { label: 'SSN vợ/chồng', section: 'identity', format: 'ssn' },
-  spouseDOB: { label: 'Ngày sinh vợ/chồng', section: 'identity', format: 'date' },
-  spouseOccupation: { label: 'Nghề nghiệp vợ/chồng', section: 'identity', format: 'text' },
-  spouseDLNumber: { label: 'Số bằng lái vợ/chồng', section: 'identity', format: 'text' },
-  spouseDLIssueDate: { label: 'Ngày cấp (vợ/chồng)', section: 'identity', format: 'date' },
-  spouseDLExpDate: { label: 'Ngày hết hạn (vợ/chồng)', section: 'identity', format: 'date' },
-  spouseDLState: {
-    label: 'Tiểu bang cấp (vợ/chồng)',
-    section: 'identity',
-    format: 'select',
-    options: US_STATES_OPTIONS,
-  },
-  spouseIPPIN: { label: 'IP PIN vợ/chồng', section: 'identity', format: 'text' },
-
-  // Identity - Dependents count
-  dependentCount: { label: 'Số người phụ thuộc', section: 'identity', format: 'number' },
-
+  taxpayerSSN: { i18nKey: 'field.taxpayerSsn', section: 'identity', format: 'ssn' },
+  taxpayerDOB: { i18nKey: 'field.taxpayerDob', section: 'identity', format: 'date' },
+  taxpayerOccupation: { i18nKey: 'field.taxpayerOccupation', section: 'identity', format: 'text' },
+  taxpayerDLNumber: { i18nKey: 'field.taxpayerDlNumber', section: 'identity', format: 'text' },
+  taxpayerDLIssueDate: { i18nKey: 'field.taxpayerDlIssueDate', section: 'identity', format: 'date' },
+  taxpayerDLExpDate: { i18nKey: 'field.taxpayerDlExpDate', section: 'identity', format: 'date' },
+  taxpayerDLState: { i18nKey: 'field.taxpayerDlState', section: 'identity', format: 'select', options: US_STATES_OPTIONS },
+  taxpayerIPPIN: { i18nKey: 'field.taxpayerIpPin', section: 'identity', format: 'text' },
+  // Identity - Spouse
+  spouseSSN: { i18nKey: 'field.spouseSsn', section: 'identity', format: 'ssn' },
+  spouseDOB: { i18nKey: 'field.spouseDob', section: 'identity', format: 'date' },
+  spouseOccupation: { i18nKey: 'field.spouseOccupation', section: 'identity', format: 'text' },
+  spouseDLNumber: { i18nKey: 'field.spouseDlNumber', section: 'identity', format: 'text' },
+  spouseDLIssueDate: { i18nKey: 'field.spouseDlIssueDate', section: 'identity', format: 'date' },
+  spouseDLExpDate: { i18nKey: 'field.spouseDlExpDate', section: 'identity', format: 'date' },
+  spouseDLState: { i18nKey: 'field.spouseDlState', section: 'identity', format: 'select', options: US_STATES_OPTIONS },
+  spouseIPPIN: { i18nKey: 'field.spouseIpPin', section: 'identity', format: 'text' },
+  dependentCount: { i18nKey: 'field.dependentCount', section: 'identity', format: 'number' },
   // Bank Info
-  refundAccountType: {
-    label: 'Loại tài khoản',
-    section: 'bank',
-    format: 'select',
-    options: [
-      { value: 'CHECKING', label: 'Checking' },
-      { value: 'SAVINGS', label: 'Savings' },
-    ],
-  },
-
+  refundAccountType: { i18nKey: 'field.refundAccountType', section: 'bank', format: 'select', options: [{ value: 'CHECKING', label: 'Checking' }, { value: 'SAVINGS', label: 'Savings' }] },
   // Client Status
-  isNewClient: { label: 'Khách hàng mới', section: 'client_status', format: 'boolean' },
-  hasIrsNotice: { label: 'Có thông báo từ IRS', section: 'client_status', format: 'boolean' },
-  hasIdentityTheft: { label: 'Có vấn đề Identity Theft', section: 'client_status', format: 'boolean' },
-
+  isNewClient: { i18nKey: 'field.isNewClient', section: 'client_status', format: 'boolean' },
+  hasIrsNotice: { i18nKey: 'field.hasIrsNotice', section: 'client_status', format: 'boolean' },
+  hasIdentityTheft: { i18nKey: 'field.hasIdentityTheft', section: 'client_status', format: 'boolean' },
   // Prior Year
-  hasExtensionFiled: { label: 'Đã nộp Extension', section: 'prior_year', format: 'boolean' },
-  estimatedTaxPaid: { label: 'Đã trả Estimated Tax', section: 'prior_year', format: 'boolean' },
-  estimatedTaxAmountTotal: { label: 'Tổng Estimated Tax đã trả', section: 'prior_year', format: 'currency' },
-  estimatedTaxPaidQ1: { label: 'Estimated Tax Q1', section: 'prior_year', format: 'currency' },
-  estimatedTaxPaidQ2: { label: 'Estimated Tax Q2', section: 'prior_year', format: 'currency' },
-  estimatedTaxPaidQ3: { label: 'Estimated Tax Q3', section: 'prior_year', format: 'currency' },
-  estimatedTaxPaidQ4: { label: 'Estimated Tax Q4', section: 'prior_year', format: 'currency' },
-  priorYearAGI: { label: 'AGI năm trước', section: 'prior_year', format: 'currency' },
-
+  hasExtensionFiled: { i18nKey: 'field.hasExtensionFiled', section: 'prior_year', format: 'boolean' },
+  estimatedTaxPaid: { i18nKey: 'field.estimatedTaxPaid', section: 'prior_year', format: 'boolean' },
+  estimatedTaxAmountTotal: { i18nKey: 'field.estimatedTaxAmountTotal', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ1: { i18nKey: 'field.estimatedTaxPaidQ1', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ2: { i18nKey: 'field.estimatedTaxPaidQ2', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ3: { i18nKey: 'field.estimatedTaxPaidQ3', section: 'prior_year', format: 'currency' },
+  estimatedTaxPaidQ4: { i18nKey: 'field.estimatedTaxPaidQ4', section: 'prior_year', format: 'currency' },
+  priorYearAGI: { i18nKey: 'field.priorYearAgi', section: 'prior_year', format: 'currency' },
   // Life Changes
-  hasAddressChange: { label: 'Đổi địa chỉ', section: 'life_changes', format: 'boolean' },
-  hasMaritalChange: { label: 'Thay đổi tình trạng hôn nhân', section: 'life_changes', format: 'boolean' },
-  hasNewChild: { label: 'Có con mới', section: 'life_changes', format: 'boolean' },
-  hasBoughtSoldHome: { label: 'Mua/Bán nhà', section: 'life_changes', format: 'boolean' },
-  hasStartedBusiness: { label: 'Bắt đầu kinh doanh', section: 'life_changes', format: 'boolean' },
-
+  hasAddressChange: { i18nKey: 'field.hasAddressChange', section: 'life_changes', format: 'boolean' },
+  hasMaritalChange: { i18nKey: 'field.hasMaritalChange', section: 'life_changes', format: 'boolean' },
+  hasNewChild: { i18nKey: 'field.hasNewChild', section: 'life_changes', format: 'boolean' },
+  hasBoughtSoldHome: { i18nKey: 'field.hasBoughtSoldHome', section: 'life_changes', format: 'boolean' },
+  hasStartedBusiness: { i18nKey: 'field.hasStartedBusiness', section: 'life_changes', format: 'boolean' },
   // Income - Employment
-  hasW2: { label: 'Có W2', section: 'income', format: 'boolean' },
-  w2Count: { label: 'Số lượng W2', section: 'income', format: 'number' },
-  hasW2G: { label: 'Có W2-G (Gambling)', section: 'income', format: 'boolean' },
-  hasTipsIncome: { label: 'Có thu nhập Tips', section: 'income', format: 'boolean' },
-  has1099NEC: { label: 'Có 1099-NEC', section: 'income', format: 'boolean' },
-  num1099Types: { label: 'Số loại 1099', section: 'income', format: 'number' },
-  hasJuryDutyPay: { label: 'Có tiền Jury Duty', section: 'income', format: 'boolean' },
-
+  hasW2: { i18nKey: 'field.hasW2', section: 'income', format: 'boolean' },
+  w2Count: { i18nKey: 'field.w2Count', section: 'income', format: 'number' },
+  hasW2G: { i18nKey: 'field.hasW2g', section: 'income', format: 'boolean' },
+  hasTipsIncome: { i18nKey: 'field.hasTipsIncome', section: 'income', format: 'boolean' },
+  has1099NEC: { i18nKey: 'field.has1099Nec', section: 'income', format: 'boolean' },
+  num1099Types: { i18nKey: 'field.num1099Types', section: 'income', format: 'number' },
+  hasJuryDutyPay: { i18nKey: 'field.hasJuryDutyPay', section: 'income', format: 'boolean' },
   // Income - Self Employment
-  hasSelfEmployment: { label: 'Tự kinh doanh', section: 'income', format: 'boolean' },
-
+  hasSelfEmployment: { i18nKey: 'field.hasSelfEmployment', section: 'income', format: 'boolean' },
   // Income - Banking & Investments
-  hasBankAccount: { label: 'Có tài khoản ngân hàng', section: 'income', format: 'boolean' },
-  hasInvestments: { label: 'Có đầu tư', section: 'income', format: 'boolean' },
-  hasCrypto: { label: 'Có Crypto', section: 'income', format: 'boolean' },
-
+  hasBankAccount: { i18nKey: 'field.hasBankAccount', section: 'income', format: 'boolean' },
+  hasInvestments: { i18nKey: 'field.hasInvestments', section: 'income', format: 'boolean' },
+  hasCrypto: { i18nKey: 'field.hasCrypto', section: 'income', format: 'boolean' },
   // Income - Retirement & Benefits
-  hasRetirement: { label: 'Có thu nhập hưu trí', section: 'income', format: 'boolean' },
-  hasSocialSecurity: { label: 'Có Social Security', section: 'income', format: 'boolean' },
-  hasUnemployment: { label: 'Có Unemployment', section: 'income', format: 'boolean' },
-  hasAlimony: { label: 'Có Alimony', section: 'income', format: 'boolean' },
-
+  hasRetirement: { i18nKey: 'field.hasRetirement', section: 'income', format: 'boolean' },
+  hasSocialSecurity: { i18nKey: 'field.hasSocialSecurity', section: 'income', format: 'boolean' },
+  hasUnemployment: { i18nKey: 'field.hasUnemployment', section: 'income', format: 'boolean' },
+  hasAlimony: { i18nKey: 'field.hasAlimony', section: 'income', format: 'boolean' },
   // Income - Rental & K-1
-  hasRentalProperty: { label: 'Có bất động sản cho thuê', section: 'income', format: 'boolean' },
-  rentalPropertyCount: { label: 'Số bất động sản', section: 'income', format: 'number' },
-  rentalMonthsRented: { label: 'Số tháng cho thuê', section: 'income', format: 'number' },
-  rentalPersonalUseDays: { label: 'Số ngày sử dụng cá nhân', section: 'income', format: 'number' },
-  hasK1Income: { label: 'Có K-1 Income', section: 'income', format: 'boolean' },
-  k1Count: { label: 'Số K-1', section: 'income', format: 'number' },
-
-  // Home Sale (life_changes section - shown when hasBoughtSoldHome is true)
-  homeSaleGrossProceeds: { label: 'Tiền bán nhà (Gross)', section: 'life_changes', format: 'currency' },
-  homeSaleGain: { label: 'Lợi nhuận bán nhà', section: 'life_changes', format: 'currency' },
-  monthsLivedInHome: { label: 'Số tháng sống trong nhà', section: 'life_changes', format: 'number' },
-
-  // Home Office (business section - shown when hasHomeOffice is true)
-  homeOfficeSqFt: { label: 'Diện tích Home Office (sqft)', section: 'business', format: 'number' },
-  homeOfficeMethod: {
-    label: 'Phương pháp Home Office',
-    section: 'business',
-    format: 'select',
-    options: [
-      { value: 'SIMPLIFIED', label: 'Simplified ($5/sq ft, max 300)' },
-      { value: 'REGULAR', label: 'Regular (actual expenses)' },
-    ]
-  },
-
+  hasRentalProperty: { i18nKey: 'field.hasRentalProperty', section: 'income', format: 'boolean' },
+  rentalPropertyCount: { i18nKey: 'field.rentalPropertyCount', section: 'income', format: 'number' },
+  rentalMonthsRented: { i18nKey: 'field.rentalMonthsRented', section: 'income', format: 'number' },
+  rentalPersonalUseDays: { i18nKey: 'field.rentalPersonalUseDays', section: 'income', format: 'number' },
+  hasK1Income: { i18nKey: 'field.hasK1Income', section: 'income', format: 'boolean' },
+  k1Count: { i18nKey: 'field.k1Count', section: 'income', format: 'number' },
+  // Home Sale
+  homeSaleGrossProceeds: { i18nKey: 'field.homeSaleGrossProceeds', section: 'life_changes', format: 'currency' },
+  homeSaleGain: { i18nKey: 'field.homeSaleGain', section: 'life_changes', format: 'currency' },
+  monthsLivedInHome: { i18nKey: 'field.monthsLivedInHome', section: 'life_changes', format: 'number' },
+  // Home Office
+  homeOfficeSqFt: { i18nKey: 'field.homeOfficeSqFt', section: 'business', format: 'number' },
+  homeOfficeMethod: { i18nKey: 'field.homeOfficeMethod', section: 'business', format: 'select', options: [{ value: 'SIMPLIFIED', label: 'Simplified ($5/sq ft, max 300)' }, { value: 'REGULAR', label: 'Regular (actual expenses)' }] },
   // Dependents
-  hasKidsUnder17: { label: 'Con dưới 17 tuổi', section: 'dependents', format: 'boolean' },
-  numKidsUnder17: { label: 'Số con dưới 17 tuổi', section: 'dependents', format: 'number' },
-  numDependentsCTC: { label: 'Số người phụ thuộc CTC', section: 'dependents', format: 'number' },
-  paysDaycare: { label: 'Trả tiền Daycare', section: 'dependents', format: 'boolean' },
-  daycareAmount: { label: 'Số tiền Daycare', section: 'dependents', format: 'currency' },
-  childcareProviderName: { label: 'Tên nhà cung cấp Childcare', section: 'dependents', format: 'text' },
-  childcareProviderEIN: { label: 'EIN nhà cung cấp Childcare', section: 'dependents', format: 'text' },
-  hasKids17to24: { label: 'Con 17-24 tuổi', section: 'dependents', format: 'boolean' },
-  hasOtherDependents: { label: 'Người phụ thuộc khác', section: 'dependents', format: 'boolean' },
-
+  hasKidsUnder17: { i18nKey: 'field.hasKidsUnder17', section: 'dependents', format: 'boolean' },
+  numKidsUnder17: { i18nKey: 'field.numKidsUnder17', section: 'dependents', format: 'number' },
+  numDependentsCTC: { i18nKey: 'field.numDependentsCtc', section: 'dependents', format: 'number' },
+  paysDaycare: { i18nKey: 'field.paysDaycare', section: 'dependents', format: 'boolean' },
+  daycareAmount: { i18nKey: 'field.daycareAmount', section: 'dependents', format: 'currency' },
+  childcareProviderName: { i18nKey: 'field.childcareProviderName', section: 'dependents', format: 'text' },
+  childcareProviderEIN: { i18nKey: 'field.childcareProviderEin', section: 'dependents', format: 'text' },
+  hasKids17to24: { i18nKey: 'field.hasKids17To24', section: 'dependents', format: 'boolean' },
+  hasOtherDependents: { i18nKey: 'field.hasOtherDependents', section: 'dependents', format: 'boolean' },
   // Health Insurance
-  hasMarketplaceCoverage: { label: 'Có Marketplace Coverage', section: 'health', format: 'boolean' },
-  hasHSA: { label: 'Có HSA', section: 'health', format: 'boolean' },
-
+  hasMarketplaceCoverage: { i18nKey: 'field.hasMarketplaceCoverage', section: 'health', format: 'boolean' },
+  hasHSA: { i18nKey: 'field.hasHsa', section: 'health', format: 'boolean' },
   // Deductions
-  hasMortgage: { label: 'Có Mortgage', section: 'deductions', format: 'boolean' },
-  helocInterestPurpose: {
-    label: 'Mục đích HELOC',
-    section: 'deductions',
-    format: 'select',
-    options: [
-      { value: 'HOME_IMPROVEMENT', label: 'Home Improvement' },
-      { value: 'OTHER', label: 'Other' },
-    ]
-  },
-  hasPropertyTax: { label: 'Có Property Tax', section: 'deductions', format: 'boolean' },
-  hasCharitableDonations: { label: 'Có từ thiện', section: 'deductions', format: 'boolean' },
-  noncashDonationValue: { label: 'Giá trị đóng góp phi tiền mặt', section: 'deductions', format: 'currency' },
-  hasMedicalExpenses: { label: 'Có chi phí y tế', section: 'deductions', format: 'boolean' },
-  medicalMileage: { label: 'Medical Mileage', section: 'deductions', format: 'number' },
-  hasStudentLoanInterest: { label: 'Có Student Loan Interest', section: 'deductions', format: 'boolean' },
-  hasEducatorExpenses: { label: 'Có Educator Expenses', section: 'deductions', format: 'boolean' },
-  hasCasualtyLoss: { label: 'Có Casualty Loss', section: 'deductions', format: 'boolean' },
-
+  hasMortgage: { i18nKey: 'field.hasMortgage', section: 'deductions', format: 'boolean' },
+  helocInterestPurpose: { i18nKey: 'field.helocInterestPurpose', section: 'deductions', format: 'select', options: [{ value: 'HOME_IMPROVEMENT', label: 'Home Improvement' }, { value: 'OTHER', label: 'Other' }] },
+  hasPropertyTax: { i18nKey: 'field.hasPropertyTax', section: 'deductions', format: 'boolean' },
+  hasCharitableDonations: { i18nKey: 'field.hasCharitableDonations', section: 'deductions', format: 'boolean' },
+  noncashDonationValue: { i18nKey: 'field.noncashDonationValue', section: 'deductions', format: 'currency' },
+  hasMedicalExpenses: { i18nKey: 'field.hasMedicalExpenses', section: 'deductions', format: 'boolean' },
+  medicalMileage: { i18nKey: 'field.medicalMileage', section: 'deductions', format: 'number' },
+  hasStudentLoanInterest: { i18nKey: 'field.hasStudentLoanInterest', section: 'deductions', format: 'boolean' },
+  hasEducatorExpenses: { i18nKey: 'field.hasEducatorExpenses', section: 'deductions', format: 'boolean' },
+  hasCasualtyLoss: { i18nKey: 'field.hasCasualtyLoss', section: 'deductions', format: 'boolean' },
   // Credits
-  hasEnergyCredits: { label: 'Có Energy Credits', section: 'credits', format: 'boolean' },
-  energyCreditInvoice: { label: 'Có hóa đơn Energy Credit', section: 'credits', format: 'boolean' },
-  hasEVCredit: { label: 'Có EV Credit', section: 'credits', format: 'boolean' },
-  hasAdoptionExpenses: { label: 'Có Adoption Expenses', section: 'credits', format: 'boolean' },
-  hasRDCredit: { label: 'Có R&D Credit', section: 'credits', format: 'boolean' },
-
+  hasEnergyCredits: { i18nKey: 'field.hasEnergyCredits', section: 'credits', format: 'boolean' },
+  energyCreditInvoice: { i18nKey: 'field.energyCreditInvoice', section: 'credits', format: 'boolean' },
+  hasEVCredit: { i18nKey: 'field.hasEvCredit', section: 'credits', format: 'boolean' },
+  hasAdoptionExpenses: { i18nKey: 'field.hasAdoptionExpenses', section: 'credits', format: 'boolean' },
+  hasRDCredit: { i18nKey: 'field.hasRdCredit', section: 'credits', format: 'boolean' },
   // Foreign
-  hasForeignAccounts: { label: 'Có tài khoản nước ngoài', section: 'foreign', format: 'boolean' },
-  fbarMaxBalance: { label: 'FBAR Max Balance', section: 'foreign', format: 'currency' },
-  hasForeignIncome: { label: 'Có thu nhập nước ngoài', section: 'foreign', format: 'boolean' },
-  hasForeignTaxPaid: { label: 'Đã trả thuế nước ngoài', section: 'foreign', format: 'boolean' },
-  feieResidencyStartDate: { label: 'FEIE Residency Start', section: 'foreign', format: 'text' },
-  feieResidencyEndDate: { label: 'FEIE Residency End', section: 'foreign', format: 'text' },
-  foreignGiftValue: { label: 'Giá trị quà từ nước ngoài', section: 'foreign', format: 'currency' },
-
+  hasForeignAccounts: { i18nKey: 'field.hasForeignAccounts', section: 'foreign', format: 'boolean' },
+  fbarMaxBalance: { i18nKey: 'field.fbarMaxBalance', section: 'foreign', format: 'currency' },
+  hasForeignIncome: { i18nKey: 'field.hasForeignIncome', section: 'foreign', format: 'boolean' },
+  hasForeignTaxPaid: { i18nKey: 'field.hasForeignTaxPaid', section: 'foreign', format: 'boolean' },
+  feieResidencyStartDate: { i18nKey: 'field.feieResidencyStartDate', section: 'foreign', format: 'text' },
+  feieResidencyEndDate: { i18nKey: 'field.feieResidencyEndDate', section: 'foreign', format: 'text' },
+  foreignGiftValue: { i18nKey: 'field.foreignGiftValue', section: 'foreign', format: 'currency' },
   // Business
-  businessName: { label: 'Tên doanh nghiệp', section: 'business', format: 'text' },
-  ein: { label: 'EIN', section: 'business', format: 'text' },
-  hasEmployees: { label: 'Có nhân viên', section: 'business', format: 'boolean' },
-  hasContractors: { label: 'Có contractors', section: 'business', format: 'boolean' },
-  has1099K: { label: 'Có 1099-K', section: 'business', format: 'boolean' },
-  hasHomeOffice: { label: 'Có Home Office', section: 'business', format: 'boolean' },
-  hasBusinessVehicle: { label: 'Có xe kinh doanh', section: 'business', format: 'boolean' },
-
+  businessName: { i18nKey: 'field.businessName', section: 'business', format: 'text' },
+  ein: { i18nKey: 'field.ein', section: 'business', format: 'text' },
+  hasEmployees: { i18nKey: 'field.hasEmployees', section: 'business', format: 'boolean' },
+  hasContractors: { i18nKey: 'field.hasContractors', section: 'business', format: 'boolean' },
+  has1099K: { i18nKey: 'field.has1099K', section: 'business', format: 'boolean' },
+  hasHomeOffice: { i18nKey: 'field.hasHomeOffice', section: 'business', format: 'boolean' },
+  hasBusinessVehicle: { i18nKey: 'field.hasBusinessVehicle', section: 'business', format: 'boolean' },
   // Entity Info (1120S/1065)
-  entityName: { label: 'Tên pháp nhân', section: 'entity_info', format: 'text' },
-  entityEIN: { label: 'EIN pháp nhân', section: 'entity_info', format: 'text' },
-  stateOfFormation: { label: 'Tiểu bang thành lập', section: 'entity_info', format: 'text' },
-  accountingMethod: {
-    label: 'Phương pháp kế toán',
-    section: 'entity_info',
-    format: 'select',
-    options: [
-      { value: 'CASH', label: 'Cash' },
-      { value: 'ACCRUAL', label: 'Accrual' },
-      { value: 'OTHER', label: 'Other' },
-    ]
-  },
-  returnType: {
-    label: 'Loại tờ khai',
-    section: 'entity_info',
-    format: 'select',
-    options: [
-      { value: 'ORIGINAL', label: 'Original' },
-      { value: 'AMENDED', label: 'Amended' },
-      { value: 'FINAL', label: 'Final' },
-    ]
-  },
-
+  entityName: { i18nKey: 'field.entityName', section: 'entity_info', format: 'text' },
+  entityEIN: { i18nKey: 'field.entityEin', section: 'entity_info', format: 'text' },
+  stateOfFormation: { i18nKey: 'field.stateOfFormation', section: 'entity_info', format: 'text' },
+  accountingMethod: { i18nKey: 'field.accountingMethod', section: 'entity_info', format: 'select', options: [{ value: 'CASH', label: 'Cash' }, { value: 'ACCRUAL', label: 'Accrual' }, { value: 'OTHER', label: 'Other' }] },
+  returnType: { i18nKey: 'field.returnType', section: 'entity_info', format: 'select', options: [{ value: 'ORIGINAL', label: 'Original' }, { value: 'AMENDED', label: 'Amended' }, { value: 'FINAL', label: 'Final' }] },
   // Ownership
-  hasOwnershipChanges: { label: 'Có thay đổi sở hữu', section: 'ownership', format: 'boolean' },
-  hasNonresidentOwners: { label: 'Có chủ sở hữu non-resident', section: 'ownership', format: 'boolean' },
-  hasDistributions: { label: 'Có distributions', section: 'ownership', format: 'boolean' },
-  hasOwnerLoans: { label: 'Có owner loans', section: 'ownership', format: 'boolean' },
-
+  hasOwnershipChanges: { i18nKey: 'field.hasOwnershipChanges', section: 'ownership', format: 'boolean' },
+  hasNonresidentOwners: { i18nKey: 'field.hasNonresidentOwners', section: 'ownership', format: 'boolean' },
+  hasDistributions: { i18nKey: 'field.hasDistributions', section: 'ownership', format: 'boolean' },
+  hasOwnerLoans: { i18nKey: 'field.hasOwnerLoans', section: 'ownership', format: 'boolean' },
   // Expenses
-  hasGrossReceipts: { label: 'Có Gross Receipts', section: 'expenses', format: 'boolean' },
-  businessHas1099K: { label: 'Business có 1099-K', section: 'expenses', format: 'boolean' },
-  businessHas1099NEC: { label: 'Business có 1099-NEC', section: 'expenses', format: 'boolean' },
-  hasInterestIncome: { label: 'Có Interest Income', section: 'expenses', format: 'boolean' },
-  businessHasRentalIncome: { label: 'Business có Rental Income', section: 'expenses', format: 'boolean' },
-  hasInventory: { label: 'Có Inventory', section: 'expenses', format: 'boolean' },
-  businessHasEmployees: { label: 'Business có nhân viên', section: 'expenses', format: 'boolean' },
-  businessHasContractors: { label: 'Business có contractors', section: 'expenses', format: 'boolean' },
-  hasOfficerCompensation: { label: 'Có Officer Compensation', section: 'expenses', format: 'boolean' },
-  officerCompensationAmount: { label: 'Số tiền Officer Compensation', section: 'expenses', format: 'currency' },
-  hasGuaranteedPayments: { label: 'Có Guaranteed Payments', section: 'expenses', format: 'boolean' },
-  guaranteedPaymentsAmount: { label: 'Số tiền Guaranteed Payments', section: 'expenses', format: 'currency' },
-  hasRetirementPlan: { label: 'Có Retirement Plan', section: 'expenses', format: 'boolean' },
-  hasHealthInsuranceOwners: { label: 'Có Health Insurance cho owners', section: 'expenses', format: 'boolean' },
-
+  hasGrossReceipts: { i18nKey: 'field.hasGrossReceipts', section: 'expenses', format: 'boolean' },
+  businessHas1099K: { i18nKey: 'field.businessHas1099K', section: 'expenses', format: 'boolean' },
+  businessHas1099NEC: { i18nKey: 'field.businessHas1099Nec', section: 'expenses', format: 'boolean' },
+  hasInterestIncome: { i18nKey: 'field.hasInterestIncome', section: 'expenses', format: 'boolean' },
+  businessHasRentalIncome: { i18nKey: 'field.businessHasRentalIncome', section: 'expenses', format: 'boolean' },
+  hasInventory: { i18nKey: 'field.hasInventory', section: 'expenses', format: 'boolean' },
+  businessHasEmployees: { i18nKey: 'field.businessHasEmployees', section: 'expenses', format: 'boolean' },
+  businessHasContractors: { i18nKey: 'field.businessHasContractors', section: 'expenses', format: 'boolean' },
+  hasOfficerCompensation: { i18nKey: 'field.hasOfficerCompensation', section: 'expenses', format: 'boolean' },
+  officerCompensationAmount: { i18nKey: 'field.officerCompensationAmount', section: 'expenses', format: 'currency' },
+  hasGuaranteedPayments: { i18nKey: 'field.hasGuaranteedPayments', section: 'expenses', format: 'boolean' },
+  guaranteedPaymentsAmount: { i18nKey: 'field.guaranteedPaymentsAmount', section: 'expenses', format: 'currency' },
+  hasRetirementPlan: { i18nKey: 'field.hasRetirementPlan', section: 'expenses', format: 'boolean' },
+  hasHealthInsuranceOwners: { i18nKey: 'field.hasHealthInsuranceOwners', section: 'expenses', format: 'boolean' },
   // Assets
-  hasAssetPurchases: { label: 'Có mua tài sản', section: 'assets', format: 'boolean' },
-  hasAssetDisposals: { label: 'Có bán tài sản', section: 'assets', format: 'boolean' },
-  hasDepreciation: { label: 'Có khấu hao', section: 'assets', format: 'boolean' },
-  hasVehicles: { label: 'Có vehicles', section: 'assets', format: 'boolean' },
-
+  hasAssetPurchases: { i18nKey: 'field.hasAssetPurchases', section: 'assets', format: 'boolean' },
+  hasAssetDisposals: { i18nKey: 'field.hasAssetDisposals', section: 'assets', format: 'boolean' },
+  hasDepreciation: { i18nKey: 'field.hasDepreciation', section: 'assets', format: 'boolean' },
+  hasVehicles: { i18nKey: 'field.hasVehicles', section: 'assets', format: 'boolean' },
   // State
-  statesWithNexus: { label: 'Tiểu bang có nexus', section: 'state', format: 'text' },
-  hasMultistateIncome: { label: 'Có thu nhập đa tiểu bang', section: 'state', format: 'boolean' },
-  businessHasForeignActivity: { label: 'Business có hoạt động nước ngoài', section: 'state', format: 'boolean' },
-  hasForeignOwners: { label: 'Có chủ sở hữu nước ngoài', section: 'state', format: 'boolean' },
-  shareholderBasisTracking: { label: 'Có theo dõi Shareholder Basis', section: 'state', format: 'boolean' },
-  partnerCapitalMethod: {
-    label: 'Phương pháp Partner Capital',
-    section: 'state',
-    format: 'select',
-    options: [
-      { value: 'TAX', label: 'Tax' },
-      { value: 'GAAP', label: 'GAAP' },
-      { value: '704B', label: '704(b)' },
-    ]
-  },
-
+  statesWithNexus: { i18nKey: 'field.statesWithNexus', section: 'state', format: 'text' },
+  hasMultistateIncome: { i18nKey: 'field.hasMultistateIncome', section: 'state', format: 'boolean' },
+  businessHasForeignActivity: { i18nKey: 'field.businessHasForeignActivity', section: 'state', format: 'boolean' },
+  hasForeignOwners: { i18nKey: 'field.hasForeignOwners', section: 'state', format: 'boolean' },
+  shareholderBasisTracking: { i18nKey: 'field.shareholderBasisTracking', section: 'state', format: 'boolean' },
+  partnerCapitalMethod: { i18nKey: 'field.partnerCapitalMethod', section: 'state', format: 'select', options: [{ value: 'TAX', label: 'Tax' }, { value: 'GAAP', label: 'GAAP' }, { value: '704B', label: '704(b)' }] },
   // Filing
-  deliveryPreference: {
-    label: 'Preference giao nhận',
-    section: 'filing',
-    format: 'select',
-    options: [
-      { value: 'EMAIL', label: 'Email' },
-      { value: 'MAIL', label: 'Mail' },
-      { value: 'PICKUP', label: 'Pick up' },
-    ]
-  },
-  followUpNotes: { label: 'Ghi chú follow-up', section: 'filing', format: 'text' },
-  refundBankAccount: { label: 'Tài khoản nhận refund', section: 'filing', format: 'text' },
-  refundRoutingNumber: { label: 'Routing Number', section: 'filing', format: 'text' },
-
+  deliveryPreference: { i18nKey: 'field.deliveryPreference', section: 'filing', format: 'select', options: [{ value: 'EMAIL', label: 'Email' }, { value: 'MAIL', label: 'Mail' }, { value: 'PICKUP', label: 'Pick up' }] },
+  followUpNotes: { i18nKey: 'field.followUpNotes', section: 'filing', format: 'text' },
+  refundBankAccount: { i18nKey: 'field.refundBankAccount', section: 'filing', format: 'text' },
+  refundRoutingNumber: { i18nKey: 'field.refundRoutingNumber', section: 'filing', format: 'text' },
   // Tax Info (display only, from client/taxCase)
-  taxYear: { label: 'Năm thuế', section: 'tax_info', format: 'number' },
-  filingStatus: { label: 'Tình trạng khai thuế', section: 'tax_info', format: 'select' },
-  refundMethod: { label: 'Phương thức nhận refund', section: 'tax_info', format: 'select' },
+  taxYear: { i18nKey: 'field.taxYear', section: 'tax_info', format: 'number' },
+  filingStatus: { i18nKey: 'field.filingStatus', section: 'tax_info', format: 'select' },
+  refundMethod: { i18nKey: 'field.refundMethod', section: 'tax_info', format: 'select' },
 }
+
+// Field display configuration - labels resolve dynamically via Proxy
+export const FIELD_CONFIG: Record<string, FieldConfigItem> = new Proxy(
+  {} as Record<string, FieldConfigItem>,
+  {
+    get(_, prop: string) {
+      const cfg = FIELD_CONFIG_DATA[prop]
+      if (!cfg) return undefined
+      return { label: i18n.t(cfg.i18nKey), section: cfg.section, format: cfg.format, options: cfg.options }
+    },
+    has(_, prop: string) {
+      return prop in FIELD_CONFIG_DATA
+    },
+    ownKeys() {
+      return Object.keys(FIELD_CONFIG_DATA)
+    },
+    getOwnPropertyDescriptor(_, prop: string) {
+      if (prop in FIELD_CONFIG_DATA) {
+        return { configurable: true, enumerable: true }
+      }
+    },
+  }
+)
 
 // Select option labels for display formatting
 export const SELECT_LABELS: Record<string, Record<string, string>> = {
@@ -458,8 +430,8 @@ export const SELECT_LABELS: Record<string, Record<string, string>> = {
     SAVINGS: 'Savings',
   },
   // US States - generate from US_STATES_OPTIONS
-  taxpayerDLState: Object.fromEntries(US_STATES_OPTIONS.map(s => [s.value, s.label])),
-  spouseDLState: Object.fromEntries(US_STATES_OPTIONS.map(s => [s.value, s.label])),
+  taxpayerDLState: Object.fromEntries(US_STATES_OPTIONS.map((s: { value: string; label: string }) => [s.value, s.label])),
+  spouseDLState: Object.fromEntries(US_STATES_OPTIONS.map((s: { value: string; label: string }) => [s.value, s.label])),
   // Dependent relationships
-  relationship: Object.fromEntries(RELATIONSHIP_OPTIONS.map(r => [r.value, r.label])),
+  relationship: Object.fromEntries(RELATIONSHIP_OPTIONS.map((r: { value: string; label: string }) => [r.value, r.label])),
 }

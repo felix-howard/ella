@@ -6,6 +6,7 @@
 import { useMemo } from 'react'
 import { FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { VEHICLE_FIELDS } from '../lib/expense-categories'
 import { ExpenseField } from './expense-field'
 
@@ -18,6 +19,7 @@ export function VehicleInfoSection({
   formData,
   onChange,
 }: VehicleInfoSectionProps) {
+  const { t } = useTranslation()
   // Determine if vehicle section should be shown
   const hasCarExpenses = useMemo(() => {
     const carExpense = formData.carExpense
@@ -43,10 +45,10 @@ export function VehicleInfoSection({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
           <FileText className="w-5 h-5 text-primary" aria-hidden="true" />
-          Thông tin xe (Part IV)
+          {t('expense.vehicleInfo')}
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
-          Thông tin bổ sung cho IRS nếu bạn khấu trừ chi phí xe
+          {t('expense.vehicleInfoNote')}
         </p>
       </CardHeader>
 
@@ -82,7 +84,7 @@ export function VehicleInfoSection({
         {/* Yes/No questions */}
         <div className="space-y-3 pt-2">
           <p className="text-sm font-medium text-foreground">
-            Câu hỏi bổ sung:
+            {t('expense.additionalQuestions')}
           </p>
 
           {/* vehicleUsedForCommute */}
@@ -94,7 +96,7 @@ export function VehicleInfoSection({
               className="w-5 h-5 rounded border-border text-primary focus:ring-primary/20"
             />
             <span className="text-sm text-foreground">
-              Xe có được dùng để đi làm (commute) không?
+              {t('expense.vehicleUsedForCommute')}
             </span>
           </label>
 
@@ -107,7 +109,7 @@ export function VehicleInfoSection({
               className="w-5 h-5 rounded border-border text-primary focus:ring-primary/20"
             />
             <span className="text-sm text-foreground">
-              Bạn có xe khác cho mục đích cá nhân không?
+              {t('expense.vehicleAnotherAvailable')}
             </span>
           </label>
 
@@ -120,7 +122,7 @@ export function VehicleInfoSection({
               className="w-5 h-5 rounded border-border text-primary focus:ring-primary/20"
             />
             <span className="text-sm text-foreground">
-              Bạn có ghi chép bằng văn bản về số dặm kinh doanh không?
+              {t('expense.vehicleEvidenceWritten')}
             </span>
           </label>
         </div>

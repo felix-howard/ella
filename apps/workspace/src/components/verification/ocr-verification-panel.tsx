@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   ZoomIn,
 } from 'lucide-react'
+import i18n from '../../lib/i18n'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
 import { copyToClipboard } from '../../lib/formatters'
@@ -352,7 +353,8 @@ function formatDisplayValue(value: unknown, type: 'text' | 'number' | 'date'): s
   if (type === 'date' && typeof value === 'string') {
     try {
       const date = new Date(value)
-      return date.toLocaleDateString('vi-VN')
+      const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN'
+      return date.toLocaleDateString(locale)
     } catch {
       return value
     }

@@ -2,6 +2,7 @@
  * Status Badge - Shows Schedule C status with appropriate styling
  */
 import { Clock, CheckCircle2, Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import type { ScheduleCStatus } from '../../../../lib/api-client'
 
@@ -10,28 +11,29 @@ interface StatusBadgeProps {
 }
 
 const STATUS_CONFIG: Record<ScheduleCStatus, {
-  label: string
+  i18nKey: string
   icon: typeof Clock
   className: string
 }> = {
   DRAFT: {
-    label: 'Đang chờ',
+    i18nKey: 'scheduleC.statusDraft',
     icon: Clock,
     className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
   },
   SUBMITTED: {
-    label: 'Đã gửi',
+    i18nKey: 'scheduleC.statusSubmitted',
     icon: CheckCircle2,
     className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
   },
   LOCKED: {
-    label: 'Đã khóa',
+    i18nKey: 'scheduleC.statusLocked',
     icon: Lock,
     className: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
   },
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
+  const { t } = useTranslation()
   const config = STATUS_CONFIG[status]
   const Icon = config.icon
 
@@ -41,7 +43,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       config.className
     )}>
       <Icon className="w-3.5 h-3.5" />
-      {config.label}
+      {t(config.i18nKey)}
     </span>
   )
 }

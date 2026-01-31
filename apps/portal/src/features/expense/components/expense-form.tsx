@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react'
 import { Loader2, Send, AlertCircle, Receipt } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import type { ExpenseFormData } from '../lib/expense-api'
 import { SIMPLIFIED_EXPENSE_FIELDS } from '../lib/expense-categories'
 import { useExpenseForm } from '../hooks/use-expense-form'
@@ -23,6 +24,7 @@ interface ExpenseFormProps {
 }
 
 export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
+  const { t } = useTranslation()
   const [showSuccess, setShowSuccess] = useState(false)
   const [submittedVersion, setSubmittedVersion] = useState(1)
 
@@ -72,7 +74,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
 
   // Determine button text
   const isFirstSubmit = !initialData.expense || initialData.expense.status === 'DRAFT'
-  const buttonText = isFirstSubmit ? 'Gửi cho CPA' : 'Cập nhật'
+  const buttonText = isFirstSubmit ? t('expense.submitToCPA') : t('expense.update')
 
   return (
     <div className="pb-32">
@@ -83,9 +85,9 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
           <div className="p-4 bg-error/10 border border-error/20 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-error">Form đã bị khóa</p>
+              <p className="font-medium text-error">{t('expense.formLocked')}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                CPA đã khóa form này. Vui lòng liên hệ văn phòng nếu cần chỉnh sửa.
+                {t('expense.formLockedMessage')}
               </p>
             </div>
           </div>
@@ -102,7 +104,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Receipt className="w-5 h-5 text-primary" />
-              Chi phí kinh doanh
+              {t('expense.businessExpenses')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -161,7 +163,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
               {status === 'submitting' ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Đang gửi...</span>
+                  <span>{t('expense.submitting')}</span>
                 </>
               ) : (
                 <>

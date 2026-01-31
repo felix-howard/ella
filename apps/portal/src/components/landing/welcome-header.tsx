@@ -3,17 +3,16 @@
  * Displays greeting with client name and tax year info
  * Mobile-first design with Ella mint green theme
  */
+import { useTranslation } from 'react-i18next'
 import { EllaLogoLight } from '@ella/ui'
-import { getText, type Language } from '../../lib/i18n'
 
 interface WelcomeHeaderProps {
   clientName: string
-  language: Language
   taxYear?: number
 }
 
-export function WelcomeHeader({ clientName, language, taxYear }: WelcomeHeaderProps) {
-  const t = getText(language)
+export function WelcomeHeader({ clientName, taxYear }: WelcomeHeaderProps) {
+  const { t } = useTranslation()
 
   return (
     <header className="px-6 pt-8 pb-6 text-center">
@@ -24,13 +23,13 @@ export function WelcomeHeader({ clientName, language, taxYear }: WelcomeHeaderPr
 
       {/* Greeting */}
       <h1 className="text-2xl font-semibold text-foreground">
-        {t.welcome}, <span className="text-accent">{clientName}</span>!
+        {t('portal.welcome')}, <span className="text-accent">{clientName}</span>!
       </h1>
 
       {/* Tax Year Badge */}
       {taxYear && (
         <p className="mt-2 text-sm text-muted-foreground">
-          {language === 'VI' ? `Năm thuế ${taxYear}` : `Tax Year ${taxYear}`}
+          {t('portal.taxYear')} {taxYear}
         </p>
       )}
     </header>

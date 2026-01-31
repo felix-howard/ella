@@ -13,76 +13,91 @@ import {
   File,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import i18n from './i18n'
 
 export type DocCategoryKey = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
 
 export interface DocCategoryConfig {
-  labelVi: string
-  labelEn: string
+  label: string
   icon: LucideIcon
   bgColor: string
   textColor: string
   borderColor: string
 }
 
-export const DOC_CATEGORIES: Record<DocCategoryKey, DocCategoryConfig> = {
+const DOC_CATEGORIES_DATA: Record<DocCategoryKey, { labelKey: string; icon: LucideIcon; bgColor: string; textColor: string; borderColor: string }> = {
   IDENTITY: {
-    labelVi: 'Giấy tờ tùy thân',
-    labelEn: 'Identity Documents',
+    labelKey: 'docCategory.identity',
     icon: User,
     bgColor: 'bg-purple-500/10',
     textColor: 'text-purple-600',
     borderColor: 'border-purple-500/20',
   },
   INCOME: {
-    labelVi: 'Thu nhập',
-    labelEn: 'Income',
+    labelKey: 'docCategory.income',
     icon: DollarSign,
     bgColor: 'bg-emerald-500/10',
     textColor: 'text-emerald-600',
     borderColor: 'border-emerald-500/20',
   },
   EXPENSE: {
-    labelVi: 'Chi phí',
-    labelEn: 'Expenses',
+    labelKey: 'docCategory.expense',
     icon: Receipt,
     bgColor: 'bg-orange-500/10',
     textColor: 'text-orange-600',
     borderColor: 'border-orange-500/20',
   },
   ASSET: {
-    labelVi: 'Tài sản',
-    labelEn: 'Assets',
+    labelKey: 'docCategory.asset',
     icon: Home,
     bgColor: 'bg-blue-500/10',
     textColor: 'text-blue-600',
     borderColor: 'border-blue-500/20',
   },
   EDUCATION: {
-    labelVi: 'Giáo dục',
-    labelEn: 'Education',
+    labelKey: 'docCategory.education',
     icon: GraduationCap,
     bgColor: 'bg-indigo-500/10',
     textColor: 'text-indigo-600',
     borderColor: 'border-indigo-500/20',
   },
   HEALTHCARE: {
-    labelVi: 'Y tế',
-    labelEn: 'Healthcare',
+    labelKey: 'docCategory.healthcare',
     icon: Heart,
     bgColor: 'bg-red-500/10',
     textColor: 'text-red-600',
     borderColor: 'border-red-500/20',
   },
   OTHER: {
-    labelVi: 'Khác',
-    labelEn: 'Other',
+    labelKey: 'docCategory.other',
     icon: File,
     bgColor: 'bg-gray-500/10',
     textColor: 'text-gray-600',
     borderColor: 'border-gray-500/20',
   },
 }
+
+export const DOC_CATEGORIES: Record<DocCategoryKey, DocCategoryConfig> = new Proxy({} as Record<DocCategoryKey, DocCategoryConfig>, {
+  get(_, prop: string) {
+    const data = DOC_CATEGORIES_DATA[prop as DocCategoryKey]
+    if (!data) return undefined
+    return {
+      label: i18n.t(data.labelKey),
+      icon: data.icon,
+      bgColor: data.bgColor,
+      textColor: data.textColor,
+      borderColor: data.borderColor,
+    }
+  },
+  ownKeys() {
+    return Object.keys(DOC_CATEGORIES_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in DOC_CATEGORIES_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+})
 
 // Category display order
 export const CATEGORY_ORDER: DocCategoryKey[] = [

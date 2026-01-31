@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Eye,
   CheckCircle,
@@ -62,6 +63,7 @@ function groupDocsByCategory(docs: DigitalDoc[]): CategoryGroup[] {
 }
 
 export function DataEntryTab({ docs, caseId, isLoading }: DataEntryTabProps) {
+  const { t } = useTranslation()
   const [selectedDoc, setSelectedDoc] = useState<DigitalDoc | null>(null)
 
   // Filter to verified docs only and group by category
@@ -76,9 +78,9 @@ export function DataEntryTab({ docs, caseId, isLoading }: DataEntryTabProps) {
     return (
       <div className="text-center py-16">
         <CheckCircle className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" aria-hidden="true" />
-        <h3 className="text-base font-medium text-foreground mb-2">Chưa có tài liệu đã xác minh</h3>
+        <h3 className="text-base font-medium text-foreground mb-2">{t('dataEntry.noDocuments')}</h3>
         <p className="text-sm text-muted-foreground">
-          Các tài liệu sau khi xác minh sẽ xuất hiện ở đây để nhập liệu
+          {t('dataEntry.noDocumentsDesc')}
         </p>
       </div>
     )
@@ -127,15 +129,16 @@ export function DataEntryTab({ docs, caseId, isLoading }: DataEntryTabProps) {
 
 /** Fallback UI when modal crashes */
 function ModalErrorFallback({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-card rounded-lg p-6 max-w-sm text-center">
-        <p className="text-foreground mb-4">Không thể hiển thị chi tiết. Vui lòng thử lại.</p>
+        <p className="text-foreground mb-4">{t('dataEntry.errorDisplay')}</p>
         <button
           onClick={onClose}
           className="px-4 py-2 bg-muted rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors"
         >
-          Đóng
+          {t('dataEntry.close')}
         </button>
       </div>
     </div>
@@ -149,6 +152,7 @@ interface DocCardProps {
 }
 
 function DocCard({ doc, onView }: DocCardProps) {
+  const { t } = useTranslation()
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
 
   return (
@@ -177,7 +181,7 @@ function DocCard({ doc, onView }: DocCardProps) {
       {/* View indicator on hover */}
       <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-primary transition-colors">
         <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-        <span>Xem chi tiết</span>
+        <span>{t('dataEntry.viewDetails')}</span>
       </div>
     </button>
   )

@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar, Plus, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { TaxEngagement, EngagementStatus } from '../../lib/api-client'
@@ -15,12 +16,12 @@ interface YearSwitcherProps {
   onCreateNew: () => void
 }
 
-// Vietnamese status labels with styling
-const STATUS_LABELS: Record<EngagementStatus, { label: string; className: string }> = {
-  DRAFT: { label: 'Nháp', className: 'text-muted-foreground' },
-  ACTIVE: { label: 'Đang xử lý', className: 'text-primary' },
-  COMPLETE: { label: 'Hoàn thành', className: 'text-success' },
-  ARCHIVED: { label: 'Lưu trữ', className: 'text-muted-foreground' },
+// Status label keys with styling
+const STATUS_CONFIG: Record<EngagementStatus, { key: string; className: string }> = {
+  DRAFT: { key: 'yearSwitcher.draft', className: 'text-muted-foreground' },
+  ACTIVE: { key: 'yearSwitcher.processing', className: 'text-primary' },
+  COMPLETE: { key: 'yearSwitcher.completed', className: 'text-success' },
+  ARCHIVED: { key: 'yearSwitcher.archived', className: 'text-muted-foreground' },
 }
 
 export function YearSwitcher({
@@ -29,6 +30,7 @@ export function YearSwitcher({
   onYearChange,
   onCreateNew,
 }: YearSwitcherProps) {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -79,8 +81,8 @@ export function YearSwitcher({
         <Calendar className="w-4 h-4 text-primary" aria-hidden="true" />
         <span className="font-medium">{selectedYear}</span>
         {selectedEngagement && (
-          <span className={cn('text-xs', STATUS_LABELS[selectedEngagement.status].className)}>
-            ({STATUS_LABELS[selectedEngagement.status].label})
+          <span className={cn('text-xs', STATUS_CONFIG[selectedEngagement.status].className)}>
+            ({t(STATUS_CONFIG[selectedEngagement.status].key)})
           </span>
         )}
         <ChevronDown
@@ -116,8 +118,8 @@ export function YearSwitcher({
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{engagement.taxYear}</span>
-                <span className={cn('text-xs', STATUS_LABELS[engagement.status].className)}>
-                  {STATUS_LABELS[engagement.status].label}
+                <span className={cn('text-xs', STATUS_CONFIG[engagement.status].className)}>
+                  {t(STATUS_CONFIG[engagement.status].key)}
                 </span>
               </div>
               {engagement.taxYear === selectedYear && (
@@ -138,7 +140,7 @@ export function YearSwitcher({
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary-light/30 transition-colors"
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
-            <span>Thêm năm mới</span>
+            <span>{t('yearSwitcher.addNewYear')}</span>
           </button>
         </div>
       )}

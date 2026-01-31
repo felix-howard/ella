@@ -5,6 +5,7 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useClerk, useUser } from '@clerk/clerk-react'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Users,
@@ -33,6 +34,7 @@ const navItemsWithIcons = [
 ] as const
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const { theme } = useTheme()
   const routerState = useRouterState()
@@ -126,7 +128,7 @@ export function Sidebar() {
                       ? 'absolute top-0.5 right-0.5 px-1'
                       : 'ml-auto px-1.5'
                   )}
-                  aria-label={`${unreadCount} tin nhắn chưa đọc`}
+                  aria-label={t('sidebar.unreadMessages', { count: unreadCount })}
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
@@ -168,8 +170,8 @@ export function Sidebar() {
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                   : 'text-muted-foreground'
             )}
-            aria-label={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi' : 'Đang kết nối...'}
-            title={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi đến' : 'Hệ thống đang kết nối...'}
+            aria-label={voiceState.isRegistered ? t('sidebar.voiceReady') : t('sidebar.voiceConnecting')}
+            title={voiceState.isRegistered ? t('sidebar.voiceReadyFull') : t('sidebar.voiceConnectingFull')}
           >
             {voiceState.isRegistering ? (
               <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
@@ -181,10 +183,10 @@ export function Sidebar() {
             {!sidebarCollapsed && (
               <span className="text-sm">
                 {voiceState.isRegistering
-                  ? 'Đang kết nối...'
+                  ? t('sidebar.voiceConnecting')
                   : voiceState.isRegistered
-                    ? 'Sẵn sàng nhận cuộc gọi'
-                    : 'Chờ kết nối...'}
+                    ? t('sidebar.voiceReady')
+                    : t('sidebar.voiceWaiting')}
               </span>
             )}
             {/* Online indicator dot */}

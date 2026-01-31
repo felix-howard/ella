@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, User, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
@@ -40,6 +41,7 @@ const currentYear = new Date().getFullYear()
 const TAX_YEARS = [currentYear - 1, currentYear - 2, currentYear - 3]
 
 function CreateClientPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<Step>('basic')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -91,8 +93,8 @@ function CreateClientPage() {
 
   // Step indicators
   const steps = [
-    { id: 'basic', label: 'Thông tin', icon: User },
-    { id: 'confirm', label: 'Xác nhận', icon: Check },
+    { id: 'basic', label: t('newClient.stepBasicInfo'), icon: User },
+    { id: 'confirm', label: t('newClient.stepConfirm'), icon: Check },
   ] as const
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
@@ -102,20 +104,20 @@ function CreateClientPage() {
     const newErrors: Partial<Record<keyof BasicInfoData, string>> = {}
 
     if (!basicInfo.name.trim()) {
-      newErrors.name = 'Vui lòng nhập tên khách hàng'
+      newErrors.name = t('newClient.errorNameRequired')
     } else if (basicInfo.name.trim().length < 2) {
-      newErrors.name = 'Tên phải có ít nhất 2 ký tự'
+      newErrors.name = t('newClient.errorNameMinLength')
     }
 
     const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
     if (!cleanedPhone) {
-      newErrors.phone = 'Vui lòng nhập số điện thoại'
+      newErrors.phone = t('newClient.errorPhoneRequired')
     } else if (cleanedPhone.length !== 10) {
-      newErrors.phone = 'Số điện thoại phải có 10 chữ số'
+      newErrors.phone = t('newClient.errorPhoneLength')
     }
 
     if (basicInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basicInfo.email)) {
-      newErrors.email = 'Email không hợp lệ'
+      newErrors.email = t('newClient.errorEmailInvalid')
     }
 
     setErrors((prev) => ({ ...prev, basic: newErrors }))
@@ -191,7 +193,7 @@ function CreateClientPage() {
       setSubmitError(
         error instanceof Error
           ? error.message
-          : 'Không thể tạo khách hàng. Vui lòng thử lại.'
+          : t('newClient.errorCreateFailed')
       )
     } finally {
       setIsSubmitting(false)
@@ -313,7 +315,7 @@ function CreateClientPage() {
                   'bg-primary text-white hover:bg-primary-dark transition-colors'
                 )}
               >
-                Tiếp tục
+                {t('newClient.continue')}
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
@@ -352,7 +354,7 @@ function CreateClientPage() {
                 )}
               >
                 <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                Quay lại
+                {t('newClient.goBack')}
               </button>
             </div>
           </>
@@ -372,6 +374,7 @@ interface BasicInfoFormProps {
 }
 
 function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }: BasicInfoFormProps) {
+  const { t } = useTranslation()
   const handlePhoneChange = (value: string) => {
     // Allow only digits and common phone characters
     const cleaned = value.replace(/[^\d\s\-()]/g, '')
@@ -380,7 +383,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold text-primary mb-4">Thông tin cơ bản</h2>
+      <h2 className="text-lg font-semibold text-primary mb-4">{t('newClient.basicInfoTitle')}</h2>
 
       {/* Name */}
       <div className="space-y-1.5">
@@ -439,7 +442,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
         </div>
         {data.phone && !errors?.phone && (
           <p className="text-xs text-muted-foreground">
-            Hiển thị: {formatPhone(data.phone)}
+            {t('newClient.phoneDisplay')}: {formatPhone(data.phone)}
           </p>
         )}
         {errors?.phone && <p id="phone-error" className="text-sm text-error" role="alert">{errors.phone}</p>}
@@ -449,7 +452,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
       <div className="space-y-1.5">
         <label htmlFor="client-email" className="block text-sm font-medium text-foreground">
           {UI_TEXT.form.email}
-          <span className="text-muted-foreground ml-1">(không bắt buộc)</span>
+          <span className="text-muted-foreground ml-1">({t('newClient.optional')})</span>
         </label>
         <input
           id="client-email"
@@ -472,7 +475,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
       {/* Tax Year */}
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-foreground">
-          Năm thuế
+          {t('newClient.taxYear')}
           <span className="text-error ml-1">*</span>
         </label>
         <div className="flex gap-2">

@@ -6,6 +6,7 @@
 import { useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare } from 'lucide-react'
 import { api } from '../../lib/api-client'
 
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/messages/')({
 })
 
 function MessagesIndex() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // Fetch conversations to auto-redirect to first one
@@ -41,10 +43,10 @@ function MessagesIndex() {
           <MessageSquare className="w-10 h-10 text-muted-foreground" />
         </div>
         <h2 className="text-lg font-medium text-foreground mb-2">
-          Chọn cuộc hội thoại
+          {t('messages.selectConversation')}
         </h2>
         <p className="text-sm text-muted-foreground max-w-xs">
-          Chọn một cuộc hội thoại từ danh sách bên trái để bắt đầu nhắn tin
+          {t('messages.selectConversationDesc')}
         </p>
       </div>
     </div>

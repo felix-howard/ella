@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   ChevronRight,
@@ -73,6 +74,7 @@ function StatusDot({ status }: { status: ChecklistItemStatus }) {
 
 // Progress dots for header - shows distribution
 export function ProgressDots({ items }: { items: ChecklistItem[] }) {
+  const { t } = useTranslation()
   const counts = useMemo(() => ({
     verified: items.filter(i => i.status === 'VERIFIED').length,
     hasDigital: items.filter(i => i.status === 'HAS_DIGITAL').length,
@@ -82,7 +84,7 @@ export function ProgressDots({ items }: { items: ChecklistItem[] }) {
   }), [items])
 
   return (
-    <div className="flex items-center gap-1" title={`${counts.verified} xác minh, ${counts.hasDigital} trích xuất, ${counts.hasRaw} nhận ảnh, ${counts.missing} thiếu`}>
+    <div className="flex items-center gap-1" title={t('checklist.progressTooltip', { verified: counts.verified, hasDigital: counts.hasDigital, hasRaw: counts.hasRaw, missing: counts.missing })}>
       {counts.verified > 0 && <span className="w-2 h-2 rounded-full bg-success" />}
       {counts.hasDigital > 0 && <span className="w-2 h-2 rounded-full bg-primary" />}
       {counts.hasRaw > 0 && <span className="w-2 h-2 rounded-full bg-warning" />}
@@ -99,6 +101,7 @@ export function DocumentChecklistTree({
   enableDragDrop = false,
   showHeader = true,
 }: DocumentChecklistTreeProps) {
+  const { t } = useTranslation()
   // File viewer modal state
   const [viewerFile, setViewerFile] = useState<{ imageId: string; filename: string } | null>(null)
 
@@ -148,7 +151,7 @@ export function DocumentChecklistTree({
     return (
       <div className="text-center py-8">
         <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Không có tài liệu cần thu thập</p>
+        <p className="text-sm text-muted-foreground">{t('checklist.noDocuments')}</p>
       </div>
     )
   }
@@ -223,6 +226,7 @@ function FileViewerWrapper({
   isOpen: boolean
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const { data: signedUrlData, isLoading, error } = useSignedUrl(imageId, {
     enabled: isOpen,
     staleTime: 55 * 60 * 1000,
@@ -235,7 +239,7 @@ function FileViewerWrapper({
       isOpen={isOpen}
       onClose={onClose}
       isLoading={isLoading}
-      error={error ? 'Không thể tải file' : null}
+      error={error ? t('checklist.cannotLoadFile') : null}
     />
   )
 }
@@ -326,11 +330,12 @@ function DocTypeNode({
   onImageDrop,
   enableDragDrop,
 }: DocTypeNodeProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
 
   const status = item.status as ChecklistItemStatus
-  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
+  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || t('checklist.document')
   const hasFiles = (item.rawImages?.length || 0) > 0
   const canVerify = status === 'HAS_DIGITAL' || status === 'HAS_RAW'
 
@@ -392,7 +397,7 @@ function DocTypeNode({
         {/* File count */}
         {hasFiles && (
           <span className="text-xs text-muted-foreground">
-            {item.rawImages?.length} file
+            {t('checklist.fileCount', { count: item.rawImages?.length })}
           </span>
         )}
 
@@ -404,7 +409,7 @@ function DocTypeNode({
               onVerify?.(item)
             }}
             className="p-1 rounded hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
-            title="Xác minh"
+            title={t('checklist.verify')}
           >
             <Eye className="w-3.5 h-3.5 text-primary" />
           </button>
@@ -435,6 +440,7 @@ interface FileNodeProps {
 }
 
 function FileNode({ image, onOpenFile, enableDragDrop }: FileNodeProps) {
+  const { t } = useTranslation()
   const isPdf = image.filename?.toLowerCase().endsWith('.pdf')
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -456,7 +462,7 @@ function FileNode({ image, onOpenFile, enableDragDrop }: FileNodeProps) {
         'flex items-center gap-2 px-2 py-1 rounded group hover:bg-muted/50 cursor-pointer',
         enableDragDrop && 'cursor-grab active:cursor-grabbing'
       )}
-      title="Double-click để xem file"
+      title={t('checklist.doubleClickToView')}
     >
       {/* File icon */}
       {isPdf ? (
@@ -477,7 +483,7 @@ function FileNode({ image, onOpenFile, enableDragDrop }: FileNodeProps) {
           onOpenFile(image.id, image.filename)
         }}
         className="p-1 rounded hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Xem file"
+        title={t('checklist.viewFile')}
       >
         <Eye className="w-3 h-3 text-primary" />
       </button>

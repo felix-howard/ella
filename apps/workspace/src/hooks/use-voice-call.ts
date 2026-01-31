@@ -5,6 +5,7 @@
  *           incoming call handling, presence tracking
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { api, type CallerLookupResponse } from '../lib/api-client'
 import {
   loadTwilioSdk,
@@ -55,28 +56,27 @@ export interface VoiceCallActions {
   rejectIncoming: () => void
 }
 
-// User-friendly error messages (Vietnamese)
-const ERROR_MESSAGES: Record<string, string> = {
-  NotAllowedError: 'Bạn cần cấp quyền microphone để gọi điện',
-  NotFoundError: 'Không tìm thấy microphone',
-  NotSupportedError: 'Trình duyệt không hỗ trợ gọi điện',
-  OverconstrainedError: 'Không thể truy cập microphone',
-  SecurityError: 'Lỗi bảo mật khi truy cập microphone',
-  AbortError: 'Truy cập microphone bị hủy',
-  InvalidStateError: 'Thiết bị đang được sử dụng',
-  NETWORK_ERROR: 'Lỗi kết nối mạng',
-  TIMEOUT: 'Hết thời gian chờ',
-  default: 'Lỗi cuộc gọi. Vui lòng thử lại',
-}
-
-// Sanitize error to user-friendly message
-function sanitizeError(error: unknown): string {
-  if (!error) return ERROR_MESSAGES.default
+// Get user-friendly error message using i18n
+function getErrorMessage(error: unknown, t: (key: string) => string): string {
+  if (!error) return t('voiceError.default')
 
   const errObj = error as { name?: string; message?: string; code?: string }
   const errorKey = errObj.name || errObj.code || ''
 
-  return ERROR_MESSAGES[errorKey] || ERROR_MESSAGES.default
+  // Map error names to translation keys
+  const keyMap: Record<string, string> = {
+    NotAllowedError: 'voiceError.micPermissionRequired',
+    NotFoundError: 'voiceError.micNotFound',
+    NotSupportedError: 'voiceError.browserNotSupported',
+    OverconstrainedError: 'voiceError.micOverconstrained',
+    SecurityError: 'voiceError.securityError',
+    AbortError: 'voiceError.abortError',
+    InvalidStateError: 'voiceError.invalidState',
+    NETWORK_ERROR: 'voiceError.networkError',
+    TIMEOUT: 'voiceError.timeout',
+  }
+
+  return t(keyMap[errorKey] || 'voiceError.default')
 }
 
 // Check microphone permission using Permission API (avoids opening/closing streams)
@@ -106,6 +106,7 @@ function isTokenValid(expiryTime: number): boolean {
 }
 
 export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
+  const { t } = useTranslation()
   const [isAvailable, setIsAvailable] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [callState, setCallState] = useState<CallState>('idle')
@@ -182,7 +183,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       } catch (e) {
         console.error('[Voice] Init failed:', e)
         if (mounted) {
-          setError(sanitizeError(e))
+          setError(getErrorMessage(e, t))
           setIsAvailable(false)
           setIsLoading(false)
         }
@@ -230,7 +231,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
       // Setup event handlers
       device.on('error', (err: unknown) => {
-        setError(sanitizeError(err))
+        setError(getErrorMessage(err, t))
         setCallState('error')
       })
 
@@ -334,7 +335,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           }, 30000) // 30 second heartbeat
         } catch {
           setIsRegistering(false)
-          toast.error('Không thể đăng ký nhận cuộc gọi', 3000)
+          toast.error(t('voiceError.cannotRegister'), 3000)
         }
       })
 
@@ -404,10 +405,10 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       if (import.meta.env.DEV) {
         console.error('[Voice] Device setup failed:', e)
       }
-      setError(sanitizeError(e))
+      setError(getErrorMessage(e, t))
       return false
     }
-  }, [])
+  }, [t])
 
   // Start duration timer
   const startTimer = useCallback(() => {
@@ -442,7 +443,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         // Check microphone permission first
         const hasMicPermission = await checkMicrophonePermission()
         if (!hasMicPermission) {
-          setError(ERROR_MESSAGES.NotAllowedError)
+          setError(t('voiceError.micPermissionRequired'))
           setCallState('error')
           return
         }
@@ -451,7 +452,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         // This creates Twilio Device and registers it
         const deviceReady = await setupDevice()
         if (!deviceReady || !deviceRef.current) {
-          setError('Không thể khởi tạo cuộc gọi. Vui lòng tải lại trang')
+          setError(t('voiceError.cannotInitCall'))
           setCallState('error')
           return
         }
@@ -463,7 +464,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
             deviceRef.current.updateToken(newToken.token)
             tokenExpiryRef.current = Date.now() + newToken.expiresIn * 1000
           } catch {
-            setError('Không thể làm mới phiên gọi. Vui lòng tải lại trang')
+            setError(t('voiceError.cannotRefreshSession'))
             setCallState('error')
             return
           }
@@ -573,7 +574,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           messageIdRef.current = null
         }
         const errorHandler = (err: unknown) => {
-          setError(sanitizeError(err))
+          setError(getErrorMessage(err, t))
           setCallState('error')
           stopTimer()
           setIsMuted(false)
@@ -605,7 +606,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           { event: 'warning', handler: warningHandler as () => void },
         ]
       } catch (e) {
-        setError(sanitizeError(e))
+        setError(getErrorMessage(e, t))
         setCallState('error')
       }
     },
@@ -709,7 +710,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           const hasMicPermission = await checkMicrophonePermission()
           console.log('[Voice] Microphone permission:', hasMicPermission)
           if (!hasMicPermission) {
-            setError(ERROR_MESSAGES.NotAllowedError)
+            setError(t('voiceError.micPermissionRequired'))
             setIsRegistering(false)
             autoRegisterTriggeredRef.current = false // Allow retry
             return

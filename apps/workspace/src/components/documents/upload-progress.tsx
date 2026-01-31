@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sparkles, FileSearch } from 'lucide-react'
 
 interface UploadProgressProps {
@@ -16,6 +17,7 @@ interface UploadProgressProps {
 const STALE_TIMEOUT_MS = 30000
 
 export function UploadProgress({ processingCount, extractingCount = 0 }: UploadProgressProps) {
+  const { t } = useTranslation()
   const [isStale, setIsStale] = useState(false)
 
   const totalCount = processingCount + extractingCount
@@ -50,7 +52,7 @@ export function UploadProgress({ processingCount, extractingCount = 0 }: UploadP
     <div className="fixed bottom-20 right-6 w-80 bg-card rounded-xl border shadow-lg p-4 z-50">
       <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-warning" />
-        AI đang xử lý
+        {t('uploadProgress.title')}
       </h4>
 
       <div className="space-y-2">
@@ -58,7 +60,7 @@ export function UploadProgress({ processingCount, extractingCount = 0 }: UploadP
           <div className="flex items-center gap-3">
             <Sparkles className="w-4 h-4 text-warning animate-pulse flex-shrink-0" />
             <span className="text-sm text-muted-foreground">
-              Đang phân loại {processingCount} tài liệu...
+              {t('uploadProgress.classifying', { count: processingCount })}
             </span>
           </div>
         )}
@@ -67,14 +69,14 @@ export function UploadProgress({ processingCount, extractingCount = 0 }: UploadP
           <div className="flex items-center gap-3">
             <FileSearch className="w-4 h-4 text-info animate-pulse flex-shrink-0" />
             <span className="text-sm text-muted-foreground">
-              Đang đọc và trích xuất {extractingCount} tài liệu...
+              {t('uploadProgress.extracting', { count: extractingCount })}
             </span>
           </div>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground mt-3">
-        Kết quả sẽ tự động cập nhật
+        {t('uploadProgress.autoUpdate')}
       </p>
     </div>
   )

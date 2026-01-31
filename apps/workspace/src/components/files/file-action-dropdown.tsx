@@ -208,7 +208,7 @@ export function FileActionDropdown({
     },
     onSuccess: (_data, category) => {
       const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
-      toast.success(`Đã chuyển sang "${categoryConfig.labelVi}"`)
+      toast.success(`Đã chuyển sang "${categoryConfig.label}"`)
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       setIsOpen(false)
       setShowCategorySubmenu(false)
@@ -468,7 +468,7 @@ export function FileActionDropdown({
           >
             <Icon className={cn('w-4 h-4', config.textColor)} />
             <span className={isCurrentCategory ? 'font-medium' : ''}>
-              {config.labelVi}
+              {config.label}
             </span>
             {isCurrentCategory && (
               <Check className="w-3.5 h-3.5 ml-auto text-primary" />

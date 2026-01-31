@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   Check,
   X,
@@ -57,14 +58,6 @@ const SUPPORTED_DOC_TYPES = [
   'OTHER',
 ] as const
 
-// Vietnamese toast messages
-const MESSAGES = {
-  CLASSIFY_SUCCESS: 'Đã phân loại thành công',
-  CLASSIFY_ERROR: 'Lỗi phân loại tài liệu',
-  RETRY_SUCCESS: 'Đã gửi yêu cầu phân loại lại',
-  RETRY_ERROR: 'Lỗi khi thử phân loại lại',
-  SKIP_SUCCESS: 'Đã bỏ qua tài liệu',
-}
 
 /**
  * Validate signed URL to prevent XSS attacks
@@ -96,6 +89,7 @@ export function ManualClassificationModal({
   onClose,
   caseId,
 }: ManualClassificationModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -157,7 +151,7 @@ export function ManualClassificationModal({
       return { previousImages }
     },
     onSuccess: () => {
-      toast.success(MESSAGES.CLASSIFY_SUCCESS)
+      toast.success(t('classify.successClassified'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
       queryClient.invalidateQueries({ queryKey: ['docs', caseId] })
@@ -167,7 +161,7 @@ export function ManualClassificationModal({
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error(MESSAGES.CLASSIFY_ERROR)
+      toast.error(t('classify.errorClassify'))
     },
   })
 
@@ -195,7 +189,7 @@ export function ManualClassificationModal({
       return { previousImages }
     },
     onSuccess: () => {
-      toast.success(MESSAGES.RETRY_SUCCESS)
+      toast.success(t('classify.reclassifySent'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       onClose()
     },
@@ -203,7 +197,7 @@ export function ManualClassificationModal({
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error(MESSAGES.RETRY_ERROR)
+      toast.error(t('classify.reclassifyError'))
     },
   })
 
@@ -215,12 +209,12 @@ export function ManualClassificationModal({
         action: 'reject',
       }),
     onSuccess: () => {
-      toast.success(MESSAGES.SKIP_SUCCESS)
+      toast.success(t('classify.docSkipped'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       onClose()
     },
     onError: () => {
-      toast.error(MESSAGES.CLASSIFY_ERROR)
+      toast.error(t('classify.errorClassify'))
     },
   })
 
@@ -229,12 +223,12 @@ export function ManualClassificationModal({
     mutationFn: (newFilename: string) =>
       api.images.rename(image!.id, newFilename),
     onSuccess: () => {
-      toast.success('Đã đổi tên tệp')
+      toast.success(t('classify.fileRenamed'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       setIsEditingFilename(false)
     },
     onError: () => {
-      toast.error('Lỗi đổi tên tệp')
+      toast.error(t('classify.fileRenameError'))
       setEditedFilename(image?.filename || '')
     },
   })
@@ -313,15 +307,15 @@ export function ManualClassificationModal({
                 id="manual-classify-title"
                 className="text-lg font-bold text-foreground"
               >
-                Phân loại thủ công
+                {t('classify.manualClassify')}
               </h2>
               <p className="text-xs text-muted-foreground">
-                AI không thể xác định loại tài liệu
+                {t('classify.aiCannotIdentify')}
               </p>
             </div>
             <div className="flex items-center gap-2 ml-2">
               <Badge variant="outline" className="text-xs font-medium bg-error-light text-error border-error/30">
-                Chưa phân loại
+                {t('classify.unclassified')}
               </Badge>
             </div>
           </div>
@@ -335,13 +329,13 @@ export function ManualClassificationModal({
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-lg transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                Mở trong tab mới
+                {t('classify.openNewTab')}
               </a>
             )}
             <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('classify.close')}
             >
               <X className="w-5 h-5 text-muted-foreground" />
             </button>
@@ -361,7 +355,7 @@ export function ManualClassificationModal({
                 <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
                   <FileQuestion className="w-8 h-8" />
                 </div>
-                <p className="text-sm font-medium">Không thể tải hình ảnh</p>
+                <p className="text-sm font-medium">{t('classify.cannotLoadImage')}</p>
               </div>
             ) : (
               <ImageViewer
@@ -379,7 +373,7 @@ export function ManualClassificationModal({
               {/* Filename with edit */}
             <div>
               <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                Tên tệp
+                {t('classify.filename')}
                 {!isEditingFilename && (
                   <button
                     onClick={() => {
@@ -387,8 +381,8 @@ export function ManualClassificationModal({
                       setIsEditingFilename(true)
                     }}
                     className="p-1 rounded hover:bg-muted transition-colors"
-                    aria-label="Đổi tên"
-                    title="Đổi tên"
+                    aria-label={t('classify.rename')}
+                    title={t('classify.rename')}
                   >
                     <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
@@ -448,7 +442,7 @@ export function ManualClassificationModal({
             {/* DocType Selector */}
             <div>
               <label className="text-sm font-medium text-foreground">
-                Loại tài liệu <span className="text-error">*</span>
+                {t('classify.docType')} <span className="text-error">*</span>
               </label>
               <div className="relative mt-1">
                 <button
@@ -469,7 +463,7 @@ export function ManualClassificationModal({
                   >
                     {selectedDocType
                       ? DOC_TYPE_LABELS[selectedDocType] || selectedDocType
-                      : 'Chọn loại tài liệu...'}
+                      : t('classify.selectDocType')}
                   </span>
                   <ChevronDown
                     className={cn(
@@ -507,12 +501,12 @@ export function ManualClassificationModal({
             <div>
               <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
                 <StickyNote className="w-4 h-4" />
-                Ghi chú (tùy chọn)
+                {t('classify.notesOptional')}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Thêm ghi chú về tài liệu này..."
+                placeholder={t('classify.addNotesPlaceholder')}
                 disabled={isPending}
                 className={cn(
                   'w-full mt-1 px-3 py-2 text-sm',
@@ -549,7 +543,7 @@ export function ManualClassificationModal({
                 ) : (
                   <Check className="w-4 h-4" />
                 )}
-                Phân loại
+                {t('classify.classify')}
               </button>
 
               {/* Secondary Actions */}
@@ -570,7 +564,7 @@ export function ManualClassificationModal({
                   ) : (
                     <RefreshCw className="w-4 h-4" />
                   )}
-                  Thử lại AI
+                  {t('classify.retryAI')}
                 </button>
 
                 {/* Skip */}
@@ -589,13 +583,13 @@ export function ManualClassificationModal({
                   ) : (
                     <X className="w-4 h-4" />
                   )}
-                  Bỏ qua
+                  {t('classify.skip')}
                 </button>
               </div>
 
               {/* Keyboard hint */}
               <p className="text-xs text-muted-foreground text-center mt-3">
-                Enter = Phân loại | Esc = Đóng
+                {t('classify.keyboardHint')}
               </p>
             </div>
           </div>

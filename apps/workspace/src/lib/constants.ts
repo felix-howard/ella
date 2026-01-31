@@ -14,6 +14,9 @@ function translatedLabels(keyMap: Record<string, string>): Record<string, string
     get(_, prop: string) {
       return keyMap[prop] ? i18n.t(keyMap[prop]) : prop
     },
+    has(_, prop: string) {
+      return prop in keyMap
+    },
     ownKeys() {
       return Object.keys(keyMap)
     },
@@ -41,6 +44,9 @@ function translatedNestedObject(keyMap: Record<string, any>): any {
         return translatedNestedObject(value)
       }
       return value
+    },
+    has(_, prop: string) {
+      return prop in keyMap
     },
     ownKeys() {
       return Object.keys(keyMap)

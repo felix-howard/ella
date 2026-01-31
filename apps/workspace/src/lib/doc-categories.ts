@@ -89,6 +89,9 @@ export const DOC_CATEGORIES: Record<DocCategoryKey, DocCategoryConfig> = new Pro
       borderColor: data.borderColor,
     }
   },
+  has(_, prop: string) {
+    return prop in DOC_CATEGORIES_DATA
+  },
   ownKeys() {
     return Object.keys(DOC_CATEGORIES_DATA)
   },
@@ -123,5 +126,5 @@ export function getCategory(key: DocCategoryKey): DocCategoryConfig {
  */
 export function isValidCategory(value: string | null | undefined): value is DocCategoryKey {
   if (!value) return false
-  return value in DOC_CATEGORIES
+  return value in DOC_CATEGORIES_DATA
 }

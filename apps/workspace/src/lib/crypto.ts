@@ -4,6 +4,8 @@
  * Encryption/decryption is handled server-side for security
  */
 
+import i18n from './i18n'
+
 /**
  * Mask SSN for display (e.g., "123-45-6789" -> "***-**-6789")
  * @param ssn - Plain SSN string
@@ -73,28 +75,28 @@ export function getSSNValidationError(ssn: string): string | null {
   const digits = ssn.replace(/\D/g, '')
 
   if (digits.length !== 9) {
-    return 'SSN phải có 9 chữ số'
+    return i18n.t('ssnValidation.mustBe9Digits')
   }
 
   const area = digits.slice(0, 3)
   if (area === '000') {
-    return 'SSN không thể bắt đầu bằng 000'
+    return i18n.t('ssnValidation.cannotStart000')
   }
   if (area === '666') {
-    return 'SSN không thể bắt đầu bằng 666'
+    return i18n.t('ssnValidation.cannotStart666')
   }
   if (area[0] === '9') {
-    return 'SSN không thể bắt đầu bằng 9'
+    return i18n.t('ssnValidation.cannotStart9')
   }
 
   const group = digits.slice(3, 5)
   if (group === '00') {
-    return 'Số nhóm SSN không hợp lệ (00)'
+    return i18n.t('ssnValidation.invalidGroup')
   }
 
   const serial = digits.slice(5, 9)
   if (serial === '0000') {
-    return 'Số serial SSN không hợp lệ (0000)'
+    return i18n.t('ssnValidation.invalidSerial')
   }
 
   return null

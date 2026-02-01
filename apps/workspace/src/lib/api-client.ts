@@ -702,6 +702,18 @@ export const api = {
         method: 'POST',
       }),
   },
+
+  // Staff
+  staff: {
+    me: () =>
+      request<{ id: string; name: string; email: string; role: string; language: Language }>('/staff/me'),
+
+    updateLanguage: (language: Language) =>
+      request<{ id: string; language: Language }>('/staff/me/language', {
+        method: 'PATCH',
+        body: JSON.stringify({ language }),
+      }),
+  },
 }
 
 // Type definitions

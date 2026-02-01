@@ -3,12 +3,13 @@
  * Provides copy function with success/error toast notifications
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../stores/toast-store'
 
 interface UseClipboardOptions {
-  /** Success message to show (default: "Đã copy!") */
+  /** Success message to show (default: from i18n) */
   successMessage?: string
-  /** Error message to show (default: "Không thể copy") */
+  /** Error message to show (default: from i18n) */
   errorMessage?: string
   /** Callback after successful copy */
   onSuccess?: () => void
@@ -68,9 +69,10 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 export function useClipboard(options: UseClipboardOptions = {}): UseClipboardReturn {
+  const { t } = useTranslation()
   const {
-    successMessage = 'Đã copy!',
-    errorMessage = 'Không thể copy',
+    successMessage = t('common.copied'),
+    errorMessage = t('common.copyFailed'),
     onSuccess,
     onError,
   } = options
@@ -78,7 +80,7 @@ export function useClipboard(options: UseClipboardOptions = {}): UseClipboardRet
   const copy = useCallback(
     async (text: string): Promise<boolean> => {
       if (!text) {
-        toast.error('Không có dữ liệu để copy')
+        toast.error(t('common.noCopyData'))
         return false
       }
 
@@ -94,7 +96,7 @@ export function useClipboard(options: UseClipboardOptions = {}): UseClipboardRet
 
       return success
     },
-    [successMessage, errorMessage, onSuccess, onError]
+    [t, successMessage, errorMessage, onSuccess, onError]
   )
 
   const copyFormatted = useCallback(
@@ -104,13 +106,13 @@ export function useClipboard(options: UseClipboardOptions = {}): UseClipboardRet
         .map(([key, value]) => `${key}: ${value}`)
 
       if (lines.length === 0) {
-        toast.error('Không có dữ liệu để copy')
+        toast.error(t('common.noCopyData'))
         return false
       }
 
       return copy(lines.join('\n'))
     },
-    [copy]
+    [t, copy]
   )
 
   return { copy, copyFormatted }

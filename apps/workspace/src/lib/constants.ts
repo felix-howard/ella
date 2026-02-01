@@ -1,69 +1,144 @@
 /**
- * Vietnamese labels and constants for Ella Workspace
- * Centralized translations and UI text
+ * i18n-powered labels and constants for Ella Workspace
+ * Labels are dynamically translated based on current language
  */
 
-// Vietnamese labels for DocType
-export const DOC_TYPE_LABELS: Record<string, string> = {
-  SSN_CARD: 'Thẻ SSN',
-  DRIVER_LICENSE: 'Bằng Lái / ID',
-  PASSPORT: 'Hộ chiếu',
-  W2: 'W2 (Thu nhập từ công việc)',
-  FORM_1099_INT: '1099-INT (Lãi ngân hàng)',
-  FORM_1099_DIV: '1099-DIV (Cổ tức)',
-  FORM_1099_NEC: '1099-NEC (Thu nhập tự do)',
-  FORM_1099_MISC: '1099-MISC',
-  FORM_1099_K: '1099-K (Thu nhập thẻ)',
-  FORM_1099_R: '1099-R (Tiền hưu)',
-  FORM_1099_G: '1099-G (Thanh toán chính phủ)',
-  FORM_1099_SSA: '1099-SSA (An sinh xã hội)',
-  BANK_STATEMENT: 'Sao kê ngân hàng',
-  PROFIT_LOSS_STATEMENT: 'Báo cáo lời lỗ',
-  BUSINESS_LICENSE: 'Giấy phép kinh doanh',
-  EIN_LETTER: 'Thư EIN',
-  FORM_1098: '1098 (Lãi vay nhà)',
-  FORM_1098_T: '1098-T (Học phí)',
-  RECEIPT: 'Hóa đơn / Biên lai',
-  BIRTH_CERTIFICATE: 'Giấy khai sinh',
-  DAYCARE_RECEIPT: 'Hóa đơn daycare',
-  OTHER: 'Khác',
-  UNKNOWN: 'Chưa xác định',
+import i18n from './i18n'
+
+/**
+ * Helper to create a translated label map using Proxy
+ * Returns a proxy that calls i18n.t() when properties are accessed
+ */
+function translatedLabels(keyMap: Record<string, string>): Record<string, string> {
+  return new Proxy({} as Record<string, string>, {
+    get(_, prop: string) {
+      return keyMap[prop] ? i18n.t(keyMap[prop]) : prop
+    },
+    has(_, prop: string) {
+      return prop in keyMap
+    },
+    ownKeys() {
+      return Object.keys(keyMap)
+    },
+    getOwnPropertyDescriptor(_, prop: string) {
+      if (prop in keyMap) {
+        return { configurable: true, enumerable: true, value: i18n.t(keyMap[prop]) }
+      }
+    },
+  })
 }
 
+/**
+ * Helper to create a nested translated object using Proxy
+ * Handles deeply nested objects by recursively creating proxies
+ */
+function translatedNestedObject(keyMap: Record<string, any>): any {
+  return new Proxy({} as any, {
+    get(_, prop: string) {
+      const value = keyMap[prop]
+      if (!value) return undefined
+      if (typeof value === 'string') {
+        return i18n.t(value)
+      }
+      if (typeof value === 'object') {
+        return translatedNestedObject(value)
+      }
+      return value
+    },
+    has(_, prop: string) {
+      return prop in keyMap
+    },
+    ownKeys() {
+      return Object.keys(keyMap)
+    },
+    getOwnPropertyDescriptor(_, prop: string) {
+      if (prop in keyMap) {
+        return { configurable: true, enumerable: true }
+      }
+    },
+  })
+}
+
+// Translated labels for DocType
+export const DOC_TYPE_LABELS: Record<string, string> = translatedLabels({
+  SSN_CARD: 'docType.ssnCard',
+  DRIVER_LICENSE: 'docType.driverLicense',
+  PASSPORT: 'docType.passport',
+  W2: 'docType.w2',
+  FORM_1099_INT: 'docType.form1099Int',
+  FORM_1099_DIV: 'docType.form1099Div',
+  FORM_1099_NEC: 'docType.form1099Nec',
+  FORM_1099_MISC: 'docType.form1099Misc',
+  FORM_1099_K: 'docType.form1099K',
+  FORM_1099_R: 'docType.form1099R',
+  FORM_1099_G: 'docType.form1099G',
+  FORM_1099_SSA: 'docType.form1099Ssa',
+  BANK_STATEMENT: 'docType.bankStatement',
+  PROFIT_LOSS_STATEMENT: 'docType.profitLossStatement',
+  BUSINESS_LICENSE: 'docType.businessLicense',
+  EIN_LETTER: 'docType.einLetter',
+  FORM_1098: 'docType.form1098',
+  FORM_1098_T: 'docType.form1098T',
+  RECEIPT: 'docType.receipt',
+  BIRTH_CERTIFICATE: 'docType.birthCertificate',
+  DAYCARE_RECEIPT: 'docType.daycareReceipt',
+  OTHER: 'docType.other',
+  UNKNOWN: 'docType.unknown',
+})
+
 // Document type categories for tree view organization
-export const DOC_TYPE_CATEGORIES: Record<string, { label: string; docTypes: string[] }> = {
+const DOC_TYPE_CATEGORIES_DATA: Record<string, { labelKey: string; docTypes: string[] }> = {
   personal: {
-    label: 'Giấy tờ cá nhân',
+    labelKey: 'docCategory.personal',
     docTypes: ['SSN_CARD', 'DRIVER_LICENSE', 'PASSPORT', 'BIRTH_CERTIFICATE'],
   },
   income: {
-    label: 'Thu nhập',
+    labelKey: 'docCategory.income',
     docTypes: ['W2', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA'],
   },
   deductions: {
-    label: 'Chi phí & Khấu trừ',
+    labelKey: 'docCategory.deductions',
     docTypes: ['FORM_1098', 'FORM_1098_T', 'RECEIPT', 'DAYCARE_RECEIPT'],
   },
   business: {
-    label: 'Doanh nghiệp',
+    labelKey: 'docCategory.business',
     docTypes: ['PROFIT_LOSS_STATEMENT', 'BUSINESS_LICENSE', 'EIN_LETTER', 'BANK_STATEMENT'],
   },
   other: {
-    label: 'Khác',
+    labelKey: 'docCategory.other',
     docTypes: ['OTHER', 'UNKNOWN'],
   },
 }
 
-// Vietnamese labels for TaxCaseStatus
-export const CASE_STATUS_LABELS: Record<string, string> = {
-  INTAKE: 'Tiếp nhận',
-  WAITING_DOCS: 'Chờ tài liệu',
-  IN_PROGRESS: 'Đang xử lý',
-  READY_FOR_ENTRY: 'Sẵn sàng nhập liệu',
-  ENTRY_COMPLETE: 'Đã nhập liệu',
-  REVIEW: 'Đang kiểm tra',
-  FILED: 'Đã nộp',
-}
+export const DOC_TYPE_CATEGORIES: Record<string, { label: string; docTypes: string[] }> = new Proxy({} as Record<string, { label: string; docTypes: string[] }>, {
+  get(_, prop: string) {
+    const data = DOC_TYPE_CATEGORIES_DATA[prop]
+    if (!data) return undefined
+    return {
+      label: i18n.t(data.labelKey),
+      docTypes: data.docTypes,
+    }
+  },
+  ownKeys() {
+    return Object.keys(DOC_TYPE_CATEGORIES_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in DOC_TYPE_CATEGORIES_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+})
+
+// Translated labels for TaxCaseStatus
+export const CASE_STATUS_LABELS: Record<string, string> = translatedLabels({
+  INTAKE: 'caseStatus.intake',
+  WAITING_DOCS: 'caseStatus.waitingDocs',
+  IN_PROGRESS: 'caseStatus.inProgress',
+  READY_FOR_ENTRY: 'caseStatus.readyForEntry',
+  ENTRY_COMPLETE: 'caseStatus.entryComplete',
+  REVIEW: 'caseStatus.review',
+  FILED: 'caseStatus.filed',
+})
 
 // Status colors for UI
 export const CASE_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -76,14 +151,14 @@ export const CASE_STATUS_COLORS: Record<string, { bg: string; text: string; bord
   FILED: { bg: 'bg-success/10', text: 'text-success', border: 'border-success' },
 }
 
-// Vietnamese labels for ChecklistItemStatus
-export const CHECKLIST_STATUS_LABELS: Record<string, string> = {
-  MISSING: 'Thiếu',
-  HAS_RAW: 'Đã nhận ảnh',
-  HAS_DIGITAL: 'Đã trích xuất',
-  VERIFIED: 'Đã xác minh',
-  NOT_REQUIRED: 'Không cần',
-}
+// Translated labels for ChecklistItemStatus
+export const CHECKLIST_STATUS_LABELS: Record<string, string> = translatedLabels({
+  MISSING: 'checklistStatus.missing',
+  HAS_RAW: 'checklistStatus.hasRaw',
+  HAS_DIGITAL: 'checklistStatus.hasDigital',
+  VERIFIED: 'checklistStatus.verified',
+  NOT_REQUIRED: 'checklistStatus.notRequired',
+})
 
 // Checklist status colors
 export const CHECKLIST_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -94,15 +169,15 @@ export const CHECKLIST_STATUS_COLORS: Record<string, { bg: string; text: string 
   NOT_REQUIRED: { bg: 'bg-muted', text: 'text-muted-foreground' },
 }
 
-// Vietnamese labels for ActionType
-export const ACTION_TYPE_LABELS: Record<string, string> = {
-  VERIFY_DOCS: 'Xác minh tài liệu',
-  AI_FAILED: 'AI không nhận diện được',
-  BLURRY_DETECTED: 'Ảnh bị mờ',
-  READY_FOR_ENTRY: 'Sẵn sàng nhập liệu',
-  REMINDER_DUE: 'Cần gửi nhắc nhở',
-  CLIENT_REPLIED: 'Khách hàng trả lời',
-}
+// Translated labels for ActionType
+export const ACTION_TYPE_LABELS: Record<string, string> = translatedLabels({
+  VERIFY_DOCS: 'actionType.verifyDocs',
+  AI_FAILED: 'actionType.aiFailed',
+  BLURRY_DETECTED: 'actionType.blurryDetected',
+  READY_FOR_ENTRY: 'actionType.readyForEntry',
+  REMINDER_DUE: 'actionType.reminderDue',
+  CLIENT_REPLIED: 'actionType.clientReplied',
+})
 
 // Action type colors
 export const ACTION_TYPE_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
@@ -114,13 +189,13 @@ export const ACTION_TYPE_COLORS: Record<string, { bg: string; text: string; icon
   CLIENT_REPLIED: { bg: 'bg-success/10', text: 'text-success', icon: 'MessageCircle' },
 }
 
-// Vietnamese labels for ActionPriority
-export const ACTION_PRIORITY_LABELS: Record<string, string> = {
-  URGENT: 'Khẩn cấp',
-  HIGH: 'Cao',
-  NORMAL: 'Bình thường',
-  LOW: 'Thấp',
-}
+// Translated labels for ActionPriority
+export const ACTION_PRIORITY_LABELS: Record<string, string> = translatedLabels({
+  URGENT: 'actionPriority.urgent',
+  HIGH: 'actionPriority.high',
+  NORMAL: 'actionPriority.normal',
+  LOW: 'actionPriority.low',
+})
 
 // Priority colors
 export const ACTION_PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -130,27 +205,27 @@ export const ACTION_PRIORITY_COLORS: Record<string, { bg: string; text: string }
   LOW: { bg: 'bg-muted', text: 'text-muted-foreground' },
 }
 
-// Vietnamese labels for TaxType
-export const TAX_TYPE_LABELS: Record<string, string> = {
-  FORM_1040: '1040 (Cá nhân)',
-  FORM_1120S: '1120S (S-Corp)',
-  FORM_1065: '1065 (Partnership)',
-}
+// Translated labels for TaxType
+export const TAX_TYPE_LABELS: Record<string, string> = translatedLabels({
+  FORM_1040: 'taxType.form1040',
+  FORM_1120S: 'taxType.form1120s',
+  FORM_1065: 'taxType.form1065',
+})
 
-// Vietnamese labels for Language
-export const LANGUAGE_LABELS: Record<string, string> = {
-  VI: 'Tiếng Việt',
-  EN: 'English',
-}
+// Translated labels for Language
+export const LANGUAGE_LABELS: Record<string, string> = translatedLabels({
+  VI: 'language.vi',
+  EN: 'language.en',
+})
 
-// Vietnamese labels for FilingStatus
-export const FILING_STATUS_LABELS: Record<string, string> = {
-  SINGLE: 'Độc thân',
-  MARRIED_FILING_JOINTLY: 'Vợ chồng khai chung',
-  MARRIED_FILING_SEPARATELY: 'Vợ chồng khai riêng',
-  HEAD_OF_HOUSEHOLD: 'Chủ hộ',
-  QUALIFYING_WIDOW: 'Góa phụ có con',
-}
+// Translated labels for FilingStatus
+export const FILING_STATUS_LABELS: Record<string, string> = translatedLabels({
+  SINGLE: 'filingStatus.single',
+  MARRIED_FILING_JOINTLY: 'filingStatus.marriedFilingJointly',
+  MARRIED_FILING_SEPARATELY: 'filingStatus.marriedFilingSeparately',
+  HEAD_OF_HOUSEHOLD: 'filingStatus.headOfHousehold',
+  QUALIFYING_WIDOW: 'filingStatus.qualifyingWidow',
+})
 
 // AI Classification thresholds
 // Used for determining when documents need manual review
@@ -163,11 +238,30 @@ export const AI_CONFIDENCE_THRESHOLDS = {
 
 // AI Classification confidence level config
 // Used for confidence badges in image gallery and review workflow
-export const CONFIDENCE_LEVELS = {
-  HIGH: { min: AI_CONFIDENCE_THRESHOLDS.HIGH, label: 'Cao', color: 'text-success', bg: 'bg-success/10' },
-  MEDIUM: { min: AI_CONFIDENCE_THRESHOLDS.MEDIUM, label: 'Trung bình', color: 'text-warning', bg: 'bg-warning/10' },
-  LOW: { min: 0, label: 'Thấp', color: 'text-error', bg: 'bg-error/10' },
+const CONFIDENCE_LEVELS_DATA = {
+  HIGH: { min: AI_CONFIDENCE_THRESHOLDS.HIGH, labelKey: 'confidenceLevel.high', color: 'text-success', bg: 'bg-success/10' },
+  MEDIUM: { min: AI_CONFIDENCE_THRESHOLDS.MEDIUM, labelKey: 'confidenceLevel.medium', color: 'text-warning', bg: 'bg-warning/10' },
+  LOW: { min: 0, labelKey: 'confidenceLevel.low', color: 'text-error', bg: 'bg-error/10' },
 } as const
+
+export const CONFIDENCE_LEVELS = new Proxy({} as typeof CONFIDENCE_LEVELS_DATA, {
+  get(_, prop: string) {
+    const data = CONFIDENCE_LEVELS_DATA[prop as keyof typeof CONFIDENCE_LEVELS_DATA]
+    if (!data) return undefined
+    return {
+      ...data,
+      label: i18n.t(data.labelKey),
+    }
+  },
+  ownKeys() {
+    return Object.keys(CONFIDENCE_LEVELS_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in CONFIDENCE_LEVELS_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+}) as typeof CONFIDENCE_LEVELS_DATA
 
 /**
  * Check if classification needs manual review based on confidence
@@ -190,167 +284,201 @@ export function getConfidenceLevel(confidence: number | null) {
 }
 
 // Sidebar navigation items
-export const NAV_ITEMS = [
-  { path: '/', label: 'Tổng quan', icon: 'LayoutDashboard' },
-  { path: '/clients', label: 'Khách hàng', icon: 'Users' },
-  { path: '/messages', label: 'Tin nhắn', icon: 'MessageSquare' },
-  { path: '/settings', label: 'Cài đặt', icon: 'Settings' },
+const NAV_ITEMS_DATA = [
+  { path: '/', labelKey: 'nav.dashboard', icon: 'LayoutDashboard' },
+  { path: '/clients', labelKey: 'nav.clients', icon: 'Users' },
+  { path: '/messages', labelKey: 'nav.messages', icon: 'MessageSquare' },
+  { path: '/settings', labelKey: 'nav.settings', icon: 'Settings' },
 ] as const
 
-/** Action badge labels (Vietnamese) for client list action indicators */
-export const ACTION_BADGE_LABELS = {
-  missing: 'thiếu',
-  verify: 'cần xác minh',
-  entry: 'cần nhập',
-  stale: 'không hoạt động',
-  ready: 'Sẵn sàng',
-  'new-activity': 'Mới',
-} as const
+export const NAV_ITEMS = new Proxy([] as any, {
+  get(_, prop: string | symbol) {
+    if (prop === 'length') return NAV_ITEMS_DATA.length
+    if (typeof prop === 'symbol' || prop === 'constructor') return (NAV_ITEMS_DATA as any)[prop]
+    const index = Number(prop)
+    if (!isNaN(index) && index >= 0 && index < NAV_ITEMS_DATA.length) {
+      const item = NAV_ITEMS_DATA[index]
+      return { ...item, label: i18n.t(item.labelKey) }
+    }
+    return (NAV_ITEMS_DATA as any)[prop]
+  },
+  ownKeys() {
+    return Object.keys(NAV_ITEMS_DATA)
+  },
+}) as readonly { path: string; label: string; icon: string }[]
 
-/** Action badge ARIA labels (Vietnamese) for accessibility */
-export const ACTION_BADGE_ARIA_LABELS = {
-  missing: 'Tài liệu còn thiếu',
-  verify: 'Tài liệu cần xác minh',
-  entry: 'Tài liệu cần nhập liệu',
-  stale: 'Hồ sơ không hoạt động',
-  ready: 'Sẵn sàng kiểm tra',
-  'new-activity': 'Có hoạt động mới',
-} as const
+/** Action badge labels for client list action indicators */
+export const ACTION_BADGE_LABELS = translatedLabels({
+  missing: 'actionBadge.missing',
+  verify: 'actionBadge.verify',
+  entry: 'actionBadge.entry',
+  stale: 'actionBadge.stale',
+  ready: 'actionBadge.ready',
+  'new-activity': 'actionBadge.newActivity',
+})
+
+/** Action badge ARIA labels for accessibility */
+export const ACTION_BADGE_ARIA_LABELS = translatedLabels({
+  missing: 'actionBadgeAria.missing',
+  verify: 'actionBadgeAria.verify',
+  entry: 'actionBadgeAria.entry',
+  stale: 'actionBadgeAria.stale',
+  ready: 'actionBadgeAria.ready',
+  'new-activity': 'actionBadgeAria.newActivity',
+})
 
 /** Time format strings for localization */
 export const TIME_FORMATS = {
   /** Days abbreviation (e.g., "7d" for 7 days) */
   daysShort: (days: number) => `${days}d`,
-  /** Days full (Vietnamese) */
-  daysFull: (days: number) => `${days} ngày`,
+  /** Days full with translation */
+  daysFull: (days: number) => i18n.t('timeFormat.daysFull', { days }),
 } as const
 
 /** Stale threshold for activity tracking (days without activity) */
 export const STALE_THRESHOLD_DAYS = 7 as const
 
 // Sort options for client list
-export const CLIENT_SORT_OPTIONS = [
-  { value: 'activity', label: 'Hoạt động gần nhất' },
-  { value: 'stale', label: 'Lâu không hoạt động' },
-  { value: 'name', label: 'Tên A-Z' },
+const CLIENT_SORT_OPTIONS_DATA = [
+  { value: 'activity' as const, labelKey: 'clientSort.activity' },
+  { value: 'stale' as const, labelKey: 'clientSort.stale' },
+  { value: 'name' as const, labelKey: 'clientSort.name' },
 ] as const
 
-export type ClientSortOption = typeof CLIENT_SORT_OPTIONS[number]['value']
+export type ClientSortOption = typeof CLIENT_SORT_OPTIONS_DATA[number]['value']
 
-// Common UI text
-export const UI_TEXT = {
+export const CLIENT_SORT_OPTIONS = new Proxy([] as any, {
+  get(_, prop: string | symbol) {
+    if (prop === 'length') return CLIENT_SORT_OPTIONS_DATA.length
+    if (typeof prop === 'symbol' || prop === 'constructor') return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
+    const index = Number(prop)
+    if (!isNaN(index) && index >= 0 && index < CLIENT_SORT_OPTIONS_DATA.length) {
+      const item = CLIENT_SORT_OPTIONS_DATA[index]
+      return { value: item.value, label: i18n.t(item.labelKey) }
+    }
+    return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
+  },
+  ownKeys() {
+    return Object.keys(CLIENT_SORT_OPTIONS_DATA)
+  },
+}) as readonly { value: ClientSortOption; label: string }[]
+
+// Common UI text - i18n powered
+const UI_TEXT_KEYS = {
   // General
-  loading: 'Đang tải...',
-  error: 'Đã có lỗi xảy ra',
-  retry: 'Thử lại',
-  save: 'Lưu',
-  cancel: 'Hủy',
-  delete: 'Xóa',
-  edit: 'Sửa',
-  create: 'Tạo mới',
-  search: 'Tìm kiếm...',
-  noData: 'Không có dữ liệu',
-  confirm: 'Xác nhận',
-  logout: 'Đăng xuất',
-  notifications: 'Thông báo',
-  addClient: 'Thêm khách',
+  loading: 'common.loading',
+  error: 'common.error',
+  retry: 'common.retry',
+  save: 'common.save',
+  cancel: 'common.cancel',
+  delete: 'common.delete',
+  edit: 'common.edit',
+  create: 'common.create',
+  search: 'common.search',
+  noData: 'common.noData',
+  confirm: 'common.confirm',
+  logout: 'common.logout',
+  notifications: 'common.notifications',
+  addClient: 'common.addClient',
 
   // Dashboard
   dashboard: {
-    greeting: 'Xin chào',
-    greetingSubtext: 'Đây là tổng quan công việc hôm nay của bạn',
-    todaySummary: 'Hôm nay',
-    pendingActions: 'Việc cần làm',
-    newClients: 'Khách hàng mới',
-    docsReceived: 'Tài liệu đã nhận',
-    blurryDocs: 'Ảnh bị mờ',
-    quickActions: 'Thao tác nhanh',
-    recentActivity: 'Hoạt động gần đây',
-    noRecentActivity: 'Chưa có hoạt động nào gần đây',
+    greeting: 'dashboard.greeting',
+    greetingSubtext: 'dashboard.greetingSubtext',
+    todaySummary: 'dashboard.todaySummary',
+    pendingActions: 'dashboard.pendingActions',
+    newClients: 'dashboard.newClients',
+    docsReceived: 'dashboard.docsReceived',
+    blurryDocs: 'dashboard.blurryDocs',
+    quickActions: 'dashboard.quickActions',
+    recentActivity: 'dashboard.recentActivity',
+    noRecentActivity: 'dashboard.noRecentActivity',
   },
 
   // Quick Actions
   quickAction: {
-    addClient: 'Thêm khách hàng',
-    viewActions: 'Xem việc cần làm',
-    verifyDocs: 'Xác minh tài liệu',
-    handleBlurry: 'Xử lý ảnh mờ',
+    addClient: 'quickAction.addClient',
+    viewActions: 'quickAction.viewActions',
+    verifyDocs: 'quickAction.verifyDocs',
+    handleBlurry: 'quickAction.handleBlurry',
   },
 
   // Clients
   clients: {
-    title: 'Khách hàng',
-    newClient: 'Thêm khách hàng',
-    noClients: 'Chưa có khách hàng nào',
-    noClientsHint: 'Thêm khách hàng mới để bắt đầu',
-    noCase: 'Chưa có hồ sơ',
-    searchPlaceholder: 'Tìm theo tên hoặc số điện thoại...',
-    viewKanban: 'Xem Kanban',
-    viewList: 'Xem danh sách',
-    backToList: 'Quay lại danh sách',
-    count: 'khách hàng',
-    personalInfo: 'Thông tin cá nhân',
-    taxProfile: 'Hồ sơ thuế',
-    checklistTitle: 'Danh sách tài liệu',
+    title: 'clients.title',
+    newClient: 'clients.newClient',
+    noClients: 'clients.noClients',
+    noClientsHint: 'clients.noClientsHint',
+    noCase: 'clients.noCase',
+    searchPlaceholder: 'clients.searchPlaceholder',
+    viewKanban: 'clients.viewKanban',
+    viewList: 'clients.viewList',
+    backToList: 'clients.backToList',
+    count: 'clients.count',
+    personalInfo: 'clients.personalInfo',
+    taxProfile: 'clients.taxProfile',
+    checklistTitle: 'clients.checklistTitle',
     tabs: {
-      overview: 'Tổng quan',
-      documents: 'Tài liệu',
-      messages: 'Tin nhắn',
+      overview: 'clientsTabs.overview',
+      documents: 'clientsTabs.documents',
+      messages: 'clientsTabs.messages',
     },
   },
 
   // Kanban
   kanban: {
-    noClients: 'Không có khách hàng',
+    noClients: 'kanban.noClients',
   },
 
   // Actions
   actions: {
-    title: 'Việc cần làm',
-    noActions: 'Không có việc nào cần làm',
-    markComplete: 'Đánh dấu hoàn thành',
-    complete: 'Hoàn thành',
-    viewDetail: 'Xem chi tiết',
-    refresh: 'Làm mới',
-    filterBy: 'Lọc theo',
-    typeFilter: 'Loại',
-    priorityFilter: 'Mức độ',
-    all: 'Tất cả',
-    allDone: 'Tất cả công việc đã được hoàn thành!',
-    pendingCount: 'việc cần làm',
+    title: 'actions.title',
+    noActions: 'actions.noActions',
+    markComplete: 'actions.markComplete',
+    complete: 'actions.complete',
+    viewDetail: 'actions.viewDetail',
+    refresh: 'actions.refresh',
+    filterBy: 'actions.filterBy',
+    typeFilter: 'actions.typeFilter',
+    priorityFilter: 'actions.priorityFilter',
+    all: 'actions.all',
+    allDone: 'actions.allDone',
+    pendingCount: 'actions.pendingCount',
   },
 
   // Forms
   form: {
-    clientName: 'Tên khách hàng',
-    phone: 'Số điện thoại',
-    email: 'Email',
-    language: 'Ngôn ngữ',
-    taxYear: 'Năm thuế',
-    taxTypes: 'Loại tờ khai',
-    filingStatus: 'Tình trạng hôn nhân',
-    required: 'Bắt buộc',
+    clientName: 'form.clientName',
+    phone: 'form.phone',
+    email: 'form.email',
+    language: 'form.language',
+    taxYear: 'form.taxYear',
+    taxTypes: 'form.taxTypes',
+    filingStatus: 'form.filingStatus',
+    required: 'form.required',
   },
 
   // Error boundary
   errorBoundary: {
-    title: 'Đã có lỗi xảy ra',
-    message: 'Xin lỗi, ứng dụng gặp sự cố. Vui lòng thử lại.',
-    retry: 'Thử lại',
+    title: 'errorBoundary.title',
+    message: 'errorBoundary.message',
+    retry: 'errorBoundary.retry',
   },
 
   // Staff info (placeholder)
   staff: {
-    defaultName: 'Nhân viên',
-    defaultEmail: 'staff@ella.app',
+    defaultName: 'staff.defaultName',
+    defaultEmail: 'staff.defaultEmail',
   },
 
   // Settings
   settings: {
-    title: 'Cài đặt',
-    appearance: 'Giao diện',
-    theme: 'Chế độ màu',
-    lightMode: 'Sáng',
-    darkMode: 'Tối',
+    title: 'settings.title',
+    appearance: 'settings.appearance',
+    theme: 'settings.theme',
+    lightMode: 'settings.lightMode',
+    darkMode: 'settings.darkMode',
   },
 }
+
+export const UI_TEXT = translatedNestedObject(UI_TEXT_KEYS)

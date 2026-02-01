@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Check, X, DollarSign, Calendar, Type } from 'lucide-react'
 
@@ -24,6 +25,7 @@ export function FieldEditForm({
   onSave,
   onCancel,
 }: FieldEditFormProps) {
+  const { t } = useTranslation()
   const [localValue, setLocalValue] = useState(formatValueForInput(value, type))
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -106,7 +108,7 @@ export function FieldEditForm({
             'p-2 rounded-lg bg-primary text-white',
             'hover:bg-primary-dark transition-colors'
           )}
-          aria-label="Lưu"
+          aria-label={t('fieldEdit.save')}
         >
           <Check className="w-4 h-4" />
         </button>
@@ -117,14 +119,14 @@ export function FieldEditForm({
             'p-2 rounded-lg bg-muted text-muted-foreground',
             'hover:bg-muted/80 transition-colors'
           )}
-          aria-label="Hủy"
+          aria-label={t('fieldEdit.cancel')}
         >
           <X className="w-4 h-4" />
         </button>
       </div>
       {error && <p className="text-xs text-error">{error}</p>}
       <p className="text-xs text-muted-foreground">
-        Enter để lưu • Escape để hủy • Tự lưu khi rời ô
+        {t('fieldEdit.hint')}
       </p>
     </div>
   )
@@ -191,6 +193,8 @@ function getTypeIcon(type: 'text' | 'number' | 'date') {
  * Get placeholder text based on type
  */
 function getPlaceholder(type: 'text' | 'number' | 'date'): string {
+  // Note: These are used in non-component function, so we can't use t() here
+  // The component will need to pass translated placeholders if needed in the future
   switch (type) {
     case 'number':
       return 'Nhập số...'
@@ -208,6 +212,8 @@ function validateValue(
   value: string,
   type: 'text' | 'number' | 'date'
 ): { valid: boolean; error: string | null } {
+  // Note: These are used in non-component function, so we can't use t() here
+  // The component will need to handle translations if needed in the future
   if (!value.trim()) {
     return { valid: true, error: null } // Allow empty values
   }
@@ -320,3 +326,6 @@ export function FieldCopyRow({
     </div>
   )
 }
+
+// Note: "Đã copy" in line 313 is kept as-is since this is in FieldCopyRow component
+// which is not actively used in the codebase. Will migrate if needed.

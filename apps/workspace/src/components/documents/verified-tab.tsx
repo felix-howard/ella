@@ -4,6 +4,7 @@
  * Each row shows doc type, verification date, entry progress, and actions
  */
 
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   CheckCircle,
@@ -25,6 +26,7 @@ export function VerifiedTab({
   isLoading,
   onDataEntry,
 }: VerifiedTabProps) {
+  const { t } = useTranslation()
   // caseId reserved for future batch export operations
   void _caseId
 
@@ -43,10 +45,10 @@ export function VerifiedTab({
           aria-hidden="true"
         />
         <h3 className="text-base font-medium text-foreground mb-2">
-          Chưa có tài liệu đã xác minh
+          {t('verified.noDocuments')}
         </h3>
         <p className="text-sm text-muted-foreground">
-          Các tài liệu sau khi xác minh sẽ xuất hiện ở đây để nhập liệu vào OltPro
+          {t('verified.noDocumentsDesc')}
         </p>
       </div>
     )
@@ -57,7 +59,7 @@ export function VerifiedTab({
       {/* Summary */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {verifiedDocs.length} tài liệu đã xác minh
+          {t('verified.documentsCount', { count: verifiedDocs.length })}
         </p>
       </div>
 
@@ -65,9 +67,9 @@ export function VerifiedTab({
       <div className="bg-card rounded-xl border overflow-hidden">
         {/* Table Header */}
         <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
-          <div className="col-span-5">Loại tài liệu</div>
-          <div className="col-span-4">Ngày xác minh</div>
-          <div className="col-span-3 text-right">Thao tác</div>
+          <div className="col-span-5">{t('verified.docType')}</div>
+          <div className="col-span-4">{t('verified.verifiedDate')}</div>
+          <div className="col-span-3 text-right">{t('verified.actions')}</div>
         </div>
 
         {/* Table Body */}
@@ -94,6 +96,7 @@ function VerifiedDocRow({
   doc,
   onDataEntry,
 }: VerifiedDocRowProps) {
+  const { t } = useTranslation()
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
   const verifiedDate = doc.updatedAt
     ? new Date(doc.updatedAt).toLocaleDateString('vi-VN', {
@@ -131,10 +134,10 @@ function VerifiedDocRow({
           <button
             onClick={onDataEntry}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
-            aria-label="Mở Data Entry"
+            aria-label={t('verified.dataEntry')}
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            Nhập liệu
+            {t('verified.dataEntry')}
           </button>
         )}
       </div>

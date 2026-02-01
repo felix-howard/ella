@@ -69,7 +69,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
     onSuccess: (_data, { category }) => {
       const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
-      toast.success(`Đã chuyển sang "${categoryConfig.labelVi}"`)
+      toast.success(`Đã chuyển sang "${categoryConfig.label}"`)
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
     },
     onError: (_error, _vars, context) => {

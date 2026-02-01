@@ -3,6 +3,7 @@
  * Top bar with search, notifications, and quick actions
  */
 import { Search, Bell, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
 import { useUIStore } from '../../stores/ui-store'
 import { cn } from '@ella/ui'
@@ -15,6 +16,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, showSearch = true, actions }: HeaderProps) {
+  const { t } = useTranslation()
   const { globalSearch, setGlobalSearch, sidebarCollapsed } = useUIStore()
 
   // Temporarily hidden - remove this line to show header again
@@ -38,7 +40,7 @@ export function Header({ title, showSearch = true, actions }: HeaderProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Tìm kiếm..."
+              placeholder={t('common.search') + '...'}
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -54,19 +56,19 @@ export function Header({ title, showSearch = true, actions }: HeaderProps) {
         {/* Notifications */}
         <button
           className="relative p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label="Thông báo"
-          title="Thông báo"
+          aria-label={t('common.notifications')}
+          title={t('common.notifications')}
         >
           <Bell className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
           {/* Notification badge */}
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" aria-label="Có thông báo mới" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" aria-label={t('header.hasNewNotifications')} />
         </button>
 
         {/* Quick add client */}
         <Link to="/">
           <Button size="sm" className="gap-2">
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Thêm khách</span>
+            <span className="hidden sm:inline">{t('common.addClient')}</span>
           </Button>
         </Link>
       </div>

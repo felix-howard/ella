@@ -5,10 +5,10 @@
  * Uses global toast for success/error notifications
  */
 import { useRef, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { portalApi, type UploadResponse, ApiError } from '../lib/api-client'
-import { getText, type Language } from '../lib/i18n'
 import { toast } from '../lib/toast-store'
 
 // Hidden validation - user doesn't see these limits
@@ -17,18 +17,16 @@ const VALID_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'appl
 
 interface SimpleUploaderProps {
   token: string
-  language: Language
   onUploadComplete: (result: UploadResponse) => void
   onError: (message: string) => void
 }
 
 export function SimpleUploader({
   token,
-  language,
   onUploadComplete,
   onError,
 }: SimpleUploaderProps) {
-  const t = getText(language)
+  const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [uploading, setUploading] = useState(false)
@@ -62,8 +60,9 @@ export function SimpleUploader({
 
       // All files rejected - show error toast
       if (validFiles.length === 0) {
-        toast.error(t.invalidFileType)
-        onError(t.invalidFileType)
+        const errorMsg = t('portal.invalidFileType')
+        toast.error(errorMsg)
+        onError(errorMsg)
         return
       }
 
@@ -82,10 +81,10 @@ export function SimpleUploader({
         )
 
         // Show success toast
-        toast.success(t.uploadedSuccess)
+        toast.success(t('portal.uploadedSuccess'))
         onUploadComplete(result)
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : t.errorUploading
+        const message = err instanceof ApiError ? err.message : t('portal.errorUploading')
         toast.error(message)
         onError(message)
       } finally {
@@ -97,7 +96,7 @@ export function SimpleUploader({
   )
 
   return (
-    <div className="space-y-4" role="region" aria-label={t.uploadTitle}>
+    <div className="space-y-4" role="region" aria-label={t('portal.uploadTitle')}>
       {/* Hidden native file input - triggers OS picker */}
       <input
         ref={inputRef}
@@ -137,17 +136,17 @@ export function SimpleUploader({
         disabled={uploading}
         className="w-full h-16 text-lg gap-3 rounded-2xl"
         size="lg"
-        aria-label={uploading ? t.uploading : t.tapToUpload}
+        aria-label={uploading ? t('portal.uploading') : t('portal.tapToUpload')}
       >
         {uploading ? (
           <>
             <Loader2 className="w-6 h-6 animate-spin" aria-hidden="true" />
-            {t.uploading}
+            {t('portal.uploading')}
           </>
         ) : (
           <>
             <Upload className="w-6 h-6" aria-hidden="true" />
-            {t.tapToUpload}
+            {t('portal.tapToUpload')}
           </>
         )}
       </Button>

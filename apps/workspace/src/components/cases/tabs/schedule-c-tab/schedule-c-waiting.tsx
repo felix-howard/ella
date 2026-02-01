@@ -3,6 +3,7 @@
  * Displays magic link status and prefilled income
  */
 import { Send, Eye, Clock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ScheduleCExpense, ScheduleCMagicLink, NecBreakdownItem } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
@@ -17,6 +18,8 @@ interface ScheduleCWaitingProps {
 }
 
 export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = [] }: ScheduleCWaitingProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="bg-card rounded-xl border border-border p-6 space-y-6">
       {/* Header with Status */}
@@ -33,7 +36,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
             <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">Form đã gửi</p>
+            <p className="text-sm font-medium text-foreground">{t('scheduleC.formSentTimeline')}</p>
             <p className="text-xs text-muted-foreground">
               {formatDateTime(expense.createdAt, 'DATETIME_FULL')}
             </p>
@@ -43,7 +46,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
         {/* No magic link fallback */}
         {!magicLink && (
           <p className="text-xs text-muted-foreground italic">
-            Link đã hết hạn hoặc không khả dụng. Nhấn "Gửi lại link" để tạo link mới.
+            {t('scheduleC.linkExpiredOrUnavailable')}
           </p>
         )}
 
@@ -55,10 +58,10 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">
-                Đã truy cập {magicLink.usageCount} lần
+                {t('scheduleC.timelineAccessed', { count: magicLink.usageCount })}
               </p>
               <p className="text-xs text-muted-foreground">
-                Lần cuối: {formatDateTime(magicLink.lastUsedAt, 'SHORT_DATETIME')}
+                {t('scheduleC.timelineLastAccess', { datetime: formatDateTime(magicLink.lastUsedAt, 'SHORT_DATETIME') })}
               </p>
             </div>
           </div>
@@ -71,7 +74,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
               <Clock className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Hết hạn</p>
+              <p className="text-sm font-medium text-foreground">{t('scheduleC.linkExpired')}</p>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(magicLink.expiresAt, 'DATE_ONLY')}
               </p>
@@ -83,14 +86,14 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
       {/* Waiting Notice */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
         <p className="text-sm text-amber-800 dark:text-amber-200">
-          Khách hàng chưa gửi form. Đợi khách hàng điền chi phí kinh doanh.
+          {t('scheduleC.waitingNotice')}
         </p>
       </div>
 
       {/* Prefilled Income */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Thu nhập đã điền sẵn (từ 1099-NEC)
+          {t('scheduleC.prefilledIncome')}
         </h3>
         <IncomeTable expense={expense} necBreakdown={necBreakdown} />
       </div>

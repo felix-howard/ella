@@ -3,6 +3,7 @@
  * Shows "X of Y fields completed" with visual progress bar
  */
 import { cn } from '@ella/ui'
+import { useTranslation, Trans } from 'react-i18next'
 
 interface ProgressIndicatorProps {
   filled: number
@@ -15,6 +16,7 @@ export function ProgressIndicator({
   total,
   className,
 }: ProgressIndicatorProps) {
+  const { t } = useTranslation()
   const percentage = total > 0 ? Math.round((filled / total) * 100) : 0
 
   return (
@@ -22,7 +24,13 @@ export function ProgressIndicator({
       {/* Text indicator */}
       <div className="flex justify-between items-center text-sm">
         <span className="text-muted-foreground">
-          Đã điền: <span className="font-medium text-foreground">{filled}</span> / {total} mục
+          <Trans
+            i18nKey="expense.progress.filled"
+            values={{ filled, total }}
+            components={{
+              1: <span className="font-medium text-foreground" />
+            }}
+          />
         </span>
         <span className="text-muted-foreground">
           {percentage}%
@@ -41,14 +49,14 @@ export function ProgressIndicator({
           aria-valuenow={percentage}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`${filled} trong ${total} mục đã điền`}
+          aria-label={t('expense.progress.label', { filled, total })}
         />
       </div>
 
       {/* Completion message */}
       {percentage === 100 && (
         <p className="text-xs text-success font-medium">
-          ✓ Đã điền đầy đủ tất cả các mục!
+          {t('expense.progress.complete')}
         </p>
       )}
     </div>

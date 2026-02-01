@@ -2,6 +2,7 @@
  * Income Table - Displays Schedule C Part I income breakdown
  * Shows per-payer 1099-NEC breakdown when available
  */
+import { useTranslation } from 'react-i18next'
 import type { ScheduleCExpense, ScheduleCTotals, NecBreakdownItem } from '../../../../lib/api-client'
 import { formatUSD } from './format-utils'
 import { CopyableValue } from './copyable-value'
@@ -15,16 +16,18 @@ interface IncomeTableProps {
 }
 
 export function IncomeTable({ expense, totals, showGrossIncome = false, necBreakdown = [] }: IncomeTableProps) {
+  const { t } = useTranslation()
+
   // Dynamic label: show count if breakdown available
   const grossReceiptsLabel = necBreakdown.length > 0
-    ? `Tổng thu (từ ${necBreakdown.length} mẫu 1099-NEC)`
-    : 'Tổng thu (từ 1099-NEC)'
+    ? t('scheduleC.grossReceipts', { count: necBreakdown.length })
+    : t('scheduleC.grossReceiptsSimple')
 
   const rows = [
     { label: grossReceiptsLabel, value: expense.grossReceipts, isGross: true },
-    { label: 'Trả hàng và giảm giá', value: expense.returns, isGross: false },
-    { label: 'Giá vốn hàng bán', value: expense.costOfGoods, isGross: false },
-    { label: 'Thu nhập khác', value: expense.otherIncome, isGross: false },
+    { label: t('scheduleC.incomeReturns'), value: expense.returns, isGross: false },
+    { label: t('scheduleC.incomeCostOfGoods'), value: expense.costOfGoods, isGross: false },
+    { label: t('scheduleC.incomeOther'), value: expense.otherIncome, isGross: false },
   ]
 
   return (
@@ -57,7 +60,7 @@ export function IncomeTable({ expense, totals, showGrossIncome = false, necBreak
       {/* Gross Income Total (if requested) */}
       {showGrossIncome && totals && (
         <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t border-border">
-          <span className="font-medium text-foreground">THU NHẬP GỘP</span>
+          <span className="font-medium text-foreground">{t('scheduleC.grossIncome')}</span>
           <CopyableValue
             formatted={formatUSD(totals.grossIncome)}
             rawValue={totals.grossIncome}

@@ -3,6 +3,7 @@
  * Handles API calls and query invalidation
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api-client'
 import { toast } from '../stores/toast-store'
 
@@ -12,6 +13,7 @@ interface UseScheduleCActionsOptions {
 }
 
 export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   // Invalidate Schedule C query after mutation
@@ -25,14 +27,14 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
     mutationFn: () => api.scheduleC.send(caseId),
     onSuccess: (data) => {
       if (data.messageSent) {
-        toast.success('Đã gửi form thu thập chi phí')
+        toast.success(t('scheduleC.formSent'))
       } else {
-        toast.info('Đã tạo form nhưng không gửi được SMS')
+        toast.info(t('scheduleC.formCreatedNoSms'))
       }
       invalidateScheduleC()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Lỗi khi gửi form')
+      toast.error(error.message || t('scheduleC.formSendError'))
     },
   })
 
@@ -40,11 +42,11 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
   const lock = useMutation({
     mutationFn: () => api.scheduleC.lock(caseId),
     onSuccess: () => {
-      toast.success('Đã khóa form Schedule C')
+      toast.success(t('scheduleC.formLocked'))
       invalidateScheduleC()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Lỗi khi khóa form')
+      toast.error(error.message || t('scheduleC.formLockError'))
     },
   })
 
@@ -52,11 +54,11 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
   const unlock = useMutation({
     mutationFn: () => api.scheduleC.unlock(caseId),
     onSuccess: () => {
-      toast.success('Đã mở khóa form Schedule C')
+      toast.success(t('scheduleC.formUnlocked'))
       invalidateScheduleC()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Lỗi khi mở khóa')
+      toast.error(error.message || t('scheduleC.formUnlockError'))
     },
   })
 
@@ -65,14 +67,14 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
     mutationFn: () => api.scheduleC.resend(caseId),
     onSuccess: (data) => {
       if (data.messageSent) {
-        toast.success('Đã gửi lại link form')
+        toast.success(t('scheduleC.linkResent'))
       } else {
-        toast.info('Đã gia hạn link nhưng không gửi được SMS')
+        toast.info(t('scheduleC.linkExtendedNoSms'))
       }
       invalidateScheduleC()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Lỗi khi gửi lại')
+      toast.error(error.message || t('scheduleC.linkResendError'))
     },
   })
 

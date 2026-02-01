@@ -105,7 +105,7 @@ export function FileCategorySection({
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         aria-expanded={isExpanded}
-        aria-label={`${config.labelVi} - ${verifiedCount} of ${images.length} verified`}
+        aria-label={`${config.label} - ${verifiedCount} of ${images.length} verified`}
         className={cn(
           'w-full flex items-center gap-3 p-4',
           'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
@@ -120,7 +120,7 @@ export function FileCategorySection({
         )}
         <Icon className={cn('w-5 h-5', config.textColor)} />
         <span className={cn('font-semibold', config.textColor)}>
-          {config.labelVi}
+          {config.label}
         </span>
         <span className="text-sm text-muted-foreground">
           ({verifiedCount}/{images.length})

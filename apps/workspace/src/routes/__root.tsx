@@ -7,6 +7,7 @@ import { ErrorBoundary } from '../components/error-boundary'
 import { ToastContainer } from '../components/ui/toast-container'
 import { VoiceCallProvider } from '../components/voice'
 import { useTheme } from '../stores/ui-store'
+import { useLanguageSync } from '../hooks/use-language-sync'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -18,6 +19,9 @@ function RootLayout() {
   const navigate = useNavigate()
   const isLoginPage = routerState.location.pathname === '/login'
   const { theme } = useTheme()
+
+  // Sync language preference from DB (runs only when signed in)
+  useLanguageSync()
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {

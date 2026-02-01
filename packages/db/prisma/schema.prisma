@@ -252,6 +252,7 @@ model Staff {
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
   auditLogs AuditLog[]
+  language  Language   @default(VI)
   presence  StaffPresence?
 
   createdAt DateTime  @default(now())

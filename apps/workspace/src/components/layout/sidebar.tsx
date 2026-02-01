@@ -5,6 +5,7 @@
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useClerk, useUser } from '@clerk/clerk-react'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Users,
@@ -19,20 +20,19 @@ import {
 } from 'lucide-react'
 import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
 import { useUIStore, useTheme } from '../../stores/ui-store'
-import { UI_TEXT, NAV_ITEMS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
 
-// Navigation items with icons mapped from constants
-// NAV_ITEMS: [0]='/', [1]='/clients', [2]='/messages', [3]='/settings'
-const navItemsWithIcons = [
-  { path: '/', label: NAV_ITEMS[0].label, icon: LayoutDashboard },
-  { path: '/clients', label: NAV_ITEMS[1].label, icon: Users },
-  { path: '/messages', label: NAV_ITEMS[2].label, icon: MessageSquare },
-  { path: '/settings', label: NAV_ITEMS[3].label, icon: Settings },
+// Navigation items with icons and i18n keys
+const NAV_ITEMS_CONFIG = [
+  { path: '/', i18nKey: 'nav.dashboard', icon: LayoutDashboard },
+  { path: '/clients', i18nKey: 'nav.clients', icon: Users },
+  { path: '/messages', i18nKey: 'nav.messages', icon: MessageSquare },
+  { path: '/settings', i18nKey: 'nav.settings', icon: Settings },
 ] as const
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
   const { theme } = useTheme()
   const routerState = useRouterState()
@@ -50,8 +50,8 @@ export function Sidebar() {
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : user?.emailAddresses?.[0]?.emailAddress?.substring(0, 2).toUpperCase() || 'NV'
 
-  const userName = user?.fullName || user?.firstName || UI_TEXT.staff.defaultName
-  const userEmail = user?.emailAddresses?.[0]?.emailAddress || UI_TEXT.staff.defaultEmail
+  const userName = user?.fullName || user?.firstName || t('staff.defaultName')
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress || t('staff.defaultEmail')
 
   // Handle logout
   const handleLogout = async () => {
@@ -95,7 +95,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
-        {navItemsWithIcons.map((item) => {
+        {NAV_ITEMS_CONFIG.map((item) => {
           const isActive = item.path === '/'
             ? currentPath === '/'
             : currentPath.startsWith(item.path)
@@ -115,7 +115,7 @@ export function Sidebar() {
               )}
             >
               <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={isActive ? 2.5 : 2} />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+              {!sidebarCollapsed && <span className="truncate">{t(item.i18nKey)}</span>}
 
               {/* Unread badge for messages */}
               {showBadge && (
@@ -126,7 +126,7 @@ export function Sidebar() {
                       ? 'absolute top-0.5 right-0.5 px-1'
                       : 'ml-auto px-1.5'
                   )}
-                  aria-label={`${unreadCount} tin nhắn chưa đọc`}
+                  aria-label={t('sidebar.unreadMessages', { count: unreadCount })}
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
@@ -168,8 +168,8 @@ export function Sidebar() {
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                   : 'text-muted-foreground'
             )}
-            aria-label={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi' : 'Đang kết nối...'}
-            title={voiceState.isRegistered ? 'Sẵn sàng nhận cuộc gọi đến' : 'Hệ thống đang kết nối...'}
+            aria-label={voiceState.isRegistered ? t('sidebar.voiceReady') : t('sidebar.voiceConnecting')}
+            title={voiceState.isRegistered ? t('sidebar.voiceReadyFull') : t('sidebar.voiceConnectingFull')}
           >
             {voiceState.isRegistering ? (
               <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
@@ -181,10 +181,10 @@ export function Sidebar() {
             {!sidebarCollapsed && (
               <span className="text-sm">
                 {voiceState.isRegistering
-                  ? 'Đang kết nối...'
+                  ? t('sidebar.voiceConnecting')
                   : voiceState.isRegistered
-                    ? 'Sẵn sàng nhận cuộc gọi'
-                    : 'Chờ kết nối...'}
+                    ? t('sidebar.voiceReady')
+                    : t('sidebar.voiceWaiting')}
               </span>
             )}
             {/* Online indicator dot */}
@@ -201,11 +201,11 @@ export function Sidebar() {
             'flex items-center gap-3 px-3 py-2 w-full rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors',
             sidebarCollapsed && 'justify-center'
           )}
-          aria-label={UI_TEXT.logout}
-          title={UI_TEXT.logout}
+          aria-label={t('common.logout')}
+          title={t('common.logout')}
         >
           <LogOut className="w-5 h-5" aria-hidden="true" />
-          {!sidebarCollapsed && <span>{UI_TEXT.logout}</span>}
+          {!sidebarCollapsed && <span>{t('common.logout')}</span>}
         </button>
       </div>
 

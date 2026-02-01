@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { ArrowLeft, User, Phone, Globe, RefreshCw, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
@@ -23,6 +24,7 @@ export const Route = createFileRoute('/messages/$caseId')({
 const POLLING_INTERVAL = 10000
 
 function ConversationDetailView() {
+  const { t } = useTranslation()
   const { caseId } = Route.useParams()
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -227,7 +229,7 @@ function ConversationDetailView() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Globe className="w-3 h-3" />
-                        {caseData.client.language === 'VI' ? 'Tiếng Việt' : 'English'}
+                        {caseData.client.language === 'VI' ? t('messages.languageVi') : t('messages.languageEn')}
                       </span>
                       <span>{caseData.taxCase.taxYear}</span>
                     </div>
@@ -261,7 +263,7 @@ function ConversationDetailView() {
                   'text-muted-foreground hover:text-foreground hover:bg-muted',
                   isRefreshing && 'animate-spin'
                 )}
-                aria-label="Làm mới tin nhắn"
+                aria-label={t('messages.refreshMessages')}
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -272,7 +274,7 @@ function ConversationDetailView() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  <span className="hidden sm:inline">Hồ sơ</span>
+                  <span className="hidden sm:inline">{t('messages.viewProfile')}</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>
               )}

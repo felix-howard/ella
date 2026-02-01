@@ -3,6 +3,7 @@
  * Facebook Messenger-style floating button at bottom-right corner
  */
 
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageCircle } from 'lucide-react'
 
@@ -14,6 +15,8 @@ export interface ChatboxButtonProps {
 }
 
 export function ChatboxButton({ unreadCount, isOpen, onClick, className }: ChatboxButtonProps) {
+  const { t } = useTranslation()
+
   return (
     <button
       onClick={onClick}
@@ -25,8 +28,8 @@ export function ChatboxButton({ unreadCount, isOpen, onClick, className }: Chatb
         isOpen && 'rotate-0',
         className
       )}
-      aria-label={isOpen ? 'Đóng hộp chat' : 'Mở hộp chat'}
-      title={isOpen ? 'Đóng hộp chat' : 'Mở hộp chat'}
+      aria-label={isOpen ? t('chat.closeChat') : t('chat.openChat')}
+      title={isOpen ? t('chat.closeChat') : t('chat.openChat')}
     >
       <MessageCircle className="w-6 h-6" />
 

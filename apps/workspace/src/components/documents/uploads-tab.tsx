@@ -5,6 +5,7 @@
  */
 
 import { useState, memo, useRef, useEffect, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   Image as ImageIcon,
@@ -43,57 +44,61 @@ export interface UploadsTabProps {
   onReviewClassification?: (image: RawImage) => void
 }
 
-// Status configuration for UI display
-const IMAGE_STATUS_CONFIG: Record<ImageStatus, {
+// Status configuration function - needs t() from component
+function getStatusConfig(t: (key: string) => string): Record<ImageStatus, {
   label: string
   icon: typeof CheckCircle
   color: string
   bgColor: string
-}> = {
-  UPLOADED: {
-    label: 'Đã tải lên',
-    icon: Clock,
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
-  },
-  PROCESSING: {
-    label: 'Đang phân loại',
-    icon: Loader2,
-    color: 'text-primary',
-    bgColor: 'bg-primary-light',
-  },
-  CLASSIFIED: {
-    label: 'Đã phân loại',
-    icon: CheckCircle,
-    color: 'text-primary',
-    bgColor: 'bg-primary-light',
-  },
-  LINKED: {
-    label: 'Đã liên kết',
-    icon: CheckCircle,
-    color: 'text-success',
-    bgColor: 'bg-success/10',
-  },
-  BLURRY: {
-    label: 'Ảnh mờ',
-    icon: AlertTriangle,
-    color: 'text-warning',
-    bgColor: 'bg-warning-light',
-  },
-  UNCLASSIFIED: {
-    label: 'Chưa phân loại',
-    icon: HelpCircle,
-    color: 'text-error',
-    bgColor: 'bg-error-light',
-  },
+}> {
+  return {
+    UPLOADED: {
+      label: t('uploads.statusUploaded'),
+      icon: Clock,
+      color: 'text-muted-foreground',
+      bgColor: 'bg-muted',
+    },
+    PROCESSING: {
+      label: t('uploads.statusProcessing'),
+      icon: Loader2,
+      color: 'text-primary',
+      bgColor: 'bg-primary-light',
+    },
+    CLASSIFIED: {
+      label: t('uploads.statusClassified'),
+      icon: CheckCircle,
+      color: 'text-primary',
+      bgColor: 'bg-primary-light',
+    },
+    LINKED: {
+      label: t('uploads.statusLinked'),
+      icon: CheckCircle,
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+    },
+    BLURRY: {
+      label: t('uploads.statusBlurry'),
+      icon: AlertTriangle,
+      color: 'text-warning',
+      bgColor: 'bg-warning-light',
+    },
+    UNCLASSIFIED: {
+      label: t('uploads.statusUnclassified'),
+      icon: HelpCircle,
+      color: 'text-error',
+      bgColor: 'bg-error-light',
+    },
+  }
 }
 
-// Filter labels in Vietnamese
-const FILTER_LABELS: Record<UploadFilter, string> = {
-  all: 'Tất cả',
-  processing: 'Đang xử lý',
-  needs_class: 'Cần phân loại',
-  blurry: 'Mờ/Lỗi',
+// Filter labels function - needs t() from component
+function getFilterLabels(t: (key: string) => string): Record<UploadFilter, string> {
+  return {
+    all: t('uploads.filterAll'),
+    processing: t('uploads.filterProcessing'),
+    needs_class: t('uploads.filterNeedsClass'),
+    blurry: t('uploads.filterBlurry'),
+  }
 }
 
 export function UploadsTab({
@@ -103,9 +108,11 @@ export function UploadsTab({
   onClassify,
   onReviewClassification,
 }: UploadsTabProps) {
+  const { t } = useTranslation()
   // caseId reserved for future bulk operations
   void _caseId
   const [filter, setFilter] = useState<UploadFilter>('all')
+  const FILTER_LABELS = getFilterLabels(t)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<RawImage | null>(null)
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -180,7 +187,7 @@ export function UploadsTab({
     return (
       <div className="text-center py-12">
         <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">Chưa có ảnh nào được tải lên</p>
+        <p className="text-sm text-muted-foreground">{t('uploads.noImages')}</p>
       </div>
     )
   }
@@ -188,7 +195,7 @@ export function UploadsTab({
   return (
     <div className="space-y-4">
       {/* Filter Pills */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Lọc ảnh theo trạng thái">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('uploads.filterByStatus')}>
         {(Object.keys(FILTER_LABELS) as UploadFilter[]).map((f) => (
           <button
             key={f}
@@ -220,7 +227,7 @@ export function UploadsTab({
       {/* Image Grid */}
       {filteredImages.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          Không có ảnh nào trong bộ lọc này
+          {t('uploads.noImagesInFilter')}
         </div>
       ) : (
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -265,7 +272,9 @@ const UploadImageCard = memo(function UploadImageCard({
   onClassify,
   onReviewClassification,
 }: UploadImageCardProps) {
+  const { t } = useTranslation()
   const status = image.status as ImageStatus
+  const IMAGE_STATUS_CONFIG = getStatusConfig(t)
   const config = IMAGE_STATUS_CONFIG[status] || IMAGE_STATUS_CONFIG.UPLOADED
   const Icon = config.icon
   const docType = image.classifiedType || image.checklistItem?.template?.docType
@@ -297,7 +306,7 @@ const UploadImageCard = memo(function UploadImageCard({
           <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
-              <span className="text-xs text-muted-foreground">Đang phân loại...</span>
+              <span className="text-xs text-muted-foreground">{t('uploads.classifyingProgress')}</span>
             </div>
           </div>
         )}
@@ -346,7 +355,7 @@ const UploadImageCard = memo(function UploadImageCard({
               }}
               className="text-xs text-primary hover:text-primary-dark"
             >
-              Phân loại
+              {t('uploads.classify')}
             </button>
           )}
           {needsReview && onReviewClassification && (
@@ -357,7 +366,7 @@ const UploadImageCard = memo(function UploadImageCard({
               }}
               className="text-xs text-warning hover:text-warning/80"
             >
-              Xác minh
+              {t('uploads.verify')}
             </button>
           )}
         </div>

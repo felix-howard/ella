@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   X,
@@ -64,6 +65,7 @@ export function DocVerificationModal({
   currentIndex = 0,
   onNavigate,
 }: DocVerificationModalProps) {
+  const { t } = useTranslation()
   // Initialize selectedDocType from image on mount
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
@@ -194,7 +196,7 @@ export function DocVerificationModal({
       className="fixed inset-0 z-50 bg-black/90 flex"
       role="dialog"
       aria-modal="true"
-      aria-label={`Xác minh: ${image.filename}`}
+      aria-label={t('docVerification.verify', { filename: image.filename })}
       tabIndex={-1}
     >
       {/* Left Panel - Image Viewer */}
@@ -204,7 +206,7 @@ export function DocVerificationModal({
           <div className="text-white">
             <p className="font-medium">{image.filename}</p>
             <p className="text-sm text-white/70">
-              {suggestedDocType ? DOC_TYPE_LABELS[suggestedDocType] : 'Chưa phân loại'}
+              {suggestedDocType ? DOC_TYPE_LABELS[suggestedDocType] : t('docVerification.unclassified')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -216,7 +218,7 @@ export function DocVerificationModal({
             <button
               onClick={onClose}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('common.close')}
             >
               <X className="w-5 h-5 text-white" />
             </button>
@@ -236,7 +238,7 @@ export function DocVerificationModal({
                   'bg-white/10 hover:bg-white/20 transition-colors',
                   currentIndex === 0 && 'opacity-30 cursor-not-allowed'
                 )}
-                aria-label="Ảnh trước"
+                aria-label={t('docVerification.previousImage')}
               >
                 <ChevronLeft className="w-6 h-6 text-white" />
               </button>
@@ -248,7 +250,7 @@ export function DocVerificationModal({
                   'bg-white/10 hover:bg-white/20 transition-colors',
                   currentIndex === images.length - 1 && 'opacity-30 cursor-not-allowed'
                 )}
-                aria-label="Ảnh tiếp"
+                aria-label={t('docVerification.nextImage')}
               >
                 <ChevronRight className="w-6 h-6 text-white" />
               </button>
@@ -260,7 +262,7 @@ export function DocVerificationModal({
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
               <div className="flex items-center gap-2 bg-warning text-warning-foreground px-4 py-2 rounded-full">
                 <AlertTriangle className="w-4 h-4" />
-                <span className="text-sm font-medium">Ảnh bị mờ - Yêu cầu gửi lại</span>
+                <span className="text-sm font-medium">{t('docVerification.blurryWarning')}</span>
               </div>
             </div>
           )}
@@ -289,7 +291,7 @@ export function DocVerificationModal({
           <button
             onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            aria-label="Thu nhỏ"
+            aria-label={t('docVerification.zoomOut')}
           >
             <ZoomOut className="w-5 h-5 text-white" />
           </button>
@@ -299,7 +301,7 @@ export function DocVerificationModal({
           <button
             onClick={() => setZoom(Math.min(3, zoom + 0.25))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            aria-label="Phóng to"
+            aria-label={t('docVerification.zoomIn')}
           >
             <ZoomIn className="w-5 h-5 text-white" />
           </button>
@@ -307,7 +309,7 @@ export function DocVerificationModal({
           <button
             onClick={() => setRotation((r) => (r + 90) % 360)}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            aria-label="Xoay"
+            aria-label={t('docVerification.rotate')}
           >
             <RotateCw className="w-5 h-5 text-white" />
           </button>
@@ -317,9 +319,9 @@ export function DocVerificationModal({
       {/* Right Panel - Verification Actions */}
       <div className="w-96 bg-card border-l border-border flex flex-col">
         <div className="p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Xác minh tài liệu</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('docVerification.title')}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Kiểm tra loại tài liệu và xác nhận hoặc từ chối
+            {t('docVerification.description')}
           </p>
         </div>
 
@@ -327,7 +329,7 @@ export function DocVerificationModal({
           {/* Document Type Selection */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Loại tài liệu
+              {t('docVerification.docType')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {COMMON_DOC_TYPES.map((type) => (
@@ -351,7 +353,7 @@ export function DocVerificationModal({
           {/* OCR Preview if available */}
           {digitalDoc && Object.keys(digitalDoc.extractedData || {}).length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-2">Dữ liệu trích xuất</h3>
+              <h3 className="text-sm font-medium text-foreground mb-2">{t('docVerification.extractedData')}</h3>
               <div className="bg-muted/30 rounded-lg p-3 space-y-2">
                 {Object.entries(digitalDoc.extractedData).slice(0, 5).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm">
@@ -361,7 +363,7 @@ export function DocVerificationModal({
                 ))}
                 {Object.keys(digitalDoc.extractedData).length > 5 && (
                   <p className="text-xs text-muted-foreground text-center pt-2">
-                    +{Object.keys(digitalDoc.extractedData).length - 5} trường khác
+                    {t('docVerification.moreFields', { count: Object.keys(digitalDoc.extractedData).length - 5 })}
                   </p>
                 )}
               </div>
@@ -372,12 +374,12 @@ export function DocVerificationModal({
           {status === 'pending' && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Lý do từ chối (nếu có)
+                {t('docVerification.rejectReasonLabel')}
               </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Nhập lý do từ chối..."
+                placeholder={t('docVerification.rejectReasonPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 rows={3}
               />
@@ -390,12 +392,12 @@ export function DocVerificationModal({
           {status === 'verified' ? (
             <div className="flex items-center justify-center gap-2 p-3 bg-success/10 rounded-lg text-success">
               <Check className="w-5 h-5" />
-              <span className="font-medium">Đã xác minh</span>
+              <span className="font-medium">{t('verification.verified')}</span>
             </div>
           ) : status === 'rejected' ? (
             <div className="flex items-center justify-center gap-2 p-3 bg-error-light rounded-lg text-error">
               <AlertTriangle className="w-5 h-5" />
-              <span className="font-medium">Đã từ chối</span>
+              <span className="font-medium">{t('docVerification.rejected')}</span>
             </div>
           ) : (
             <>
@@ -411,7 +413,7 @@ export function DocVerificationModal({
                   )}
                 >
                   <RefreshCw className={cn('w-5 h-5', isSubmitting && 'animate-spin')} />
-                  <span>Yêu cầu gửi lại</span>
+                  <span>{t('docVerification.requestResend')}</span>
                 </button>
               ) : (
                 <button
@@ -425,7 +427,7 @@ export function DocVerificationModal({
                   )}
                 >
                   <Check className="w-5 h-5" />
-                  <span>Xác nhận & Tiếp tục</span>
+                  <span>{t('docVerification.confirmContinue')}</span>
                 </button>
               )}
 
@@ -441,7 +443,7 @@ export function DocVerificationModal({
                   )}
                 >
                   <AlertTriangle className="w-5 h-5" />
-                  <span>Từ chối</span>
+                  <span>{t('docVerification.reject')}</span>
                 </button>
               )}
             </>
@@ -449,7 +451,7 @@ export function DocVerificationModal({
 
           {/* Keyboard hints */}
           <p className="text-xs text-muted-foreground text-center">
-            ←/→: chuyển ảnh • +/-: zoom • R: xoay • ESC: đóng
+            {t('docVerification.keyboardHints')}
           </p>
         </div>
       </div>

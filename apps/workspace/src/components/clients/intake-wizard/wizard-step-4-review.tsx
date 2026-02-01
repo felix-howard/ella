@@ -309,7 +309,7 @@ function getSelectedItems(
 
 // Helper: Get relationship label
 function getRelationshipLabel(value: string): string {
-  const option = RELATIONSHIP_OPTIONS.find((r) => r.value === value)
+  const option = RELATIONSHIP_OPTIONS.find((r: { value: string; label: string }) => r.value === value)
   return option?.label || value
 }
 

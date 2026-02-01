@@ -4,6 +4,7 @@
  */
 import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { cn } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import type { AutoSaveStatus } from '../hooks/use-auto-save'
 
 interface AutoSaveIndicatorProps {
@@ -19,6 +20,8 @@ export function AutoSaveIndicator({
   error,
   className,
 }: AutoSaveIndicatorProps) {
+  const { t } = useTranslation()
+
   // Format time as HH:MM
   const formatTime = (date: Date | null): string => {
     if (!date) return ''
@@ -39,7 +42,7 @@ export function AutoSaveIndicator({
       {status === 'saving' && (
         <>
           <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-          <span className="text-muted-foreground">Đang lưu...</span>
+          <span className="text-muted-foreground">{t('expense.autoSave.saving')}</span>
         </>
       )}
 
@@ -47,14 +50,14 @@ export function AutoSaveIndicator({
       {status === 'saved' && (
         <>
           <Check className="w-3 h-3 text-success" />
-          <span className="text-success">Đã lưu tự động</span>
+          <span className="text-success">{t('expense.autoSave.saved')}</span>
         </>
       )}
 
       {/* Idle with last saved */}
       {status === 'idle' && lastSaved && (
         <span className="text-muted-foreground">
-          Đã lưu lúc {formatTime(lastSaved)}
+          {t('expense.autoSave.savedAt', { time: formatTime(lastSaved) })}
         </span>
       )}
 
@@ -63,7 +66,7 @@ export function AutoSaveIndicator({
         <>
           <AlertCircle className="w-3 h-3 text-error" />
           <span className="text-error" title={error || undefined}>
-            Lưu thất bại
+            {t('expense.autoSave.failed')}
           </span>
         </>
       )}

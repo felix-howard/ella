@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { ChatboxButton } from './chatbox-button'
 import { ChatboxHeader } from './chatbox-header'
@@ -37,6 +38,7 @@ export function FloatingChatbox({
   unreadCount,
   onUnreadChange,
 }: FloatingChatboxProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -66,7 +68,7 @@ export function FloatingChatbox({
       onUnreadChange?.()
     },
     onError: () => {
-      toast.error('Không thể gửi tin nhắn. Vui lòng thử lại.')
+      toast.error(t('chat.sendError'))
     },
   })
 

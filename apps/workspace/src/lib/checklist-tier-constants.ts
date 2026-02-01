@@ -3,11 +3,12 @@
  * Used in TieredChecklist component for visual hierarchy
  */
 
-export const CHECKLIST_TIERS = {
+import i18n from './i18n'
+
+const CHECKLIST_TIERS_DATA = {
   REQUIRED: {
     key: 'required',
-    labelVi: 'BẮT BUỘC',
-    labelEn: 'Required',
+    labelKey: 'checklistTier.required',
     color: 'text-red-500 dark:text-red-400',
     bgColor: 'bg-red-500/5 dark:bg-red-500/10',
     borderColor: 'border-red-500/20 dark:border-red-500/30',
@@ -15,8 +16,7 @@ export const CHECKLIST_TIERS = {
   },
   APPLICABLE: {
     key: 'applicable',
-    labelVi: 'THEO TÌNH HUỐNG',
-    labelEn: 'Based on your answers',
+    labelKey: 'checklistTier.applicable',
     color: 'text-amber-600 dark:text-amber-400',
     bgColor: 'bg-amber-500/5 dark:bg-amber-500/10',
     borderColor: 'border-amber-500/20 dark:border-amber-500/30',
@@ -24,8 +24,7 @@ export const CHECKLIST_TIERS = {
   },
   OPTIONAL: {
     key: 'optional',
-    labelVi: 'CÓ THỂ CẦN',
-    labelEn: 'Optional',
+    labelKey: 'checklistTier.optional',
     color: 'text-emerald-600 dark:text-emerald-400',
     bgColor: 'bg-emerald-500/5 dark:bg-emerald-500/10',
     borderColor: 'border-emerald-500/20 dark:border-emerald-500/30',
@@ -33,15 +32,64 @@ export const CHECKLIST_TIERS = {
   },
 } as const
 
+export const CHECKLIST_TIERS = new Proxy({} as typeof CHECKLIST_TIERS_DATA, {
+  get(_, prop: string) {
+    const data = CHECKLIST_TIERS_DATA[prop as keyof typeof CHECKLIST_TIERS_DATA]
+    if (!data) return undefined
+    return {
+      ...data,
+      label: i18n.t(data.labelKey),
+    }
+  },
+  ownKeys() {
+    return Object.keys(CHECKLIST_TIERS_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in CHECKLIST_TIERS_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+}) as typeof CHECKLIST_TIERS_DATA
+
 export type ChecklistTierKey = keyof typeof CHECKLIST_TIERS
 
-export const CHECKLIST_STATUS_DISPLAY = {
-  VERIFIED: { icon: '✓', labelVi: 'Đã xác minh', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
-  HAS_DIGITAL: { icon: '◉', labelVi: 'Đã trích xuất', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10' },
-  HAS_RAW: { icon: '○', labelVi: 'Đã nhận ảnh', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10' },
-  MISSING: { icon: '✗', labelVi: 'Chưa có', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-500/10' },
-  NOT_REQUIRED: { icon: '—', labelVi: 'Không cần', color: 'text-muted-foreground', bgColor: 'bg-muted' },
+const CHECKLIST_STATUS_DISPLAY_DATA = {
+  VERIFIED: { icon: '✓', labelKey: 'checklistStatusDisplay.verified', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10' },
+  HAS_DIGITAL: { icon: '◉', labelKey: 'checklistStatusDisplay.hasDigital', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10' },
+  HAS_RAW: { icon: '○', labelKey: 'checklistStatusDisplay.hasRaw', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10' },
+  MISSING: { icon: '✗', labelKey: 'checklistStatusDisplay.missing', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-500/10' },
+  NOT_REQUIRED: { icon: '—', labelKey: 'checklistStatusDisplay.notRequired', color: 'text-muted-foreground', bgColor: 'bg-muted' },
 } as const
+
+type ChecklistStatusDisplayType = {
+  [K in keyof typeof CHECKLIST_STATUS_DISPLAY_DATA]: {
+    icon: string
+    label: string
+    color: string
+    bgColor: string
+  }
+}
+
+export const CHECKLIST_STATUS_DISPLAY = new Proxy({} as ChecklistStatusDisplayType, {
+  get(_, prop: string) {
+    const data = CHECKLIST_STATUS_DISPLAY_DATA[prop as keyof typeof CHECKLIST_STATUS_DISPLAY_DATA]
+    if (!data) return undefined
+    return {
+      icon: data.icon,
+      label: i18n.t(data.labelKey),
+      color: data.color,
+      bgColor: data.bgColor,
+    }
+  },
+  ownKeys() {
+    return Object.keys(CHECKLIST_STATUS_DISPLAY_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in CHECKLIST_STATUS_DISPLAY_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+}) as ChecklistStatusDisplayType
 
 /**
  * Category styles for category-based checklist grouping
@@ -62,12 +110,40 @@ export type CategoryKey = keyof typeof CATEGORY_STYLES
  * Simplified status display for category-based checklist
  * Consolidates 5 statuses into 3 visual states: MISSING (red), SUBMITTED (blue), VERIFIED (green)
  */
-export const SIMPLIFIED_STATUS_DISPLAY = {
-  MISSING: { labelVi: 'Thiếu', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-  SUBMITTED: { labelVi: 'Đã nộp', color: 'text-primary', bgColor: 'bg-primary-light' },
-  VERIFIED: { labelVi: 'Đã xác minh', color: 'text-success', bgColor: 'bg-success/10' },
-  NOT_REQUIRED: { labelVi: 'Không cần', color: 'text-muted-foreground', bgColor: 'bg-muted' },
+const SIMPLIFIED_STATUS_DISPLAY_DATA = {
+  MISSING: { labelKey: 'checklistStatusDisplay.missing', color: 'text-muted-foreground', bgColor: 'bg-muted' },
+  SUBMITTED: { labelKey: 'checklistStatusDisplay.submitted', color: 'text-primary', bgColor: 'bg-primary-light' },
+  VERIFIED: { labelKey: 'checklistStatusDisplay.verified', color: 'text-success', bgColor: 'bg-success/10' },
+  NOT_REQUIRED: { labelKey: 'checklistStatusDisplay.notRequired', color: 'text-muted-foreground', bgColor: 'bg-muted' },
 } as const
+
+type SimplifiedStatusDisplayType = {
+  [K in keyof typeof SIMPLIFIED_STATUS_DISPLAY_DATA]: {
+    label: string
+    color: string
+    bgColor: string
+  }
+}
+
+export const SIMPLIFIED_STATUS_DISPLAY = new Proxy({} as SimplifiedStatusDisplayType, {
+  get(_, prop: string) {
+    const data = SIMPLIFIED_STATUS_DISPLAY_DATA[prop as keyof typeof SIMPLIFIED_STATUS_DISPLAY_DATA]
+    if (!data) return undefined
+    return {
+      label: i18n.t(data.labelKey),
+      color: data.color,
+      bgColor: data.bgColor,
+    }
+  },
+  ownKeys() {
+    return Object.keys(SIMPLIFIED_STATUS_DISPLAY_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in SIMPLIFIED_STATUS_DISPLAY_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+}) as SimplifiedStatusDisplayType
 
 /**
  * Border styles for document thumbnails based on DigitalDoc.status

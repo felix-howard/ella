@@ -48,10 +48,12 @@ function PortalPage() {
         if (isMountedRef.current) {
           setData(result)
           setState('success')
-          // Sync language from client data to i18n
-          const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
-          if (i18n.language !== clientLang) {
-            i18n.changeLanguage(clientLang)
+          // Sync language from client data only if no localStorage preference yet
+          if (!localStorage.getItem('ella-language')) {
+            const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
+            if (i18n.language !== clientLang) {
+              i18n.changeLanguage(clientLang)
+            }
           }
         }
       } catch (err) {
@@ -81,11 +83,6 @@ function PortalPage() {
         if (isMountedRef.current) {
           setData(result)
           setState('success')
-          // Sync language from client data to i18n
-          const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
-          if (i18n.language !== clientLang) {
-            i18n.changeLanguage(clientLang)
-          }
         }
       })
       .catch((err) => {

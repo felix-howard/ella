@@ -4,7 +4,7 @@
  */
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useClerk, useUser } from '@clerk/clerk-react'
+import { useClerk, useUser, useOrganization } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
@@ -47,6 +47,7 @@ export function Sidebar() {
   const { user } = useUser()
   const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
   const { isAdmin } = useOrgRole()
+  const { organization } = useOrganization()
 
   // Build nav items - include Team for admins
   const navItems = [
@@ -105,6 +106,13 @@ export function Sidebar() {
           </Link>
         )}
       </div>
+
+      {/* Organization name */}
+      {!sidebarCollapsed && organization && (
+        <div className="px-4 py-1 border-b border-border">
+          <p className="text-xs text-muted-foreground truncate">{organization.name}</p>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">

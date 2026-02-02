@@ -710,6 +710,8 @@
   "ssnValidation.invalidGroup": "Số nhóm SSN không hợp lệ (00)",
   "ssnValidation.invalidSerial": "Số serial SSN không hợp lệ (0000)",
   "ssnValidation.mustBe9Digits": "SSN phải có 9 chữ số",
+  "org.noOrg": "Chưa có tổ chức",
+  "org.noOrgDesc": "Bạn chưa thuộc tổ chức nào. Vui lòng liên hệ quản trị viên để được mời.",
   "staff.defaultEmail": "staff@ella.app",
   "staff.defaultName": "Nhân viên",
   "team.admin": "Quản trị viên",

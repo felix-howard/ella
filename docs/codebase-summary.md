@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-02-02
 **Current Branch:** feature/multi-tenancy-permission
-**Latest Phase:** Phase 3 Team & Assignment APIs COMPLETE | Phase 1 Multi-Tenancy & Permission System (Database Schema) COMPLETE
+**Latest Phase:** Phase 6 Frontend Auth & Navigation COMPLETE | Phase 3 Team & Assignment APIs COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 6 Multi-Tenancy: Frontend Auth & Navigation** | **useAutoOrgSelection hook (auto-select first Clerk org on sign-in); ClerkAuthProvider with zero-org edge case UI (org.noOrg/org.noOrgDesc translations); Sidebar org name display via useOrganization(); Conditional Team nav item (admin-only); useOrgRole integration for RBAC; 5 files modified (hook, provider, sidebar, locales); Full i18n support (EN/VI)** | **2026-02-02** |
 | **Phase 3 Multi-Tenancy: Team & Assignment APIs** | **7 team management endpoints (GET members, POST/PATCH invites, POST accept, DELETE revoke, PATCH role); 5 assignment endpoints (POST/bulk assign, PATCH transfer, GET list, DELETE unassign); Clerk Backend SDK integration; requireOrg/requireOrgAdmin middleware; logTeamAction audit logging; 26 comprehensive tests** | **2026-02-02** |
 | **Phase 1 Multi-Tenancy & Permission System: Database Schema** | **Organization model (clerkOrgId, name, slug, logoUrl, isActive); ClientAssignment model (staff-client mapping, unique constraint); Staff.organizationId FK; Client.organizationId FK; AuditEntityType +ORGANIZATION; Migration + backfill script; Ready for Phase 2 APIs** | **2026-02-02** |
 | **Schedule C Phase 4 Enhancement: 1099-NEC Breakdown** | **Per-payer NEC breakdown display; New component nec-breakdown-list; Backend: getGrossReceiptsBreakdown() + refactored calculateGrossReceipts(); Auto-update DRAFT forms with optimistic locking; 6 new unit tests; Frontend hook integration; Income table dynamic labeling** | **2026-01-29** |
@@ -97,6 +98,35 @@
 - UPDATED: data-entry-modal.tsx - Import from shared module (DRY)
 
 **Benefits:** DRY principle, UI consistency across surfaces, faster verification workflow (no manual save), race condition safe field switching
+
+---
+
+## Phase 6 Multi-Tenancy: Frontend Auth & Navigation (NEW - 2026-02-02)
+
+**Status:** ✅ COMPLETE | Clerk org auto-selection + frontend RBAC navigation
+
+**Summary:** Implemented frontend authentication layer for multi-tenancy support. Auto-selects first available Clerk organization on user sign-in (MVP: single org per user). Handles zero-org edge case with translated UI feedback. Added organization-aware sidebar with admin-only Team menu. Integrates useOrgRole hook for role-based access control.
+
+**Key Changes:**
+- NEW: `use-auto-org-selection.ts` - Hook: auto-select first Clerk org, return hasOrg status (34 LOC)
+- UPDATED: `clerk-auth-provider.tsx` - Integrated auto-org hook, zero-org fallback UI (69 LOC)
+- UPDATED: `sidebar.tsx` - Org name display, conditional Team nav item (admin-only), useOrgRole integration (67 LOC changes)
+- UPDATED: `en.json` - Added org.noOrg + org.noOrgDesc keys
+- UPDATED: `vi.json` - Added org.noOrg + org.noOrgDesc keys
+
+**Features:**
+- Auto-org selection: Silent, no friction UX flow
+- Zero-org handling: Graceful error UI with i18n (EN/VI)
+- Sidebar org context: Display current org name
+- Admin-only Team link: Uses useOrgRole().isAdmin for access control
+- i18n complete: English + Vietnamese translations
+
+**Integration Points:**
+- ClerkAuthProvider wraps routes in apps/workspace/__root.tsx
+- useOrgRole hook pulls from org context (Phase 5)
+- Sidebar queries useOrganization() from @clerk/clerk-react
+
+**Testing:** Manual smoke tests for sign-in flows, org selection, zero-org edge case, sidebar nav visibility by role
 
 ---
 

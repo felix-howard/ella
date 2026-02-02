@@ -710,6 +710,8 @@
   "ssnValidation.invalidGroup": "Invalid SSN group number (00)",
   "ssnValidation.invalidSerial": "Invalid SSN serial number (0000)",
   "ssnValidation.mustBe9Digits": "SSN must be 9 digits",
+  "org.noOrg": "No Organization",
+  "org.noOrgDesc": "You are not a member of any organization. Please contact your administrator to get an invitation.",
   "staff.defaultEmail": "staff@ella.app",
   "staff.defaultName": "Staff",
   "team.admin": "Admin",

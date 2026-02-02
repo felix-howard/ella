@@ -82,6 +82,23 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Response type safety via TypeScript
 - Pagination support with limit/offset
 
+**Clerk Authentication (Phase 6 - apps/workspace):**
+
+- `ClerkAuthProvider` component (clerk-auth-provider.tsx) wraps root routes
+- Sets JWT token getter for authenticated API requests
+- Clears React Query cache on sign-out (prevents stale 401 refetch loops)
+- `useAutoOrgSelection` hook auto-selects first Clerk org on sign-in
+- Zero-org edge case: Shows localized fallback UI (org.noOrg / org.noOrgDesc)
+- Sidebar displays current org name via `useOrganization()` hook
+- Conditional navigation: Team menu visible only to org admins (via `useOrgRole().isAdmin`)
+- Full i18n support: English + Vietnamese
+
+**Integration:**
+- Location: `apps/workspace/src/components/auth/clerk-auth-provider.tsx`
+- Hooks: `use-auto-org-selection.ts`, `use-org-role.ts` (Phase 5)
+- Routes: Auto-org selection fires on mount, zero-org check on render
+- Locales: org.noOrg, org.noOrgDesc keys in en.json + vi.json
+
 ### Backend API Layer (apps/api)
 
 **Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, @hono/zod-validator, TypeScript

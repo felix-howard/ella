@@ -2302,6 +2302,37 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
+---
+
+## Multi-Tenancy & Client Filtering (Phase 4)
+
+### Org Scope Utilities (`apps/api/src/lib/org-scope.ts`)
+
+Centralized access control for multi-tenant data scoping. All CRUD operations use scope filters to enforce org + assignment boundaries.
+
+**Functions:**
+- `buildClientScopeFilter(user)` - Prisma where clause (org + optional assignment filter)
+- `buildNestedClientScope(user)` - Scope for nested resources (cases, engagements, etc.) via client relation
+- `verifyClientAccess(clientId, user)` - Pre-mutation access verification
+
+**Scope Rules:**
+- Admin (orgRole='org:admin'): See all org clients
+- Member/Staff: See only assigned clients (via ClientAssignment.staffId)
+- Failsafe: No org + no staffId = impossible filter (id='__NO_ACCESS__')
+
+**Applied To:**
+- `/clients` - GET/:id, POST/:id scoped by buildClientScopeFilter
+- `/cases`, `/engagements` - All endpoints scoped by buildNestedClientScope
+- `/actions`, `/messages`, `/docs`, `/images` - All endpoints scoped nested
+
+**Test Coverage:** 11 unit tests (`org-scope.test.ts`)
+- Admin/member/no-org scenarios
+- Nested scope wrapping
+- Failsafe edge cases
+- verifyClientAccess true/false paths
+
+---
+
 ## Documentation Structure
 
 | File | Purpose |
@@ -2317,9 +2348,9 @@ const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
 
 ---
 
-**Last Updated:** 2026-01-29
-**Status:** SCHEDULE C COMPLETE (Phases 1-5) + PHASE 3 MULTI-ENGAGEMENT UI - Year switcher + engagement modal
-**Branch:** feature/engagement-only (Schedule C + multi-year engagement)
-**Architecture Version:** 9.7 (Schedule C fully integrated, 85 tests passing, 9.0/10 review)
+**Last Updated:** 2026-02-02
+**Status:** SCHEDULE C COMPLETE (Phases 1-5) + PHASE 4 MULTI-TENANCY CLIENT FILTERING
+**Branch:** feature/multi-tenancy-permission (Multi-tenancy org/assignment scoping)
+**Architecture Version:** 9.3 (Org scope utilities + all endpoints scoped, 11 tests)
 
 For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).

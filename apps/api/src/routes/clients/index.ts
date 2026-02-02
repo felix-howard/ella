@@ -32,8 +32,10 @@ import type { ActionCounts, ClientWithActions } from '@ella/shared'
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthVariables } from '../../middleware/auth'
 
-const clientsRoute = new Hono()
+const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
 // GET /clients/intake-questions - Get intake questions for selected tax types
 // This is used by the client creation form to dynamically load questions
@@ -77,8 +79,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   const { page, limit, search, status, sort } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
-  // Build where clause
-  const where: Record<string, unknown> = {}
+  // Build where clause with org + assignment scope
+  const user = c.get('user')
+  const where: Record<string, unknown> = { ...buildClientScopeFilter(user) }
 
   if (search) {
     const sanitizedSearch = sanitizeSearchInput(search)
@@ -232,15 +235,17 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
   const { profile, ...clientData } = body
+  const user = c.get('user')
 
   try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Create client
+    // Create client with org scope
     const client = await tx.client.create({
       data: {
         ...clientData,
         language: clientData.language as Language,
+        organizationId: user.organizationId,
         profile: {
           create: {
             // Legacy fields for backward compatibility
@@ -368,9 +373,10 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
 // GET /clients/:id - Get client details with magic link and SMS status
 clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-  const client = await prisma.client.findUnique({
-    where: { id },
+  const client = await prisma.client.findFirst({
+    where: { id, ...buildClientScopeFilter(user) },
     include: {
       profile: true,
       taxCases: {
@@ -433,10 +439,11 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 // POST /clients/:id/resend-sms - Resend welcome SMS with magic link
 clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-  // Fetch client with latest case and active magic link
-  const client = await prisma.client.findUnique({
-    where: { id },
+  // Fetch client with latest case and active magic link (org-scoped)
+  const client = await prisma.client.findFirst({
+    where: { id, ...buildClientScopeFilter(user) },
     include: {
       taxCases: {
         orderBy: { createdAt: 'desc' },
@@ -530,6 +537,16 @@ clientsRoute.patch(
   async (c) => {
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify access before update (org + assignment scope)
+    const existing = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!existing) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
 
     // Explicitly pick only allowed fields to prevent mass assignment
     const allowedFields = ['name', 'phone', 'email', 'language'] as const
@@ -564,10 +581,12 @@ clientsRoute.patch(
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
 
+    const user = c.get('user')
+
     try {
-      // Fetch current profile with client's active tax case
-      const client = await prisma.client.findUnique({
-        where: { id },
+      // Fetch current profile with client's active tax case (org-scoped)
+      const client = await prisma.client.findFirst({
+        where: { id, ...buildClientScopeFilter(user) },
         include: {
           profile: true,
           taxCases: {
@@ -698,6 +717,16 @@ clientsRoute.post(
   async (c) => {
     const { id } = c.req.valid('param')
     const { changedKey, caseId } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify access before cleanup (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
 
     try {
       const result = await cascadeCleanupOnFalse(id, changedKey, caseId)
@@ -721,6 +750,16 @@ clientsRoute.post(
 // DELETE /clients/:id - Delete client
 clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
+
+  // Verify access before delete (org + assignment scope)
+  const client = await prisma.client.findFirst({
+    where: { id, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
 
   await prisma.client.delete({ where: { id } })
 

@@ -2727,11 +2727,79 @@ ella/
 - Compliance automation
 - Comprehensive testing suite
 
+## Phase 4: Client Filtering & Multi-Tenancy Scoping
+
+Enforces organization and staff assignment boundaries across all data resources. Users can only access clients assigned to them (or all clients if admin).
+
+### Org Scope Utilities (`src/lib/org-scope.ts`)
+
+**`buildClientScopeFilter(user: AuthUser)`** - Prisma where clause for Client queries
+- Admin (orgRole=org:admin): scope by `organizationId` only
+- Member/Staff: scope by `organizationId` + `assignments.some.staffId` filter
+- Failsafe: users with no org + no staffId get `id: '__NO_ACCESS__'` (prevents data leak)
+- Returns: `Record<string, unknown>` Prisma where object
+
+**`buildNestedClientScope(user: AuthUser)`** - For resources under Client (TaxCase, TaxEngagement)
+- Wraps client scope in `{ client: { ...clientWhere } }`
+- Example: Cases scoped to assigned clients via `client` relation
+- Returns: Prisma where filter for nested queries
+
+**`verifyClientAccess(clientId, user)`** - Verify single client access
+- Finds client matching user's scope filter
+- Returns: `Promise<boolean>`
+- Used in per-resource access checks before mutations
+
+### Scoped Endpoints
+
+All CRUD endpoints apply scope filter:
+
+| Route | Endpoints Scoped | Scope Method |
+|-------|------------------|--------------|
+| `/clients` | GET/:id, POST /:id (all mutations) | buildClientScopeFilter |
+| `/cases` | All GET, POST, PUT, DELETE | buildNestedClientScope |
+| `/engagements` | All GET, POST, PUT, DELETE | buildNestedClientScope |
+| `/actions` | GET, POST, DELETE | buildNestedClientScope |
+| `/messages` | GET, POST, DELETE, media proxy | buildNestedClientScope |
+| `/docs` | GET, POST, DELETE | buildNestedClientScope |
+| `/images` | GET, POST, DELETE | buildNestedClientScope |
+
+### Access Control Logic
+
+**Example: GET /clients/:id**
+```typescript
+const where = { id, ...buildClientScopeFilter(user) }
+// Admin org_1 sees: { id, organizationId: 'org_1' }
+// Member sees: { id, organizationId: 'org_1', assignments: { some: { staffId } } }
+```
+
+**Example: GET /cases/:caseId (nested)**
+```typescript
+const where = { id: caseId, ...buildNestedClientScope(user) }
+// Admin sees: { id, client: { organizationId: 'org_1' } }
+// Member sees: { id, client: { organizationId, assignments: { some: { staffId } } } }
+```
+
+### Test Coverage
+
+`src/lib/__tests__/org-scope.test.ts` - 11 unit tests
+- Admin filters: org only (no assignment filter)
+- Member filters: org + assignment
+- No org fallback: assignment filter only
+- Failsafe: impossible ID filter when no access criteria
+- Nested scope wrapping in client relation
+
+### Security Properties
+
+- **Org isolation:** organizationId FK prevents cross-org leaks
+- **Assignment validation:** Verified at DB level via Prisma where
+- **Failsafe:** Impossible filter blocks edge cases (migration transitions)
+- **No privilege escalation:** orgRole checked on every query (not just auth)
+
 ---
 
-**Last Updated:** 2026-01-27
-**Phase:** Phase 3 - Schema Cleanup (Engagement Isolation Complete)
-**Architecture Version:** 9.2 (Multi-Year Engagement Isolation with enforced constraints)
+**Last Updated:** 2026-02-02
+**Phase:** Phase 4 - Client Filtering & Multi-Tenancy Scoping
+**Architecture Version:** 9.3 (Multi-tenancy access control complete)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)

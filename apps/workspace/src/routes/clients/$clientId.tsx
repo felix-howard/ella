@@ -45,8 +45,10 @@ import {
 } from '../../components/clients'
 import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
+import { ClientAssignmentSection } from '../../components/team/client-assignment-section'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
+import { useOrgRole } from '../../hooks/use-org-role'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -72,6 +74,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+  const { isAdmin } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -582,6 +585,8 @@ function ClientDetailPage() {
         <div className="space-y-6">
           {/* Client Profile Overview */}
           <ClientOverviewSections client={client} />
+          {/* Client Assignments - Admin only */}
+          {isAdmin && <ClientAssignmentSection clientId={clientId} />}
         </div>
       )}
 

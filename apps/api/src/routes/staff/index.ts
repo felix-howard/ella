@@ -14,7 +14,7 @@ const updateLanguageSchema = z.object({
   language: z.enum(['VI', 'EN']),
 })
 
-// GET /staff/me - Get current staff profile (including language)
+// GET /staff/me - Get current staff profile (including language and orgRole)
 staffRoute.get('/me', async (c) => {
   const user = c.get('user')
   if (!user?.staffId) {
@@ -30,7 +30,7 @@ staffRoute.get('/me', async (c) => {
     return c.json({ error: 'Staff record not found' }, 404)
   }
 
-  return c.json(staff)
+  return c.json({ ...staff, orgRole: user.orgRole })
 })
 
 // PATCH /staff/me/language - Update language preference

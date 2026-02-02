@@ -2171,9 +2171,68 @@ export function useAutoSave(token: string, data: ExpenseFormData) {
 - User-friendly status feedback (saving/saved/error states)
 - Preserves unsaved edits until confirmed saved
 
+## Multi-Tenancy Frontend Patterns (Phase 5)
+
+**Admin-Only UI Pattern:**
+
+Use `useOrgRole()` hook for conditional rendering based on user's organization role.
+
+```typescript
+import { useOrgRole } from '@hooks/use-org-role'
+
+function ClientList() {
+  const { isAdmin } = useOrgRole()
+
+  return (
+    <div>
+      {isAdmin && <AdminOnlyComponent />}
+      <ClientListItems />
+    </div>
+  )
+}
+```
+
+**Assigned Staff in Client List:**
+
+Backend conditionally includes `clientAssignments` in GET /clients for admin users only.
+
+```typescript
+// API Response type (org-scoped)
+interface ClientWithActions {
+  id: string
+  name: string
+  clientAssignments?: {  // Only present for admins
+    id: string
+    name: string
+  }[]
+  // ... other fields
+}
+
+// Component rendering (in client row, hidden below lg breakpoint)
+{isAdmin && clientAssignments && (
+  <div className="hidden lg:flex gap-1">
+    {clientAssignments.map(staff => (
+      <span key={staff.id} className="px-2 py-1 rounded bg-primary/10 text-xs">
+        {staff.name}
+      </span>
+    ))}
+  </div>
+)}
+```
+
+**Org Context in API Client:**
+
+Frontend API client automatically filters by current organization context.
+
+```typescript
+// All requests include org context via auth header/query param
+const response = await api.clients.list()
+// → Automatically filtered to current org's clients only
+```
+
 ---
 
-**Last Updated:** 2026-01-29
-**Phase:** Phase 05 Schedule C Testing & Polish Complete
-**Standards Version:** 1.8
-**Added:** Schedule C auto-save exponential backoff pattern, version history snapshot tracking
+**Last Updated:** 2026-02-02
+**Phase:** Phase 5 Multi-Tenancy Frontend Complete
+**Standards Version:** 1.9
+**Added:** Multi-tenancy frontend patterns (admin-only UI, org-scoped client filtering, assigned staff display)

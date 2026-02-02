@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TeamRouteImport } from './routes/team'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
@@ -22,6 +23,11 @@ import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
 import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/team': typeof TeamRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/team': typeof TeamRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/team': typeof TeamRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/settings'
+    | '/team'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/settings'
+    | '/team'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/settings'
+    | '/team'
     | '/clients/$clientId'
     | '/clients/new'
     | '/messages/$caseId'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
   SettingsRoute: typeof SettingsRoute
+  TeamRoute: typeof TeamRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
@@ -184,6 +197,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
   SettingsRoute: SettingsRoute,
+  TeamRoute: TeamRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
   ActionsIndexRoute: ActionsIndexRoute,

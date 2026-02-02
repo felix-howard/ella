@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   MessageSquare,
   Settings,
   ChevronLeft,
@@ -22,14 +23,18 @@ import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
 import { useUIStore, useTheme } from '../../stores/ui-store'
 import { api } from '../../lib/api-client'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
+import { useOrgRole } from '../../hooks/use-org-role'
 
-// Navigation items with icons and i18n keys
-const NAV_ITEMS_CONFIG = [
+// Base navigation items with icons and i18n keys
+const BASE_NAV_ITEMS = [
   { path: '/', i18nKey: 'nav.dashboard', icon: LayoutDashboard },
   { path: '/clients', i18nKey: 'nav.clients', icon: Users },
   { path: '/messages', i18nKey: 'nav.messages', icon: MessageSquare },
-  { path: '/settings', i18nKey: 'nav.settings', icon: Settings },
 ] as const
+
+// Admin-only nav item
+const TEAM_NAV_ITEM = { path: '/team', i18nKey: 'nav.team', icon: UsersRound } as const
+const SETTINGS_NAV_ITEM = { path: '/settings', i18nKey: 'nav.settings', icon: Settings } as const
 
 export function Sidebar() {
   const { t } = useTranslation()
@@ -41,6 +46,14 @@ export function Sidebar() {
   const { signOut } = useClerk()
   const { user } = useUser()
   const { state: voiceState, actions: voiceActions } = useVoiceCallContext()
+  const { isAdmin } = useOrgRole()
+
+  // Build nav items - include Team for admins
+  const navItems = [
+    ...BASE_NAV_ITEMS,
+    ...(isAdmin ? [TEAM_NAV_ITEM] : []),
+    SETTINGS_NAV_ITEM,
+  ]
 
   // Select logo based on theme
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
@@ -95,7 +108,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
-        {NAV_ITEMS_CONFIG.map((item) => {
+        {navItems.map((item) => {
           const isActive = item.path === '/'
             ? currentPath === '/'
             : currentPath.startsWith(item.path)

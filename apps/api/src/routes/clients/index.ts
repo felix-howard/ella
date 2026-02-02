@@ -81,6 +81,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   // Build where clause with org + assignment scope
   const user = c.get('user')
+  const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
   const where: Record<string, unknown> = { ...buildClientScopeFilter(user) }
 
   if (search) {
@@ -115,6 +116,14 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         profile: {
           select: { intakeAnswers: true }
         },
+        // Include assigned staff names for admin list view
+        ...(isAdmin ? {
+          clientAssignments: {
+            select: {
+              staff: { select: { id: true, name: true } },
+            },
+          },
+        } : {}),
         taxCases: {
           take: 1,
           orderBy: { lastActivityAt: 'desc' },
@@ -188,6 +197,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       }
     }
 
+    // Map assigned staff for admin view
+    const assignedStaff = isAdmin && 'clientAssignments' in client
+      ? (client.clientAssignments as { staff: { id: string; name: string } }[]).map((a) => a.staff)
+      : undefined
+
     return {
       id: client.id,
       name: client.name,
@@ -197,6 +211,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
+      ...(assignedStaff ? { assignedStaff } : {}),
       actionCounts,
       latestCase: latestCase ? {
         id: latestCase.id,

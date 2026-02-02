@@ -6,7 +6,8 @@
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
-import { syncStaffFromClerk, getStaffByClerkId, type AuthUser } from '../services/auth'
+import { syncStaffFromClerk, getStaffByClerkId, syncOrganization, type AuthUser } from '../services/auth'
+import { prisma } from '../lib/db'
 
 export type { AuthUser }
 
@@ -30,12 +31,27 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
     throw new HTTPException(401, { message: 'Yêu cầu xác thực' })
   }
 
+  // Extract org context from Clerk JWT
+  const clerkOrgId = auth.orgId || null
+  const orgRole = auth.orgRole || null
+
+  // Sync organization if present
+  let organizationId: string | null = null
+  if (clerkOrgId) {
+    try {
+      const org = await syncOrganization(clerkOrgId)
+      organizationId = org.id
+    } catch (error) {
+      console.error('[Auth] Organization sync failed:', error)
+      // Continue without org context rather than blocking auth entirely
+    }
+  }
+
   // Get staff record to check role
   let staff = await getStaffByClerkId(auth.userId)
 
   // If no staff record exists, sync from Clerk session claims
   if (!staff) {
-    // Try to get user info from session claims
     const sessionClaims = auth.sessionClaims as {
       email?: string
       name?: string
@@ -47,10 +63,14 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
         auth.userId,
         sessionClaims.email,
         sessionClaims.name || 'Unknown',
-        sessionClaims.picture
+        sessionClaims.picture,
+        organizationId || undefined
       )
       staff = await getStaffByClerkId(auth.userId)
     }
+  } else if (organizationId && staff.organizationId !== organizationId) {
+    // Update staff org if changed, refetch to avoid stale data
+    staff = await prisma.staff.update({ where: { id: staff.id }, data: { organizationId } })
   }
 
   // Check if staff is active
@@ -61,11 +81,14 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   // Set user in context
   c.set('user', {
     id: auth.userId,
-    staffId: staff?.id || null, // Staff table ID for foreign keys
+    staffId: staff?.id || null,
     email: staff?.email || '',
     name: staff?.name || 'Unknown',
     role: staff?.role || 'STAFF',
     imageUrl: staff?.avatarUrl || undefined,
+    organizationId,
+    clerkOrgId,
+    orgRole,
   })
 
   await next()
@@ -84,11 +107,14 @@ export const optionalAuthMiddleware = createMiddleware<{ Variables: Partial<Auth
     if (staff && staff.isActive) {
       c.set('user', {
         id: auth.userId,
-        staffId: staff.id, // Staff table ID for foreign keys
+        staffId: staff.id,
         email: staff.email,
         name: staff.name,
         role: staff.role,
         imageUrl: staff.avatarUrl || undefined,
+        organizationId: staff.organizationId || null,
+        clerkOrgId: auth.orgId || null,
+        orgRole: auth.orgRole || null,
       })
     }
   }
@@ -130,3 +156,30 @@ export const staffOrAdmin = requireRole('ADMIN', 'STAFF')
  * CPA or admin middleware (convenience)
  */
 export const cpaOrAdmin = requireRole('ADMIN', 'CPA')
+
+/**
+ * Requires user to have an active organization selected
+ * Use after authMiddleware: app.use('/org/*', authMiddleware, requireOrg)
+ */
+export const requireOrg = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
+  const user = c.get('user')
+  if (!user) throw new HTTPException(401, { message: 'Chưa xác thực' })
+  if (!user.organizationId) {
+    throw new HTTPException(403, { message: 'Vui lòng chọn tổ chức' })
+  }
+  await next()
+})
+
+/**
+ * Requires org:admin role from Clerk JWT or app-level ADMIN role
+ * Cross-validates both sources to prevent privilege escalation
+ * Use after authMiddleware: app.use('/admin/*', authMiddleware, requireOrgAdmin)
+ */
+export const requireOrgAdmin = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
+  const user = c.get('user')
+  if (!user) throw new HTTPException(401, { message: 'Chưa xác thực' })
+  if (user.orgRole !== 'org:admin' && user.role !== 'ADMIN') {
+    throw new HTTPException(403, { message: 'Chỉ admin mới có quyền' })
+  }
+  await next()
+})

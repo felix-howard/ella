@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-02-02
 **Current Branch:** feature/multi-tenancy-permission
-**Latest Phase:** Phase 1 Multi-Tenancy & Permission System (Database Schema) COMPLETE | Schedule C Phase 4 1099-NEC Breakdown
+**Latest Phase:** Phase 3 Team & Assignment APIs COMPLETE | Phase 1 Multi-Tenancy & Permission System (Database Schema) COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3 Multi-Tenancy: Team & Assignment APIs** | **7 team management endpoints (GET members, POST/PATCH invites, POST accept, DELETE revoke, PATCH role); 5 assignment endpoints (POST/bulk assign, PATCH transfer, GET list, DELETE unassign); Clerk Backend SDK integration; requireOrg/requireOrgAdmin middleware; logTeamAction audit logging; 26 comprehensive tests** | **2026-02-02** |
 | **Phase 1 Multi-Tenancy & Permission System: Database Schema** | **Organization model (clerkOrgId, name, slug, logoUrl, isActive); ClientAssignment model (staff-client mapping, unique constraint); Staff.organizationId FK; Client.organizationId FK; AuditEntityType +ORGANIZATION; Migration + backfill script; Ready for Phase 2 APIs** | **2026-02-02** |
 | **Schedule C Phase 4 Enhancement: 1099-NEC Breakdown** | **Per-payer NEC breakdown display; New component nec-breakdown-list; Backend: getGrossReceiptsBreakdown() + refactored calculateGrossReceipts(); Auto-update DRAFT forms with optimistic locking; 6 new unit tests; Frontend hook integration; Income table dynamic labeling** | **2026-01-29** |
 | **Schedule C Expense Collection Phase 4** | **11 new workspace components (956 LOC); api.scheduleC client methods; useScheduleC + useScheduleCActions hooks; 4-state router (empty/waiting/submitted/locked); Income/expense/vehicle display tables; Version history viewer; Staff action controls (send/lock/unlock/resend); Integration with client detail tab** | **2026-01-28** |
@@ -96,6 +97,104 @@
 - UPDATED: data-entry-modal.tsx - Import from shared module (DRY)
 
 **Benefits:** DRY principle, UI consistency across surfaces, faster verification workflow (no manual save), race condition safe field switching
+
+---
+
+## Phase 3 Multi-Tenancy: Team & Assignment APIs (NEW - 2026-02-02)
+
+**Status:** ✅ COMPLETE | Team member management + org-scoped client assignment workflows
+
+**Summary:** Phase 3 completes multi-tenancy implementation with team & assignment management APIs. Admins manage org members (invite, accept, update roles, revoke access). Staff assigned to clients within org scope. Clerk Backend SDK integration for org membership. All operations audit-logged. 12 files (routes, schemas, middleware, tests). 26 passing unit tests.
+
+**Architecture:**
+
+```
+Team Workflow (Admin):
+GET /team/members → List org members (with client counts)
+POST /team/invite → Send email invite via Clerk
+PATCH /team/invitations/:id → Accept/reject invitation
+POST /team/members/:staffId/role → Update member role
+DELETE /team/members/:staffId → Revoke access + deactivate
+
+Assignment Workflow (Admin):
+POST /client-assignments → Assign staff to client
+POST /client-assignments/bulk → Batch assign multiple staff
+PATCH /client-assignments/:assignmentId/transfer → Change assigned staff
+GET /client-assignments?clientId=X → List assignments for client
+DELETE /client-assignments/:assignmentId → Remove assignment
+```
+
+**New Files Created:**
+
+1. **`apps/api/src/lib/clerk-client.ts`** (Clerk Backend SDK client)
+   - Initialize Clerk Backend with SECRET_KEY env var
+   - Used by team routes for org membership operations
+
+2. **`apps/api/src/routes/team/schemas.ts`** (Zod validation)
+   - inviteMemberSchema: emailAddress (email), role (org_admin|org_member)
+   - updateMemberRoleSchema: role enum validation
+   - staffIdParamSchema / invitationIdParamSchema: UUID validation
+
+3. **`apps/api/src/routes/team/index.ts`** (7 endpoints)
+   - **GET /team/members** - List active members with client counts, sorted by name
+   - **POST /team/invite** - Clerk org invitation (email delivery handled by Clerk)
+   - **GET /team/invitations/:id** - Fetch invitation details
+   - **PATCH /team/invitations/:id** - Accept/reject (requires valid token)
+   - **PATCH /team/members/:staffId/role** - Update role (org_admin/org_member), cascades ClientAssignment access
+   - **DELETE /team/members/:staffId** - Soft deactivate staff (isActive=false), orphans assignments
+   - **POST /team/sync** - Sync Clerk org members to Staff table (one-time migration)
+
+4. **`apps/api/src/routes/client-assignments/schemas.ts`** (Zod validation)
+   - createAssignmentSchema: { clientId, staffId } (UUID)
+   - bulkAssignSchema: { staffIds: UUID[], clientIds: UUID[] }
+   - transferSchema: { newStaffId } (UUID)
+   - listAssignmentsQuerySchema: { clientId?, staffId? } filtering
+
+5. **`apps/api/src/routes/client-assignments/index.ts`** (5 endpoints)
+   - **POST /client-assignments** - Create single assignment, validate org membership
+   - **POST /client-assignments/bulk** - Batch create assignments, M×N staff-client pairs
+   - **PATCH /client-assignments/:assignmentId/transfer** - Change assigned staff, validate both exist
+   - **GET /client-assignments** - List assignments (opt filter by client/staff)
+   - **DELETE /client-assignments/:assignmentId** - Remove assignment
+
+6. **Middleware Updates** (`apps/api/src/middleware/auth.ts`)
+   - **requireOrg** - Enforce organizationId context (returns 401 if missing)
+   - **requireOrgAdmin** - Check user.role === 'org_admin' (returns 403 if not)
+
+7. **Audit Logging** (`apps/api/src/services/audit-logger.ts`)
+   - **logTeamAction(userId, organizationId, action, details)** - New method
+   - Actions: INVITE_SENT, MEMBER_ROLE_CHANGED, MEMBER_DEACTIVATED, ASSIGNMENT_CREATED, ASSIGNMENT_DELETED
+
+**Test Coverage:**
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| team-routes.test.ts | 13 | GET members, invite flow, role updates, deactivation, sync |
+| client-assignment-routes.test.ts | 13 | Create, bulk assign, transfer, list, delete, boundary checks |
+
+**Key Behaviors:**
+
+- All team/assignment routes require org context (401 if missing)
+- Admin-only operations require org_admin role (403 if not)
+- Org membership validated before assignment creation (404 if outside org)
+- Unique constraint: ClientAssignment(staffId, clientId) prevents duplicates
+- Soft delete: deactivating staff doesn't cascade-delete assignments
+- Role changes: Updating staff role doesn't affect assignments (role stored on Staff)
+- Bulk assign: Creates M×N pairs atomically; skips existing pairs
+
+**Integration Points:**
+
+- Client detail page: Show assigned staff via GET /client-assignments?clientId=X
+- Team settings: List members + invite form + role mgmt
+- OnboardingFlow: POST /team/invite → Clerk sends email → User accepts to join org
+- Audit trail: All operations logged with organizationId context
+
+**Next Steps:**
+
+- Frontend team management UI (list members, invite form, role selector, bulk assign)
+- Permission checks: Verify org_admin required for invite/role/deactivate operations
+- Deployment: Set CLERK_SECRET_KEY env var in production
+- Monitoring: Track team action audit logs for compliance reporting
 
 ---
 

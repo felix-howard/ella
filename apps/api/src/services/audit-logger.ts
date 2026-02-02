@@ -152,6 +152,32 @@ export async function logEngagementChanges(
 }
 
 /**
+ * Log team management action (deactivation, role change, assignment)
+ * Uses ORGANIZATION entity type with staffId as entityId
+ */
+export async function logTeamAction(
+  action: string,
+  targetStaffId: string,
+  performedById: string | null,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        entityType: 'ORGANIZATION' as AuditEntityType,
+        entityId: targetStaffId,
+        field: action,
+        oldValue: metadata?.oldValue !== undefined ? (metadata.oldValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        newValue: metadata?.newValue !== undefined ? (metadata.newValue as Prisma.InputJsonValue) : Prisma.JsonNull,
+        changedById: performedById || undefined,
+      },
+    })
+  } catch (error) {
+    console.error('[AuditLog] Failed to log team action', { action, targetStaffId, error })
+  }
+}
+
+/**
  * Compute diff between old and new engagement data
  * Compares all engagement profile fields
  */

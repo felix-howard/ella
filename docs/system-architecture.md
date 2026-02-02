@@ -1477,24 +1477,42 @@ Poll Stops (unsubscribe):
 
 ## Database Schema (Phase 3 Schema Cleanup - Complete)
 
-**Core Models (15 - Phase 3.0 UPDATE: TaxCase.engagementId now REQUIRED, onDelete Cascade):**
+**Core Models (18 - Phase 1 Multi-Tenancy UPDATE: +Organization, +ClientAssignment):**
 
 ```
-AuditLog - Compliance & audit trail (Phase 01 NEW)
-├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT)
+Organization - Multi-tenant tenant management (Phase 1 Multi-Tenancy NEW)
+├── id, clerkOrgId (@unique), name, slug (@unique), logoUrl, isActive
+├── staff (1:many Staff) - Staff members in organization
+├── clients (1:many Client) - Clients in organization
+├── Indexes: (clerkOrgId)
+├── Purpose: Multi-tenancy isolation, Clerk org sync, staff/client scoping
+
+ClientAssignment - Staff-to-client assignment tracking (Phase 1 Multi-Tenancy NEW)
+├── id, clientId (@fk Client, onDelete: Cascade), staffId (@fk Staff, onDelete: Cascade)
+├── assignedById (optional), createdAt
+├── Unique constraint: (clientId, staffId)
+├── Indexes: (staffId), (clientId), (assignedById)
+├── Purpose: Track staff assignments, future permission scoping
+
+AuditLog - Compliance & audit trail (Phase 01 NEW; Phase 1 Multi-Tenancy: +ORGANIZATION)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT|ORGANIZATION)
 ├── entityId, field, oldValue, newValue (Json)
 ├── changedById (optional), createdAt
 ├── Indexes: (entityType, entityId), (changedById), (createdAt)
 
-Staff - Authentication & authorization
+Staff - Authentication & authorization (Phase 1 Multi-Tenancy: +organizationId FK)
 ├── id, email (@unique), name, role (ADMIN|STAFF|CPA)
 ├── avatarUrl, isActive, timestamps
+├── organizationId (optional @fk Organization, onDelete: SetNull)
+├── clientAssignments (1:many ClientAssignment) - Assigned clients
 ├── auditLogs (1:many AuditLog)
 
-Client - Tax client management (permanent)
+Client - Tax client management (permanent; Phase 1 Multi-Tenancy: +organizationId FK)
 ├── id, name, phone (@unique), email, language (VI|EN)
+├── organizationId (optional @fk Organization, onDelete: SetNull)
 ├── profile (1:1 ClientProfile) - Deprecated legacy global profile
 ├── engagements (1:many TaxEngagement) - Year-specific engagement records
+├── assignments (1:many ClientAssignment) - Assigned staff members
 ├── taxCases (1:many TaxCase) - Per-form filings
 
 ClientProfile - Tax situation questionnaire (DEPRECATED - Phase 3 reads via TaxEngagement)
@@ -1597,6 +1615,7 @@ Action - Staff tasks & reminders
 - **DocCategory** (Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
 - **MagicLinkType** (Phase 1 Schedule C NEW) - PORTAL (document upload), SCHEDULE_C (expense form)
 - **ScheduleCStatus** (Phase 1 Schedule C NEW) - DRAFT (client editing), SUBMITTED (awaiting CPA review), LOCKED (CPA finalized)
+- **AuditEntityType** (Phase 1 Multi-Tenancy) - +ORGANIZATION value added
 
 ## Phase 01 Database Schema Update - Document Categorization (2026-01-27)
 

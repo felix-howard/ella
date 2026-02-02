@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-29
-**Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 4 Schedule C 1099-NEC Breakdown COMPLETE | Phase 5 Verification Modal Enhancements
+**Current Date:** 2026-02-02
+**Current Branch:** feature/multi-tenancy-permission
+**Latest Phase:** Phase 1 Multi-Tenancy & Permission System (Database Schema) COMPLETE | Schedule C Phase 4 1099-NEC Breakdown
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 1 Multi-Tenancy & Permission System: Database Schema** | **Organization model (clerkOrgId, name, slug, logoUrl, isActive); ClientAssignment model (staff-client mapping, unique constraint); Staff.organizationId FK; Client.organizationId FK; AuditEntityType +ORGANIZATION; Migration + backfill script; Ready for Phase 2 APIs** | **2026-02-02** |
 | **Schedule C Phase 4 Enhancement: 1099-NEC Breakdown** | **Per-payer NEC breakdown display; New component nec-breakdown-list; Backend: getGrossReceiptsBreakdown() + refactored calculateGrossReceipts(); Auto-update DRAFT forms with optimistic locking; 6 new unit tests; Frontend hook integration; Income table dynamic labeling** | **2026-01-29** |
 | **Schedule C Expense Collection Phase 4** | **11 new workspace components (956 LOC); api.scheduleC client methods; useScheduleC + useScheduleCActions hooks; 4-state router (empty/waiting/submitted/locked); Income/expense/vehicle display tables; Version history viewer; Staff action controls (send/lock/unlock/resend); Integration with client detail tab** | **2026-01-28** |
 | **Schedule C Expense Collection Phase 3** | **Portal form (Phase 3) - See separate doc: schedule-c-phase-3-portal-expense-form.md (Production-ready client expense form, 28 IRS categories, auto-save, 578 tests passing)** | **2026-01-28** |

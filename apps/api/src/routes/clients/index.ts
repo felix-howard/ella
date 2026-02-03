@@ -118,7 +118,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         },
         // Include assigned staff names for admin list view
         ...(isAdmin ? {
-          clientAssignments: {
+          assignments: {
             select: {
               staff: { select: { id: true, name: true } },
             },
@@ -198,8 +198,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     }
 
     // Map assigned staff for admin view
-    const assignedStaff = isAdmin && 'clientAssignments' in client
-      ? (client.clientAssignments as { staff: { id: string; name: string } }[]).map((a) => a.staff)
+    const assignedStaff = isAdmin && 'assignments' in client
+      ? (client.assignments as unknown as { staff: { id: string; name: string } }[]).map((a) => a.staff)
       : undefined
 
     return {

@@ -61,7 +61,8 @@ function AcceptInvitationPage() {
             session: result.createdSessionId,
             organization: firstOrgId,
           })
-          navigate({ to: '/' })
+          // Full page reload to ensure Clerk session is fully propagated
+          window.location.href = '/'
         } else {
           setError(t('invite.signInFailed'))
           setIsSigningIn(false)
@@ -75,7 +76,7 @@ function AcceptInvitationPage() {
     }
 
     doSignIn()
-  }, [signIn, setActiveSignIn, ticket, accountStatus, userMemberships?.data, navigate, t])
+  }, [signIn, setActiveSignIn, ticket, accountStatus, userMemberships?.data, t])
 
   // Handle sign-up form submission for new users
   const handleSignUp = async (e: React.FormEvent) => {
@@ -98,7 +99,8 @@ function AcceptInvitationPage() {
         await setActiveSignUp({
           session: result.createdSessionId,
         })
-        navigate({ to: '/' })
+        // Full page reload to ensure Clerk session is fully propagated
+        window.location.href = '/'
       } else {
         setError(t('invite.signUpFailed'))
       }

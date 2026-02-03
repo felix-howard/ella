@@ -165,9 +165,8 @@ export function Sidebar() {
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-              <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
               {organization && (
-                <p className="text-[11px] text-primary/70 truncate mt-0.5">{organization.name}</p>
+                <p className="text-xs text-primary truncate">{organization.name}</p>
               )}
             </div>
           )}

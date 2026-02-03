@@ -107,13 +107,6 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Organization name */}
-      {!sidebarCollapsed && organization && (
-        <div className="px-4 py-1 border-b border-border">
-          <p className="text-xs text-muted-foreground truncate">{organization.name}</p>
-        </div>
-      )}
-
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
         {navItems.map((item) => {
@@ -173,6 +166,9 @@ export function Sidebar() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{userName}</p>
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+              {organization && (
+                <p className="text-[11px] text-primary/70 truncate mt-0.5">{organization.name}</p>
+              )}
             </div>
           )}
         </div>

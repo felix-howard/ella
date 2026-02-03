@@ -1,9 +1,9 @@
 /**
  * Hook to auto-select the first Clerk organization when user has no active org.
  * MVP: single org per user; silently selects first available org on sign-in.
- * Returns hasOrg (user has at least one org) for zero-org edge case handling.
+ * Returns hasOrg, isSelecting for loading gates in ClerkAuthProvider.
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth, useOrganizationList } from '@clerk/clerk-react'
 
 export function useAutoOrgSelection() {
@@ -11,6 +11,7 @@ export function useAutoOrgSelection() {
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: { infinite: true },
   })
+  const [isSelecting, setIsSelecting] = useState(false)
 
   const membershipData = userMemberships?.data
   const hasOrg = (membershipData?.length ?? 0) > 0
@@ -19,9 +20,12 @@ export function useAutoOrgSelection() {
     if (!isSignedIn || orgId || !setActive || !isLoaded) return
     const firstOrg = membershipData?.[0]
     if (firstOrg) {
-      setActive({ organization: firstOrg.organization.id }).catch(() => {
-        // Silent fail - user can manually select org later
-      })
+      setIsSelecting(true)
+      setActive({ organization: firstOrg.organization.id })
+        .catch(() => {
+          // Silent fail - user can manually select org later
+        })
+        .finally(() => setIsSelecting(false))
     }
   }, [isSignedIn, orgId, setActive, isLoaded, membershipData])
 
@@ -29,5 +33,6 @@ export function useAutoOrgSelection() {
     isLoaded,
     hasOrg,
     orgId,
+    isSelecting,
   }
 }

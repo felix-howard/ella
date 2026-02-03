@@ -4,7 +4,7 @@
  * Supports both light and dark themes
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useSignIn, useAuth } from '@clerk/clerk-react'
+import { useSignIn, useAuth, useOrganizationList } from '@clerk/clerk-react'
 import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
@@ -18,6 +18,9 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { isSignedIn, isLoaded } = useAuth()
   const { signIn, setActive } = useSignIn()
+  const { userMemberships } = useOrganizationList({
+    userMemberships: { infinite: true },
+  })
   const navigate = useNavigate()
   const { theme } = useTheme()
   const { t } = useTranslation()
@@ -56,7 +59,11 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else if (result.status === 'needs_second_factor') {
         // User has 2FA enabled - prepare email code and show 2FA input
@@ -96,7 +103,11 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else {
         setError(t('login.verificationFailed'))

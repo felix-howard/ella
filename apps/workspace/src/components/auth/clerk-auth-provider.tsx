@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Loader2 } from 'lucide-react'
 import { setAuthTokenGetter } from '../../lib/api-client'
 import { useAutoOrgSelection } from '../../hooks/use-auto-org-selection'
 
@@ -19,7 +20,7 @@ interface ClerkAuthProviderProps {
 export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
   const { t } = useTranslation()
   const { getToken, isLoaded, isSignedIn } = useAuth()
-  const { isLoaded: isOrgLoaded, hasOrg } = useAutoOrgSelection()
+  const { isLoaded: isOrgLoaded, hasOrg, orgId, isSelecting } = useAutoOrgSelection()
   const queryClient = useQueryClient()
   const wasSignedIn = useRef(false)
 
@@ -50,6 +51,16 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
   // This prevents API calls from firing before auth token is available
   if (!isLoaded) {
     return null
+  }
+
+  // Wait for auto-org selection to complete before rendering the app
+  // This prevents redirect loops where session is pending org selection
+  if (isSignedIn && isOrgLoaded && hasOrg && !orgId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    )
   }
 
   // Show message if signed-in user has no organization

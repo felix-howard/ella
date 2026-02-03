@@ -806,5 +806,17 @@
   "voiceError.networkError": "Lỗi kết nối mạng",
   "voiceError.securityError": "Lỗi bảo mật khi truy cập microphone",
   "voiceError.timeout": "Hết thời gian chờ",
+  "invite.createAccount": "Tạo tài khoản để tham gia nhóm",
+  "invite.createButton": "Tạo tài khoản",
+  "invite.creatingAccount": "Đang tạo tài khoản...",
+  "invite.firstNamePlaceholder": "Tên",
+  "invite.goToLogin": "Về trang đăng nhập",
+  "invite.lastNamePlaceholder": "Họ",
+  "invite.noToken": "Link mời không hợp lệ hoặc đã hết hạn.",
+  "invite.passwordPlaceholder": "Mật khẩu",
+  "invite.processing": "Đang xử lý lời mời...",
+  "invite.signInFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
+  "invite.signUpFailed": "Tạo tài khoản thất bại. Vui lòng thử lại.",
+  "invite.signingIn": "Đang đăng nhập...",
   "yearSwitcher.addNewYear": "Thêm năm mới"
 }

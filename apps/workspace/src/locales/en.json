@@ -806,5 +806,17 @@
   "voiceError.networkError": "Network error",
   "voiceError.securityError": "Security error accessing microphone",
   "voiceError.timeout": "Timeout",
+  "invite.createAccount": "Set up your account to join the team",
+  "invite.createButton": "Create Account",
+  "invite.creatingAccount": "Creating account...",
+  "invite.firstNamePlaceholder": "First name",
+  "invite.goToLogin": "Go to Login",
+  "invite.lastNamePlaceholder": "Last name",
+  "invite.noToken": "Invalid or missing invitation link.",
+  "invite.passwordPlaceholder": "Password",
+  "invite.processing": "Processing invitation...",
+  "invite.signInFailed": "Sign-in failed. Please try again.",
+  "invite.signUpFailed": "Account creation failed. Please try again.",
+  "invite.signingIn": "Signing you in...",
   "yearSwitcher.addNewYear": "Add New Year"
 }

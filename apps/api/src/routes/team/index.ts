@@ -10,6 +10,7 @@ import { clerkClient } from '../../lib/clerk-client'
 import { deactivateStaff } from '../../services/auth'
 import { logTeamAction } from '../../services/audit-logger'
 import { requireOrgAdmin, requireOrg } from '../../middleware/auth'
+import { config } from '../../lib/config'
 import type { AuthVariables } from '../../middleware/auth'
 import {
   inviteMemberSchema,
@@ -67,6 +68,7 @@ teamRoute.post(
         emailAddress,
         role,
         inviterUserId: user.id,
+        redirectUrl: `${config.workspaceUrl}/accept-invitation`,
       })
 
       return c.json({

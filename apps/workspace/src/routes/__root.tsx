@@ -17,7 +17,8 @@ function RootLayout() {
   const { isSignedIn, isLoaded } = useAuth()
   const routerState = useRouterState()
   const navigate = useNavigate()
-  const isLoginPage = routerState.location.pathname === '/login'
+  const pathname = routerState.location.pathname
+  const isPublicPage = pathname === '/login' || pathname === '/accept-invitation'
   const { theme } = useTheme()
 
   // Sync language preference from DB (runs only when signed in)
@@ -33,10 +34,10 @@ function RootLayout() {
   }, [theme])
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn && !isLoginPage) {
+    if (isLoaded && !isSignedIn && !isPublicPage) {
       navigate({ to: '/login' })
     }
-  }, [isLoaded, isSignedIn, isLoginPage, navigate])
+  }, [isLoaded, isSignedIn, isPublicPage, navigate])
 
   // Show loading spinner while checking auth
   if (!isLoaded) {
@@ -49,7 +50,7 @@ function RootLayout() {
 
   // Not signed in and not on login page - show loading while redirecting
   // This prevents protected routes from rendering and making API calls
-  if (!isSignedIn && !isLoginPage) {
+  if (!isSignedIn && !isPublicPage) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -58,7 +59,7 @@ function RootLayout() {
   }
 
   // Show login page without sidebar/header
-  if (isLoginPage) {
+  if (isPublicPage) {
     return (
       <ErrorBoundary>
         <Outlet />

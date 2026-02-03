@@ -78,7 +78,11 @@ teamRoute.post(
         },
       })
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to send invitation'
+      console.error('[Team] Invite failed:', error)
+      // Extract Clerk API error details
+      const clerkErr = error as { errors?: Array<{ message?: string; longMessage?: string; code?: string }> }
+      const firstErr = clerkErr.errors?.[0]
+      const message = firstErr?.longMessage || firstErr?.message || (error instanceof Error ? error.message : 'Failed to send invitation')
       return c.json({ error: message }, 400)
     }
   }

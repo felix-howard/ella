@@ -49,17 +49,29 @@ export async function syncOrganization(
 }
 
 /**
+ * Map Clerk org role to DB StaffRole
+ * org:admin -> ADMIN, everything else -> STAFF
+ */
+function mapClerkRoleToStaffRole(clerkOrgRole?: string | null): 'ADMIN' | 'STAFF' {
+  return clerkOrgRole === 'org:admin' ? 'ADMIN' : 'STAFF'
+}
+
+/**
  * Sync Clerk user to Staff table
  * Creates or updates Staff record based on Clerk user data
+ * Syncs role from Clerk org role (org:admin -> ADMIN, org:member -> STAFF)
  */
 export async function syncStaffFromClerk(
   clerkUserId: string,
   email: string,
   name: string,
   imageUrl?: string,
-  organizationId?: string
+  organizationId?: string,
+  clerkOrgRole?: string | null
 ): Promise<{ role: string } | null> {
   if (!email) return null
+
+  const role = mapClerkRoleToStaffRole(clerkOrgRole)
 
   try {
     // Try to find by email first (staff may exist before Clerk link)
@@ -72,6 +84,7 @@ export async function syncStaffFromClerk(
         data: {
           clerkId: clerkUserId,
           name,
+          role,
           avatarUrl: imageUrl,
           lastLoginAt: new Date(),
           organizationId: organizationId || undefined,
@@ -85,6 +98,7 @@ export async function syncStaffFromClerk(
       where: { clerkId: clerkUserId },
       update: {
         name,
+        role,
         avatarUrl: imageUrl,
         lastLoginAt: new Date(),
         organizationId: organizationId || undefined,
@@ -94,7 +108,7 @@ export async function syncStaffFromClerk(
         email,
         name,
         avatarUrl: imageUrl,
-        role: 'STAFF',
+        role,
         lastLoginAt: new Date(),
         organizationId: organizationId || undefined,
       },

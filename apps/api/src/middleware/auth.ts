@@ -64,13 +64,25 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
         sessionClaims.email,
         sessionClaims.name || 'Unknown',
         sessionClaims.picture,
-        organizationId || undefined
+        organizationId || undefined,
+        orgRole
       )
       staff = await getStaffByClerkId(auth.userId)
     }
-  } else if (organizationId && staff.organizationId !== organizationId) {
-    // Update staff org if changed, refetch to avoid stale data
-    staff = await prisma.staff.update({ where: { id: staff.id }, data: { organizationId } })
+  } else {
+    // Sync org and role for existing staff on each request
+    const expectedRole = orgRole === 'org:admin' ? 'ADMIN' : 'STAFF'
+    const needsUpdate = (organizationId && staff.organizationId !== organizationId) || staff.role !== expectedRole
+
+    if (needsUpdate) {
+      staff = await prisma.staff.update({
+        where: { id: staff.id },
+        data: {
+          organizationId: organizationId || staff.organizationId,
+          role: expectedRole,
+        },
+      })
+    }
   }
 
   // Check if staff is active

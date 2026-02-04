@@ -1,0 +1,41 @@
+---
+/**
+ * Base layout wrapping all pages.
+ * Provides: HTML shell, global CSS, favicon, theme color, SEO slot.
+ */
+import "@/styles/global.css";
+import { siteConfig } from "@/config/site";
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="antialiased">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content={siteConfig.themeColor} />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Preconnect to font CDN for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <!-- SEO tags injected by each page via HeadSEO component -->
+    <slot name="head" />
+  </head>
+  <body class:list={["min-h-screen bg-white text-gray-900", className]}>
+    <slot />
+  </body>
+</html>

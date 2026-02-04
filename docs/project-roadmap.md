@@ -1,8 +1,34 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-28 23:55 ICT
-> **Current Phase:** Schedule C Expense Collection (Phase 3 Complete: 60% Overall) + Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Schedule C Phase 3 Complete (60% Overall) + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + Auto-Rename Documents & Category Grouping (Phase 1 Complete, 20%) + All prior enhancements
+> **Last Updated:** 2026-02-04 ICT
+> **Current Phase:** Multi-Tenancy & Permission System (Completed) + Schedule C Expense Collection + Voice Calls (Complete) + Multi-Year Client Engagement (Complete)
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Schedule C Phase 4 Complete + All prior enhancements
+
+### Multi-Tenancy & Permission System - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Organization-scoped multi-tenancy with Clerk org integration, team management, and RBAC
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema | ✅ DONE | 2026-02-03 | Organization, ClientAssignment, Staff/Client enhancements, AuditLog |
+| 2 | API - Team Endpoints | ✅ DONE | 2026-02-04 | 7 team mgmt endpoints, Clerk Backend SDK integration |
+| 3 | API - Assignment Endpoints | ✅ DONE | 2026-02-04 | 5 assignment endpoints (CRUD + bulk + transfer) |
+| 4 | Org-Scoped Filtering | ✅ DONE | 2026-02-04 | buildClientScopeFilter(), middleware, all entities covered |
+| 5 | Frontend Auth & Navigation | ✅ DONE | 2026-02-04 | useAutoOrgSelection, useOrgRole, Team page, sidebar org display |
+| 6 | Invite & Acceptance Flow | ✅ DONE | 2026-02-04 | Accept-invitation page, Clerk org invite tickets |
+
+**Completion Summary:**
+- **Database:** 4 new models (Organization, ClientAssignment, enhanced Staff/Client, AuditLog) with org-scoped constraints
+- **API:** 12 endpoints, org-aware JWT parsing, role-based middleware (requireOrg, requireOrgAdmin)
+- **Frontend:** Team management page, org name in sidebar, role badges, auto-org selection on sign-in
+- **Hooks:** useAutoOrgSelection (auto-select first org), useOrgRole (role-based checks)
+- **RBAC:** Admin (see all clients) vs Staff (see assigned clients only) via ClientAssignment
+- **Tests:** 26 API tests, full type coverage
+- **i18n:** 821 keys (English + Vietnamese)
+- **Status:** Production-ready, merged to main
+
+---
 
 ### Schedule C Expense Collection - Phase 3 Complete (60% Overall) ✅
 **Started:** 2026-01-28 09:42 ICT

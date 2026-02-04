@@ -471,6 +471,47 @@ Primary green (`#10B981`) remains consistent across modes.
 
 ---
 
+## 12. Team Management UI Patterns
+
+### Member Table
+- Columns: Avatar + Name, Email, Role (badge), Status (online/offline), Actions (edit, remove)
+- Row hover: Light background tint + action buttons visible
+- Sorting: By name or last active
+- Empty state: Icon + "No team members yet" + CTA to invite
+
+### Invite Dialog
+- Modal with mint green header (title in green)
+- Email input (RFC 5322 validation)
+- Role selector (ADMIN/STAFF with descriptions)
+- Loading state during submission
+- Success toast on completion
+- Error handling with inline validation messages
+
+### Assignment Panel
+- List view: Client name, assigned staff name, actions (transfer, remove)
+- Empty state when no assignments
+- Bulk assign dialog: Multi-select clients, assign to staff
+- Transfer dialog: Select destination staff member
+- Toast feedback for each action
+
+### Organization Context (Sidebar)
+- Org name displayed below logo
+- Role badge (ADMIN/STAFF) next to user avatar
+- Conditional "Team" nav item (admin-only)
+- On zero-org: Fallback UI (org.noOrg title + org.noOrgDesc subtitle in mint green)
+
+### Permission Indicators
+- Admin features: Team tab, invite button, role management
+- Staff features: Client list (assigned only), messages
+- Visual distinction: Admin controls have mint green accents
+
+### Invite Acceptance
+- Landing page: Company logo, welcome message
+- Two flows: Sign-in (existing users) or Sign-up (new users)
+- Clerk UI embedded with org context
+- Post-acceptance: Auto-redirect to /team dashboard
+- Fallback for expired/invalid invites
+
 ## 12. Responsive Breakpoints
 
 | Breakpoint | Width | Behavior |

@@ -1,0 +1,262 @@
+---
+/**
+ * Features page — 6 detailed capabilities with alternating zigzag layout.
+ * Each section: icon, heading, description, benefit bullets, image placeholder.
+ * Sections alternate: odd = content left / image right, even = image left / content right.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import CTASection from "@/components/cta-section.astro";
+import { breadcrumbSchema } from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+
+const structuredData = [
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "Features", url: `${siteConfig.url}/features` },
+  ]),
+];
+
+/** SVG path data for each feature icon (Heroicons outline style, stroke-based) */
+const features = [
+  {
+    icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+    title: "Instantly classify 89+ tax document types",
+    description:
+      "Our AI engine identifies W-2s, 1099s, K-1s, bank statements, and 85+ other tax forms with 99% accuracy. No more manual sorting.",
+    benefits: [
+      "Classify documents in seconds, not hours",
+      "99% accuracy rate with confidence scoring",
+      "Automatic flagging for manual review when needed",
+      "Continuous learning improves over time",
+    ],
+    placeholder: "AI Classification Dashboard",
+  },
+  {
+    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6",
+    title: "Extract structured data automatically",
+    description:
+      "OCR technology pulls key information from documents — income figures, employer details, dates, and more — into structured fields ready for your tax software.",
+    benefits: [
+      "Eliminate manual data entry",
+      "Extract W-2 boxes, 1099 fields, K-1 schedules",
+      "Export to CSV or integrate with tax prep software",
+      "Verify extracted data with side-by-side view",
+    ],
+    placeholder: "OCR Data Extraction",
+  },
+  {
+    icon: "M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.54a4.5 4.5 0 00-6.364-6.364L4.5 8.25l4.5 4.5",
+    title: "Passwordless client upload portal",
+    description:
+      "Send clients a magic link. They upload documents securely without creating an account. No passwords, no friction — just drag, drop, done.",
+    benefits: [
+      "Zero-friction client experience",
+      "Secure magic link authentication",
+      "Mobile-friendly upload on any device",
+      "Automatic email notifications on upload",
+    ],
+    placeholder: "Client Portal Upload",
+  },
+  {
+    icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z",
+    title: "Role-based access and client assignments",
+    description:
+      "Invite team members, assign clients to specific staff, and manage workload with role-based permissions. Admins control access, staff handle assigned cases.",
+    benefits: [
+      "Assign clients to specific staff members",
+      "Admin/Staff role permissions",
+      "Task queues and action items",
+      "Audit trail for compliance",
+    ],
+    placeholder: "Team Management Dashboard",
+  },
+  {
+    icon: "M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z",
+    title: "Built-in voice calling and SMS",
+    description:
+      "Call clients directly from your browser with Twilio WebRTC. Send SMS reminders, receive voicemails, and transcribe messages — all in one inbox.",
+    benefits: [
+      "Browser-based calling (no phone system needed)",
+      "SMS reminders for missing documents",
+      "Voicemail transcription with AI",
+      "Unified message inbox",
+    ],
+    placeholder: "Voice & SMS Inbox",
+  },
+  {
+    icon: "M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z",
+    title: "Track multi-year client relationships",
+    description:
+      "Copy forward previous year data, maintain client history, and generate checklists automatically based on intake questionnaires. Built for long-term client relationships.",
+    benefits: [
+      "Copy-from previous year in one click",
+      "Track engagement history across years",
+      "Auto-generate checklists from intake",
+      "Identify recurring clients vs new",
+    ],
+    placeholder: "Multi-Year Engagement View",
+  },
+];
+
+/** Checkmark SVG path for benefit bullets */
+const checkPath = "M4.5 12.75l6 6 9-13.5";
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Features - Ella Tax Document Management | AI Classification, OCR, Client Portals"
+    description="Explore Ella's powerful features: AI document classification, OCR data extraction, client portals, team collaboration, voice/SMS, and multi-year engagements. Built for tax professionals."
+    structuredData={structuredData}
+  />
+
+  <main>
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20">
+      <div class="mx-auto max-w-4xl px-6 text-center">
+        <p
+          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
+          data-animate="fade-up"
+        >
+          Capabilities
+        </p>
+        <h1
+          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          data-animate="fade-up"
+        >
+          Powerful features built for
+          <span class="text-primary-600">tax professionals</span>
+        </h1>
+        <p
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          data-animate="fade-up"
+        >
+          Everything you need to streamline document collection, classification,
+          and team collaboration in one platform.
+        </p>
+      </div>
+    </section>
+
+    <!-- 6 Feature Sections — alternating zigzag layout -->
+    {
+      features.map((feature, index) => {
+        const isOdd = index % 2 === 0;
+        const bgClass = isOdd ? "bg-white" : "bg-gray-50";
+
+        return (
+          <section class:list={[bgClass, "py-24"]} aria-label={feature.title}>
+            <div class="mx-auto max-w-6xl px-6">
+              <div class="grid items-center gap-12 lg:grid-cols-2">
+                {/* Content side */}
+                <div class:list={[!isOdd && "lg:order-2"]}>
+                  {/* Icon */}
+                  <div
+                    class="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100"
+                    data-animate="fade-up"
+                  >
+                    <svg
+                      class="h-8 w-8 text-primary-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d={feature.icon}
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Heading */}
+                  <h2
+                    class="text-3xl font-bold text-gray-900"
+                    data-animate="fade-up"
+                  >
+                    {feature.title}
+                  </h2>
+
+                  {/* Description */}
+                  <p
+                    class="mt-4 text-lg leading-relaxed text-gray-600"
+                    data-animate="fade-up"
+                  >
+                    {feature.description}
+                  </p>
+
+                  {/* Benefit bullets */}
+                  <ul class="mt-6 space-y-3" data-animate="fade-up">
+                    {feature.benefits.map((benefit) => (
+                      <li class="flex items-start gap-3">
+                        <svg
+                          class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          aria-hidden="true"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d={checkPath}
+                          />
+                        </svg>
+                        <span class="text-gray-700">{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Image placeholder side */}
+                <div class:list={[!isOdd && "lg:order-1"]} data-animate="fade-up">
+                  <div class="overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-primary-50 to-primary-100 shadow-sm">
+                    <div
+                      class="flex aspect-video items-center justify-center"
+                      role="img"
+                      aria-label={`${feature.placeholder} — screenshot coming soon`}
+                    >
+                      <div class="text-center">
+                        <svg
+                          class="mx-auto h-12 w-12 text-primary-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="1"
+                          aria-hidden="true"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d={feature.icon}
+                          />
+                        </svg>
+                        <p class="mt-3 text-sm font-medium text-primary-800">
+                          {feature.placeholder}
+                        </p>
+                        <p class="mt-1 text-xs text-primary-700">
+                          Screenshot coming soon
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })
+    }
+
+    <!-- Bottom CTA -->
+    <CTASection
+      title="See Ella in action"
+      description="Request a personalized demo and discover how Ella can transform your tax workflow."
+      buttonText="Request a Demo"
+      buttonHref="/#contact"
+    />
+  </main>
+</BaseLayout>

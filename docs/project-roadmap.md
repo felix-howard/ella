@@ -1,8 +1,52 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-02-04 ICT
-> **Current Phase:** Landing Page Phase 03 (Completed) + Multi-Tenancy & Permission System (Completed) + Schedule C Expense Collection + Voice Calls (Complete) + Multi-Year Client Engagement (Complete)
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Phase 03 COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
+> **Current Phase:** Landing Page Phase 06 (Completed) + Multi-Tenancy & Permission System (Completed) + Schedule C Expense Collection + Voice Calls (Complete) + Multi-Year Client Engagement (Complete)
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Phase 06 COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
+
+### Landing Page Phase 06: Why Ella Page - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Production-ready why Ella page with empathetic pain point narrative, solutions, before/after comparison, differentiators, and social proof
+
+**Completion Summary:**
+- **Hero Section:** Empathetic pain point intro "Tax season doesn't have to be chaos"
+- **Problem Section:** 4 pain point cards with icons (Document collection, Manual classification, Data entry, Team communication gaps)
+- **Solution Section:** 1-to-1 solutions mapping each problem to Ella feature (Automated collection, AI classification, Smart OCR, Built-in collaboration)
+- **Before/After Comparison:** Side-by-side workflow comparison (50+ hours manual vs 10 hours with Ella, 80% time savings)
+- **Differentiators Section:** 4 key differentiators (AI-First, Modern UX, All-In-One Platform, Built for Tax Professionals)
+- **Social Proof:** StatsBar component with firm count, documents processed, accuracy, time saved
+- **Bottom CTA:** "Ready to eliminate tax season chaos?" call-to-action section
+- **SEO:** BreadcrumbList structured data, optimized title/description for conversions
+- **Accessibility:** WCAG AAA contrast, prefers-reduced-motion, semantic HTML
+- **Code Quality:** 174 lines why-ella.astro + 3 new modules (icon-card.astro, why-ella-data.ts, icons.ts), shared icons across features/pricing pages
+- **Mobile Responsive:** All sections stack properly on 320px-1920px viewports
+- **Status:** Production-ready on feature/landing-page branch
+
+---
+
+### Landing Page Phase 05: Pricing Page - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Production-ready pricing page with transparent 3-tier structure, comparison table, FAQ, SEO optimization
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Pricing Tier Cards | ✅ DONE | 2026-02-04 | 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge |
+| 2 | Feature Comparison Table | ✅ DONE | 2026-02-04 | 12 rows, responsive with horizontal scroll on mobile, sticky header |
+| 3 | FAQ Section | ✅ DONE | 2026-02-04 | 8 items, 2-column grid on desktop |
+| 4 | SEO & Structured Data | ✅ DONE | 2026-02-04 | BreadcrumbList, FAQPage, Product schema for each tier |
+
+**Completion Summary:**
+- **Pricing Tiers:** 3 cards (Starter for solo practitioners, Professional most popular for growing firms, Enterprise for large firms)
+- **Professional Tier:** Elevated styling with ring-2 ring-primary-600, lg:scale-105, "Most Popular" badge
+- **Features:** Starter (5 clients, AI, OCR, portal, 500 docs), Professional (+team, voice/SMS, 2K docs), Enterprise (unlimited)
+- **Comparison Table:** 12 feature rows, check/x icons, sticky first column for mobile horizontal scroll
+- **FAQ:** 8 questions (free trial, plan changes, active client definition, document limits, setup fees, payment methods, cancellation, annual discounts)
+- **SEO:** Product schema with price, priceCurrency USD, priceValidUntil next year, availability InStock
+- **Accessibility:** role="img" on SVGs, aria-labels ("Included", "Not included"), semantic HTML
+- **Status:** Production-ready on feature/landing-page branch
+
+---
 
 ### Landing Page Phase 03: Full Home Page - COMPLETE ✅
 **Completed:** 2026-02-04
@@ -670,9 +714,8 @@ Core Models:
 ## Next Steps (Immediate Action Items)
 
 ### For Development Team (Next 3 Days)
-1. **Landing Page Phase 04: Additional Pages**
+1. **Landing Page Phase 06: Additional Pages**
    - Features page (detailed capability descriptions)
-   - Pricing page (subscription tiers)
    - Why Ella page (benefits for tax professionals)
    - About page (team/mission/company story)
 2. **Schedule C Phase 5: Workspace Integration**
@@ -731,6 +774,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 5.0 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 05 COMPLETE. Pricing page (/pricing) with 3 tiers (Starter $99, Professional $299 most popular, Enterprise Custom), feature comparison table (12 rows, mobile scroll), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas for each tier. Accessibility: role="img", aria-labels, semantic HTML. Phase 06 (Features/Why Ella/About pages) pending. |
 | 4.9 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 03 COMPLETE. Full home page (index.astro) with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99%, 80%), Features (4 cards: AI, OCR, Portal, Team), How It Works (3-step), Testimonials (3 quotes), CTA + Contact Form. aggregateRatingSchema() added. Brand color to emerald, OG image updated (1200x630px gradient). Phase 04 (Features/Pricing/Why Ella/About pages) pending. |
 | 4.8 | 2026-01-28 00:28 | PM | NEW PROJECT: Schedule C Expense Collection - Phase 2 COMPLETE (33% overall). 8 endpoints implemented (5 staff + 3 public), magic link SCHEDULE_C type, SMS templates, expense calculator service. 578/578 tests passing. Code review: 9.2/10. Phase 3 (Portal Expense Form) pending. |
 | 4.7 | 2026-01-27 20:15 | PM | MILESTONE: Simplify Client Workflow - Phase 4 COMPLETE (100% overall). ErrorBoundary on FilesTab, loading states verified in YearSwitcher/CreateEngagementModal, Vietnamese labels audited & standardized, edge cases handled (empty states, single year, error scenarios). Type-check pass, build pass, 535/535 tests pass. Code review 9.5/10. Feature ready for merge to main. |

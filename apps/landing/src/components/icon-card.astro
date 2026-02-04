@@ -1,0 +1,36 @@
+---
+/**
+ * Reusable card with icon circle, title, and description.
+ * Used on: Why Ella (problems, solutions, differentiators), potentially other pages.
+ * Accepts variant prop to control icon circle color scheme.
+ */
+interface Props {
+  icon: string;
+  title: string;
+  description: string;
+  /** "primary" = emerald circle, "error" = red circle */
+  variant?: "primary" | "error";
+}
+
+const { icon, title, description, variant = "primary" } = Astro.props;
+
+const iconBg = variant === "error" ? "bg-error-100" : "bg-primary-100";
+const iconColor = variant === "error" ? "text-error-500" : "text-primary-600";
+---
+
+<div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+  <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-full", iconBg]}>
+    <svg
+      class:list={["h-6 w-6", iconColor]}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      stroke-width="1.5"
+      aria-hidden="true"
+    >
+      <path stroke-linecap="round" stroke-linejoin="round" d={icon} />
+    </svg>
+  </div>
+  <h3 class="text-base font-semibold text-gray-900">{title}</h3>
+  <p class="mt-2 text-sm leading-relaxed text-gray-600">{description}</p>
+</div>

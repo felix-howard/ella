@@ -2,12 +2,14 @@
 
 **Current Date:** 2026-02-04
 **Current Branch:** feature/landing-page
-**Latest Phase:** Landing Page Phase 03 COMPLETE | Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
+**Latest Phase:** Landing Page Phase 06 COMPLETE | Phase 05 COMPLETE | Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Landing Page Phase 06: Why Ella Page** | **Why Ella page (why-ella.astro) with pain points (4 cards), solutions (4 cards), before/after comparison (3 metrics), differentiators (4 stats), company metrics, CTA. Shared icon-card component, shared icon library (checkPath, xPath). Pricing & Features pages refactored to use shared icons.** | **2026-02-04** |
+| **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
 | **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
 | **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
 | **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org/ClientAssignment models), 12 API endpoints, org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys** | **2026-02-04** |
@@ -79,7 +81,21 @@
   - How It Works: 3-step process (Send Link → AI Classifies → Review & Prepare)
   - Testimonials: 3 CPA/EA quotes with 5-star implied rating
   - Contact Form: Formspree integration for lead capture
-- **Shared Components:** Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm
+- **Pricing Page (Phase 05):** 3-tier pricing (Starter $99, Professional $299, Enterprise Custom)
+  - "Most Popular" badge on Professional tier with elevated styling
+  - Feature comparison table (12 rows, horizontal scroll on mobile)
+  - FAQ section (8 items, 2-column grid)
+  - Bottom CTA "Still have questions?"
+  - SEO: BreadcrumbList, FAQPage, Product schema for each tier
+- **Why Ella Page (Phase 06):** Problem-solution narrative with proof points
+  - Pain Points: 4 cards (Time-consuming doc collection, Manual classification errors, Compliance gaps, Scalability bottleneck)
+  - Solutions: 4 cards (Instant AI classification, Zero manual work, Built-in compliance, Auto-scales infinitely)
+  - Before/After: 3 metrics (30min → 5min doc collection, 15% errors → <1%, 2 months → 1 week)
+  - Differentiators: 4 competitive advantages (Best-in-class AI, CPA-built not SWE-built, Highest accuracy, Enterprise-ready)
+  - Company Metrics: Usage stats (1M docs processed, 500 firms, 99% accuracy, 80% time saved)
+  - CTA: "Join the revolution" with email signup
+- **Shared Components:** Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm, IconCard
+- **Shared Icons:** lib/icons.ts with checkPath, xPath for reusable icon assets
 - **Shared Config:** NavLinks (Home, Features, Pricing, Why Ella, About), LegalLinks (Privacy, Terms)
 - **Base Layout:** HTML shell, global CSS, skip-to-content link, SEO slot, theme color, favicon
 - **Site Config:** Organization metadata, social links (Twitter, LinkedIn), Formspree integration
@@ -193,6 +209,10 @@
 
 ## Recent Phases Summary
 
+**2026-02-04:** Landing Page Phase 06 complete. Why Ella page (why-ella.astro) with pain points (4 cards), solutions (4 cards), before/after metrics (3 rows), differentiators (4 stats), company metrics, CTA. Shared IconCard component. Shared icon library (checkPath, xPath). Pricing & Features pages refactored to use shared icons (DRY pattern).
+
+**2026-02-04:** Landing Page Phase 05 complete. Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), comparison table (12 rows), FAQ (8 items), SEO schemas (BreadcrumbList, FAQPage, Product).
+
 **2026-02-04:** Landing Page Phase 03 complete. Full home page (index.astro) rebuilt with 7 sections: Hero, Stats (1M docs, 500 firms, 99%, 80%), Features (4 cards), How It Works (3 steps), Testimonials (3 quotes), CTA, Contact Form. Structured data (aggregateRatingSchema) added. Brand color to emerald, OG image updated.
 
 **2026-02-04:** Landing Page Phase 02 complete. 8 shared Astro components, shared nav config, base layout integration.
@@ -211,7 +231,7 @@
 
 ## Next Steps
 
-1. **Landing Page Phase 04** - Additional page templates (Features, Pricing, Why Ella, About pages)
+1. **Landing Page Phase 07** - Additional page templates (About page, Blog overview)
 2. **Landing Page Deployment** - Staging → Production deployment & DNS routing
 3. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
 4. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking

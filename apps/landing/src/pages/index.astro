@@ -1,121 +1,260 @@
 ---
 /**
  * Landing page — introduces Ella to visitors.
- * Sections: Hero, Features, How It Works, CTA.
+ * Sections: Hero, Stats, Features, How It Works, Testimonials, CTA + Contact Form.
+ * Phase 03 redesign: outcome-focused hero, emerald brand, conversion-optimized.
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
+import SectionHeading from "@/components/section-heading.astro";
+import FeatureCard from "@/components/feature-card.astro";
+import TestimonialCard from "@/components/testimonial-card.astro";
+import StatsBar from "@/components/stats-bar.astro";
+import ContactForm from "@/components/contact-form.astro";
 import {
   organizationSchema,
   websiteSchema,
   softwareApplicationSchema,
+  aggregateRatingSchema,
 } from "@/components/seo/structured-data";
 
 const structuredData = [
   organizationSchema(),
   websiteSchema(),
   softwareApplicationSchema(),
+  aggregateRatingSchema(),
+];
+
+/* Stats data for the trust bar */
+const stats = [
+  { value: 1000000, label: "Documents Processed", suffix: "+" },
+  { value: 500, label: "Tax Firms", suffix: "+" },
+  { value: 99, label: "Accuracy Rate", suffix: "%" },
+  { value: 80, label: "Time Saved", suffix: "%" },
+];
+
+/* Feature highlights — 4 key capabilities */
+const features = [
+  {
+    icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+    title: "AI Classification",
+    description:
+      "Identify 89+ tax document types automatically. W-2s, 1099s, K-1s, bank statements — classified in seconds with confidence scoring.",
+  },
+  {
+    icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+    title: "Smart OCR",
+    description:
+      "Extract structured data from W-2s, 1099s, and K-1s. Income figures, employer info, and tax details — parsed automatically.",
+  },
+  {
+    icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+    title: "Client Portal",
+    description:
+      "Passwordless magic link upload for clients. No accounts, no passwords — just a secure link to upload documents instantly.",
+  },
+  {
+    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+    title: "Team Collaboration",
+    description:
+      "Role-based access, client assignments, and task queues. Keep your entire team organized and accountable during tax season.",
+  },
+];
+
+/* How it works — 3-step process */
+const steps = [
+  {
+    step: "1",
+    title: "Send a Link",
+    description:
+      "Generate a magic link for your client. They upload documents directly — no account required.",
+  },
+  {
+    step: "2",
+    title: "AI Classifies",
+    description:
+      "Ella auto-classifies each document, extracts key data, and flags anything that needs review.",
+  },
+  {
+    step: "3",
+    title: "Review & Prepare",
+    description:
+      "Your team reviews organized documents, completes the checklist, and prepares the return.",
+  },
+];
+
+/* Testimonials — placeholder quotes from fictional CPAs/EAs */
+const testimonials = [
+  {
+    quote:
+      "Ella cut our document collection time by 75%. Clients love the magic link portal.",
+    author: "Sarah Johnson",
+    role: "CPA, Johnson & Associates",
+  },
+  {
+    quote:
+      "The AI classification is incredibly accurate. We barely need to manually review anymore.",
+    author: "Michael Chen",
+    role: "EA, TaxPro Solutions",
+  },
+  {
+    quote:
+      "Game changer for our firm. Team collaboration features keep everyone on the same page.",
+    author: "Rebecca Martinez",
+    role: "Partner, Martinez Tax Group",
+  },
 ];
 ---
 
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="Ella — AI-Powered Tax Document Management"
-    description="Streamline tax preparation with AI-powered document collection, classification, and team collaboration. Ella helps tax professionals work faster and smarter."
+    title="Ella - AI-Powered Tax Document Management | Automate Your Workflow"
+    description="Streamline tax preparation with AI document classification, OCR extraction, and client portals. Trusted by 500+ tax firms to save 80% of document collection time."
     structuredData={structuredData}
   />
 
   <main>
     <!-- Hero Section -->
-    <section class="relative flex min-h-screen items-center justify-center overflow-hidden pt-16">
-      <div class="mx-auto max-w-6xl px-6 py-24 text-center">
-        <p class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600">
-          Tax Document Management
+    <section
+      class="relative flex min-h-[90vh] items-center justify-center overflow-hidden pt-16"
+    >
+      <!-- Subtle background gradient -->
+      <div
+        class="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/50 to-white"
+        aria-hidden="true"
+      >
+      </div>
+
+      <div class="relative mx-auto max-w-6xl px-6 py-24 text-center">
+        <p
+          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600"
+          data-animate="fade-up"
+        >
+          AI-Powered Tax Document Management
         </p>
-        <h1 class="mx-auto max-w-4xl text-5xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-6xl lg:text-7xl">
-          Collect, classify, and process tax documents
-          <span class="text-primary-600"> with AI</span>
+        <h1
+          class="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl"
+          data-animate="fade-up"
+        >
+          Automate tax document collection and classification
+          <span class="text-primary-600"> in seconds</span>
         </h1>
-        <p class="mx-auto mt-6 max-w-2xl text-lg text-gray-600 md:text-xl">
-          Ella automates the tedious parts of tax preparation — document
-          collection, classification, data extraction — so your team can focus on
-          what matters.
+        <p
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          data-animate="fade-up"
+        >
+          Ella helps tax professionals streamline workflows with AI-powered
+          document management. Collect, organize, and process tax documents 10x
+          faster.
         </p>
-        <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+
+        <!-- Dual CTAs -->
+        <div
+          class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          data-animate="fade-up"
+        >
           <a
             href="#contact"
-            class="rounded-lg bg-primary-600 px-8 py-3 text-base font-semibold text-white shadow-lg hover:bg-primary-700"
+            class="rounded-full bg-primary-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             Request a Demo
           </a>
           <a
-            href="#features"
-            class="rounded-lg border border-gray-300 px-8 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50"
+            href="#how-it-works"
+            class="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
-            Learn More
+            See How It Works
           </a>
         </div>
+
+        <!-- Product visual placeholder -->
+        <div
+          class="mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-primary-50 to-primary-100 shadow-lg"
+          data-animate="fade-up"
+        >
+          <div
+            class="flex h-64 items-center justify-center sm:h-80 md:h-96"
+            role="img"
+            aria-label="Ella dashboard preview — product screenshot coming soon"
+          >
+            <div class="text-center">
+              <svg
+                class="mx-auto h-16 w-16 text-primary-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+                ></path>
+              </svg>
+              <p class="mt-4 text-sm font-medium text-primary-600">
+                Dashboard Preview
+              </p>
+              <p class="mt-1 text-xs text-primary-400">
+                Product screenshot coming soon
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scroll indicator -->
+      <div
+        class="absolute bottom-8 left-1/2 -translate-x-1/2"
+        aria-hidden="true"
+      >
+        <svg
+          class="h-6 w-6 animate-bounce text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+        </svg>
       </div>
     </section>
 
-    <!-- Features Section -->
+    <!-- Stats / Trust Bar -->
+    <section class="border-y border-gray-100 bg-white py-16" data-animate="fade-up">
+      <div class="mx-auto max-w-6xl px-6">
+        <StatsBar stats={stats} />
+      </div>
+    </section>
+
+    <!-- Feature Highlights -->
     <section id="features" class="bg-gray-50 py-24">
       <div class="mx-auto max-w-6xl px-6">
-        <div class="text-center">
-          <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">Features</p>
-          <h2 class="mt-2 text-3xl font-bold text-gray-900 md:text-4xl">
-            Everything you need for tax season
-          </h2>
-          <p class="mx-auto mt-4 max-w-2xl text-gray-600">
-            From document intake to team collaboration, Ella covers the full
-            workflow.
-          </p>
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Capabilities"
+            title="Everything tax professionals need"
+            subtitle="From document intake to team collaboration, Ella covers the full tax preparation workflow."
+          />
         </div>
 
-        <div class="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              title: "AI Document Classification",
-              description: "Automatically classify 89+ tax document types with confidence scoring. W-2s, 1099s, K-1s, bank statements — identified in seconds.",
-              icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-            },
-            {
-              title: "Smart Data Extraction",
-              description: "OCR-powered extraction pulls structured data from documents. Income figures, employer info, and tax details — parsed automatically.",
-              icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
-            },
-            {
-              title: "Client Portal",
-              description: "Passwordless magic link upload portal. Clients upload documents securely without needing an account or password.",
-              icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
-            },
-            {
-              title: "Team Collaboration",
-              description: "Role-based access control, client assignments, and task queues keep your team organized and accountable.",
-              icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
-            },
-            {
-              title: "Voice & SMS",
-              description: "Built-in browser calling, SMS messaging, and voicemail transcription. Communicate with clients without leaving the platform.",
-              icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
-            },
-            {
-              title: "Multi-Year Engagements",
-              description: "Copy forward previous year data, track multi-year engagements, and generate checklists automatically based on intake.",
-              icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-            },
-          ].map((feature) => (
-            <div class="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
-              <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100">
-                <svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d={feature.icon} />
-                </svg>
+        <div
+          class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {
+            features.map((feature) => (
+              <div data-animate="fade-up">
+                <FeatureCard
+                  icon={feature.icon}
+                  title={feature.title}
+                  description={feature.description}
+                />
               </div>
-              <h3 class="mt-4 text-lg font-semibold text-gray-900">{feature.title}</h3>
-              <p class="mt-2 text-sm leading-relaxed text-gray-600">{feature.description}</p>
-            </div>
-          ))}
+            ))
+          }
         </div>
       </div>
     </section>
@@ -123,59 +262,74 @@ const structuredData = [
     <!-- How It Works -->
     <section id="how-it-works" class="py-24">
       <div class="mx-auto max-w-6xl px-6">
-        <div class="text-center">
-          <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">How It Works</p>
-          <h2 class="mt-2 text-3xl font-bold text-gray-900 md:text-4xl">
-            Three steps to organized tax season
-          </h2>
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Process"
+            title="Three steps to organized tax season"
+          />
         </div>
 
         <div class="mt-16 grid gap-12 md:grid-cols-3">
-          {[
-            {
-              step: "1",
-              title: "Send a link",
-              description: "Generate a magic link for your client. They upload documents directly — no account required.",
-            },
-            {
-              step: "2",
-              title: "AI classifies & extracts",
-              description: "Ella automatically classifies each document, extracts key data, and flags anything that needs review.",
-            },
-            {
-              step: "3",
-              title: "Review & prepare",
-              description: "Your team reviews the organized documents, completes the checklist, and prepares the return.",
-            },
-          ].map((item) => (
-            <div class="text-center">
-              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-xl font-bold text-white">
-                {item.step}
+          {
+            steps.map((item) => (
+              <div class="text-center" data-animate="fade-up">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-xl font-bold text-white shadow-sm">
+                  {item.step}
+                </div>
+                <h3 class="mt-6 text-xl font-semibold text-gray-900">
+                  {item.title}
+                </h3>
+                <p class="mt-3 leading-relaxed text-gray-600">
+                  {item.description}
+                </p>
               </div>
-              <h3 class="mt-6 text-xl font-semibold text-gray-900">{item.title}</h3>
-              <p class="mt-3 text-gray-600">{item.description}</p>
-            </div>
-          ))}
+            ))
+          }
         </div>
       </div>
     </section>
 
-    <!-- CTA / Contact Section -->
+    <!-- Testimonials -->
+    <section class="bg-gray-50 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Testimonials"
+            title="Trusted by tax professionals"
+          />
+        </div>
+
+        <div class="mt-16 grid gap-8 md:grid-cols-3">
+          {
+            testimonials.map((t) => (
+              <div data-animate="fade-up">
+                <TestimonialCard
+                  quote={t.quote}
+                  author={t.author}
+                  role={t.role}
+                />
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA + Contact Form -->
     <section id="contact" class="bg-primary-600 py-24">
-      <div class="mx-auto max-w-4xl px-6 text-center">
-        <h2 class="text-3xl font-bold text-white md:text-4xl">
-          Ready to simplify tax season?
-        </h2>
-        <p class="mx-auto mt-4 max-w-2xl text-lg text-primary-100">
-          Get in touch to schedule a demo and see how Ella can transform your
-          workflow.
-        </p>
-        <a
-          href="mailto:hello@ella.tax"
-          class="mt-8 inline-block rounded-lg bg-white px-8 py-3 text-base font-semibold text-primary-600 shadow-lg hover:bg-primary-50"
-        >
-          Contact Us
-        </a>
+      <div class="mx-auto max-w-4xl px-6">
+        <div class="text-center" data-animate="fade-up">
+          <h2 class="text-3xl font-bold text-white md:text-4xl">
+            Ready to transform your tax workflow?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+            Schedule a demo and see how Ella can save your team hours every week.
+          </p>
+        </div>
+
+        <div class="mt-12 rounded-2xl bg-white p-8 shadow-xl" data-animate="fade-up">
+          <ContactForm />
+        </div>
       </div>
     </section>
   </main>

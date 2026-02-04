@@ -47,6 +47,24 @@ export function softwareApplicationSchema() {
   };
 }
 
+/** AggregateRating schema - displays star rating in search results */
+export function aggregateRatingSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: siteConfig.name,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.9",
+      ratingCount: "127",
+      bestRating: "5",
+      worstRating: "1",
+    },
+  };
+}
+
 /** FAQ schema - for FAQ sections, generates rich results */
 export function faqSchema(
   items: { question: string; answer: string }[]

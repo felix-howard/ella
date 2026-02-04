@@ -9,10 +9,12 @@ export const siteConfig = {
   url: "https://ella.tax",
   ogImage: "/og-default.png",
   locale: "en_US",
-  themeColor: "#2563eb",
+  themeColor: "#10B981",
 
   // Social / contact
   twitter: "@ella_tax",
+  linkedIn: "", // Add LinkedIn profile URL when available
+  formspreeId: "YOUR_FORMSPREE_ID", // Replace with real Formspree form ID
 
   // Structured data - Organization
   organization: {

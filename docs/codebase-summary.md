@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
 **Current Date:** 2026-02-04
-**Current Branch:** feature/multi-tenancy-permission
-**Latest Phase:** Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
+**Current Branch:** feature/landing-page
+**Latest Phase:** Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE | Landing Page Phase 02 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
 | **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org/ClientAssignment models), 12 API endpoints, org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys** | **2026-02-04** |
 | **Phase 6: Frontend Auth & Navigation** | **useAutoOrgSelection hook, ClerkAuthProvider, sidebar org name, useOrgRole RBAC, Team nav conditional, accept-invitation page, full i18n (EN/VI)** | **2026-02-04** |
 | **Schedule C Phase 4: 1099-NEC Breakdown** | **Per-payer NEC breakdown display, nec-breakdown-list component, getGrossReceiptsBreakdown() backend, auto-update DRAFT forms, 6 tests, income table dynamic labeling** | **2026-01-29** |
@@ -68,6 +69,12 @@
 - `GET /team/members/:staffId/assignments` - Staff's assigned clients
 
 ## Frontend Architecture
+
+**Landing Page (Astro):**
+- **Shared Components:** Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm
+- **Shared Config:** NavLinks (Home, Features, Pricing, Why Ella, About), LegalLinks (Privacy, Terms)
+- **Base Layout:** HTML shell, global CSS, skip-to-content link, SEO slot, theme color, favicon
+- **Site Config:** Organization metadata, social links (Twitter, LinkedIn), Formspree integration
 
 **Key Pages (Workspace):**
 - `/team` - Team member management (member table, invite dialog, bulk assign)
@@ -177,6 +184,8 @@
 
 ## Recent Phases Summary
 
+**2026-02-04:** Landing Page Phase 02 complete. 8 shared Astro components, shared nav config, base layout integration.
+
 **2026-02-04:** Multi-Tenancy complete. Org model, 12 API endpoints, frontend auth/nav, RBAC, i18n.
 
 **2026-01-29:** Schedule C Phase 4. 1099-NEC breakdown UI, backend calculations, form auto-updates.
@@ -191,10 +200,11 @@
 
 ## Next Steps
 
-1. **Deploy Multi-Tenancy to Production** - All code tested, ready for merge to main
-2. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
-3. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
-4. **Team Assignment Workflows** - Bulk operations, transfer auditing
+1. **Landing Page Phase 03** - Page templates (Home, Features, Pricing, Why Ella, About)
+2. **Deploy Multi-Tenancy to Production** - All code tested, ready for merge to main
+3. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
+4. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
+5. **Team Assignment Workflows** - Bulk operations, transfer auditing
 
 ---
 

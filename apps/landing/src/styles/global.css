@@ -1,24 +1,132 @@
 @import "tailwindcss";
 
-/* Custom design tokens for Ella landing page */
+/* Ella landing page design tokens — emerald green brand */
 @theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
-  --color-primary-950: #172554;
+  /* Primary: Emerald Green */
+  --color-primary-50: #ECFDF5;
+  --color-primary-100: #D1FAE5;
+  --color-primary-200: #A7F3D0;
+  --color-primary-300: #6EE7B7;
+  --color-primary-400: #34D399;
+  --color-primary-500: #10B981;
+  --color-primary-600: #059669;
+  --color-primary-700: #047857;
+  --color-primary-800: #065F46;
+  --color-primary-900: #064E3B;
+  --color-primary-950: #022C22;
 
+  /* Accent: Coral Orange */
+  --color-accent-50: #FFF7ED;
+  --color-accent-100: #FFEDD5;
+  --color-accent-200: #FED7AA;
+  --color-accent-300: #FDBA74;
+  --color-accent-400: #FB923C;
+  --color-accent-500: #F97316;
+  --color-accent-600: #EA580C;
+
+  /* Semantic: Error Red */
+  --color-error-500: #EF4444;
+  --color-error-100: #FEE2E2;
+
+  /* Semantic: Warning Yellow */
+  --color-warning-500: #F59E0B;
+  --color-warning-100: #FEF3C7;
+
+  /* Neutral colors (from design-guidelines.md) */
+  --color-neutral-bg: #EFF3F8;
+  --color-neutral-card: #FFFFFF;
+  --color-neutral-border: #CBD5E1;
+  --color-neutral-muted: #E8F5EE;
+  --color-neutral-text: #1E293B;
+  --color-neutral-text-secondary: #64748B;
+  --color-neutral-text-muted: #94A3B8;
+
+  /* Typography */
   --font-heading: "Inter", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
+
+  /* Animation durations */
+  --duration-enter: 0.6s;
+  --duration-fast: 0.4s;
+  --duration-reduced: 0.01ms;
+
+  /* Animation keyframes */
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes counter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Animation utilities */
+  --animate-fade-up: fade-up var(--duration-enter) ease-out both;
+  --animate-slide-in-left: slide-in-left var(--duration-enter) ease-out both;
+  --animate-counter: counter var(--duration-fast) ease-out both;
 }
 
 /* Base styles */
 html {
   scroll-behavior: smooth;
+}
+
+/* Scroll animation: elements start hidden, animate when .animate is added */
+[data-animate] {
+  opacity: 0;
+  transition:
+    opacity var(--duration-enter) ease-out,
+    transform var(--duration-enter) ease-out;
+}
+
+[data-animate="fade-up"] {
+  transform: translateY(20px);
+}
+
+[data-animate="slide-in-left"] {
+  transform: translateX(-20px);
+}
+
+[data-animate].animate {
+  opacity: 1;
+  transform: translate(0);
+}
+
+/* Accessibility: disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--duration-reduced) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--duration-reduced) !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-animate] {
+    opacity: 1;
+    transform: none;
+  }
 }

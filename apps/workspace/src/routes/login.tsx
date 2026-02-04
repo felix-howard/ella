@@ -2,9 +2,10 @@
  * Login page for Ella Workspace
  * Custom styled login matching Ella's mint green design
  * Supports both light and dark themes
+ * Handles pending sessions with choose-organization task
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useSignIn, useAuth } from '@clerk/clerk-react'
+import { useSignIn, useAuth, useClerk, useOrganizationList } from '@clerk/clerk-react'
 import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
@@ -18,6 +19,10 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { isSignedIn, isLoaded } = useAuth()
   const { signIn, setActive } = useSignIn()
+  const clerk = useClerk()
+  const { userMemberships, isLoaded: isOrgListLoaded } = useOrganizationList({
+    userMemberships: { infinite: true },
+  })
   const navigate = useNavigate()
   const { theme } = useTheme()
   const { t } = useTranslation()
@@ -42,6 +47,33 @@ function LoginPage() {
     }
   }, [isLoaded, isSignedIn, navigate])
 
+  // Handle pending session with choose-organization task:
+  // After login + 2FA, session is created but stays "pending" until org is selected.
+  // Clerk's isSignedIn returns false for pending sessions, so user lands back on login.
+  // This effect detects that pending session and completes the org selection.
+  useEffect(() => {
+    if (!isLoaded || isSignedIn || !isOrgListLoaded) return
+
+    const pendingSession = clerk.client?.sessions?.find(
+      (s) => s.status === 'pending'
+    )
+    if (!pendingSession) return
+
+    const firstOrgId = userMemberships?.data?.[0]?.organization.id
+    if (!firstOrgId) return
+
+    // Complete the pending session by setting org
+    clerk.setActive({
+      session: pendingSession.id,
+      organization: firstOrgId,
+    }).then(() => {
+      navigate({ to: '/' })
+    }).catch(() => {
+      // If setActive fails, sign out to clear the stuck session
+      clerk.signOut()
+    })
+  }, [isLoaded, isSignedIn, isOrgListLoaded, clerk, userMemberships?.data, navigate])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!signIn) return
@@ -56,7 +88,11 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else if (result.status === 'needs_second_factor') {
         // User has 2FA enabled - prepare email code and show 2FA input
@@ -73,8 +109,31 @@ function LoginPage() {
         setError(t('login.loginFailed'))
       }
     } catch (err: unknown) {
-      const clerkError = err as { errors?: Array<{ message?: string }> }
-      const errorMessage = clerkError.errors?.[0]?.message || t('login.loginFailed')
+      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> }
+      const firstErr = clerkError.errors?.[0]
+
+      // Handle "Session already exists" - complete the pending session
+      if (firstErr?.code === 'session_exists') {
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        const pendingSession = clerk.client?.sessions?.find(
+          (s) => s.status === 'pending'
+        )
+        if (pendingSession && firstOrgId) {
+          try {
+            await clerk.setActive({
+              session: pendingSession.id,
+              organization: firstOrgId,
+            })
+            navigate({ to: '/' })
+            return
+          } catch {
+            // If that fails too, sign out to reset
+            await clerk.signOut()
+          }
+        }
+      }
+
+      const errorMessage = firstErr?.message || t('login.loginFailed')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -96,7 +155,11 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else {
         setError(t('login.verificationFailed'))
@@ -110,7 +173,7 @@ function LoginPage() {
     }
   }
 
-  // Show loading while checking auth state
+  // Show loading while checking auth state or resolving pending session
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

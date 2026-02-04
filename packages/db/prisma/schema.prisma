@@ -255,10 +255,15 @@ model Staff {
   language  Language   @default(VI)
   presence  StaffPresence?
 
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clientAssignments ClientAssignment[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@index([clerkId])
+  @@index([organizationId])
 }
 
 // Staff presence tracking for inbound call routing
@@ -275,6 +280,39 @@ model StaffPresence {
   @@index([isOnline])
 }
 
+model Organization {
+  id         String   @id @default(cuid())
+  clerkOrgId String   @unique
+  name       String
+  slug       String?  @unique
+  logoUrl    String?
+  isActive   Boolean  @default(true)
+
+  staff      Staff[]
+  clients    Client[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([clerkOrgId])
+}
+
+model ClientAssignment {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  assignedById String?
+
+  createdAt    DateTime @default(now())
+
+  @@unique([clientId, staffId])
+  @@index([staffId])
+  @@index([clientId])
+  @@index([assignedById])
+}
+
 model Client {
   id        String   @id @default(cuid())
   name      String
@@ -286,11 +324,16 @@ model Client {
   engagements  TaxEngagement[]
   taxCases     TaxCase[]
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assignments    ClientAssignment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([phone])
   @@index([name])
+  @@index([organizationId])
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
@@ -777,6 +820,7 @@ enum AuditEntityType {
   CLIENT_PROFILE
   TAX_CASE
   TAX_ENGAGEMENT
+  ORGANIZATION
 }
 
 // Schedule C expense form types

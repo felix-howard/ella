@@ -21,6 +21,8 @@ import { voiceRoutes } from './routes/voice'
 import { scheduleCRoute } from './routes/schedule-c'
 import { expenseRoute } from './routes/expense'
 import { staffRoute } from './routes/staff'
+import { teamRoute } from './routes/team'
+import { clientAssignmentsRoute } from './routes/client-assignments'
 
 const app = new OpenAPIHono()
 
@@ -60,6 +62,8 @@ app.use('/admin/*', authMiddleware)
 app.use('/voice/*', authMiddleware)
 app.use('/schedule-c/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
+app.use('/team/*', authMiddleware)
+app.use('/client-assignments/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -75,6 +79,8 @@ app.route('/admin', adminRoute)
 app.route('/voice', voiceRoutes)
 app.route('/schedule-c', scheduleCRoute)
 app.route('/staff', staffRoute)
+app.route('/team', teamRoute)
+app.route('/client-assignments', clientAssignmentsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

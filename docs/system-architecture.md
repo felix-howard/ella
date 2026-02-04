@@ -82,6 +82,23 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Response type safety via TypeScript
 - Pagination support with limit/offset
 
+**Clerk Authentication (Phase 6 - apps/workspace):**
+
+- `ClerkAuthProvider` component (clerk-auth-provider.tsx) wraps root routes
+- Sets JWT token getter for authenticated API requests
+- Clears React Query cache on sign-out (prevents stale 401 refetch loops)
+- `useAutoOrgSelection` hook auto-selects first Clerk org on sign-in
+- Zero-org edge case: Shows localized fallback UI (org.noOrg / org.noOrgDesc)
+- Sidebar displays current org name via `useOrganization()` hook
+- Conditional navigation: Team menu visible only to org admins (via `useOrgRole().isAdmin`)
+- Full i18n support: English + Vietnamese
+
+**Integration:**
+- Location: `apps/workspace/src/components/auth/clerk-auth-provider.tsx`
+- Hooks: `use-auto-org-selection.ts`, `use-org-role.ts` (Phase 5)
+- Routes: Auto-org selection fires on mount, zero-org check on render
+- Locales: org.noOrg, org.noOrgDesc keys in en.json + vi.json
+
 ### Backend API Layer (apps/api)
 
 **Technology:** Hono 4.6+, Node.js server, @hono/zod-openapi, @hono/zod-validator, TypeScript
@@ -1477,24 +1494,42 @@ Poll Stops (unsubscribe):
 
 ## Database Schema (Phase 3 Schema Cleanup - Complete)
 
-**Core Models (15 - Phase 3.0 UPDATE: TaxCase.engagementId now REQUIRED, onDelete Cascade):**
+**Core Models (18 - Phase 1 Multi-Tenancy UPDATE: +Organization, +ClientAssignment):**
 
 ```
-AuditLog - Compliance & audit trail (Phase 01 NEW)
-├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT)
+Organization - Multi-tenant tenant management (Phase 1 Multi-Tenancy NEW)
+├── id, clerkOrgId (@unique), name, slug (@unique), logoUrl, isActive
+├── staff (1:many Staff) - Staff members in organization
+├── clients (1:many Client) - Clients in organization
+├── Indexes: (clerkOrgId)
+├── Purpose: Multi-tenancy isolation, Clerk org sync, staff/client scoping
+
+ClientAssignment - Staff-to-client assignment tracking (Phase 1 Multi-Tenancy NEW)
+├── id, clientId (@fk Client, onDelete: Cascade), staffId (@fk Staff, onDelete: Cascade)
+├── assignedById (optional), createdAt
+├── Unique constraint: (clientId, staffId)
+├── Indexes: (staffId), (clientId), (assignedById)
+├── Purpose: Track staff assignments, future permission scoping
+
+AuditLog - Compliance & audit trail (Phase 01 NEW; Phase 1 Multi-Tenancy: +ORGANIZATION)
+├── id, entityType (CLIENT_PROFILE|CLIENT|TAX_CASE|TAX_ENGAGEMENT|ORGANIZATION)
 ├── entityId, field, oldValue, newValue (Json)
 ├── changedById (optional), createdAt
 ├── Indexes: (entityType, entityId), (changedById), (createdAt)
 
-Staff - Authentication & authorization
+Staff - Authentication & authorization (Phase 1 Multi-Tenancy: +organizationId FK)
 ├── id, email (@unique), name, role (ADMIN|STAFF|CPA)
 ├── avatarUrl, isActive, timestamps
+├── organizationId (optional @fk Organization, onDelete: SetNull)
+├── clientAssignments (1:many ClientAssignment) - Assigned clients
 ├── auditLogs (1:many AuditLog)
 
-Client - Tax client management (permanent)
+Client - Tax client management (permanent; Phase 1 Multi-Tenancy: +organizationId FK)
 ├── id, name, phone (@unique), email, language (VI|EN)
+├── organizationId (optional @fk Organization, onDelete: SetNull)
 ├── profile (1:1 ClientProfile) - Deprecated legacy global profile
 ├── engagements (1:many TaxEngagement) - Year-specific engagement records
+├── assignments (1:many ClientAssignment) - Assigned staff members
 ├── taxCases (1:many TaxCase) - Per-form filings
 
 ClientProfile - Tax situation questionnaire (DEPRECATED - Phase 3 reads via TaxEngagement)
@@ -1597,6 +1632,7 @@ Action - Staff tasks & reminders
 - **DocCategory** (Phase 01) - IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER
 - **MagicLinkType** (Phase 1 Schedule C NEW) - PORTAL (document upload), SCHEDULE_C (expense form)
 - **ScheduleCStatus** (Phase 1 Schedule C NEW) - DRAFT (client editing), SUBMITTED (awaiting CPA review), LOCKED (CPA finalized)
+- **AuditEntityType** (Phase 1 Multi-Tenancy) - +ORGANIZATION value added
 
 ## Phase 01 Database Schema Update - Document Categorization (2026-01-27)
 
@@ -2708,11 +2744,79 @@ ella/
 - Compliance automation
 - Comprehensive testing suite
 
+## Phase 4: Client Filtering & Multi-Tenancy Scoping
+
+Enforces organization and staff assignment boundaries across all data resources. Users can only access clients assigned to them (or all clients if admin).
+
+### Org Scope Utilities (`src/lib/org-scope.ts`)
+
+**`buildClientScopeFilter(user: AuthUser)`** - Prisma where clause for Client queries
+- Admin (orgRole=org:admin): scope by `organizationId` only
+- Member/Staff: scope by `organizationId` + `assignments.some.staffId` filter
+- Failsafe: users with no org + no staffId get `id: '__NO_ACCESS__'` (prevents data leak)
+- Returns: `Record<string, unknown>` Prisma where object
+
+**`buildNestedClientScope(user: AuthUser)`** - For resources under Client (TaxCase, TaxEngagement)
+- Wraps client scope in `{ client: { ...clientWhere } }`
+- Example: Cases scoped to assigned clients via `client` relation
+- Returns: Prisma where filter for nested queries
+
+**`verifyClientAccess(clientId, user)`** - Verify single client access
+- Finds client matching user's scope filter
+- Returns: `Promise<boolean>`
+- Used in per-resource access checks before mutations
+
+### Scoped Endpoints
+
+All CRUD endpoints apply scope filter:
+
+| Route | Endpoints Scoped | Scope Method |
+|-------|------------------|--------------|
+| `/clients` | GET/:id, POST /:id (all mutations) | buildClientScopeFilter |
+| `/cases` | All GET, POST, PUT, DELETE | buildNestedClientScope |
+| `/engagements` | All GET, POST, PUT, DELETE | buildNestedClientScope |
+| `/actions` | GET, POST, DELETE | buildNestedClientScope |
+| `/messages` | GET, POST, DELETE, media proxy | buildNestedClientScope |
+| `/docs` | GET, POST, DELETE | buildNestedClientScope |
+| `/images` | GET, POST, DELETE | buildNestedClientScope |
+
+### Access Control Logic
+
+**Example: GET /clients/:id**
+```typescript
+const where = { id, ...buildClientScopeFilter(user) }
+// Admin org_1 sees: { id, organizationId: 'org_1' }
+// Member sees: { id, organizationId: 'org_1', assignments: { some: { staffId } } }
+```
+
+**Example: GET /cases/:caseId (nested)**
+```typescript
+const where = { id: caseId, ...buildNestedClientScope(user) }
+// Admin sees: { id, client: { organizationId: 'org_1' } }
+// Member sees: { id, client: { organizationId, assignments: { some: { staffId } } } }
+```
+
+### Test Coverage
+
+`src/lib/__tests__/org-scope.test.ts` - 11 unit tests
+- Admin filters: org only (no assignment filter)
+- Member filters: org + assignment
+- No org fallback: assignment filter only
+- Failsafe: impossible ID filter when no access criteria
+- Nested scope wrapping in client relation
+
+### Security Properties
+
+- **Org isolation:** organizationId FK prevents cross-org leaks
+- **Assignment validation:** Verified at DB level via Prisma where
+- **Failsafe:** Impossible filter blocks edge cases (migration transitions)
+- **No privilege escalation:** orgRole checked on every query (not just auth)
+
 ---
 
-**Last Updated:** 2026-01-27
-**Phase:** Phase 3 - Schema Cleanup (Engagement Isolation Complete)
-**Architecture Version:** 9.2 (Multi-Year Engagement Isolation with enforced constraints)
+**Last Updated:** 2026-02-02
+**Phase:** Phase 4 - Client Filtering & Multi-Tenancy Scoping
+**Architecture Version:** 9.3 (Multi-tenancy access control complete)
 **Completed Features (Phase 06):**
 - ✓ Vitest unit testing setup for AI services
 - ✓ Integration tests for classify-document job (17 tests total)

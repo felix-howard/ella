@@ -26,15 +26,18 @@ import {
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { DocType, DigitalDocStatus, ChecklistItemStatus } from '@ella/db'
 import { isValidDocField } from '../../lib/validation'
+import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthVariables } from '../../middleware/auth'
 
-const docsRoute = new Hono()
+const docsRoute = new Hono<{ Variables: AuthVariables }>()
 
 // GET /docs/:id - Get digital doc details with extracted data
 docsRoute.get('/:id', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const doc = await prisma.digitalDoc.findUnique({
-    where: { id },
+  const doc = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     include: {
       rawImage: true,
       checklistItem: { include: { template: true } },
@@ -56,10 +59,11 @@ docsRoute.get('/:id', async (c) => {
 docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c) => {
   const id = c.req.param('id')
   const { docType } = c.req.valid('json')
+  const user = c.get('user')
 
-  // Find the raw image
-  const rawImage = await prisma.rawImage.findUnique({
-    where: { id },
+  // Find the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     include: { taxCase: true },
   })
 
@@ -142,10 +146,11 @@ docsRoute.post('/:id/classify', zValidator('json', classifyDocSchema), async (c)
 // POST /docs/:id/ocr - Trigger OCR extraction using Gemini AI
 docsRoute.post('/:id/ocr', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  // Find digital doc with raw image
-  const doc = await prisma.digitalDoc.findUnique({
-    where: { id },
+  // Find digital doc with raw image (org-scoped)
+  const doc = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     include: { rawImage: true },
   })
 
@@ -323,10 +328,11 @@ docsRoute.post('/:id/ocr', async (c) => {
 docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), async (c) => {
   const id = c.req.param('id')
   const { action, notes } = c.req.valid('json')
+  const user = c.get('user')
 
-  // Fetch document with related data
-  const doc = await prisma.digitalDoc.findUnique({
-    where: { id },
+  // Fetch document with related data (org-scoped)
+  const doc = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     include: {
       rawImage: true,
       checklistItem: true,
@@ -407,6 +413,16 @@ docsRoute.post('/:id/verify-action', zValidator('json', verifyActionSchema), asy
 docsRoute.patch('/:id/verify', zValidator('json', verifyDocSchema), async (c) => {
   const id = c.req.param('id')
   const { extractedData, status } = c.req.valid('json')
+  const user = c.get('user')
+
+  // Verify access (org-scoped)
+  const existing = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
+  if (!existing) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
 
   const doc = await prisma.digitalDoc.update({
     where: { id },
@@ -441,6 +457,16 @@ docsRoute.patch('/:id/verify', zValidator('json', verifyDocSchema), async (c) =>
 docsRoute.post('/:id/verify-field', zValidator('json', verifyFieldSchema), async (c) => {
   const id = c.req.param('id')
   const { field, status, value } = c.req.valid('json')
+  const user = c.get('user')
+
+  // Verify access (org-scoped)
+  const accessCheck = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
 
   // Use transaction to prevent race conditions (read-modify-write atomicity)
   const result = await prisma.$transaction(async (tx) => {
@@ -491,6 +517,16 @@ docsRoute.post('/:id/verify-field', zValidator('json', verifyFieldSchema), async
 docsRoute.post('/:id/mark-copied', zValidator('json', markCopiedSchema), async (c) => {
   const id = c.req.param('id')
   const { field } = c.req.valid('json')
+  const user = c.get('user')
+
+  // Verify access (org-scoped)
+  const accessCheck = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
+  }
 
   // Use transaction to prevent race conditions
   const result = await prisma.$transaction(async (tx) => {
@@ -531,8 +567,11 @@ docsRoute.post('/:id/mark-copied', zValidator('json', markCopiedSchema), async (
 // POST /docs/:id/complete-entry - Mark entry complete
 docsRoute.post('/:id/complete-entry', zValidator('json', completeEntrySchema), async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const doc = await prisma.digitalDoc.findUnique({ where: { id } })
+  const doc = await prisma.digitalDoc.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+  })
   if (!doc) {
     return c.json({ error: 'NOT_FOUND', message: 'Document not found' }, 404)
   }
@@ -653,6 +692,16 @@ docsRoute.post(
 // GET /docs/groups/case/:caseId - Get all image groups for a case
 docsRoute.get('/groups/case/:caseId', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   const groups = await prisma.imageGroup.findMany({
     where: { caseId },

@@ -13,8 +13,10 @@ import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
 import { updateLastActivity } from '../../services/activity-tracker'
 import type { DocType, ChecklistItemStatus, RawImageStatus, Language, DocCategory } from '@ella/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthVariables } from '../../middleware/auth'
 
-const imagesRoute = new Hono()
+const imagesRoute = new Hono<{ Variables: AuthVariables }>()
 
 // Schema for classification update
 const updateClassificationSchema = z.object({
@@ -54,10 +56,11 @@ imagesRoute.patch(
   async (c) => {
     const id = c.req.param('id')
     const { docType, action } = c.req.valid('json')
+    const user = c.get('user')
 
-    // Find the raw image with case info
-    const rawImage = await prisma.rawImage.findUnique({
-      where: { id },
+    // Find the raw image with case info (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
       include: { taxCase: true },
     })
 
@@ -187,10 +190,11 @@ imagesRoute.patch(
  */
 imagesRoute.post('/:id/reclassify', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  // Find the raw image
-  const rawImage = await prisma.rawImage.findUnique({
-    where: { id },
+  // Find the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     select: {
       id: true,
       caseId: true,
@@ -253,10 +257,11 @@ imagesRoute.patch(
   async (c) => {
     const id = c.req.param('id')
     const { targetChecklistItemId } = c.req.valid('json')
+    const user = c.get('user')
 
-    // Find the raw image
-    const rawImage = await prisma.rawImage.findUnique({
-      where: { id },
+    // Find the raw image (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
       select: {
         id: true,
         caseId: true,
@@ -361,9 +366,19 @@ imagesRoute.post(
   async (c) => {
     const id = c.req.param('id')
     const { reason, fields, sendSms } = c.req.valid('json')
+    const user = c.get('user')
 
     // Sanitize reason to prevent XSS
     const sanitizedReason = sanitizeReuploadReason(reason)
+
+    // Verify access (org-scoped)
+    const accessCheck = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+      select: { id: true },
+    })
+    if (!accessCheck) {
+      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+    }
 
     // Use transaction for atomic database operations
     const result = await prisma.$transaction(async (tx) => {
@@ -480,6 +495,7 @@ imagesRoute.patch(
   async (c) => {
     const id = c.req.param('id')
     const { filename } = c.req.valid('json')
+    const user = c.get('user')
 
     // Sanitize filename - remove path separators and dangerous chars
     const sanitizedFilename = filename
@@ -493,9 +509,9 @@ imagesRoute.patch(
       )
     }
 
-    // Find and update the raw image
-    const rawImage = await prisma.rawImage.findUnique({
-      where: { id },
+    // Find and update the raw image (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
       select: { id: true, filename: true },
     })
 
@@ -531,10 +547,11 @@ imagesRoute.patch(
   async (c) => {
     const id = c.req.param('id')
     const { category } = c.req.valid('json')
+    const user = c.get('user')
 
-    // Find and update the raw image
-    const rawImage = await prisma.rawImage.findUnique({
-      where: { id },
+    // Find and update the raw image (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
       select: { id: true, category: true, caseId: true },
     })
 
@@ -566,9 +583,10 @@ imagesRoute.patch(
  */
 imagesRoute.delete('/:id', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const image = await prisma.rawImage.findUnique({
-    where: { id },
+  const image = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     select: { id: true, status: true, r2Key: true, caseId: true },
   })
 
@@ -592,9 +610,10 @@ imagesRoute.delete('/:id', async (c) => {
  */
 imagesRoute.post('/:id/classify-anyway', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const image = await prisma.rawImage.findUnique({
-    where: { id },
+  const image = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     select: { id: true, status: true, caseId: true, r2Key: true, mimeType: true },
   })
 

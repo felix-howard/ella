@@ -706,12 +706,69 @@ export const api = {
   // Staff
   staff: {
     me: () =>
-      request<{ id: string; name: string; email: string; role: string; language: Language }>('/staff/me'),
+      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null }>('/staff/me'),
 
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
         method: 'PATCH',
         body: JSON.stringify({ language }),
+      }),
+  },
+
+  // Team Management
+  team: {
+    listMembers: () =>
+      request<{ data: TeamMember[] }>('/team/members'),
+
+    invite: (data: { emailAddress: string; role?: string }) =>
+      request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
+        '/team/invite', { method: 'POST', body: JSON.stringify(data) }
+      ),
+
+    updateRole: (staffId: string, role: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/role`, {
+        method: 'PATCH', body: JSON.stringify({ role }),
+      }),
+
+    deactivate: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
+
+    getMemberAssignments: (staffId: string) =>
+      request<{ data: ClientAssignment[] }>(`/team/members/${staffId}/assignments`),
+
+    listInvitations: () =>
+      request<{ data: TeamInvitation[] }>('/team/invitations'),
+
+    revokeInvitation: (invitationId: string) =>
+      request<{ success: boolean }>(`/team/invitations/${invitationId}`, { method: 'DELETE' }),
+  },
+
+  // Client Assignments
+  clientAssignments: {
+    create: (data: { clientId: string; staffId: string }) =>
+      request<{ data: ClientAssignment }>('/client-assignments', {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+
+    bulkCreate: (data: { clientIds: string[]; staffId: string }) =>
+      request<{ data: { created: number; skipped: number } }>('/client-assignments/bulk', {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+
+    remove: (id: string) =>
+      request<{ success: boolean }>(`/client-assignments/${id}`, { method: 'DELETE' }),
+
+    list: (params?: { staffId?: string; clientId?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.staffId) searchParams.set('staffId', params.staffId)
+      if (params?.clientId) searchParams.set('clientId', params.clientId)
+      const qs = searchParams.toString()
+      return request<{ data: ClientAssignment[] }>(`/client-assignments${qs ? `?${qs}` : ''}`)
+    },
+
+    transfer: (data: { clientId: string; fromStaffId: string; toStaffId: string }) =>
+      request<{ success: boolean }>('/client-assignments/transfer', {
+        method: 'PUT', body: JSON.stringify(data),
       }),
   },
 }
@@ -796,6 +853,8 @@ export interface ClientWithActions {
   updatedAt: string
   computedStatus: TaxCaseStatus | null
   actionCounts: ActionCounts | null
+  /** Staff assigned to this client (admin-only) */
+  assignedStaff?: { id: string; name: string }[]
   latestCase: {
     id: string
     taxYear: number
@@ -1599,4 +1658,37 @@ export interface ScheduleCResendResponse {
   success: boolean
   expiresAt: string
   messageSent: boolean
+}
+
+// Team types
+/** Organization role values from Clerk */
+export type OrgRole = 'org:admin' | 'org:member'
+
+export interface TeamMember {
+  id: string
+  clerkId: string
+  name: string
+  email: string
+  role: string
+  avatarUrl: string | null
+  lastLoginAt: string | null
+  _count: { clientAssignments: number }
+}
+
+export interface TeamInvitation {
+  id: string
+  emailAddress: string
+  role: OrgRole
+  status: string
+  createdAt: number
+}
+
+export interface ClientAssignment {
+  id: string
+  clientId: string
+  staffId: string
+  assignedById: string | null
+  createdAt: string
+  client?: { id: string; name: string; phone: string }
+  staff?: { id: string; name: string; email: string }
 }

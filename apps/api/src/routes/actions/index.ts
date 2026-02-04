@@ -7,14 +7,20 @@ import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { listActionsQuerySchema, updateActionSchema } from './schemas'
 import type { ActionType, ActionPriority } from '@ella/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthVariables } from '../../middleware/auth'
 
-const actionsRoute = new Hono()
+const actionsRoute = new Hono<{ Variables: AuthVariables }>()
 
 // GET /actions - Get action queue (grouped by priority)
 actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => {
   const { type, priority, assignedToId, isCompleted } = c.req.valid('query')
+  const user = c.get('user')
 
-  const where: Record<string, unknown> = {}
+  // Scope actions through taxCase -> client relation
+  const where: Record<string, unknown> = {
+    taxCase: { client: buildClientScopeFilter(user) },
+  }
   if (type) where.type = type as ActionType
   if (priority) where.priority = priority as ActionPriority
   if (assignedToId !== undefined) {
@@ -75,9 +81,10 @@ actionsRoute.get('/', zValidator('query', listActionsQuerySchema), async (c) => 
 // GET /actions/:id - Get single action detail
 actionsRoute.get('/:id', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const action = await prisma.action.findUnique({
-    where: { id },
+  const action = await prisma.action.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
     include: {
       taxCase: {
         include: {
@@ -104,6 +111,16 @@ actionsRoute.get('/:id', async (c) => {
 actionsRoute.patch('/:id', zValidator('json', updateActionSchema), async (c) => {
   const id = c.req.param('id')
   const { assignedToId, isCompleted } = c.req.valid('json')
+  const user = c.get('user')
+
+  // Verify access before update (org-scoped)
+  const existing = await prisma.action.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
+  if (!existing) {
+    return c.json({ error: 'NOT_FOUND', message: 'Action not found' }, 404)
+  }
 
   const updateData: Record<string, unknown> = {}
 

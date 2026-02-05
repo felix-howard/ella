@@ -1,8 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - In Progress
-**Last Updated:** 2026-02-04
-**Branch:** feature/multi-tenancy-permission
+**Current Phase:** Landing Page Killer Features Phase 01 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - In Progress
+**Last Updated:** 2026-02-05
+**Branch:** feature/landing-page
 
 ## Project Vision
 
@@ -10,10 +10,10 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ## High-Level Goals
 
-1. **Document Management** - Centralized storage and organization of tax-related documents
-2. **Compliance Tracking** - Automated compliance monitoring and deadline alerts
-3. **User Efficiency** - Intuitive UI reducing manual data entry and errors
-4. **Scalability** - Distributed backend serving multiple clients concurrently
+1. **SMS-First Document Collection** - Clients text tax docs directly to firm's Ella number (zero-friction intake)
+2. **AI-Powered Organization** - Auto-classify, rename, and extract data from messy uploads
+3. **Centralized Management** - Tax professionals manage all client documents and workflows in one workspace
+4. **Compliance Automation** - Automated document verification, status tracking, and deadline alerts
 
 ## Product Development Requirements (PDR)
 

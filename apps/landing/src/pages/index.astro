@@ -33,47 +33,47 @@ const stats = [
   { value: 80, label: "Time Saved", suffix: "%" },
 ];
 
-/* Feature highlights — 4 key capabilities */
+/* Feature highlights — 4 key capabilities (SMS + Auto-Rename first) */
 const features = [
   {
-    icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
+    title: "SMS Direct Upload",
+    description:
+      "Clients text tax docs directly to your firm's Ella number. No app download, no portal login — documents still processed by AI automatically.",
+  },
+  {
+    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
+    title: "AI Auto-Rename",
+    description:
+      "Client sends 'IMG_2847.jpg'. Ella names it '2024_W2_Amazon_JohnSmith.pdf'. Messy uploads → organized, searchable files automatically.",
+  },
+  {
+    icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
     title: "AI Classification",
     description:
-      "Identify 89+ tax document types automatically. W-2s, 1099s, K-1s, bank statements — classified in seconds with confidence scoring.",
+      "Identify 89+ tax document types automatically. W-2s, 1099s, K-1s — classified in seconds with confidence scoring.",
   },
   {
-    icon: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6",
     title: "Smart OCR",
     description:
-      "Extract structured data from W-2s, 1099s, and K-1s. Income figures, employer info, and tax details — parsed automatically.",
-  },
-  {
-    icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
-    title: "Client Portal",
-    description:
-      "Passwordless magic link upload for clients. No accounts, no passwords — just a secure link to upload documents instantly.",
-  },
-  {
-    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
-    title: "Team Collaboration",
-    description:
-      "Role-based access, client assignments, and task queues. Keep your entire team organized and accountable during tax season.",
+      "Extract income figures, employer info, and tax details from W-2s, 1099s, K-1s — parsed and structured automatically.",
   },
 ];
 
-/* How it works — 3-step process */
+/* How it works — 3-step SMS-focused process */
 const steps = [
   {
     step: "1",
-    title: "Send a Link",
+    title: "Client Texts Photo",
     description:
-      "Generate a magic link for your client. They upload documents directly — no account required.",
+      "Client snaps a photo of their tax document and texts it to your firm's Ella number. No app required.",
   },
   {
     step: "2",
-    title: "AI Classifies",
+    title: "AI Classifies & Renames",
     description:
-      "Ella auto-classifies each document, extracts key data, and flags anything that needs review.",
+      "Ella classifies the document, extracts data, and renames it: '2024_W2_Employer_ClientName.pdf'.",
   },
   {
     step: "3",
@@ -110,7 +110,7 @@ const testimonials = [
   <HeadSEO
     slot="head"
     title="Ella - AI-Powered Tax Document Management | Automate Your Workflow"
-    description="Streamline tax preparation with AI document classification, OCR extraction, and client portals. Trusted by 500+ tax firms to save 80% of document collection time."
+    description="Clients text tax docs directly to your Ella number. AI auto-renames messy uploads into organized files. Trusted by 500+ tax firms."
     structuredData={structuredData}
   />
 
@@ -131,22 +131,21 @@ const testimonials = [
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600"
           data-animate="fade-up"
         >
-          AI-Powered Tax Document Management
+          SMS-First Document Collection
         </p>
         <h1
           class="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl"
           data-animate="fade-up"
         >
-          Automate tax document collection and classification
-          <span class="text-primary-600"> in seconds</span>
+          Clients text docs to your Ella number.
+          <span class="text-primary-600"> No app. No friction.</span>
         </h1>
         <p
           class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
           data-animate="fade-up"
         >
-          Ella helps tax professionals streamline workflows with AI-powered
-          document management. Collect, organize, and process tax documents 10x
-          faster.
+          Ella transforms messy phone photos into organized, named files
+          automatically. AI classification + auto-rename included.
         </p>
 
         <!-- Dual CTAs -->

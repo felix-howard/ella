@@ -9,6 +9,7 @@
 | Phase | Status | Completed |
 |-------|--------|-----------|
 | **Landing Page Phase 08: Animations Polish** | **Scroll-based animations (IntersectionObserver), counter animations with NaN validation, fade-up & slide-in effects, stagger timing (12 items, 0.04s increments), prefers-reduced-motion accessibility, micro-interactions (hover/focus states), data-animate & data-stagger attributes, global.css animation utilities & keyframes.** | **2026-02-05** |
+| **Landing Page Killer Features - Phase 01** | **SMS-first positioning: Hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction." Features prioritized: SMS Direct Upload, AI Auto-Rename (first two), then Classification & OCR. How It Works flow: Client Texts Photo → AI Classifies & Renames → Review & Prepare. SEO description updated. Messaging emphasizes zero-friction SMS intake over portal upload.** | **2026-02-05** |
 | **Landing Page Phase 06: Why Ella Page** | **Why Ella page (why-ella.astro) with pain points (4 cards), solutions (4 cards), before/after comparison (3 metrics), differentiators (4 stats), company metrics, CTA. Shared icon-card component, shared icon library (checkPath, xPath). Pricing & Features pages refactored to use shared icons.** | **2026-02-04** |
 | **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
 | **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
@@ -83,11 +84,11 @@
   - Micro-interactions: Hover/focus states on buttons, cards, links
   - CSS Tokens: --duration-enter (0.6s), --duration-fast (0.4s), --animate-fade-up, --animate-slide-in-left
   - Attributes: data-animate, data-count, data-suffix, data-stagger on component markup
-- **Home Page (Phase 03):** 7-section layout (Hero, Stats, Features, How It Works, Testimonials, CTA, Contact Form)
-  - Hero: Outcome-focused headline (cut doc collection time by 75%)
+- **Home Page (Phase 03 + Killer Features Phase 01):** 7-section layout (Hero, Stats, Features, How It Works, Testimonials, CTA, Contact Form)
+  - Hero: SMS-first positioning. Eyebrow "SMS-First Document Collection". Headline "Clients text docs to your Ella number. No app. No friction." Subheadline emphasizes SMS-first messaging.
   - Stats: 1M documents processed, 500 tax firms, 99% accuracy, 80% time saved (animated counters with Phase 08)
-  - Features: 4 cards (AI Classification 89+ docs, Smart OCR for income data, Client Portal magic link, Team Collaboration RBAC)
-  - How It Works: 3-step process (Send Link → AI Classifies → Review & Prepare)
+  - Features: 4 cards prioritized SMS-first. SMS Direct Upload (clients text to Ella number), AI Auto-Rename (IMG_xxx → 2024_W2_Employer_Name.pdf), AI Classification (89+ tax docs), Smart OCR (extract income data)
+  - How It Works: 3-step SMS-focused process. (1) Client Texts Photo, (2) AI Classifies & Renames, (3) Review & Prepare
   - Testimonials: 3 CPA/EA quotes with 5-star implied rating
   - Contact Form: Formspree integration for lead capture
 - **Pricing Page (Phase 05):** 3-tier pricing (Starter $99, Professional $299, Enterprise Custom)
@@ -218,6 +219,8 @@
 
 ## Recent Phases Summary
 
+**2026-02-05:** Landing Page Killer Features Phase 01 complete. SMS-first hero messaging. Headline "Clients text docs to your Ella number. No app. No friction." Features reordered: SMS Direct Upload + AI Auto-Rename prioritized first. How It Works: 3-step SMS-focused flow (Client Texts → AI Classifies & Renames → Review & Prepare). SEO description updated to emphasize SMS-first intake. Brand alignment with emerald emerges as SMS accessibility theme.
+
 **2026-02-05:** Landing Page Phase 08 complete. Scroll-based animations via IntersectionObserver (fade-up, slide-in effects). Counter animations with easeOutCubic easing, NaN validation, 1500ms duration. Stagger timing (12 items, 0.04s increments). Accessibility: prefers-reduced-motion respected. Micro-interactions (hover/focus). CSS animation utilities (--duration-enter, --animate-fade-up). Data attributes: data-animate, data-count, data-stagger.
 
 **2026-02-04:** Landing Page Phase 06 complete. Why Ella page (why-ella.astro) with pain points (4 cards), solutions (4 cards), before/after metrics (3 rows), differentiators (4 stats), company metrics, CTA. Shared IconCard component. Shared icon library (checkPath, xPath). Pricing & Features pages refactored to use shared icons (DRY pattern).
@@ -243,15 +246,16 @@
 ## Next Steps
 
 1. **Landing Page Phase 09** - Additional page templates (About page, Blog overview) + full deployment
-2. **Landing Page Deployment** - Staging → Production deployment & DNS routing
+2. **Landing Page Deployment** - Staging → Production deployment & DNS routing (SMS-first messaging live)
 3. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
 4. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
 5. **Team Assignment Workflows** - Bulk operations, transfer auditing
+6. **Workspace SMS Integration** - Integrate Twilio SMS direct upload feature from landing page into workspace portal
 
 ---
 
-**Version:** 2.6
+**Version:** 2.7
 **Created:** 2026-01-11
 **Last Updated:** 2026-02-05
 **Maintained By:** Documentation Manager
-**Status:** Production-ready with Multi-Tenancy & Landing Page Animations complete
+**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, & SMS-First Killer Features Phase 01 complete

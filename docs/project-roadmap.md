@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-02-04 ICT
-> **Current Phase:** Landing Page Phase 06 (Completed) + Multi-Tenancy & Permission System (Completed) + Schedule C Expense Collection + Voice Calls (Complete) + Multi-Year Client Engagement (Complete)
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Phase 06 COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
+> **Last Updated:** 2026-02-05 ICT
+> **Current Phase:** Landing Page Killer Features Phase 01 (SMS-First) + Phase 06 (Completed) + Multi-Tenancy & Permission System (Completed) + Schedule C Expense Collection + Voice Calls (Complete) + Multi-Year Client Engagement (Complete)
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Phase 06 COMPLETE + Landing Page Killer Features Phase 01 COMPLETE (SMS-First Messaging) + Schedule C Phase 4 Complete + All prior enhancements
 
 ### Landing Page Phase 06: Why Ella Page - COMPLETE ✅
 **Completed:** 2026-02-04
@@ -21,6 +21,31 @@
 - **Code Quality:** 174 lines why-ella.astro + 3 new modules (icon-card.astro, why-ella-data.ts, icons.ts), shared icons across features/pricing pages
 - **Mobile Responsive:** All sections stack properly on 320px-1920px viewports
 - **Status:** Production-ready on feature/landing-page branch
+
+---
+
+### Landing Page Killer Features Phase 01: SMS-First Homepage Redesign - COMPLETE ✅
+**Completed:** 2026-02-05
+**Deliverable:** Homepage redesign emphasizing SMS Direct Upload + AI Auto-Rename as killer differentiators
+
+**Completion Summary:**
+- **Hero Eyebrow:** Changed from "AI-Powered Tax Document Management" to "SMS-First Document Collection"
+- **Headline:** Updated to "Clients text docs to your Ella number. No app. No friction."
+- **Subheadline:** Shifted to "Ella transforms messy phone photos into organized, named files automatically. AI classification + auto-rename included."
+- **Features Array:** Reordered with SMS Direct Upload + AI Auto-Rename leading
+  - SMS Direct Upload: Clients text docs to firm's Twilio number without app download
+  - AI Auto-Rename: Transform IMG_2847.jpg → 2024_W2_Amazon_JohnSmith.pdf automatically
+  - AI Classification: 89+ document types identified with confidence scoring
+  - Smart OCR: Income figures + tax details extracted from W-2s, 1099s, K-1s
+- **How It Works Steps:** Updated to SMS-focused flow (Client Texts Photo → AI Classifies & Renames → Review & Prepare)
+- **SEO Description:** Optimized for conversions emphasizing SMS + auto-rename positioning
+- **Build Status:** Passes without errors
+- **Code Quality:** 9.5/10 review score
+- **Status:** Production-ready on feature/landing-page branch
+
+**Messaging Shift:**
+- **Before:** "Automate tax document collection and classification"
+- **After:** "Clients text docs directly. No app. No portal. Just text."
 
 ---
 
@@ -774,6 +799,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 5.1 | 2026-02-05 | PM | MILESTONE: Landing Page Killer Features Phase 01 COMPLETE. Homepage redesign with SMS-first positioning: hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction", features array reordered with SMS Direct Upload + AI Auto-Rename leading, How It Works updated to SMS flow, SEO description optimized for SMS+rename messaging. Killer differentiators now front-and-center. Build passes, 9.5/10 code review. Phase 02 (Features page sections) + Phase 03 (Why Ella updates) pending. |
 | 5.0 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 05 COMPLETE. Pricing page (/pricing) with 3 tiers (Starter $99, Professional $299 most popular, Enterprise Custom), feature comparison table (12 rows, mobile scroll), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas for each tier. Accessibility: role="img", aria-labels, semantic HTML. Phase 06 (Features/Why Ella/About pages) pending. |
 | 4.9 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 03 COMPLETE. Full home page (index.astro) with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99%, 80%), Features (4 cards: AI, OCR, Portal, Team), How It Works (3-step), Testimonials (3 quotes), CTA + Contact Form. aggregateRatingSchema() added. Brand color to emerald, OG image updated (1200x630px gradient). Phase 04 (Features/Pricing/Why Ella/About pages) pending. |
 | 4.8 | 2026-01-28 00:28 | PM | NEW PROJECT: Schedule C Expense Collection - Phase 2 COMPLETE (33% overall). 8 endpoints implemented (5 staff + 3 public), magic link SCHEDULE_C type, SMS templates, expense calculator service. 578/578 tests passing. Code review: 9.2/10. Phase 3 (Portal Expense Form) pending. |

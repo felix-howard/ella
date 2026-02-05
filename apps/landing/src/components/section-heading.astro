@@ -1,0 +1,33 @@
+---
+/**
+ * Reusable section heading: optional eyebrow label + title (h2) + optional subtitle.
+ * Supports left or center alignment.
+ */
+interface Props {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  align?: "left" | "center";
+}
+
+const { eyebrow, title, subtitle, align = "center" } = Astro.props;
+
+const alignClass = align === "center" ? "text-center" : "text-left";
+const subtitleMargin = align === "center" ? "mx-auto" : "";
+---
+
+<div class={alignClass}>
+  {eyebrow && (
+    <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">
+      {eyebrow}
+    </p>
+  )}
+  <h2 class="mt-2 text-3xl font-bold text-gray-900 md:text-4xl">
+    {title}
+  </h2>
+  {subtitle && (
+    <p class:list={["mt-4 max-w-2xl text-gray-600", subtitleMargin]}>
+      {subtitle}
+    </p>
+  )}
+</div>

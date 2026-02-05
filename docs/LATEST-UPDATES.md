@@ -1,5 +1,52 @@
 # Latest Documentation Updates
 
+**Date:** 2026-02-05 | **Feature:** Landing Page Phase 03 - Why Ella Page Expansion | **Status:** Complete
+
+---
+
+## Phase 03: Why Ella Page Expansion (Current Update)
+
+**In One Sentence:** Why Ella page expanded from 4-card sections to 6-card sections (problems, solutions, differentiators) with 7-item before/after comparison.
+
+**Changes Made:**
+- **why-ella-data.ts:** Extracted all page content into single config file
+  - problems array: 6 cards (added: Clients Never Use Portal, File Names Are Garbage)
+  - solutions array: 6 cards (added: SMS Upload, AI Auto-Rename)
+  - beforeItems array: 7 items (added: SMS reminders, Clients text Ella number)
+  - afterItems array: 7 items (added: auto-renamed file example)
+  - differentiators array: 6 cards (added: SMS-First, Auto-Rename Intelligence)
+  - whyEllaStats: 4 stats (500+ firms, 1M docs, 99% accuracy, 80% time saved)
+- **why-ella.astro:** Updated grid layouts (4-col → 3-col on lg breakpoint for even distribution)
+- **design-guidelines.md:** Added "Grid Column Patterns by Item Count" table to document layout decisions
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Updated phase status table, landing page section, recent phases summary
+2. **design-guidelines.md** - Added grid pattern reference for consistent layouts across pages
+
+---
+
+## Previous Update: Landing Page Phase 02 - Features Page Sections
+
+**Date:** 2026-02-05 | **Feature:** Landing Page Phase 02 - 8-Section Features Page | **Status:** Complete
+
+---
+
+## Phase 02: Features Page Sections
+
+**Changes Made:**
+- Added 2 new features to features array (SMS Direct Upload at position 0, AI Auto-Rename at position 1)
+- Updated hero subtitle to emphasize SMS + auto-rename
+- Expanded features page from 6 to 8 detailed sections
+- Maintained alternating zigzag layout with full descriptions + benefits
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Features page section expanded to include all 8 capabilities
+2. **project-roadmap.md** - Added Phase 02 completion milestone with detailed summary
+
+---
+
+## Previous Update: Schedule C 1099-NEC Breakdown
+
 **Date:** 2026-01-29 | **Feature:** Schedule C 1099-NEC Breakdown | **Status:** Complete
 
 ---

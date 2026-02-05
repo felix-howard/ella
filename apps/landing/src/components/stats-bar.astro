@@ -1,0 +1,32 @@
+---
+/**
+ * Animated stats bar showing key metrics in a responsive grid.
+ * Counter animation wired via data-count attribute (activated by scroll-observer in Phase 8).
+ */
+interface StatItem {
+  value: number;
+  label: string;
+  suffix?: string;
+}
+
+interface Props {
+  stats: StatItem[];
+}
+
+const { stats } = Astro.props;
+---
+
+<div class="grid grid-cols-2 gap-8 md:grid-cols-4" data-stagger>
+  {stats.map((stat) => (
+    <div class="text-center" data-animate="fade-up">
+      <p
+        class="text-4xl font-bold text-primary-600"
+        data-count={stat.value}
+        data-suffix={stat.suffix ?? ""}
+      >
+        0{stat.suffix ?? ""}
+      </p>
+      <p class="mt-2 text-sm text-gray-600">{stat.label}</p>
+    </div>
+  ))}
+</div>

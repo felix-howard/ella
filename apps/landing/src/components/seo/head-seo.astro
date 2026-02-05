@@ -1,0 +1,68 @@
+---
+/**
+ * Comprehensive SEO head component.
+ * Handles: meta tags, Open Graph, Twitter Cards, canonical URL, JSON-LD structured data.
+ */
+import { siteConfig } from "@/config/site";
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+  ogType?: "website" | "article";
+  canonicalUrl?: string;
+  noindex?: boolean;
+  /** JSON-LD structured data object (will be serialized) */
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const {
+  title,
+  description = siteConfig.description,
+  ogImage = siteConfig.ogImage,
+  ogType = "website",
+  canonicalUrl,
+  noindex = false,
+  structuredData,
+} = Astro.props;
+
+const fullTitle = title === siteConfig.name ? title : `${title} | ${siteConfig.name}`;
+const canonical = canonicalUrl || new URL(Astro.url.pathname, siteConfig.url).href;
+const ogImageUrl = ogImage.startsWith("http") ? ogImage : new URL(ogImage, siteConfig.url).href;
+---
+
+<!-- Primary meta tags -->
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
+
+<!-- Open Graph -->
+<meta property="og:type" content={ogType} />
+<meta property="og:url" content={canonical} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={ogImageUrl} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content={siteConfig.locale} />
+<meta property="og:site_name" content={siteConfig.name} />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImageUrl} />
+{siteConfig.twitter && <meta name="twitter:site" content={siteConfig.twitter} />}
+
+<!-- JSON-LD Structured Data -->
+{
+  structuredData && (
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify(
+        Array.isArray(structuredData) ? structuredData : structuredData
+      )}
+    />
+  )
+}

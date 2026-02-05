@@ -1,0 +1,336 @@
+---
+/**
+ * Landing page — introduces Ella to visitors.
+ * Sections: Hero, Stats, Features, How It Works, Testimonials, CTA + Contact Form.
+ * Phase 03 redesign: outcome-focused hero, emerald brand, conversion-optimized.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import SectionHeading from "@/components/section-heading.astro";
+import FeatureCard from "@/components/feature-card.astro";
+import TestimonialCard from "@/components/testimonial-card.astro";
+import StatsBar from "@/components/stats-bar.astro";
+import ContactForm from "@/components/contact-form.astro";
+import {
+  organizationSchema,
+  websiteSchema,
+  softwareApplicationSchema,
+  aggregateRatingSchema,
+} from "@/components/seo/structured-data";
+
+const structuredData = [
+  organizationSchema(),
+  websiteSchema(),
+  softwareApplicationSchema(),
+  aggregateRatingSchema(),
+];
+
+/* Stats data for the trust bar */
+const stats = [
+  { value: 1000000, label: "Documents Processed", suffix: "+" },
+  { value: 500, label: "Tax Firms", suffix: "+" },
+  { value: 99, label: "Accuracy Rate", suffix: "%" },
+  { value: 80, label: "Time Saved", suffix: "%" },
+];
+
+/* Feature highlights — 4 key capabilities (SMS + Auto-Rename first) */
+const features = [
+  {
+    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
+    title: "SMS Direct Upload",
+    description:
+      "Clients text tax docs directly to your firm's Ella number. No app download, no portal login — documents still processed by AI automatically.",
+  },
+  {
+    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
+    title: "AI Auto-Rename",
+    description:
+      "Client sends 'IMG_2847.jpg'. Ella names it '2024_W2_Amazon_JohnSmith.pdf'. Messy uploads → organized, searchable files automatically.",
+  },
+  {
+    icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+    title: "AI Classification",
+    description:
+      "Identify 89+ tax document types automatically. W-2s, 1099s, K-1s — classified in seconds with confidence scoring.",
+  },
+  {
+    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6",
+    title: "Smart OCR",
+    description:
+      "Extract income figures, employer info, and tax details from W-2s, 1099s, K-1s — parsed and structured automatically.",
+  },
+];
+
+/* How it works — 3-step SMS-focused process */
+const steps = [
+  {
+    step: "1",
+    title: "Client Texts Photo",
+    description:
+      "Client snaps a photo of their tax document and texts it to your firm's Ella number. No app required.",
+  },
+  {
+    step: "2",
+    title: "AI Classifies & Renames",
+    description:
+      "Ella classifies the document, extracts data, and renames it: '2024_W2_Employer_ClientName.pdf'.",
+  },
+  {
+    step: "3",
+    title: "Review & Prepare",
+    description:
+      "Your team reviews organized documents, completes the checklist, and prepares the return.",
+  },
+];
+
+/* Testimonials — placeholder quotes from fictional CPAs/EAs */
+const testimonials = [
+  {
+    quote:
+      "Ella cut our document collection time by 75%. Clients love the magic link portal.",
+    author: "Sarah Johnson",
+    role: "CPA, Johnson & Associates",
+  },
+  {
+    quote:
+      "The AI classification is incredibly accurate. We barely need to manually review anymore.",
+    author: "Michael Chen",
+    role: "EA, TaxPro Solutions",
+  },
+  {
+    quote:
+      "Game changer for our firm. Team collaboration features keep everyone on the same page.",
+    author: "Rebecca Martinez",
+    role: "Partner, Martinez Tax Group",
+  },
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Ella - AI-Powered Tax Document Management | Automate Your Workflow"
+    description="Clients text tax docs directly to your Ella number. AI auto-renames messy uploads into organized files. Trusted by 500+ tax firms."
+    structuredData={structuredData}
+  />
+
+  <main>
+    <!-- Hero Section -->
+    <section
+      class="relative flex min-h-[90vh] items-center justify-center overflow-hidden pt-16"
+    >
+      <!-- Subtle background gradient -->
+      <div
+        class="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/50 to-white"
+        aria-hidden="true"
+      >
+      </div>
+
+      <div class="relative mx-auto max-w-6xl px-6 py-24 text-center">
+        <p
+          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600"
+          data-animate="fade-up"
+        >
+          SMS-First Document Collection
+        </p>
+        <h1
+          class="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl"
+          data-animate="fade-up"
+        >
+          Automate tax document collection and classification
+          <span class="text-primary-600">in seconds</span>
+        </h1>
+        <p
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          data-animate="fade-up"
+        >
+          Ella transforms messy phone photos into organized, named files
+          automatically. AI classification + auto-rename included.
+        </p>
+
+        <!-- Dual CTAs -->
+        <div
+          class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          data-animate="fade-up"
+        >
+          <a
+            href="#contact"
+            class="rounded-full bg-primary-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          >
+            Request a Demo
+          </a>
+          <a
+            href="#how-it-works"
+            class="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          >
+            See How It Works
+          </a>
+        </div>
+
+        <!-- Product visual placeholder -->
+        <div
+          class="mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-primary-50 to-primary-100 shadow-lg"
+          data-animate="fade-up"
+        >
+          <div
+            class="flex h-64 items-center justify-center sm:h-80 md:h-96"
+            role="img"
+            aria-label="Ella dashboard preview — product screenshot coming soon"
+          >
+            <div class="text-center">
+              <svg
+                class="mx-auto h-16 w-16 text-primary-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+                ></path>
+              </svg>
+              <p class="mt-4 text-sm font-medium text-primary-600">
+                Dashboard Preview
+              </p>
+              <p class="mt-1 text-xs text-primary-400">
+                Product screenshot coming soon
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scroll indicator -->
+      <div
+        class="absolute bottom-8 left-1/2 -translate-x-1/2"
+        aria-hidden="true"
+      >
+        <svg
+          class="h-6 w-6 animate-bounce text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Stats / Trust Bar -->
+    <section class="border-y border-gray-100 bg-white py-16" data-animate="fade-up">
+      <div class="mx-auto max-w-6xl px-6">
+        <StatsBar stats={stats} />
+      </div>
+    </section>
+
+    <!-- Feature Highlights -->
+    <section id="features" class="bg-gray-50 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Capabilities"
+            title="Everything tax professionals need"
+            subtitle="From document intake to team collaboration, Ella covers the full tax preparation workflow."
+          />
+        </div>
+
+        <div
+          class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
+          data-stagger
+        >
+          {
+            features.map((feature) => (
+              <div data-animate="fade-up">
+                <FeatureCard
+                  icon={feature.icon}
+                  title={feature.title}
+                  description={feature.description}
+                />
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Process"
+            title="Three steps to organized tax season"
+          />
+        </div>
+
+        <div class="mt-16 grid gap-12 md:grid-cols-3" data-stagger>
+          {
+            steps.map((item) => (
+              <div class="text-center" data-animate="fade-up">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-xl font-bold text-white shadow-sm">
+                  {item.step}
+                </div>
+                <h3 class="mt-6 text-xl font-semibold text-gray-900">
+                  {item.title}
+                </h3>
+                <p class="mt-3 leading-relaxed text-gray-600">
+                  {item.description}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="bg-gray-50 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div data-animate="fade-up">
+          <SectionHeading
+            eyebrow="Testimonials"
+            title="Trusted by tax professionals"
+          />
+        </div>
+
+        <div class="mt-16 grid gap-8 md:grid-cols-3" data-stagger>
+          {
+            testimonials.map((t) => (
+              <div data-animate="fade-up">
+                <TestimonialCard
+                  quote={t.quote}
+                  author={t.author}
+                  role={t.role}
+                />
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA + Contact Form -->
+    <section id="contact" class="bg-primary-600 py-24">
+      <div class="mx-auto max-w-4xl px-6">
+        <div class="text-center" data-animate="fade-up">
+          <h2 class="text-3xl font-bold text-white md:text-4xl">
+            Ready to transform your tax workflow?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+            Schedule a demo and see how Ella can save your team hours every week.
+          </p>
+        </div>
+
+        <div class="mt-12 rounded-2xl bg-white p-8 shadow-xl" data-animate="fade-up">
+          <ContactForm />
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

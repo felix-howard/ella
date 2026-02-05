@@ -1,0 +1,59 @@
+---
+/**
+ * Base layout wrapping all pages.
+ * Provides: HTML shell, global CSS, Navbar, Footer, favicon, theme color, SEO slot.
+ */
+import "@/styles/global.css";
+import { siteConfig } from "@/config/site";
+import Navbar from "@/components/navbar.astro";
+import Footer from "@/components/footer.astro";
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+const currentPath = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en" class="antialiased">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content={siteConfig.themeColor} />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Preconnect to font CDN for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <!-- SEO tags injected by each page via HeadSEO component -->
+    <slot name="head" />
+  </head>
+  <body class:list={["min-h-screen bg-white text-gray-900", className]}>
+    <!-- Skip to content link for keyboard/screen reader users -->
+    <a
+      href="#main-content"
+      class="fixed top-0 left-0 z-[100] -translate-y-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0"
+    >
+      Skip to main content
+    </a>
+    <Navbar currentPath={currentPath} />
+    <div id="main-content">
+      <slot />
+    </div>
+    <Footer />
+    <script>
+      import { initScrollAnimations } from "@/scripts/scroll-observer";
+      document.addEventListener("DOMContentLoaded", initScrollAnimations);
+    </script>
+  </body>
+</html>

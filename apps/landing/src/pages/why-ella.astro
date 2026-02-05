@@ -1,0 +1,185 @@
+---
+/**
+ * Why Ella page — pain point narrative with problem/solution mapping,
+ * before/after comparison, and key differentiators.
+ * Empathetic tone targeting tax professionals mid-funnel.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import SectionHeading from "@/components/section-heading.astro";
+import StatsBar from "@/components/stats-bar.astro";
+import CTASection from "@/components/cta-section.astro";
+import IconCard from "@/components/icon-card.astro";
+import { breadcrumbSchema } from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+import { checkPath, xPath } from "@/lib/icons";
+import {
+  problems,
+  solutions,
+  beforeItems,
+  afterItems,
+  differentiators,
+  whyEllaStats,
+} from "@/config/why-ella-data";
+
+const structuredData = [
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "Why Ella", url: `${siteConfig.url}/why-ella` },
+  ]),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Why Ella - Modern Tax Document Management Built for Tax Professionals"
+    description="Discover why 500+ tax firms choose Ella over manual processes and legacy software. AI-powered classification, modern UX, and all-in-one platform built for CPAs and EAs."
+    structuredData={structuredData}
+  />
+
+  <main>
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20">
+      <div class="mx-auto max-w-3xl px-6 text-center">
+        <p
+          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
+          data-animate="fade-up"
+        >
+          Why Ella
+        </p>
+        <h1
+          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          data-animate="fade-up"
+        >
+          Tax season doesn't have to be
+          <span class="text-primary-600">chaos</span>
+        </h1>
+        <p
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          data-animate="fade-up"
+        >
+          Every tax season, firms waste hundreds of hours chasing documents,
+          manually sorting files, and coordinating with clients. There's a better way.
+        </p>
+      </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="bg-gray-50 py-24" aria-label="The challenge">
+      <div class="mx-auto max-w-6xl px-6">
+        <SectionHeading eyebrow="The Challenge" title="Why tax document management is broken" />
+        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {problems.map((p) => (
+            <div data-animate="fade-up">
+              <IconCard icon={p.icon} title={p.title} description={p.description} variant="error" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="py-24" aria-label="The solution">
+      <div class="mx-auto max-w-6xl px-6">
+        <SectionHeading eyebrow="The Solution" title="How Ella transforms your workflow" />
+        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {solutions.map((s) => (
+            <div data-animate="fade-up">
+              <IconCard icon={s.icon} title={s.title} description={s.description} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Before / After Comparison -->
+    <section class="bg-gray-50 py-24" aria-label="Before and after comparison">
+      <div class="mx-auto max-w-5xl px-6">
+        <SectionHeading title="A typical tax season: Before vs After" />
+        <div class="mt-12 grid gap-8 md:grid-cols-2" data-animate="fade-up">
+          <!-- Before column -->
+          <div class="rounded-xl border border-error-100 bg-white p-8">
+            <div class="mb-6 flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-error-100">
+                <svg class="h-5 w-5 text-error-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
+                </svg>
+              </div>
+              <h3 class="text-lg font-bold text-gray-900">Before Ella</h3>
+            </div>
+            <p class="mb-4 text-sm font-medium text-gray-500">Manual Process</p>
+            <ul class="space-y-3">
+              {beforeItems.map((item) => (
+                <li class="flex items-start gap-3">
+                  <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
+                  </svg>
+                  <span class="text-sm text-gray-700">{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="mt-6 rounded-lg bg-error-100 px-4 py-3">
+              <p class="text-sm font-bold text-error-500">Total: 50+ hours wasted on admin tasks</p>
+            </div>
+          </div>
+
+          <!-- After column -->
+          <div class="rounded-xl border border-primary-200 bg-white p-8 ring-2 ring-primary-100">
+            <div class="mb-6 flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+                <svg class="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+                </svg>
+              </div>
+              <h3 class="text-lg font-bold text-gray-900">After Ella</h3>
+            </div>
+            <p class="mb-4 text-sm font-medium text-gray-500">Automated</p>
+            <ul class="space-y-3">
+              {afterItems.map((item) => (
+                <li class="flex items-start gap-3">
+                  <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+                  </svg>
+                  <span class="text-sm text-gray-700">{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="mt-6 rounded-lg bg-primary-100 px-4 py-3">
+              <p class="text-sm font-bold text-primary-600">Total: 10 hours (80% time saved)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Why Ella vs Others Section -->
+    <section class="py-24" aria-label="What makes Ella different">
+      <div class="mx-auto max-w-6xl px-6">
+        <SectionHeading eyebrow="Why Ella" title="What makes Ella different" />
+        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {differentiators.map((d) => (
+            <div data-animate="fade-up">
+              <IconCard icon={d.icon} title={d.title} description={d.description} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats / Social Proof -->
+    <section class="border-y border-gray-200 bg-white py-20" aria-label="Social proof statistics">
+      <div class="mx-auto max-w-6xl px-6">
+        <StatsBar stats={whyEllaStats} />
+      </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <CTASection
+      title="Ready to eliminate tax season chaos?"
+      description="See how Ella can transform your firm's workflow. Request a personalized demo today."
+      buttonText="Request a Demo"
+      buttonHref="/#contact"
+    />
+  </main>
+</BaseLayout>

@@ -400,6 +400,18 @@ justify-content: center;
 - Feature cards: 1-2 columns
 - Gap: 16px
 
+### Grid Column Patterns by Item Count
+
+| Items | Mobile (sm) | Tablet (md) | Desktop (lg) |
+|-------|-------------|-------------|--------------|
+| 2     | 1 col       | 2 cols      | 2 cols       |
+| 3     | 1 col       | 2 cols      | 3 cols       |
+| 4     | 2 cols      | 2 cols      | 4 cols       |
+| 5-6   | 2 cols      | 2 cols      | 3 cols       |
+| 7-8   | 2 cols      | 2 cols      | 4 cols       |
+
+**Rationale**: Prefer even row distribution over max columns. For 6 items, `lg:grid-cols-3` creates 2 balanced rows rather than 4-col with 2+2+2 awkward wrap.
+
 ### Content Width
 - Max content width: 1200px
 - Sidebar: 240px (collapsible to 64px)

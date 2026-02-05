@@ -1,6 +1,6 @@
 ---
 /**
- * Features page — 6 detailed capabilities with alternating zigzag layout.
+ * Features page — 8 detailed capabilities with alternating zigzag layout.
  * Each section: icon, heading, description, benefit bullets, image placeholder.
  * Sections alternate: odd = content left / image right, even = image left / content right.
  */
@@ -19,6 +19,35 @@ const structuredData = [
 
 /** SVG path data for each feature icon (Heroicons outline style, stroke-based) */
 const features = [
+  // SMS Direct Upload — clients text docs to firm's Twilio number
+  {
+    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
+    title: "Clients text docs — no app download required",
+    description:
+      "Other portals fail because clients won't download apps, remember passwords, or learn new interfaces. Ella meets them where they are: their phone's camera and text messages. Clients text docs directly to your firm's Ella number — documents get processed by AI automatically.",
+    benefits: [
+      "No app or portal download required",
+      "No username/password to remember",
+      "Works on any phone (smartphone or basic)",
+      "Documents still processed by AI classification",
+    ],
+    placeholder: "SMS Document Upload",
+  },
+  // AI Auto-Rename — transforms garbage filenames into organized structure
+  {
+    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
+    title: "Turn garbage uploads into organized files",
+    description:
+      "Clients send files named 'IMG_2847.jpg', 'doc (3).pdf', 'scan123.pdf'. Ella's AI reads the content and renames each file with a structured pattern: YEAR_DOCTYPE_SOURCE_CLIENT. Never rename a file manually again.",
+    benefits: [
+      "Pattern: 2024_FORM_1099_NEC_LeFamilyNailSpa_FionaPhsdam.pdf",
+      "Filters out irrelevant uploads (cat photos, duplicates)",
+      "Flags unknown documents for review",
+      "Searchable, consistent naming across entire firm",
+    ],
+    placeholder: "AI Auto-Rename Demo",
+  },
+  // AI Document Classification
   {
     icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
     title: "Instantly classify 89+ tax document types",
@@ -131,13 +160,13 @@ import { checkPath } from "@/lib/icons";
           class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
           data-animate="fade-up"
         >
-          Everything you need to streamline document collection, classification,
-          and team collaboration in one platform.
+          From SMS uploads to AI classification — everything you need to
+          streamline tax document collection in one platform.
         </p>
       </div>
     </section>
 
-    <!-- 6 Feature Sections — alternating zigzag layout -->
+    <!-- 8 Feature Sections — alternating zigzag layout -->
     {
       features.map((feature, index) => {
         const isOdd = index % 2 === 0;

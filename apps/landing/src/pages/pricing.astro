@@ -249,12 +249,12 @@ const comparisonRows: ComparisonRow[] = [
     <!-- Pricing Tiers -->
     <section class="pb-24" aria-label="Pricing plans">
       <div class="mx-auto max-w-6xl px-6">
-        <div class="grid gap-8 lg:grid-cols-3">
+        <div class="grid gap-8 lg:grid-cols-3" data-stagger>
           {
             tiers.map((tier) => (
               <div
                 class:list={[
-                  "relative flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 transition-shadow hover:shadow-md",
+                  "relative flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
                   tier.popular
                     ? "ring-2 ring-primary-600 shadow-xl lg:scale-105"
                     : "ring-gray-200",
@@ -449,10 +449,10 @@ const comparisonRows: ComparisonRow[] = [
           subtitle="Everything you need to know about Ella's pricing and plans."
         />
 
-        <div class="mt-12 grid gap-8 md:grid-cols-2" data-animate="fade-up">
+        <div class="mt-12 grid gap-8 md:grid-cols-2" data-stagger>
           {
             faqItems.map((item) => (
-              <div>
+              <div data-animate="fade-up">
                 <h3 class="text-base font-semibold text-gray-900">
                   {item.question}
                 </h3>

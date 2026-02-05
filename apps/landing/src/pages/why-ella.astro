@@ -69,8 +69,12 @@ const structuredData = [
     <section class="bg-gray-50 py-24" aria-label="The challenge">
       <div class="mx-auto max-w-6xl px-6">
         <SectionHeading eyebrow="The Challenge" title="Why tax document management is broken" />
-        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4" data-animate="fade-up">
-          {problems.map((p) => <IconCard icon={p.icon} title={p.title} description={p.description} variant="error" />)}
+        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4" data-stagger>
+          {problems.map((p) => (
+            <div data-animate="fade-up">
+              <IconCard icon={p.icon} title={p.title} description={p.description} variant="error" />
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -79,8 +83,12 @@ const structuredData = [
     <section class="py-24" aria-label="The solution">
       <div class="mx-auto max-w-6xl px-6">
         <SectionHeading eyebrow="The Solution" title="How Ella transforms your workflow" />
-        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4" data-animate="fade-up">
-          {solutions.map((s) => <IconCard icon={s.icon} title={s.title} description={s.description} />)}
+        <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4" data-stagger>
+          {solutions.map((s) => (
+            <div data-animate="fade-up">
+              <IconCard icon={s.icon} title={s.title} description={s.description} />
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -149,8 +157,12 @@ const structuredData = [
     <section class="py-24" aria-label="What makes Ella different">
       <div class="mx-auto max-w-6xl px-6">
         <SectionHeading eyebrow="Why Ella" title="What makes Ella different" />
-        <div class="mt-12 grid gap-8 sm:grid-cols-2" data-animate="fade-up">
-          {differentiators.map((d) => <IconCard icon={d.icon} title={d.title} description={d.description} />)}
+        <div class="mt-12 grid gap-8 sm:grid-cols-2" data-stagger>
+          {differentiators.map((d) => (
+            <div data-animate="fade-up">
+              <IconCard icon={d.icon} title={d.title} description={d.description} />
+            </div>
+          ))}
         </div>
       </div>
     </section>

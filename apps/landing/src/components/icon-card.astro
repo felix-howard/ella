@@ -18,7 +18,7 @@ const iconBg = variant === "error" ? "bg-error-100" : "bg-primary-100";
 const iconColor = variant === "error" ? "text-error-500" : "text-primary-600";
 ---
 
-<div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+<div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
   <div class:list={["mb-4 flex h-12 w-12 items-center justify-center rounded-full", iconBg]}>
     <svg
       class:list={["h-6 w-6", iconColor]}

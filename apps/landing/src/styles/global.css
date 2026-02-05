@@ -114,6 +114,20 @@ html {
   transform: translate(0);
 }
 
+/* Stagger effect for sequential card animations (up to 12 children) */
+[data-stagger] > [data-animate].animate:nth-child(1) { transition-delay: 0s; }
+[data-stagger] > [data-animate].animate:nth-child(2) { transition-delay: 0.08s; }
+[data-stagger] > [data-animate].animate:nth-child(3) { transition-delay: 0.12s; }
+[data-stagger] > [data-animate].animate:nth-child(4) { transition-delay: 0.16s; }
+[data-stagger] > [data-animate].animate:nth-child(5) { transition-delay: 0.2s; }
+[data-stagger] > [data-animate].animate:nth-child(6) { transition-delay: 0.24s; }
+[data-stagger] > [data-animate].animate:nth-child(7) { transition-delay: 0.28s; }
+[data-stagger] > [data-animate].animate:nth-child(8) { transition-delay: 0.32s; }
+[data-stagger] > [data-animate].animate:nth-child(9) { transition-delay: 0.36s; }
+[data-stagger] > [data-animate].animate:nth-child(10) { transition-delay: 0.4s; }
+[data-stagger] > [data-animate].animate:nth-child(11) { transition-delay: 0.44s; }
+[data-stagger] > [data-animate].animate:nth-child(12) { transition-delay: 0.48s; }
+
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

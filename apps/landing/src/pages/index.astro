@@ -243,6 +243,7 @@ const testimonials = [
 
         <div
           class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
+          data-stagger
         >
           {
             features.map((feature) => (
@@ -269,7 +270,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-12 md:grid-cols-3">
+        <div class="mt-16 grid gap-12 md:grid-cols-3" data-stagger>
           {
             steps.map((item) => (
               <div class="text-center" data-animate="fade-up">
@@ -299,7 +300,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-8 md:grid-cols-3">
+        <div class="mt-16 grid gap-8 md:grid-cols-3" data-stagger>
           {
             testimonials.map((t) => (
               <div data-animate="fade-up">

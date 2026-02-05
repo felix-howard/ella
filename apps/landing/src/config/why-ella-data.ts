@@ -1,6 +1,10 @@
 /**
  * Data arrays for the Why Ella page (/why-ella).
  * Extracted from page file to keep page under 200-line limit.
+ *
+ * Icon note: Some icons (chat-bubble, tag) are reused across arrays
+ * for conceptual consistency (SMS → chat, rename → tag). This is intentional
+ * as each array represents different page sections with distinct contexts.
  */
 
 /* ---------- Pain Points ---------- */
@@ -36,6 +40,18 @@ export const problems: PainPoint[] = [
     description:
       "No clear ownership of client cases. Staff duplicate work, miss tasks, and communicate via scattered Slack threads and email chains.",
   },
+  {
+    icon: "M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3",
+    title: "Clients Never Use Your Portal",
+    description:
+      "You pay for client portal software, but clients text/email docs directly anyway. App downloads, passwords, and learning curves mean portal adoption fails.",
+  },
+  {
+    icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
+    title: "File Names Are Garbage",
+    description:
+      "Clients send 'IMG_2847.jpg' and 'scan123.pdf'. You manually rename every file to understand what it is. Hours wasted on file organization.",
+  },
 ];
 
 /* ---------- Solutions ---------- */
@@ -65,6 +81,18 @@ export const solutions: PainPoint[] = [
     description:
       "Assign clients to staff, track action items, and communicate in one unified inbox. Everyone knows who owns what.",
   },
+  {
+    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
+    title: "SMS Upload — Meet Clients Where They Are",
+    description:
+      "Clients text docs to your Ella number. Same behavior they do now, but documents go straight into your workflow. No app, no portal, no friction.",
+  },
+  {
+    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
+    title: "AI Auto-Rename — Instant Organization",
+    description:
+      "Ella reads every document and renames it: 2024_W2_Amazon_JohnSmith.pdf. Garbage in, organized out. Never rename a file manually.",
+  },
 ];
 
 /* ---------- Before / After ---------- */
@@ -75,6 +103,8 @@ export const beforeItems = [
   "Type data from W-2s and 1099s (15+ hours)",
   "Unclear who's working on which client",
   "20+ phone calls to clarify missing docs",
+  "Clients ignore portal, text docs to your phone",
+  "Files named IMG_2847.jpg mean nothing",
 ];
 
 export const afterItems = [
@@ -83,6 +113,8 @@ export const afterItems = [
   "OCR extracts data automatically",
   "Clear client assignments and task queues",
   "SMS reminders for missing docs",
+  "Clients text to Ella number (same behavior, better outcome)",
+  "Files auto-renamed: 2024_W2_Employer_Client.pdf",
 ];
 
 /* ---------- Differentiators ---------- */
@@ -111,6 +143,18 @@ export const differentiators: PainPoint[] = [
     title: "Built for Tax Professionals",
     description:
       "We understand tax workflows. Ella supports multi-year engagements, Schedule C, and tax-specific document types out of the box.",
+  },
+  {
+    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
+    title: "SMS-First, Not Portal-First",
+    description:
+      "Other tools force clients to download apps. Ella meets clients where they are — their phone's camera and text messages. Zero behavior change required.",
+  },
+  {
+    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
+    title: "Auto-Rename Intelligence",
+    description:
+      "AI doesn't just classify — it renames. Every file gets a structured name (YEAR_DOCTYPE_SOURCE_CLIENT) for instant searchability across your firm.",
   },
 ];
 

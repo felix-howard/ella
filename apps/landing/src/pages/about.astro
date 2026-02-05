@@ -1,0 +1,190 @@
+---
+/**
+ * About page — mission, origin story, values, team placeholder, contact info, and CTA.
+ * Builds trust and humanizes the Ella brand for tax professionals.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import SectionHeading from "@/components/section-heading.astro";
+import IconCard from "@/components/icon-card.astro";
+import CTASection from "@/components/cta-section.astro";
+import {
+  breadcrumbSchema,
+  organizationSchema,
+} from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+import { values, socialLinks } from "@/config/about-data";
+
+const structuredData = [
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "About", url: `${siteConfig.url}/about` },
+  ]),
+  organizationSchema(),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="About Ella - Modern Tax Document Management Built for Tax Professionals"
+    description="Learn about Ella's mission to empower tax professionals with AI-powered document management. Serving 500+ firms with modern tools built for efficiency and collaboration."
+    structuredData={structuredData}
+  />
+
+  <main>
+    <!-- Hero: Mission Statement -->
+    <section class="pt-32 pb-20">
+      <div class="mx-auto max-w-3xl px-6 text-center">
+        <p
+          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
+          data-animate="fade-up"
+        >
+          About Ella
+        </p>
+        <h1
+          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          data-animate="fade-up"
+        >
+          Building the future of
+          <span class="text-primary-600">tax document management</span>
+        </h1>
+        <p
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          data-animate="fade-up"
+        >
+          Our mission is to empower tax professionals with modern, AI-powered
+          tools that eliminate busywork and let them focus on what matters:
+          serving clients and growing their firms.
+        </p>
+      </div>
+    </section>
+
+    <!-- Story Section -->
+    <section class="bg-gray-50 py-24" aria-label="Our story">
+      <div class="mx-auto max-w-4xl px-6">
+        <SectionHeading eyebrow="Our Story" title="Why we built Ella" />
+        <div
+          class="mt-12 space-y-6 text-lg leading-relaxed text-gray-700"
+          data-animate="fade-up"
+        >
+          <p>
+            Tax professionals deserve better tools. For decades, tax firms have
+            relied on manual processes, email attachments, and legacy software
+            that hasn't evolved. We saw tax preparers spending more time chasing
+            documents and organizing files than actually preparing returns.
+          </p>
+          <p>
+            Ella was born from a simple question: What if AI could handle the
+            tedious parts of tax season — document collection, classification,
+            data extraction — so tax professionals could focus on strategy,
+            advisory, and client relationships?
+          </p>
+          <p>
+            Today, Ella serves 500+ tax firms and processes over 1 million
+            documents annually. We're just getting started. Our vision is to
+            become the operating system for modern tax practices, combining AI,
+            automation, and collaboration into one intuitive platform.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Values Section -->
+    <section class="py-24" aria-label="Our values">
+      <div class="mx-auto max-w-6xl px-6">
+        <SectionHeading eyebrow="Our Values" title="What we believe" />
+        <div
+          class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
+          data-animate="fade-up"
+        >
+          {values.map((v) => (
+            <IconCard icon={v.icon} title={v.title} description={v.description} />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Team Section (Placeholder) -->
+    <section class="bg-gray-50 py-24" aria-label="Our team">
+      <div class="mx-auto max-w-3xl px-6 text-center">
+        <SectionHeading
+          eyebrow="Our Team"
+          title="Meet the people building Ella"
+        />
+        <p class="mt-8 text-lg text-gray-600" data-animate="fade-up">
+          We're a small, remote team of engineers and tax industry veterans
+          passionate about building tools that make tax season less stressful.
+          Team page coming soon.
+        </p>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-24" aria-label="Get in touch">
+      <div class="mx-auto max-w-2xl px-6 text-center">
+        <SectionHeading title="Get in touch" />
+
+        <!-- Email CTA -->
+        <a
+          href="mailto:hello@ella.tax"
+          class="mt-10 inline-flex items-center gap-3 rounded-full bg-primary-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          data-animate="fade-up"
+        >
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"
+            ></path>
+          </svg>
+          hello@ella.tax
+        </a>
+
+        <!-- Social Links -->
+        <div
+          class="mt-8 flex items-center justify-center gap-4"
+          data-animate="fade-up"
+        >
+          {socialLinks.map((link) => (
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Follow Ella on ${link.label}`}
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+            >
+              <svg
+                class="h-5 w-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d={link.iconPath} />
+              </svg>
+            </a>
+          ))}
+        </div>
+
+        <p class="mt-6 text-sm text-gray-500" data-animate="fade-up">
+          Remote-first team
+        </p>
+      </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <CTASection
+      title="Ready to modernize your tax practice?"
+      description="Join 500+ firms using Ella to streamline tax season. Request a demo today."
+      buttonText="Request a Demo"
+      buttonHref="/#contact"
+    />
+  </main>
+</BaseLayout>

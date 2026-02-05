@@ -123,19 +123,16 @@ importers:
 
   apps/landing:
     dependencies:
-      '@astrojs/check':
-        specifier: ^0.9.6
-        version: 0.9.6(prettier@3.7.4)(typescript@5.9.3)
       '@astrojs/sitemap':
         specifier: ^3.2.0
         version: 3.7.0
       astro:
         specifier: ^5.3.0
         version: 5.17.1(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.55.1)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
     devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.6
+        version: 0.9.6(prettier@3.7.4)(typescript@5.9.3)
       '@tailwindcss/vite':
         specifier: ^4.0.0
         version: 4.1.18(vite@6.4.1(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
@@ -145,6 +142,9 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.1.18
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   apps/portal:
     dependencies:

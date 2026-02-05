@@ -1,0 +1,39 @@
+---
+/**
+ * Full-width call-to-action block with emerald background, heading, description, and button.
+ * Inverted colors: white bg button on emerald background.
+ */
+interface Props {
+  title: string;
+  description?: string;
+  buttonText?: string;
+  buttonHref?: string;
+}
+
+const {
+  title,
+  description,
+  buttonText = "Book a Demo",
+  buttonHref = "/about#contact",
+} = Astro.props;
+---
+
+<section class="bg-primary-600 py-20">
+  <div class="mx-auto max-w-4xl px-6 text-center">
+    <h2 class="text-3xl font-bold text-white md:text-4xl" data-animate="fade-up">
+      {title}
+    </h2>
+    {description && (
+      <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80" data-animate="fade-up">
+        {description}
+      </p>
+    )}
+    <a
+      href={buttonHref}
+      class="mt-8 inline-block rounded-full bg-white px-8 py-3 text-base font-semibold text-primary-600 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      data-animate="fade-up"
+    >
+      {buttonText}
+    </a>
+  </div>
+</section>

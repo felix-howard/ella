@@ -147,7 +147,7 @@ export const ExpenseField = memo(function ExpenseField({
           onMouseEnter={showTooltipWithDelay}
           onMouseLeave={hideTooltip}
           className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus:text-primary"
-          aria-label={`Giải thích: ${category.label}`}
+          aria-label={category.label}
         >
           <HelpCircle className="w-4 h-4" />
         </button>

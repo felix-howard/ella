@@ -5,6 +5,7 @@
  */
 import { DollarSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 
 interface IncomeSectionProps {
   formData: Record<string, unknown>
@@ -15,6 +16,7 @@ export function IncomeSection({
   formData,
   prefilledGrossReceipts,
 }: IncomeSectionProps) {
+  const { t } = useTranslation()
   const grossReceipts = Number(formData.grossReceipts) || Number(prefilledGrossReceipts) || 0
 
   return (
@@ -22,7 +24,7 @@ export function IncomeSection({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-primary text-lg">
           <DollarSign className="w-5 h-5" />
-          Thu nhập (Part I)
+          {t('expense.income')}
         </CardTitle>
       </CardHeader>
 
@@ -30,14 +32,14 @@ export function IncomeSection({
         <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-medium text-foreground">
-              Thu nhập gộp (1099-NEC)
+              {t('expense.grossReceipts')}
             </span>
             <span className="text-lg font-semibold text-primary">
               ${grossReceipts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tự động tính từ các form 1099-NEC đã nhận
+            {t('expense.autoCalculated')}
           </p>
         </div>
       </CardContent>

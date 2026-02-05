@@ -1,8 +1,196 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-01-28 23:55 ICT
-> **Current Phase:** Schedule C Expense Collection (Phase 3 Complete: 60% Overall) + Simplify Client Workflow (Phase 4 Complete) + Actionable Client Status (Phase 4 Complete) + Voice Calls Enhancement (Phase 04 Complete) + Multi-Year Client Engagement (Phases 1-4 Complete) + All Enhancement Tracks
-> **Overall Project Progress:** 100% MVP + Schedule C Phase 3 Complete (60% Overall) + Actionable Status System (Phases 1-4 Complete) + Voice Calls (Phases 01-04 Complete) + Multi-Year Engagement Model (Phases 1-4 Complete, 66.67%) + Simplify Client Workflow (Phase 1-4 Complete, 100%) + Auto-Rename Documents & Category Grouping (Phase 1 Complete, 20%) + All prior enhancements
+> **Last Updated:** 2026-02-05 ICT
+> **Current Phase:** Landing Page Killer Features COMPLETE (Phase 01-03) | Phase 06 (Why Ella) COMPLETE | Multi-Tenancy & Permission System (Completed)
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Killer Features COMPLETE (SMS-First Messaging + 8-Section Features Page + Why Ella Updates) + Schedule C Phase 4 Complete + All prior enhancements
+
+### Landing Page Phase 06: Why Ella Page - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Production-ready why Ella page with empathetic pain point narrative, solutions, before/after comparison, differentiators, and social proof
+
+**Completion Summary:**
+- **Hero Section:** Empathetic pain point intro "Tax season doesn't have to be chaos"
+- **Problem Section:** 4 pain point cards with icons (Document collection, Manual classification, Data entry, Team communication gaps)
+- **Solution Section:** 1-to-1 solutions mapping each problem to Ella feature (Automated collection, AI classification, Smart OCR, Built-in collaboration)
+- **Before/After Comparison:** Side-by-side workflow comparison (50+ hours manual vs 10 hours with Ella, 80% time savings)
+- **Differentiators Section:** 4 key differentiators (AI-First, Modern UX, All-In-One Platform, Built for Tax Professionals)
+- **Social Proof:** StatsBar component with firm count, documents processed, accuracy, time saved
+- **Bottom CTA:** "Ready to eliminate tax season chaos?" call-to-action section
+- **SEO:** BreadcrumbList structured data, optimized title/description for conversions
+- **Accessibility:** WCAG AAA contrast, prefers-reduced-motion, semantic HTML
+- **Code Quality:** 174 lines why-ella.astro + 3 new modules (icon-card.astro, why-ella-data.ts, icons.ts), shared icons across features/pricing pages
+- **Mobile Responsive:** All sections stack properly on 320px-1920px viewports
+- **Status:** Production-ready on feature/landing-page branch
+
+---
+
+### Landing Page Killer Features Phases 01-03: Complete ✅
+**Completed:** 2026-02-05
+**Deliverable:** SMS-First messaging across hero, features, and why-ella pages with AI Auto-Rename differentiators
+
+**Completion Summary:**
+- **Phase 01:** Homepage hero redesigned with SMS-first positioning (hero eyebrow, headline, features array reordered)
+- **Phase 02:** Features page expanded to 8 detailed capability sections with zigzag layout, SMS leading
+- **Phase 03:** Why Ella page data extended with 2 new pain points, 2 new solutions, 2 new differentiators, updated before/after items
+- **Key Messaging:** "Clients text docs directly. No app. No portal. Just text."
+- **Build Status:** All phases pass without errors
+- **Code Quality:** 9.5/10 average code review scores
+- **Branch Status:** feature/landing-page, ready for PR/merge
+
+**Phase 01 Details:** Homepage redesign with SMS-first positioning
+- Hero eyebrow: "SMS-First Document Collection"
+- Headline: "Clients text docs to your Ella number. No app. No friction."
+- Features array reordered: SMS Direct Upload + AI Auto-Rename leading
+- How It Works updated to SMS-focused flow
+- SEO description optimized for SMS + auto-rename positioning
+- Build passes, 9.5/10 code review
+
+**Phase 02 Details:** 8-section features page with killer features
+- SMS Direct Upload (clients text to Twilio number)
+- AI Auto-Rename (IMG_2847.jpg → 2024_FORM_1099_CLIENT.pdf)
+- AI Classification (89+ document types)
+- Data Extraction/OCR (W-2, 1099, K-1 fields)
+- Client Portal Upload (passwordless magic link)
+- Team Management (role-based access)
+- Voice & SMS (browser WebRTC calling)
+- Multi-Year Tracking (copy-forward, engagement history)
+- Alternating zigzag layout, responsive design
+- Build passes, code review 9.5/10
+
+**Phase 03 Details:** Why Ella data + page updates
+- Added 2 new problems: "Clients Never Use Your Portal", "File Names Are Garbage"
+- Added 2 new solutions: "SMS Upload — Meet Clients Where They Are", "AI Auto-Rename — Instant Organization"
+- Added 2 new differentiators: "SMS-First, Not Portal-First", "Auto-Rename Intelligence"
+- Updated before/after items (7 items each after additions)
+- Grid layouts optimized for 6 items (sm:grid-cols-2 lg:grid-cols-3)
+- Design guidelines updated with new grid column patterns
+- Build passes, all success criteria met
+
+---
+
+### Landing Page Killer Features Phase 01: SMS-First Homepage Redesign - COMPLETE ✅
+**Completed:** 2026-02-05
+**Deliverable:** Homepage redesign emphasizing SMS Direct Upload + AI Auto-Rename as killer differentiators
+
+**Completion Summary:**
+- **Hero Eyebrow:** Changed from "AI-Powered Tax Document Management" to "SMS-First Document Collection"
+- **Headline:** Updated to "Clients text docs to your Ella number. No app. No friction."
+- **Subheadline:** Shifted to "Ella transforms messy phone photos into organized, named files automatically. AI classification + auto-rename included."
+- **Features Array:** Reordered with SMS Direct Upload + AI Auto-Rename leading
+  - SMS Direct Upload: Clients text docs to firm's Twilio number without app download
+  - AI Auto-Rename: Transform IMG_2847.jpg → 2024_W2_Amazon_JohnSmith.pdf automatically
+  - AI Classification: 89+ document types identified with confidence scoring
+  - Smart OCR: Income figures + tax details extracted from W-2s, 1099s, K-1s
+- **How It Works Steps:** Updated to SMS-focused flow (Client Texts Photo → AI Classifies & Renames → Review & Prepare)
+- **SEO Description:** Optimized for conversions emphasizing SMS + auto-rename positioning
+- **Build Status:** Passes without errors
+- **Code Quality:** 9.5/10 review score
+- **Status:** Production-ready on feature/landing-page branch
+
+**Messaging Shift:**
+- **Before:** "Automate tax document collection and classification"
+- **After:** "Clients text docs directly. No app. No portal. Just text."
+
+---
+
+### Landing Page Phase 02: Features Page Sections - COMPLETE ✅
+**Completed:** 2026-02-05
+**Deliverable:** Production-ready features page with 8 detailed capability sections, alternating zigzag layout, icons, benefits, and image placeholders
+
+**Completion Summary:**
+- **8 Feature Sections:** Expanded from 6 to 8 features with SMS-first ordering
+  1. **SMS Direct Upload:** Clients text docs to firm's Twilio number, no app/password required, AI processes automatically
+  2. **AI Auto-Rename:** Transforms IMG_2847.jpg → structured pattern (YEAR_DOCTYPE_SOURCE_CLIENT.pdf), filters duplicates/irrelevant uploads, flags unknown docs
+  3. **AI Classification:** 89+ tax document types (W-2, 1099-NEC, 1099-MISC, K-1, bank statements, etc.), 99% accuracy, confidence scoring
+  4. **Data Extraction (OCR):** Pulls key information (income, employer, dates) into structured fields, export to CSV or tax prep software
+  5. **Client Portal Upload:** Passwordless magic link, drag-drop interface, mobile-friendly, auto email notifications
+  6. **Team Management:** Role-based access (Admin/Staff), assign clients to staff, task queues, audit trail for compliance
+  7. **Voice & SMS:** Browser-based Twilio WebRTC calling, SMS reminders, voicemail transcription, unified message inbox
+  8. **Multi-Year Tracking:** Copy-forward previous year data, engagement history, auto-generate checklists, recurring client identification
+- **Layout:** Alternating zigzag (odd = content left/image right, even = image left/content right)
+- **Components:** Icon, heading, description, 4 benefit bullets per section, image placeholders (gradients + screenshot placeholders)
+- **Hero Section:** "Powerful features built for tax professionals" with SMS-focused subtitle
+- **Navigation:** Breadcrumb schema in SEO structured data
+- **Accessibility:** WCAG AAA contrast, semantic HTML, role="img" on placeholders
+- **Mobile Responsive:** All sections stack properly on 320px-1920px viewports
+- **Code Quality:** Astro component with TSX-style JSX rendering, shared icon library, clean structure
+- **Status:** Production-ready on feature/landing-page branch
+
+---
+
+### Landing Page Phase 05: Pricing Page - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Production-ready pricing page with transparent 3-tier structure, comparison table, FAQ, SEO optimization
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Pricing Tier Cards | ✅ DONE | 2026-02-04 | 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge |
+| 2 | Feature Comparison Table | ✅ DONE | 2026-02-04 | 12 rows, responsive with horizontal scroll on mobile, sticky header |
+| 3 | FAQ Section | ✅ DONE | 2026-02-04 | 8 items, 2-column grid on desktop |
+| 4 | SEO & Structured Data | ✅ DONE | 2026-02-04 | BreadcrumbList, FAQPage, Product schema for each tier |
+
+**Completion Summary:**
+- **Pricing Tiers:** 3 cards (Starter for solo practitioners, Professional most popular for growing firms, Enterprise for large firms)
+- **Professional Tier:** Elevated styling with ring-2 ring-primary-600, lg:scale-105, "Most Popular" badge
+- **Features:** Starter (5 clients, AI, OCR, portal, 500 docs), Professional (+team, voice/SMS, 2K docs), Enterprise (unlimited)
+- **Comparison Table:** 12 feature rows, check/x icons, sticky first column for mobile horizontal scroll
+- **FAQ:** 8 questions (free trial, plan changes, active client definition, document limits, setup fees, payment methods, cancellation, annual discounts)
+- **SEO:** Product schema with price, priceCurrency USD, priceValidUntil next year, availability InStock
+- **Accessibility:** role="img" on SVGs, aria-labels ("Included", "Not included"), semantic HTML
+- **Status:** Production-ready on feature/landing-page branch
+
+---
+
+### Landing Page Phase 03: Full Home Page - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Production-ready landing page with 7-section layout, conversion-focused design, SEO optimization
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Home Page Layout (index.astro) | ✅ DONE | 2026-02-04 | 7 sections: Hero, Stats, Features, How It Works, Testimonials, CTA, Contact Form |
+| 2 | Structured Data Integration | ✅ DONE | 2026-02-04 | aggregateRatingSchema() added to HeadSEO component |
+| 3 | Branding & Visual Assets | ✅ DONE | 2026-02-04 | OG image (1200x630px emerald gradient), favicon updated to emerald green |
+| 4 | Content & Copy | ✅ DONE | 2026-02-04 | Outcome-focused messaging, 4 feature cards, 3-step process, 3 testimonials |
+
+**Completion Summary:**
+- **Home Page:** Full landing page with conversion-focused copy. Hero emphasizes "75% time savings". Stats showcase impact (1M+ documents, 500 firms, 99% accuracy, 80% time saved)
+- **Features Section:** 4 cards (AI Classification 89+ documents, Smart OCR for W-2/1099/K-1, Client Portal passwordless magic link, Team Collaboration role-based access)
+- **How It Works:** 3-step process (Send Link → AI Classifies → Review & Prepare)
+- **Testimonials:** 3 quotes from fictional CPAs/EAs with implied 5-star rating (aggregateRatingSchema)
+- **Contact Form:** Formspree integration for lead capture + CTA button
+- **SEO:** Structured data schemas (Organization, Website, SoftwareApplication, AggregateRating)
+- **Branding:** Emerald green accent color throughout, OG meta image for social sharing
+- **Status:** Production-ready, merged to feature/landing-page branch
+
+---
+
+### Multi-Tenancy & Permission System - COMPLETE ✅
+**Completed:** 2026-02-04
+**Deliverable:** Organization-scoped multi-tenancy with Clerk org integration, team management, and RBAC
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema | ✅ DONE | 2026-02-03 | Organization, ClientAssignment, Staff/Client enhancements, AuditLog |
+| 2 | API - Team Endpoints | ✅ DONE | 2026-02-04 | 7 team mgmt endpoints, Clerk Backend SDK integration |
+| 3 | API - Assignment Endpoints | ✅ DONE | 2026-02-04 | 5 assignment endpoints (CRUD + bulk + transfer) |
+| 4 | Org-Scoped Filtering | ✅ DONE | 2026-02-04 | buildClientScopeFilter(), middleware, all entities covered |
+| 5 | Frontend Auth & Navigation | ✅ DONE | 2026-02-04 | useAutoOrgSelection, useOrgRole, Team page, sidebar org display |
+| 6 | Invite & Acceptance Flow | ✅ DONE | 2026-02-04 | Accept-invitation page, Clerk org invite tickets |
+
+**Completion Summary:**
+- **Database:** 4 new models (Organization, ClientAssignment, enhanced Staff/Client, AuditLog) with org-scoped constraints
+- **API:** 12 endpoints, org-aware JWT parsing, role-based middleware (requireOrg, requireOrgAdmin)
+- **Frontend:** Team management page, org name in sidebar, role badges, auto-org selection on sign-in
+- **Hooks:** useAutoOrgSelection (auto-select first org), useOrgRole (role-based checks)
+- **RBAC:** Admin (see all clients) vs Staff (see assigned clients only) via ClientAssignment
+- **Tests:** 26 API tests, full type coverage
+- **i18n:** 821 keys (English + Vietnamese)
+- **Status:** Production-ready, merged to main
+
+---
 
 ### Schedule C Expense Collection - Phase 3 Complete (60% Overall) ✅
 **Started:** 2026-01-28 09:42 ICT
@@ -620,11 +808,14 @@ Core Models:
 ## Next Steps (Immediate Action Items)
 
 ### For Development Team (Next 3 Days)
-1. **Start Phase 2.2: Dynamic Checklist System**
-   - Seed checklist templates (1040, 1120S, 1065)
-   - Create checklist rules engine
-   - Auto-link RawImage to ChecklistItem
-   - Update checklist status on doc verification
+1. **Landing Page Phase 06: Additional Pages**
+   - Features page (detailed capability descriptions)
+   - Why Ella page (benefits for tax professionals)
+   - About page (team/mission/company story)
+2. **Schedule C Phase 5: Workspace Integration**
+   - Case detail Schedule C tab
+   - Form editing interface
+   - Version history UI
 
 ### For Project Manager (Today)
 1. Merge feature/phase-2.1-ai-document-processing to dev
@@ -677,6 +868,10 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 5.2 | 2026-02-05 | PM | MILESTONE: Landing Page Killer Features Phases 01-03 COMPLETE. Full campaign rollout across homepage, features page, and why-ella page. Phase 01: SMS-first homepage redesign (eyebrow, headline, features reorder). Phase 02: 8-section features page (SMS + Auto-Rename + OCR + Portal + Team + Voice + Multi-Year). Phase 03: Why Ella data expansion (6 problems/solutions/differentiators, updated before/after). SMS messaging + Auto-Rename positioning fully integrated. Build passes all phases, 9.5/10 code review average. All success criteria met. Branch feature/landing-page ready for merge. |
+| 5.1 | 2026-02-05 | PM | MILESTONE: Landing Page Killer Features Phase 01 COMPLETE. Homepage redesign with SMS-first positioning: hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction", features array reordered with SMS Direct Upload + AI Auto-Rename leading, How It Works updated to SMS flow, SEO description optimized for SMS+rename messaging. Killer differentiators now front-and-center. Build passes, 9.5/10 code review. Phase 02 (Features page sections) + Phase 03 (Why Ella updates) pending. |
+| 5.0 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 05 COMPLETE. Pricing page (/pricing) with 3 tiers (Starter $99, Professional $299 most popular, Enterprise Custom), feature comparison table (12 rows, mobile scroll), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas for each tier. Accessibility: role="img", aria-labels, semantic HTML. Phase 06 (Features/Why Ella/About pages) pending. |
+| 4.9 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 03 COMPLETE. Full home page (index.astro) with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99%, 80%), Features (4 cards: AI, OCR, Portal, Team), How It Works (3-step), Testimonials (3 quotes), CTA + Contact Form. aggregateRatingSchema() added. Brand color to emerald, OG image updated (1200x630px gradient). Phase 04 (Features/Pricing/Why Ella/About pages) pending. |
 | 4.8 | 2026-01-28 00:28 | PM | NEW PROJECT: Schedule C Expense Collection - Phase 2 COMPLETE (33% overall). 8 endpoints implemented (5 staff + 3 public), magic link SCHEDULE_C type, SMS templates, expense calculator service. 578/578 tests passing. Code review: 9.2/10. Phase 3 (Portal Expense Form) pending. |
 | 4.7 | 2026-01-27 20:15 | PM | MILESTONE: Simplify Client Workflow - Phase 4 COMPLETE (100% overall). ErrorBoundary on FilesTab, loading states verified in YearSwitcher/CreateEngagementModal, Vietnamese labels audited & standardized, edge cases handled (empty states, single year, error scenarios). Type-check pass, build pass, 535/535 tests pass. Code review 9.5/10. Feature ready for merge to main. |
 | 4.5 | 2026-01-22 | PM | MERGE: feature/enhance-call into dev. Combined Voice Calls (Phases 01-04) with Actionable Status (Phases 1-4). Both features complete and ready for production. |

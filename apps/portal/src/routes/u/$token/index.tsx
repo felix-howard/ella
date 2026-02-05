@@ -3,12 +3,12 @@
  * Consolidated view: welcome + missing docs + upload
  * Phase 2: UI components (MissingDocsList + SimpleUploader)
  */
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { portalApi, type PortalData, type UploadResponse, ApiError } from '../../../lib/api-client'
-import { getText, type Language } from '../../../lib/i18n'
 import { WelcomeHeader } from '../../../components/landing/welcome-header'
 import { MissingDocsList } from '../../../components/missing-docs-list'
 import { SimpleUploader } from '../../../components/simple-uploader'
@@ -26,6 +26,7 @@ interface ErrorState {
 
 function PortalPage() {
   const { token } = Route.useParams()
+  const { t, i18n } = useTranslation()
 
   const [state, setState] = useState<PageState>('loading')
   const [data, setData] = useState<PortalData | null>(null)
@@ -33,9 +34,6 @@ function PortalPage() {
 
   // Ref to track if component is mounted (prevents stale updates)
   const isMountedRef = useRef(true)
-
-  const language: Language = data?.client.language || 'VI'
-  const t = getText(language)
 
   // Initial data load
   useEffect(() => {
@@ -50,6 +48,13 @@ function PortalPage() {
         if (isMountedRef.current) {
           setData(result)
           setState('success')
+          // Sync language from client data only if no localStorage preference yet
+          if (!localStorage.getItem('ella-language')) {
+            const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
+            if (i18n.language !== clientLang) {
+              i18n.changeLanguage(clientLang)
+            }
+          }
         }
       } catch (err) {
         if (isMountedRef.current) {
@@ -57,7 +62,7 @@ function PortalPage() {
           if (err instanceof ApiError) {
             setError({ code: err.code, message: err.message })
           } else {
-            setError({ code: 'UNKNOWN', message: getText('VI').errorLoading })
+            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
           }
         }
       }
@@ -65,7 +70,7 @@ function PortalPage() {
 
     fetchData()
     return () => { isMountedRef.current = false }
-  }, [token])
+  }, [token, i18n, t])
 
   // Reload handler for retry button (uses same ref for cancellation)
   const handleReload = useCallback(() => {
@@ -86,11 +91,11 @@ function PortalPage() {
           if (err instanceof ApiError) {
             setError({ code: err.code, message: err.message })
           } else {
-            setError({ code: 'UNKNOWN', message: getText('VI').errorLoading })
+            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
           }
         }
       })
-  }, [token])
+  }, [token, i18n, t])
 
   // Upload complete handler - refresh data to update missing docs list
   const handleUploadComplete = useCallback(
@@ -123,11 +128,11 @@ function PortalPage() {
       <div
         className="flex-1 flex items-center justify-center"
         role="status"
-        aria-label={t.processing}
+        aria-label={t('common.processing')}
       >
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" aria-hidden="true" />
-          <p className="text-muted-foreground">{t.processing}</p>
+          <p className="text-muted-foreground">{t('common.processing')}</p>
         </div>
       </div>
     )
@@ -135,19 +140,18 @@ function PortalPage() {
 
   // Error state
   if (state === 'error' || !data) {
-    return <ErrorView error={error} onRetry={handleReload} language={language} />
+    return <ErrorView error={error} onRetry={handleReload} />
   }
 
   // Success state - Phase 3 simplified layout
   return (
     <div className="flex-1 flex flex-col">
-      <WelcomeHeader clientName={data.client.name} language={language} taxYear={data.taxCase.taxYear} />
+      <WelcomeHeader clientName={data.client.name} taxYear={data.taxCase.taxYear} />
 
       {/* Upload button - primary action at top */}
       <div className="px-6 py-6">
         <SimpleUploader
           token={token}
-          language={language}
           onUploadComplete={handleUploadComplete}
           onError={handleUploadError}
         />
@@ -172,13 +176,11 @@ function PortalPage() {
 function ErrorView({
   error,
   onRetry,
-  language,
 }: {
   error: ErrorState | null
   onRetry: () => void
-  language: Language
 }) {
-  const t = useMemo(() => getText(language), [language])
+  const { t } = useTranslation()
 
   const isInvalidLink = error?.code === 'INVALID_TOKEN' || error?.code === 'EXPIRED_TOKEN'
 
@@ -194,17 +196,17 @@ function ErrorView({
         </div>
 
         <h2 className="text-xl font-semibold text-foreground mb-2">
-          {isInvalidLink ? t.invalidLink : t.errorLoading}
+          {isInvalidLink ? t('portal.invalidLink') : t('portal.errorLoading')}
         </h2>
 
         <p className="text-muted-foreground mb-6">
-          {error?.message || t.contactOffice}
+          {error?.message || t('portal.contactOffice')}
         </p>
 
         {!isInvalidLink && (
-          <Button onClick={onRetry} className="gap-2" aria-label={t.tryAgain}>
+          <Button onClick={onRetry} className="gap-2" aria-label={t('common.tryAgain')}>
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            {t.tryAgain}
+            {t('common.tryAgain')}
           </Button>
         )}
       </div>

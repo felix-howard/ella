@@ -400,6 +400,18 @@ justify-content: center;
 - Feature cards: 1-2 columns
 - Gap: 16px
 
+### Grid Column Patterns by Item Count
+
+| Items | Mobile (sm) | Tablet (md) | Desktop (lg) |
+|-------|-------------|-------------|--------------|
+| 2     | 1 col       | 2 cols      | 2 cols       |
+| 3     | 1 col       | 2 cols      | 3 cols       |
+| 4     | 2 cols      | 2 cols      | 4 cols       |
+| 5-6   | 2 cols      | 2 cols      | 3 cols       |
+| 7-8   | 2 cols      | 2 cols      | 4 cols       |
+
+**Rationale**: Prefer even row distribution over max columns. For 6 items, `lg:grid-cols-3` creates 2 balanced rows rather than 4-col with 2+2+2 awkward wrap.
+
 ### Content Width
 - Max content width: 1200px
 - Sidebar: 240px (collapsible to 64px)
@@ -470,6 +482,47 @@ When implementing dark mode:
 Primary green (`#10B981`) remains consistent across modes.
 
 ---
+
+## 12. Team Management UI Patterns
+
+### Member Table
+- Columns: Avatar + Name, Email, Role (badge), Status (online/offline), Actions (edit, remove)
+- Row hover: Light background tint + action buttons visible
+- Sorting: By name or last active
+- Empty state: Icon + "No team members yet" + CTA to invite
+
+### Invite Dialog
+- Modal with mint green header (title in green)
+- Email input (RFC 5322 validation)
+- Role selector (ADMIN/STAFF with descriptions)
+- Loading state during submission
+- Success toast on completion
+- Error handling with inline validation messages
+
+### Assignment Panel
+- List view: Client name, assigned staff name, actions (transfer, remove)
+- Empty state when no assignments
+- Bulk assign dialog: Multi-select clients, assign to staff
+- Transfer dialog: Select destination staff member
+- Toast feedback for each action
+
+### Organization Context (Sidebar)
+- Org name displayed below logo
+- Role badge (ADMIN/STAFF) next to user avatar
+- Conditional "Team" nav item (admin-only)
+- On zero-org: Fallback UI (org.noOrg title + org.noOrgDesc subtitle in mint green)
+
+### Permission Indicators
+- Admin features: Team tab, invite button, role management
+- Staff features: Client list (assigned only), messages
+- Visual distinction: Admin controls have mint green accents
+
+### Invite Acceptance
+- Landing page: Company logo, welcome message
+- Two flows: Sign-in (existing users) or Sign-up (new users)
+- Clerk UI embedded with org context
+- Post-acceptance: Auto-redirect to /team dashboard
+- Fallback for expired/invalid invites
 
 ## 12. Responsive Breakpoints
 

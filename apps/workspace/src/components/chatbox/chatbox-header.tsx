@@ -3,6 +3,7 @@
  * Facebook Messenger-style header with dark background for readability
  */
 
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { X, Phone } from 'lucide-react'
 import { getInitials, getAvatarColor, formatPhone } from '../../lib/formatters'
@@ -22,6 +23,7 @@ export function ChatboxHeader({
   onCall,
   className,
 }: ChatboxHeaderProps) {
+  const { t } = useTranslation()
   const avatarColor = getAvatarColor(clientName)
 
   return (
@@ -59,8 +61,8 @@ export function ChatboxHeader({
           <button
             onClick={onCall}
             className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Gọi điện cho khách hàng"
-            title="Gọi điện"
+            aria-label={t('chat.callClient')}
+            title={t('chat.call')}
           >
             <Phone className="w-4 h-4 text-white" />
           </button>
@@ -70,8 +72,8 @@ export function ChatboxHeader({
         <button
           onClick={onClose}
           className="p-2 rounded-full hover:bg-white/10 transition-colors"
-          aria-label="Đóng hộp chat"
-          title="Đóng"
+          aria-label={t('chat.closeChat')}
+          title={t('chat.close')}
         >
           <X className="w-4 h-4 text-white" />
         </button>

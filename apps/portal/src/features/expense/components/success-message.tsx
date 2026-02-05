@@ -4,6 +4,7 @@
  */
 import { CheckCircle, Edit3 } from 'lucide-react'
 import { Button } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 
 interface SuccessMessageProps {
   version: number
@@ -11,6 +12,8 @@ interface SuccessMessageProps {
 }
 
 export function SuccessMessage({ version, onEdit }: SuccessMessageProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
       {/* Success icon */}
@@ -20,15 +23,15 @@ export function SuccessMessage({ version, onEdit }: SuccessMessageProps) {
 
       {/* Title */}
       <h2 className="text-xl font-semibold text-foreground mb-2">
-        Đã gửi thành công!
+        {t('expense.successTitle')}
       </h2>
 
       {/* Description */}
       <p className="text-muted-foreground mb-6 max-w-sm">
-        Thông tin chi phí của bạn đã được gửi đến CPA.
+        {t('expense.successMessage')}
         {version > 1 && (
           <span className="block mt-1 text-sm">
-            Phiên bản: {version}
+            {t('expense.version', { version })}
           </span>
         )}
       </p>
@@ -36,7 +39,7 @@ export function SuccessMessage({ version, onEdit }: SuccessMessageProps) {
       {/* CPA review note */}
       <div className="p-4 bg-primary/5 rounded-lg border border-primary/10 mb-6 max-w-sm">
         <p className="text-sm text-foreground">
-          CPA sẽ xem xét thông tin và liên hệ nếu cần thêm chi tiết.
+          {t('expense.cpaReview')}
         </p>
       </div>
 
@@ -47,12 +50,12 @@ export function SuccessMessage({ version, onEdit }: SuccessMessageProps) {
         className="gap-2"
       >
         <Edit3 className="w-4 h-4" />
-        Chỉnh sửa lại
+        {t('expense.editAgain')}
       </Button>
 
       {/* Footer note */}
       <p className="text-xs text-muted-foreground mt-6">
-        Bạn có thể chỉnh sửa thông tin bất cứ lúc nào trước khi CPA khóa form.
+        {t('expense.canEditAnytime')}
       </p>
     </div>
   )

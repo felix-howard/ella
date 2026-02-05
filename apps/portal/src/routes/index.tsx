@@ -3,6 +3,7 @@
  * Redirects to magic link or shows error for direct access
  */
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { FileQuestion } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
@@ -10,6 +11,8 @@ export const Route = createFileRoute('/')({
 })
 
 function PortalHomePage() {
+  const { t } = useTranslation()
+
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
       {/* Logo */}
@@ -28,16 +31,13 @@ function PortalHomePage() {
           Ella Portal
         </h1>
         <p className="text-muted-foreground max-w-xs">
-          Vui lòng sử dụng link được gửi qua tin nhắn để truy cập portal.
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Please use the link sent via SMS to access the portal.
+          {t('portal.landingMessage')}
         </p>
       </div>
 
       {/* Footer */}
       <footer className="text-xs text-muted-foreground">
-        © 2026 Ella Tax Document System
+        {t('footer.copyright')}
       </footer>
     </main>
   )

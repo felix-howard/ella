@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, Copy, Check, Pencil } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { copyToClipboard } from '../../lib/formatters'
@@ -31,6 +32,7 @@ interface ClientOverviewSectionsProps {
 const QUICK_EDIT_FIELDS: QuickEditField[] = ['name', 'phone', 'email']
 
 export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) {
+  const { t } = useTranslation()
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
   const [quickEditField, setQuickEditField] = useState<QuickEditField | null>(null)
@@ -82,7 +84,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
 
     switch (format) {
       case 'boolean':
-        return value ? 'Có' : 'Không'
+        return value ? t('common.yes') : t('common.no')
       case 'currency':
         return typeof value === 'number'
           ? new Intl.NumberFormat('en-US', {

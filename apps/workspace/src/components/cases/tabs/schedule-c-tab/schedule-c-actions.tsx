@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { Lock, Unlock, RefreshCw, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '@ella/ui'
 import type { ScheduleCStatus } from '../../../../lib/api-client'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
@@ -13,6 +14,7 @@ interface ScheduleCActionsProps {
 }
 
 export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
+  const { t } = useTranslation()
   const { lock, unlock, resend, isLoading } = useScheduleCActions({ caseId })
   const [showLockConfirm, setShowLockConfirm] = useState(false)
 
@@ -31,14 +33,14 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
               onClick={() => unlock.mutate()}
               disabled={isLoading}
               className="gap-2"
-              aria-label="Mở khóa form Schedule C"
+              aria-label={t('scheduleC.unlockButton')}
             >
               {unlock.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
               ) : (
                 <Unlock className="w-4 h-4" aria-hidden="true" />
               )}
-              Mở khóa
+              {t('scheduleC.unlockButton')}
             </Button>
           ) : (
             <Button
@@ -47,10 +49,10 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
               onClick={() => setShowLockConfirm(true)}
               disabled={isLoading}
               className="gap-2"
-              aria-label="Khóa form Schedule C"
+              aria-label={t('scheduleC.lockButton')}
             >
               <Lock className="w-4 h-4" aria-hidden="true" />
-              Khóa form
+              {t('scheduleC.lockButton')}
             </Button>
           )
         )}
@@ -63,14 +65,14 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
             onClick={() => resend.mutate()}
             disabled={isLoading}
             className="gap-2"
-            aria-label="Gửi lại link form Schedule C"
+            aria-label={t('scheduleC.resendLink')}
           >
             {resend.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
             )}
-            Gửi lại link
+            {t('scheduleC.resendLink')}
           </Button>
         )}
       </div>
@@ -78,10 +80,9 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
       {/* Lock Confirmation Modal */}
       <Modal open={showLockConfirm} onClose={() => setShowLockConfirm(false)}>
         <ModalHeader>
-          <ModalTitle>Khóa Schedule C?</ModalTitle>
+          <ModalTitle>{t('scheduleC.formLockConfirmTitle')}</ModalTitle>
           <ModalDescription>
-            Sau khi khóa, khách hàng không thể chỉnh sửa form nữa.
-            Bạn có thể mở khóa lại nếu cần.
+            {t('scheduleC.formLockConfirmDesc')}
           </ModalDescription>
         </ModalHeader>
         <ModalFooter>
@@ -90,7 +91,7 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
             onClick={() => setShowLockConfirm(false)}
             disabled={lock.isPending}
           >
-            Hủy
+            {t('scheduleC.cancelButton')}
           </Button>
           <Button
             onClick={() => {
@@ -100,14 +101,14 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
             }}
             disabled={lock.isPending}
             className="gap-2"
-            aria-label="Xác nhận khóa form"
+            aria-label={t('scheduleC.confirmLock')}
           >
             {lock.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
               <Lock className="w-4 h-4" aria-hidden="true" />
             )}
-            Khóa form
+            {t('scheduleC.confirmLock')}
           </Button>
         </ModalFooter>
       </Modal>

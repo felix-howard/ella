@@ -3,6 +3,7 @@
  * Green for profit, red for loss
  */
 import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { formatUSD, parseAmount } from './format-utils'
 import { CopyableValue } from './copyable-value'
@@ -12,6 +13,7 @@ interface NetProfitCardProps {
 }
 
 export function NetProfitCard({ netProfit }: NetProfitCardProps) {
+  const { t } = useTranslation()
   const amount = parseAmount(netProfit as string)
   const isProfit = amount >= 0
   const Icon = isProfit ? TrendingUp : TrendingDown
@@ -33,7 +35,7 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
             'text-sm font-medium',
             isProfit ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'
           )}>
-            {isProfit ? 'LỢI NHUẬN RÒNG' : 'LỖ RÒNG'}
+            {isProfit ? t('scheduleC.netProfit') : t('scheduleC.netLoss')}
           </span>
         </div>
         <CopyableValue
@@ -46,7 +48,7 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
         />
       </div>
       <p className="text-xs text-muted-foreground mt-1">
-        Schedule C Dòng 31 (Thu nhập gộp - Tổng chi phí)
+        {t('scheduleC.scheduleCLine31')}
       </p>
     </div>
   )

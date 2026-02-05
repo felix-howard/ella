@@ -7,6 +7,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { Car, Calculator } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import { cn } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { ExpenseField } from './expense-field'
 import { EXPENSE_CATEGORIES, MILEAGE_RATE_2025 } from '../lib/expense-categories'
 
@@ -30,6 +31,7 @@ export function CarExpenseSection({
   formData,
   onChange,
 }: CarExpenseSectionProps) {
+  const { t } = useTranslation()
   // Track selected method explicitly (default: derived from data, fallback mileage)
   const [selectedMethod, setSelectedMethod] = useState<DeductionMethod>(() =>
     deriveMethodFromData(formData)
@@ -64,10 +66,10 @@ export function CarExpenseSection({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
           <Car className="w-5 h-5 text-primary" aria-hidden="true" />
-          Chi phí xe & Mileage
+          {t('expense.carAndMileage')}
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
-          IRS cho phép dùng 1 trong 2 phương pháp (không được dùng cả 2)
+          {t('expense.carMethodNote')}
         </p>
       </CardHeader>
 
@@ -87,15 +89,15 @@ export function CarExpenseSection({
           >
             <div className="flex items-center gap-2 mb-2">
               <Calculator className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">Mileage Rate</span>
+              <span className="font-medium text-foreground">{t('expense.mileageRate')}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              ${MILEAGE_RATE_2025}/dặm × số dặm kinh doanh
+              {t('expense.mileageRateDescription', { rate: MILEAGE_RATE_2025 })}
             </p>
             {selectedMethod === 'mileage' && (
               <div className="mt-2 pt-2 border-t border-primary/20">
                 <span className="text-sm font-semibold text-primary">
-                  Khuyên dùng
+                  {t('expense.mileageRecommended')}
                 </span>
               </div>
             )}
@@ -114,10 +116,10 @@ export function CarExpenseSection({
           >
             <div className="flex items-center gap-2 mb-2">
               <Car className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">Chi phí thực tế</span>
+              <span className="font-medium text-foreground">{t('expense.actualExpense')}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Xăng, bảo hiểm, sửa chữa, đậu xe...
+              {t('expense.actualExpenseDescription')}
             </p>
           </button>
         </div>
@@ -130,7 +132,7 @@ export function CarExpenseSection({
                 htmlFor="expense-vehicleMiles"
                 className="block text-sm font-medium text-foreground mb-2"
               >
-                Số dặm kinh doanh trong năm
+                {t('expense.businessMiles')}
               </label>
               <div className="relative">
                 <input
@@ -151,15 +153,15 @@ export function CarExpenseSection({
                       }
                     }
                   }}
-                  placeholder="VD: 12,000"
+                  placeholder={t('expense.businessMilesPlaceholder')}
                   className="w-full h-10 px-3 pr-12 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  dặm
+                  {t('expense.miles')}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1.5">
-                Chỉ tính số dặm cho công việc (giao hàng, gặp khách...), không tính đi làm
+                {t('expense.businessMilesNote')}
               </p>
             </div>
 
@@ -167,13 +169,13 @@ export function CarExpenseSection({
             {businessMiles > 0 && (
               <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-foreground">Khấu trừ mileage:</span>
+                  <span className="text-sm text-foreground">{t('expense.mileageDeduction')}</span>
                   <span className="text-lg font-semibold text-primary">
                     ${mileageDeduction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {businessMiles.toLocaleString()} dặm × ${MILEAGE_RATE_2025}/dặm
+                  {t('expense.mileageCalculation', { miles: businessMiles.toLocaleString(), rate: MILEAGE_RATE_2025 })}
                 </p>
               </div>
             )}
@@ -189,7 +191,7 @@ export function CarExpenseSection({
               onChange={(value) => onChange('carExpense', value)}
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Bao gồm: xăng, bảo hiểm xe, sửa chữa, rửa xe, đậu xe, phí cầu đường
+              {t('expense.actualCarIncludes')}
             </p>
           </div>
         )}

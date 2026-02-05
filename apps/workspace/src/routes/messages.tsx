@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageSquare, RefreshCw } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
@@ -20,6 +21,7 @@ export const Route = createFileRoute('/messages')({
 const POLLING_INTERVAL = 30000
 
 function MessagesLayout() {
+  const { t } = useTranslation()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [totalUnread, setTotalUnread] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -82,7 +84,7 @@ function MessagesLayout() {
         <div className="h-16 px-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">Tin nhắn</h1>
+            <h1 className="text-lg font-semibold text-foreground">{t('messages.title')}</h1>
             {totalUnread > 0 && (
               <span className="px-2 py-0.5 text-xs font-medium bg-error text-white rounded-full">
                 {totalUnread}
@@ -98,8 +100,8 @@ function MessagesLayout() {
                 'text-muted-foreground hover:text-foreground hover:bg-muted',
                 isRefreshing && 'animate-spin'
               )}
-              title="Làm mới"
-              aria-label="Làm mới danh sách tin nhắn"
+              title={t('messages.refresh')}
+              aria-label={t('messages.refreshAriaLabel')}
             >
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
             </button>

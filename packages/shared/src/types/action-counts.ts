@@ -28,6 +28,8 @@ export interface ClientWithActions {
   updatedAt: string
   computedStatus: ComputedStatus | null
   actionCounts: ActionCounts | null
+  /** Staff assigned to this client (admin-only, for list view) */
+  assignedStaff?: { id: string; name: string }[]
   latestCase: {
     id: string
     taxYear: number

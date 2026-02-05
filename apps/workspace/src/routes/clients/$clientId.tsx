@@ -7,6 +7,7 @@
 import { useState, useCallback, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Phone,
@@ -44,8 +45,10 @@ import {
 } from '../../components/clients'
 import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
+import { ClientAssignmentSection } from '../../components/team/client-assignment-section'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
+import { useOrgRole } from '../../hooks/use-org-role'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -60,6 +63,7 @@ export const Route = createFileRoute('/clients/$clientId')({
 type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'data-entry'
 
 function ClientDetailPage() {
+  const { t } = useTranslation()
   const { clientId } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -70,6 +74,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+  const { isAdmin } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -79,12 +84,12 @@ function ClientDetailPage() {
     mutationFn: (data: { docType: string; reason?: string; expectedCount?: number }) =>
       api.cases.addChecklistItem(activeCaseId!, data),
     onSuccess: () => {
-      toast.success('Đã thêm mục mới vào checklist')
+      toast.success(t('clientDetail.checklistAddSuccess'))
       queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
       setIsAddItemModalOpen(false)
     },
     onError: () => {
-      toast.error('Lỗi khi thêm mục')
+      toast.error(t('clientDetail.checklistAddError'))
     },
   })
 
@@ -93,11 +98,11 @@ function ClientDetailPage() {
     mutationFn: ({ itemId, reason }: { itemId: string; reason: string }) =>
       api.cases.skipChecklistItem(activeCaseId!, itemId, reason),
     onSuccess: () => {
-      toast.success('Đã bỏ qua mục')
+      toast.success(t('clientDetail.checklistSkipSuccess'))
       queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
     },
     onError: () => {
-      toast.error('Lỗi khi bỏ qua mục')
+      toast.error(t('clientDetail.checklistSkipError'))
     },
   })
 
@@ -106,11 +111,11 @@ function ClientDetailPage() {
     mutationFn: (itemId: string) =>
       api.cases.unskipChecklistItem(activeCaseId!, itemId),
     onSuccess: () => {
-      toast.success('Đã khôi phục mục')
+      toast.success(t('clientDetail.checklistUnskipSuccess'))
       queryClient.invalidateQueries({ queryKey: ['checklist', activeCaseId] })
     },
     onError: () => {
-      toast.error('Lỗi khi khôi phục mục')
+      toast.error(t('clientDetail.checklistUnskipError'))
     },
   })
 
@@ -118,12 +123,12 @@ function ClientDetailPage() {
   const deleteClientMutation = useMutation({
     mutationFn: () => api.clients.delete(clientId),
     onSuccess: () => {
-      toast.success('Đã xóa khách hàng thành công')
+      toast.success(t('clientDetail.deleteSuccess'))
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       navigate({ to: '/clients' })
     },
     onError: () => {
-      toast.error('Lỗi khi xóa khách hàng')
+      toast.error(t('clientDetail.deleteError'))
       setIsDeleteModalOpen(false)
     },
   })
@@ -132,33 +137,33 @@ function ClientDetailPage() {
   const sendToReviewMutation = useMutation({
     mutationFn: () => api.cases.sendToReview(activeCaseId!),
     onSuccess: () => {
-      toast.success('Đã gửi hồ sơ đi kiểm tra')
+      toast.success(t('clientDetail.sendToReviewSuccess'))
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
     },
     onError: () => {
-      toast.error('Lỗi khi gửi đi kiểm tra')
+      toast.error(t('clientDetail.sendToReviewError'))
     },
   })
 
   const markFiledMutation = useMutation({
     mutationFn: () => api.cases.markFiled(activeCaseId!),
     onSuccess: () => {
-      toast.success('Đã đánh dấu hồ sơ đã nộp')
+      toast.success(t('clientDetail.markFiledSuccess'))
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
     },
     onError: () => {
-      toast.error('Lỗi khi đánh dấu đã nộp')
+      toast.error(t('clientDetail.markFiledError'))
     },
   })
 
   const reopenMutation = useMutation({
     mutationFn: () => api.cases.reopen(activeCaseId!),
     onSuccess: () => {
-      toast.success('Đã mở lại hồ sơ')
+      toast.success(t('clientDetail.reopenSuccess'))
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
     },
     onError: () => {
-      toast.error('Lỗi khi mở lại hồ sơ')
+      toast.error(t('clientDetail.reopenError'))
     },
   })
 
@@ -256,20 +261,20 @@ function ClientDetailPage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          <span>Quay lại danh sách</span>
+          <span>{t('clientDetail.backToList')}</span>
         </Link>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Không tìm thấy khách hàng</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">{t('clientDetail.notFound')}</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {clientError instanceof Error ? clientError.message : 'Khách hàng này không tồn tại hoặc đã bị xóa'}
+            {clientError instanceof Error ? clientError.message : t('clientDetail.notFoundDesc')}
           </p>
           <button
             onClick={() => refetchClient()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Thử lại
+            {t('common.retry')}
           </button>
         </div>
       </PageContainer>
@@ -395,12 +400,12 @@ function ClientDetailPage() {
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: clientsText.tabs.overview, icon: User },
-    { id: 'files', label: 'Tài liệu', icon: FolderOpen },
+    { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
     // TODO: Temporarily hidden - re-enable when needed
-    // { id: 'checklist', label: 'Danh sách', icon: FileText },
+    // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
     // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
     ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
-    { id: 'data-entry', label: 'Nhập liệu', icon: ClipboardList },
+    { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
   ]
 
   return (
@@ -473,7 +478,7 @@ function ClientDetailPage() {
                 {sendToReviewMutation.isPending && (
                   <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 )}
-                Gửi kiểm tra
+                {t('clientDetail.sendToReview')}
               </Button>
             )}
 
@@ -486,7 +491,7 @@ function ClientDetailPage() {
                 {markFiledMutation.isPending && (
                   <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 )}
-                Đánh dấu đã nộp
+                {t('clientDetail.markFiled')}
               </Button>
             )}
 
@@ -500,7 +505,7 @@ function ClientDetailPage() {
                 {reopenMutation.isPending && (
                   <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 )}
-                Mở lại
+                {t('clientDetail.reopen')}
               </Button>
             )}
 
@@ -511,7 +516,7 @@ function ClientDetailPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
-                title="Mở link portal"
+                title={t('clientDetail.openPortal')}
               >
                 <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Portal</span>
@@ -526,7 +531,7 @@ function ClientDetailPage() {
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-foreground"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tin nhắn</span>
+                <span className="hidden sm:inline">{t('clientDetail.messages')}</span>
                 {isUnreadLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                 ) : !isUnreadError && unreadCount > 0 && (
@@ -539,8 +544,8 @@ function ClientDetailPage() {
             <button
               onClick={() => setIsDeleteModalOpen(true)}
               className="p-1.5 rounded-lg border border-destructive/30 hover:bg-destructive/10 transition-colors"
-              aria-label="Xóa khách hàng"
-              title="Xóa khách hàng"
+              aria-label={t('clientDetail.deleteClient')}
+              title={t('clientDetail.deleteClient')}
             >
               <Trash2 className="w-3.5 h-3.5 text-destructive" />
             </button>
@@ -580,6 +585,8 @@ function ClientDetailPage() {
         <div className="space-y-6">
           {/* Client Profile Overview */}
           <ClientOverviewSections client={client} />
+          {/* Client Assignments - Admin only */}
+          {isAdmin && <ClientAssignmentSection clientId={clientId} />}
         </div>
       )}
 
@@ -613,7 +620,7 @@ function ClientDetailPage() {
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-primary">
-                Danh sách tài liệu cần thu thập
+                {t('clientDetail.checklistTitle')}
               </h2>
             </div>
             <TieredChecklist
@@ -663,8 +670,8 @@ function ClientDetailPage() {
 
       {/* Schedule C Tab - Self-employment expense collection (lazy loaded) */}
       {activeTab === 'schedule-c' && activeCaseId && (
-        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Lỗi tải Schedule C. Vui lòng tải lại trang.</div>}>
-          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Đang tải...</div>}>
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
+          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <ScheduleCTab caseId={activeCaseId} />
           </Suspense>
         </ErrorBoundary>
@@ -680,9 +687,9 @@ function ClientDetailPage() {
       {/* Delete Client Confirmation Modal */}
       <Modal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
         <ModalHeader>
-          <ModalTitle>Xóa khách hàng</ModalTitle>
+          <ModalTitle>{t('clientDetail.deleteModalTitle')}</ModalTitle>
           <ModalDescription>
-            Bạn có chắc chắn muốn xóa khách hàng <strong>{client.name}</strong>?
+            {t('clientDetail.deleteModalDesc', { name: client.name })}
           </ModalDescription>
         </ModalHeader>
         <ModalFooter>
@@ -692,7 +699,7 @@ function ClientDetailPage() {
             onClick={() => setIsDeleteModalOpen(false)}
             disabled={deleteClientMutation.isPending}
           >
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button
             variant="destructive"
@@ -703,10 +710,10 @@ function ClientDetailPage() {
             {deleteClientMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Đang xóa...
+                {t('clientDetail.deleting')}
               </>
             ) : (
-              'Xóa khách hàng'
+              t('clientDetail.deleteClient')
             )}
           </Button>
         </ModalFooter>
@@ -726,7 +733,7 @@ function ClientDetailPage() {
         <ErrorBoundary
           fallback={
             <div className="fixed bottom-6 right-6 z-50 text-xs text-muted-foreground">
-              Chatbox không khả dụng
+              {t('clientDetail.chatboxUnavailable')}
             </div>
           }
         >

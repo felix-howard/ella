@@ -7,6 +7,7 @@
 import { useCallback } from 'react'
 import { Plus, Trash2, Package } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 
 export interface CustomExpenseItem {
   name: string
@@ -22,6 +23,7 @@ interface OtherExpenseListProps {
 const MAX_ITEMS = 20
 
 export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseListProps) {
+  const { t } = useTranslation()
   const handleAddRow = useCallback(() => {
     if (items.length >= MAX_ITEMS) return
     onChange([...items, { name: '', amount: null }])
@@ -51,10 +53,10 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Package className="w-5 h-5 text-primary" />
-          Chi phí khác
+          {t('expense.otherExpenses')}
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
-          Mục này dành cho các chi phí khác như: thiết bị, điện thoại, internet, quảng cáo, tiền thuê, bảo hiểm, v.v.
+          {t('expense.otherExpensesDescription')}
         </p>
       </CardHeader>
 
@@ -66,7 +68,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
               type="text"
               value={item.name}
               onChange={(e) => handleNameChange(index, e.target.value)}
-              placeholder="Tên chi phí"
+              placeholder={t('expense.expenseName')}
               maxLength={100}
               disabled={disabled}
               className="flex-1 min-w-0 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -90,7 +92,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
               onClick={() => handleRemoveRow(index)}
               disabled={disabled}
               className="p-2 text-muted-foreground hover:text-error transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Xóa chi phí"
+              aria-label={t('expense.deleteExpense')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -108,7 +110,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
             className="w-full mt-2"
           >
             <Plus className="w-4 h-4 mr-1.5" />
-            Thêm chi phí
+            {t('expense.addExpense')}
           </Button>
         )}
       </CardContent>

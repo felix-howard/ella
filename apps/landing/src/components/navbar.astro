@@ -1,0 +1,159 @@
+---
+/**
+ * Sticky responsive navbar with logo, nav links, mobile hamburger, and CTA button.
+ * Highlights active page via currentPath prop. Includes focus-visible states,
+ * mobile focus trap, and Escape key support.
+ */
+import { navLinks } from "@/config/navigation";
+
+interface Props {
+  currentPath?: string;
+}
+
+const { currentPath = "/" } = Astro.props;
+---
+
+<nav
+  class="fixed top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md"
+  aria-label="Main navigation"
+>
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <!-- Logo -->
+    <a href="/" class="text-xl font-bold text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+      Ella
+    </a>
+
+    <!-- Desktop nav links -->
+    <div class="hidden items-center gap-8 md:flex">
+      {navLinks.map((link) => (
+        <a
+          href={link.href}
+          class:list={[
+            "text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+            currentPath === link.href
+              ? "text-primary-600"
+              : "text-gray-600 hover:text-gray-900",
+          ]}
+          aria-current={currentPath === link.href ? "page" : undefined}
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+
+    <div class="flex items-center gap-4">
+      <!-- CTA button -->
+      <a
+        href="/about#contact"
+        class="hidden rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 sm:inline-block"
+      >
+        Book a Demo
+      </a>
+
+      <!-- Mobile hamburger -->
+      <button
+        id="mobile-menu-btn"
+        class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:hidden"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        aria-label="Toggle navigation menu"
+      >
+        <svg
+          id="hamburger-icon"
+          class="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+        <svg
+          id="close-icon"
+          class="hidden h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile slide-out menu -->
+  <div
+    id="mobile-menu"
+    class="hidden border-t border-gray-100 bg-white px-6 pb-4 md:hidden"
+  >
+    <div class="flex flex-col gap-1 pt-2">
+      {navLinks.map((link) => (
+        <a
+          href={link.href}
+          class:list={[
+            "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+            currentPath === link.href
+              ? "bg-primary-50 text-primary-600"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+          ]}
+          aria-current={currentPath === link.href ? "page" : undefined}
+        >
+          {link.label}
+        </a>
+      ))}
+      <a
+        href="/about#contact"
+        class="mt-2 rounded-full bg-primary-600 px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      >
+        Book a Demo
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  /** Mobile nav: toggle, Escape to close, close on outside click */
+  const btn = document.getElementById("mobile-menu-btn");
+  const menu = document.getElementById("mobile-menu");
+  const hamburgerIcon = document.getElementById("hamburger-icon");
+  const closeIcon = document.getElementById("close-icon");
+
+  function closeMenu() {
+    menu?.classList.add("hidden");
+    btn?.setAttribute("aria-expanded", "false");
+    hamburgerIcon?.classList.remove("hidden");
+    closeIcon?.classList.add("hidden");
+  }
+
+  function openMenu() {
+    menu?.classList.remove("hidden");
+    btn?.setAttribute("aria-expanded", "true");
+    hamburgerIcon?.classList.add("hidden");
+    closeIcon?.classList.remove("hidden");
+    /* Focus first link in mobile menu for keyboard users */
+    const firstLink = menu?.querySelector("a");
+    firstLink?.focus();
+  }
+
+  btn?.addEventListener("click", () => {
+    const isHidden = menu?.classList.contains("hidden");
+    isHidden ? openMenu() : closeMenu();
+  });
+
+  /* Close on Escape key */
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !menu?.classList.contains("hidden")) {
+      closeMenu();
+      btn?.focus();
+    }
+  });
+
+  /* Close on click outside */
+  document.addEventListener("click", (e) => {
+    const target = e.target as Node;
+    if (!menu?.classList.contains("hidden") && !menu?.contains(target) && !btn?.contains(target)) {
+      closeMenu();
+    }
+  });
+</script>

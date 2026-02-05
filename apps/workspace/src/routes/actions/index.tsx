@@ -5,6 +5,7 @@
 
 import { createFileRoute, useSearch, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '../../components/layout'
 import { ActionCard } from '../../components/actions'
 import {
@@ -63,6 +64,7 @@ interface ActionsGroupedResponse {
 }
 
 function ActionsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { type: filterType, priority: filterPriority, tab = 'pending' } = useSearch({
     from: '/actions/',
@@ -104,11 +106,11 @@ function ActionsPage() {
   const completeMutation = useMutation({
     mutationFn: (actionId: string) => api.actions.complete(actionId),
     onSuccess: () => {
-      toast.success('Đã hoàn thành công việc')
+      toast.success(t('actions.completeSuccess'))
       queryClient.invalidateQueries({ queryKey: ['actions'] })
     },
     onError: () => {
-      toast.error('Không thể hoàn thành công việc')
+      toast.error(t('actions.completeError'))
     },
   })
 
@@ -181,7 +183,7 @@ function ActionsPage() {
           )}
         >
           <CheckSquare className="w-4 h-4" />
-          Đang chờ ({stats.total})
+          {t('actions.tabPending', { count: stats.total })}
         </Link>
         <Link
           to="/actions"
@@ -194,7 +196,7 @@ function ActionsPage() {
           )}
         >
           <History className="w-4 h-4" />
-          Đã hoàn thành
+          {t('actions.tabCompleted')}
         </Link>
       </div>
 
@@ -213,7 +215,7 @@ function ActionsPage() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-              <p className="text-muted-foreground">Đang tải công việc...</p>
+              <p className="text-muted-foreground">{t('actions.loadingActions')}</p>
             </div>
           )}
 
@@ -221,16 +223,16 @@ function ActionsPage() {
           {isError && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('actions.errorLoadingList')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
+                {error instanceof Error ? error.message : t('common.error')}
               </p>
               <button
                 onClick={() => refetch()}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Thử lại
+                {t('common.retry')}
               </button>
             </div>
           )}
@@ -270,30 +272,31 @@ interface ActionsDashboardProps {
 }
 
 function ActionsDashboard({ stats, isLoading }: ActionsDashboardProps) {
+  const { t } = useTranslation()
   const statCards = [
     {
-      label: 'Tổng việc chờ',
+      label: t('actions.statsTotalPending'),
       value: stats.total,
       icon: BarChart3,
       color: 'text-primary',
       bg: 'bg-primary-light',
     },
     {
-      label: 'Khẩn cấp',
+      label: t('actions.statsUrgent'),
       value: stats.urgent,
       icon: AlertTriangle,
       color: 'text-error',
       bg: 'bg-error-light',
     },
     {
-      label: 'Ưu tiên cao',
+      label: t('actions.statsHigh'),
       value: stats.high,
       icon: TrendingUp,
       color: 'text-accent',
       bg: 'bg-accent-light',
     },
     {
-      label: 'Bình thường',
+      label: t('actions.statsNormal'),
       value: stats.normal + stats.low,
       icon: Clock,
       color: 'text-muted-foreground',
@@ -331,34 +334,35 @@ interface QuickActionsPanelProps {
 }
 
 function QuickActionsPanel({ stats: _stats }: QuickActionsPanelProps) {
+  const { t } = useTranslation()
   const quickActions = [
     {
-      label: 'Xác minh tài liệu',
-      description: 'Tài liệu cần duyệt',
+      label: t('actions.quickActionVerifyDocs'),
+      description: t('actions.quickActionVerifyDocsDesc'),
       href: '/actions?type=VERIFY_DOCS',
       icon: FileCheck,
       color: 'text-primary',
       bg: 'bg-primary-light',
     },
     {
-      label: 'AI lỗi nhận diện',
-      description: 'Phân loại thủ công',
+      label: t('actions.quickActionAiFailed'),
+      description: t('actions.quickActionAiFailedDesc'),
       href: '/actions?type=AI_FAILED',
       icon: AlertTriangle,
       color: 'text-error',
       bg: 'bg-error-light',
     },
     {
-      label: 'Ảnh bị mờ',
-      description: 'Yêu cầu chụp lại',
+      label: t('actions.quickActionBlurry'),
+      description: t('actions.quickActionBlurryDesc'),
       href: '/actions?type=BLURRY_DETECTED',
       icon: ImageOff,
       color: 'text-warning',
       bg: 'bg-warning-light',
     },
     {
-      label: 'Khách trả lời',
-      description: 'Tin nhắn mới',
+      label: t('actions.quickActionClientReplied'),
+      description: t('actions.quickActionClientRepliedDesc'),
       href: '/actions?type=CLIENT_REPLIED',
       icon: MessageCircle,
       color: 'text-success',
@@ -370,7 +374,7 @@ function QuickActionsPanel({ stats: _stats }: QuickActionsPanelProps) {
     <div className="bg-card rounded-xl border border-border p-4 mb-6">
       <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
         <CheckCircle className="w-4 h-4 text-primary" />
-        Thao tác nhanh
+        {t('actions.quickActions')}
       </h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {quickActions.map((action) => (
@@ -401,11 +405,12 @@ interface CompletedActionsHistoryProps {
 }
 
 function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistoryProps) {
+  const { t } = useTranslation()
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-        <p className="text-muted-foreground">Đang tải lịch sử...</p>
+        <p className="text-muted-foreground">{t('actions.loadingHistory')}</p>
       </div>
     )
   }
@@ -417,10 +422,10 @@ function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistory
           <History className="w-8 h-8 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-medium text-foreground mb-2">
-          Chưa có lịch sử
+          {t('actions.noHistory')}
         </h3>
         <p className="text-muted-foreground">
-          Công việc đã hoàn thành sẽ xuất hiện ở đây
+          {t('actions.noHistoryDesc')}
         </p>
       </div>
     )
@@ -435,7 +440,7 @@ function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistory
     <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <h3 className="text-sm font-medium text-foreground">
-          Đã hoàn thành ({actions.length})
+          {t('actions.completedCount', { count: actions.length })}
         </h3>
       </div>
       <div className="divide-y divide-border">
@@ -446,7 +451,7 @@ function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistory
       {actions.length > 20 && (
         <div className="px-4 py-3 bg-muted/30 text-center">
           <p className="text-sm text-muted-foreground">
-            Hiển thị 20 / {actions.length} công việc
+            {t('actions.showingCount', { shown: 20, total: actions.length })}
           </p>
         </div>
       )}
@@ -455,6 +460,7 @@ function CompletedActionsHistory({ actions, isLoading }: CompletedActionsHistory
 }
 
 function CompletedActionItem({ action }: { action: Action }) {
+  const { t } = useTranslation()
   const typeConfig = ACTION_TYPE_COLORS[action.type] || { bg: 'bg-muted', text: 'text-muted-foreground' }
   const typeLabel = ACTION_TYPE_LABELS[action.type] || action.type
 
@@ -466,12 +472,12 @@ function CompletedActionItem({ action }: { action: Action }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{action.title}</p>
         <p className="text-xs text-muted-foreground">
-          {typeLabel} • {action.taxCase?.client?.name || 'Không rõ'}
+          {typeLabel} • {action.taxCase?.client?.name || t('actions.unknownClient')}
         </p>
       </div>
       <div className="text-right">
         <p className="text-xs text-muted-foreground">
-          {formatRelativeTime(action.createdAt)}
+          {formatRelativeTime(action.createdAt, t)}
         </p>
       </div>
     </div>
@@ -593,6 +599,7 @@ function ActionGroup({ priority, actions, onComplete }: ActionGroupProps) {
 
 // Empty state component
 function EmptyState() {
+  const { t } = useTranslation()
   const { actions: actionsText } = UI_TEXT
 
   return (
@@ -611,7 +618,7 @@ function EmptyState() {
         className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
       >
         <Users className="w-4 h-4" />
-        Xem danh sách khách hàng
+        {t('actions.viewClientList')}
       </Link>
     </div>
   )
@@ -644,7 +651,7 @@ function groupActionsByPriority(
 }
 
 // Helper to format relative time
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string, t: (key: string, options?: { count?: number }) => string): string {
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
@@ -652,9 +659,9 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  if (diffMins < 1) return 'Vừa xong'
-  if (diffMins < 60) return `${diffMins} phút trước`
-  if (diffHours < 24) return `${diffHours} giờ trước`
-  if (diffDays < 7) return `${diffDays} ngày trước`
+  if (diffMins < 1) return t('actions.timeJustNow')
+  if (diffMins < 60) return t('actions.timeMinutesAgo', { count: diffMins })
+  if (diffHours < 24) return t('actions.timeHoursAgo', { count: diffHours })
+  if (diffDays < 7) return t('actions.timeDaysAgo', { count: diffDays })
   return date.toLocaleDateString('vi-VN')
 }

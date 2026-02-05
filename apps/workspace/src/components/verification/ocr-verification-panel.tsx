@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   X,
@@ -17,6 +18,7 @@ import {
   Image as ImageIcon,
   ZoomIn,
 } from 'lucide-react'
+import i18n from '../../lib/i18n'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
 import { copyToClipboard } from '../../lib/formatters'
@@ -26,11 +28,11 @@ import type { DigitalDoc, RawImage } from '../../lib/api-client'
 
 type DocStatus = 'EXTRACTED' | 'VERIFIED' | 'PARTIAL' | 'FAILED'
 
-const STATUS_CONFIG: Record<DocStatus, { label: string; icon: typeof CheckCircle; color: string }> = {
-  EXTRACTED: { label: 'Cần xác minh', icon: Clock, color: 'text-primary' },
-  VERIFIED: { label: 'Đã xác minh', icon: CheckCircle, color: 'text-success' },
-  PARTIAL: { label: 'Thiếu dữ liệu', icon: AlertCircle, color: 'text-warning' },
-  FAILED: { label: 'Lỗi OCR', icon: AlertCircle, color: 'text-error' },
+const STATUS_CONFIG: Record<DocStatus, { key: string; icon: typeof CheckCircle; color: string }> = {
+  EXTRACTED: { key: 'verification.needsVerify', icon: Clock, color: 'text-primary' },
+  VERIFIED: { key: 'verification.verified', icon: CheckCircle, color: 'text-success' },
+  PARTIAL: { key: 'verification.missingData', icon: AlertCircle, color: 'text-warning' },
+  FAILED: { key: 'verification.ocrError', icon: AlertCircle, color: 'text-error' },
 }
 
 export interface OCRVerificationPanelProps {
@@ -52,6 +54,7 @@ export function OCRVerificationPanel({
   onVerify,
   onViewImage,
 }: OCRVerificationPanelProps) {
+  const { t } = useTranslation()
   const [editingField, setEditingField] = useState<string | null>(null)
   const [localData, setLocalData] = useState<Record<string, unknown>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -139,6 +142,7 @@ export function OCRVerificationPanel({
   const StatusIcon = statusConfig.icon
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
   const hasChanges = JSON.stringify(localData) !== JSON.stringify(doc.extractedData)
+  const statusLabel = t(statusConfig.key)
 
   // Infer field type from value for FieldEditForm
   const inferFieldType = (value: unknown): 'text' | 'number' | 'date' => {
@@ -196,7 +200,7 @@ export function OCRVerificationPanel({
           <button
             onClick={() => setEditingField(key)}
             className="p-1.5 rounded hover:bg-muted transition-colors"
-            aria-label={`Sửa ${label}`}
+            aria-label={t('verification.editField', { label })}
           >
             <Edit2 className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -215,7 +219,7 @@ export function OCRVerificationPanel({
       )}
       role="dialog"
       aria-modal="true"
-      aria-label={`Xác minh OCR: ${docLabel}`}
+      aria-label={t('verification.ocrTitle', { docLabel })}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
@@ -227,14 +231,14 @@ export function OCRVerificationPanel({
             <h2 className="font-semibold text-foreground">{docLabel}</h2>
             <div className="flex items-center gap-1.5 text-sm">
               <StatusIcon className={cn('w-3.5 h-3.5', statusConfig.color)} />
-              <span className={statusConfig.color}>{statusConfig.label}</span>
+              <span className={statusConfig.color}>{statusLabel}</span>
             </div>
           </div>
         </div>
         <button
           onClick={onClose}
           className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label="Đóng"
+          aria-label={t('common.close')}
         >
           <X className="w-5 h-5 text-muted-foreground" />
         </button>
@@ -251,7 +255,7 @@ export function OCRVerificationPanel({
           </div>
           <div className="flex-1 text-left">
             <p className="text-sm font-medium text-foreground truncate">{rawImage.filename}</p>
-            <p className="text-xs text-muted-foreground">Nhấn để xem ảnh gốc</p>
+            <p className="text-xs text-muted-foreground">{t('verification.viewOriginal')}</p>
           </div>
           <ZoomIn className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -284,7 +288,7 @@ export function OCRVerificationPanel({
               <div className="p-1 rounded-md bg-primary/10 text-primary">
                 <FileText className="w-3.5 h-3.5" />
               </div>
-              <h3 className="text-sm font-semibold text-foreground">Thông tin khác</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('verification.otherInfo')}</h3>
               <span className="text-xs text-muted-foreground">({ungroupedFields.length})</span>
             </div>
             <div className="divide-y divide-border/50">
@@ -307,7 +311,7 @@ export function OCRVerificationPanel({
               isSubmitting && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <span>Lưu thay đổi</span>
+            <span>{t('verification.saveChanges')}</span>
           </button>
         )}
 
@@ -323,14 +327,14 @@ export function OCRVerificationPanel({
             )}
           >
             <Check className="w-5 h-5" />
-            <span>Xác minh & Hoàn tất</span>
+            <span>{t('verification.verifyComplete')}</span>
           </button>
         )}
 
         {status === 'VERIFIED' && (
           <div className="flex items-center justify-center gap-2 p-3 bg-success/10 rounded-lg text-success">
             <CheckCircle className="w-5 h-5" />
-            <span className="font-medium">Đã xác minh</span>
+            <span className="font-medium">{t('verification.verified')}</span>
           </div>
         )}
       </div>
@@ -349,7 +353,8 @@ function formatDisplayValue(value: unknown, type: 'text' | 'number' | 'date'): s
   if (type === 'date' && typeof value === 'string') {
     try {
       const date = new Date(value)
-      return date.toLocaleDateString('vi-VN')
+      const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN'
+      return date.toLocaleDateString(locale)
     } catch {
       return value
     }

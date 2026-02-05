@@ -3,6 +3,7 @@
  * Displays income, expenses, net profit, and version history
  */
 import { Lock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ScheduleCExpense, ScheduleCMagicLink, ScheduleCTotals, NecBreakdownItem } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
@@ -21,6 +22,7 @@ interface ScheduleCSummaryProps {
 }
 
 export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakdown = [] }: ScheduleCSummaryProps) {
+  const { t } = useTranslation()
   const isLocked = expense.status === 'LOCKED'
 
   return (
@@ -30,7 +32,7 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
         <div>
           <h2 className="text-lg font-semibold text-foreground">Schedule C</h2>
           <p className="text-xs text-muted-foreground">
-            Cập nhật lần cuối: {formatDateTime(expense.updatedAt, 'DATETIME_FULL')} (v{expense.version})
+            {t('scheduleC.lastUpdated', { datetime: formatDateTime(expense.updatedAt, 'DATETIME_FULL'), version: expense.version })}
           </p>
         </div>
         <StatusBadge status={expense.status} />
@@ -41,9 +43,9 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
         <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-3">
           <Lock className="w-5 h-5 text-gray-500" />
           <div>
-            <p className="text-sm font-medium text-foreground">Form đã khóa</p>
+            <p className="text-sm font-medium text-foreground">{t('scheduleC.formLockedNotice')}</p>
             <p className="text-xs text-muted-foreground">
-              Khóa lúc: {formatDateTime(expense.lockedAt, 'DATETIME_FULL')}
+              {t('scheduleC.formLockedAt', { datetime: formatDateTime(expense.lockedAt, 'DATETIME_FULL') })}
             </p>
           </div>
         </div>
@@ -52,7 +54,7 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
       {/* Part I - Income */}
       <div>
         <h3 className="text-sm font-medium text-foreground uppercase tracking-wide mb-3 pb-2 border-b border-border">
-          Phần I - Thu nhập
+          {t('scheduleC.partIIncome')}
         </h3>
         <IncomeTable expense={expense} totals={totals} showGrossIncome necBreakdown={necBreakdown} />
       </div>
@@ -60,7 +62,7 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
       {/* Part II - Expenses */}
       <div>
         <h3 className="text-sm font-medium text-foreground uppercase tracking-wide mb-3 pb-2 border-b border-border">
-          Phần II - Chi phí
+          {t('scheduleC.partIIExpenses')}
         </h3>
         <ExpenseTable expense={expense} totals={totals} />
       </div>

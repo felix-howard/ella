@@ -22,6 +22,8 @@ import {
 } from '../../services/sms'
 import { getSignedDownloadUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
+import type { AuthVariables } from '../../middleware/auth'
 
 /**
  * Extract R2 keys from signed R2 URLs
@@ -57,7 +59,7 @@ function extractR2KeysFromUrls(urls: string[]): string[] {
   return keys
 }
 
-const messagesRoute = new Hono()
+const messagesRoute = new Hono<{ Variables: AuthVariables }>()
 
 // GET /messages/conversations - List all conversations for unified inbox
 messagesRoute.get(
@@ -66,9 +68,13 @@ messagesRoute.get(
   async (c) => {
     const { page, limit, unreadOnly } = c.req.valid('query')
     const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+    const user = c.get('user')
 
-    // Build where clause
-    const where = unreadOnly ? { unreadCount: { gt: 0 } } : {}
+    // Build where clause with org scope through taxCase -> client
+    const where: Record<string, unknown> = {
+      taxCase: { client: buildClientScopeFilter(user) },
+      ...(unreadOnly ? { unreadCount: { gt: 0 } } : {}),
+    }
 
     const [conversations, total] = await Promise.all([
       prisma.conversation.findMany({
@@ -103,8 +109,9 @@ messagesRoute.get(
       prisma.conversation.count({ where }),
     ])
 
-    // Calculate total unread across all conversations
+    // Calculate total unread across all conversations (org-scoped)
     const totalUnread = await prisma.conversation.aggregate({
+      where: { taxCase: { client: buildClientScopeFilter(user) } },
       _sum: { unreadCount: true },
     })
 
@@ -140,13 +147,18 @@ messagesRoute.get(
 messagesRoute.get('/media/:messageId/:index', async (c) => {
   const messageId = c.req.param('messageId')
   const index = parseInt(c.req.param('index'), 10)
+  const user = c.get('user')
 
   if (isNaN(index) || index < 0) {
     return c.json({ error: 'INVALID_INDEX', message: 'Invalid attachment index' }, 400)
   }
 
-  const message = await prisma.message.findUnique({
-    where: { id: messageId },
+  // Org-scoped: verify message belongs to user's org via conversation -> taxCase -> client
+  const message = await prisma.message.findFirst({
+    where: {
+      id: messageId,
+      conversation: { taxCase: { client: buildClientScopeFilter(user) } },
+    },
     select: {
       attachmentR2Keys: true,
       attachmentUrls: true,
@@ -237,9 +249,10 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 // GET /messages/:caseId/unread - Get unread count for a specific case
 messagesRoute.get('/:caseId/unread', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
-  const conversation = await prisma.conversation.findUnique({
-    where: { caseId },
+  const conversation = await prisma.conversation.findFirst({
+    where: { caseId, taxCase: { client: buildClientScopeFilter(user) } },
     select: { unreadCount: true },
   })
 
@@ -254,6 +267,16 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
   const caseId = c.req.param('caseId')
   const { page, limit } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const user = c.get('user')
+
+  // Verify case belongs to user's org before accessing conversation
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   // Get or create conversation using upsert to prevent race conditions
   const conversation = await prisma.conversation.upsert({
@@ -334,10 +357,11 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
 // POST /messages/send - Send message to client
 messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => {
   const { caseId, content, channel, templateName } = c.req.valid('json')
+  const user = c.get('user')
 
-  // Verify case exists first
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  // Verify case exists and belongs to user's org
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
     include: { client: true },
   })
 
@@ -429,10 +453,11 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
 // POST /messages/remind/:caseId - Send missing docs reminder to specific case
 messagesRoute.post('/remind/:caseId', async (c) => {
   const caseId = c.req.param('caseId')
+  const user = c.get('user')
 
-  // Verify case exists
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  // Verify case exists and belongs to user's org
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, client: buildClientScopeFilter(user) },
     select: { id: true, status: true },
   })
 

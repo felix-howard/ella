@@ -67,7 +67,7 @@ export function EmptyCategoryDropZone({
       <div className="flex items-center gap-2">
         <Icon className={cn('w-4 h-4', isDragOver ? 'text-primary' : config.textColor)} />
         <span className={cn('text-sm font-medium', isDragOver ? 'text-primary' : 'text-muted-foreground')}>
-          {config.labelVi}
+          {config.label}
         </span>
         {isDragOver && (
           <span className="ml-auto text-xs text-primary font-medium">

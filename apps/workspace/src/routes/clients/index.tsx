@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Search, RefreshCw, Filter, AlertCircle, Loader2, ArrowUpDown } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/clients/')({
 })
 
 function ClientListPage() {
+  const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<ClientSortOption>('activity')
@@ -103,7 +105,7 @@ function ClientListPage() {
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as ClientSortOption)}
               className="appearance-none pl-9 pr-8 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
-              aria-label="Sắp xếp theo"
+              aria-label={t('clients.sortBy')}
             >
               {CLIENT_SORT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -120,7 +122,7 @@ function ClientListPage() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as TaxCaseStatus | 'ALL')}
               className="appearance-none pl-9 pr-8 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
-              aria-label="Lọc theo trạng thái"
+              aria-label={t('clients.filterByStatus')}
             >
               <option value="ALL">{UI_TEXT.actions.all}</option>
               {statusOptions.slice(1).map((status) => (
@@ -150,16 +152,16 @@ function ClientListPage() {
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Không thể tải danh sách khách hàng</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">{t('clients.errorLoadingList')}</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            {error instanceof Error ? error.message : 'Đã xảy ra lỗi'}
+            {error instanceof Error ? error.message : t('common.error')}
           </p>
           <button
             onClick={() => refetch()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Thử lại
+            {t('common.retry')}
           </button>
         </div>
       ) : (

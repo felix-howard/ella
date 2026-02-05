@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn, Button, Badge } from '@ella/ui'
 import {
   ChevronRight,
@@ -151,6 +152,7 @@ export function TieredChecklist({
   onDocVerify,
   onViewNotes,
 }: TieredChecklistProps) {
+  const { t } = useTranslation()
   // Skip modal state
   const [skipItem, setSkipItem] = useState<{ id: string; label: string } | null>(null)
 
@@ -165,10 +167,10 @@ export function TieredChecklist({
     return (
       <div className="text-center py-8">
         <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Không có tài liệu cần thu thập</p>
+        <p className="text-sm text-muted-foreground">{t('checklist.noDocuments')}</p>
         {isStaffView && onAddItem && (
           <Button variant="outline" size="sm" className="mt-4" onClick={onAddItem}>
-            <Plus className="w-4 h-4 mr-1" /> Thêm mục
+            <Plus className="w-4 h-4 mr-1" /> {t('checklist.addItem')}
           </Button>
         )}
       </div>
@@ -197,7 +199,7 @@ export function TieredChecklist({
       {isStaffView && onAddItem && (
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="px-4" onClick={onAddItem}>
-            <Plus className="w-4 h-4 mr-1" /> Thêm mục
+            <Plus className="w-4 h-4 mr-1" /> {t('checklist.addItem')}
           </Button>
         </div>
       )}
@@ -335,10 +337,11 @@ function ChecklistItemRow({
   onDocVerify,
   onViewNotes: _onViewNotes,
 }: ChecklistItemRowProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(true)
   const status = item.status as ChecklistItemStatus
   const simplifiedStatus = getSimplifiedStatus(status)
-  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || 'Tài liệu'
+  const docLabel = DOC_TYPE_LABELS[item.template?.docType] || item.template?.labelVi || t('checklist.document')
   const isSkipped = status === 'NOT_REQUIRED'
   const isManuallyAdded = item.isManuallyAdded
   const _hasNotes = item.notes || item.addedReason || item.skippedReason
@@ -393,7 +396,7 @@ function ChecklistItemRow({
         {/* Status indicator */}
         <span
           className={cn('flex items-center justify-center w-5 h-5 rounded-full text-xs', simplifiedStatus.bgColor)}
-          title={simplifiedStatus.labelVi}
+          title={simplifiedStatus.label}
         >
           {status === 'VERIFIED' && <Check className={cn('w-3.5 h-3.5', simplifiedStatus.color)} />}
           {(status === 'HAS_DIGITAL' || status === 'HAS_RAW') && (
@@ -414,7 +417,7 @@ function ChecklistItemRow({
         {/* Badges */}
         {isManuallyAdded && (
           <Badge variant="outline" className="text-xs px-1.5 py-0">
-            Thêm thủ công
+            {t('checklist.addManual')}
           </Badge>
         )}
         {needsMore && (
@@ -428,13 +431,13 @@ function ChecklistItemRow({
             variant="outline"
             className={cn('text-xs px-1.5 py-0', progressStyle.bgColor, progressStyle.textColor)}
           >
-            {verificationStats.verified}/{verificationStats.total} đã xác minh
+            {t('checklist.verificationProgress', { verified: verificationStats.verified, total: verificationStats.total })}
           </Badge>
         )}
 
         {/* Status badge */}
         <span className={cn('text-xs px-2 py-0.5 rounded', simplifiedStatus.bgColor, simplifiedStatus.color)}>
-          {simplifiedStatus.labelVi}
+          {simplifiedStatus.label}
         </span>
       </div>
 
@@ -460,8 +463,8 @@ function ChecklistItemRow({
             <button
               onClick={(e) => { e.stopPropagation(); onSkip(item.id, docLabel) }}
               className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
-              title="Bỏ qua"
-              aria-label={`Bỏ qua ${docLabel}`}
+              title={t('checklist.skip')}
+              aria-label={t('checklist.skipAriaLabel', { docLabel })}
             >
               <SkipForward className="w-4 h-4 text-muted-foreground hover:text-foreground" />
             </button>
@@ -470,7 +473,7 @@ function ChecklistItemRow({
             <button
               onClick={(e) => { e.stopPropagation(); onUnskip(item.id) }}
               className="p-1 rounded hover:bg-primary/10"
-              title="Khôi phục"
+              title={t('checklist.restore')}
             >
               <RotateCcw className="w-4 h-4 text-primary" />
             </button>
@@ -481,7 +484,7 @@ function ChecklistItemRow({
       {/* Skipped reason */}
       {isSkipped && item.skippedReason && (
         <div className="px-3 pb-2 text-xs text-muted-foreground italic">
-          Lý do: {item.skippedReason}
+          {t('checklist.skipReason', { reason: item.skippedReason })}
         </div>
       )}
     </div>
@@ -498,12 +501,13 @@ interface DocumentThumbnailProps {
 }
 
 function DocumentThumbnail({ doc, onClick }: DocumentThumbnailProps) {
+  const { t } = useTranslation()
   const [imgError, setImgError] = useState(false)
   // Get signed URL for the raw image
   const rawImageId = doc.rawImageId || doc.rawImage?.id
   const { data: signedUrlData, isLoading: isUrlLoading } = useSignedUrl(rawImageId || null)
 
-  const filename = doc.rawImage?.filename || 'Document'
+  const filename = doc.rawImage?.filename || t('checklist.document')
   const isPdf = filename.toLowerCase().endsWith('.pdf')
 
   const showImage = signedUrlData?.url && !imgError && !isPdf
@@ -518,7 +522,7 @@ function DocumentThumbnail({ doc, onClick }: DocumentThumbnailProps) {
         getDocStatusBorderStyle(doc.status)
       )}
       onClick={onClick}
-      title={`Nhấp để xem: ${filename}`}
+      title={t('checklist.clickToView', { filename })}
     >
       {/* Preview - handles both images and PDFs */}
       <div className="w-24 h-24 rounded overflow-hidden bg-muted/30 flex items-center justify-center relative">

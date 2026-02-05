@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type RawImage, type DigitalDoc } from '../lib/api-client'
 import { toast } from '../stores/toast-store'
@@ -30,6 +31,7 @@ export function useClassificationUpdates({
   enabled = true,
   refetchInterval = 5000, // 5 seconds default
 }: UseClassificationUpdatesOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const previousImagesRef = useRef<ImageStatusMap>(new Map())
   const previousDocsRef = useRef<DocStatusMap>(new Map())
@@ -70,7 +72,7 @@ export function useClassificationUpdates({
 
     const docLabel = current.classifiedType
       ? DOC_TYPE_LABELS[current.classifiedType] || current.classifiedType
-      : 'Tài liệu'
+      : t('classification.document')
 
     switch (current.status) {
       case 'CLASSIFIED': {
@@ -78,9 +80,9 @@ export function useClassificationUpdates({
         if (current.aiConfidence && current.aiConfidence >= 0.85) {
           toast.success(`${docLabel} (${confidence}%)`)
         } else if (current.aiConfidence && current.aiConfidence >= 0.60) {
-          toast.info(`Cần xác minh: ${docLabel} (${confidence}%)`)
+          toast.info(t('classification.needsVerification', { docLabel, confidence }))
         } else {
-          toast.info(`Độ tin cậy thấp: ${docLabel}`)
+          toast.info(t('classification.lowConfidence', { docLabel }))
         }
         // Refresh checklist for potential status updates
         queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
@@ -88,28 +90,28 @@ export function useClassificationUpdates({
       }
 
       case 'LINKED':
-        toast.success(`Đã liên kết: ${docLabel}`)
+        toast.success(t('classification.linked', { docLabel }))
         queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
         break
 
       case 'UNCLASSIFIED':
         // Check if confidence is 0 (AI service likely unavailable or failed)
         if (!current.aiConfidence || current.aiConfidence === 0) {
-          toast.error(`AI thất bại: ${current.filename}. Vui lòng phân loại thủ công.`)
+          toast.error(t('classification.aiFailed', { filename: current.filename }))
         } else {
-          toast.info(`Cần xem xét: ${current.filename}`)
+          toast.info(t('classification.needsReview', { filename: current.filename }))
         }
         break
 
       case 'BLURRY':
-        toast.error(`Ảnh mờ: ${current.filename}`)
+        toast.error(t('classification.blurry', { filename: current.filename }))
         break
 
       case 'DUPLICATE':
-        toast.info(`Tài liệu trùng lặp: ${current.filename}`)
+        toast.info(t('classification.duplicate', { filename: current.filename }))
         break
     }
-  }, [caseId, queryClient])
+  }, [t, caseId, queryClient])
 
   /**
    * Handle doc OCR status transition notifications
@@ -118,7 +120,7 @@ export function useClassificationUpdates({
   const handleDocStatusChange = useCallback((prevStatus: string | null, current: DigitalDoc) => {
     const docLabel = current.docType
       ? DOC_TYPE_LABELS[current.docType] || current.docType
-      : 'Tài liệu'
+      : t('classification.document')
 
     // New doc created (OCR just started or completed)
     if (!prevStatus) {
@@ -127,15 +129,15 @@ export function useClassificationUpdates({
           // OCR is starting - no toast needed, will show in progress indicator
           break
         case 'EXTRACTED':
-          toast.success(`Đã trích xuất: ${docLabel}`)
+          toast.success(t('ocr.extracted', { docLabel }))
           queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
           break
         case 'PARTIAL':
-          toast.info(`Trích xuất một phần: ${docLabel} - cần xác minh`)
+          toast.info(t('ocr.partial', { docLabel }))
           queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
           break
         case 'FAILED':
-          toast.error(`Trích xuất thất bại: ${docLabel}`)
+          toast.error(t('ocr.failed', { docLabel }))
           break
       }
       return
@@ -145,19 +147,19 @@ export function useClassificationUpdates({
     if (prevStatus === 'PENDING') {
       switch (current.status) {
         case 'EXTRACTED':
-          toast.success(`Đã trích xuất: ${docLabel}`)
+          toast.success(t('ocr.extracted', { docLabel }))
           queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
           break
         case 'PARTIAL':
-          toast.info(`Trích xuất một phần: ${docLabel} - cần xác minh`)
+          toast.info(t('ocr.partial', { docLabel }))
           queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
           break
         case 'FAILED':
-          toast.error(`Trích xuất thất bại: ${docLabel}`)
+          toast.error(t('ocr.failed', { docLabel }))
           break
       }
     }
-  }, [caseId, queryClient])
+  }, [t, caseId, queryClient])
 
   useEffect(() => {
     if (!imagesResponse?.images) return

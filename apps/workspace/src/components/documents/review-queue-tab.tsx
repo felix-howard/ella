@@ -5,6 +5,7 @@
  */
 
 import { useState, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, FileText, Eye, Loader2 } from 'lucide-react'
 
 // Lazy load PDF thumbnail component to reduce initial bundle size
@@ -30,11 +31,13 @@ export interface ReviewQueueTabProps {
 // Doc statuses that appear in review queue
 const REVIEW_STATUSES = ['PENDING', 'EXTRACTED', 'PARTIAL']
 
-// Status labels in Vietnamese
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Chờ xử lý',
-  EXTRACTED: 'Đã trích xuất',
-  PARTIAL: 'Thiếu dữ liệu',
+// Status labels function - needs t() from component
+function getStatusLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    PENDING: t('reviewQueue.statusPending'),
+    EXTRACTED: t('reviewQueue.statusExtracted'),
+    PARTIAL: t('reviewQueue.statusPartial'),
+  }
 }
 
 // Status colors
@@ -50,6 +53,7 @@ export function ReviewQueueTab({
   isLoading,
   onVerify,
 }: ReviewQueueTabProps) {
+  const { t } = useTranslation()
   // caseId reserved for future API operations (e.g., batch processing)
   void _caseId
   const [_selectedDoc, _setSelectedDoc] = useState<DigitalDoc | null>(null)
@@ -67,10 +71,10 @@ export function ReviewQueueTab({
       <div className="text-center py-12">
         <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
         <h3 className="text-base font-medium text-foreground mb-2">
-          Không có tài liệu cần xác minh
+          {t('reviewQueue.noDocuments')}
         </h3>
         <p className="text-sm text-muted-foreground">
-          Tất cả tài liệu đã được xác minh hoặc chưa có tài liệu nào được trích xuất
+          {t('reviewQueue.noDocumentsDesc')}
         </p>
       </div>
     )
@@ -81,7 +85,7 @@ export function ReviewQueueTab({
       {/* Summary */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {reviewDocs.length} tài liệu cần xác minh
+          {t('reviewQueue.documentsCount', { count: reviewDocs.length })}
         </p>
       </div>
 
@@ -119,6 +123,8 @@ function isNumber(value: unknown): value is number {
 }
 
 function ReviewQueueCard({ doc, onClick }: ReviewQueueCardProps) {
+  const { t } = useTranslation()
+  const STATUS_LABELS = getStatusLabels(t)
   const statusConfig = STATUS_COLORS[doc.status] || STATUS_COLORS.PENDING
   const statusLabel = STATUS_LABELS[doc.status] || doc.status
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
@@ -158,7 +164,7 @@ function ReviewQueueCard({ doc, onClick }: ReviewQueueCardProps) {
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <div className="flex items-center gap-2 text-white text-sm font-medium">
               <Eye className="w-4 h-4" />
-              <span>Xác minh</span>
+              <span>{t('reviewQueue.verify')}</span>
             </div>
           </div>
         </div>
@@ -199,7 +205,7 @@ function ReviewQueueCard({ doc, onClick }: ReviewQueueCardProps) {
             <CompactProgressIndicator
               current={verifiedFields}
               total={totalFields}
-              ariaLabel="Tiến độ xác minh"
+              ariaLabel={t('reviewQueue.verificationProgress')}
             />
           )}
         </div>

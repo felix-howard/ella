@@ -2,13 +2,15 @@
  * Login page for Ella Workspace
  * Custom styled login matching Ella's mint green design
  * Supports both light and dark themes
+ * Handles pending sessions with choose-organization task
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useSignIn, useAuth } from '@clerk/clerk-react'
+import { useSignIn, useAuth, useClerk, useOrganizationList } from '@clerk/clerk-react'
 import { useState, useEffect } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
 import { useTheme } from '../stores/ui-store'
+import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -17,8 +19,13 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { isSignedIn, isLoaded } = useAuth()
   const { signIn, setActive } = useSignIn()
+  const clerk = useClerk()
+  const { userMemberships, isLoaded: isOrgListLoaded } = useOrganizationList({
+    userMemberships: { infinite: true },
+  })
   const navigate = useNavigate()
   const { theme } = useTheme()
+  const { t } = useTranslation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,6 +47,33 @@ function LoginPage() {
     }
   }, [isLoaded, isSignedIn, navigate])
 
+  // Handle pending session with choose-organization task:
+  // After login + 2FA, session is created but stays "pending" until org is selected.
+  // Clerk's isSignedIn returns false for pending sessions, so user lands back on login.
+  // This effect detects that pending session and completes the org selection.
+  useEffect(() => {
+    if (!isLoaded || isSignedIn || !isOrgListLoaded) return
+
+    const pendingSession = clerk.client?.sessions?.find(
+      (s) => s.status === 'pending'
+    )
+    if (!pendingSession) return
+
+    const firstOrgId = userMemberships?.data?.[0]?.organization.id
+    if (!firstOrgId) return
+
+    // Complete the pending session by setting org
+    clerk.setActive({
+      session: pendingSession.id,
+      organization: firstOrgId,
+    }).then(() => {
+      navigate({ to: '/' })
+    }).catch(() => {
+      // If setActive fails, sign out to clear the stuck session
+      clerk.signOut()
+    })
+  }, [isLoaded, isSignedIn, isOrgListLoaded, clerk, userMemberships?.data, navigate])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!signIn) return
@@ -54,7 +88,11 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else if (result.status === 'needs_second_factor') {
         // User has 2FA enabled - prepare email code and show 2FA input
@@ -68,11 +106,34 @@ function LoginPage() {
         }
         setNeeds2FA(true)
       } else {
-        setError('Đăng nhập không thành công. Vui lòng thử lại.')
+        setError(t('login.loginFailed'))
       }
     } catch (err: unknown) {
-      const clerkError = err as { errors?: Array<{ message?: string }> }
-      const errorMessage = clerkError.errors?.[0]?.message || 'Đăng nhập không thành công. Vui lòng thử lại.'
+      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> }
+      const firstErr = clerkError.errors?.[0]
+
+      // Handle "Session already exists" - complete the pending session
+      if (firstErr?.code === 'session_exists') {
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        const pendingSession = clerk.client?.sessions?.find(
+          (s) => s.status === 'pending'
+        )
+        if (pendingSession && firstOrgId) {
+          try {
+            await clerk.setActive({
+              session: pendingSession.id,
+              organization: firstOrgId,
+            })
+            navigate({ to: '/' })
+            return
+          } catch {
+            // If that fails too, sign out to reset
+            await clerk.signOut()
+          }
+        }
+      }
+
+      const errorMessage = firstErr?.message || t('login.loginFailed')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -94,21 +155,25 @@ function LoginPage() {
       })
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
         navigate({ to: '/' })
       } else {
-        setError('Xác thực không thành công. Vui lòng thử lại.')
+        setError(t('login.verificationFailed'))
       }
     } catch (err: unknown) {
       const clerkError = err as { errors?: Array<{ message?: string }> }
-      const errorMessage = clerkError.errors?.[0]?.message || 'Mã xác thực không đúng. Vui lòng thử lại.'
+      const errorMessage = clerkError.errors?.[0]?.message || t('login.codeIncorrect')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Show loading while checking auth state
+  // Show loading while checking auth state or resolving pending session
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -135,7 +200,7 @@ function LoginPage() {
           <form onSubmit={handle2FASubmit} className="space-y-0">
             <div className="text-center mb-6">
               <p className="text-muted-foreground text-sm">
-                Nhập mã xác thực đã gửi đến email của bạn
+                {t('login.enterCodeFromEmail')}
               </p>
             </div>
 
@@ -145,7 +210,7 @@ function LoginPage() {
                 type="text"
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Nhập mã từ email"
+                placeholder={t('login.enterCodePlaceholder')}
                 required
                 autoFocus
                 className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest"
@@ -169,10 +234,10 @@ function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang xác thực...
+                  {t('login.verifying')}
                 </>
               ) : (
-                'Xác nhận'
+                t('login.confirmButton')
               )}
             </button>
 
@@ -187,7 +252,7 @@ function LoginPage() {
                   setError('')
                 }}
               >
-                Quay lại đăng nhập
+                {t('login.backToLogin')}
               </button>
             </div>
           </form>
@@ -201,7 +266,7 @@ function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
+                  placeholder={t('login.emailPlaceholder')}
                   required
                   className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                   disabled={isLoading}
@@ -214,7 +279,7 @@ function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mật khẩu"
+                  placeholder={t('login.passwordPlaceholder')}
                   required
                   className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
                   disabled={isLoading}
@@ -245,10 +310,10 @@ function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang đăng nhập...
+                    {t('login.loggingIn')}
                   </>
                 ) : (
-                  'Đăng nhập'
+                  t('login.loginButton')
                 )}
               </button>
             </form>
@@ -260,10 +325,10 @@ function LoginPage() {
                 className="text-primary hover:text-primary-dark transition-colors text-sm"
                 onClick={() => {
                   // TODO: Implement forgot password flow
-                  alert('Tính năng đang phát triển')
+                  alert(t('login.featureInDevelopment'))
                 }}
               >
-                Quên mật khẩu?
+                {t('login.forgotPassword')}
               </button>
             </div>
           </>

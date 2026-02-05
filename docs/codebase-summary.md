@@ -1,2225 +1,272 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-01-29
-**Current Branch:** feature/engagement-only
-**Latest Phase:** Phase 4 Schedule C 1099-NEC Breakdown COMPLETE | Phase 5 Verification Modal Enhancements
+**Current Date:** 2026-02-05
+**Current Branch:** feature/landing-page
+**Latest Phase:** Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE | Phase 05 COMPLETE | Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
-| **Schedule C Phase 4 Enhancement: 1099-NEC Breakdown** | **Per-payer NEC breakdown display; New component nec-breakdown-list; Backend: getGrossReceiptsBreakdown() + refactored calculateGrossReceipts(); Auto-update DRAFT forms with optimistic locking; 6 new unit tests; Frontend hook integration; Income table dynamic labeling** | **2026-01-29** |
-| **Schedule C Expense Collection Phase 4** | **11 new workspace components (956 LOC); api.scheduleC client methods; useScheduleC + useScheduleCActions hooks; 4-state router (empty/waiting/submitted/locked); Income/expense/vehicle display tables; Version history viewer; Staff action controls (send/lock/unlock/resend); Integration with client detail tab** | **2026-01-28** |
-| **Schedule C Expense Collection Phase 3** | **Portal form (Phase 3) - See separate doc: schedule-c-phase-3-portal-expense-form.md (Production-ready client expense form, 28 IRS categories, auto-save, 578 tests passing)** | **2026-01-28** |
-| **Schedule C Expense Collection Phase 2** | **5 staff endpoints (POST send, GET, PATCH lock/unlock, POST resend); 3 public endpoints (GET validate token, POST submit, PATCH auto-save draft); Expense calculator with gross receipts auto-fill from 1099-NEC; Version history tracking with snapshots; SMS templates for expense form links; Composite MagicLink index (caseId, type, isActive); MILEAGE_RATE_CENTS env var (67¢ default)** | **2026-01-28** |
-| **Schedule C Expense Collection Phase 1** | **Database schema: MagicLinkType enum (PORTAL, SCHEDULE_C); ScheduleCStatus enum (DRAFT, SUBMITTED, LOCKED); ScheduleCExpense model (50+ fields for IRS Schedule C); TaxCase.scheduleCExpense relation; MagicLink.type field with default PORTAL; 27 IRS expense categories + vehicle info + version tracking; Verification script (verify-schedule-c-schema.ts)** | **2026-01-28** |
-| **Phase 05 Frontend Category UI** | **7-category system (IDENTITY/INCOME/EXPENSE/ASSET/EDUCATION/HEALTHCARE/OTHER); RawImage type updated with category + displayName fields; DOC_CATEGORIES config with Vietnamese labels + icons; FilesTab uses DB category field with isValidCategory() runtime check; unclassified section for legacy docs; displayName fallback to filename; empty categories hidden; color styling per category** | **2026-01-28** |
-| **Phase 4 Integration & Testing** | **ErrorBoundary for FilesTab (Vietnamese: "Lỗi khi tải tài liệu" + retry button); loading states verified in YearSwitcher/CreateEngagementModal/FilesTab; edge cases (empty states, single year, API errors); Type-check pass, build succeeds; 535 tests pass (all passing); Code review 9/10** | **2026-01-27** |
-| **Phase 3 Multi-Engagement UI** | **Year switcher dropdown in client header; Create engagement modal with copy-from-previous-year; Tab content updates on year change; Vietnamese labels; engagement history section in overview** | **2026-01-27** |
-| **Phase 2 Create Files Tab** | **File explorer tab showing ALL uploaded documents; categorized by AI classification (8 categories); error boundary for PDFs; loading skeleton; keyboard nav; thumbnail caching; 5 new components** | **2026-01-27** |
-| **Phase 1 Simplify Client Creation** | **2-step wizard (Basic Info → Confirm & Send); taxTypes default ['FORM_1040']; returning client detection with copy-from-engagement; ConfirmStep new component; SMS preview in UI** | **2026-01-27** |
-| **Phase 6 Testing & Validation** | **71 new tests; 535 total passing; engagements.test.ts (9 API tests); api.test.ts (6 integration tests); backward-compat.test.ts (8 backward compatibility tests); validate-migration.ts script; review score 9.2/10** | **2026-01-26** |
-| **Phase 5 Frontend Updates** | **TaxEngagement types + engagement helpers (@ella/shared); Engagement history section (new client component); Returning client detection (new client component); Multi-year tab support in client overview; Portal engagementId support; API client engagement methods (list/detail/create/update/preview/delete)** | **2026-01-26** |
-| **Phase 4 API Updates** | **6 TaxEngagement REST endpoints (GET list/detail, POST create with copy-from, PATCH update, DELETE with validation, GET copy-preview); Engagement-specific audit logging (logEngagementChanges); RFC 8594 deprecation headers middleware; Tax cases now support engagementId FK** | **2026-01-26** |
-| **Phase 3 Schema Cleanup** | **Made engagementId required (NO nullable); Cascade onDelete; Deprecated ClientProfile (reads via engagement); New helper service engagement-helpers.ts; Verification scripts; Route layer uses engagement for all operations** | **2026-01-26** |
-| **Phase 1 Schema Migration** | **TaxEngagement model (year-specific profile); EngagementStatus enum (DRAFT/ACTIVE/COMPLETE/ARCHIVED); Client.engagements relation; TaxCase.engagementId FK (nullable for backward compat); Composite indexes (engagementId, status), (engagementId, lastActivityAt); AuditEntityType.TAX_ENGAGEMENT enum value** | **2026-01-25** |
-| **Phase 04 Frontend Incoming Call UI** | **Accept/Reject modal (IncomingCallModal); CallerInfo display; API methods (lookupCaller, registerPresence, unregisterPresence, heartbeat); Web Audio API ring tone generator (ring-sound.ts); Twilio SDK methods (accept/reject with type-safe events); useVoiceCall hook (incomingCall state, presence tracking, toast notifications, mounted guard); VoiceCallProvider context + error boundary; __root.tsx wrapper** | **2026-01-22** |
-| **Phase 03 Voicemail System** | **Unknown caller placeholder creation; findConversationByPhone() / createPlaceholderConversation() / formatVoicemailDuration() / isValidE164Phone() / sanitizeRecordingDuration() helpers; voicemail-recording webhook enhanced for known/unknown callers; transaction-based race condition handling; 55 unit tests; Vietnamese duration formatting** | **2026-01-22** |
-| **Phase 02 Incoming Call Routing** | **generateIncomingTwiml() rings staff browsers; generateNoStaffTwiml() + generateVoicemailTwiml() Vietnamese voicemail; 3 webhooks (incoming/dial-complete/voicemail-recording); call routing to online staff; rate limiting; signature validation** | **2026-01-22** |
-| **Phase 01 Inbound Call Backend Foundation** | **StaffPresence model; presence endpoints (register/unregister/heartbeat); caller lookup; rate limiting; incomingAllow enabled; E.164 phone validation** | **2026-01-21** |
-| **Phase 4 Constants & Labels (Actionable Status)** | **Centralized constants: ACTION_BADGE_LABELS (6 Vietnamese labels), ACTION_BADGE_ARIA_LABELS (6 a11y labels), TIME_FORMATS localization, STALE_THRESHOLD_DAYS=7, ACTION_BADGE_COLORS config; refactored action-badge.tsx for maintainability & i18n** | **2026-01-22** |
-| **Phase 3 Frontend (Actionable Status)** | **ComputedStatusBadge + ActionBadge components; client list sort (activity/name/stale); status action buttons (Send to Review/Mark Filed/Reopen); TaxCaseSummary type with isInReview/isFiled; computeStatus() utility** | **2026-01-21** |
-| **Phase 2 API Changes (Actionable Status)** | **3 case status endpoints; enhanced GET /clients with sort/actionCounts; ComputedStatus + ActionCounts types; activity tracking service; 23 tests** | **2026-01-21** |
-| **Phase 1 Database & Backend (Actionable Status)** | **TaxCase isInReview/isFiled flags; lastActivityAt tracking; computeStatus() priority system; calculateStaleDays() detection; updateLastActivity() service; ActionCounts types; 23 comprehensive tests** | **2026-01-21** |
-| **Phase 02 Duplicate Detection UI** | **DuplicateDocsCard component; grid display of DUPLICATE docs; delete/classify-anyway actions; Toast notifications; responsive layout; memoized rendering** | **2026-01-21** |
-| **Phase 03 Data Entry Tab** | **Responsive 4/3/2 col grid for verified docs; category-based grouping; key field extraction (2-3 fields per doc); copy all/individual fields; detail modal; ModalErrorFallback integration** | **2026-01-21** |
-| **Phase 02 Document Tab Category Checklist** | **Category-based grouping (personal/income/deductions/business/other); 5→3 status consolidation (MISSING/SUBMITTED/VERIFIED); direct row-click verification** | **2026-01-21** |
-| **Phase 01 Unclassified Docs Card** | **Grid display of UPLOADED/UNCLASSIFIED documents, responsive 4/3/2 col layout, lazy PDF thumbnails, signed URL caching, empty state** | **2026-01-21** |
-| **Phase 03 Voice Recording Playback** | **Recording endpoints with proxy auth; AudioPlayer component (lazy-load, seek, time); message-bubble integration; RecordingSid validation; memory-efficient streaming** | **2026-01-20** |
-| **Phase 02 Voice Calls** | **Browser-based calling (Twilio Client SDK); phone icon button; active call modal with mute/end; duration timer; microphone permission check; token refresh; error sanitization; CALL channel in messages** | **2026-01-20** |
-| **Phase 01 Voice API** | **Token generation (VoiceGrant); TwiML call routing; call message tracking; recording + status webhooks; E.164 phone validation; Twilio signature validation** | **2026-01-20** |
-| **Phase 03 Quick-Edit Icons** | **QuickEditModal component; personal info quick-edit (name, phone, email); wrapper pattern for fresh state; field-specific validation (E.164 phone, RFC 5322 email); accessibility (ARIA, keyboard shortcuts)** | **2026-01-20** |
-| **Phase 02 Section Edit Modal** | **intake-form-config.ts (95+ fields, 18 sections); SectionEditModal component; api.clients.updateProfile(); ClientOverviewSections enhanced with edit icons** | **2026-01-20** |
-| **Phase 05 Testing & Validation** | **Checklist Generator: 16 new tests (count-based, research scenarios, fallback, performance); Classification: 64 doc types, comprehensive validation** | **2026-01-20** |
-| **Phase 04 UX Improvements** | **IntakeProgress, IntakeRepeater, Smart Auto-Expand, SaveIndicator, SkipItemModal, useDebouncedSave hook** | **2026-01-20** |
-| **Phase 03 Checklist Templates** | **+13 new templates (92 total), 9 new DocTypes (60+ total), home_sale/credits/energy categories, Vietnamese labels** | **2026-01-20** |
-| **Phase 02 Intake Expansion** | **+70 missing CPA questions, new sections (prior_year, filing), React.memo optimization** | **2026-01-20** |
-| **Phase 01 Condition System** | **Compound AND/OR conditions, numeric operators, cascade cleanup (31 tests)** | **2026-01-20** |
-| **Phase 2 Portal UI** | **Portal Redesign - MissingDocsList, SimpleUploader, consolidated single-page** | **2026-01-20** |
-| **Phase 5 Admin Settings** | **Admin Settings Polish - JSON validation, size limits, 29 tests** | **2026-01-19** |
-| **Phase 4 Checklist Display** | **3-Tier Checklist, Staff Overrides, 4 new API endpoints, 3 components** | **2026-01-19** |
-| **Phase 3 Checklist** | **Checklist Generator Fix - intakeAnswers priority, dynamic counts, 15 tests** | **2026-01-19** |
-| **Phase 2.0 Questionnaire** | **Dynamic Intake Form - 3 components, multi-section UI, conditional logic** | **2026-01-19** |
-| **Client Message UX** | **Header "Tin nhắn" button with unread badge + `/messages/:caseId/unread` endpoint** | **2026-01-18** |
-| **Phase 04 Priority 3** | **OCR Expansion - 1098-T, 1099-G, 1099-MISC (16 document types total)** | **2026-01-17** |
-| **Phase 02 AI Prompt Update** | **DocCategory enum + DOC_TYPE_TO_CATEGORY mapping (89 types → 7 categories); getCategoryFromDocType() utility; Classification result now returns category, taxYear, source; Extraction rules for automatic document naming** | **2026-01-27** |
-| **Phase 01 Classification** | **Classification Enhancement - Few-shot examples, Vietnamese names, confidence calibration** | **2026-01-16** |
-| **Phase 02 OCR** | **PDF OCR Support - Multi-page extraction with intelligent merging** | **2026-01-16** |
-| **Phase 01** | **PDF Converter Service (200 DPI, 20MB, 10-page limits)** | **2026-01-16** |
-| **Phase 04 Tabs** | **Tab Layout Refactor (3-Tab Workflow: Uploads, Review, Verified)** | **2026-01-15** |
-| **Phase 03 Shared** | **Shared Components (Field Verification, Copy Tracking)** | **2026-01-15** |
-| **Phase 06** | **Testing Infrastructure & Edge Case Handling** | **2026-01-15** |
-| **Phase 05** | **Real-time Updates (Polling & Notifications)** | **2026-01-14** |
-| **Phase 04** | **Frontend Review UX (Confidence Badges & Classification Modal)** | **2026-01-14** |
-| **Phase 3.3** | **Duplicate Detection & Grouping** | **2026-01-14** |
-| **Phase 3** | **Production Ready (JWT Auth + RBAC)** | **2026-01-14** |
-| Phase 4.2 | Side-by-Side Document Viewer (Pan/Zoom/Field Highlighting) | **2026-01-14** |
-| Phase 4.1 | Copy-to-Clipboard Workflow (Data Entry Optimization) | 2026-01-14 |
-| Phase 3.2 | Unified Inbox & Conversation Management | 2026-01-14 |
-| Phase 3.1 | Twilio SMS Integration (Complete: First Half + Second Half) | 2026-01-13 |
-| **Phase 2** | **Make It Usable (Core Workflow)** | **2026-01-14** |
-| Phase 2.2 | Dynamic Checklist System (Atomic Transactions) | 2026-01-13 |
-| Phase 2.1 | AI Document Processing | 2026-01-13 |
-| Phase 5 | Verification | 2026-01-12 |
-| Phase 4 | Tooling (ESLint, Prettier) | 2026-01-11 |
-| Phase 3 (Old) | Apps Setup (API, Portal, Workspace) | Complete |
-| Phase 2 Infrastructure | Packages Setup (DB, Shared, UI) | Complete |
-| Phase 1.5 | Shared UI Components | 2026-01-13 |
-| Phase 1.4 | Client Portal | 2026-01-13 |
-| Phase 1.3 | Workspace UI Foundation | 2026-01-13 |
-| Phase 1.2 | Backend API Endpoints | 2026-01-13 |
-| Phase 1.1 | Database Schema | 2026-01-12 |
+| **Landing Page Phase 08: Animations Polish** | **Scroll-based animations (IntersectionObserver), counter animations with NaN validation, fade-up & slide-in effects, stagger timing (12 items, 0.04s increments), prefers-reduced-motion accessibility, micro-interactions (hover/focus states), data-animate & data-stagger attributes, global.css animation utilities & keyframes.** | **2026-02-05** |
+| **Landing Page Killer Features - Phase 01** | **SMS-first positioning: Hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction." Features prioritized: SMS Direct Upload, AI Auto-Rename (first two), then Classification & OCR. How It Works flow: Client Texts Photo → AI Classifies & Renames → Review & Prepare. SEO description updated. Messaging emphasizes zero-friction SMS intake over portal upload.** | **2026-02-05** |
+| **Landing Page Phase 03: Why Ella Updates** | **Expanded Why Ella page (why-ella.astro): problems (6 cards), solutions (6 cards), before/after comparison (7 items each), differentiators (6 cards). Grid layout updated: 3-col desktop (even row distribution). Enhanced data file (why-ella-data.ts) with 2 new problems (Clients Never Use Portal, File Names Are Garbage), 2 new solutions (SMS Upload, AI Auto-Rename), 2 new before/after items each, 2 new differentiators (SMS-First, Auto-Rename Intelligence). Maintained pain-solution narrative.** | **2026-02-05** |
+| **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
+| **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
+| **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
+| **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org/ClientAssignment models), 12 API endpoints, org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys** | **2026-02-04** |
+| **Phase 6: Frontend Auth & Navigation** | **useAutoOrgSelection hook, ClerkAuthProvider, sidebar org name, useOrgRole RBAC, Team nav conditional, accept-invitation page, full i18n (EN/VI)** | **2026-02-04** |
+| **Schedule C Phase 4: 1099-NEC Breakdown** | **Per-payer NEC breakdown display, nec-breakdown-list component, getGrossReceiptsBreakdown() backend, auto-update DRAFT forms, 6 tests, income table dynamic labeling** | **2026-01-29** |
+| **Schedule C Phase 3: Portal Expense Form** | **18 files, 2,400 LOC, 10 UI components, 28 IRS categories, auto-save, accessibility, version history. Tests: 578/578 passing** | **2026-01-28** |
+| **Phase 2: Multi-Year Engagement (8.1-8.4)** | **TaxEngagement model (year-specific), backfill completed, API CRUD (6 endpoints), engagement-helpers service. Tests: 464/464 passing** | **2026-01-26** |
+| **Simplify Client Workflow (Phases 1-4)** | **2-step wizard client creation, Files tab (8 components), YearSwitcher + CreateEngagementModal, integration & testing. Code review 9.5/10** | **2026-01-27** |
+| **Voice Calls (Phases 01-04)** | **Backend: Token generation, TwiML routing, webhooks (54 tests). Frontend: Twilio SDK, useVoiceCall hook, incoming call modal. Recording endpoints with AudioPlayer** | **2026-01-22** |
+| **Actionable Client Status** | **Database: isInReview/isFiled/lastActivityAt flags. API: Status endpoints, enhanced GET /clients. Frontend: StatusBadge, sorting (activity/name/stale), action buttons. Constants centralized** | **2026-01-22** |
+| **AI Document Processing** | **Gemini 2.0-flash integration (image validation, retry logic, batch concurrency). Classification service. 11 OCR prompts (W2, 1099s, K-1, Bank, 1098, 1095-A). Tests: 88/88 passing** | **2026-01-17** |
 
-## Verification Modal UI Enhancement Phase 4 - Shared Field Groups & Auto-Save (NEW - 2026-01-29)
+## Tech Stack (Current)
 
-**Status:** ✅ COMPLETE | Refactored field grouping config into shared module + auto-save on blur
+| Layer | Technology | Version |
+|-------|------------|---------|
+| Language | TypeScript | 5.7.3+ |
+| Frontend (React) | React + Vite + TanStack Router | 19.0.0 / 1.94+ |
+| Auth | Clerk | 5.59.3 |
+| Backend (Hono) | Hono + Zod + OpenAPI | 4.6.15+ |
+| Database | Prisma + PostgreSQL | 6.7.0 / 14+ |
+| AI/OCR | Google Gemini | 2.0-flash |
+| Styling | Tailwind CSS 4 + shadcn/ui | 4.0.0+ |
+| Voice | Twilio SDK | Latest |
+| File Storage | Cloudflare R2 | In use |
 
-**Summary:** Extracted `DOC_TYPE_FIELD_GROUPS` (field category config) into shared module for reuse across 3 components (verification-modal, ocr-verification-panel, data-entry-modal). Implemented field grouping UI with Vietnamese labels + icons. Added auto-save on blur in FieldEditForm with cancellingRef race condition fix. Updated field-verification-item with status-based left borders + font weight adjustments. See full details: `./phase-05-verification-modal.md`
+## Database Schema (Current)
 
-**Key Changes:**
-- NEW: `doc-type-field-groups.ts` - Shared FieldGroup interface + DOC_TYPE_FIELD_GROUPS config (137 LOC)
-- UPDATED: verification-modal.tsx - Grouped field rendering (field groups → sections with icons)
-- UPDATED: ocr-verification-panel.tsx - Field grouping + always-visible touch-friendly buttons
-- UPDATED: field-edit-form.tsx - Auto-save on blur + cancellingRef pattern for race condition safety
-- UPDATED: field-verification-item.tsx - Status borders (verified=primary, edited=amber) + font weight updates
-- UPDATED: data-entry-modal.tsx - Import from shared module (DRY)
+**Core Models:**
+- **Organization**: clerkOrgId (unique), name, slug, logoUrl, isActive. Org-scoped root.
+- **Client**: organizationId FK, name, phone, email, language, intakeAnswers Json, status tracking
+- **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive
+- **ClientAssignment**: clientId + staffId (unique composite), organizationId FK. 1-to-1 staff-client mapping.
+- **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
+- **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
+- **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC
+- **RawImage**: documentId, classification (UPLOADED|UNCLASSIFIED|CLASSIFIED|DUPLICATE|VERIFIED), aiConfidence, category
+- **DigitalDoc**: Extracted OCR fields, source reference, AI confidence
+- **MagicLink**: type (PORTAL|SCHEDULE_C), token, caseId/type, isActive, expiresAt
+- **Message**: conversationId, channel (SMS|PORTAL|SYSTEM|CALL), content, callSid/recordingUrl
+- **AuditLog**: entityType, entityId, field, oldValue, newValue, changedById, timestamp (complete trail)
+- **Action**: actionType, priority, caseId, dueDate, status, completedBy
 
-**Benefits:** DRY principle, UI consistency across surfaces, faster verification workflow (no manual save), race condition safe field switching
+## API Endpoints (12 Organization/Team)
 
----
+**Organization & Team Management:**
+- `GET /team/members` - List org staff with role + status
+- `POST /team/invite` - Send Clerk org invitation, track in DB
+- `PATCH /team/members/:staffId/role` - Update role (ADMIN|STAFF), sync with Clerk
+- `DELETE /team/members/:staffId` - Deactivate staff member
+- `GET /team/invitations` - List pending Clerk org invites
+- `DELETE /team/invitations/:invitationId` - Revoke invitation
 
-## Schedule C Expense Collection Phase 4 - Workspace Viewer (NEW - 2026-01-28)
+**Client Assignments:**
+- `GET /client-assignments` - List org's staff-client mappings
+- `POST /client-assignments` - Create 1-to-1 assignment
+- `DELETE /client-assignments/:assignmentId` - Unassign staff from client
+- `POST /client-assignments/bulk` - Bulk create assignments
+- `PUT /client-assignments/transfer` - Transfer client between staff
+- `GET /team/members/:staffId/assignments` - Staff's assigned clients
 
-**Status:** ✅ COMPLETE | Staff-facing dashboard for expense review & management
+## Frontend Architecture
 
-**Summary:** Phase 4 delivers workspace viewer for Schedule C expense forms. Staff can view submitted expenses, review calculations, manage form workflow (send/lock/unlock/resend), and track version history. Fully integrated with backend APIs + portal form. 11 components, 956 LOC. See full details: `./schedule-c-phase-4-workspace-viewer.md`
+**Landing Page (Astro):**
+- **Animations (Phase 08):** Scroll-based entrance animations, counter animations, stagger timing
+  - Scroll Observer: IntersectionObserver API with 0.1-0.2 threshold, fade-up & slide-in effects
+  - Counter Animations: easeOutCubic easing, 1500ms duration, NaN validation, locale-aware formatting
+  - Stagger Timing: 0.04s increments across 12 child elements (0s to 0.48s delay)
+  - Accessibility: prefers-reduced-motion respected, instant display of final state
+  - Micro-interactions: Hover/focus states on buttons, cards, links
+  - CSS Tokens: --duration-enter (0.6s), --duration-fast (0.4s), --animate-fade-up, --animate-slide-in-left
+  - Attributes: data-animate, data-count, data-suffix, data-stagger on component markup
+- **Home Page (Phase 03 + Killer Features Phase 01):** 7-section layout (Hero, Stats, Features, How It Works, Testimonials, CTA, Contact Form)
+  - Hero: SMS-first positioning. Eyebrow "SMS-First Document Collection". Headline "Clients text docs to your Ella number. No app. No friction." Subheadline emphasizes SMS-first messaging.
+  - Stats: 1M documents processed, 500 tax firms, 99% accuracy, 80% time saved (animated counters with Phase 08)
+  - Features: 4 cards prioritized SMS-first. SMS Direct Upload (clients text to Ella number), AI Auto-Rename (IMG_xxx → 2024_W2_Employer_Name.pdf), AI Classification (89+ tax docs), Smart OCR (extract income data)
+- **Features Page (Phase 02):** 8 detailed feature sections with alternating zigzag layout, icons, descriptions, benefits bullets, image placeholders
+  - SMS Direct Upload: Clients text docs to firm's Twilio number, no app/password required, processes via AI classification
+  - AI Auto-Rename: Transforms IMG_2847.jpg → structured pattern (YEAR_DOCTYPE_SOURCE_CLIENT), filters duplicates/irrelevant uploads
+  - AI Classification: 89+ tax document types (W-2s, 1099s, K-1s, bank statements), 99% accuracy with confidence scoring
+  - Data Extraction (OCR): Extracts income figures, employer details, dates from forms into structured fields, export to CSV or tax software
+  - Client Portal Upload: Passwordless magic link, drag-drop interface, mobile-friendly, email notifications on upload
+  - Team Management: Role-based access (Admin/Staff), assign clients to staff, task queues, audit trail for compliance
+  - Voice & SMS: Browser-based calling via Twilio WebRTC, SMS reminders, voicemail transcription, unified message inbox
+  - Multi-Year Tracking: Copy-forward previous year data, engagement history, auto-generate checklists from intake, recurring client identification
+  - How It Works: 3-step SMS-focused process. (1) Client Texts Photo, (2) AI Classifies & Renames, (3) Review & Prepare
+  - Testimonials: 3 CPA/EA quotes with 5-star implied rating
+  - Contact Form: Formspree integration for lead capture
+- **Pricing Page (Phase 05):** 3-tier pricing (Starter $99, Professional $299, Enterprise Custom)
+  - "Most Popular" badge on Professional tier with elevated styling
+  - Feature comparison table (12 rows, horizontal scroll on mobile)
+  - FAQ section (8 items, 2-column grid)
+  - Bottom CTA "Still have questions?"
+  - SEO: BreadcrumbList, FAQPage, Product schema for each tier
+- **Why Ella Page (Phase 03 Updates):** Problem-solution narrative with proof points
+  - Pain Points: 6 cards (Endless Document Collection, Manual Classification Chaos, Data Entry Drudgery, Team Communication Gaps, Clients Never Use Your Portal, File Names Are Garbage)
+  - Solutions: 6 cards (Automated Document Collection, AI-Powered Classification, Smart OCR Extraction, Built-In Team Collaboration, SMS Upload, AI Auto-Rename)
+  - Before/After: 7 items each (Email clients, Sort PDFs, Type data, Unclear ownership, Phone calls, Portal adoption fails, File naming chaos → Magic link, AI classifies, OCR extracts, Clear assignments, SMS reminders, Clients text Ella, Auto-renamed files)
+  - Differentiators: 6 competitive advantages (AI-First not Bolt-On, Modern Intuitive UX, All-In-One Platform, Built for Tax Professionals, SMS-First not Portal-First, Auto-Rename Intelligence)
+  - Company Metrics: Usage stats (1M docs processed, 500+ firms, 99% accuracy, 80% time saved)
+  - CTA: "Ready to eliminate tax season chaos?" with demo request
+- **Shared Components:** Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm, IconCard
+- **Shared Icons:** lib/icons.ts with checkPath, xPath for reusable icon assets
+- **Shared Config:** NavLinks (Home, Features, Pricing, Why Ella, About), LegalLinks (Privacy, Terms)
+- **Base Layout:** HTML shell, global CSS, skip-to-content link, SEO slot, theme color, favicon
+- **Site Config:** Organization metadata, social links (Twitter, LinkedIn), Formspree integration
+- **SEO & Branding:** Structured data (Organization, Website, SoftwareApplication, AggregateRating), OG image (1200x630px emerald gradient), favicon (emerald green)
+
+**Key Pages (Workspace):**
+- `/team` - Team member management (member table, invite dialog, bulk assign)
+- `/clients`, `/clients/:id`, `/cases/:id`, `/messages`, `/actions` - Core workflows
+- `/accept-invitation` - Clerk org invite sign-in/sign-up flow
+
+**Authentication (Phase 6):**
+- `ClerkAuthProvider` (clerk-auth-provider.tsx) - Wraps root, sets JWT token getter, clears cache on sign-out
+- `useAutoOrgSelection()` - Auto-selects first Clerk org on sign-in
+- `useOrgRole()` - Returns { isAdmin, role }, conditional Team nav visibility
+- Zero-org edge case: Shows localized fallback UI (org.noOrg / org.noOrgDesc)
+
+**Sidebar Enhancement:**
+- Displays current org name via `useOrganization()` hook
+- Role badge (ADMIN/STAFF) next to user info
+- Team menu visible only to org admins
 
 **Key Components:**
+- Team page: Member table + invite dialog + bulk assign panel
+- Sidebar: Org name, role badge, conditional navigation
+- Accept-invitation page: Seamless Clerk org acceptance flow
+- Team assignment panel: View/edit client assignments
 
-| Component | Purpose | LOC |
-|-----------|---------|-----|
-| ScheduleCTab | 4-state router (empty/waiting/submitted/locked) | 80 |
-| ScheduleCEmptyState | "No form yet" + send button (when 1099-NEC detected) | 60 |
-| ScheduleCWaiting | "Awaiting client" + resend/copy link buttons | 120 |
-| ScheduleCSummary | Form data display + action controls | 85 |
-| ScheduleCActions | Lock/unlock/resend buttons + confirmations | 140 |
-| IncomeTable | Part I (gross receipts, returns, COGS) | 65 |
-| ExpenseTable | Part II (20 expense categories grouped by type) | 130 |
-| NetProfitCard | Summary: gross - expenses - mileage = profit | 70 |
-| VersionHistory | Version list with timestamps | 80 |
-| useScheduleC | Query: expense + 1099-NEC detection + totals | 85 |
-| useScheduleCActions | Mutations: send/lock/unlock/resend + toasts | 95 |
+**Org-Scoped Queries:**
+- `buildClientScopeFilter(user)` - Core scoping function
+- Admins: See all org clients
+- Staff: See only assigned clients via ClientAssignment
+- Applied to all entity queries (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
 
-**API Integration:**
+## API Client & Endpoints (Frontend)
 
-- `api.scheduleC.get(caseId)` → GET /schedule-c/:caseId
-- `api.scheduleC.send(caseId)` → POST /schedule-c/:caseId/send
-- `api.scheduleC.lock(caseId)` → PATCH /schedule-c/:caseId/lock
-- `api.scheduleC.unlock(caseId)` → PATCH /schedule-c/:caseId/unlock
-- `api.scheduleC.resend(caseId)` → POST /schedule-c/:caseId/resend
+**Team Endpoints (15+ methods):**
+- Members: list, invite, updateRole, deactivate
+- Invitations: list, revoke
+- Assignments: list, create, delete, bulkCreate, transfer, getStaffAssignments
 
-**State Flow:**
+**Request/Response:**
+- Org context via Bearer JWT token (Clerk JWT includes orgId)
+- Retry logic: 3 attempts, exponential backoff
+- Error handling: Zod validation, type-safe responses
+- Pagination: limit=20, max=100 support
 
-```
-If no expense exists & 1099-NEC found → Show empty state
-If expense exists & status=DRAFT → Show waiting (resend option)
-If expense exists & status=SUBMITTED/LOCKED → Show summary + actions
-```
+## Localization (i18n)
 
-**Features:**
+**Coverage:** 821 keys across English (en.json) + Vietnamese (vi.json)
 
-- 1099-NEC detection: Auto-show tab only when relevant
-- Calculated totals: Gross income, total expenses, net profit, mileage deduction
-- Version tracking: All saved versions with timestamps
-- Staff actions: Send to client, lock form, unlock for re-editing, resend link
-- Vietnamese UI + error messages
-- Responsive layout: Mobile/tablet/desktop
-- Error handling: Retry on network failures
+**Team Management Keys:**
+- team.members, team.inviteDialog, team.roles, team.assignments
+- org.name, org.noOrg, org.noOrgDesc (zero-org fallback)
 
-**Integration:**
+**Schedule C Keys:**
+- expenseForm.categories, expenseForm.vehicle, expenseForm.autoSave, schedule.lockForm
 
-- Tab in client detail page (`/clients/:clientId`)
-- Works with multi-engagement cases
-- Messaging can reference Schedule C status
+## Auth Flow (Clerk JWT)
+
+**Token Parsing:**
+- userId, orgId, orgRole extracted from Clerk JWT
+- `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
+- `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN role
+
+**Middleware:**
+- `requireOrg` - Verify orgId in token, attach to context
+- `requireOrgAdmin` - Verify org:admin role, restrict endpoint
+- All team/org endpoints protected
+
+## Multi-Tenancy Security
+
+**Data Isolation:**
+- All queries scoped by organizationId
+- `buildClientScopeFilter()` applies Admin vs Staff filtering
+- ClientAssignment enforces staff-client relationships
+- Audit logging tracks all org-scoped changes
+
+**Permission Model:**
+- ADMIN: Full org access, manage team + client assignments
+- STAFF: Assigned clients only, no team management
+- CPA: Future role for CPA firm integrations
+
+## Key Utilities & Patterns
+
+**Shared (TypeScript):**
+- TaxYear helpers, IntakeAnswers interface (100+ fields)
+- ConditionEvaluator (AND/OR logic), ChecklistTemplate rules
+- Engagement helpers service
+- AuditLog schema + type-safe queries
+
+**Backend (Hono):**
+- Zod OpenAPI validation (all inputs + outputs)
+- Prisma ORM with connection pooling
+- Error handler middleware (standardized responses)
+- Signature validation for Twilio webhooks
+
+**Frontend (React):**
+- useQuery (React Query) for server state
+- Zustand stores (UI state persistence)
+- TanStack Router (file-based routing)
+- Tailwind CSS 4.0 (utility-first styling)
+
+## Testing & Quality
+
+- **API Tests:** 26+ comprehensive team/org tests, Clerk Backend SDK mocking
+- **Frontend Tests:** Component integration tests, hook testing
+- **Total Test Coverage:** 578+ tests across portal form, schedule C, voice calls
+- **Type Check:** 100% TypeScript strict mode, zero errors
+- **Build:** Success with no warnings
+- **Code Review Avg:** 9/10 quality score
+
+## Recent Phases Summary
+
+**2026-02-05:** Landing Page Phase 03 Why Ella Updates complete. Expanded problems (6 cards: added Clients Never Use Portal + File Names Are Garbage). Solutions scaled to 6 cards (added SMS Upload + AI Auto-Rename). Before/After comparison: 7 items each (added SMS reminders, Clients text Ella number, Auto-renamed files). Differentiators expanded: 6 cards (added SMS-First positioning + Auto-Rename Intelligence). Grid layout optimized: 3-col desktop (even row distribution). Why Ella data extracted to why-ella-data.ts config file (pain points, solutions, before/after items, differentiators all now in single source).
+
+**2026-02-05:** Landing Page Killer Features Phase 01 complete. SMS-first hero messaging. Headline "Clients text docs to your Ella number. No app. No friction." Features reordered: SMS Direct Upload + AI Auto-Rename prioritized first. How It Works: 3-step SMS-focused flow (Client Texts → AI Classifies & Renames → Review & Prepare). SEO description updated to emphasize SMS-first intake. Brand alignment with emerald emerges as SMS accessibility theme.
+
+**2026-02-05:** Landing Page Phase 08 complete. Scroll-based animations via IntersectionObserver (fade-up, slide-in effects). Counter animations with easeOutCubic easing, NaN validation, 1500ms duration. Stagger timing (12 items, 0.04s increments). Accessibility: prefers-reduced-motion respected. Micro-interactions (hover/focus). CSS animation utilities (--duration-enter, --animate-fade-up). Data attributes: data-animate, data-count, data-stagger.
+
+**2026-02-04:** Landing Page Phase 06 complete. Why Ella page (why-ella.astro) with pain points (4 cards), solutions (4 cards), before/after metrics (3 rows), differentiators (4 stats), company metrics, CTA. Shared IconCard component. Shared icon library (checkPath, xPath). Pricing & Features pages refactored to use shared icons (DRY pattern).
+
+**2026-02-04:** Landing Page Phase 05 complete. Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), comparison table (12 rows), FAQ (8 items), SEO schemas (BreadcrumbList, FAQPage, Product).
+
+**2026-02-04:** Landing Page Phase 03 complete. Full home page (index.astro) rebuilt with 7 sections: Hero, Stats (1M docs, 500 firms, 99%, 80%), Features (4 cards), How It Works (3 steps), Testimonials (3 quotes), CTA, Contact Form. Structured data (aggregateRatingSchema) added. Brand color to emerald, OG image updated.
+
+**2026-02-04:** Landing Page Phase 02 complete. 8 shared Astro components, shared nav config, base layout integration.
+
+**2026-02-04:** Multi-Tenancy complete. Org model, 12 API endpoints, frontend auth/nav, RBAC, i18n.
+
+**2026-01-29:** Schedule C Phase 4. 1099-NEC breakdown UI, backend calculations, form auto-updates.
+
+**2026-01-28:** Schedule C Phase 3. Portal expense form (2,400 LOC), 28 IRS categories, auto-save.
+
+**2026-01-27:** Simplify Client Workflow. 2-step wizard, Files tab (8 components), multi-year engagement.
+
+**2026-01-22:** Voice Calls Phases 01-04 complete. Backend webhooks, frontend Twilio SDK, recording playback.
+
+**2026-01-21:** Actionable Status. Database flags, API endpoints, status badges, activity sorting.
+
+## Next Steps
+
+1. **Landing Page Phase 09** - Additional page templates (About page, Blog overview) + full deployment
+2. **Landing Page Deployment** - Staging → Production deployment & DNS routing (SMS-first messaging live)
+3. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
+4. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
+5. **Team Assignment Workflows** - Bulk operations, transfer auditing
+6. **Workspace SMS Integration** - Integrate Twilio SMS direct upload feature from landing page into workspace portal
 
 ---
 
-## Schedule C Expense Collection Phase 2 - API Implementation (NEW - 2026-01-28)
-
-**Status:** ✅ COMPLETE | Full REST API for staff & client expense form workflows
-
-**Summary:** Phase 2 implements comprehensive Schedule C expense form APIs. Staff endpoints manage form distribution, status tracking, and locking. Public endpoints allow clients to view, edit, and submit expense data via magic link authentication. Includes automatic gross receipts prefilling from verified 1099-NEC documents, version history tracking with change snapshots, and SMS delivery of form links.
-
-**Architecture:**
-
-```
-Staff Workflow:
-POST /schedule-c/:caseId/send → Create form + magic link → Send SMS
-    ↓
-GET /schedule-c/:caseId → Review submitted data + version history
-    ↓
-PATCH /schedule-c/:caseId/lock → Finalize form (prevent edits)
-
-Client Workflow:
-GET /expense/:token → Validate link, fetch form + prefilled data
-    ↓
-PATCH /expense/:token/draft → Auto-save intermediate progress
-    ↓
-POST /expense/:token → Submit final version + create snapshot
-```
-
-**Key Changes:**
-
-1. **Staff Routes** (`apps/api/src/routes/schedule-c/index.ts` - Authenticated)
-   - **POST /schedule-c/:caseId/send**
-     - Validate case + client phone
-     - Auto-calculate gross receipts from verified 1099-NECs
-     - Upsert ScheduleCExpense with prefilled data (only if empty)
-     - Create magic link with atomic deactivation of existing links
-     - Send SMS notification to client
-     - Response: magicLink URL, expiresAt, messageSent flag, prefilledGrossReceipts
-
-   - **GET /schedule-c/:caseId**
-     - Fetch expense data with calculated totals (gross income, total expenses, net profit, mileage deduction)
-     - Retrieve active magic link status
-     - Convert Decimal fields to 2-decimal-place strings
-     - Response: expense object, magicLink metadata, totals
-
-   - **PATCH /schedule-c/:caseId/lock**
-     - Validate form SUBMITTED status (not DRAFT/LOCKED)
-     - Atomic transaction: update status → LOCKED + deactivate all magic links
-     - Record lockedById (staff ID) + lockedAt timestamp
-     - Prevents further client edits
-
-   - **PATCH /schedule-c/:caseId/unlock**
-     - Revert LOCKED form back to SUBMITTED status
-     - Clear lockedById + lockedAt fields
-     - Allows client to re-edit if needed
-
-   - **POST /schedule-c/:caseId/resend**
-     - Extend TTL on existing active link OR create new if none exists
-     - Validate form not LOCKED
-     - Resend SMS with updated magic link
-     - Response: updated expiresAt, messageSent flag
-
-2. **Public Routes** (`apps/api/src/routes/expense/index.ts` - No Auth)
-   - **GET /expense/:token**
-     - Validate Schedule C magic link token (checks: valid, active, not expired, correct type)
-     - Return error messages in Vietnamese (INVALID_TOKEN, EXPIRED_TOKEN, FORM_LOCKED)
-     - Fetch ScheduleCExpense if exists (may be null on first visit)
-     - Auto-calculate gross receipts from verified 1099-NECs (prefilling)
-     - Calculate totals if expense exists (7-field summary: grossReceipts, returns, costOfGoods, grossIncome, totalExpenses, mileageDeduction, netProfit)
-     - Response: client metadata, taxYear, expense data (all fields converted to 2-decimal strings), prefilledGrossReceipts, totals
-
-   - **POST /expense/:token**
-     - Validate token + parse request body (expenseSubmitSchema)
-     - Determine version number (1 if new, incremented if update)
-     - Create or update ScheduleCExpense
-     - Automatic version history creation:
-       - First submission: create initial snapshot
-       - Subsequent updates: snapshot previous state + create version entry
-     - Track submittedAt on first DRAFT→SUBMITTED transition
-     - Response: success flag, new version, status=SUBMITTED, Vietnamese success message
-
-   - **PATCH /expense/:token/draft**
-     - Same validation as POST
-     - Auto-save partial data (no submission, no version history)
-     - Upsert with partial update (only provided fields)
-     - Status remains DRAFT if no existing record, or keeps current status
-     - Used for intermediate saves during form fill
-
-3. **Expense Calculator Service** (`apps/api/src/services/schedule-c/expense-calculator.ts`)
-   - **calculateGrossReceipts(caseId)**
-     - Query verified 1099-NEC documents for case
-     - Sum box 1 (Non-employee compensation)
-     - Return Decimal with 2-place precision
-     - Used to prefill form on first visit
-
-   - **calculateScheduleCTotals(expense)**
-     - Part I totals: returns, costOfGoods → grossIncome
-     - Part II sum: all 20 expense categories → totalExpenses
-     - Calculate mileageDeduction: vehicleMiles × (MILEAGE_RATE_CENTS / 100)
-     - Net profit: grossIncome - totalExpenses - mileageDeduction
-     - All calculations use Decimal for precision
-     - Response: 7-field object (all Decimal type)
-
-4. **Version History Service** (`apps/api/src/services/schedule-c/version-history.ts`)
-   - **createExpenseSnapshot(expense)**
-     - Serialize current ScheduleCExpense state
-     - Store all monetary + vehicle fields
-     - Used for "previous version" comparison
-
-   - **createVersionEntry(updated, previous, version)**
-     - Create version history object: { version, changedAt, previousValues?, changedFields[] }
-     - Calculate diff: fields that changed between previous snapshot + current
-     - Track which fields modified (for audit trail)
-     - Response: JSON-serializable version entry
-
-   - **appendVersionHistory(history, entry)**
-     - Append new entry to versionHistory JSON array
-     - Maintain array of all version snapshots
-     - Max 10 entries (oldest removed if exceeded)
-
-5. **SMS Templates** (`apps/api/src/services/sms/templates/schedule-c.ts`)
-   - **Vietnamese:** Form link + 48-hour expiry + "Không trả lời tin này"
-   - **English:** English form link text
-   - Links include magic link token in URL: `/expense/:token`
-   - Configurable template via sendScheduleCFormMessage()
-
-6. **Database Schema Updates** (`packages/db/prisma/schema.prisma`)
-   - **Composite Index on MagicLink:**
-     - `@@index([caseId, type, isActive])` - For filtering active Schedule C links
-   - **Environment Configuration:** MILEAGE_RATE_CENTS (default 67, from IRS 2026 standard deduction)
-
-7. **Type Schemas** (`apps/api/src/routes/expense/schemas.ts`)
-   - **expenseSubmitSchema** - Full expense submission validation (Zod)
-   - **expenseDraftSchema** - Partial expense draft validation (all fields optional)
-   - Validates 30+ fields: business info, income, expenses (20 categories), vehicle details
-   - Numeric precision: cents-based (stored as Decimal, transmitted as number)
-
-**Data Flow:**
-
-```
-CPA sends form:
-  POST /schedule-c/:caseId/send
-    ├─ Calculate grossReceipts from 1099-NECs
-    ├─ Upsert ScheduleCExpense (status=DRAFT)
-    └─ Create magic link → Send SMS
-
-Client opens link:
-  GET /expense/:token
-    ├─ Validate token (active, not expired, type=SCHEDULE_C)
-    ├─ Fetch ScheduleCExpense (may be null)
-    ├─ Calculate prefilledGrossReceipts
-    └─ Return form data + prefilled values
-
-Client saves progress (auto-save):
-  PATCH /expense/:token/draft
-    ├─ Validate token
-    └─ Partial update (status=DRAFT)
-
-Client submits:
-  POST /expense/:token
-    ├─ Validate token + data
-    ├─ Upsert ScheduleCExpense (status=SUBMITTED)
-    ├─ Create version snapshot
-    └─ Set submittedAt timestamp
-
-CPA reviews & locks:
-  GET /schedule-c/:caseId (review data)
-    ├─ Calculate totals
-    └─ Check version history
-  PATCH /schedule-c/:caseId/lock
-    ├─ Update status=LOCKED
-    └─ Deactivate magic link (atomic)
-
-CPA needs to re-edit:
-  PATCH /schedule-c/:caseId/unlock
-    └─ Revert status=SUBMITTED
-```
-
-**Key Features:**
-
-- **Atomic Operations:** Deactivation of existing links when sending/locking (prevents duplicate form access)
-- **Auto-Prefilling:** Gross receipts auto-calculated from verified 1099-NECs on form open
-- **Decimal Precision:** All monetary fields use Prisma Decimal(12,2) for exact cent-level calculations
-- **Version Tracking:** Snapshots stored in versionHistory JSON array with previous values + changed fields
-- **Magic Link Typing:** Composite queries filter by (caseId, type=SCHEDULE_C, isActive=true)
-- **Mileage Deduction:** Auto-calculated from vehicleMiles × rate (configurable via MILEAGE_RATE_CENTS env var)
-- **SMS Delivery:** Integrated with Twilio via sendScheduleCFormMessage() service
-- **Validation:** Server-side Zod schemas + token validation + Vietnamese error messages
-
-**Configuration:**
-
-| Env Variable | Default | Purpose |
-|---|---|---|
-| `MILEAGE_RATE_CENTS` | 67 | Mileage deduction rate per mile (2026 IRS standard) |
-| `PORTAL_URL` | http://localhost:5173 | Base URL for magic link generation |
-
-**Files Modified/Created:**
-
-- New: `apps/api/src/routes/schedule-c/index.ts` (5 endpoints, 354 LOC)
-- New: `apps/api/src/routes/expense/index.ts` (3 endpoints, 400+ LOC)
-- New: `apps/api/src/services/schedule-c/expense-calculator.ts` (expense math)
-- New: `apps/api/src/services/schedule-c/version-history.ts` (snapshot tracking)
-- New: `apps/api/src/services/sms/templates/schedule-c.ts` (Vietnamese + English)
-- Updated: `apps/api/src/lib/config.ts` (MILEAGE_RATE_CENTS config)
-- Updated: `packages/db/prisma/schema.prisma` (composite index)
-
-**Next Steps:**
-
-- Phase 3: Frontend Schedule C form component (expense sections, vehicle info, calculation display)
-- Phase 4: Client portal route + magic link verification UI
-- Phase 5: CPA review dashboard + version comparison view + lock/unlock controls
-
-## Schedule C Expense Collection Phase 1 - Database Foundation (NEW - 2026-01-28)
-
-**Status:** ✅ COMPLETE | Database schema finalized, enums defined, verification script included
-
-**Summary:** Phase 1 establishes database infrastructure for self-employed Schedule C expense collection via magic link forms. Clients receive time-limited links to fill expense forms; CPAs lock after review. Supports 27 IRS expense categories, vehicle mileage tracking, version history, and status workflow.
-
-**Architecture:**
-
-```
-Magic Link (type=SCHEDULE_C)
-    ↓
-Client opens form + enters expenses
-    ↓
-ScheduleCExpense (status=DRAFT)
-    ↓
-Client submits form
-    ↓
-ScheduleCExpense (status=SUBMITTED)
-    ↓
-CPA reviews + locks
-    ↓
-ScheduleCExpense (status=LOCKED, versionHistory)
-```
-
-**Key Changes:**
-
-1. **Enums** (`packages/db/prisma/schema.prisma`)
-   - `MagicLinkType`: PORTAL (existing), SCHEDULE_C (new expense form)
-   - `ScheduleCStatus`: DRAFT (editing), SUBMITTED (awaiting review), LOCKED (CPA finalized)
-
-2. **ScheduleCExpense Model** (1-to-1 with TaxCase)
-   - **Business Info:** businessName, businessDesc
-   - **Income (Part I):** grossReceipts, returns, costOfGoods, otherIncome
-   - **Expenses (Part II - 20 categories):** advertising, carExpense, commissions, contractLabor, depletion, depreciation, employeeBenefits, insurance, interestMortgage, interestOther, legalServices, officeExpense, pensionPlans, rentEquipment, rentProperty, repairs, supplies, taxesAndLicenses, travel, meals, utilities, wages, otherExpenses
-   - **Vehicle Info (Part IV):** vehicleMiles, vehicleCommuteMiles, vehicleOtherMiles, vehicleDateInService, vehicleUsedForCommute, vehicleAnotherAvailable, vehicleEvidenceWritten
-   - **Version Tracking:** version (Int), versionHistory (JSON array with historical snapshots)
-   - **Status & Timestamps:** status, submittedAt, lockedAt, lockedById, createdAt, updatedAt
-   - **All monetary fields:** Decimal(12,2) for precision ($0.00 to $999,999,999.99)
-
-3. **MagicLink Updates** (`packages/db/prisma/schema.prisma`)
-   - Added `type` field with default PORTAL (backward compatible)
-   - Existing links auto-default to PORTAL, new links can specify type
-   - Index on `type` for filtering
-
-4. **TaxCase Relation** (`packages/db/prisma/schema.prisma`)
-   - `scheduleCExpense ScheduleCExpense?` (optional, 1-to-1)
-   - Cascade delete for cleanup
-
-5. **Verification Script** (`packages/db/scripts/verify-schedule-c-schema.ts`)
-   - Validates MagicLink types (all existing = PORTAL)
-   - Checks ScheduleCExpense table exists
-   - Tests create/read/delete operations
-   - Run: `pnpm -F @ella/db verify-schedule-c`
-
-**Database Schema Snapshot:**
-- `ScheduleCExpense` fields: 50+ columns covering IRS Schedule C form
-- Indexes on: `status`, `taxCaseId,status`
-- Cascade deletes cascade from TaxCase for data consistency
-- No UI/API yet (Phase 2+)
-
-**Next Steps:**
-- Phase 2: API endpoints (GET/POST/PATCH ScheduleCExpense)
-- Phase 3: Frontend form components (expense sections, validation)
-- Phase 4: Magic link portal update (form routing by type)
-- Phase 5: CPA review interface + locking workflow
-
-## Phase 05 Frontend Category UI - 7-Category Document Grouping System (2026-01-28)
-
-**Status:** ✅ COMPLETE | 7-category system fully implemented, DB integration, fallback handling
-
-**Summary:** Frontend implementation of the document categorization system completed Phase 04 backend. FilesTab now groups documents by DB category field (instead of computed classification). Supports 7 categories: IDENTITY, INCOME, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER. Includes Vietnamese labels, category-specific icons/colors, unclassified section for legacy documents, and displayName support.
-
-**Key Changes:**
-
-1. **API Client Type Updates** (`apps/workspace/src/lib/api-client.ts`)
-   - Added `DocCategory` type: `'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'`
-   - Extended `RawImage` interface:
-     - `category: DocCategory | null` - DB category from Phase 04
-     - `displayName: string | null` - AI-generated filename from storage rename
-   - Types sync with backend DocCategory enum
-
-2. **Category Configuration** (`apps/workspace/src/lib/doc-categories.ts` - 113 LOC)
-   - **DocCategoryConfig interface:** labelVi, labelEn, icon (Lucide), bgColor, textColor, borderColor
-   - **7 Categories with Vietnamese Labels:**
-     - IDENTITY: "Giấy tờ tùy thân" (purple icons: User)
-     - INCOME: "Thu nhập" (emerald icons: DollarSign)
-     - EXPENSE: "Chi phí" (orange icons: Receipt)
-     - ASSET: "Tài sản" (blue icons: Home)
-     - EDUCATION: "Giáo dục" (indigo icons: GraduationCap)
-     - HEALTHCARE: "Y tế" (red icons: Heart)
-     - OTHER: "Khác" (gray icons: File)
-   - **Helper functions:**
-     - `getCategory(key)` - Lookup config by category key
-     - `isValidCategory(value)` - Runtime validation for DB values (handles null/undefined/invalid)
-   - **CATEGORY_ORDER array** - Display sequence (used by FilesTab)
-
-3. **FilesTab Grouping Logic** (`apps/workspace/src/components/files/files-tab.tsx`)
-   - **Previous:** `getCategoryForDocType(classifiedType)` - computed client-side
-   - **Current:** Uses `img.category` field directly from DB
-   - **Grouping logic (useMemo):**
-     - Unclassified array: docs with null/invalid category OR status UPLOADED/UNCLASSIFIED
-     - Categorized: 7-key object, validated via `isValidCategory()`
-   - **Runtime validation:** Prevents crashes if DB has unexpected values
-   - **Rendering:** Unclassified section at top, then CATEGORY_ORDER, empty categories hidden
-
-4. **FileCategorySection Component** (`apps/workspace/src/components/files/file-category-section.tsx`)
-   - **Props:** categoryKey, config (DocCategoryConfig), images[], docs[], onVerify callback
-   - **Visual Design:**
-     - Expandable header with category icon, Vietnamese label, document count
-     - Color styling: bg/text/border from config
-     - Chevron icon for expand/collapse state
-   - **File Rows:**
-     - Thumbnail (from r2Url)
-     - displayName fallback: `image.displayName || image.filename`
-     - Classification type + confidence percentage
-     - Verify button for unverified documents
-   - **Accessibility:** Keyboard navigation, focus management
-
-5. **UnclassifiedSection Component** (existing, reused)
-   - Shows documents without category (legacy documents)
-   - Allows manual classification
-   - Placed at top of FilesTab (before categorized sections)
-
-**Data Flow:**
-
-```
-Phase 04 Backend: AI Classification
-    ↓
-DocClassificationJob → rawImage.category = 'IDENTITY'
-rawImage.displayName = 'Passport_Generated_Name'
-    ↓
-Phase 05 Frontend: Display Grouping
-    ↓
-FilesTab queries images (via api.cases.getImages)
-    ↓
-useMemo grouping logic:
-  - Validate category with isValidCategory()
-  - Separate unclassified from categorized
-  - Build 7-key object by category
-    ↓
-Render: UnclassifiedSection + FileCategorySection×7
-    ↓
-Each section shows displayName + confidence + verify button
-```
-
-**Key Features:**
-
-- **7-Category System:** Reduced from 8 to 7 (combined deductions/business into OTHER)
-- **DB Integration:** Reads category field directly, no client-side computation
-- **Fallback Handling:** Gracefully handles null, invalid, or legacy (no category) documents
-- **Vietnamese Labels:** Full i18n support via DOC_CATEGORIES config
-- **Color Coding:** Each category has distinct visual identity (icon + color palette)
-- **Empty Category Hiding:** Sections with 0 docs don't render
-- **Display Name Priority:** Shows AI-renamed filename (displayName) with fallback to original filename
-- **Type Safety:** Runtime validation with isValidCategory() prevents crashes
-- **Memoization:** useMemo grouping prevents unnecessary re-renders
-
-**Backward Compatibility:**
-
-- Handles RawImages without category (legacy documents before Phase 04)
-- Invalid categories treated as unclassified
-- Fallback to filename if displayName is null
-- No breaking changes to RawImage API
-
-**Testing Completed:**
-
-- [x] Files grouped by DB category field
-- [x] 7 categories displayed (not 8)
-- [x] Unclassified section shows docs without category
-- [x] displayName shown instead of original filename
-- [x] Category colors/icons match spec
-- [x] Empty categories hidden
-- [x] All 7 category groups functional
-
----
-
-## Phase 3 Multi-Engagement UI - Year Switching & Engagement Management (2026-01-27)
-
-**Status:** Feature Complete | Interactive year switcher + create engagement modal | 3 new components
-
-**Summary:** Added multi-year engagement UI controls to client detail page. Enables staff to switch between client's tax year engagements, create new years, and optionally copy profile data from previous years. Implements engagement-aware tab switching where Checklist/Files/Data Entry update when year changes.
-
-**Changes:**
-
-1. **YearSwitcher Component** (`apps/workspace/src/components/clients/year-switcher.tsx` - ~150 LOC)
-   - **Features:**
-     - Dropdown button showing current year + status badge (Nháp/Đang xử lý/Hoàn thành/Lưu trữ)
-     - Lists all engagements sorted by year descending (most recent first)
-     - Checkmark on selected engagement
-     - "Thêm năm mới" (Add new year) button
-     - Keyboard navigation (Escape to close)
-     - Outside-click detection auto-closes dropdown
-   - **Props:** `engagements`, `selectedYear`, `onYearChange`, `onCreateNew`
-   - **Status Display:** Vietnamese labels with color coding (primary/success/muted-foreground)
-   - **Accessibility:** ARIA labels, keyboard support, listbox role
-
-2. **CreateEngagementModal Component** (`apps/workspace/src/components/clients/create-engagement-modal.tsx` - ~190 LOC)
-   - **Features:**
-     - Year selection (filters to available years, excludes existing)
-     - Optional copy-from-previous-year selector (default "Không sao chép")
-     - Modal layout with Calendar icon
-     - Toast notifications on success/error
-     - Mutation handling with React Query invalidation
-   - **Props:** `isOpen`, `onClose`, `clientId`, `existingEngagements`, `onSuccess`
-   - **Logic:**
-     - Calculates AVAILABLE_YEARS (current+1, current, current-1, current-2)
-     - Filters to years not in existingEngagements
-     - Persists selected year/copyFromYear in component state
-     - Calls `api.engagements.create()` with optional copyFromEngagementId
-     - Invalidates: `['engagements', clientId]` and `['client', clientId]` on success
-   - **Error Handling:** Toast on mutation errors, disabled submit if no available years
-   - **State Reset:** Clears selection when modal opens/closes (via defaultYear memoization)
-
-3. **EngagementHistorySection Component** (UPDATED - simplified from Phase 5)
-   - **Location:** `apps/workspace/src/components/clients/engagement-history-section.tsx` - ~150 LOC
-   - **Features:**
-     - Displays all engagements with year, status badge, case count
-     - Highlights current engagement (border/bg color)
-     - Shows filing status per engagement
-     - "Dùng dropdown ở header để chuyển năm" guidance text
-   - **Sections:** Loading/error/empty states with appropriate messaging
-   - **Query:** Uses `api.engagements.list({ clientId, limit: 10 })`
-
-4. **Client Detail Page Updates** (`apps/workspace/src/routes/clients/$clientId.tsx` - MAJOR)
-   - **New State:**
-     - `selectedEngagementId` - Tracks which engagement is currently viewed
-     - `isCreateEngagementOpen` - Modal open/close state
-   - **Multi-Engagement Logic:**
-     - Fetches all engagements via `api.engagements.list()` (enabled when client loads)
-     - Selects engagement by ID (defaults to first/most recent)
-     - Finds matching TaxCase by engagement year
-     - Maps activeCaseId to selectedEngagement's case
-   - **Year Switch Handlers:**
-     - `handleYearChange()` - Updates selectedEngagementId, invalidates queries for new case (checklist/images/docs)
-     - `handleEngagementCreated()` - Called on modal success, sets new engagement as selected, refreshes all data
-   - **Tab Content Updates:**
-     - Tab state preserved during year switch (stays on same tab type)
-     - All queries keyed by activeCaseId, so changing engagement auto-updates data
-     - Checklist/Files/Data Entry tabs reflect selected year's data
-   - **Header Integration:**
-     - YearSwitcher shown when engagements exist (replaces static "Tax Year" display)
-     - CreateEngagementModal triggered from YearSwitcher's "Thêm năm mới" button
-   - **Query Keys Invalidated on Year Change:**
-     - `['checklist', newCaseId]`
-     - `['images', newCaseId]`
-     - `['docs', newCaseId]`
-     - Ensures tab content reflects year-specific data
-
-5. **Component Exports** (`apps/workspace/src/components/clients/index.ts`)
-   - Added exports: `YearSwitcher`, `CreateEngagementModal`
-   - EngagementHistorySection already exported (Phase 5)
-
-**Data Flow on Year Switch:**
-
-```
-YearSwitcher click
-    ↓
-handleYearChange(year, engagementId)
-    ↓
-setSelectedEngagementId(engagementId)
-    ↓
-Queries invalidated:
-  - ['checklist', newCaseId]
-  - ['images', newCaseId]
-  - ['docs', newCaseId]
-    ↓
-useQuery refetch triggered automatically
-    ↓
-Tab content updates with new year data
-```
-
-**Copy-From-Previous-Year Flow:**
-
-```
-CreateEngagementModal opens
-    ↓
-User selects:
-  - New tax year (e.g., 2025)
-  - Source year to copy (e.g., 2024)
-    ↓
-handleSubmit()
-    ↓
-api.engagements.create({
-  clientId,
-  taxYear: 2025,
-  copyFromEngagementId: engagement_2024_id
-})
-    ↓
-Backend copies profile data (filingStatus, hasW2, etc.) from 2024 engagement
-    ↓
-New 2025 engagement created with copied profile
-    ↓
-onSuccess callback:
-  - Toast: "Đã tạo engagement năm 2025"
-  - Invalidates queries
-  - Selects new engagement (sets activeTab to overview)
-```
-
-**Key Features:**
-
-- **Multi-Year Navigation:** Dropdown in client header for quick year switching
-- **Copy-From-Previous:** Reduces re-entry of data, defaults to "Không sao chép"
-- **Engagement-Aware Tabs:** Files/Checklist/Data Entry update when year changes
-- **Status Visibility:** Each engagement shows status badge (DRAFT, ACTIVE, COMPLETE, ARCHIVED)
-- **Case Count Display:** Shows how many tax cases in each engagement
-- **Toast Feedback:** Success/error notifications on creation
-- **Vietnamese UI:** All labels, buttons, placeholders in Vietnamese
-- **Accessibility:** ARIA labels, keyboard shortcuts, focus management
-- **Query Optimization:** Minimal refetches via React Query invalidation strategy
-
----
-
-## Phase 4 Integration & Testing - Error Handling & E2E Validation (NEW - 2026-01-27)
-
-**Status:** ✅ COMPLETE | Error boundaries applied, loading states verified, edge cases handled, all systems passing
-
-**Summary:** Comprehensive integration & testing for Simplify Client Workflow. Added ErrorBoundary wrapper around FilesTab with Vietnamese error message. Verified loading states across YearSwitcher, CreateEngagementModal, FilesTab. Validated edge cases (empty states, single year, API errors). All type checks pass, build succeeds, 535 tests passing, code review 9/10.
-
-**Changes:**
-
-1. **FilesTab ErrorBoundary** (`apps/workspace/src/routes/clients/$clientId.tsx`)
-   - **Location:** Client detail page, FilesTab section (lines 564-584)
-   - **Error Message:** Vietnamese "Lỗi khi tải tài liệu" (Error loading documents)
-   - **Retry Button:** "Thử lại" (Retry) - performs full page reload
-   - **UI:** AlertCircle icon + centered layout with consistent spacing
-   - **When Triggered:** Any unhandled error in FilesTab component tree
-   - **Integration:** Wrapped `<FilesTab caseId={activeCaseId} />` component
-
-2. **Loading States Verified**
-   - **YearSwitcher:**
-     - Dropdown shows all engagements immediately after fetch
-     - Status badges display with color coding (primary/success/muted-foreground)
-     - Loading state prevents user interaction until data loaded
-   - **CreateEngagementModal:**
-     - Year selector filters to available years (current+1, current, current-1, current-2)
-     - Copy-from-selector defaults to "Không sao chép" (No copy)
-     - Submit button disabled if no available years
-     - Loading spinner during mutation
-   - **FilesTab:**
-     - Skeleton loader while documents fetch
-     - Lazy PDF thumbnails with signed URL caching
-     - Error fallback with retry option
-
-3. **Edge Cases Handled**
-   - **Empty States:**
-     - Client with no engagements: YearSwitcher hides, "Thêm năm mới" shows placeholder
-     - Case with no documents: FilesTab shows empty category sections
-     - Single year only: "Thêm năm mới" button still available for new year
-   - **API Errors:**
-     - Failed engagement fetch: Toast notification, no dropdown shown
-     - Failed document classification: FilesTab fallback boundary catches error
-     - Network timeout: Retry button allows user to reload
-   - **State Edge Cases:**
-     - Year switch from deleted engagement: Falls back to first remaining
-     - Modal close/reopen: Form state resets properly
-     - Concurrent mutations: React Query deduplication prevents race conditions
-
-4. **Quality Assurance Metrics**
-   - **Type Check:** ✅ Pass (0 errors)
-   - **Build:** ✅ Success
-   - **Tests:** ✅ 535/535 passing
-   - **Code Review:** 9/10 (excellent error UX, minor opportunity: enhance chatbox error fallback)
-   - **Browser Testing:** Chrome, Firefox, Safari (mobile & desktop)
-   - **Accessibility:** ARIA labels verified, keyboard navigation tested
-
-5. **Files Modified**
-   - `apps/workspace/src/routes/clients/$clientId.tsx` - Added ErrorBoundary for FilesTab + Chatbox
-   - `apps/workspace/src/components/clients/engagement-history-section.tsx` - Loading state optimization
-   - `apps/workspace/src/components/clients/index.ts` - Export updates
-   - `apps/workspace/src/routeTree.gen.ts` - Route generation (auto-updated)
-
-**Test Coverage:**
-- Phase 6 validation suite already covers all 3 phases (Phase 1, 2, 3)
-- 535 tests total: 71 new + 464 prior
-- All engagement CRUD operations validated
-- Backward compatibility verified
-- No regressions in existing features
-
-**Next Steps:**
-- Merge to feature/engagement-only → main for Phase 5 (Advanced Filtering & Reporting)
-- Monitor error boundary in production for FilesTab issues
-- Collect user feedback on UX (year switching, engagement creation)
-
-
-**Technical Benefits:**
-
-- Engagement logic separated into own components (reusable)
-- Modal state reset on close prevents data persistence issues
-- Memoized availableYears prevents recalculation
-- Callback-based mutation prevents data racing
-- Error boundary catches modal failures
-
-**Next Steps:**
-
-1. Test year switching with multiple engagements (2+ years)
-2. Verify copy-from-previous-year copies correct data (profile fields, NOT intakeAnswers)
-3. Test tab content updates on year change (checklist/files/data entry)
-4. Validate query invalidation strategy (no stale data displayed)
-5. Test edge case: only one engagement exists (dropdown still works)
-6. Test keyboard navigation (Tab, Escape, Arrow keys in dropdown)
-7. Mobile responsiveness: Year switcher on small screens
-8. Verify Vietnamese labels render correctly
-
----
-
-## Phase 2 Create Files Tab - File Explorer UI (2026-01-27)
-
-**Status:** Feature Complete | File explorer with AI-based categorization | 5 new components
-
-**Summary:** Added Files tab to client detail page showing all uploaded documents organized by AI classification categories. Replaces generic Documents tab with category-first layout. Supports image thumbnails, PDFs, keyboard navigation, error boundaries.
-
-**Changes:**
-
-1. **New Constants** (`apps/workspace/src/lib/doc-categories.ts`)
-   - `DOC_CATEGORIES` - 8 categories with Vietnamese labels, icons, docType mapping
-   - Categories: personal, employment_income, self_employment, investment_income, retirement, deductions, business, other
-   - Helpers: `getCategoryForDocType()`, `getCategory()` for type-safe lookups
-   - Lucide icons per category (User, Briefcase, Building, TrendingUp, Calendar, Receipt, Store, File)
-
-2. **FilesTab Component** (`apps/workspace/src/components/files/files-tab.tsx` - ~250 LOC)
-   - **Features:**
-     - Master view of ALL uploaded documents (both classified & unclassified)
-     - Category-based grouping (uses `DOC_CATEGORIES`)
-     - Empty state: "Không có tài liệu"
-     - Loading state: `FilesTabSkeleton` with shimmer animation
-   - **Props:** `caseId`, `isLoading?`, `onDocumentClick?`
-   - **Integration:** Part of client detail tabs (Overview | Files | Checklist | Data Entry)
-
-3. **FileCategorySection Component** (`apps/workspace/src/components/files/file-category-section.tsx` - ~180 LOC)
-   - **Display:**
-     - Category header (icon + Vietnamese label)
-     - File count per category (excludes empty)
-     - Expandable/collapsible sections (local state)
-   - **Props:** `category`, `documents`, `onDocumentClick?`
-   - **Styling:** Category-specific colors + icons
-
-4. **UnclassifiedSection Component** (`apps/workspace/src/components/files/unclassified-section.tsx` - ~140 LOC)
-   - **Purpose:** Dedicated section for UNCLASSIFIED documents (AI classification pending)
-   - **Features:**
-     - Separate from category sections
-     - Status badge: "Đang chờ phân loại" (Awaiting classification)
-     - Action button: "Phân loại" (Classify) with callback
-   - **Props:** `documents`, `onClassify?`
-
-5. **ImageThumbnail Component** (`apps/workspace/src/components/files/image-thumbnail.tsx` - ~120 LOC)
-   - **Features:**
-     - Responsive image display with fallback to document icon
-     - Error boundary: Graceful handling if image fails to load
-     - Filename tooltip on hover
-     - Uses `useSignedUrl` hook for lazy-loading (55 min cache)
-     - PDF support: First-page thumbnail via `LazyPdfThumbnail`
-   - **Props:** `src`, `alt`, `fileName`, `docType`
-   - **Performance:** Memoized to prevent re-renders during polling
-
-6. **Index Export** (`apps/workspace/src/components/files/index.ts`)
-   - Barrel export: `FilesTab`, `FileCategorySection`, `UnclassifiedSection`, `ImageThumbnail`
-
-**Tab Integration** (`apps/workspace/src/routes/clients/$clientId.tsx` - MODIFIED)
-   - **New Tab:** "Files" added between Overview and Checklist
-   - **Tab Order:** Overview | Files | Checklist | Data Entry
-   - **Props Passed:** `caseId`, `loading state`
-   - **Query:** Uses existing documents query (filtered by caseId)
-
-**Document Categorization Flow:**
-```
-RawImage (uploaded) → Classification Job → DigitalDoc (classified) or UNCLASSIFIED
-   ↓
-Category lookup via DOC_CATEGORIES
-   ↓
-FileCategorySection renders grouped by category
-```
-
-**Key Features:**
-- **8 Categories:** Personal, Employment, Self-Employment, Investment, Retirement, Deductions, Business, Other
-- **Keyboard Navigation:** Tab/Arrow keys traverse category sections and documents
-- **Error Resilience:** Error boundary catches PDF thumbnail failures
-- **Performance:** Signed URL caching (55 min), memoized components, lazy-loaded PDFs
-- **Accessibility:** ARIA labels, proper heading hierarchy, keyboard shortcuts
-- **i18n:** Full Vietnamese support in category labels and UI text
-
-**User Experience:**
-- Single unified Files tab replaces fragmented document views
-- Category-first layout helps users find documents by use case (not status)
-- Visual hierarchy with icons guides scanning
-- Loading skeleton prevents layout shift
-- Keyboard shortcuts for quick navigation
-
-**Technical Benefits:**
-- Cleaner separation of concerns (categories vs. status)
-- Reusable category lookup (`getCategoryForDocType()`)
-- Error boundary prevents component crashes on image failures
-- Memoization reduces re-renders during 5s polling
-- Modular component structure allows future enhancements (filters, search)
-
-**Next Steps:**
-1. Verify Files tab renders correctly with test data
-2. Test category grouping with mixed classified/unclassified docs
-3. Validate keyboard navigation (Tab/Shift-Tab, Arrow keys)
-4. Check PDF thumbnail loading on slow connections
-5. Test error scenarios (missing images, network errors)
-6. Update client detail route tests to include Files tab
-
----
-
-## Phase 1 Simplify Client Creation - 2-Step Wizard (NEW - 2026-01-27)
-
-**Status:** Feature Complete | Simplified onboarding flow with 2-step form
-
-**Summary:** Streamlined client creation workflow with minimal required fields. Defaults taxTypes to FORM_1040, supports returning client detection, and auto-suggests copy-from-previous engagement.
-
-**Changes:**
-
-1. **Backend Schema Update** (`apps/api/src/routes/clients/schemas.ts`)
-   - `taxTypes` now optional with default `['FORM_1040']`
-   - `filingStatus` optional (was required)
-   - Creates simpler initial profile, can be updated later in client overview
-   - Security: Prototype pollution prevention + ABA checksum validation for routing numbers
-
-2. **Frontend Wizard** (`apps/workspace/src/routes/clients/new.tsx`)
-   - **2-Step Flow:**
-     - Step 1: Basic Info (name, phone, email, language, taxYear)
-     - Step 2: Confirm & Send (SMS preview before creation)
-   - **Form Validation:** Real-time client existence check by phone
-   - **Returning Client Detection:** Auto-checks if phone already in system
-   - **Copy-From Support:** If returning client, offer to copy previous engagement data
-   - **Minimal Data:** No business details on creation, just essentials
-   - **Submission:**
-     - New client: Creates client + engagement with default taxTypes
-     - Returning client: Creates new engagement (with optional copy-from)
-   - **Navigation:** Auto-redirect to client detail page after creation
-
-3. **New Component** (`apps/workspace/src/components/clients/confirm-step.tsx`)
-   - **ConfirmStep** (~115 LOC) - Final review before submission
-   - **Features:**
-     - Summary card (name, phone, tax year)
-     - SMS preview (bilingual: VI/EN)
-     - Submit button with loading state
-     - Info note about post-creation updates
-   - **Accessibility:** ARIA labels, proper form semantics
-   - **Props:** clientName, phone, taxYear, language, onSubmit, isSubmitting
-
-4. **API Client Update** (`apps/workspace/src/lib/api-client.ts`)
-   - `CreateClientInput` now has `taxTypes` optional
-   - Profile structure simplified (no business fields required on creation)
-
-**User Experience:**
-- Onboarding time reduced: ~2 min vs. previous 10+ min form
-- Returning clients skip intake, go straight to new engagement
-- Copy-from-previous feature preserves prior year data
-- SMS sent immediately with portal link
-- Detailed intake possible later in client overview
-
-**Technical Benefits:**
-- Smaller initial database footprint (no unused business fields)
-- Backward compatible (multi-year engagement still fully supported)
-- Reducing cognitive load in first step → higher completion rate
-- Clean separation: creation vs. intake details
-
----
-
-## Phase 6 Testing & Validation - Multi-Year Client Engagement (COMPLETE - 2026-01-26)
-
-**Status:** Feature Complete | Test Coverage: 535 tests passing | Review Score: 9.2/10
-
-**Summary:** Comprehensive test suite for Multi-Year Client Engagement feature. Validates API endpoints, backward compatibility, data migration, and engagement lifecycle management.
-
-**New Test Files (3 total, 71 new tests):**
-
-1. **engagements.test.ts** (9 tests) - TaxEngagement CRUD endpoint validation
-   - GET /engagements - List engagements with filters (clientId, taxYear, status, pagination)
-   - GET /engagements/:id - Fetch single engagement with profile snapshot
-   - POST /engagements - Create new engagement (with optional copyFromId for copy-from-previous-year)
-   - PATCH /engagements/:id - Update engagement status/profile fields
-   - DELETE /engagements/:id - Archive/delete engagement with cascade validation
-   - GET /engagements/:id/copy-preview - Preview what will be copied from prior year
-   - Auth validation (JWT required for all endpoints)
-   - Status transition validation (DRAFT→ACTIVE→COMPLETE→ARCHIVED)
-   - Composite key uniqueness (clientId + taxYear)
-
-2. **api.test.ts** (6 integration tests) - Multi-year workflow scenarios
-   - Create new engagement for existing client (multi-year)
-   - Copy profile from previous tax year
-   - Preserve engagement-specific intakeAnswers across years
-   - List all engagements for client with year sorting
-   - Status transitions prevent invalid operations
-   - Backward compatibility: existing clientId queries still work
-
-3. **backward-compat.test.ts** (8 backward compatibility tests) - Ensure Phase 1-5 flows unbroken
-   - Old API flows (clientId-only) still route to engagementId correctly
-   - TaxCase creation links to engagement automatically
-   - Legacy profile access works via engagement snapshot
-   - intakeAnswers merge correctly (engagement priority over profile)
-   - Case deletion cascades properly (engagement→cases)
-   - Old portal flows work with engagementId present
-   - Message/voice routes reference engagement correctly
-   - Audit logging tracks both legacy and new field names
-
-**Test Statistics:**
-- **Total Tests Now:** 535 (71 new in Phase 6)
-- **Test Files:** 23 test files (5 new for Phase 6)
-- **Engagement Route Tests:** 23 total tests (9 in engagements.test.ts, others in integration/backward-compat)
-- **Coverage Areas:** API endpoints, data migration, backward compatibility, cascade deletes, status transitions, auth, pagination
-- **Performance:** <100ms per test suite, CI-friendly
-
-**Validation Script Added:**
-
-**validate-migration.ts** - Pre-deployment verification
-- Verifies all TaxCases have engagementId (no orphans)
-- Checks composite key uniqueness (clientId, taxYear)
-- Validates engagement status consistency (matches case states)
-- Confirms cascade delete works (orphan check after engagement delete)
-- Atomic transaction testing for data integrity
-- Usage: `pnpm -F @ella/db run validate:migration`
-- Output: JSON report with status, checks passed/failed, error details
-
-**Key Achievements:**
-- ✅ 100% backward compatibility verified (no breaking changes)
-- ✅ Multi-year engagement workflow fully tested
-- ✅ Copy-from-previous-year feature validated
-- ✅ Data migration integrity confirmed
-- ✅ 9.2/10 code review score
-- ✅ All 6 API endpoints operational (tested + production-ready)
-- ✅ Cascade delete safety verified
-- ✅ Composite index performance confirmed (sub-10ms queries)
-
-**Architecture Verified:**
-```
-Client (1:many) → TaxEngagement (1:many) → TaxCase
-     ↓                    ↓
-  1 Name            Year-specific:
-  1 Phone           - filingStatus
-  1 Email           - hasW2, k1Count, rentalPropertyCount
-                    - intakeAnswers (JSON)
-                    - status (DRAFT|ACTIVE|COMPLETE|ARCHIVED)
-                    - timestamps (created, updated, startedAt, completedAt)
-```
-
----
-
-## Phase 5 Frontend Updates - Multi-Year Client Support (2026-01-26)
-
-**Location:** `packages/shared/src/types/tax-engagement.ts`, `packages/shared/src/utils/engagement-helpers.ts`, `apps/workspace/src/components/clients/`, `apps/workspace/src/lib/api-client.ts`, `apps/portal/src/lib/api-client.ts`
-
-**New Files (Shared Package):**
-
-1. **tax-engagement.ts** - TypeScript types for multi-year engagement
-   - `EngagementStatus` - DRAFT | ACTIVE | COMPLETE | ARCHIVED
-   - `TaxEngagement` - Full engagement with year-specific profile (filingStatus, hasW2, etc.), intakeAnswers, timestamps
-   - `TaxEngagementSummary` - Lightweight version for list views
-
-2. **engagement-helpers.ts** - Backward compatibility utilities during phase 3 transition
-   - `ProfileData` - Unified interface for engagement or legacy profile fields
-   - `getProfileData(taxCase, legacyProfile?)` - Extract profile from engagement (preferred) or fallback to legacy
-   - `normalizeTaxCase(taxCase)` - Guarantee engagementId present (uses case.id as fallback)
-   - `hasEngagementProfile(taxCase)` - Check if case has engagement-based profile
-
-**New Components (Workspace):**
-
-1. **engagement-history-section.tsx** - Multi-year engagement display
-   - Shows client engagement history grouped by tax year
-   - Status badges (DRAFT, ACTIVE, COMPLETE, ARCHIVED)
-   - Quick-access links to open engagement
-   - Last activity timestamp per engagement
-
-2. **returning-client-section.tsx** - Detect & suggest previous engagements
-   - Automatic detection of returning clients (prior engagements exist)
-   - Lists previous tax years with engagement status
-   - Quick-select button to open prior year engagement
-   - Integration in new client creation flow
-
-**API Client Enhancements (Workspace):**
-
-`apps/workspace/src/lib/api-client.ts` - New engagement methods:
-- `engagements.list(params?)` - GET /engagements with filters (clientId, taxYear, status, pagination)
-- `engagements.detail(id)` - GET /engagements/:id with full details
-- `engagements.create(data)` - POST /engagements (with optional copyFromId)
-- `engagements.update(id, data)` - PATCH /engagements/:id
-- `engagements.copyPreview(id)` - GET /engagements/:id/copy-preview
-- `engagements.delete(id)` - DELETE /engagements/:id
-
-**Portal Updates (API Client):**
-
-`apps/portal/src/lib/api-client.ts` - Added engagementId support:
-- PortalTaxCase now includes `engagementId` field
-- Enables portal to reference engagement for multi-year workflows
-
-**UI Integration:**
-
-- Client overview tab enhanced with engagement history display
-- New client creation detects returning clients and offers prior engagement quick-link
-- Engagement dropdown in client header for switching between years
-- Status indicators guide user through engagement lifecycle
-
-## Architecture at a Glance
-
-```
-ella/ (Monorepo - pnpm workspaces)
-├── apps/
-│   ├── api/          # Hono backend (PORT 3002)
-│   ├── portal/       # Client upload portal (PORT 5174)
-│   └── workspace/    # Staff management UI (PORT 5173)
-├── packages/
-│   ├── db/           # Prisma client + schema
-│   ├── shared/       # Zod schemas + TypeScript types
-│   └── ui/           # 11 shared components library
-└── .claude/          # Documentation & workflows
-```
-
-## Key Technologies
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 19, Vite 6, TanStack Router, Tailwind CSS 4 |
-| **Backend** | Hono, Node.js, TypeScript |
-| **Database** | PostgreSQL, Prisma ORM |
-| **UI Components** | shadcn/ui, Radix UI, class-variance-authority, lucide-react |
-| **Validation** | Zod |
-| **Package Manager** | pnpm |
-| **Orchestration** | Turbo |
-
-## Core Packages
-
-See [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) for detailed UI library docs.
-
-**@ella/db** - Database layer with 13 models, 12 enums, singleton connection pooling.
-**@ella/shared** - Validation schemas + TypeScript types via Zod.
-**@ella/ui** - 11-component shared library + Phase 03 shared components (FieldVerificationItem, ImageViewer, etc).
-
-## Core Applications
-
-### @ella/api
-**REST API (Hono framework, PORT 3002)** - 58+ endpoints across 9 modules with Zod validation, global error handling, OpenAPI docs, audit logging (Phase 01), deprecation headers (Phase 4).
-
-**Phase 4 New Files:**
-- `src/routes/engagements/index.ts` - TaxEngagement CRUD (GET list/detail, POST create with copy-from, PATCH update, DELETE, GET copy-preview)
-- `src/routes/engagements/schemas.ts` - Zod schemas for engagement validation (createEngagementSchema, updateEngagementSchema, listEngagementsQuerySchema)
-- `src/middleware/deprecation.ts` - RFC 8594 deprecation headers middleware (clientId→engagementId migration signals)
-
-**Phase 4 Enhancements:**
-- `src/services/audit-logger.ts` - Extended with logEngagementChanges() + computeEngagementDiff() for TaxEngagement tracking
-- `src/app.ts` - Registered /engagements routes with authMiddleware
-- `src/routes/cases/index.ts` - Added engagementId support (backward compat with clientId)
-- `src/routes/cases/schemas.ts` - Extended to support engagementId FK
-
-### @ella/portal
-**Client-facing upload portal (React, PORT 5174)** - Passwordless magic link auth, mobile-optimized (max 448px), file validation, real-time progress.
-
-**Phase 2 Redesign (2026-01-20):**
-- **MissingDocsList** - Clean list of required documents with XSS sanitization
-- **SimpleUploader** - Single big button native file picker (no drag-drop)
-- **Consolidated Route** - `/u/$token/` single-page experience (removed `/upload`, `/status` routes)
-- **i18n Enhanced** - New strings: docsNeeded, tapToUpload, uploadedSuccess, noDocsNeeded
-
-**Phase 3 Toast Integration (2026-01-20):**
-- **toastStore** (lib) - Lightweight toast notifications using useSyncExternalStore (no Zustand dependency), max 3 visible, deduplication (500ms window), SSR-safe, 3s auto-dismiss for success, 5s for errors
-- **ToastContainer** (component) - Mobile pill design at bottom center, stacking animation (scale/opacity for older toasts), icons: Check/X/Info, manual dismiss button
-- **Integration** - SimpleUploader uses `toast.success()` / `toast.error()` for upload feedback, ToastContainer mounted in `__root.tsx` layout
-- **Types:** success (mint), error (red), info (dark)
-
-See [Phase 2 UI Components](./phase-2-ui-components-portal.md) for detailed component docs.
-
-### @ella/workspace
-**Staff management dashboard (React, PORT 5173)** - Vietnamese-first UI, Zustand state, 20+ components, real-time polling.
-
-**Pages:**
-- `/clients/$clientId` - Client detail (4 tabs: Overview | Files | Checklist | Data Entry; Header "Tin nhắn" button with unread badge)
-
-**Features:**
-- 10s polling: active conversation
-- Copy-to-clipboard workflow (Phase 4.1)
-- 3-tab document workflow (Phase 04 Tabs)
-- 5s polling: classification updates on Documents tab (real-time status tracking)
-- Efficient unread count fetching via `/messages/:caseId/unread` endpoint (30s cache)
-
-See [detailed architecture guide](./system-architecture.md) for full API/data flow docs.
-
-## Frontend Voice Services
-
-### Phase 04 Frontend Incoming Call UI (NEW - 2026-01-22)
-
-**Location:** `apps/workspace/src/lib/api-client.ts`, `apps/workspace/src/lib/ring-sound.ts`, `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/incoming-call-modal.tsx`, `apps/workspace/src/components/voice/voice-call-provider.tsx`
-
-**New API Methods (api-client.ts - 5 methods):**
-1. `lookupCaller(phoneNumber: string): Promise<CallerLookupResponse>` - Retrieve caller info (name, conversation)
-2. `registerPresence(phoneNumber: string): Promise<PresenceResponse>` - Mark staff as online
-3. `unregisterPresence(): Promise<PresenceResponse>` - Mark staff as offline
-4. `heartbeat(): Promise<HeartbeatResponse>` - Keep presence alive (10s intervals)
-5. **Types:** CallerLookupResponse (caller name, conversationId), PresenceResponse (presenceId), HeartbeatResponse (success)
-
-**Ring Sound Generator (ring-sound.ts - NEW):**
-- Web Audio API oscillator-based ring tone (440Hz frequency)
-- Graceful fallback to HTMLAudioElement if Web Audio unavailable
-- Play/stop/volume control methods
-- No external dependencies, pure browser API
-
-**Twilio SDK Enhancements (twilio-sdk-loader.ts):**
-- Added `accept()` method to TwilioCall class
-- Added `reject()` method to TwilioCall class
-- Type-safe event handlers for accept/reject results
-- Error handling with Vietnamese messages
-
-**useVoiceCall Hook (use-voice-call.ts - Enhanced):**
-- **New State:** `incomingCall` (caller info), `callerInfo` (lookup result), `isRinging` (boolean)
-- **New Actions:**
-  - `acceptIncoming()` - Accept incoming call, stop ring tone
-  - `rejectIncoming()` - Reject call, stop ring tone
-- **Presence Tracking:** Automatic register on mount, heartbeat every 10s, unregister on unmount
-- **Mounted Guard:** Prevents hydration mismatches with useEffect flag
-- **Toast Notifications:** Success/error feedback for accept/reject actions
-- **Ring Tone Management:** Auto-play on incoming call, stop on accept/reject
-
-**IncomingCallModal Component (incoming-call-modal.tsx - NEW):**
-- **Layout:** Full-screen modal overlay with centered card
-- **Caller Display:**
-  - Large caller name from `callerInfo`
-  - Phone number formatted E.164
-  - "Tin nhắn đến từ..." Vietnamese header
-- **Action Buttons:**
-  - Green "Trả lời" (Accept) button - calls `acceptIncoming()`
-  - Red "Từ chối" (Reject) button - calls `rejectIncoming()`
-  - Both buttons disabled during processing
-- **Ring Animation:** Pulsing call icon during ring state
-- **Vietnamese UI:** All text labels in Vietnamese
-
-**VoiceCallProvider Context (voice-call-provider.tsx - NEW):**
-- Wraps app with global voice call state
-- Error boundary integration for crash safety
-- Re-exports useVoiceCall hook
-- Mounted on `__root.tsx` at app level
-
-**Integration Changes:**
-- `apps/workspace/src/routes/__root.tsx` - Wrapped with `<VoiceCallProvider>` at root level
-- `apps/workspace/src/routeTree.gen.ts` - Auto-updated by TanStack Router
-- `apps/portal/src/routeTree.gen.ts` - Auto-updated (portal routes unchanged)
-
-**Key Features:**
-- **Real-time Presence:** Staff heartbeat keeps session alive (10s interval)
-- **Caller Lookup:** Fetch caller name from conversation/unknown caller placeholder
-- **Type-Safe Events:** Twilio SDK accept/reject with proper TypeScript types
-- **Ring Tone UX:** Web Audio API with fallback to native audio
-- **Error Resilience:** Toast notifications for all failure scenarios
-- **Memory Safe:** Cleanup all intervals/listeners on unmount
-
-**Security:**
-- API endpoints use staff JWT auth
-- Caller lookup validates conversation ownership
-- Presence token expires with session
-
-## Backend Services
-
-### Voice API Service (Phase 01-03)
-
-**Location:** `apps/api/src/services/voice/`, `apps/api/src/routes/voice/`, `apps/api/src/routes/webhooks/twilio.ts`
-
-**See [phase-03-voicemail-system.md](./phase-03-voicemail-system.md) for Phase 03 Voicemail System details.**
-
-**Quick Summary:**
-- Phase 01: Backend token generation, TwiML routing, recording webhooks
-- Phase 02: Frontend browser calling + incoming call routing (rings staff browsers, voicemail routing)
-- Phase 03: Unknown caller support with placeholder conversation creation (NEW); voicemail-recording webhook enhanced; helper functions (findConversationByPhone, createPlaceholderConversation, formatVoicemailDuration, isValidE164Phone, sanitizeRecordingDuration); transaction-based race condition handling; 55 unit tests
-
-**Endpoints (6 total):**
-- `POST /voice/token` - Get access token (returns JWT with VoiceGrant)
-- `GET /voice/status` - Check availability (returns feature flags)
-- `POST /voice/calls` - Create call message (returns messageId)
-- `PATCH /voice/calls/:messageId` - Update with CallSid
-- `GET /voice/recordings/:recordingSid` - Recording metadata (auth required)
-- `GET /voice/recordings/:recordingSid/audio` - Proxy stream (Twilio auth, no client exposure)
-
-**Webhooks (6 total):**
-- `POST /webhooks/twilio/voice` - Outbound call routing (returns TwiML)
-- `POST /webhooks/twilio/voice/incoming` - Incoming call from customer (NEW Phase 02: routes to online staff)
-- `POST /webhooks/twilio/voice/dial-complete` - Staff ring timeout, route to voicemail (NEW Phase 02)
-- `POST /webhooks/twilio/voice/voicemail-recording` - Voicemail recording completion (NEW Phase 02)
-- `POST /webhooks/twilio/voice/recording` - Outbound recording completion callback
-- `POST /webhooks/twilio/voice/status` - Call status updates
-
-**Key Features:**
-- Staff JWT auth (microphone permission checks, token 5-min buffer)
-- Incoming call routing: Queries StaffPresence for online staff, rings all via Twilio Client (parallel dial)
-- Max 10 staff browsers per incoming call (Twilio limit)
-- 30-second ring timeout, auto-route to voicemail if no answer
-- Vietnamese voicemail prompts (Google Wavenet-A voice) with recording (120s max)
-- RecordingSid format validation (RE + 32 hex)
-- Database access control (only staff-created recordings)
-- Memory-efficient streaming (no full buffering)
-- HTTP caching 3600s for repeated plays
-- Vietnamese-first error messages
-- Rate limiting: 60 requests/minute per IP on webhooks
-- Signature validation: All webhooks validate Twilio HMAC-SHA1
-
-### Frontend Voice Calling (Phase 02 - NEW)
-
-**Location:** `apps/workspace/src/lib/twilio-sdk-loader.ts`, `apps/workspace/src/hooks/use-voice-call.ts`, `apps/workspace/src/components/messaging/`
-
-**Components (5):**
-1. **SDK Loader** - Lazy-loads CDN SDK, provides types, caches instance
-2. **useVoiceCall Hook** - Manages Device, call state, token refresh (5-min buffer), microphone checks, duration timer
-3. **CallButton** - Phone icon, shows spinner on load, disabled during active calls
-4. **ActiveCallModal** - Shows during call, displays duration, mute/end controls, focus trap
-5. **Message Bubble** - Added CALL channel support, displays call history
-
-**Key Features:**
-- Microphone permission check via getUserMedia
-- Token auto-refresh 5 min before expiry
-- Duration timer updates 1/sec during connected state
-- Error messages sanitized to Vietnamese UI text
-- Proper cleanup on unmount (device destroy, listeners removed, timers cleared)
-
-### Voice Recording Playback (Phase 03 - NEW)
-
-**Location:** `apps/api/src/routes/voice/index.ts` (2 endpoints) | `apps/workspace/src/components/messaging/audio-player.tsx` (player component)
-
-**Backend:**
-- `GET /voice/recordings/:recordingSid` - Metadata + proxied audio URL (auth required)
-- `GET /voice/recordings/:recordingSid/audio` - MP3 streaming proxy (Twilio credentials server-side)
-
-**Frontend AudioPlayer:**
-- Lazy loads audio on first play (not on render)
-- Play/pause toggle, seek bar, time display (M:SS format)
-- Error handling with Vietnamese messages
-- Proper cleanup on unmount (no memory leaks)
-
-**Message Integration:**
-- Embedded in CALL channel messages (if recordingUrl present)
-- Call status badges (completed/busy/no-answer/failed with color coding)
-- Duration display converted from recordingDuration seconds
-
-**Security:**
-- RecordingSid format validation (RE + 32 hex)
-- Database lookup verifies staff access
-- Twilio auth proxy (credentials never exposed to frontend)
-
-**Performance:**
-- Lazy loading: Saves bandwidth for non-played recordings
-- Streaming: No buffering (memory efficient)
-- HTTP cache: 3600s for repeated plays
-
-### Audit Logger Service (Phase 01 - NEW)
-
-**Location:** `apps/api/src/services/audit-logger.ts`
-
-**Purpose:** Field-level change tracking for compliance audits and data governance.
-
-**Core Functions:**
-- `logProfileChanges(clientId, changes[], staffId?)` - Async batch logging of field changes
-- `computeIntakeAnswersDiff(oldAnswers, newAnswers)` - Diff computation for intake answers
-- `computeProfileFieldDiff(oldProfile, newProfile)` - Direct field change detection
-
-**Features:**
-- Non-blocking: Fires as background task (doesn't slow API responses)
-- Field-level: Tracks individual changes, not entire records
-- Staff attribution: Tracks who made changes and when
-- Error resilient: Failures don't fail API requests
-
-**Database:** AuditLog model with entityType (CLIENT_PROFILE|CLIENT|TAX_CASE), field names, old/new values, staff attribution
-
-**Integration:** Used in `PATCH /clients/:id/profile` for intake answers & profile updates
-
-### Checklist Generator Service (Phase 01 Condition System - UPGRADED)
-
-**Location:** `apps/api/src/services/checklist-generator.ts` (~500 LOC)
-
-**Phase 01 Upgrade (2026-01-20):**
-- **Condition Types Framework** - 3-format support: legacy flat, simple with operators, compound AND/OR
-- **Compound Conditions** - Type: AND/OR with nested conditions array, max depth 3 (prevents stack overflow)
-- **Numeric Operators** - ===, !==, >, <, >=, <= for numeric/equality comparisons (legacy format had only strict equality)
-- **Type Guards** - `isSimpleCondition()`, `isCompoundCondition()`, `isLegacyCondition()`, `isValidOperator()` in `@ella/shared`
-- **Recursion Safe** - Depth tracking prevents DoS via deeply nested conditions
-- **Cascade Cleanup API** - `POST /clients/:id/cascade-cleanup` endpoint auto-cleans dependent answers when parent toggles false
-
-**New Cascade Cleanup Endpoint:**
-- Accepts: `{ changedKey: string, caseId?: string }`
-- Deletes dependent intake answers from `intakeAnswers` JSON
-- Removes MISSING checklist items with failed conditions (if caseId provided)
-- Returns: `{ deletedAnswers: string[], deletedItems: number }`
-- Prevents orphaned conditional data (e.g., if hasChildren=false, childAge answers deleted)
-
-**Condition Evaluation Flow:**
-1. Parse JSON (10KB max size limit for DoS protection)
-2. Dispatch to handler based on type (compound, simple, legacy)
-3. Compound: Recursive evaluation of AND/OR with depth tracking
-4. Simple: Operator comparison (actualValue vs expectedValue)
-5. Legacy: Implicit AND across all key-value pairs (backward compatible)
-
-**Test Suite (31 new tests):**
-- 8 compound AND/OR logic tests
-- 6 numeric operator tests (>, <, >=, <=, ===, !==)
-- 5 cascade cleanup tests (dependency detection, orphaned data)
-- 4 depth limit tests (recursion prevention)
-- 3 legacy format tests (backward compatibility)
-- 2 type guard tests
-- 3 edge cases (invalid JSON, missing keys, empty conditions)
-
-**Key Constants:**
-- `MAX_CONDITION_SIZE` = 10KB (JSON string limit)
-- `MAX_CONDITION_DEPTH` = 3 (max nesting levels)
-- `COUNT_MAPPINGS` - Maps doc type to intake answer count key (w2Count, rentalPropertyCount, k1Count)
-
-### Checklist Generator Service (Phase 03 - Expanded Templates)
-
-**Location:** `packages/db/prisma/seed-checklist-templates.ts` | `apps/api/src/services/checklist-generator.ts`
-
-**New Phase 03 DocTypes (9 additions, 60+ total types):**
-- `EV_PURCHASE_AGREEMENT` - Electric vehicle purchase documentation (tax credits)
-- `ENERGY_CREDIT_INVOICE` - Solar, insulation, home energy improvements
-- `CLOSING_DISCLOSURE` - HUD closing statement (home sale)
-- `FORM_8332` - Release of claim to exemption
-- `BALANCE_SHEET` - Business financial statements
-- `ARTICLES_OF_INCORPORATION` - Business formation docs
-- `OPERATING_AGREEMENT` - Business operating agreements
-- `MORTGAGE_POINTS_STATEMENT` - Deductible mortgage points
-- `EXTENSION_PAYMENT_PROOF` - Form 4868 / prior year extension
-
-**Checklist Templates Expansion:**
-- **New Count:** 92 templates (Phase 03 +13 new)
-- **New Categories:** home_sale, credits (energy), business_formation
-- **Template Categories (22 types):**
-  - personal (5): SSN, DL, passport, birth cert, ITIN
-  - employment (2): W2, W2G
-  - income_1099 (10): INT, DIV, NEC, MISC, K, R, G, SSA, B, S, C, SA, Q
-  - k1 (4): K1, K1_1065, K1_1120S, K1_1041
-  - health (4): 1095-A/B/C, 5498-SA
-  - education (2): 1098-T, 1098-E
-  - deductions (3): 1098, 8332, mortgage_points
-  - business (6): bank statement, P&L, balance sheet, business license, EIN, payroll
-  - receipts (6): generic, daycare, charity, medical, property tax, estimated tax
-  - home_sale (2): closing disclosure, lease agreement (NEW)
-  - credits (2): EV purchase, energy invoice (NEW)
-  - prior_year (2): prior return, extension proof (NEW)
-  - foreign (4): bank statement, tax statement, FBAR, 8938
-  - crypto (1): crypto statement
-  - business_formation (3): articles, operating agreement (NEW)
-
-**COUNT_MAPPINGS Expansion:**
-```typescript
-const COUNT_MAPPINGS = {
-  W2: 'w2Count',
-  SCHEDULE_K1: 'k1Count',
-  SCHEDULE_K1_1065: 'k1Count',
-  SCHEDULE_K1_1120S: 'k1Count',
-  SCHEDULE_K1_1041: 'k1Count',
-  RENTAL_STATEMENT: 'rentalPropertyCount'
-}
-```
-
-**Vietnamese Labels (All 92 templates):**
-Each template includes `labelVi`, `descriptionVi`, `hintVi` for full i18n support.
-
-### Checklist Generator Service (Phase 3 - Enhanced)
-
-**Location:** `apps/api/src/services/checklist-generator.ts`
-
-**Key Features:**
-- **ConditionContext:** Combines legacy profile fields + dynamic intakeAnswers JSON
-- **Priority System:** intakeAnswers checked first, fallback to profile fields (prevents data conflicts)
-- **Condition Evaluation:** AND logic across multiple keys, JSON size limit (10KB DoS protection)
-- **Dynamic Counts:** w2Count, rentalPropertyCount, k1Count read from intakeAnswers
-- **Defaults:** Bank statements 12 months, others template expectedCount or 1
-- **Type Validation:** intakeAnswers validated as plain object (rejects arrays/primitives)
-- **Refresh Flow:** Preserves VERIFIED items, re-evaluates MISSING items on profile updates
-
-**Functions:**
-- `generateChecklist(caseId, taxTypes[], profile)` - Create checklist items from templates
-- `refreshChecklist(caseId)` - Re-evaluate MISSING items after profile/intakeAnswers change
-
-**Unit Tests (15):** Condition evaluation, intakeAnswers priority, AND logic, count mappings, invalid JSON, DoS protection, refresh flow
-
-### AI Classification & Document Processing
-
-**Locations:**
-- Classification Prompt: `apps/api/src/services/ai/prompts/classify.ts`
-- Classifier Service: `apps/api/src/services/ai/document-classifier.ts`
-- OCR Extraction: `apps/api/src/services/ai/ocr-extractor.ts`
-- PDF Conversion: `apps/api/src/services/pdf/pdf-converter.ts`
-
-### Document Classification (Phase 01 - Enhanced)
-
-**Function:** `classifyDocument(imageBuffer, mimeType): Promise<DocumentClassificationResult>`
-
-**Classification Enhancements (2026-01-16):**
-- **6 Few-Shot Examples:** W-2, SSN Card, 1099-K, 1099-INT, 1099-NEC, Driver's License with confidence scores
-- **Vietnamese Name Handling:** Family name FIRST, common surnames, ALL CAPS format, middle names
-- **Confidence Calibration:** HIGH (0.85-0.95), MEDIUM (0.60-0.84), LOW (<0.60), UNKNOWN (<0.30)
-- **Alternativeypes:** Included when confidence <0.80 to help reviewers
-
-**Supported Document Types (60+ types + UNKNOWN):**
-Includes: ID (3), Employment (2), 1099-Series (13), K-1 (4), Health (4), Education (2), Deductions (2), Business (10), Receipts (6), Home Sale (2), Credits (2), Prior Year (2), Foreign (4), Crypto (1), Other (2).
-
-**Phase 03 Additions (9 new):**
-EV_PURCHASE_AGREEMENT, ENERGY_CREDIT_INVOICE, CLOSING_DISCLOSURE, FORM_8332, BALANCE_SHEET, ARTICLES_OF_INCORPORATION, OPERATING_AGREEMENT, MORTGAGE_POINTS_STATEMENT, EXTENSION_PAYMENT_PROOF.
-
-**Vietnamese Classification Labels (Phase 03):**
-All 60+ DocTypes now have Vietnamese labels in classifier service for bilingual support.
-
-**Performance:** 2-5s per image
-
-### PDF Converter Service (Phase 01 - Enhanced Phase 3)
-
-**Function:** `convertPdfToImages(pdfBuffer): Promise<PdfConversionResult>`
-- 200 DPI PNG rendering for optimal OCR & classification accuracy
-- Magic bytes validation + encryption detection
-- 20MB size limit, 10-page maximum, auto temp cleanup
-- Vietnamese error messages (INVALID_PDF, ENCRYPTED_PDF, TOO_LARGE, TOO_MANY_PAGES)
-
-**Phase 3 Enhancement (2026-01-17):**
-- Now used in classification pipeline (Step 2: fetch-image)
-- PDF first page converted to PNG before Gemini classification
-- Solves API compatibility - Gemini may reject raw PDF input
-- Matches OCR extractor behavior for consistency
-
-### OCR Extraction Service (Phase 02 - Enhanced Phase 2 Priority 1)
-
-**Function:** `extractDocumentData(buffer, mimeType, docType): Promise<OcrExtractionResult>`
-- **Single Images:** Direct Gemini vision → JSON data + confidence score
-- **Multi-Page PDFs:**
-  - Auto-converts each page to PNG
-  - Processes each page independently through OCR
-  - **Intelligent Merge:** Later pages override earlier values (handles amendments)
-  - **Weighted Confidence:** Confidence weighted by field contribution across pages
-  - Returns: `pageCount`, `pageConfidences[]`, merged `extractedData`
-
-**OCR Extraction Strategy (Exclusion-Based):**
-Excludes 9 types: PASSPORT, PROFIT_LOSS_STATEMENT, BUSINESS_LICENSE, EIN_LETTER, RECEIPT, BIRTH_CERTIFICATE, DAYCARE_RECEIPT, OTHER, UNKNOWN. All other types require OCR.
-
-**Phase 2 Priority 1 - New Document Types (2026-01-17):**
-- **FORM_1099_K** - Payment Card Transactions (Square, Clover, PayPal)
-- **SCHEDULE_K1** - Partnership Income (K-1 forms)
-- **BANK_STATEMENT** - Business Cash Flow documentation
-
-**Phase 3 - Extended OCR Support (2026-01-17):**
-- **FORM_1099_DIV** - Dividends and distributions
-- **FORM_1099_R** - Retirement distributions (IRAs, pensions, annuities)
-- **FORM_1099_SSA** - Social Security benefits
-- **FORM_1098** - Mortgage interest and property taxes
-- **FORM_1095_A** - Health insurance marketplace coverage
-
-**Phase 4 Priority 3 - OCR Expansion (2026-01-17 NEW):**
-- **FORM_1098_T** - Tuition statements, education credits
-- **FORM_1099_G** - Government payments, unemployment compensation
-- **FORM_1099_MISC** - Miscellaneous income (rents, royalties, other)
-
-**Supported OCR Prompts (16 total):**
-- `prompts/ocr/w2.ts` - W-2 employment income
-- `prompts/ocr/1099-int.ts` - Interest income
-- `prompts/ocr/1099-nec.ts` - Contractor compensation
-- `prompts/ocr/1099-k.ts` - Payment card transactions
-- `prompts/ocr/k-1.ts` - Partnership income
-- `prompts/ocr/bank-statement.ts` - Business cash flow
-- `prompts/ocr/1099-div.ts` - Dividends
-- `prompts/ocr/1099-r.ts` - Retirement distributions
-- `prompts/ocr/1099-ssa.ts` - Social Security benefits
-- `prompts/ocr/1098.ts` - Mortgage interest
-- `prompts/ocr/1095-a.ts` - Health insurance marketplace
-- `prompts/ocr/1098-t.ts` (NEW Phase 4 P3) - Education credits
-- `prompts/ocr/1099-g.ts` (NEW Phase 4 P3) - Government payments
-- `prompts/ocr/1099-misc.ts` (NEW Phase 4 P3) - Miscellaneous income
-- `prompts/ocr/ssn-dl.ts` - SSN card & driver's license
-
-**Performance:** +500ms per page for PDFs
-
-**Testing:** 20+ unit tests covering single/multi-page, merging, confidence weighting
-
-See [Phase 01 PDF Converter documentation](./phase-01-pdf-converter.md) for full details.
-
-## Development Quick Start
-
-```bash
-pnpm install
-pnpm -F @ella/db generate && pnpm -F @ella/db push && pnpm -F @ella/db seed
-turbo run dev    # All apps in parallel
-turbo lint       # ESLint
-pnpm format      # Prettier
-pnpm type-check  # TypeScript
-```
-
-## Environment Variables
-
-**Required:** `DATABASE_URL=postgresql://...`
-
-**Auth (Phase 3):** `JWT_SECRET`, `JWT_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_DAYS`
-
-**AI (Phase 2.1):** `GEMINI_API_KEY`, `GEMINI_MODEL`, `AI_BATCH_CONCURRENCY`
-- Health endpoint reports model availability (Phase 02)
-- Startup validation runs non-blocking on server start
-- Cached status accessible via `GET /health` → `gemini` field
-
-**SMS (Phase 3.1):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
-
-See [phase-02-api-endpoints.md](./phase-02-api-endpoints.md) for full environment reference.
-
-## Field Reference System (Phase 05 - Updated 2026-01-17)
-
-**Purpose:** Centralized field mappings and Vietnamese labels for document type verification workflow.
-
-**Files:**
-- `apps/workspace/src/lib/doc-type-fields.ts` - Field arrays for each document type (18 types)
-- `apps/workspace/src/lib/field-labels.ts` - Vietnamese labels for 200+ extracted data fields
-
-**1099-NEC Field Update (Phase 3 - 2026-01-17):**
-- Expanded from 6 to 18 fields
-- Added payer/recipient full info (address, phone, TIN/SSN)
-- Flattened state tax array (state, statePayerStateNo, stateIncome)
-- Updated field casing to match OCR schema (payerTIN, recipientTIN)
-
-**Verification Modal Integration:**
-- Uses `getFieldLabel(docType, fieldKey)` for display
-- Flattens nested `stateTaxInfo` arrays automatically
-- Supports 24+ document types with type-safe field references
-
-See [phase-05-verification-modal.md](./phase-05-verification-modal.md) for detailed field mappings and verification workflow.
-
-## Phase 3 Schema Cleanup - Engagement Isolation (NEW - 2026-01-26)
-
-**Location:** `packages/db/prisma/schema.prisma`, `apps/api/src/services/engagement-helpers.ts`, `packages/db/scripts/verify-phase2.ts`, `packages/db/scripts/verify-phase3.ts`
-
-**Summary:** Enforces TaxEngagement model as primary data source; deprecates ClientProfile single-year context.
-
-**Key Changes:**
-
-1. **TaxCase.engagementId Constraint** - NOW REQUIRED (was nullable)
-   - All TaxCases MUST link to TaxEngagement
-   - onDelete: Cascade (deleting engagement cascades to cases)
-   - Prevents orphaned records
-   - DB constraint enforced at schema level
-
-2. **ClientProfile Deprecation** - Marked read-only
-   - Legacy single-year profile maintained for backward compatibility
-   - All new operations use TaxEngagement profile snapshots
-   - Data reads from engagement's year-specific fields (filingStatus, hasW2, etc.)
-   - intakeAnswers now primary in TaxEngagement, not ClientProfile
-
-3. **Engagement Helper Service** (`engagement-helpers.ts` - NEW)
-   - `findOrCreateEngagement(tx, clientId, taxYear, profile?)` - Locates engagement or creates with profile copy
-   - Returns: `{ engagementId, isNew: boolean }`
-   - Used in case creation routes (cases/, clients/, voice/voicemail-helpers)
-   - Ensures all cases linked to engagement atomically
-
-4. **Route Layer Updates** (6 files)
-   - `apps/api/src/routes/cases/index.ts` - POST /cases uses findOrCreateEngagement
-   - `apps/api/src/routes/clients/index.ts` - POST /clients creates engagement + case atomically
-   - `apps/api/src/services/voice/voicemail-helpers.ts` - Placeholder conversation uses engagement
-   - All routes assume engagementId present on TaxCase
-   - No fallback to clientId-only queries
-
-5. **Verification Scripts** (NEW)
-   - `verify-phase2.ts` - Pre-Phase 3 checks: all cases linked, no orphaned engagements
-   - `verify-phase3.ts` - Post-Phase 3 checks: schema constraints satisfied, cascade tested
-   - Run via: `pnpm -F @ella/db run verify:phase2` and `verify:phase3`
-
-**Data Flow Change:**
-
-Old (Phase 1-2):
-```
-TaxCase → (nullable) engagementId → TaxEngagement
-       ↘ (fallback) clientId → ClientProfile
-```
-
-New (Phase 3):
-```
-TaxCase → (required) engagementId → TaxEngagement
-            (profile snapshot with year-specific data)
-```
-
-**Migration Path:** Phase 2 backfill script (`backfill-engagements.ts`) must run before Phase 3 deployment.
-
-## Phase 1 Schema Migration - Multi-Year Support (2026-01-25)
-
-**Location:** `packages/db/prisma/schema.prisma`
-
-**Summary:** Introduced TaxEngagement model for multi-year client support with per-year profile snapshots and engagement lifecycle tracking.
-
-**Key Additions:**
-
-1. **EngagementStatus Enum** - Client engagement state tracking
-   - `DRAFT` - Engagement created, intake not complete
-   - `ACTIVE` - Intake complete, work in progress
-   - `COMPLETE` - All tax cases filed
-   - `ARCHIVED` - Past year, read-only
-
-2. **TaxEngagement Model** - Year-specific profile & engagement
-   - Unique constraint: `(clientId, taxYear)` - One engagement per year per client
-   - Profile fields: Copied from ClientProfile (filingStatus, hasW2, etc.) for year-specific snapshots
-   - `intakeAnswers (JSON)` - Year-specific intake responses
-   - `status (EngagementStatus)` - Current engagement state
-   - Relations: `taxCases (1:many)` - Tax forms for this year
-   - Indexes: (clientId), (taxYear), (status), (clientId, status) for efficient filtering
-
-3. **Client Model Update**
-   - Added `engagements TaxEngagement[]` relation (1:many)
-   - Maintains backward compatibility with existing single-year workflow
-
-4. **TaxCase Model Update**
-   - Added `engagementId String?` (nullable FK to TaxEngagement)
-   - Backward compatible: existing records null, new records link to engagement
-   - New indexes: (engagementId), (engagementId, status), (engagementId, lastActivityAt)
-   - Will become required in Phase 3
-
-5. **AuditEntityType Enum**
-   - Added `TAX_ENGAGEMENT` for audit trail tracking
-
-**Migration Strategy:**
-- **Phase 1 (Current):** Backward compatible, engagementId nullable
-- **Phase 2 (Future):** Add endpoint to create new-year engagements
-- **Phase 3 (Future):** Make engagementId required, drop single-year association
-
-**Benefits:**
-- Multi-year client support with separate profiles
-- Year-specific intake answers preserved per engagement
-- Engagement lifecycle tracking (DRAFT→ACTIVE→COMPLETE→ARCHIVED)
-- Historical data retention for compliance
-- Efficient queries via composite indexes
-
-## Phase 2 Data Migration - Backfill Engagements (NEW - 2026-01-25)
-
-**Location:** `packages/db/scripts/backfill-engagements.ts`
-
-**Purpose:** Migrate existing TaxCase data to multi-year engagement model by creating TaxEngagement records and linking cases.
-
-**Script Features:**
-- **Input:** All TaxCases without engagementId
-- **Grouping:** By (clientId, taxYear) composite key
-- **Engagement Creation:** One per unique pair, copies ClientProfile data to TaxEngagement
-- **Status Assignment:** Auto-calculated (DRAFT|ACTIVE|COMPLETE based on case states)
-- **Atomicity:** Transaction-based updates (prevents partial commits)
-- **Verification Suite (4 checks):**
-  1. No orphaned TaxCases (null engagementId)
-  2. Engagement count matches unique (clientId, taxYear) pairs
-  3. No referential integrity violations
-  4. No duplicate (clientId, taxYear) in TaxEngagement
-
-**Usage:** `pnpm -F @ella/db run backfill:engagements` (from root)
-
-**Statistics Logged:** Engagements created, cases linked, errors encountered
-
-## Recent Feature: Client Messages Tab (NEW - 2026-01-15)
-
-**Location:** `apps/workspace/src/components/client-detail/`
-
-**Component:** `ClientMessagesTab` (~210 LOC)
-- SMS-only messaging within client detail page
-- 10s polling (only when tab active)
-- Race condition protection via fetch ID tracking
-- Reuses MessageThread + QuickActionsBar
-- Error handling + retry button
-- Vietnamese UI
-
-See [Client Messages Tab Feature](./client-messages-tab-feature.md) for full details.
-
-## Recent Feature: Phase 02 Intake Questions Expansion (NEW - 2026-01-20)
-
-**Location:** `packages/shared/src/types/intake-answers.ts` | `packages/db/prisma/seed-intake-questions.ts` | `apps/workspace/src/components/clients/`
-
-**Scope: +70 Missing CPA Questions from PDF Guides**
-
-**IntakeAnswers Type Expansion (~40 new fields):**
-
-New categories:
-- **Prior Year / Filing (7):** hasExtensionFiled, estimatedTaxPaid, estimatedTaxAmountTotal, estimatedTaxPaidQ1-Q4, priorYearAGI
-- **Income - Employment (3):** w2Count, has1099NEC, num1099Types, hasJuryDutyPay
-- **Home Sale (5):** homeSaleGrossProceeds, homeSaleGain, monthsLivedInHome, homeOfficeSqFt, homeOfficeMethod (SIMPLIFIED|REGULAR)
-- **Rental Income (4):** rentalPropertyCount, rentalMonthsRented, rentalPersonalUseDays, k1Count
-- **Dependents (4):** numDependentsCTC, daycareAmount, childcareProviderName, childcareProviderEIN
-- **Deductions (5):** helocInterestPurpose (HOME_IMPROVEMENT|OTHER), noncashDonationValue, medicalMileage, hasCasualtyLoss
-- **Credits (3):** energyCreditInvoice, hasRDCredit
-- **Foreign (4):** fbarMaxBalance, feieResidencyStartDate, feieResidencyEndDate, foreignGiftValue
-
-**New Form Sections (18 total, 2 new):**
-- `prior_year` - Extension, estimated tax payments by quarter, prior year AGI
-- `filing` - Delivery preference (EMAIL|MAIL|PICKUP), refund routing details
-
-**Seed Data Expansion (116 total questions, +50):**
-- Form 1040 base questions (filing status, refund method, tax year)
-- Prior year section (7 questions with conditional visibility)
-- Filing/delivery section (3 questions)
-- Estimated tax Q1-Q4 breakdown (conditional on estimatedTaxPaid=true)
-- All sections now include Vietnamese labels + hints
-
-**Component Optimization:**
-- **IntakeQuestion** - Added React.memo for performance with 100+ questions
-  - Prevents unnecessary re-renders on form value changes
-  - Memoization key: questionKey, fieldType, fieldValue changes
-  - Comment: "Memoized for performance with 100+ questions"
-- Export pattern: `export const IntakeQuestion = memo(function IntakeQuestion({...}))`
-
-**Numeric Validation Enhancements:**
-- Estimated tax Q1-Q4 hints specify: "Nhập giá trị từ 0 - 99,999,999" (input 0 - 99,999,999)
-- Number fields constrained via fieldType validation (0-99 internally for age/count fields)
-
-**Validation Schema Updates (@ella/shared):**
-- intakeAnswersSchema now validates 40+ optional fields
-- Size limit: 50KB JSON string (intake answers)
-- Type constraints: boolean | number | string | undefined
-
-**Backward Compatibility:**
-- Dynamic [key: string] property in IntakeAnswers interface allows custom fields
-- parseIntakeAnswers() safe-parses JSON with fallback to empty object
-- Condition evaluation supports legacy format (Phase 01 compatible)
-
-See [Phase 2 - Checklist & Questionnaire Redesign](./phase-2-checklist-questionnaire-redesign.md) for form details.
-
-## Recent Feature: Phase 4 Checklist Display Enhancement (NEW - 2026-01-19)
-
-**Location:** `apps/workspace/src/components/cases/`
-
-**Components (3 new):**
-1. **ChecklistProgress** (~50 LOC) - Visual progress bar showing completion %, status breakdown (Missing, Has Raw, Has Digital, Verified, Not Required)
-2. **TieredChecklist** (~350+ LOC) - Main 3-tier checklist (Required/Applicable/Optional) with staff actions (skip, unskip, view, add notes), file preview integration, expandable sections
-3. **AddChecklistItemModal** (~140 LOC) - Form modal for staff to add manual items, document type dropdown, optional reason (500 char), expected count (1-99)
-
-**API Endpoints (4 new):**
-- `POST /cases/:id/checklist/items` - Add manual checklist item
-- `PATCH /cases/:id/checklist/items/:itemId/skip` - Skip item (mark NOT_REQUIRED)
-- `PATCH /cases/:id/checklist/items/:itemId/unskip` - Restore skipped item (smart status inference)
-- `PATCH /cases/:id/checklist/items/:itemId/notes` - Update item notes
-
-**Database Schema Updates:**
-- ChecklistItem: Added `isManuallyAdded`, `addedById`, `addedReason`, `skippedAt`, `skippedById`, `skippedReason` fields
-- Staff: Added relations to track AddedChecklistItems, SkippedChecklistItems
-- Composite index: `[caseId, status]` for efficient queries
-
-**Constants Library:**
-- `checklist-tier-constants.ts` - CHECKLIST_TIERS (3 tiers with Vietnamese labels + colors), CHECKLIST_STATUS_DISPLAY (5 statuses)
-
-**Tier Categorization Logic:**
-- Required: `isRequired=true` AND no condition
-- Applicable: Has conditional logic
-- Optional: `isRequired=false` AND no condition
-
-**API Client Methods:**
-- `addChecklistItem(caseId, data)` - POST new item
-- `skipChecklistItem(caseId, itemId, reason)` - PATCH skip
-- `unskipChecklistItem(caseId, itemId)` - PATCH unskip (auto-infers status)
-- `updateChecklistItemNotes(caseId, itemId, notes)` - PATCH notes
-
-See [Phase 4 - Checklist Display Enhancement](./phase-4-checklist-display-enhancement.md) for full details.
-
-## Recent Feature: Phase 5 Admin Settings Polish (NEW - 2026-01-19)
-
-**Location:** `apps/api/src/routes/admin/`
-
-**Validators (2 new):**
-1. **jsonStringSchema** - Validates JSON strings with 2000 char size limit (DoS protection)
-2. **conditionJsonSchema** - Validates condition objects: `{ key: boolean | string | number }` (rejects arrays/primitives)
-
-**API Endpoints (3 modules):**
-- Intake Questions CRUD: `GET/POST/PUT/DELETE /admin/intake-questions`
-- Checklist Templates CRUD: `GET/POST/PUT/DELETE /admin/checklist-templates`
-- Doc Type Library CRUD: `GET/POST/PUT/DELETE /admin/doc-type-library`
-
-**Test Suite (29 tests):**
-- 8 intake question tests (filtering, CRUD, invalid JSON)
-- 5 checklist template tests (CRUD, preserve immutable fields)
-- 3 doc type library tests (CRUD with aliases/keywords)
-- 13 schema validation tests (JSON format, size limits, type safety)
-
-**Admin UI Tabs (4):**
-- Appearance - UI theme settings
-- Checklist - Checklist template management
-- Questions - Intake question management
-- Doc Library - Document type library management
-
-See [Phase 5 - Admin Settings Polish](./phase-5-admin-settings-polish.md) for full details.
-
-## Recent Feature: Phase 05 Testing & Validation (NEW - 2026-01-20)
-
-**Location:** `apps/api/src/services/__tests__/` | `apps/api/src/services/ai/__tests__/`
-
-**Test Coverage Summary:**
-
-### Checklist Generator Tests (Phase 05 Expansion - 16 NEW)
-**File:** `apps/api/src/services/__tests__/checklist-generator.test.ts` (~1,310 LOC)
-**Framework:** Vitest with Prisma mocking
-**Total Tests:** 46 tests across 3 describe blocks
-
-**New Phase 05 Test Categories:**
-
-1. **Count-Based Items (5 tests)** - Dynamic document counts from intake answers
-   - `rentalPropertyCount` for RENTAL_STATEMENT, LEASE_AGREEMENT
-   - `k1Count` for SCHEDULE_K1 variants
-   - `num1099NECReceived` for FORM_1099_NEC
-   - Template default fallback when count not provided
-   - Zero/negative count rejection
-
-2. **Research-Based Scenarios (5 tests)** - Real-world tax situations
-   - Simple W2 employee: SSN, ID, W2 documents
-   - Self-employed with vehicle: Mileage log + compound conditions
-   - Foreign accounts above FBAR threshold (>$10,000)
-   - Foreign accounts below threshold (excluded)
-   - Multiple rental properties: Sets expectedCount correctly
-
-3. **Profile Fallback Behavior (3 tests)** - Priority resolution
-   - intakeAnswers takes priority over legacy profile fields
-   - Fallback to profile when key not in intakeAnswers
-   - Returns false when key in neither source
-
-4. **Performance Tests (2 tests)**
-   - 100 templates with various condition types (<100ms)
-   - Deeply nested OR with 10 conditions (<50ms)
-
-5. **Prior Tests (31):** Condition evaluation, AND/OR logic, operators, nested conditions, depth limits, etc.
-
-**Mock Setup:**
-- Mocked `prisma.checklistTemplate.findMany()`, `prisma.checklistItem.createMany()`, `prisma.taxCase.findUnique()`
-- Helper: `createMockProfile()`, `createMockTemplate()` factories
-
-**Key Test Insights:**
-- Tests validate intakeAnswers as primary data source
-- Confirms count-based items (w2Count=3 → 3 expected W-2s)
-- Validates compound AND/OR condition evaluation (max depth 3)
-- Performance baseline: <100ms for 100 templates
-
-### Classification Prompt Tests (Phase 05 Expansion - DOC TYPE COUNT: 24 → 64)
-**File:** `apps/api/src/services/ai/__tests__/classification-prompts.test.ts` (~380 LOC)
-**Framework:** Vitest
-**Total Tests:** 32 tests across 3 describe blocks
-
-**Test Structure:**
-
-1. **Few-Shot Examples (6 tests)**
-   - W-2 Form with title & wage boxes
-   - SSN Card
-   - 1099-K payment card
-   - 1099-INT interest income
-   - 1099-NEC contractor income
-   - Driver License
-
-2. **Vietnamese Name Handling (3 tests)**
-   - Includes VIETNAMESE NAME HANDLING section
-   - Lists common surnames (Nguyen, Tran, Le, Pham)
-   - Explains family name FIRST convention
-
-3. **Confidence Calibration (4 tests)**
-   - HIGH: 0.85-0.95
-   - MEDIUM: 0.60-0.84
-   - LOW: <0.60
-   - Never > 0.95 guidance
-
-4. **Document Types (7 tests)**
-   - All major categories (ID, TAX FORMS, BUSINESS)
-   - All 1099 variants (INT, DIV, NEC, MISC, K, R, G, SSA)
-   - ID types (SSN_CARD, DRIVER_LICENSE, PASSPORT)
-   - Deduction forms (1098, 1098_T, 1095_A)
-   - Business docs (BANK_STATEMENT, SCHEDULE_K1)
-
-5. **JSON Response Format (2 tests)**
-   - Specifies JSON format requirement
-   - Includes docType, confidence, reasoning, alternativeTypes
-
-6. **Classification Rules (2 tests)**
-   - 1099 variant verification
-   - CORRECTED checkbox detection
-
-7. **Validation Tests (8 tests)**
-   - Valid classification results
-   - Results with alternativeTypes
-   - UNKNOWN docType handling
-   - Confidence boundary tests (0, 1)
-   - Invalid results (wrong type, out-of-range confidence)
-   - Missing required fields (docType, confidence, reasoning)
-
-**SUPPORTED_DOC_TYPES Count Update:**
-- **Phase 04/03:** 24 types → **Phase 05:** 64 types (COMPREHENSIVE INTAKE COVERAGE)
-- Test verifies exact count: `expect(SUPPORTED_DOC_TYPES.length).toBe(64)`
-- Includes: ID (3), Income Forms (10), K-1 (4), Deductions (3), Business (4), Receipts (6), Home Sale (2), Credits (2), Prior Year (2), Foreign (4), Crypto (1), Other (2)
-
-**Validation Schema:**
-- Type safety via TypeScript enums
-- Field presence checks (docType, confidence, reasoning required)
-- Type constraints (string docType, number confidence 0-1, string reasoning)
-- Null/undefined rejection
-
-## Recent Feature: Phase 02 Section Edit Modal (NEW - 2026-01-20)
-
-**Location:** `apps/workspace/src/components/clients/` | `apps/workspace/src/lib/`
-
-**New Files:**
-1. **intake-form-config.ts** - Centralized intake form configuration
-   - `SECTION_CONFIG` - 18 sections with Vietnamese labels (personal_info, prior_year, filing, etc.)
-   - `FIELD_CONFIG` - 95+ fields with labels, sections, formats, and options
-   - `SELECT_LABELS` - Display labels for enum values (homeOfficeMethod, accountingMethod, etc.)
-   - `NON_EDITABLE_SECTIONS` - Read-only sections (personal_info, tax_info)
-   - Helper: `formatToFieldType()` - Converts format type to IntakeQuestion fieldType
-
-2. **SectionEditModal** (~200 LOC) - Modal component for editing section data
-   - Props: `isOpen`, `onClose`, `sectionKey`, `client`
-   - Features: Re-uses IntakeQuestion component, dirty tracking, Escape key handling
-   - Integration: Uses `api.clients.updateProfile()` for saving
-   - UX: Toast notifications, error display, submit button disabled during save
-   - Supports all field types: BOOLEAN, NUMBER, CURRENCY, NUMBER_INPUT, SELECT, TEXT
-
-3. **api-client.ts** - Added new method
-   - `updateProfile(clientId, data: UpdateProfileInput)` - PATCH /clients/:id/profile
-   - Input: `{ intakeAnswers: Record<string, boolean|number|string> }`
-
-**ClientOverviewSections** - Enhanced with edit capability
-- Added edit icons next to section titles (Pencil icon)
-- Integrates SectionEditModal for field editing
-- State: `editingSectionKey` tracks active editing modal
-- Click handler: Opens modal for that section
-
-**Usage Pattern:**
-```typescript
-const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null)
-// In section header:
-<button onClick={() => setEditingSectionKey(sectionKey)}>
-  <Pencil className="w-4 h-4" />
-</button>
-// Render modal:
-<SectionEditModal
-  isOpen={editingSectionKey === sectionKey}
-  onClose={() => setEditingSectionKey(null)}
-  sectionKey={editingSectionKey || ''}
-  client={client}
-/>
-```
-
-**Integration with Audit Logging:**
-- Section edits trigger `PATCH /clients/:id/profile` endpoint
-- Backend logs all field changes via audit logger service (Phase 01)
-- Staff attribution tracked automatically
-
-## Recent Feature: Phase 03 Quick-Edit Icons (NEW - 2026-01-20)
-
-**QuickEditModal** - Mini modal for inline editing (name, phone, email)
-- Wrapper pattern ensures fresh state on each open
-- Field-specific validation: Name (2-100), Phone (E.164 +1+10 digits), Email (RFC 5322)
-- Accessibility: ARIA labels, keyboard shortcuts (Enter/Escape), auto-focus
-- API: Uses `api.clients.update()` with React Query cache invalidation
-- Styling: Fixed overlay, compact max-width 448px, disabled button states
-
-## Recent Feature: Phase 05 Security Enhancements (NEW - 2026-01-20)
-
-**2 Security Hardening Areas:**
-
-1. **Prototype Pollution Prevention:** DANGEROUS_KEYS blocklist (__proto__, constructor, prototype, etc.) validated in updateProfileSchema
-2. **XSS Prevention:** All string values sanitized via `sanitizeTextInput(value, 500)` before merge
-
-## Recent Feature: Phase 04 Checklist Recalculation Integration (UPDATED - 2026-01-20)
-
-**Location:** `apps/workspace/src/lib/api-client.ts` | `apps/workspace/src/components/clients/section-edit-modal.tsx`
-
-**API Response Enhancement:**
-- **UpdateProfileResponse Interface** - New response type for profile update endpoint (POST /clients/:id/profile)
-  - `profile: ClientProfile` - Updated client profile
-  - `checklistRefreshed: boolean` - Indicates if checklist was regenerated
-  - `cascadeCleanup.triggeredBy: string[]` - Field keys that triggered cascade cleanup
-  - Backend handles: Evaluates conditions on intakeAnswers change, regenerates checklist items, cascades cleanup of dependent answers
-
-**Frontend Integration:**
-- **SectionEditModal** - Enhanced with checklist query invalidation
-  - onSuccess handler: Invalidates `['checklist', activeCaseId]` query when `response.checklistRefreshed=true`
-  - Toast feedback: Shows "Checklist đã được cập nhật theo thay đổi" if cascade cleanup triggered
-  - Pattern: Optimistic UI + server-driven refresh status (avoids unnecessary re-queries)
-- **Query Invalidation Pattern:** React Query `invalidateQueries()` ensures stale checklist data refreshed on next fetch
-- **User Feedback:** Two-tier toast system: main success + optional info toast for cascade events
-- **Integration with Phase 05 Security:** Works seamlessly with XSS sanitization and prototype pollution prevention
-
-## Recent Feature: Phase 04 UX Improvements (UPDATED - 2026-01-20)
-
-**Location:** `apps/workspace/src/components/` | `apps/workspace/src/hooks/`
-
-**6 Components + 1 Hook:**
-- **IntakeProgress** - Visual progress bar for intake form completion %
-- **IntakeRepeater** - Count-based repeater blocks (rental properties, K-1s, W-2s) with XSS sanitization
-- **MultiSectionIntakeForm** - Smart auto-expand logic via SECTION_TRIGGERS mapping
-- **TieredChecklist** - Context label mappings for multi-entity doc types (rental/K1/W2 badges)
-- **SaveIndicator** - Saving/pending/error status with fixed|inline positioning
-- **SkipItemModal** - Reason textarea modal for checklist item skip
-- **useDebouncedSave Hook** - Debounced save with saveNow immediate action, unmount cleanup
-
-## Recent Feature: Client Floating Chatbox (NEW - 2026-01-21)
-
-**Location:** `apps/workspace/src/components/chatbox/`
-
-**Components (3 new):**
-
-1. **FloatingChatbox** (~145 LOC) - Main Facebook Messenger-style popup
-   - **Props:** `caseId`, `clientName`, `clientPhone`, `clientId`, `unreadCount`, `onUnreadChange`
-   - **Features:**
-     - Fixed position bottom-right with z-50
-     - Smooth slide-in animation (bottom-4 fade-in 200ms)
-     - 15s polling for new messages when open (balanced performance)
-     - Reuses existing `MessageThread` (320px height) + `QuickActionsBar` components
-     - Escape key handler for accessibility
-   - **State:** `isOpen` toggle, message mutations (send/fetch)
-   - **Integration:** Mounted on client detail page (route: `$clientId.tsx`)
-   - **Window Size:** 360px width, 500px max height (mobile-responsive)
-
-2. **ChatboxButton** (~40 LOC) - Floating action button
-   - **Features:**
-     - Circular button (w-14 h-14) with MessageCircle icon
-     - Unread badge (red, animated pulse, shows "99+" if >99)
-     - Hover scale animation (105%) + focus ring
-     - Aria labels in Vietnamese
-   - **Props:** `unreadCount`, `isOpen`, `onClick`, `className`
-
-3. **ChatboxHeader** (~90 LOC) - Header with client info
-   - **Features:**
-     - Gradient background (primary colors)
-     - Client avatar (initials, white/20 bg)
-     - Client name + phone display (truncated)
-     - Action buttons: Call (optional), Minimize, Close
-     - All buttons use white icons with hover (white/10 bg)
-   - **Props:** `clientName`, `clientPhone`, `onMinimize`, `onClose`, `onCall`
-
-**Integration in Client Detail Page:**
-- Wrapped in `ErrorBoundary` for crash protection
-- Receives unread count from parent state
-- Callback `onUnreadChange` triggers unread count refresh when opened
-- Uses shared API (`api.messages.list()`, `api.messages.send()`)
-- Toast notifications for errors (Vietnamese UI)
-
-**Key Features:**
-- 15-second message polling interval
-- React Query integration (invalidates ['messages', caseId] after send)
-- Escape key closes chatbox (accessibility)
-- Error boundary for robustness
-- Vietnamese-first UI text
-
-**Export:** `apps/workspace/src/components/chatbox/index.ts` (barrel export)
-
-## Recent Feature: Phase 01 Unclassified Docs Card (NEW - 2026-01-21)
-
-**Location:** `apps/workspace/src/components/documents/unclassified-docs-card.tsx`
-
-**Component:** `UnclassifiedDocsCard` (~170 LOC)
-- **Scope:** Grid display of documents awaiting manual classification (UPLOADED/UNCLASSIFIED status only)
-- **Props:** `rawImages: RawImage[]`, `onClassify: (image: RawImage) => void`
-- **Layout:** Responsive grid - 4 cols (lg), 3 cols (sm), 2 cols (default)
-- **UI Features:**
-  - Header with title + count badge (warning color)
-  - Empty state: "Không có tài liệu chờ phân loại"
-  - Hover overlay: "Phân loại" action label
-  - Filename display: 2-line max with tooltip
-- **Thumbnail Handling:**
-  - Uses `useSignedUrl` hook for lazy loading (55 min cache)
-  - Lazy-loaded `LazyPdfThumbnail` component for PDF first page
-  - Fallback icons: FileText (PDF), ImageIcon (image) on error
-- **Performance:**
-  - Memoized `UnclassifiedDocCard` to prevent re-renders during polling
-  - Signed URL caching reduces API calls
-  - Lazy PDF imports reduce initial bundle
-- **Integration:**
-  - Exported in `apps/workspace/src/components/documents/index.ts`
-  - Used in document workflow tabs alongside UploadsTab, ReviewQueueTab, VerifiedTab
-
-## Recent Feature: Phase 03 Data Entry Tab (NEW - 2026-01-21)
-
-**Location:** `apps/workspace/src/components/documents/data-entry-tab.tsx`
-
-**Main Component:** `DataEntryTab` (~299 LOC)
-- **Scope:** Responsive grid layout for verified docs (VERIFIED status) ready for data entry to OltPro
-- **Props:** `docs: DigitalDoc[]`, `caseId: string`, `isLoading?: boolean`
-- **Layout:** Responsive grid - 4 cols (lg), 3 cols (md), 2 cols (sm)
-- **Grouping:** Category-based organization (income/deductions/personal/business/other via `DOC_TYPE_CATEGORIES`)
-- **Key Features:**
-  - **Category Headers:** Section label + doc count per category
-  - **DocCard Display:**
-    - Document type label + extracted year (if applicable)
-    - Key fields (2-3 most important per doc type)
-    - Field values with USD currency formatting for numbers
-    - Hover: Copy icon (individual field), Eye icon (view modal)
-  - **Copy Functionality:**
-    - Individual field copy via `useClipboard` hook
-    - "Copy All" button copies all fields in plain-text format
-    - Formatted output: `Field Label: value` per line
-  - **Detail Modal:** DataEntryModal for full document view + all extracted fields
-  - **Empty State:** "Không có tài liệu đã xác minh" when no verified docs
-- **Support Components:**
-  - **DataEntryTabSkeleton:** Loading state with shimmer animation
-  - **DocCard:** Individual card (title, key fields, actions)
-  - **ModalErrorFallback:** Error boundary fallback component
-- **Key Field Config:** `KEY_FIELDS` record maps doc types to priority fields (e.g., W2 → wages + federalWithholding)
-- **Data Utilities:**
-  - `groupDocsByCategory()` - Filter docs by category, preserve order
-  - `getKeyFieldValues()` - Extract 2-3 priority fields per doc type
-  - `formatValue()` - Currency formatting for numbers, type-safe fallback
-  - `formatForCopy()` - Generate plain-text output for clipboard (all fields)
-  - `escapeHtml()` - XSS prevention for title attributes
-  - `isValidExtractedData()` - Type guard for extracted data validation
-- **Performance:**
-  - `useMemo` on docs grouping prevents recalculation
-  - Memoized DocCard components
-  - Lazy-loaded DataEntryModal
-- **Integration:**
-  - Exported in `apps/workspace/src/components/documents/index.ts`
-  - Used in DocumentWorkflowTabs (verified tab content)
-  - Part of 3-tab document workflow (Uploads | Review | Verified)
-
-## Design System
-
-**Colors:** Mint #10b981, Coral #f97316, Success #22c55e, Error #ef4444
-**Typography:** System font stack, 10-24px sizes
-**Spacing:** 4-32px scale, rounded 6-full
-
-## Schedule C Expense Collection Feature (Phases 1-5: Complete)
-
-**Overview:** Complete Schedule C (self-employed income/expenses) workflow from database schema → API → client portal form → workspace staff viewer.
-
-**Phases:**
-1. **Phase 1 (Database):** ScheduleCExpense, ScheduleCMagicLink tables, version history JSONB, 1099-NEC relation
-2. **Phase 2 (API):** GET/POST/PATCH /expense/:token routes, auto-save versioning, magic link validation
-3. **Phase 3 (Portal):** Vietnamese client-facing expense form (28 IRS categories + vehicle info), auto-save, version history
-4. **Phase 4 (Workspace):** Staff viewer dashboard, status management (DRAFT/SUBMITTED/LOCKED), total calculations
-5. **Phase 5 (Testing & Polish):** Comprehensive test suite (85 tests across 4 test files), error boundaries, retry logic with exponential backoff, lazy loading with error boundaries
-
-**Key Components (Portal - apps/portal/src/features/expense/):**
-- `use-expense-form.ts` - Form state, validation, submit logic
-- `use-auto-save.ts` - 30s debounce, rate limiting (1/10s), version snapshots
-- `expense-section.tsx` - 7 category groups (general, professional, property, financial, people, car, other)
-- `car-expense-section.tsx` - Toggle: mileage rate (0.67/mile) vs actual expense
-- `vehicle-info-section.tsx` - Part IV: mileage tracking, date in service
-- `expense-categories.ts` - 28 IRS Schedule C categories + 4 vehicle fields
-
-**Key Components (Workspace - apps/workspace/src/components/cases/tabs/schedule-c-tab/):**
-- `use-schedule-c.ts` - Query hook with 1099-NEC detection
-- `use-schedule-c-actions.ts` - Mutations: send/lock/unlock/resend with toast feedback
-- `schedule-c-summary.tsx` - Submitted form display with income/expense tables
-- `expense-table.tsx` - Part II (20 expense categories, grouped by section)
-- `version-history.tsx` - Versioning timeline display
-
-**Test Coverage:** 85 tests (expense-routes: 16, schedule-c-routes: 20, expense-calculator: 28, version-history: 21) in `apps/api/src/routes/*/__tests__/` and `apps/api/src/services/schedule-c/__tests__/`
-
-**Features:**
-- Auto-save with exponential backoff retry (max 3 attempts)
-- Version history snapshots (incremental tracking)
-- Lazy-loaded form with error boundary
-- Mobile-responsive tables with column width optimization
-- Magic link validation with expiry
-- Form locking (read-only after SUBMITTED status)
-
-**Integration:**
-- TaxCase.scheduleCExpense relation
-- MagicLink SCHEDULE_C token type
-- 1099-NEC document type integration (auto-detect for staff)
-- Inngest events: expense submitted → workspace tab refresh
-
----
-
-## Documentation Structure
-
-| File | Purpose |
-|------|---------|
-| [codebase-summary.md](./codebase-summary.md) | This file - quick reference |
-| [schedule-c-phase-3-portal-expense-form.md](./schedule-c-phase-3-portal-expense-form.md) | Phase 3 (Portal form) detailed reference |
-| [schedule-c-phase-4-workspace-viewer.md](./schedule-c-phase-4-workspace-viewer.md) | Phase 4 (Workspace viewer) detailed reference |
-| [phase-1.5-ui-components.md](./phase-1.5-ui-components.md) | UI library detailed reference |
-| [client-messages-tab-feature.md](./client-messages-tab-feature.md) | Client Messages Tab implementation |
-| [system-architecture.md](./system-architecture.md) | System design & data flow |
-| [code-standards.md](./code-standards.md) | Coding standards & patterns |
-| [project-overview-pdr.md](./project-overview-pdr.md) | Project vision & requirements |
-
----
-
-**Last Updated:** 2026-01-29
-**Status:** SCHEDULE C COMPLETE (Phases 1-5) + PHASE 3 MULTI-ENGAGEMENT UI - Year switcher + engagement modal
-**Branch:** feature/engagement-only (Schedule C + multi-year engagement)
-**Architecture Version:** 9.7 (Schedule C fully integrated, 85 tests passing, 9.0/10 review)
-
-For detailed phase documentation, see [PHASE-04-INDEX.md](./PHASE-04-INDEX.md) or [PHASE-06-INDEX.md](./PHASE-06-INDEX.md).
+**Version:** 2.7
+**Created:** 2026-01-11
+**Last Updated:** 2026-02-05
+**Maintained By:** Documentation Manager
+**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, & SMS-First Killer Features Phase 01 complete

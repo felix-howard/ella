@@ -6,6 +6,7 @@
 
 import type { LucideIcon } from 'lucide-react'
 import { Building2, User, DollarSign, MapPin, FileText, Hash } from 'lucide-react'
+import i18n from './i18n'
 
 /** Field group configuration for a document type section */
 export interface FieldGroup {
@@ -15,36 +16,36 @@ export interface FieldGroup {
   fields: string[]
 }
 
-/** Field grouping definitions for different document types */
-export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
+/** Field grouping definitions (static data with translation keys) */
+const DOC_TYPE_FIELD_GROUPS_DATA: Record<string, Array<{ key: string; labelKey: string; icon: LucideIcon; fields: string[] }>> = {
   W2: [
     {
       key: 'employer',
-      label: 'Thông tin công ty',
+      labelKey: 'fieldGroup.employer',
       icon: Building2,
       fields: ['employerName', 'employerEin', 'employerAddress'],
     },
     {
       key: 'employee',
-      label: 'Thông tin nhân viên',
+      labelKey: 'fieldGroup.employee',
       icon: User,
       fields: ['employeeName', 'employeeAddress', 'employeeSsn'],
     },
     {
       key: 'wages',
-      label: 'Lương & Thu nhập',
+      labelKey: 'fieldGroup.wages',
       icon: DollarSign,
       fields: ['wagesTips', 'socialSecurityWages', 'medicareWages', 'wagesTipsOther'],
     },
     {
       key: 'taxes',
-      label: 'Thuế đã khấu trừ',
+      labelKey: 'fieldGroup.taxes',
       icon: FileText,
       fields: ['federalTaxWithheld', 'socialSecurityTax', 'medicareTax', 'socialSecurityTaxWithheld', 'medicareTaxWithheld', 'stateTaxWithheld'],
     },
     {
       key: 'other',
-      label: 'Thông tin khác',
+      labelKey: 'fieldGroup.other',
       icon: Hash,
       fields: ['taxYear', 'formVariant', 'controlNumber', 'state'],
     },
@@ -52,7 +53,7 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   SSN_CARD: [
     {
       key: 'personal',
-      label: 'Thông tin cá nhân',
+      labelKey: 'fieldGroup.personal',
       icon: User,
       fields: ['name', 'ssn'],
     },
@@ -60,19 +61,19 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   DRIVER_LICENSE: [
     {
       key: 'personal',
-      label: 'Thông tin cá nhân',
+      labelKey: 'fieldGroup.personal',
       icon: User,
       fields: ['name', 'dateOfBirth'],
     },
     {
       key: 'address',
-      label: 'Địa chỉ',
+      labelKey: 'fieldGroup.address',
       icon: MapPin,
       fields: ['address'],
     },
     {
       key: 'license',
-      label: 'Thông tin bằng lái',
+      labelKey: 'fieldGroup.license',
       icon: FileText,
       fields: ['licenseNumber', 'expirationDate'],
     },
@@ -80,13 +81,13 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   FORM_1099_INT: [
     {
       key: 'payer',
-      label: 'Thông tin ngân hàng',
+      labelKey: 'fieldGroup.payerBank',
       icon: Building2,
       fields: ['payerName', 'payerTin', 'payerAddress'],
     },
     {
       key: 'income',
-      label: 'Thu nhập lãi suất',
+      labelKey: 'fieldGroup.income',
       icon: DollarSign,
       fields: ['interestIncome', 'earlyWithdrawalPenalty', 'usSavingsBondInterest', 'federalTaxWithheld'],
     },
@@ -94,19 +95,19 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   FORM_1099_NEC: [
     {
       key: 'payer',
-      label: 'Thông tin người trả',
+      labelKey: 'fieldGroup.payer',
       icon: Building2,
       fields: ['payerName', 'payerTin', 'payerAddress'],
     },
     {
       key: 'income',
-      label: 'Thu nhập',
+      labelKey: 'fieldGroup.income',
       icon: DollarSign,
       fields: ['nonemployeeCompensation', 'federalTaxWithheld'],
     },
     {
       key: 'state',
-      label: 'Thông tin tiểu bang',
+      labelKey: 'fieldGroup.state',
       icon: MapPin,
       fields: ['state', 'statePayerStateNo', 'stateIncome'],
     },
@@ -114,13 +115,13 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   FORM_1099_DIV: [
     {
       key: 'payer',
-      label: 'Thông tin công ty',
+      labelKey: 'fieldGroup.payerInfo',
       icon: Building2,
       fields: ['payerName', 'payerTin'],
     },
     {
       key: 'dividends',
-      label: 'Cổ tức',
+      labelKey: 'fieldGroup.dividends',
       icon: DollarSign,
       fields: ['ordinaryDividends', 'qualifiedDividends', 'capitalGainDistributions', 'federalTaxWithheld'],
     },
@@ -128,9 +129,31 @@ export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = {
   BANK_STATEMENT: [
     {
       key: 'bank',
-      label: 'Thông tin ngân hàng',
+      labelKey: 'fieldGroup.bank',
       icon: Building2,
       fields: ['bankName', 'routingNumber', 'accountNumber'],
     },
   ],
 }
+
+/** Field grouping definitions for different document types (with i18n) */
+export const DOC_TYPE_FIELD_GROUPS: Record<string, FieldGroup[]> = new Proxy({} as Record<string, FieldGroup[]>, {
+  get(_, prop: string) {
+    const data = DOC_TYPE_FIELD_GROUPS_DATA[prop]
+    if (!data) return undefined
+    return data.map(group => ({
+      key: group.key,
+      label: i18n.t(group.labelKey),
+      icon: group.icon,
+      fields: group.fields,
+    }))
+  },
+  ownKeys() {
+    return Object.keys(DOC_TYPE_FIELD_GROUPS_DATA)
+  },
+  getOwnPropertyDescriptor(_, prop: string) {
+    if (prop in DOC_TYPE_FIELD_GROUPS_DATA) {
+      return { configurable: true, enumerable: true }
+    }
+  },
+})

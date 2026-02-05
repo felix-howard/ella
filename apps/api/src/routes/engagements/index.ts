@@ -24,6 +24,7 @@ import { logEngagementChanges, computeEngagementDiff, type FieldChange } from '.
 import { createMagicLink } from '../../services/magic-link'
 import type { EngagementStatus, Prisma, TaxType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
+import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
 
 const engagementsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -31,8 +32,9 @@ const engagementsRoute = new Hono<{ Variables: AuthVariables }>()
 engagementsRoute.get('/', zValidator('query', listEngagementsQuerySchema), async (c) => {
   const { clientId, taxYear, status, page, limit } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const user = c.get('user')
 
-  const where: Prisma.TaxEngagementWhereInput = {}
+  const where: Prisma.TaxEngagementWhereInput = { ...buildNestedClientScope(user) }
   if (clientId) where.clientId = clientId
   if (taxYear) where.taxYear = taxYear
   if (status) where.status = status as EngagementStatus
@@ -64,9 +66,10 @@ engagementsRoute.get('/', zValidator('query', listEngagementsQuerySchema), async
 // GET /engagements/:id - Get engagement details
 engagementsRoute.get('/:id', zValidator('param', engagementIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-  const engagement = await prisma.taxEngagement.findUnique({
-    where: { id },
+  const engagement = await prisma.taxEngagement.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
     include: {
       client: true,
       taxCases: {
@@ -102,8 +105,10 @@ engagementsRoute.post('/', strictRateLimit, zValidator('json', createEngagementS
   const { clientId, taxYear, copyFromEngagementId, ...profileData } = c.req.valid('json')
   const user = c.get('user') as AuthUser | undefined
 
-  // Verify client exists
-  const client = await prisma.client.findUnique({ where: { id: clientId } })
+  // Verify client exists and belongs to user's org (org-scoped)
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user!) },
+  })
   if (!client) {
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
   }
@@ -234,8 +239,10 @@ engagementsRoute.patch(
     const body = c.req.valid('json')
     const user = c.get('user') as AuthUser | undefined
 
-    // Check engagement exists
-    const existing = await prisma.taxEngagement.findUnique({ where: { id } })
+    // Check engagement exists (org-scoped)
+    const existing = await prisma.taxEngagement.findFirst({
+      where: { id, ...buildNestedClientScope(user!) },
+    })
     if (!existing) {
       return c.json({ error: 'NOT_FOUND', message: 'Engagement not found' }, 404)
     }
@@ -277,6 +284,16 @@ engagementsRoute.patch(
 // GET /engagements/:id/copy-preview - Preview what would be copied from this engagement
 engagementsRoute.get('/:id/copy-preview', zValidator('param', engagementIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
+
+  // Verify engagement belongs to user's org before showing preview
+  const engagementCheck = await prisma.taxEngagement.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!engagementCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Engagement not found' }, 404)
+  }
 
   const engagement = await prisma.taxEngagement.findUnique({
     where: { id },
@@ -314,9 +331,9 @@ engagementsRoute.delete('/:id', strictRateLimit, zValidator('param', engagementI
   const { id } = c.req.valid('param')
   const user = c.get('user') as AuthUser | undefined
 
-  // Check if engagement has tax cases
-  const engagement = await prisma.taxEngagement.findUnique({
-    where: { id },
+  // Check if engagement has tax cases (org-scoped)
+  const engagement = await prisma.taxEngagement.findFirst({
+    where: { id, ...buildNestedClientScope(user!) },
     include: { _count: { select: { taxCases: true } } },
   })
 

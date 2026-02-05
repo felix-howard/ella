@@ -26,6 +26,7 @@ import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
+import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -33,8 +34,9 @@ const casesRoute = new Hono<{ Variables: AuthVariables }>()
 casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
   const { page, limit, status, taxYear, clientId } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const user = c.get('user')
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { ...buildNestedClientScope(user) }
   if (status) where.status = status
   if (taxYear) where.taxYear = taxYear
   if (clientId) where.clientId = clientId
@@ -72,10 +74,11 @@ casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
 // POST /cases - Create new tax case for existing client
 casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
   const { clientId, taxYear, taxTypes, engagementId: providedEngagementId } = c.req.valid('json')
+  const user = c.get('user')
 
-  // Get client profile for checklist generation
-  const client = await prisma.client.findUnique({
-    where: { id: clientId },
+  // Get client profile for checklist generation (org-scoped)
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
     include: { profile: true },
   })
 
@@ -141,9 +144,10 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
 // GET /cases/:id - Get case details with all relations
 casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id },
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
     include: {
       client: true,
       engagement: true,  // Include engagement data for multi-year support
@@ -188,10 +192,11 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
 casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
   const id = c.req.param('id')
   const { status } = c.req.valid('json')
+  const user = c.get('user')
 
-  // Fetch current case to validate transition
-  const currentCase = await prisma.taxCase.findUnique({
-    where: { id },
+  // Fetch current case to validate transition (org-scoped)
+  const currentCase = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
     select: { status: true },
   })
 
@@ -241,9 +246,10 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
 // GET /cases/:id/valid-transitions - Get valid status transitions for a case
 casesRoute.get('/:id/valid-transitions', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
 
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id },
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
     select: { status: true },
   })
 
@@ -263,6 +269,16 @@ casesRoute.get('/:id/valid-transitions', async (c) => {
 // GET /cases/:id/checklist - Get checklist items for case
 casesRoute.get('/:id/checklist', async (c) => {
   const id = c.req.param('id')
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   const items = await prisma.checklistItem.findMany({
     where: { caseId: id },
@@ -297,6 +313,16 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
   const id = c.req.param('id')
   const { page, limit, status } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   const where: Record<string, unknown> = { caseId: id }
   if (status) where.status = status as RawImageStatus
@@ -329,6 +355,16 @@ casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) 
   const id = c.req.param('id')
   const { page, limit } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   const where = { caseId: id }
 
@@ -358,9 +394,10 @@ casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) 
 // GET /images/:imageId/signed-url - Get signed URL for a single image
 casesRoute.get('/images/:imageId/signed-url', async (c) => {
   const imageId = c.req.param('imageId')
+  const user = c.get('user')
 
-  const image = await prisma.rawImage.findUnique({
-    where: { id: imageId },
+  const image = await prisma.rawImage.findFirst({
+    where: { id: imageId, taxCase: { client: buildClientScopeFilter(user) } },
     select: { id: true, r2Key: true, filename: true },
   })
 
@@ -393,9 +430,10 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
 // Used by PDF.js and other browser-based file viewers
 casesRoute.get('/images/:imageId/file', async (c) => {
   const imageId = c.req.param('imageId')
+  const user = c.get('user')
 
-  const image = await prisma.rawImage.findUnique({
-    where: { id: imageId },
+  const image = await prisma.rawImage.findFirst({
+    where: { id: imageId, taxCase: { client: buildClientScopeFilter(user) } },
     select: { id: true, r2Key: true, filename: true, mimeType: true },
   })
 
@@ -450,13 +488,12 @@ casesRoute.get('/images/:imageId/file', async (c) => {
 casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchema), async (c) => {
   const caseId = c.req.param('id')
   const { docType, reason, expectedCount } = c.req.valid('json')
-  // Get staffId from auth context (authMiddleware ensures user exists)
-  const user = c.get('user') as AuthUser | undefined
-  const staffId = user?.staffId || null
+  const user = c.get('user')
+  const staffId = user.staffId || null
 
-  // Verify case exists
-  const taxCase = await prisma.taxCase.findUnique({
-    where: { id: caseId },
+  // Verify case exists and belongs to user's org
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id: caseId, ...buildNestedClientScope(user) },
     select: { id: true },
   })
 
@@ -511,9 +548,17 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
 casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChecklistItemSchema), async (c) => {
   const { id: caseId, itemId } = c.req.param()
   const { reason } = c.req.valid('json')
-  // Get staffId from auth context (authMiddleware ensures user exists)
-  const user = c.get('user') as AuthUser | undefined
-  const staffId = user?.staffId || null
+  const user = c.get('user')
+  const staffId = user.staffId || null
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   // Verify item exists and belongs to case
   const item = await prisma.checklistItem.findFirst({
@@ -545,6 +590,16 @@ casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChe
 // PATCH /cases/:id/checklist/items/:itemId/unskip - Restore skipped item
 casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
   const { id: caseId, itemId } = c.req.param()
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
 
   // Verify item exists and belongs to case
   const item = await prisma.checklistItem.findFirst({
@@ -583,6 +638,16 @@ casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
 // PATCH /cases/:id/checklist/items/:itemId/notes - Update item notes
 casesRoute.patch('/:id/checklist/items/:itemId/notes', zValidator('json', updateChecklistItemNotesSchema), async (c) => {
   const { id: caseId, itemId } = c.req.param()
+  const user = c.get('user')
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
   const { notes } = c.req.valid('json')
 
   // Verify item exists and belongs to case
@@ -613,10 +678,11 @@ casesRoute.post(
   zValidator('param', caseIdParamSchema),
   async (c) => {
     const { id } = c.req.valid('param')
+    const user = c.get('user')
 
-    // Verify case exists and check current state
-    const taxCase = await prisma.taxCase.findUnique({
-      where: { id },
+    // Verify case exists and check current state (org-scoped)
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id, ...buildNestedClientScope(user) },
       select: { isInReview: true, isFiled: true }
     })
 
@@ -650,9 +716,10 @@ casesRoute.post(
   zValidator('param', caseIdParamSchema),
   async (c) => {
     const { id } = c.req.valid('param')
+    const user = c.get('user')
 
-    const taxCase = await prisma.taxCase.findUnique({
-      where: { id },
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id, ...buildNestedClientScope(user) },
       select: { isInReview: true, isFiled: true }
     })
 
@@ -683,9 +750,10 @@ casesRoute.post(
   zValidator('param', caseIdParamSchema),
   async (c) => {
     const { id } = c.req.valid('param')
+    const user = c.get('user')
 
-    const taxCase = await prisma.taxCase.findUnique({
-      where: { id },
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id, ...buildNestedClientScope(user) },
       select: { isFiled: true }
     })
 

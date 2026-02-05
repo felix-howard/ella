@@ -4,6 +4,7 @@
  */
 import { FileText, Send, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
+import { useTranslation } from 'react-i18next'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
 import type { NecBreakdownItem } from '../../../../lib/api-client'
 import { formatUSD } from './format-utils'
@@ -15,6 +16,7 @@ interface ScheduleCEmptyStateProps {
 }
 
 export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }: ScheduleCEmptyStateProps) {
+  const { t } = useTranslation()
   const { sendForm } = useScheduleCActions({ caseId })
 
   return (
@@ -27,13 +29,12 @@ export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }:
 
         {/* Title */}
         <h3 className="text-lg font-semibold text-foreground mb-2">
-          Phát hiện 1099-NEC
+          {t('scheduleC.1099necDetected')}
         </h3>
 
         {/* Description */}
         <p className="text-sm text-muted-foreground mb-4 max-w-md">
-          Đã phát hiện {count1099NEC} mẫu 1099-NEC đã xác minh.
-          Gửi form thu thập chi phí để hoàn thành Schedule C cho khách hàng này.
+          {t('scheduleC.1099necDetectedDesc', { count: count1099NEC })}
         </p>
 
         {/* Payer Breakdown Preview */}
@@ -43,7 +44,7 @@ export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }:
               {necBreakdown.map((item) => (
                 <div key={item.docId} className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground truncate mr-2">
-                    {item.payerName || 'Không rõ'}
+                    {item.payerName || t('scheduleC.unknownPayer')}
                   </span>
                   <span className="font-medium text-foreground whitespace-nowrap">
                     {formatUSD(item.nonemployeeCompensation)}
@@ -60,17 +61,17 @@ export function ScheduleCEmptyState({ caseId, count1099NEC, necBreakdown = [] }:
           disabled={sendForm.isPending}
           size="lg"
           className="gap-2 px-16"
-          aria-label="Gửi form thu thập chi phí Schedule C"
+          aria-label={t('scheduleC.sendButton')}
         >
           {sendForm.isPending ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-              Đang gửi...
+              {t('scheduleC.sending')}
             </>
           ) : (
             <>
               <Send className="w-4 h-4" aria-hidden="true" />
-              Gửi Form Schedule C
+              {t('scheduleC.sendButton')}
             </>
           )}
         </Button>

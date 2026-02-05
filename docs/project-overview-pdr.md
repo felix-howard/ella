@@ -1,8 +1,8 @@
 # Ella - Project Overview & Product Development Requirements
 
-**Current Phase:** 1 - Backend Foundation (Inbound Call Handling) - In Progress
-**Last Updated:** 2026-01-21
-**Branch:** feature/enhance-call
+**Current Phase:** Landing Page Killer Features Phase 01 - Complete | Multi-Tenancy & Permission System - Complete | Voice Calls - Complete | Schedule C Phase 4 - In Progress
+**Last Updated:** 2026-02-05
+**Branch:** feature/landing-page
 
 ## Project Vision
 
@@ -10,10 +10,10 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ## High-Level Goals
 
-1. **Document Management** - Centralized storage and organization of tax-related documents
-2. **Compliance Tracking** - Automated compliance monitoring and deadline alerts
-3. **User Efficiency** - Intuitive UI reducing manual data entry and errors
-4. **Scalability** - Distributed backend serving multiple clients concurrently
+1. **SMS-First Document Collection** - Clients text tax docs directly to firm's Ella number (zero-friction intake)
+2. **AI-Powered Organization** - Auto-classify, rename, and extract data from messy uploads
+3. **Centralized Management** - Tax professionals manage all client documents and workflows in one workspace
+4. **Compliance Automation** - Automated document verification, status tracking, and deadline alerts
 
 ## Product Development Requirements (PDR)
 
@@ -325,6 +325,56 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 - SMS Status Badge: Shows Twilio configuration status (Bật/Tắt)
 - Resend SMS Mutation: Integrates with workspace state for error handling
 
+### Phase 3: Multi-Tenancy & Permission System (COMPLETED)
+
+**Status:** Completed 2026-02-04
+
+**Objective:** Enable organization-scoped multi-tenancy with Clerk org integration, team management, and permission-based data access
+
+**Requirements Met:**
+
+- [x] Organization model with Clerk integration (clerkOrgId, name, slug, logoUrl, isActive)
+- [x] ClientAssignment model for staff-client mappings (1-to-1 unique constraint, org-scoped)
+- [x] Staff enhanced with organizationId FK and clerkId (unique) for Clerk sync
+- [x] Client enhanced with organizationId FK for org-scoped queries
+- [x] AuditLog model for complete field-level change tracking
+- [x] 7 team management API endpoints (members list, invite, role update, deactivate, revoke)
+- [x] 5 client assignment API endpoints (CRUD + bulk + transfer)
+- [x] Clerk Backend SDK integration with JWT parsing
+- [x] Org-scoped filtering via buildClientScopeFilter() for all entities
+- [x] Admin vs Staff role-based access control (RBAC)
+- [x] Frontend multi-tenancy UI: Team page, org name sidebar, role badges
+- [x] useAutoOrgSelection hook for auto-org selection on sign-in
+- [x] useOrgRole hook for RBAC checks
+- [x] Accept invitation flow with Clerk org invite tickets
+- [x] Full i18n support (English + Vietnamese, 821+ keys)
+
+**Functional Features:**
+
+- Organization CRUD with Clerk org sync
+- Team member management (list, invite, role update, deactivate)
+- Client assignment workflows (assign, bulk assign, transfer between staff)
+- Invitation lifecycle (send, revoke, accept)
+- Role-based access control (ADMIN vs STAFF)
+- Org-scoped data isolation for all entities (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
+- Audit logging for all changes
+- Permission inheritance from Clerk org roles
+
+**Deliverables:**
+
+- Database schema: Organization, ClientAssignment, enhanced Staff/Client, AuditLog (migrations complete)
+- API: 12 endpoints, Clerk Backend SDK integration, org-scoped middleware
+- Frontend: Team page, sidebar org display, role badges, accept-invitation page
+- Hooks: useAutoOrgSelection, useOrgRole for React integration
+- Tests: 26 comprehensive API tests, full type coverage
+- i18n: 821 keys across English and Vietnamese
+
+**Tech Stack Additions:**
+
+- Clerk 5.59.3 (auth + org management)
+- React 19.0.0
+- TanStack Router 1.94.0
+
 ### Phase 2.1: AI Document Processing (First Half)
 
 **Status:** Completed 2026-01-13
@@ -413,11 +463,13 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 
 ### Security
 
-- **Authentication:** JWT with secure refresh token rotation
+- **Authentication:** Clerk OAuth with JWT parsing (org-aware tokens)
 - **Data Encryption:** HTTPS only, encrypted at-rest for sensitive fields
+- **Data Isolation:** Multi-tenant org-scoped queries, verified at middleware layer
 - **Input Validation:** All inputs validated via Zod
 - **SQL Injection Prevention:** Parameterized queries (Prisma enforces)
 - **CSRF Protection:** CSRF tokens for state-changing requests
+- **Permission Enforcement:** Role-based access control (ADMIN vs STAFF), verified per request
 
 ### Scalability
 
@@ -445,11 +497,13 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 | ORM             | Prisma          | 6.7.0   |
 | Validation      | Zod             | 3.24.1  |
 | Backend         | Hono            | 4.6.15+ |
+| Authentication  | Clerk           | 5.59.3  |
 | AI Engine       | Google Gemini   | 2.0-flash |
-| Frontend        | React           | 18+     |
+| Frontend        | React           | 19.0.0  |
 | Styling         | Tailwind CSS    | 4.0.0+  |
 | Components      | shadcn/ui       | Latest  |
-| Routing         | TanStack Router | Latest  |
+| Routing         | TanStack Router | 1.94.0+ |
+| State Query     | React Query     | 5.64+   |
 
 ## Deliverables by Phase
 
@@ -462,10 +516,11 @@ AI_BATCH_CONCURRENCY        // Optional - Batch processing concurrency (default:
 | 1.4   | Frontend features (Portal Link card, SMS status) | ✓ Complete |
 | 1.5   | Shared UI Components (11 components)         | ✓ Complete |
 | 2.1   | AI Document Processing (Gemini services)    | ✓ Complete |
-| 2.2   | API endpoints for document processing        | - Pending  |
-| 3     | Frontend document upload with AI validation | - Pending  |
-| 4     | Testing, QA, deployment prep                | - Pending  |
-| 5     | Production deployment & monitoring           | - Pending  |
+| 2.2   | Schedule C Phase 4 (1099-NEC breakdown)      | ✓ Complete |
+| 3     | Multi-Tenancy & Permission System           | ✓ Complete |
+| 4     | Team Management UI & Org Scoping            | ✓ Complete |
+| 5     | Testing, QA, deployment prep                | - Pending  |
+| 6     | Production deployment & monitoring           | - Pending  |
 
 ## Success Metrics
 

@@ -4,6 +4,7 @@
  */
 
 import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle,
   AlertTriangle,
@@ -41,6 +42,7 @@ const ACTION_TYPE_ICONS: Record<ActionType, LucideIcon> = {
 }
 
 export function ActionCard({ action, onComplete }: ActionCardProps) {
+  const { t } = useTranslation()
   const typeColors = ACTION_TYPE_COLORS[action.type]
   const priorityColors = ACTION_PRIORITY_COLORS[action.priority]
   const Icon = ACTION_TYPE_ICONS[action.type] || CheckCircle
@@ -93,7 +95,7 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
                 !isClientReplied && (priorityColors?.text || 'text-muted-foreground')
               )}
             >
-              {isClientReplied ? 'Mới' : (ACTION_PRIORITY_LABELS[action.priority] || action.priority)}
+              {isClientReplied ? t('actionCard.new') : (ACTION_PRIORITY_LABELS[action.priority] || action.priority)}
             </span>
             {/* Type Label */}
             <span className="text-xs text-muted-foreground">
@@ -157,12 +159,12 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
                     : 'text-muted-foreground hover:text-primary'
                 )}
                 aria-label={isClientReplied
-                  ? `Xem hội thoại: ${action.title}`
+                  ? t('actionCard.viewConversationFor', { title: action.title })
                   : `${actionsText.viewDetail}: ${action.title}`
                 }
               >
                 {isClientReplied && <MessageCircle className="w-3 h-3" aria-hidden="true" />}
-                <span>{isClientReplied ? 'Xem hội thoại' : actionsText.viewDetail}</span>
+                <span>{isClientReplied ? t('actionCard.viewConversation') : actionsText.viewDetail}</span>
                 <ChevronRight className="w-3 h-3" aria-hidden="true" />
               </Link>
             </div>
@@ -212,6 +214,9 @@ export function ActionCardCompact({ action, onComplete }: ActionCardProps) {
 }
 
 // Helper function to get relative time in Vietnamese
+// Note: This is a pure function outside components, so we can't use t() here
+// For full i18n support, this would need to be moved inside the component
+// or use a global i18n instance. Keeping as-is for now.
 function getRelativeTime(date: Date): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()

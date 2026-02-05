@@ -1,8 +1,35 @@
 /**
- * Portal internationalization constants
- * Vietnamese-first with English fallback
+ * Portal i18n configuration
+ * Vietnamese-first with English support
+ * Uses react-i18next with bundled translations
  */
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
+import vi from '../locales/vi.json'
+import en from '../locales/en.json'
 
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      vi: { translation: vi },
+      en: { translation: en },
+    },
+    fallbackLng: 'vi',
+    interpolation: { escapeValue: false },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      lookupLocalStorage: 'ella-language',
+      caches: ['localStorage'],
+    },
+  })
+
+export default i18n
+
+// Legacy exports for backward compatibility during migration
+// Components should migrate to useTranslation() hook instead
 export type Language = 'VI' | 'EN'
 
 export const UI_TEXT = {
@@ -48,7 +75,6 @@ export const UI_TEXT = {
     fileTooLarge: 'File quá lớn (tối đa 10MB)',
     invalidFileType: 'Chỉ chấp nhận ảnh (JPEG, PNG) và PDF',
     maxFilesReached: 'Chỉ có thể thêm {count} file nữa',
-    // Phase 2: Simple uploader strings
     docsNeeded: 'Tài liệu cần gửi',
     tapToUpload: 'Nhấn để gửi tài liệu',
     uploadedSuccess: 'Đã gửi thành công!',
@@ -96,7 +122,6 @@ export const UI_TEXT = {
     fileTooLarge: 'File too large (max 10MB)',
     invalidFileType: 'Only images (JPEG, PNG) and PDF accepted',
     maxFilesReached: 'Can only add {count} more files',
-    // Phase 2: Simple uploader strings
     docsNeeded: 'Documents Needed',
     tapToUpload: 'Tap to upload documents',
     uploadedSuccess: 'Upload successful!',
@@ -104,6 +129,7 @@ export const UI_TEXT = {
   },
 }
 
+/** @deprecated Use useTranslation() hook from react-i18next instead */
 export function getText(lang: Language) {
   return UI_TEXT[lang] || UI_TEXT.VI
 }

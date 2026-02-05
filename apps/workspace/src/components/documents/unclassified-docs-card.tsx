@@ -5,6 +5,7 @@
  */
 
 import { memo, lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { FileQuestion, Loader2, Image as ImageIcon, FileText } from 'lucide-react'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -29,6 +30,7 @@ function isPdfFile(filename: string): boolean {
  * Returns null when no unclassified docs exist (hides card entirely)
  */
 export function UnclassifiedDocsCard({ rawImages, onClassify }: UnclassifiedDocsCardProps) {
+  const { t } = useTranslation()
   // Filter to pending classification: UPLOADED, UNCLASSIFIED, or CLASSIFIED but not linked
   const unclassified = rawImages.filter((img) =>
     ['UPLOADED', 'UNCLASSIFIED'].includes(img.status) ||
@@ -46,7 +48,7 @@ export function UnclassifiedDocsCard({ rawImages, onClassify }: UnclassifiedDocs
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
           <FileQuestion className="w-5 h-5 text-warning" />
-          Tài liệu chờ phân loại
+          {t('unclassified.title')}
         </h2>
         <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-light text-warning">
           {unclassified.length}
@@ -76,10 +78,11 @@ const UnclassifiedDocCard = memo(function UnclassifiedDocCard({
   image,
   onClick,
 }: UnclassifiedDocCardProps) {
+  const { t } = useTranslation()
   return (
     <button
       onClick={onClick}
-      aria-label={`Phân loại ${image.filename}`}
+      aria-label={t('unclassified.classify', { filename: image.filename })}
       className={cn(
         'group relative bg-background rounded-lg border overflow-hidden',
         'hover:border-primary hover:shadow-sm transition-all cursor-pointer',
@@ -93,7 +96,7 @@ const UnclassifiedDocCard = memo(function UnclassifiedDocCard({
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <span className="text-[10px] font-medium text-primary bg-white/90 px-1.5 py-0.5 rounded">
-            Phân loại
+            {t('unclassified.classify')}
           </span>
         </div>
       </div>

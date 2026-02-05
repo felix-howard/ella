@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import {
   FileText,
@@ -30,33 +31,33 @@ interface DigitalDocTableProps {
   onVerify?: (doc: DigitalDoc) => void
 }
 
-// Status configuration
+// Status configuration - labels will be translated in component
 const DOC_STATUS_CONFIG: Record<DocStatus, {
-  label: string
+  labelKey: string
   icon: typeof CheckCircle
   color: string
   bgColor: string
 }> = {
   EXTRACTED: {
-    label: 'Đã trích xuất',
+    labelKey: 'digitalDoc.extracted',
     icon: Clock,
     color: 'text-primary',
     bgColor: 'bg-primary-light',
   },
   VERIFIED: {
-    label: 'Đã xác minh',
+    labelKey: 'digitalDoc.verified',
     icon: CheckCircle,
     color: 'text-success',
     bgColor: 'bg-success/10',
   },
   PARTIAL: {
-    label: 'Thiếu dữ liệu',
+    labelKey: 'digitalDoc.missingData',
     icon: AlertCircle,
     color: 'text-warning',
     bgColor: 'bg-warning-light',
   },
   FAILED: {
-    label: 'Lỗi OCR',
+    labelKey: 'digitalDoc.ocrError',
     icon: AlertCircle,
     color: 'text-error',
     bgColor: 'bg-error-light',
@@ -64,6 +65,7 @@ const DOC_STATUS_CONFIG: Record<DocStatus, {
 }
 
 export function DigitalDocTable({ docs, isLoading, onDocClick, onVerify }: DigitalDocTableProps) {
+  const { t } = useTranslation()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
@@ -87,7 +89,7 @@ export function DigitalDocTable({ docs, isLoading, onDocClick, onVerify }: Digit
     return (
       <div className="text-center py-12">
         <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">Chưa có tài liệu nào được trích xuất</p>
+        <p className="text-sm text-muted-foreground">{t('digitalDoc.noDocuments')}</p>
       </div>
     )
   }
@@ -96,10 +98,10 @@ export function DigitalDocTable({ docs, isLoading, onDocClick, onVerify }: Digit
     <div className="bg-card rounded-xl border overflow-hidden">
       {/* Table Header */}
       <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
-        <div className="col-span-4">Loại tài liệu</div>
-        <div className="col-span-3">Trạng thái</div>
-        <div className="col-span-3">Cập nhật</div>
-        <div className="col-span-2 text-right">Thao tác</div>
+        <div className="col-span-4">{t('digitalDoc.docType')}</div>
+        <div className="col-span-3">{t('digitalDoc.status')}</div>
+        <div className="col-span-3">{t('digitalDoc.updated')}</div>
+        <div className="col-span-2 text-right">{t('digitalDoc.actions')}</div>
       </div>
 
       {/* Table Body */}
@@ -140,6 +142,7 @@ function DocRow({
   onDocClick,
   onVerify,
 }: DocRowProps) {
+  const { t } = useTranslation()
   const status = doc.status as DocStatus
   const config = DOC_STATUS_CONFIG[status] || DOC_STATUS_CONFIG.EXTRACTED
   const Icon = config.icon
@@ -187,7 +190,7 @@ function DocRow({
             config.color
           )}>
             <Icon className="w-3 h-3" />
-            {config.label}
+            {t(config.labelKey)}
           </span>
         </div>
 
@@ -205,7 +208,7 @@ function DocRow({
                 onVerify(doc)
               }}
               className="p-1.5 rounded-lg hover:bg-primary-light text-primary transition-colors"
-              aria-label="Xác minh"
+              aria-label={t('digitalDoc.verify')}
             >
               <Eye className="w-4 h-4" />
             </button>
@@ -216,7 +219,7 @@ function DocRow({
               onToggle()
             }}
             className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-            aria-label={isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
+            aria-label={isExpanded ? t('digitalDoc.collapse') : t('digitalDoc.viewDetails')}
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -231,7 +234,7 @@ function DocRow({
       {isExpanded && previewFields.length > 0 && (
         <div className="px-4 pb-4 pt-0">
           <div className="ml-11 p-4 bg-muted/30 rounded-lg">
-            <h4 className="text-sm font-medium text-foreground mb-3">Dữ liệu trích xuất</h4>
+            <h4 className="text-sm font-medium text-foreground mb-3">{t('digitalDoc.extractedData')}</h4>
             <div className="space-y-2">
               {previewFields.map((field) => (
                 <div
@@ -250,7 +253,7 @@ function DocRow({
                           onCopy(field.value, `${doc.id}-${field.key}`)
                         }}
                         className="p-1 rounded hover:bg-muted transition-colors"
-                        aria-label={`Copy ${field.label}`}
+                        aria-label={t('digitalDoc.copyField', { field: field.label })}
                       >
                         {copiedField === `${doc.id}-${field.key}` ? (
                           <Check className="w-3.5 h-3.5 text-success" />

@@ -703,6 +703,37 @@ export const api = {
       }),
   },
 
+  // Schedule E - Staff endpoints for rental property form management
+  scheduleE: {
+    // Get Schedule E data for a case
+    get: (caseId: string) =>
+      request<ScheduleEResponse>(`/schedule-e/${caseId}`),
+
+    // Send rental form to client
+    send: (caseId: string) =>
+      request<ScheduleESendResponse>(`/schedule-e/${caseId}/send`, {
+        method: 'POST',
+      }),
+
+    // Lock form to prevent client edits
+    lock: (caseId: string) =>
+      request<ScheduleELockResponse>(`/schedule-e/${caseId}/lock`, {
+        method: 'PATCH',
+      }),
+
+    // Unlock a locked form
+    unlock: (caseId: string) =>
+      request<ScheduleEUnlockResponse>(`/schedule-e/${caseId}/unlock`, {
+        method: 'PATCH',
+      }),
+
+    // Resend form link (extend TTL)
+    resend: (caseId: string) =>
+      request<ScheduleEResendResponse>(`/schedule-e/${caseId}/resend`, {
+        method: 'POST',
+      }),
+  },
+
   // Staff
   staff: {
     me: () =>
@@ -1655,6 +1686,93 @@ export interface ScheduleCUnlockResponse {
 }
 
 export interface ScheduleCResendResponse {
+  success: boolean
+  expiresAt: string
+  messageSent: boolean
+}
+
+// Schedule E types for rental property form management
+export type ScheduleEStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED'
+
+export interface ScheduleEMagicLink {
+  id: string
+  token: string
+  isActive: boolean
+  expiresAt: string | null
+  lastUsedAt: string | null
+  usageCount: number
+}
+
+export interface ScheduleETotals {
+  totalRent: number
+  totalExpenses: number
+  totalNet: number
+  propertyCount: number
+}
+
+export interface ScheduleEExpense {
+  id: string
+  status: ScheduleEStatus
+  version: number
+  properties: ScheduleEPropertyData[]
+  createdAt: string
+  updatedAt: string
+  submittedAt: string | null
+  lockedAt: string | null
+}
+
+export interface ScheduleEPropertyData {
+  id: 'A' | 'B' | 'C'
+  address: {
+    street: string
+    city: string
+    state: string
+    zip: string
+  }
+  propertyType: 1 | 2 | 3 | 4 | 5 | 7 | 8
+  propertyTypeOther?: string
+  monthsRented: number
+  fairRentalDays: number
+  personalUseDays: number
+  rentsReceived: number
+  insurance: number
+  mortgageInterest: number
+  repairs: number
+  taxes: number
+  utilities: number
+  managementFees: number
+  cleaningMaintenance: number
+  otherExpenses: { name: string; amount: number }[]
+  totalExpenses: number
+  netIncome: number
+}
+
+export interface ScheduleEResponse {
+  expense: ScheduleEExpense | null
+  magicLink: ScheduleEMagicLink | null
+  totals: ScheduleETotals | null
+}
+
+export interface ScheduleESendResponse {
+  success: boolean
+  magicLink: string
+  messageSent: boolean
+  expiresAt: string
+  expenseId: string
+}
+
+export interface ScheduleELockResponse {
+  success: boolean
+  status: 'LOCKED'
+  lockedAt: string
+}
+
+export interface ScheduleEUnlockResponse {
+  success: boolean
+  status: 'SUBMITTED'
+}
+
+export interface ScheduleEResendResponse {
   success: boolean
   expiresAt: string
   messageSent: boolean

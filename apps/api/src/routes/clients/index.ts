@@ -316,6 +316,17 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
       },
     })
 
+    // Auto-assign creator to client if non-admin (so they can see it immediately)
+    const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+    if (!isAdmin && user.staffId) {
+      await tx.clientAssignment.create({
+        data: {
+          clientId: client.id,
+          staffId: user.staffId,
+        },
+      })
+    }
+
     return { client, taxCase, profile: client.profile! }
   })
 

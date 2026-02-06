@@ -185,9 +185,10 @@ Organization (root entity)
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
+- **ScheduleEExpense** - Up to 3 rental properties (JSON), 7 IRS expenses, version history
 - **RawImage** - Classification states, AI confidence
 - **DigitalDoc** - OCR extracted fields
-- **MagicLink** - type (PORTAL|SCHEDULE_C), caseId/type reference
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E), caseId/type reference
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 

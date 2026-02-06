@@ -1,10 +1,51 @@
 # Latest Documentation Updates
 
+**Date:** 2026-02-06 | **Feature:** Schedule E Phase 1 - Backend Foundation | **Status:** Complete
+
+---
+
+## Schedule E Phase 1: Backend Foundation (Current Update)
+
+**In One Sentence:** Prisma ScheduleEExpense model, TypeScript types, and enum definitions added for rental property expense collection form.
+
+**Changes Made:**
+- **Prisma Schema (schema.prisma):**
+  - New `ScheduleEStatus` enum: DRAFT, SUBMITTED, LOCKED (mirrors Schedule C pattern)
+  - New `ScheduleEExpense` model: taxCaseId (unique FK), properties (JSON array), version tracking, status, timestamps
+  - Updated `MagicLinkType` enum: Added SCHEDULE_E type for magic link portal support
+  - 7 IRS Schedule E expense fields: insurance, mortgageInterest, repairs, taxes, utilities, managementFees, cleaningMaintenance
+  - Custom expenses list support (otherExpenses array)
+  - Version history tracking (JSON), submission + locking timestamps
+
+- **TypeScript Types (@ella/shared/src/types/schedule-e.ts):**
+  - `ScheduleEPropertyAddress` - street, city, state, zip
+  - `ScheduleEPropertyType` - IRS codes 1-5, 7-8 (excludes 6 Royalties)
+  - `ScheduleEPropertyId` - A, B, C (max 3 properties per Schedule E)
+  - `ScheduleEProperty` - Complete property with rental period, income, 7 expense fields, totals
+  - `ScheduleEOtherExpense` - Custom expense item (name + amount)
+  - `ScheduleEVersionHistoryEntry` - Version tracking with change log
+  - `ScheduleETotals` - Aggregate totals across properties
+  - `ScheduleEStatus` - Type alias (DRAFT/SUBMITTED/LOCKED)
+  - Helper: `createEmptyProperty()` for form initialization
+  - Helper: `PROPERTY_TYPE_LABELS` (EN/VI bilingual labels)
+
+- **Exports (@ella/shared/src/types/index.ts):**
+  - All Schedule E types exported for frontend consumption
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Added Schedule E Phase 1 to status table, updated database schema section, added recent phase summary
+2. **system-architecture.md** - Added ScheduleEExpense to Database Schema models, updated MagicLinkType reference
+3. **LATEST-UPDATES.md** - This update document
+
+---
+
+## Previous Update: Landing Page Phase 03 - Why Ella Page Expansion
+
 **Date:** 2026-02-05 | **Feature:** Landing Page Phase 03 - Why Ella Page Expansion | **Status:** Complete
 
 ---
 
-## Phase 03: Why Ella Page Expansion (Current Update)
+## Phase 03: Why Ella Page Expansion (Previous Update)
 
 **In One Sentence:** Why Ella page expanded from 4-card sections to 6-card sections (problems, solutions, differentiators) with 7-item before/after comparison.
 
@@ -296,5 +337,5 @@ plans/reports/
 ---
 
 **Documentation Status:** ✅ Complete & Ready for Merge
-**Last Updated:** 2026-01-29 17:27 ICT
+**Last Updated:** 2026-02-06 09:00 ICT
 **Prepared by:** Documentation Manager

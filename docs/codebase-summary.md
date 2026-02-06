@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-02-05
-**Current Branch:** feature/landing-page
-**Latest Phase:** Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE | Phase 05 COMPLETE | Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
+**Current Date:** 2026-02-06
+**Current Branch:** feature/ella-schedule-E
+**Latest Phase:** Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE | Phase 05 COMPLETE | Phase 3 Multi-Tenancy COMPLETE | Phase 6 Frontend Auth COMPLETE | Schedule C Phase 4 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Schedule E Phase 1: Backend Foundation** | **Prisma ScheduleEExpense model (properties JSON array, version history, status tracking), ScheduleEStatus enum (DRAFT/SUBMITTED/LOCKED), MagicLinkType.SCHEDULE_E, TypeScript types (7 properties support, 7 IRS expense fields, custom expenses, aggregated totals), helper utilities, export to shared types.** | **2026-02-06** |
 | **Landing Page Phase 08: Animations Polish** | **Scroll-based animations (IntersectionObserver), counter animations with NaN validation, fade-up & slide-in effects, stagger timing (12 items, 0.04s increments), prefers-reduced-motion accessibility, micro-interactions (hover/focus states), data-animate & data-stagger attributes, global.css animation utilities & keyframes.** | **2026-02-05** |
 | **Landing Page Killer Features - Phase 01** | **SMS-first positioning: Hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction." Features prioritized: SMS Direct Upload, AI Auto-Rename (first two), then Classification & OCR. How It Works flow: Client Texts Photo → AI Classifies & Renames → Review & Prepare. SEO description updated. Messaging emphasizes zero-friction SMS intake over portal upload.** | **2026-02-05** |
 | **Landing Page Phase 03: Why Ella Updates** | **Expanded Why Ella page (why-ella.astro): problems (6 cards), solutions (6 cards), before/after comparison (7 items each), differentiators (6 cards). Grid layout updated: 3-col desktop (even row distribution). Enhanced data file (why-ella-data.ts) with 2 new problems (Clients Never Use Portal, File Names Are Garbage), 2 new solutions (SMS Upload, AI Auto-Rename), 2 new before/after items each, 2 new differentiators (SMS-First, Auto-Rename Intelligence). Maintained pain-solution narrative.** | **2026-02-05** |
@@ -48,9 +49,10 @@
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
 - **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC
+- **ScheduleEExpense**: Up to 3 rental properties (JSON array), 7 IRS expense fields, custom expenses, version history, status (DRAFT/SUBMITTED/LOCKED)
 - **RawImage**: documentId, classification (UPLOADED|UNCLASSIFIED|CLASSIFIED|DUPLICATE|VERIFIED), aiConfidence, category
 - **DigitalDoc**: Extracted OCR fields, source reference, AI confidence
-- **MagicLink**: type (PORTAL|SCHEDULE_C), token, caseId/type, isActive, expiresAt
+- **MagicLink**: type (PORTAL|SCHEDULE_C|SCHEDULE_E), token, caseId/type, isActive, expiresAt
 - **Message**: conversationId, channel (SMS|PORTAL|SYSTEM|CALL), content, callSid/recordingUrl
 - **AuditLog**: entityType, entityId, field, oldValue, newValue, changedById, timestamp (complete trail)
 - **Action**: actionType, priority, caseId, dueDate, status, completedBy
@@ -228,6 +230,8 @@
 
 ## Recent Phases Summary
 
+**2026-02-06:** Schedule E Phase 1 Backend Foundation complete. Prisma schema: ScheduleEExpense model (unique per TaxCase), ScheduleEStatus enum (DRAFT/SUBMITTED/LOCKED), MagicLinkType.SCHEDULE_E added. TypeScript types in @ella/shared: ScheduleEProperty (7 properties A-C), ScheduleEPropertyAddress, ScheduleEPropertyType (1/2/3/4/5/7/8), ScheduleEOtherExpense, ScheduleEVersionHistoryEntry, ScheduleETotals. Helper utilities: createEmptyProperty(), PROPERTY_TYPE_LABELS (EN/VI). Properties stored as JSON array with 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance). Exports added to @ella/shared/src/types/index.ts for frontend consumption.
+
 **2026-02-05:** Landing Page Phase 03 Why Ella Updates complete. Expanded problems (6 cards: added Clients Never Use Portal + File Names Are Garbage). Solutions scaled to 6 cards (added SMS Upload + AI Auto-Rename). Before/After comparison: 7 items each (added SMS reminders, Clients text Ella number, Auto-renamed files). Differentiators expanded: 6 cards (added SMS-First positioning + Auto-Rename Intelligence). Grid layout optimized: 3-col desktop (even row distribution). Why Ella data extracted to why-ella-data.ts config file (pain points, solutions, before/after items, differentiators all now in single source).
 
 **2026-02-05:** Landing Page Killer Features Phase 01 complete. SMS-first hero messaging. Headline "Clients text docs to your Ella number. No app. No friction." Features reordered: SMS Direct Upload + AI Auto-Rename prioritized first. How It Works: 3-step SMS-focused flow (Client Texts → AI Classifies & Renames → Review & Prepare). SEO description updated to emphasize SMS-first intake. Brand alignment with emerald emerges as SMS accessibility theme.
@@ -265,8 +269,8 @@
 
 ---
 
-**Version:** 2.7
+**Version:** 2.8
 **Created:** 2026-01-11
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-06
 **Maintained By:** Documentation Manager
-**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, & SMS-First Killer Features Phase 01 complete
+**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, & SMS-First Killer Features Phase 01 complete

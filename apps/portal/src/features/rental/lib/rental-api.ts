@@ -48,6 +48,33 @@ export interface RentalSubmitInput {
   properties: ScheduleEProperty[]
 }
 
+/**
+ * Extract user-friendly error message from API validation response
+ * Combines field-level errors into a readable string
+ */
+function extractValidationMessage(data: Record<string, unknown>): string | null {
+  const details = data.details as { formErrors?: string[]; fieldErrors?: Record<string, string[]> } | undefined
+  if (!details) return null
+
+  const messages: string[] = []
+
+  // Collect form-level errors
+  if (details.formErrors?.length) {
+    messages.push(...details.formErrors)
+  }
+
+  // Collect field-level errors
+  if (details.fieldErrors) {
+    for (const [, errors] of Object.entries(details.fieldErrors)) {
+      if (Array.isArray(errors)) {
+        messages.push(...errors)
+      }
+    }
+  }
+
+  return messages.length > 0 ? messages.join('. ') : null
+}
+
 // HTTP request helper
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path}`
@@ -64,10 +91,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const data = await response.json()
 
     if (!response.ok) {
+      // For validation errors, extract specific field messages
+      const validationMsg = extractValidationMessage(data)
+      const message = validationMsg || data.message || 'Đã có lỗi xảy ra'
+
       throw new ApiError(
         response.status,
         data.error || 'UNKNOWN_ERROR',
-        data.message || 'Đã có lỗi xảy ra'
+        message
       )
     }
 

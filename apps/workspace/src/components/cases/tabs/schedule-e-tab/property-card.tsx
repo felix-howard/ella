@@ -9,7 +9,7 @@ import { cn } from '@ella/ui'
 import type { ScheduleEPropertyData } from '../../../../lib/api-client'
 import { sanitizeText } from '../../../../lib/formatters'
 import { formatUSD, getPropertyTypeLabel, formatAddress } from './format-utils'
-import { CopyableValue } from './copyable-value'
+import { CopyableValue, CopyableText, CopyableNumber } from './copyable-value'
 
 interface PropertyCardProps {
   property: ScheduleEPropertyData
@@ -99,44 +99,74 @@ export function PropertyCard({ property, isLocked }: PropertyCardProps) {
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-border p-4 space-y-4 bg-muted/30">
-          {/* Property Details Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Address */}
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-muted-foreground">{t('scheduleE.address')}</p>
-                <p className="text-sm text-foreground">
-                  {sanitizeText(property.address.street)}<br />
-                  {sanitizeText(property.address.city)}, {sanitizeText(property.address.state)} {sanitizeText(property.address.zip)}
-                </p>
+          {/* IRS Schedule E Data - Organized for easy copy to tax software */}
+          <div className="bg-background rounded-lg border border-border p-4 space-y-3">
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              {t('scheduleE.propertyInfo')}
+            </h4>
+
+            {/* Line 1a: Address */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-2 min-w-0">
+                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Line 1a: {t('scheduleE.address')}</p>
+                  <CopyableText
+                    text={`${sanitizeText(property.address.street)}, ${sanitizeText(property.address.city)}, ${sanitizeText(property.address.state)} ${sanitizeText(property.address.zip)}`}
+                    className="text-sm text-foreground"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Rental Period */}
+            {/* Line 1b: Property Type */}
             <div className="flex items-start gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="w-4 h-4 flex-shrink-0" />
               <div>
-                <p className="text-xs text-muted-foreground">{t('scheduleE.rentalPeriod')}</p>
-                <p className="text-sm text-foreground">
-                  {t('scheduleE.monthsRented', { count: property.monthsRented })}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t('scheduleE.rentalDays', { days: property.fairRentalDays })} /
-                  {t('scheduleE.personalDays', { days: property.personalUseDays })}
-                </p>
+                <p className="text-xs text-muted-foreground">Line 1b: {t('scheduleE.propertyType')}</p>
+                <CopyableText
+                  text={`${property.propertyType} - ${getPropertyTypeLabel(property.propertyType, 'en')}`}
+                  copyValue={String(property.propertyType)}
+                  className="text-sm text-foreground"
+                />
               </div>
             </div>
 
-            {/* Income */}
+            {/* Line 2: Fair Rental Days & Personal Use Days */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-start gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Line 2: {t('scheduleE.fairRentalDays')}</p>
+                  <CopyableNumber
+                    value={property.fairRentalDays}
+                    formatted={`${property.fairRentalDays} days`}
+                    className="text-sm font-medium text-foreground"
+                  />
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('scheduleE.personalUseDays')}</p>
+                  <CopyableNumber
+                    value={property.personalUseDays}
+                    formatted={`${property.personalUseDays} days`}
+                    className="text-sm text-foreground"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Line 3: Rents Received */}
             <div className="flex items-start gap-2">
               <DollarSign className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-xs text-muted-foreground">{t('scheduleE.rentsReceived')}</p>
+                <p className="text-xs text-muted-foreground">Line 3: {t('scheduleE.rentsReceived')}</p>
                 <CopyableValue
                   formatted={formatUSD(property.rentsReceived)}
                   rawValue={property.rentsReceived}
-                  className="text-sm font-medium"
+                  className="text-sm font-semibold text-foreground"
                 />
               </div>
             </div>

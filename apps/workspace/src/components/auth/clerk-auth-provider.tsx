@@ -38,6 +38,8 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
 
   // Verify token is obtainable when signed in
   // This prevents 401 errors during login transition
+  // CRITICAL: When isSignedIn transitions false→true, we must wait for token
+  // before rendering children. When false, render immediately so login page shows.
   useEffect(() => {
     if (!isLoaded) {
       setIsTokenReady(false)
@@ -45,12 +47,20 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     }
 
     if (!isSignedIn) {
-      // Not signed in - token not needed, mark as ready
+      // Not signed in - allow rendering for public pages (login)
+      // Also handles sign-out: clear cache if user was previously signed in
+      if (wasSignedIn.current) {
+        queryClient.clear()
+      }
+      wasSignedIn.current = false
       setIsTokenReady(true)
       return
     }
 
-    // Signed in - verify we can get a token
+    // Signed in - always re-verify token before rendering children
+    // This catches the login transition where isSignedIn just became true
+    wasSignedIn.current = true
+    setIsTokenReady(false)
     let cancelled = false
     const verifyToken = async () => {
       try {
@@ -73,21 +83,7 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     return () => {
       cancelled = true
     }
-  }, [isLoaded, isSignedIn, getToken])
-
-  // Clear query cache when user signs out
-  // This prevents background refetch from making 401 requests
-  useEffect(() => {
-    if (isLoaded) {
-      if (wasSignedIn.current && !isSignedIn) {
-        // User just signed out - clear all queries
-        queryClient.clear()
-        // Reset token ready state for next sign in
-        setIsTokenReady(false)
-      }
-      wasSignedIn.current = !!isSignedIn
-    }
-  }, [isLoaded, isSignedIn, queryClient])
+  }, [isLoaded, isSignedIn, getToken, queryClient])
 
   // Don't render children until Clerk is fully loaded AND token is verified
   // This prevents API calls from firing before auth token is available

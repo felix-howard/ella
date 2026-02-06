@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn, Button, Input } from '@ella/ui'
 import { Check, Pencil, AlertTriangle, X } from 'lucide-react'
 
@@ -50,6 +51,7 @@ export function FieldVerificationItem({
   compact = true,
   className,
 }: FieldVerificationItemProps) {
+  const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
   const [justSaved, setJustSaved] = useState(false)
@@ -143,7 +145,7 @@ export function FieldVerificationItem({
         {status && status !== 'edited' && (
           <div
             className="flex-shrink-0 mt-0.5"
-            title={status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
+            title={status === 'verified' ? t('checklistStatus.verified') : t('field.unreadable')}
           >
             {status === 'verified' && <Check className="w-4 h-4 text-primary" />}
             {status === 'unreadable' && <AlertTriangle className="w-4 h-4 text-error" />}
@@ -175,7 +177,7 @@ export function FieldVerificationItem({
                 onMouseDown={() => { cancellingRef.current = true }}
                 onClick={handleCancelEdit}
                 className="p-1 rounded-md hover:bg-muted flex-shrink-0"
-                aria-label="Hủy"
+                aria-label={t('common.cancel')}
               >
                 <X className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
@@ -185,7 +187,7 @@ export function FieldVerificationItem({
               'flex-1 text-sm font-semibold',
               status === 'edited' ? 'text-amber-500' : 'text-foreground'
             )}>
-              {value || <span className="text-muted-foreground italic">Trống</span>}
+              {value || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
             </span>
           )}
         </div>
@@ -240,14 +242,14 @@ export function FieldVerificationItem({
             onMouseDown={() => { cancellingRef.current = true }}
             onClick={handleCancelEdit}
             className="h-8 w-8 p-0"
-            aria-label="Hủy"
+            aria-label={t('common.cancel')}
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
       ) : (
         <div className={cn('font-medium', status === 'edited' ? 'text-amber-500' : 'text-foreground')}>
-          {value || <span className="text-muted-foreground italic">Trống</span>}
+          {value || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
         </div>
       )}
 
@@ -257,7 +259,7 @@ export function FieldVerificationItem({
           {status === 'verified' && <Check className="w-3.5 h-3.5 text-primary" />}
           {status === 'unreadable' && <AlertTriangle className="w-3.5 h-3.5 text-error" />}
           <span className="text-xs text-muted-foreground">
-            {status === 'verified' ? 'Đã xác minh' : 'Không đọc được'}
+            {status === 'verified' ? t('checklistStatus.verified') : t('field.unreadable')}
           </span>
         </div>
       )}

@@ -761,6 +761,8 @@
   "settings.language": "Language",
   "settings.lightMode": "Light",
   "settings.messageTemplates": "Message Templates",
+  "settings.smsLanguage": "Message Language",
+  "settings.smsLanguageDescription": "Language for automatic messages sent to clients",
   "settings.theme": "Theme",
   "settings.title": "Settings",
   "sidebar.unreadMessages": "{{count}} unread messages",

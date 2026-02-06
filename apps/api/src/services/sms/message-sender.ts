@@ -16,6 +16,19 @@ import {
 } from './templates'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 
+/**
+ * Get the organization's SMS language preference
+ * Falls back to 'VI' if org not found or no preference set
+ */
+export async function getOrgSmsLanguage(organizationId: string | null): Promise<SmsLanguage> {
+  if (!organizationId) return 'VI'
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { smsLanguage: true },
+  })
+  return (org?.smsLanguage as SmsLanguage) || 'VI'
+}
+
 export interface SendMessageResult {
   success: boolean
   messageId?: string

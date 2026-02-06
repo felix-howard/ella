@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, X, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { toast } from '../../stores/toast-store'
@@ -16,6 +17,7 @@ interface VerificationPanelProps {
 }
 
 export function VerificationPanel({ documents, onRefresh }: VerificationPanelProps) {
+  const { t } = useTranslation()
   // Filter to pending/extracted documents that need verification
   const pendingDocs = documents.filter(
     (d) => d.status === 'PENDING' || d.status === 'EXTRACTED' || d.status === 'PARTIAL'
@@ -25,14 +27,14 @@ export function VerificationPanel({ documents, onRefresh }: VerificationPanelPro
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Check className="w-8 h-8 mx-auto mb-2 text-success" />
-        <p>Tất cả tài liệu đã được xác minh</p>
+        <p>{t('verificationPanel.allVerified')}</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="font-medium">Cần xác minh ({pendingDocs.length})</h3>
+      <h3 className="font-medium">{t('verificationPanel.needsVerification')} ({pendingDocs.length})</h3>
 
       {pendingDocs.map((doc) => (
         <DocumentVerificationCard
@@ -51,6 +53,7 @@ interface DocumentVerificationCardProps {
 }
 
 function DocumentVerificationCard({ document, onVerified }: DocumentVerificationCardProps) {
+  const { t } = useTranslation()
   const [isVerifying, setIsVerifying] = useState(false)
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -59,10 +62,10 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
     setIsVerifying(true)
     try {
       await api.docs.verifyAction(document.id, { action: 'verify' })
-      toast.success('Đã xác minh tài liệu')
+      toast.success(t('verificationPanel.verifySuccess'))
       onVerified()
     } catch {
-      toast.error('Không thể xác minh')
+      toast.error(t('verificationPanel.verifyError'))
     } finally {
       setIsVerifying(false)
     }
@@ -75,10 +78,10 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
         action: 'reject',
         notes: rejectReason || undefined,
       })
-      toast.success('Đã từ chối tài liệu')
+      toast.success(t('verificationPanel.rejectSuccess'))
       onVerified()
     } catch {
-      toast.error('Không thể từ chối')
+      toast.error(t('verificationPanel.rejectError'))
     } finally {
       setIsVerifying(false)
       setShowRejectForm(false)
@@ -115,9 +118,9 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
                   document.status === 'PARTIAL' && 'bg-accent-light text-accent'
                 )}
               >
-                {document.status === 'EXTRACTED' && 'Đã trích xuất'}
-                {document.status === 'PENDING' && 'Chờ xử lý'}
-                {document.status === 'PARTIAL' && 'Trích xuất một phần'}
+                {document.status === 'EXTRACTED' && t('verificationPanel.extracted')}
+                {document.status === 'PENDING' && t('verificationPanel.pending')}
+                {document.status === 'PARTIAL' && t('verificationPanel.partial')}
               </span>
               {confidencePercent > 0 && (
                 <span className="text-xs text-muted-foreground">
@@ -144,7 +147,7 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
               ) : (
                 <Check className="w-4 h-4" />
               )}
-              Xác minh
+              {t('verificationPanel.verify')}
             </button>
             <button
               onClick={() => setShowRejectForm(true)}
@@ -155,7 +158,7 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
               )}
             >
               <X className="w-4 h-4" />
-              Từ chối
+              {t('verificationPanel.reject')}
             </button>
           </div>
         )}
@@ -164,7 +167,7 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
       {/* Extracted data preview (simplified) */}
       {document.extractedData && Object.keys(document.extractedData).length > 0 && (
         <div className="mt-4 bg-muted/50 rounded-lg p-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Dữ liệu trích xuất:</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{t('verificationPanel.extractedData')}</p>
           <div className="text-xs text-foreground space-y-1 max-h-32 overflow-auto">
             {Object.entries(document.extractedData)
               .filter(([key]) => !['aiConfidence', 'rawText'].includes(key))
@@ -185,12 +188,12 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
           <div className="flex items-start gap-2 mb-3">
             <AlertCircle className="w-4 h-4 text-warning mt-0.5" />
             <p className="text-sm text-muted-foreground">
-              Từ chối sẽ yêu cầu khách hàng gửi lại tài liệu này
+              {t('verificationPanel.rejectNote')}
             </p>
           </div>
           <input
             type="text"
-            placeholder="Lý do từ chối (không bắt buộc)"
+            placeholder={t('verificationPanel.rejectReasonPlaceholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -209,7 +212,7 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
               ) : (
                 <X className="w-4 h-4" />
               )}
-              Xác nhận từ chối
+              {t('verificationPanel.confirmReject')}
             </button>
             <button
               onClick={() => {
@@ -219,7 +222,7 @@ function DocumentVerificationCard({ document, onVerified }: DocumentVerification
               disabled={isVerifying}
               className="px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
-              Hủy
+              {t('common.cancel')}
             </button>
           </div>
         </div>

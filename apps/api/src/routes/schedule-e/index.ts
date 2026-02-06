@@ -10,9 +10,8 @@ import {
   getScheduleEMagicLink,
   extendMagicLinkExpiry,
 } from '../../services/magic-link'
-import { sendScheduleEFormMessage } from '../../services/sms/message-sender'
+import { sendScheduleEFormMessage, getOrgSmsLanguage } from '../../services/sms/message-sender'
 import { calculateScheduleETotals } from '../../services/schedule-e/expense-calculator'
-import type { SmsLanguage } from '../../services/sms/templates'
 import type { ScheduleEProperty } from '@ella/shared'
 
 const scheduleERoute = new Hono<{ Variables: AuthVariables }>()
@@ -60,13 +59,15 @@ scheduleERoute.post('/:caseId/send', async (c) => {
   // Create new magic link with atomic deactivation of existing links
   const { url: magicLinkUrl, expiresAt } = await createMagicLinkWithDeactivation(caseId, 'SCHEDULE_E')
 
-  // Send SMS
+  // Send SMS using org language preference
+  const user = c.get('user')
+  const smsLanguage = await getOrgSmsLanguage(user.organizationId)
   const smsResult = await sendScheduleEFormMessage(
     caseId,
     taxCase.client.name,
     taxCase.client.phone,
     magicLinkUrl,
-    taxCase.client.language as SmsLanguage
+    smsLanguage
   )
 
   return c.json({
@@ -229,6 +230,10 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
   const magicLink = await getScheduleEMagicLink(caseId)
   let magicLinkUrl: string
 
+  // Get org SMS language preference
+  const user = c.get('user')
+  const smsLanguage = await getOrgSmsLanguage(user.organizationId)
+
   if (magicLink) {
     // Extend existing link TTL
     const newExpiry = await extendMagicLinkExpiry(magicLink.id)
@@ -240,7 +245,7 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      taxCase.client.language as SmsLanguage
+      smsLanguage
     )
 
     return c.json({
@@ -259,7 +264,7 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      taxCase.client.language as SmsLanguage
+      smsLanguage
     )
 
     return c.json({

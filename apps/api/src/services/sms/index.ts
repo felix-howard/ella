@@ -23,6 +23,7 @@ export {
   sendCustomMessage,
   sendSmsOnly,
   isSmsEnabled,
+  getOrgSmsLanguage,
   type SendMessageResult,
 } from './message-sender'
 

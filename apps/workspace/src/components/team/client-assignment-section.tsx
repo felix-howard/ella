@@ -6,7 +6,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, Loader2, Users } from 'lucide-react'
-import { cn, Button, Select } from '@ella/ui'
+import { cn, Button } from '@ella/ui'
+import { CustomSelect } from '../ui/custom-select'
 import { api, type ClientAssignment, type TeamMember } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
@@ -95,17 +96,13 @@ export function ClientAssignmentSection({ clientId }: ClientAssignmentSectionPro
           {/* Add assignment */}
           {availableMembers.length > 0 && (
             <div className="flex items-center gap-2">
-              <Select
+              <CustomSelect
                 value={selectedStaffId}
-                onChange={(e) => setSelectedStaffId(e.target.value)}
+                onChange={(value) => setSelectedStaffId(value)}
+                options={availableMembers.map((m) => ({ value: m.id, label: m.name }))}
+                placeholder={`${t('team.assignClients')}...`}
                 className="flex-1 text-sm"
-                aria-label={t('team.assignClients')}
-              >
-                <option value="">{t('team.assignClients')}...</option>
-                {availableMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </Select>
+              />
               <Button
                 size="sm"
                 onClick={() => selectedStaffId && assignMutation.mutate(selectedStaffId)}

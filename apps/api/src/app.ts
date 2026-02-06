@@ -25,6 +25,7 @@ import { rentalRoute } from './routes/rental'
 import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { clientAssignmentsRoute } from './routes/client-assignments'
+import { orgSettingsRoute } from './routes/org-settings'
 
 const app = new OpenAPIHono()
 
@@ -68,6 +69,7 @@ app.use('/schedule-e/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/client-assignments/*', authMiddleware)
+app.use('/org-settings/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -86,6 +88,7 @@ app.route('/schedule-e', scheduleERoute)
 app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/client-assignments', clientAssignmentsRoute)
+app.route('/org-settings', orgSettingsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

@@ -11,9 +11,8 @@ import {
   getScheduleCMagicLink,
   extendMagicLinkExpiry,
 } from '../../services/magic-link'
-import { sendScheduleCFormMessage } from '../../services/sms/message-sender'
+import { sendScheduleCFormMessage, getOrgSmsLanguage } from '../../services/sms/message-sender'
 import { calculateGrossReceipts, calculateScheduleCTotals, getGrossReceiptsBreakdown } from '../../services/schedule-c/expense-calculator'
-import type { SmsLanguage } from '../../services/sms/templates'
 import type { Prisma } from '@ella/db'
 
 // Helper to format Decimal to string with 2 decimal places
@@ -73,13 +72,15 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
   // Create new magic link with atomic deactivation of existing links
   const { url: magicLinkUrl, expiresAt } = await createMagicLinkWithDeactivation(caseId, 'SCHEDULE_C')
 
-  // Send SMS
+  // Send SMS using org language preference
+  const user = c.get('user')
+  const smsLanguage = await getOrgSmsLanguage(user.organizationId)
   const smsResult = await sendScheduleCFormMessage(
     caseId,
     taxCase.client.name,
     taxCase.client.phone,
     magicLinkUrl,
-    taxCase.client.language as SmsLanguage
+    smsLanguage
   )
 
   return c.json({
@@ -295,6 +296,10 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
   const magicLink = await getScheduleCMagicLink(caseId)
   let magicLinkUrl: string
 
+  // Get org SMS language preference
+  const user = c.get('user')
+  const smsLanguage = await getOrgSmsLanguage(user.organizationId)
+
   if (magicLink) {
     // Extend existing link TTL
     const newExpiry = await extendMagicLinkExpiry(magicLink.id)
@@ -306,7 +311,7 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      taxCase.client.language as SmsLanguage
+      smsLanguage
     )
 
     return c.json({
@@ -325,7 +330,7 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      taxCase.client.language as SmsLanguage
+      smsLanguage
     )
 
     return c.json({

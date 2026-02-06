@@ -761,6 +761,8 @@
   "settings.language": "Ngôn ngữ",
   "settings.lightMode": "Sáng",
   "settings.messageTemplates": "Mẫu tin nhắn",
+  "settings.smsLanguage": "Ngôn ngữ tin nhắn",
+  "settings.smsLanguageDescription": "Ngôn ngữ cho tin nhắn tự động gửi đến khách hàng",
   "settings.theme": "Chế độ màu",
   "settings.title": "Cài đặt",
   "sidebar.unreadMessages": "{{count}} tin nhắn chưa đọc",

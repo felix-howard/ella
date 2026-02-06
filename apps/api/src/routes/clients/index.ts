@@ -25,7 +25,7 @@ import {
   computeProfileFieldDiff,
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
-import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
@@ -344,13 +344,14 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   let smsStatus: { sent: boolean; error?: string } = { sent: false }
   if (isSmsEnabled()) {
     try {
+      const smsLanguage = await getOrgSmsLanguage(user.organizationId)
       const smsResult = await sendWelcomeMessage(
         result.taxCase.id,
         result.client.name,
         result.client.phone,
         magicLink,
         result.taxCase.taxYear,
-        (result.client.language as 'VI' | 'EN') || 'VI'
+        smsLanguage
       )
       smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
     } catch (error) {
@@ -523,13 +524,14 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
   const portalUrl = `${portalBaseUrl}/u/${magicLink.token}`
 
   try {
+    const smsLanguage = await getOrgSmsLanguage(user.organizationId)
     const result = await sendWelcomeMessage(
       taxCase.id,
       client.name,
       client.phone,
       portalUrl,
       taxCase.taxYear,
-      (client.language as 'VI' | 'EN') || 'VI'
+      smsLanguage
     )
 
     if (result.smsSent) {

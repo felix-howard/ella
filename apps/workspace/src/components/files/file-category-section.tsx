@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
@@ -174,6 +175,7 @@ const FileItemRow = memo(function FileItemRow({
   onVerify,
   onViewImage,
 }: FileItemRowProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isDragging, setIsDragging] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -185,7 +187,7 @@ const FileItemRow = memo(function FileItemRow({
   // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
   const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
   const isStillProcessing = !doc && !isProcessedNoDoc
-  const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? 'Chưa phân loại'
+  const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? t('classify.unclassified')
 
   // Show displayName if available, fallback to original filename
   // Sanitize to prevent XSS (extra safety layer beyond React's default escaping)
@@ -203,12 +205,12 @@ const FileItemRow = memo(function FileItemRow({
   const renameMutation = useMutation({
     mutationFn: (filename: string) => api.images.rename(image.id, filename),
     onSuccess: () => {
-      toast.success('Đã đổi tên tệp')
+      toast.success(t('classify.fileRenamed'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       setIsRenaming(false)
     },
     onError: () => {
-      toast.error('Lỗi đổi tên tệp')
+      toast.error(t('classify.fileRenameError'))
     },
   })
 
@@ -372,37 +374,37 @@ const FileItemRow = memo(function FileItemRow({
           {isVerified && (
             <button
               onClick={() => onVerify(doc)}
-              aria-label={`Xác minh lại ${docLabel}`}
+              aria-label={t('docVerification.verify', { filename: docLabel })}
               className="flex items-center gap-1 text-xs text-success hover:text-success/80 focus:outline-none focus:ring-2 focus:ring-success/50 rounded px-1 transition-colors"
             >
               <CheckCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Đã xác minh</span>
+              <span className="hidden sm:inline">{t('checklistStatus.verified')}</span>
             </button>
           )}
           {needsVerification && (
             <button
               onClick={() => onVerify(doc)}
-              aria-label={`Xác minh ${docLabel}`}
+              aria-label={t('docVerification.verify', { filename: docLabel })}
               className="flex items-center gap-1 text-xs text-primary hover:text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors"
             >
               <AlertCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Xác minh</span>
+              <span className="hidden sm:inline">{t('checklist.verify')}</span>
             </button>
           )}
           {isStillProcessing && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Đang xử lý</span>
+              <span className="hidden sm:inline">{t('uploads.statusProcessing')}</span>
             </span>
           )}
           {isProcessedNoDoc && (
             <button
               onClick={() => onViewImage?.(image.id)}
-              aria-label={`Xem ${displayName}`}
+              aria-label={t('checklist.viewFile')}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Xem</span>
+              <span className="hidden sm:inline">{t('checklist.viewFile')}</span>
             </button>
           )}
 

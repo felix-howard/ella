@@ -774,6 +774,18 @@ export const api = {
       request<{ success: boolean }>(`/team/invitations/${invitationId}`, { method: 'DELETE' }),
   },
 
+  // Organization Settings
+  orgSettings: {
+    get: () =>
+      request<{ smsLanguage: Language }>('/org-settings'),
+
+    update: (data: { smsLanguage: Language }) =>
+      request<{ smsLanguage: Language }>('/org-settings', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  },
+
   // Client Assignments
   clientAssignments: {
     create: (data: { clientId: string; staffId: string }) =>

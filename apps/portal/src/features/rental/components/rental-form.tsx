@@ -2,9 +2,10 @@
  * RentalForm Component
  * Main multi-step wizard form for Schedule E rental properties
  */
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from '../../../lib/toast-store'
 import type { RentalFormData } from '../lib/rental-api'
 import { useRentalForm } from '../hooks/use-rental-form'
 import { useRentalAutoSave } from '../hooks/use-rental-auto-save'
@@ -57,6 +58,14 @@ export const RentalForm = memo(function RentalForm({
 
   // Local state for showing success after submission
   const [showSuccess, setShowSuccess] = useState(false)
+
+  // Show toast when error occurs
+  useEffect(() => {
+    if (errorMessage) {
+      toast.error(errorMessage, 6000)
+      resetError()
+    }
+  }, [errorMessage, resetError])
 
   // Handle submit
   const handleSubmit = useCallback(async () => {
@@ -175,20 +184,6 @@ export const RentalForm = memo(function RentalForm({
         currentStep={currentStep}
         totalSteps={totalSteps}
       />
-
-      {/* Error message */}
-      {errorMessage && (
-        <div className="mx-6 mt-4 p-3 bg-error/10 border border-error/30 rounded-lg">
-          <p className="text-sm text-error">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={resetError}
-            className="text-xs text-error underline mt-1"
-          >
-            {t('common.dismiss')}
-          </button>
-        </div>
-      )}
 
       {/* Step content */}
       {renderStep()}

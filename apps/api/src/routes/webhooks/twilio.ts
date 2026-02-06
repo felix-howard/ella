@@ -7,6 +7,7 @@ import {
   processIncomingMessage,
   validateTwilioSignature,
   generateTwimlResponse,
+  sendMissedCallTextBack,
   type TwilioIncomingMessage,
 } from '../../services/sms'
 import {
@@ -513,6 +514,10 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     // 3. Check if any eligible staff online
     if (staffIdentities.length === 0) {
       console.log(`[Incoming Webhook] No eligible staff online, routing to voicemail`)
+
+      // Fire-and-forget: send missed call text-back SMS
+      sendMissedCallTextBack(from, clientOrgId || null).catch(() => {})
+
       const twiml = generateNoStaffTwiml({
         voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
         voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
@@ -633,6 +638,17 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
     })
   } catch (error) {
     console.error('[Dial Complete] Failed to update message:', error)
+  }
+
+  // Fire-and-forget: send missed call text-back SMS
+  // Twilio provides original caller phone in From field of the action callback
+  const callerPhone = formData.From as string
+  if (callerPhone) {
+    const callerClient = await prisma.client.findUnique({
+      where: { phone: callerPhone },
+      select: { organizationId: true },
+    })
+    sendMissedCallTextBack(callerPhone, callerClient?.organizationId || null).catch(() => {})
   }
 
   const twiml = generateVoicemailTwiml({

@@ -777,10 +777,10 @@ export const api = {
   // Organization Settings
   orgSettings: {
     get: () =>
-      request<{ smsLanguage: Language }>('/org-settings'),
+      request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings'),
 
-    update: (data: { smsLanguage: Language }) =>
-      request<{ smsLanguage: Language }>('/org-settings', {
+    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean }) =>
+      request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),

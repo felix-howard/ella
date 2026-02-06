@@ -763,6 +763,8 @@
   "settings.messageTemplates": "Mẫu tin nhắn",
   "settings.smsLanguage": "Ngôn ngữ tin nhắn",
   "settings.smsLanguageDescription": "Ngôn ngữ cho tin nhắn tự động gửi đến khách hàng",
+  "settings.missedCallTextBack": "Tin nhắn khi lỡ cuộc gọi",
+  "settings.missedCallTextBackDescription": "Tự động nhắn tin cho khách khi cuộc gọi bị lỡ",
   "settings.theme": "Chế độ màu",
   "settings.title": "Cài đặt",
   "sidebar.unreadMessages": "{{count}} tin nhắn chưa đọc",

@@ -763,6 +763,8 @@
   "settings.messageTemplates": "Message Templates",
   "settings.smsLanguage": "Message Language",
   "settings.smsLanguageDescription": "Language for automatic messages sent to clients",
+  "settings.missedCallTextBack": "Missed Call Text-Back",
+  "settings.missedCallTextBackDescription": "Automatically text clients when their call is missed",
   "settings.theme": "Theme",
   "settings.title": "Settings",
   "sidebar.unreadMessages": "{{count}} unread messages",

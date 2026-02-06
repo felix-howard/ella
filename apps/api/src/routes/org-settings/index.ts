@@ -10,8 +10,9 @@ import type { AuthVariables } from '../../middleware/auth'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 
-const updateSmsLanguageSchema = z.object({
-  smsLanguage: z.enum(['VI', 'EN']),
+const updateOrgSettingsSchema = z.object({
+  smsLanguage: z.enum(['VI', 'EN']).optional(),
+  missedCallTextBack: z.boolean().optional(),
 })
 
 // GET /org-settings - Get org settings
@@ -23,20 +24,23 @@ orgSettingsRoute.get('/', async (c) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
-    select: { smsLanguage: true },
+    select: { smsLanguage: true, missedCallTextBack: true },
   })
 
   if (!org) {
     return c.json({ error: 'Organization not found' }, 404)
   }
 
-  return c.json({ smsLanguage: org.smsLanguage })
+  return c.json({
+    smsLanguage: org.smsLanguage,
+    missedCallTextBack: org.missedCallTextBack,
+  })
 })
 
 // PATCH /org-settings - Update org settings (admin only)
 orgSettingsRoute.patch(
   '/',
-  zValidator('json', updateSmsLanguageSchema),
+  zValidator('json', updateOrgSettingsSchema),
   async (c) => {
     const user = c.get('user')
     if (!user?.organizationId) {
@@ -48,15 +52,18 @@ orgSettingsRoute.patch(
       return c.json({ error: 'Admin access required' }, 403)
     }
 
-    const { smsLanguage } = c.req.valid('json')
+    const data = c.req.valid('json')
 
     const updated = await prisma.organization.update({
       where: { id: user.organizationId },
-      data: { smsLanguage },
-      select: { smsLanguage: true },
+      data,
+      select: { smsLanguage: true, missedCallTextBack: true },
     })
 
-    return c.json({ smsLanguage: updated.smsLanguage })
+    return c.json({
+      smsLanguage: updated.smsLanguage,
+      missedCallTextBack: updated.missedCallTextBack,
+    })
   }
 )
 

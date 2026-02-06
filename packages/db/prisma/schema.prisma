@@ -212,6 +212,7 @@ enum MessageTemplateCategory {
   COMPLETE
   GENERAL
   SCHEDULE_C
+  SCHEDULE_E
 }
 
 enum EngagementStatus {

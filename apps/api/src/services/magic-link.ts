@@ -13,8 +13,9 @@ const generateToken = customAlphabet(
   12
 )
 
-// Default TTL: 7 days for Schedule C, 30 days for Portal
+// Default TTL: 7 days for Schedule C/E, 30 days for Portal
 const SCHEDULE_C_TTL_DAYS = 7
+const SCHEDULE_E_TTL_DAYS = 7
 const PORTAL_TTL_DAYS = 30
 
 /**
@@ -24,6 +25,8 @@ function getMagicLinkUrl(token: string, type: MagicLinkType): string {
   switch (type) {
     case 'SCHEDULE_C':
       return `${PORTAL_URL}/expense/${token}`
+    case 'SCHEDULE_E':
+      return `${PORTAL_URL}/rental/${token}`
     case 'PORTAL':
     default:
       return `${PORTAL_URL}/u/${token}`
@@ -46,7 +49,9 @@ export async function createMagicLink(
   const type: MagicLinkType = options?.type || 'PORTAL'
 
   // Calculate expiry based on type if not provided
-  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS : PORTAL_TTL_DAYS
+  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS
+    : type === 'SCHEDULE_E' ? SCHEDULE_E_TTL_DAYS
+    : PORTAL_TTL_DAYS
   const expiresAt = options?.expiresAt || new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
 
   await prisma.magicLink.create({
@@ -71,7 +76,9 @@ export async function createMagicLinkWithDeactivation(
   type: MagicLinkType = 'PORTAL'
 ): Promise<{ url: string; expiresAt: Date }> {
   const token = generateToken()
-  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS : PORTAL_TTL_DAYS
+  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS
+    : type === 'SCHEDULE_E' ? SCHEDULE_E_TTL_DAYS
+    : PORTAL_TTL_DAYS
   const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
 
   await prisma.$transaction([
@@ -340,4 +347,98 @@ export async function deactivateMagicLinkById(linkId: string): Promise<void> {
     where: { id: linkId },
     data: { isActive: false },
   })
+}
+
+/**
+ * Get Schedule E magic link for a case (most recent active)
+ */
+export async function getScheduleEMagicLink(caseId: string) {
+  return prisma.magicLink.findFirst({
+    where: {
+      caseId,
+      type: 'SCHEDULE_E',
+      isActive: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+// Return type for validateScheduleEToken
+export interface ScheduleEValidationResult {
+  valid: boolean
+  error?: string
+  linkId?: string
+  caseId?: string
+  clientName?: string
+  clientLanguage?: string
+  taxYear?: number
+  isLocked?: boolean
+}
+
+/**
+ * Validate Schedule E token and return minimal data needed for rental form
+ * Auto-extends expiry if accessed within threshold
+ */
+export async function validateScheduleEToken(token: string): Promise<ScheduleEValidationResult> {
+  const link = await prisma.magicLink.findUnique({
+    where: { token },
+    include: {
+      taxCase: {
+        include: {
+          client: true,
+          scheduleEExpense: true,
+        },
+      },
+    },
+  })
+
+  if (!link) {
+    return { valid: false, error: 'INVALID_TOKEN' }
+  }
+
+  // Check type
+  if (link.type !== 'SCHEDULE_E') {
+    return { valid: false, error: 'INVALID_TOKEN_TYPE' }
+  }
+
+  if (!link.isActive) {
+    return { valid: false, error: 'LINK_DEACTIVATED' }
+  }
+
+  if (link.expiresAt && link.expiresAt < new Date()) {
+    return { valid: false, error: 'EXPIRED_TOKEN' }
+  }
+
+  // Check if expense is locked
+  const isLocked = link.taxCase.scheduleEExpense?.status === 'LOCKED'
+  if (isLocked) {
+    return { valid: false, error: 'FORM_LOCKED' }
+  }
+
+  // Auto-extend expiry if within threshold
+  const now = new Date()
+  const thresholdMs = AUTO_EXTEND_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
+  const shouldExtend = link.expiresAt && (link.expiresAt.getTime() - now.getTime()) < thresholdMs
+
+  // Update usage stats and optionally extend expiry
+  await prisma.magicLink.update({
+    where: { id: link.id },
+    data: {
+      lastUsedAt: now,
+      usageCount: { increment: 1 },
+      ...(shouldExtend && {
+        expiresAt: new Date(now.getTime() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000),
+      }),
+    },
+  })
+
+  return {
+    valid: true,
+    linkId: link.id,
+    caseId: link.taxCase.id,
+    clientName: link.taxCase.client.name,
+    clientLanguage: link.taxCase.client.language,
+    taxYear: link.taxCase.taxYear,
+    isLocked: false,
+  }
 }

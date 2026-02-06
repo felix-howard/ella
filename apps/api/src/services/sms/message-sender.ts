@@ -10,6 +10,7 @@ import {
   generateBlurryResendMessage,
   generateCompleteMessage,
   generateScheduleCMessage,
+  generateScheduleEMessage,
   type TemplateName,
   type SmsLanguage,
 } from './templates'
@@ -311,4 +312,40 @@ export async function sendScheduleCFormMessage(
  */
 export function isSmsEnabled(): boolean {
   return isTwilioConfigured()
+}
+
+/**
+ * Send Schedule E rental property form link to client
+ * Uses database template if available (SCHEDULE_E category), otherwise fallback to hardcoded
+ */
+export async function sendScheduleEFormMessage(
+  caseId: string,
+  clientName: string,
+  clientPhone: string,
+  magicLink: string,
+  language: SmsLanguage = 'VI'
+): Promise<SendMessageResult> {
+  let body: string
+
+  // Try to get Schedule E template from database
+  const dbTemplate = await prisma.messageTemplate.findFirst({
+    where: {
+      category: 'SCHEDULE_E',
+      isActive: true,
+    },
+    orderBy: { sortOrder: 'asc' },
+  })
+
+  if (dbTemplate) {
+    // Use database template with placeholder replacement
+    body = replacePlaceholders(dbTemplate.content, {
+      clientName,
+      rentalUrl: magicLink,
+    })
+  } else {
+    // Fallback to hardcoded template
+    body = generateScheduleEMessage({ clientName, magicLink, language })
+  }
+
+  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_e')
 }

@@ -19,7 +19,9 @@ import { inngestRoute } from './routes/inngest'
 import { adminRoute } from './routes/admin'
 import { voiceRoutes } from './routes/voice'
 import { scheduleCRoute } from './routes/schedule-c'
+import { scheduleERoute } from './routes/schedule-e'
 import { expenseRoute } from './routes/expense'
+import { rentalRoute } from './routes/rental'
 import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { clientAssignmentsRoute } from './routes/client-assignments'
@@ -47,6 +49,7 @@ app.route('/health', healthRoute)
 app.route('/api/health', healthRoute) // Alias for Railway health check
 app.route('/portal', portalRoute)
 app.route('/expense', expenseRoute) // Public Schedule C expense form
+app.route('/rental', rentalRoute) // Public Schedule E rental form
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 
@@ -61,6 +64,7 @@ app.use('/messages/*', authMiddleware)
 app.use('/admin/*', authMiddleware)
 app.use('/voice/*', authMiddleware)
 app.use('/schedule-c/*', authMiddleware)
+app.use('/schedule-e/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/client-assignments/*', authMiddleware)
@@ -78,6 +82,7 @@ app.route('/messages', messagesRoute)
 app.route('/admin', adminRoute)
 app.route('/voice', voiceRoutes)
 app.route('/schedule-c', scheduleCRoute)
+app.route('/schedule-e', scheduleERoute)
 app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/client-assignments', clientAssignmentsRoute)

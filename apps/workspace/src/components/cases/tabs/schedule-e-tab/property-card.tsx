@@ -28,7 +28,7 @@ const EXPENSE_FIELDS = [
 ] as const
 
 export function PropertyCard({ property, isLocked }: PropertyCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const netIsPositive = property.netIncome >= 0
@@ -59,7 +59,7 @@ export function PropertyCard({ property, isLocked }: PropertyCardProps) {
             </p>
             {/* Property Type */}
             <p className="text-xs text-muted-foreground">
-              {getPropertyTypeLabel(property.propertyType)}
+              {getPropertyTypeLabel(property.propertyType, i18n.language === 'vi' ? 'vi' : 'en')}
               {property.propertyTypeOther && ` - ${sanitizeText(property.propertyTypeOther)}`}
             </p>
           </div>

@@ -35,6 +35,8 @@ export interface UseRentalFormReturn {
   errorMessage: string | null
   isLocked: boolean
   version: number
+  /** Property count from previously submitted data (used for reduce-count confirmation) */
+  initialPropertyCount: 1 | 2 | 3
 
   // Actions
   submit: () => Promise<boolean>
@@ -249,6 +251,7 @@ export function useRentalForm(
     errorMessage,
     isLocked,
     version,
+    initialPropertyCount,
 
     // Actions
     submit,

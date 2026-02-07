@@ -14,7 +14,19 @@ if (!CLERK_PUBLISHABLE_KEY) {
   throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY environment variable')
 }
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't retry auth errors (401/403) — they aren't transient
+      retry: (failureCount, error) => {
+        if (error && 'status' in error && (error.status === 401 || error.status === 403)) {
+          return false
+        }
+        return failureCount < 3
+      },
+    },
+  },
+})
 const router = createRouter({ routeTree })
 
 declare module '@tanstack/react-router' {

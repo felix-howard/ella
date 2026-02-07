@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
@@ -31,35 +32,21 @@ export interface VerificationModalProps {
   caseId: string
 }
 
-// Vietnamese toast messages
-const MESSAGES = {
-  VERIFY_SUCCESS: 'Đã xác minh trường',
-  VERIFY_ERROR: 'Lỗi xác minh trường',
-  COMPLETE_SUCCESS: 'Đã hoàn tất xác minh tài liệu',
-  COMPLETE_ERROR: 'Lỗi hoàn tất xác minh',
-  ALL_FIELDS_REQUIRED: 'Vui lòng xác minh tất cả các trường',
-  EXTRACT_SUCCESS: 'Đã trích xuất dữ liệu thành công',
-  EXTRACT_ERROR: 'Lỗi trích xuất dữ liệu',
-  EXTRACT_AI_NOT_CONFIGURED: 'AI chưa được cấu hình. Vui lòng nhập liệu thủ công.',
-  EXTRACT_RATE_LIMIT: 'Đã vượt giới hạn API. Vui lòng thử lại sau ít phút.',
-  EXTRACT_UNSUPPORTED: 'Loại tài liệu này không hỗ trợ trích xuất OCR.',
-}
-
 /**
- * Parse OCR error message to user-friendly Vietnamese message
+ * Parse OCR error message to user-friendly message using translation function
  */
-function parseOcrError(message: string): string {
+function parseOcrError(message: string, t: (key: string) => string): string {
   if (message.includes('429') || message.includes('quota') || message.includes('rate')) {
-    return MESSAGES.EXTRACT_RATE_LIMIT
+    return t('verificationModal.extractRateLimit')
   }
   if (message.includes('UNSUPPORTED_DOC_TYPE') || message.includes('does not support OCR')) {
-    return MESSAGES.EXTRACT_UNSUPPORTED
+    return t('verificationModal.extractUnsupported')
   }
   if (message.includes('AI not configured')) {
-    return MESSAGES.EXTRACT_AI_NOT_CONFIGURED
+    return t('verificationModal.extractAiNotConfigured')
   }
   // Default short error
-  return MESSAGES.EXTRACT_ERROR
+  return t('verificationModal.extractError')
 }
 
 // Type guard helpers
@@ -96,6 +83,7 @@ export function VerificationModal({
   onClose,
   caseId,
 }: VerificationModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0)
   // Local state for instant optimistic UI updates (doesn't wait for query refetch)
@@ -263,7 +251,7 @@ export function VerificationModal({
       if (context?.previousCase) {
         queryClient.setQueryData(['case', caseId], context.previousCase)
       }
-      toast.error(`${MESSAGES.VERIFY_ERROR}: ${variables.field}`)
+      toast.error(`${t('verificationModal.verifyFieldError')}: ${variables.field}`)
     },
     onSettled: () => {
       // Invalidate to ensure sync
@@ -275,12 +263,12 @@ export function VerificationModal({
   const completeMutation = useMutation({
     mutationFn: () => api.docs.verifyAction(doc.id, { action: 'verify' }),
     onSuccess: () => {
-      toast.success(MESSAGES.COMPLETE_SUCCESS)
+      toast.success(t('verificationModal.completeSuccess'))
       queryClient.invalidateQueries({ queryKey: ['case', caseId] })
       onClose()
     },
     onError: () => {
-      toast.error(MESSAGES.COMPLETE_ERROR)
+      toast.error(t('verificationModal.completeError'))
     },
   })
 
@@ -289,21 +277,21 @@ export function VerificationModal({
     mutationFn: () => api.docs.triggerOcr(doc.id),
     onSuccess: (data) => {
       if (data.aiConfigured === false) {
-        toast.error(MESSAGES.EXTRACT_AI_NOT_CONFIGURED)
+        toast.error(t('verificationModal.extractAiNotConfigured'))
         return
       }
       if (data.ocrResult?.success) {
-        toast.success(`${MESSAGES.EXTRACT_SUCCESS} (${Math.round(data.ocrResult.confidence * 100)}%)`)
+        toast.success(`${t('verificationModal.extractSuccess')} (${Math.round(data.ocrResult.confidence * 100)}%)`)
       } else {
-        // Parse error message to user-friendly Vietnamese
-        const errorMsg = parseOcrError(data.message || '')
+        // Parse error message to user-friendly message
+        const errorMsg = parseOcrError(data.message || '', t)
         toast.error(errorMsg)
       }
       // Invalidate to refresh extracted data
       queryClient.invalidateQueries({ queryKey: ['case', caseId] })
     },
     onError: () => {
-      toast.error(MESSAGES.EXTRACT_ERROR)
+      toast.error(t('verificationModal.extractError'))
     },
   })
 
@@ -421,18 +409,18 @@ export function VerificationModal({
                 {docLabel}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Xác minh thông tin trích xuất
+                {t('verificationModal.verifyInfo')}
               </p>
             </div>
             <div className="flex items-center gap-2 ml-2">
               {doc.status === 'VERIFIED' && (
                 <Badge variant="success" className="text-xs">
-                  Đã xác minh
+                  {t('checklistStatus.verified')}
                 </Badge>
               )}
               {doc.status === 'PARTIAL' && (
                 <Badge variant="warning" className="text-xs">
-                  Thiếu dữ liệu
+                  {t('verificationModal.partialExtract')}
                 </Badge>
               )}
             </div>
@@ -448,19 +436,19 @@ export function VerificationModal({
               {extractMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang trích xuất...
+                  {t('uploadProgress.extracting')}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Trích xuất
+                  {t('digitalDoc.extracted')}
                 </>
               )}
             </Button>
             <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('common.close')}
             >
               <X className="w-5 h-5 text-muted-foreground" />
             </button>
@@ -506,10 +494,10 @@ export function VerificationModal({
                   <Clock className="w-4 h-4 text-muted-foreground" />
                 )}
                 <span className="text-sm font-medium text-foreground">
-                  {doc.status === 'PARTIAL' && 'Một số trường không đọc được'}
-                  {doc.status === 'EXTRACTED' && 'Đang chờ xác minh'}
-                  {doc.status === 'PENDING' && 'Đang xử lý'}
-                  {doc.status === 'VERIFIED' && 'Đã xác minh'}
+                  {doc.status === 'PARTIAL' && t('verificationModal.partialExtract')}
+                  {doc.status === 'EXTRACTED' && t('verificationModal.waitingVerification')}
+                  {doc.status === 'PENDING' && t('uploads.statusProcessing')}
+                  {doc.status === 'VERIFIED' && t('checklistStatus.verified')}
                 </span>
               </div>
             </div>
@@ -521,11 +509,11 @@ export function VerificationModal({
                   <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle className="w-8 h-8" />
                   </div>
-                  <p className="font-medium text-base">Không có dữ liệu được trích xuất</p>
+                  <p className="font-medium text-base">{t('verificationModal.noExtractedData')}</p>
                   <p className="text-sm mt-2 text-muted-foreground">
                     {aiConfidence === 0
-                      ? 'AI đang gặp sự cố. Vui lòng thử lại sau hoặc nhập liệu thủ công.'
-                      : 'Tài liệu chưa được xử lý OCR hoặc không hỗ trợ loại này.'}
+                      ? t('verificationModal.aiError')
+                      : t('verificationModal.noOcrSupport')}
                   </p>
                   <Button
                     variant="default"
@@ -537,12 +525,12 @@ export function VerificationModal({
                     {extractMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang trích xuất...
+                        {t('uploadProgress.extracting')}
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        Trích xuất bằng AI
+                        {t('verificationModal.extractWithAi')}
                       </>
                     )}
                   </Button>
@@ -640,12 +628,12 @@ export function VerificationModal({
                 {completeMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Đang lưu...
+                    {t('common.loading')}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    Hoàn tất xác minh
+                    {t('verificationModal.complete')}
                   </>
                 )}
               </Button>

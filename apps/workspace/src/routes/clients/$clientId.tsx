@@ -24,12 +24,14 @@ import {
   ClipboardList,
   FolderOpen,
   Calculator,
+  Home,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
+const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -60,14 +62,14 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'data-entry'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry'
 
 function ClientDetailPage() {
   const { t } = useTranslation()
   const { clientId } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [activeTab, setActiveTab] = useState<TabType>('files')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
@@ -405,6 +407,8 @@ function ClientDetailPage() {
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
     // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
     ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
+    // Schedule E tab: Always visible (no trigger condition like Schedule C)
+    { id: 'schedule-e', label: 'Schedule E', icon: Home },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
   ]
 
@@ -673,6 +677,15 @@ function ClientDetailPage() {
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <ScheduleCTab caseId={activeCaseId} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* Schedule E Tab - Rental property income/expense collection (lazy loaded) */}
+      {activeTab === 'schedule-e' && activeCaseId && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleEError')}</div>}>
+          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
+            <ScheduleETab caseId={activeCaseId} />
           </Suspense>
         </ErrorBoundary>
       )}

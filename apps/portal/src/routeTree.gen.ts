@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UTokenRouteImport } from './routes/u/$token'
+import { Route as RentalTokenRouteImport } from './routes/rental/$token'
 import { Route as ExpenseTokenRouteImport } from './routes/expense/$token'
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
+import { Route as RentalTokenIndexRouteImport } from './routes/rental/$token/index'
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -25,6 +27,11 @@ const UTokenRoute = UTokenRouteImport.update({
   path: '/u/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RentalTokenRoute = RentalTokenRouteImport.update({
+  id: '/rental/$token',
+  path: '/rental/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpenseTokenRoute = ExpenseTokenRouteImport.update({
   id: '/expense/$token',
   path: '/expense/$token',
@@ -35,6 +42,11 @@ const UTokenIndexRoute = UTokenIndexRouteImport.update({
   path: '/',
   getParentRoute: () => UTokenRoute,
 } as any)
+const RentalTokenIndexRoute = RentalTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RentalTokenRoute,
+} as any)
 const ExpenseTokenIndexRoute = ExpenseTokenIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -44,21 +56,26 @@ const ExpenseTokenIndexRoute = ExpenseTokenIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/expense/$token': typeof ExpenseTokenRouteWithChildren
+  '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
   '/expense/$token/': typeof ExpenseTokenIndexRoute
+  '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/expense/$token': typeof ExpenseTokenIndexRoute
+  '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/expense/$token': typeof ExpenseTokenRouteWithChildren
+  '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
   '/expense/$token/': typeof ExpenseTokenIndexRoute
+  '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
 }
 export interface FileRouteTypes {
@@ -66,23 +83,28 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/expense/$token'
+    | '/rental/$token'
     | '/u/$token'
     | '/expense/$token/'
+    | '/rental/$token/'
     | '/u/$token/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/expense/$token' | '/u/$token'
+  to: '/' | '/expense/$token' | '/rental/$token' | '/u/$token'
   id:
     | '__root__'
     | '/'
     | '/expense/$token'
+    | '/rental/$token'
     | '/u/$token'
     | '/expense/$token/'
+    | '/rental/$token/'
     | '/u/$token/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ExpenseTokenRoute: typeof ExpenseTokenRouteWithChildren
+  RentalTokenRoute: typeof RentalTokenRouteWithChildren
   UTokenRoute: typeof UTokenRouteWithChildren
 }
 
@@ -102,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rental/$token': {
+      id: '/rental/$token'
+      path: '/rental/$token'
+      fullPath: '/rental/$token'
+      preLoaderRoute: typeof RentalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expense/$token': {
       id: '/expense/$token'
       path: '/expense/$token'
@@ -115,6 +144,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/u/$token/'
       preLoaderRoute: typeof UTokenIndexRouteImport
       parentRoute: typeof UTokenRoute
+    }
+    '/rental/$token/': {
+      id: '/rental/$token/'
+      path: '/'
+      fullPath: '/rental/$token/'
+      preLoaderRoute: typeof RentalTokenIndexRouteImport
+      parentRoute: typeof RentalTokenRoute
     }
     '/expense/$token/': {
       id: '/expense/$token/'
@@ -138,6 +174,18 @@ const ExpenseTokenRouteWithChildren = ExpenseTokenRoute._addFileChildren(
   ExpenseTokenRouteChildren,
 )
 
+interface RentalTokenRouteChildren {
+  RentalTokenIndexRoute: typeof RentalTokenIndexRoute
+}
+
+const RentalTokenRouteChildren: RentalTokenRouteChildren = {
+  RentalTokenIndexRoute: RentalTokenIndexRoute,
+}
+
+const RentalTokenRouteWithChildren = RentalTokenRoute._addFileChildren(
+  RentalTokenRouteChildren,
+)
+
 interface UTokenRouteChildren {
   UTokenIndexRoute: typeof UTokenIndexRoute
 }
@@ -152,6 +200,7 @@ const UTokenRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ExpenseTokenRoute: ExpenseTokenRouteWithChildren,
+  RentalTokenRoute: RentalTokenRouteWithChildren,
   UTokenRoute: UTokenRouteWithChildren,
 }
 export const routeTree = rootRouteImport

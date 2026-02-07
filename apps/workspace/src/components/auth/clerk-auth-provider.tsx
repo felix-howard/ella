@@ -1,11 +1,11 @@
 /**
  * Clerk Auth Provider - Sets up auth token for API client
- * Waits for Clerk to be fully loaded before rendering children
+ * Waits for Clerk to be fully loaded AND token to be available before rendering children
  * to prevent 401 race conditions on initial page load
  * Clears query cache on sign out to prevent stale refetch requests
  * Auto-selects first org for signed-in users with no active org
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +23,7 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
   const { isLoaded: isOrgLoaded, hasOrg, orgId, isSelecting } = useAutoOrgSelection()
   const queryClient = useQueryClient()
   const wasSignedIn = useRef(false)
+  const [isTokenReady, setIsTokenReady] = useState(false)
 
   useEffect(() => {
     // Set the token getter for the API client
@@ -35,21 +36,58 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     })
   }, [getToken])
 
-  // Clear query cache when user signs out
-  // This prevents background refetch from making 401 requests
+  // Verify token is obtainable when signed in
+  // This prevents 401 errors during login transition
+  // CRITICAL: When isSignedIn transitions false→true, we must wait for token
+  // before rendering children. When false, render immediately so login page shows.
   useEffect(() => {
-    if (isLoaded) {
-      if (wasSignedIn.current && !isSignedIn) {
-        // User just signed out - clear all queries
+    if (!isLoaded) {
+      setIsTokenReady(false)
+      return
+    }
+
+    if (!isSignedIn) {
+      // Not signed in - allow rendering for public pages (login)
+      // Also handles sign-out: clear cache if user was previously signed in
+      if (wasSignedIn.current) {
         queryClient.clear()
       }
-      wasSignedIn.current = !!isSignedIn
+      wasSignedIn.current = false
+      setIsTokenReady(true)
+      return
     }
-  }, [isLoaded, isSignedIn, queryClient])
 
-  // Don't render children until Clerk is fully loaded
+    // Signed in - always re-verify token before rendering children
+    // This catches the login transition where isSignedIn just became true
+    wasSignedIn.current = true
+    setIsTokenReady(false)
+    let cancelled = false
+    const verifyToken = async () => {
+      try {
+        const token = await getToken()
+        if (!cancelled && token) {
+          setIsTokenReady(true)
+        } else if (!cancelled) {
+          // Token not ready yet, retry after short delay
+          setTimeout(verifyToken, 100)
+        }
+      } catch {
+        if (!cancelled) {
+          // Retry on error
+          setTimeout(verifyToken, 100)
+        }
+      }
+    }
+    verifyToken()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLoaded, isSignedIn, getToken, queryClient])
+
+  // Don't render children until Clerk is fully loaded AND token is verified
   // This prevents API calls from firing before auth token is available
-  if (!isLoaded) {
+  if (!isLoaded || !isTokenReady) {
     return null
   }
 

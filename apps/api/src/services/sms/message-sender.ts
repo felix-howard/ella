@@ -10,10 +10,24 @@ import {
   generateBlurryResendMessage,
   generateCompleteMessage,
   generateScheduleCMessage,
+  generateScheduleEMessage,
   type TemplateName,
   type SmsLanguage,
 } from './templates'
 import type { MessageChannel, MessageDirection } from '@ella/db'
+
+/**
+ * Get the organization's SMS language preference
+ * Falls back to 'VI' if org not found or no preference set
+ */
+export async function getOrgSmsLanguage(organizationId: string | null): Promise<SmsLanguage> {
+  if (!organizationId) return 'VI'
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { smsLanguage: true },
+  })
+  return (org?.smsLanguage as SmsLanguage) || 'VI'
+}
 
 export interface SendMessageResult {
   success: boolean
@@ -189,7 +203,8 @@ export async function sendSmsOnly(
 }
 
 /**
- * Internal: Send SMS and record in database
+ * Internal: Send SMS via Twilio first, then record in database only if SMS succeeds.
+ * This prevents misleading "sent" messages in the chat panel when SMS delivery fails.
  */
 async function sendAndRecordMessage(
   caseId: string,
@@ -197,14 +212,28 @@ async function sendAndRecordMessage(
   content: string,
   templateName: TemplateName | undefined
 ): Promise<SendMessageResult> {
-  // Get or create conversation
+  // Send SMS first — don't create DB record if SMS fails
+  if (!isTwilioConfigured()) {
+    return { success: true, smsSent: false, error: 'SMS_NOT_CONFIGURED' }
+  }
+
+  const formattedPhone = formatPhoneToE164(phone)
+  const result = await sendSms({
+    to: formattedPhone,
+    body: content,
+  })
+
+  if (!result.success) {
+    return { success: true, smsSent: false, error: result.error }
+  }
+
+  // SMS sent successfully — now record in database
   const conversation = await prisma.conversation.upsert({
     where: { caseId },
     update: {},
     create: { caseId },
   })
 
-  // Create message record
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -212,6 +241,8 @@ async function sendAndRecordMessage(
       direction: 'OUTBOUND' as MessageDirection,
       content,
       templateUsed: templateName,
+      twilioSid: result.sid ?? null,
+      twilioStatus: result.status ?? null,
     },
   })
 
@@ -227,46 +258,10 @@ async function sendAndRecordMessage(
     data: { lastContactAt: new Date() },
   })
 
-  // Send SMS if Twilio is configured
-  let smsSent = false
-  let smsError: string | undefined
-
-  if (isTwilioConfigured()) {
-    const formattedPhone = formatPhoneToE164(phone)
-    const result = await sendSms({
-      to: formattedPhone,
-      body: content,
-    })
-
-    smsSent = result.success
-    if (!result.success) {
-      smsError = result.error
-
-      // Store error in twilioStatus field (proper field for status info)
-      await prisma.message.update({
-        where: { id: message.id },
-        data: {
-          twilioSid: null,
-          twilioStatus: `ERROR: ${smsError}`,
-        },
-      })
-    } else if (result.sid) {
-      // Store successful Twilio SID
-      await prisma.message.update({
-        where: { id: message.id },
-        data: {
-          twilioSid: result.sid,
-          twilioStatus: result.status,
-        },
-      })
-    }
-  }
-
   return {
     success: true,
     messageId: message.id,
-    smsSent,
-    error: smsError,
+    smsSent: true,
   }
 }
 
@@ -311,4 +306,40 @@ export async function sendScheduleCFormMessage(
  */
 export function isSmsEnabled(): boolean {
   return isTwilioConfigured()
+}
+
+/**
+ * Send Schedule E rental property form link to client
+ * Uses database template if available (SCHEDULE_E category), otherwise fallback to hardcoded
+ */
+export async function sendScheduleEFormMessage(
+  caseId: string,
+  clientName: string,
+  clientPhone: string,
+  magicLink: string,
+  language: SmsLanguage = 'VI'
+): Promise<SendMessageResult> {
+  let body: string
+
+  // Try to get Schedule E template from database
+  const dbTemplate = await prisma.messageTemplate.findFirst({
+    where: {
+      category: 'SCHEDULE_E',
+      isActive: true,
+    },
+    orderBy: { sortOrder: 'asc' },
+  })
+
+  if (dbTemplate) {
+    // Use database template with placeholder replacement
+    body = replacePlaceholders(dbTemplate.content, {
+      clientName,
+      rentalUrl: magicLink,
+    })
+  } else {
+    // Fallback to hardcoded template
+    body = generateScheduleEMessage({ clientName, magicLink, language })
+  }
+
+  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_e')
 }

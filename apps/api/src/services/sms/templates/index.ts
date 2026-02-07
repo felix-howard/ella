@@ -32,6 +32,18 @@ import {
   type ScheduleCTemplateParams,
 } from './schedule-c'
 
+import {
+  generateScheduleEMessage,
+  SCHEDULE_E_TEMPLATE_NAME,
+  type ScheduleETemplateParams,
+} from './schedule-e'
+
+import {
+  generateMissedCallTextbackMessage,
+  MISSED_CALL_TEXTBACK_TEMPLATE_NAME,
+  type MissedCallTextbackParams,
+} from './missed-call-textback'
+
 // Re-export everything
 export {
   generateWelcomeMessage,
@@ -44,6 +56,10 @@ export {
   COMPLETE_TEMPLATE_NAME,
   generateScheduleCMessage,
   SCHEDULE_C_TEMPLATE_NAME,
+  generateScheduleEMessage,
+  SCHEDULE_E_TEMPLATE_NAME,
+  generateMissedCallTextbackMessage,
+  MISSED_CALL_TEXTBACK_TEMPLATE_NAME,
 }
 
 export type {
@@ -52,6 +68,8 @@ export type {
   BlurryResendTemplateParams,
   CompleteTemplateParams,
   ScheduleCTemplateParams,
+  ScheduleETemplateParams,
+  MissedCallTextbackParams,
 }
 
 // Template name union type
@@ -61,6 +79,8 @@ export type TemplateName =
   | typeof BLURRY_RESEND_TEMPLATE_NAME
   | typeof COMPLETE_TEMPLATE_NAME
   | typeof SCHEDULE_C_TEMPLATE_NAME
+  | typeof SCHEDULE_E_TEMPLATE_NAME
+  | typeof MISSED_CALL_TEXTBACK_TEMPLATE_NAME
 
 // Language type
 export type SmsLanguage = 'VI' | 'EN'

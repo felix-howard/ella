@@ -63,16 +63,15 @@ function LoginPage() {
     if (!firstOrgId) return
 
     // Complete the pending session by setting org
+    // Navigation handled by useEffect watching isSignedIn
     clerk.setActive({
       session: pendingSession.id,
       organization: firstOrgId,
-    }).then(() => {
-      navigate({ to: '/' })
     }).catch(() => {
       // If setActive fails, sign out to clear the stuck session
       clerk.signOut()
     })
-  }, [isLoaded, isSignedIn, isOrgListLoaded, clerk, userMemberships?.data, navigate])
+  }, [isLoaded, isSignedIn, isOrgListLoaded, clerk, userMemberships?.data])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -93,7 +92,10 @@ function LoginPage() {
           session: result.createdSessionId,
           organization: firstOrgId,
         })
-        navigate({ to: '/' })
+        // Don't navigate or reset loading — the useEffect watching isSignedIn
+        // will navigate after Clerk's auth state fully updates and token is verified.
+        // Keep isLoading=true so login button keeps spinning until redirect.
+        return
       } else if (result.status === 'needs_second_factor') {
         // User has 2FA enabled - prepare email code and show 2FA input
         const secondFactor = result.supportedSecondFactors?.find(
@@ -124,7 +126,8 @@ function LoginPage() {
               session: pendingSession.id,
               organization: firstOrgId,
             })
-            navigate({ to: '/' })
+            // Don't navigate — useEffect watching isSignedIn will handle it
+            // Keep isLoading=true until redirect
             return
           } catch {
             // If that fails too, sign out to reset
@@ -160,7 +163,9 @@ function LoginPage() {
           session: result.createdSessionId,
           organization: firstOrgId,
         })
-        navigate({ to: '/' })
+        // Don't navigate here — the useEffect watching isSignedIn will handle it
+        // Keep isLoading=true until redirect
+        return
       } else {
         setError(t('login.verificationFailed'))
       }

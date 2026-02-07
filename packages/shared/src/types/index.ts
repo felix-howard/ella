@@ -51,3 +51,19 @@ export {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
 } from './doc-category'
+
+// Schedule E rental property types
+export type {
+  ScheduleEPropertyAddress,
+  ScheduleEOtherExpense,
+  ScheduleEPropertyType,
+  ScheduleEPropertyId,
+  ScheduleEProperty,
+  ScheduleEVersionHistoryEntry,
+  ScheduleETotals,
+  ScheduleEStatus,
+} from './schedule-e'
+export {
+  createEmptyProperty,
+  PROPERTY_TYPE_LABELS,
+} from './schedule-e'

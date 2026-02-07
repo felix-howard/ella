@@ -7,6 +7,7 @@ import {
   processIncomingMessage,
   validateTwilioSignature,
   generateTwimlResponse,
+  sendMissedCallTextBack,
   type TwilioIncomingMessage,
 } from '../../services/sms'
 import {
@@ -461,20 +462,62 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       },
     })
 
-    // 2. Determine routing - find last-contact staff or all online staff
+    // 2. Determine routing based on client assignment
     let staffIdentities: string[] = []
 
-    // Future: Route to last-contact staff if we track staffId on messages
-    // For now, route to all online staff
+    // Get client's organization for scoping
+    const clientOrgId = client?.organizationId
 
-    // 3. Get online staff
-    const onlineStaff = await prisma.staffPresence.findMany({
-      where: { isOnline: true },
-    })
+    if (clientOrgId) {
+      // Find assigned staff for this client
+      const assignment = await prisma.clientAssignment.findFirst({
+        where: { clientId: client.id },
+        select: { staffId: true },
+      })
 
-    if (onlineStaff.length === 0) {
-      // No staff online - go directly to voicemail
-      console.log(`[Incoming Webhook] No staff online, routing to voicemail`)
+      // Get online staff: assigned staff + org admins (for fallback/supervision)
+      const onlineStaff = await prisma.staffPresence.findMany({
+        where: {
+          isOnline: true,
+          staff: {
+            organizationId: clientOrgId,
+            isActive: true,
+            OR: [
+              // Assigned staff
+              ...(assignment ? [{ id: assignment.staffId }] : []),
+              // Org admins always receive calls
+              { role: 'ADMIN' },
+            ],
+          },
+        },
+        include: { staff: { select: { id: true, role: true } } },
+      })
+
+      staffIdentities = onlineStaff
+        .map((s) => s.deviceId)
+        .filter((id): id is string => Boolean(id))
+
+      console.log(
+        `[Incoming Webhook] Org ${clientOrgId} - Assigned: ${assignment?.staffId || 'none'}, Online eligible: ${staffIdentities.length}`
+      )
+    } else {
+      // Unknown caller (no client record or no org) - route to all online staff as fallback
+      console.log(`[Incoming Webhook] Unknown caller ${from}, routing to all online staff`)
+      const onlineStaff = await prisma.staffPresence.findMany({
+        where: { isOnline: true },
+      })
+      staffIdentities = onlineStaff
+        .map((s) => s.deviceId)
+        .filter((id): id is string => Boolean(id))
+    }
+
+    // 3. Check if any eligible staff online
+    if (staffIdentities.length === 0) {
+      console.log(`[Incoming Webhook] No eligible staff online, routing to voicemail`)
+
+      // Fire-and-forget: send missed call text-back SMS
+      sendMissedCallTextBack(from, clientOrgId || null).catch(() => {})
+
       const twiml = generateNoStaffTwiml({
         voicemailCallbackUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-recording`,
         voicemailCompleteUrl: `${config.twilio.webhookBaseUrl}/webhooks/twilio/voice/voicemail-complete`,
@@ -482,12 +525,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       return c.text(twiml, 200, { 'Content-Type': 'application/xml' })
     }
 
-    // Build staff identities from deviceId (e.g., "staff_123")
-    staffIdentities = onlineStaff
-      .map((s) => s.deviceId)
-      .filter((id): id is string => Boolean(id))
-
-    console.log(`[Incoming Webhook] Routing to ${staffIdentities.length} online staff:`, staffIdentities)
+    console.log(`[Incoming Webhook] Routing to ${staffIdentities.length} staff:`, staffIdentities)
 
     // 4. Create inbound call message record (atomic transaction)
     if (client?.taxCases[0]?.conversation) {
@@ -600,6 +638,17 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
     })
   } catch (error) {
     console.error('[Dial Complete] Failed to update message:', error)
+  }
+
+  // Fire-and-forget: send missed call text-back SMS
+  // Twilio provides original caller phone in From field of the action callback
+  const callerPhone = formData.From as string
+  if (callerPhone) {
+    const callerClient = await prisma.client.findUnique({
+      where: { phone: callerPhone },
+      select: { organizationId: true },
+    })
+    sendMissedCallTextBack(callerPhone, callerClient?.organizationId || null).catch(() => {})
   }
 
   const twiml = generateVoicemailTwiml({

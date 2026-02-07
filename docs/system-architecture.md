@@ -89,7 +89,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Services: `src/services/{auth,org,ai,webhook-handlers}/`
 - Database: `src/lib/db.ts` (Prisma singleton)
 
-**Endpoints (60+ total):**
+**Endpoints (70+ total):**
+
+**Schedule E & Rental (10 - Phase 2):**
+- `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
+- `POST /schedule-e/:caseId/send` - Create record, generate link, send SMS
+- `POST /schedule-e/:caseId/resend` - Extend TTL, resend SMS
+- `PATCH /schedule-e/:caseId/lock` - Lock form (SUBMITTED → LOCKED)
+- `PATCH /schedule-e/:caseId/unlock` - Unlock form (LOCKED → SUBMITTED)
+- `GET /rental/:token` - Validate token, fetch form data
+- `PATCH /rental/:token/draft` - Auto-save draft (debounced)
+- `POST /rental/:token/submit` - Submit form, create version entry
+- Staff routes authenticated, public routes token-authenticated
 
 **Team & Organization (12 - Phase 3):**
 - `GET /team/members` - List org staff
@@ -185,9 +196,10 @@ Organization (root entity)
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
+- **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
 - **RawImage** - Classification states, AI confidence
 - **DigitalDoc** - OCR extracted fields
-- **MagicLink** - type (PORTAL|SCHEDULE_C), caseId/type reference
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E), token, caseId/type reference, isActive, expiresAt (7-day TTL)
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 
@@ -223,7 +235,17 @@ Organization (root entity)
 - OCR: W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A
 - Confidence scoring for verification workflow
 
-**Gemini Service:**
+**Services:**
+
+Schedule E Services:
+```typescript
+apps/api/src/services/schedule-e/
+├── expense-calculator.ts - Calculate totals, fair rental days
+├── version-history.ts - Track version entries, detect changes
+└── sms/templates/schedule-e.ts - VI/EN SMS templates
+```
+
+Gemini Service:
 ```typescript
 apps/api/src/services/ai/
 ├── gemini-client.ts - API client with retry/validation
@@ -231,6 +253,71 @@ apps/api/src/services/ai/
 ├── blur-detector.ts - Quality detection
 └── prompts/ - Classification + OCR templates
 ```
+
+Magic Link Service:
+```typescript
+apps/api/src/services/magic-link.ts
+├── getMagicLinkUrl() - Maps link types to URLs
+├── validateScheduleEToken() - Token validation
+├── getScheduleEMagicLink() - Generate link
+└── Support for PORTAL, SCHEDULE_C, SCHEDULE_E types
+```
+
+## Schedule E Workspace Tab (Phase 4 Frontend - 2026-02-06)
+
+**Location:** `apps/workspace/src/components/cases/tabs/schedule-e-tab/`
+
+**Data Hooks:**
+```typescript
+useScheduleE({ caseId, enabled }) - Fetches expense data via useQuery
+├── Returns: expense, magicLink, totals, properties
+├── Stale time: 30 seconds
+└── Query key: ['schedule-e', caseId]
+
+useScheduleEActions() - Mutations for send/resend/lock/unlock
+├── Optimistic updates via React Query invalidation
+└── Toast feedback on success/error
+```
+
+**Component Hierarchy:**
+```
+ScheduleETab (index.tsx) [4 states]
+├── State: !expense → ScheduleEEmptyState
+│   └── Actions: Send magic link, Show pending
+├── State: status=DRAFT → ScheduleEWaiting
+│   └── Shows: "Waiting for client to complete form on portal"
+└── State: SUBMITTED|LOCKED → ScheduleESummary
+    ├── PropertyCard [expandable]
+    │   ├── Address, Type, Rental period (copyable)
+    │   └── 7 Expenses table with formatUSD
+    ├── TotalsCard
+    │   └── Income + aggregate expenses
+    ├── StatusBadge
+    │   └── Visual status display
+    └── ScheduleEActions
+        └── Lock/unlock buttons (staff control)
+```
+
+**Sub-Components:**
+- **property-card.tsx** - Expandable property details, XSS sanitization via sanitizeText()
+- **totals-card.tsx** - Aggregate income/expense calculation
+- **status-badge.tsx** - Status visual indicator
+- **schedule-e-empty-state.tsx** - Initial state with send button
+- **schedule-e-waiting.tsx** - In-progress state messaging
+- **schedule-e-summary.tsx** - Read-only summary
+- **schedule-e-actions.tsx** - Lock/unlock staff controls
+- **copyable-value.tsx** - Reusable copy-to-clipboard component
+- **format-utils.ts** - Utility functions: formatUSD(), getPropertyTypeLabel(), formatAddress()
+
+**Internationalization:**
+- 60+ keys in `apps/workspace/src/locales/{en,vi}.json`
+- Keys: scheduleE.property, scheduleE.line9Insurance, scheduleE.status, etc.
+- Full EN/VI support for all UI text
+
+**API Integration:**
+- Type: `ScheduleEResponse { expense, magicLink, totals }`
+- Endpoint: `GET /schedule-e/:caseId` (via `api.scheduleE.get(caseId)`)
+- Magic link operations reuse existing POST /send, POST /resend routes
 
 ## Voice & SMS
 

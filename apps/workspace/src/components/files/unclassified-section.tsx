@@ -5,6 +5,7 @@
  */
 
 import { useState, memo, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { RawImage } from '../../lib/api-client'
@@ -20,6 +21,7 @@ export interface UnclassifiedSectionProps {
  * Collapsible list layout consistent with FileCategorySection
  */
 export function UnclassifiedSection({ images }: UnclassifiedSectionProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(true)
 
   if (images.length === 0) return null
@@ -38,7 +40,7 @@ export function UnclassifiedSection({ images }: UnclassifiedSectionProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         aria-expanded={isExpanded}
-        aria-label={`Đang xử lý - ${images.length} documents`}
+        aria-label={`${t('uploads.statusProcessing')} - ${images.length} documents`}
         className={cn(
           'w-full flex items-center gap-3 p-4',
           'hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-inset transition-all',
@@ -51,7 +53,7 @@ export function UnclassifiedSection({ images }: UnclassifiedSectionProps) {
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         )}
         <Loader2 className="w-5 h-5 text-primary animate-spin" />
-        <span className="font-semibold text-primary">Đang xử lý</span>
+        <span className="font-semibold text-primary">{t('uploads.statusProcessing')}</span>
         <span className="text-sm text-muted-foreground">
           ({images.length})
         </span>
@@ -83,6 +85,7 @@ interface UnclassifiedFileRowProps {
 const UnclassifiedFileRow = memo(function UnclassifiedFileRow({
   image,
 }: UnclassifiedFileRowProps) {
+  const { t } = useTranslation()
   // Sanitize filename for display
   const displayName = sanitizeText(image.displayName || image.filename)
 
@@ -102,7 +105,7 @@ const UnclassifiedFileRow = memo(function UnclassifiedFileRow({
           {displayName}
         </p>
         <p className="text-xs text-muted-foreground">
-          Đang xử lý...
+          {t('common.loading')}
         </p>
       </div>
     </div>

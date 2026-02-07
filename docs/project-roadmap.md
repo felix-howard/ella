@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-02-05 ICT
-> **Current Phase:** Landing Page Killer Features COMPLETE (Phase 01-03) | Phase 06 (Why Ella) COMPLETE | Multi-Tenancy & Permission System (Completed)
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE (Organization/Team APIs/Frontend) + Landing Page Killer Features COMPLETE (SMS-First Messaging + 8-Section Features Page + Why Ella Updates) + Schedule C Phase 4 Complete + All prior enhancements
+> **Last Updated:** 2026-02-06 ICT
+> **Current Phase:** Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE (database schema + API routes) + Schedule C Phase 4 Complete + All prior enhancements
 
 ### Landing Page Phase 06: Why Ella Page - COMPLETE ✅
 **Completed:** 2026-02-04
@@ -283,6 +283,26 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Phase 5.2 (Core Workflow - Production Gaps):** ✅ COMPLETE (Status Management, Document Verification, Action Completion, Search) - as of 2026-01-14 15:54
 - **Phase 5.3 (Enhanced Portal Upload):** ✅ COMPLETE (4/4 phases: API progress tracking, i18n strings, enhanced uploader component, upload page integration) - as of 2026-01-14 19:05
 - **Phase 6 (AI Classification Testing & Polish):** ✅ COMPLETE (28 tests, 100% pass rate, all security hardening) - as of 2026-01-15 07:40
+
+---
+
+### Schedule E Rental Property Form - Phase 2 (40% Complete) ✅
+**Completed:** 2026-02-06
+**Deliverable:** Staff + public API routes with magic link integration, SMS templates, expense calculator, version history
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema | ✅ DONE | 2026-02-06 | ScheduleEExpense model, 7 expense fields, JSON properties, version history |
+| 2 | Backend API Routes | ✅ DONE | 2026-02-06 | Staff routes (/schedule-e/:caseId/*) + Public routes (/rental/:token), Zod schemas, SMS templates, calculator service |
+| 3 | Portal Form | ⏳ PENDING | - | Client-facing multi-step wizard (up to 3 properties) |
+| 4 | Workspace Tab | ⏳ PENDING | - | Staff Schedule E Tab UI (summary, lock/unlock, send) |
+
+**Completion Summary (Phases 1-2):**
+- **Phase 1:** ScheduleEExpense model (1:1 with TaxCase), ScheduleEStatus enum (DRAFT/SUBMITTED/LOCKED), MagicLinkType.SCHEDULE_E, TypeScript types. Properties JSON array (up to 3): address, type, months/days, income, 7 IRS expenses, custom expenses. Helper utilities (createEmptyProperty, type labels EN/VI). Exports to @ella/shared.
+- **Phase 2:** Staff routes (GET, POST /send, POST /resend, PATCH /lock/unlock) + Public routes (GET/:token, PATCH /:token/draft, POST /:token/submit). Zod schemas for properties/address/expenses. Magic link support (validateScheduleEToken, getScheduleEMagicLink). Services: expense-calculator.ts (totals, fair rental days), version-history.ts (track changes). SMS templates (VI/EN). Token validation. 9.1/10 code quality (minor fixes needed from code review).
+- Branch: feature/ella-schedule-E
+- **Next:** Phase 3 (Portal Form - multi-step wizard)
 
 ---
 
@@ -868,6 +888,7 @@ Core Models:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 5.3 | 2026-02-06 | PM | MILESTONE: Schedule E Phase 2 Backend API COMPLETE. Staff routes (/schedule-e/:caseId/*: GET, POST send/resend, PATCH lock/unlock) + Public routes (/rental/:token: GET, PATCH draft, POST submit). Zod schemas for properties/address/expenses. Services: expense-calculator (calculate totals, fair rental days), version-history (track changes). SMS templates (VI/EN). Magic link SCHEDULE_E type + token validation. 9.1/10 code quality. Phase 3 (Portal Form) pending. |
 | 5.2 | 2026-02-05 | PM | MILESTONE: Landing Page Killer Features Phases 01-03 COMPLETE. Full campaign rollout across homepage, features page, and why-ella page. Phase 01: SMS-first homepage redesign (eyebrow, headline, features reorder). Phase 02: 8-section features page (SMS + Auto-Rename + OCR + Portal + Team + Voice + Multi-Year). Phase 03: Why Ella data expansion (6 problems/solutions/differentiators, updated before/after). SMS messaging + Auto-Rename positioning fully integrated. Build passes all phases, 9.5/10 code review average. All success criteria met. Branch feature/landing-page ready for merge. |
 | 5.1 | 2026-02-05 | PM | MILESTONE: Landing Page Killer Features Phase 01 COMPLETE. Homepage redesign with SMS-first positioning: hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction", features array reordered with SMS Direct Upload + AI Auto-Rename leading, How It Works updated to SMS flow, SEO description optimized for SMS+rename messaging. Killer differentiators now front-and-center. Build passes, 9.5/10 code review. Phase 02 (Features page sections) + Phase 03 (Why Ella updates) pending. |
 | 5.0 | 2026-02-04 | PM | MILESTONE: Landing Page Phase 05 COMPLETE. Pricing page (/pricing) with 3 tiers (Starter $99, Professional $299 most popular, Enterprise Custom), feature comparison table (12 rows, mobile scroll), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas for each tier. Accessibility: role="img", aria-labels, semantic HTML. Phase 06 (Features/Why Ella/About pages) pending. |

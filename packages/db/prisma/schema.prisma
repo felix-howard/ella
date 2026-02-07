@@ -212,6 +212,7 @@ enum MessageTemplateCategory {
   COMPLETE
   GENERAL
   SCHEDULE_C
+  SCHEDULE_E
 }
 
 enum EngagementStatus {
@@ -287,6 +288,9 @@ model Organization {
   slug       String?  @unique
   logoUrl    String?
   isActive   Boolean  @default(true)
+
+  smsLanguage         Language @default(VI)
+  missedCallTextBack  Boolean  @default(false)
 
   staff      Staff[]
   clients    Client[]
@@ -432,6 +436,7 @@ model TaxCase {
   actions           Action[]
   imageGroups       ImageGroup[]
   scheduleCExpense  ScheduleCExpense?
+  scheduleEExpense  ScheduleEExpense?
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -823,13 +828,20 @@ enum AuditEntityType {
   ORGANIZATION
 }
 
-// Schedule C expense form types
+// Magic link types for different form flows
 enum MagicLinkType {
   PORTAL       // Existing document upload
   SCHEDULE_C   // Self-employed expense collection form
+  SCHEDULE_E   // Rental property expense collection form
 }
 
 enum ScheduleCStatus {
+  DRAFT       // Client editing
+  SUBMITTED   // Client submitted, CPA can review
+  LOCKED      // CPA locked, no more edits
+}
+
+enum ScheduleEStatus {
   DRAFT       // Client editing
   SUBMITTED   // Client submitted, CPA can review
   LOCKED      // CPA locked, no more edits
@@ -931,4 +943,42 @@ model ScheduleCExpense {
 
   @@index([status])
   @@index([taxCaseId, status])
+}
+
+// ============================================
+// SCHEDULE E RENTAL PROPERTY EXPENSE COLLECTION
+// ============================================
+
+// Schedule E (Form 1040) rental property data for clients with rental income
+// Stores up to 3 properties as JSON array with income and expense data
+// One ScheduleEExpense per TaxCase (all properties in single record)
+model ScheduleEExpense {
+  id          String          @id @default(cuid())
+  taxCaseId   String          @unique
+  taxCase     TaxCase         @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  status      ScheduleEStatus @default(DRAFT)
+
+  // === Properties (up to 3) stored as JSON array ===
+  // Each property: { id, address, propertyType, monthsRented, fairRentalDays,
+  //   personalUseDays, rentsReceived, expenses (7 fields), otherExpenses[], totals }
+  properties  Json            @default("[]")
+
+  // === Version Tracking ===
+  // versionHistory JSON structure:
+  // [{ version: number, properties: [...], submittedAt: string, changes: string[] }]
+  version         Int         @default(1)
+  versionHistory  Json        @default("[]")
+
+  // === Timestamps ===
+  submittedAt DateTime?  // When client submitted (status -> SUBMITTED)
+  lockedAt    DateTime?  // When CPA locked (status -> LOCKED)
+  lockedById  String?    // Staff who locked
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([taxCaseId, status])
+  @@index([lockedById])
 }

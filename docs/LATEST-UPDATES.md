@@ -1,10 +1,113 @@
 # Latest Documentation Updates
 
+**Date:** 2026-02-06 | **Feature:** Schedule E Phase 4 - Workspace Tab Completion | **Status:** Complete
+
+---
+
+## Schedule E Phase 4: Workspace Tab Completion (Current Update)
+
+**In One Sentence:** Frontend Schedule E tab added to workspace with 4 state management (empty/draft/submitted/locked), data hooks, 10 sub-components, and i18n translations for staff review of rental property expenses.
+
+**Changes Made:**
+
+- **New Data Hooks (apps/workspace/src/hooks/):**
+  - `use-schedule-e.ts` (35 LOC) - Fetches Schedule E data via useQuery, 30s stale time, returns expense/magicLink/totals/properties
+  - `use-schedule-e-actions.ts` (133 LOC) - Mutations for send (POST /send), resend (POST /resend), lock (PATCH /lock), unlock (PATCH /unlock) with optimistic updates
+
+- **New Tab Component (apps/workspace/src/components/cases/tabs/schedule-e-tab/):**
+  - `index.tsx` (76 LOC) - Main ScheduleETab: routes between 4 states using expense.status
+    - Empty: No expense → Show send button
+    - Draft: status=DRAFT → Show waiting state (form in progress on portal)
+    - Submitted/Locked: Show read-only summary
+  - `schedule-e-empty-state.tsx` - Initial state with magic link send/resend buttons
+  - `schedule-e-waiting.tsx` - In-progress state (waiting for portal submission)
+  - `schedule-e-summary.tsx` - Read-only summary of submitted/locked properties
+  - `property-card.tsx` (110+ LOC) - Expandable property details with copyable values, XSS sanitization via sanitizeText()
+  - `totals-card.tsx` - Aggregate income/expense totals
+  - `status-badge.tsx` - Visual status indicator (DRAFT/SUBMITTED/LOCKED)
+  - `schedule-e-actions.tsx` - Lock/unlock buttons for staff control
+  - `copyable-value.tsx` - Reusable copyable field with toast feedback
+  - `format-utils.ts` (60+ LOC) - formatUSD(), getPropertyTypeLabel(), formatAddress() utilities
+
+- **API Client Updates (apps/workspace/src/lib/api-client.ts):**
+  - New type: `ScheduleEResponse` - { expense, magicLink, totals }
+  - New type: `ScheduleEPropertyData` - Property with address, type, dates, income, 7 expenses
+  - New endpoint group: `scheduleE.get(caseId)` - Fetch expense data
+  - Magic link support: re-use existing POST /send, POST /resend
+
+- **Internationalization Updates:**
+  - `apps/workspace/src/locales/en.json` - Added 60+ Schedule E keys (properties, expenses, actions, status)
+  - `apps/workspace/src/locales/vi.json` - Added 60+ Schedule E keys (Vietnamese translations)
+  - Keys: scheduleE.property, scheduleE.line9Insurance, scheduleE.status, etc.
+
+- **Route Integration (apps/workspace/src/routes/clients/$clientId.tsx):**
+  - Lazy-loaded ScheduleETab component alongside Schedule C Tab
+  - Tab added to main case detail page
+
+**Key Implementation Details:**
+
+1. **State Management:** 4-state routing (empty → draft → submitted/locked) based on expense existence and status enum
+2. **XSS Prevention:** sanitizeText() applied to user-editable fields in property details
+3. **Copy-to-Clipboard:** Toast feedback for user actions
+4. **Optimistic Updates:** Mutations use React Query invalidation for automatic refetch
+5. **Expandable Details:** Property cards collapse/expand for compact summary view
+6. **Bilingual UI:** Full EN/VI support via i18n keys
+7. **Magic Link Reuse:** Existing portal send/resend logic works for Schedule E
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Added Schedule E Phase 4 to status table
+2. **LATEST-UPDATES.md** - This update document
+
+---
+
+## Previous Update: Schedule E Phase 1 - Backend Foundation
+
+**Date:** 2026-02-06 | **Feature:** Schedule E Phase 1 - Backend Foundation | **Status:** Complete
+
+---
+
+## Schedule E Phase 1: Backend Foundation (Previous Update)
+
+**In One Sentence:** Prisma ScheduleEExpense model, TypeScript types, and enum definitions added for rental property expense collection form.
+
+**Changes Made:**
+- **Prisma Schema (schema.prisma):**
+  - New `ScheduleEStatus` enum: DRAFT, SUBMITTED, LOCKED (mirrors Schedule C pattern)
+  - New `ScheduleEExpense` model: taxCaseId (unique FK), properties (JSON array), version tracking, status, timestamps
+  - Updated `MagicLinkType` enum: Added SCHEDULE_E type for magic link portal support
+  - 7 IRS Schedule E expense fields: insurance, mortgageInterest, repairs, taxes, utilities, managementFees, cleaningMaintenance
+  - Custom expenses list support (otherExpenses array)
+  - Version history tracking (JSON), submission + locking timestamps
+
+- **TypeScript Types (@ella/shared/src/types/schedule-e.ts):**
+  - `ScheduleEPropertyAddress` - street, city, state, zip
+  - `ScheduleEPropertyType` - IRS codes 1-5, 7-8 (excludes 6 Royalties)
+  - `ScheduleEPropertyId` - A, B, C (max 3 properties per Schedule E)
+  - `ScheduleEProperty` - Complete property with rental period, income, 7 expense fields, totals
+  - `ScheduleEOtherExpense` - Custom expense item (name + amount)
+  - `ScheduleEVersionHistoryEntry` - Version tracking with change log
+  - `ScheduleETotals` - Aggregate totals across properties
+  - `ScheduleEStatus` - Type alias (DRAFT/SUBMITTED/LOCKED)
+  - Helper: `createEmptyProperty()` for form initialization
+  - Helper: `PROPERTY_TYPE_LABELS` (EN/VI bilingual labels)
+
+- **Exports (@ella/shared/src/types/index.ts):**
+  - All Schedule E types exported for frontend consumption
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Added Schedule E Phase 1 to status table, updated database schema section, added recent phase summary
+2. **system-architecture.md** - Added ScheduleEExpense to Database Schema models, updated MagicLinkType reference
+3. **LATEST-UPDATES.md** - This update document
+
+---
+
+## Previous Update: Landing Page Phase 03 - Why Ella Page Expansion
+
 **Date:** 2026-02-05 | **Feature:** Landing Page Phase 03 - Why Ella Page Expansion | **Status:** Complete
 
 ---
 
-## Phase 03: Why Ella Page Expansion (Current Update)
+## Phase 03: Why Ella Page Expansion (Previous Update)
 
 **In One Sentence:** Why Ella page expanded from 4-card sections to 6-card sections (problems, solutions, differentiators) with 7-item before/after comparison.
 
@@ -296,5 +399,5 @@ plans/reports/
 ---
 
 **Documentation Status:** ✅ Complete & Ready for Merge
-**Last Updated:** 2026-01-29 17:27 ICT
+**Last Updated:** 2026-02-06 09:00 ICT
 **Prepared by:** Documentation Manager

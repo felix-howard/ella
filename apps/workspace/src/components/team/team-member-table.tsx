@@ -5,7 +5,7 @@
 import { useState, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal, Shield, Users, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { MoreHorizontal, Shield, Users, ChevronDown, ChevronUp, Loader2, UserMinus } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { api, type TeamMember, type OrgRole } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -46,7 +46,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl border border-border">
       <table className="w-full text-sm" aria-label={t('team.title')}>
         <thead>
           <tr className="border-b border-border bg-muted/30">
@@ -97,11 +97,11 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
     },
   })
 
-  // Deactivate mutation
-  const deactivateMutation = useMutation({
+  // Remove member mutation (removes from Clerk org + deactivates in DB)
+  const removeMutation = useMutation({
     mutationFn: () => api.team.deactivate(member.id),
     onSuccess: () => {
-      toast.success(t('team.deactivateSuccess'))
+      toast.success(t('team.removeSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
       setShowActions(false)
     },
@@ -184,17 +184,18 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
                 >
                   {t('team.viewAssignments')}
                 </button>
+                <div className="border-t border-border my-1" />
                 <button
                   onClick={() => {
-                    if (confirm(t('team.confirmDeactivate', { name: member.name }))) {
-                      deactivateMutation.mutate()
+                    if (confirm(t('team.confirmRemove', { name: member.name }))) {
+                      removeMutation.mutate()
                     }
                   }}
-                  disabled={deactivateMutation.isPending}
+                  disabled={removeMutation.isPending}
                   className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
                 >
-                  {deactivateMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {t('team.deactivate')}
+                  {removeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserMinus className="w-3.5 h-3.5" />}
+                  {t('team.removeFromOrg')}
                 </button>
               </div>
             </>

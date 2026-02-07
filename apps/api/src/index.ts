@@ -1,3 +1,4 @@
+// Deploy trigger: migrations for ScheduleE table, MagicLinkType enum, org smsLanguage/missedCallTextBack
 import { serve } from '@hono/node-server'
 import { app } from './app'
 import { initializeScheduler, stopScheduler } from './services/scheduler'

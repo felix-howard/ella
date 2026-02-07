@@ -1,6 +1,3 @@
--- AlterEnum
-ALTER TYPE "MagicLinkType" ADD VALUE 'SCHEDULE_E';
-
 -- CreateEnum
 CREATE TYPE "ScheduleEStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'LOCKED');
 

@@ -469,13 +469,14 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     const clientOrgId = client?.organizationId
 
     if (clientOrgId) {
-      // Find assigned staff for this client
-      const assignment = await prisma.clientAssignment.findFirst({
+      // Find ALL assigned staff for this client
+      const assignments = await prisma.clientAssignment.findMany({
         where: { clientId: client.id },
         select: { staffId: true },
       })
+      const assignedStaffIds = assignments.map((a) => a.staffId)
 
-      // Get online staff: assigned staff + org admins (for fallback/supervision)
+      // Get online staff: all assigned staff + org admins (for fallback/supervision)
       const onlineStaff = await prisma.staffPresence.findMany({
         where: {
           isOnline: true,
@@ -483,8 +484,10 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
             organizationId: clientOrgId,
             isActive: true,
             OR: [
-              // Assigned staff
-              ...(assignment ? [{ id: assignment.staffId }] : []),
+              // All assigned staff for this client
+              ...(assignedStaffIds.length > 0
+                ? [{ id: { in: assignedStaffIds } }]
+                : []),
               // Org admins always receive calls
               { role: 'ADMIN' },
             ],
@@ -498,7 +501,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
         .filter((id): id is string => Boolean(id))
 
       console.log(
-        `[Incoming Webhook] Org ${clientOrgId} - Assigned: ${assignment?.staffId || 'none'}, Online eligible: ${staffIdentities.length}`
+        `[Incoming Webhook] Org ${clientOrgId} - Assigned: ${assignedStaffIds.length > 0 ? assignedStaffIds.join(', ') : 'none'}, Online eligible: ${staffIdentities.length}`
       )
     } else {
       // Unknown caller (no client record or no org) - route to all online staff as fallback

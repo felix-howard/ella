@@ -44,6 +44,7 @@ export const RentalForm = memo(function RentalForm({
     errorMessage,
     isLocked,
     version,
+    initialPropertyCount,
     submit,
     resetError,
     resetForEdit,
@@ -121,6 +122,7 @@ export const RentalForm = memo(function RentalForm({
           onChange={setPropertyCount}
           onNext={goNext}
           readOnly={isLocked}
+          initialPropertyCount={initialPropertyCount}
         />
       )
     }

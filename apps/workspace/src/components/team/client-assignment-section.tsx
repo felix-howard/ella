@@ -35,7 +35,7 @@ export function ClientAssignmentSection({ clientId }: ClientAssignmentSectionPro
   const assignments = assignmentsData?.data ?? []
   const members = membersData?.data ?? []
   const assignedStaffIds = new Set(assignments.map((a) => a.staffId))
-  const availableMembers = members.filter((m) => !assignedStaffIds.has(m.id))
+  const availableMembers = members.filter((m) => !assignedStaffIds.has(m.id) && m.role !== 'ADMIN')
 
   // Assign mutation
   const assignMutation = useMutation({

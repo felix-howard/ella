@@ -1,9 +1,10 @@
 /**
  * PropertyCountStep Component
  * Step 1: Select number of rental properties (1-3)
+ * Shows confirmation modal when reducing count from a previously submitted value
  */
-import { memo } from 'react'
-import { Building2, ChevronRight } from 'lucide-react'
+import { memo, useState, useCallback } from 'react'
+import { Building2, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button, cn } from '@ella/ui'
 import { useTranslation } from 'react-i18next'
 
@@ -12,6 +13,8 @@ interface PropertyCountStepProps {
   onChange: (count: 1 | 2 | 3) => void
   onNext: () => void
   readOnly?: boolean
+  /** Previously submitted property count — used to detect reductions */
+  initialPropertyCount?: 1 | 2 | 3
 }
 
 const PROPERTY_COUNTS: (1 | 2 | 3)[] = [1, 2, 3]
@@ -21,8 +24,30 @@ export const PropertyCountStep = memo(function PropertyCountStep({
   onChange,
   onNext,
   readOnly = false,
+  initialPropertyCount,
 }: PropertyCountStepProps) {
   const { t } = useTranslation()
+  const [pendingCount, setPendingCount] = useState<1 | 2 | 3 | null>(null)
+
+  const handleSelect = useCallback((count: 1 | 2 | 3) => {
+    // Show confirmation if reducing below the previously submitted count
+    if (initialPropertyCount && count < initialPropertyCount) {
+      setPendingCount(count)
+      return
+    }
+    onChange(count)
+  }, [initialPropertyCount, onChange])
+
+  const confirmReduce = useCallback(() => {
+    if (pendingCount !== null) {
+      onChange(pendingCount)
+      setPendingCount(null)
+    }
+  }, [pendingCount, onChange])
+
+  const cancelReduce = useCallback(() => {
+    setPendingCount(null)
+  }, [])
 
   return (
     <div className="flex-1 flex flex-col px-6 py-4">
@@ -42,7 +67,7 @@ export const PropertyCountStep = memo(function PropertyCountStep({
           <button
             key={count}
             type="button"
-            onClick={() => !readOnly && onChange(count)}
+            onClick={() => !readOnly && handleSelect(count)}
             disabled={readOnly}
             className={cn(
               'flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all',
@@ -106,6 +131,49 @@ export const PropertyCountStep = memo(function PropertyCountStep({
           <ChevronRight className="w-5 h-5" />
         </Button>
       </div>
+
+      {/* Confirmation modal when reducing property count */}
+      {pendingCount !== null && initialPropertyCount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-card rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            {/* Warning icon + title */}
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">
+                  {t('rental.reducePropertyTitle')}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t('rental.reducePropertyMessage', {
+                    from: initialPropertyCount,
+                    to: pendingCount,
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={cancelReduce}
+                className="w-full h-12"
+              >
+                {t('rental.reducePropertyCancel', { count: initialPropertyCount })}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmReduce}
+                className="w-full h-12"
+              >
+                {t('rental.reducePropertyConfirm', { count: pendingCount })}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 })

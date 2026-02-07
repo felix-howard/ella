@@ -5,6 +5,7 @@
  */
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@clerk/clerk-react'
 import { api } from '../lib/api-client'
 import type { Language } from '../lib/api-client'
 
@@ -20,9 +21,12 @@ function toDbLang(i18nLang: string): Language {
 
 export function useLanguageSync() {
   const { i18n } = useTranslation()
+  const { isSignedIn } = useAuth()
 
   // Sync from DB on mount (background, non-blocking)
+  // Only fetch when signed in to avoid 401 errors on login page
   useEffect(() => {
+    if (!isSignedIn) return
     api.staff.me()
       .then((staff) => {
         const dbLang = toI18nLang(staff.language)
@@ -34,7 +38,7 @@ export function useLanguageSync() {
       .catch(() => {
         // Silently fail — localStorage/default language is fine as fallback
       })
-  }, [i18n])
+  }, [i18n, isSignedIn])
 
   // Change language: update localStorage + i18n immediately, persist to DB
   const changeLanguage = useCallback(

@@ -59,6 +59,11 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
 
     // Signed in - always re-verify token before rendering children
     // This catches the login transition where isSignedIn just became true
+    // Clear stale query cache (e.g. 401 errors from pre-login requests)
+    // so dashboard doesn't throw cached errors via useSuspenseQuery
+    if (!wasSignedIn.current) {
+      queryClient.clear()
+    }
     wasSignedIn.current = true
     setIsTokenReady(false)
     let cancelled = false

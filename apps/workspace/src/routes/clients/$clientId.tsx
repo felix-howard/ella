@@ -470,7 +470,7 @@ function ClientDetailPage() {
           </div>
 
           {/* Status & Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Action buttons based on state */}
             {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
               <Button
@@ -558,8 +558,8 @@ function ClientDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-border mb-6">
-        <nav className="flex gap-1" role="tablist">
+      <div className="border-b border-border mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <nav className="flex gap-1 overflow-x-auto scrollbar-none" role="tablist">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -570,7 +570,7 @@ function ClientDetailPage() {
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0',
                   isActive
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'

@@ -66,7 +66,7 @@ function DashboardPage() {
       <QuickActions />
 
       {/* Recent Activity Section */}
-      <div className="bg-card rounded-xl border border-border p-6">
+      <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-primary mb-4">
           {dashboard.recentActivity}
         </h2>

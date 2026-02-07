@@ -187,10 +187,10 @@ function ConversationDetailView() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Back button (mobile) - hidden on desktop */}
+              {/* Back button (mobile) - hidden on md+ desktop */}
               <Link
                 to="/messages"
-                className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="md:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Link>
@@ -247,7 +247,7 @@ function ConversationDetailView() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* Voice Call Button */}
               <CallButton
                 isAvailable={voiceState.isAvailable}

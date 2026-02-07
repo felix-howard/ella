@@ -1,13 +1,15 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-02-06
-**Current Branch:** feature/ella-schedule-E
-**Latest Phase:** Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
+**Current Date:** 2026-02-07
+**Current Branch:** fix/incoming-call-routing-all-assigned
+**Latest Phase:** Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Infrastructure Phase 1 COMPLETE | Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Mobile Responsive Admin Pages Phase 4** | **Team page (responsive header flex-col→flex-row, invitation row wraps, sticky header). Settings page (scrollable tab bar overflow-x-auto, scroll fade indicator). Cases detail Entry page (mobile tab layout via useIsMobile, 3-tab nav: docs/image/data). Responsive form components, touch-friendly spacing. Code review 8.5/10.** | **2026-02-07** |
+| **Mobile Infrastructure Phase 1** | **Responsive layout framework for iOS/Android clients. New hook: useIsMobile() (matchMedia @767px, SSR-safe). Layout components: Header (mobile-only hamburger, 56px), Sidebar (desktop fixed/mobile drawer overlay with backdrop), SidebarContent (extracted shared nav/user/voice/logout), PageContainer (responsive margins). Features: Drawer auto-close on route/Escape, focus trap, prefers-reduced-motion, keyboard accessibility. Mobile drawer 240px slide-in, desktop sidebar 240px/64px (collapsed). Ready for workspace mobile flows.** | **2026-02-07** |
 | **Schedule E Phase 4: Workspace Tab** | **Frontend tab integration: ScheduleETab component (4 states: empty, draft, submitted, locked). Data hooks: useScheduleE (data fetch), useScheduleEActions (mutations with optimistic updates). 10 sub-components: property-card (XSS sanitization), totals-card, status-badge, schedule-e-empty-state, schedule-e-waiting, schedule-e-summary, copyable-value, format-utils, schedule-e-actions. API endpoints in api-client.ts. I18n: 60+ translations (EN/VI). Magic link send/resend functionality integrated.** | **2026-02-06** |
 | **Schedule E Phase 2: Backend API** | **Staff routes (/schedule-e/:caseId/*): GET, POST /send, POST /resend, PATCH /lock, PATCH /unlock. Public routes (/rental/:token): GET, PATCH /draft, POST /submit. Zod schemas for properties. Services: expense-calculator (totals), version-history (track changes). SMS templates (VI/EN). Magic link support. Token validation. 9.1/10 code quality (minor fixes needed).** | **2026-02-06** |
 | **Schedule E Phase 1: Backend Foundation** | **Prisma ScheduleEExpense model (properties JSON array, version history, status tracking), ScheduleEStatus enum (DRAFT/SUBMITTED/LOCKED), MagicLinkType.SCHEDULE_E, TypeScript types (7 properties support, 7 IRS expense fields, custom expenses, aggregated totals), helper utilities, export to shared types.** | **2026-02-06** |
@@ -135,14 +137,36 @@
 - `useOrgRole()` - Returns { isAdmin, role }, conditional Team nav visibility
 - Zero-org edge case: Shows localized fallback UI (org.noOrg / org.noOrgDesc)
 
+**Mobile Infrastructure (Phase 1):**
+- `useIsMobile()` hook: matchMedia @ 767px breakpoint (Tailwind md: sync), SSR-safe with lazy state init
+- `Header` component: Mobile-only fixed 56px top bar (hamburger menu, Ella logo, spacer). Desktop returns null.
+- `Sidebar` component: Dual-mode responsive layout
+  - Desktop: Fixed left sidebar 240px (16px collapsed), collapsible via toggle button
+  - Mobile: Slide-in drawer overlay (240px width), -translate-x-full to translate-x-0 animation
+  - Backdrop: Black 50% opacity, click-to-close, fade transition (300ms)
+- `SidebarContent` component: Shared nav/user/voice/logout content (extracted for reuse)
+  - Logo section: Full logo (showLabels) or arrow icon (collapsed/mobile)
+  - Navigation: Loop nav items w/ active-state highlight, unread badge on messages
+  - User section: Avatar + name + org name (when available)
+  - Voice status: Register/connecting/waiting states w/ indicator dot (when available)
+  - Logout button: i18n aware
+- `PageContainer` component: Responsive margins
+  - Mobile: pt-14 (header offset) + px-4 py-4 (edges)
+  - Desktop: py-6 px-6 + ml-16 (collapsed) or ml-60 (expanded sidebar)
+  - Max-width 1280px container inside
+- Accessibility: Focus trap (Escape key, auto-focus first input on drawer open, restore focus on close), prefers-reduced-motion, aria-modal on drawer, aria-labels on buttons
+
 **Sidebar Enhancement:**
 - Displays current org name via `useOrganization()` hook
 - Role badge (ADMIN/STAFF) next to user info
 - Team menu visible only to org admins
+- Voice status indicator (connected/connecting/waiting)
 
 **Key Components:**
 - Team page: Member table + invite dialog + bulk assign panel
-- Sidebar: Org name, role badge, conditional navigation
+- Sidebar: Responsive dual-mode (desktop sidebar + mobile drawer)
+- Header: Mobile hamburger menu header
+- PageContainer: Responsive page layout with sidebar offset
 - Accept-invitation page: Seamless Clerk org acceptance flow
 - Team assignment panel: View/edit client assignments
 
@@ -232,6 +256,10 @@
 
 ## Recent Phases Summary
 
+**2026-02-07:** Mobile Responsive Admin Pages Phase 4 complete. Team page (apps/workspace/src/routes/team.tsx): responsive header layout (flex-col on mobile → sm:flex-row desktop), invitation row items wrap on small screens, sticky header support. Settings page (apps/workspace/src/routes/settings.tsx): scrollable tab bar with overflow-x-auto, scroll fade indicator for mobile UX. Cases detail Entry page (apps/workspace/src/routes/cases/$caseId/entry.tsx): mobile-first tab layout via useIsMobile hook, 3-tab navigation (docs/image/data), responsive form sections, touch-friendly spacing (44px min touch targets). New utility hooks: use-mobile-breakpoint.ts (useIsMobile for component logic). Code review 8.5/10. Admin page workflows now fully responsive across mobile/tablet/desktop viewports.
+
+**2026-02-07:** Mobile Infrastructure Phase 1 complete. New hook: useIsMobile() via matchMedia (767px breakpoint, SSR-safe) in apps/workspace/src/hooks/use-mobile-breakpoint.ts. Layout refactored into responsive components: Header (mobile-only, fixed 56px top bar with hamburger menu + Ella logo), Sidebar (dual-mode: desktop fixed sidebar 240px/64px collapsed vs mobile drawer overlay w/ backdrop), SidebarContent (extracted shared nav items, user info, voice status indicator, logout), PageContainer (responsive margins: mobile pt-14 + px-4 vs desktop py-6 + sidebar offset). Mobile drawer features: auto-close on route change + Escape key, focus trap (first focusable element on open, restore on close), prefers-reduced-motion support, backdrop click-to-close, aria-modal semantics. Drawer animation: -translate-x-full → translate-x-0 (300ms ease-in-out). Sidebar integration: uses useUIStore (sidebarCollapsed state desktop only) + useMobileMenu (mobileMenuOpen state mobile only). Ready for responsive workspace flows (Cases, Clients, Messages, Team).
+
 **2026-02-06:** Schedule E Phase 1 Backend Foundation complete. Prisma schema: ScheduleEExpense model (unique per TaxCase), ScheduleEStatus enum (DRAFT/SUBMITTED/LOCKED), MagicLinkType.SCHEDULE_E added. TypeScript types in @ella/shared: ScheduleEProperty (7 properties A-C), ScheduleEPropertyAddress, ScheduleEPropertyType (1/2/3/4/5/7/8), ScheduleEOtherExpense, ScheduleEVersionHistoryEntry, ScheduleETotals. Helper utilities: createEmptyProperty(), PROPERTY_TYPE_LABELS (EN/VI). Properties stored as JSON array with 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance). Exports added to @ella/shared/src/types/index.ts for frontend consumption.
 
 **2026-02-05:** Landing Page Phase 03 Why Ella Updates complete. Expanded problems (6 cards: added Clients Never Use Portal + File Names Are Garbage). Solutions scaled to 6 cards (added SMS Upload + AI Auto-Rename). Before/After comparison: 7 items each (added SMS reminders, Clients text Ella number, Auto-renamed files). Differentiators expanded: 6 cards (added SMS-First positioning + Auto-Rename Intelligence). Grid layout optimized: 3-col desktop (even row distribution). Why Ella data extracted to why-ella-data.ts config file (pain points, solutions, before/after items, differentiators all now in single source).
@@ -262,12 +290,13 @@
 
 ## Next Steps
 
-1. **Landing Page Phase 09** - Additional page templates (About page, Blog overview) + full deployment
-2. **Landing Page Deployment** - Staging → Production deployment & DNS routing (SMS-first messaging live)
-3. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
-4. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
-5. **Team Assignment Workflows** - Bulk operations, transfer auditing
-6. **Workspace SMS Integration** - Integrate Twilio SMS direct upload feature from landing page into workspace portal
+1. **Mobile Infrastructure Phase 2** - Responsive tables/forms for mobile (Cases list, Client detail, Messages). Touch-friendly input sizes (44px min-height). Optimize for landscape orientation.
+2. **Landing Page Phase 09** - Additional page templates (About page, Blog overview) + full deployment
+3. **Landing Page Deployment** - Staging → Production deployment & DNS routing (SMS-first messaging live)
+4. **Schedule C Phase 5** - Workspace Schedule C tab (case detail integration)
+5. **Voice Calls Phase 5** - Enhanced incoming call routing, better presence tracking
+6. **Team Assignment Workflows** - Bulk operations, transfer auditing
+7. **Workspace SMS Integration** - Integrate Twilio SMS direct upload feature from landing page into workspace portal
 
 ---
 

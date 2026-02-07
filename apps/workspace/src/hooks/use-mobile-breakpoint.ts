@@ -1,0 +1,24 @@
+/**
+ * Mobile breakpoint detection hook
+ * Uses matchMedia for performant, SSR-safe viewport detection
+ * Syncs with Tailwind md: breakpoint (768px)
+ */
+import { useState, useEffect } from 'react'
+
+const MOBILE_BREAKPOINT = '(max-width: 767px)'
+
+export function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia(MOBILE_BREAKPOINT).matches
+  })
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+
+  return isMobile
+}

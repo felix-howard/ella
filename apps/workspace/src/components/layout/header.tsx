@@ -1,77 +1,34 @@
 /**
  * Header component for Ella Workspace
- * Top bar with search, notifications, and quick actions
+ * Desktop: hidden (no top header needed, sidebar handles navigation)
+ * Mobile: fixed top bar with hamburger menu, logo, unread badge
  */
-import { Search, Bell, Plus } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { Button } from '@ella/ui'
-import { useUIStore } from '../../stores/ui-store'
-import { cn } from '@ella/ui'
-import { Link } from '@tanstack/react-router'
+import { Menu } from 'lucide-react'
+import { EllaArrow } from '@ella/ui'
+import { useMobileMenu } from '../../stores/ui-store'
+import { useIsMobile } from '../../hooks'
 
-interface HeaderProps {
-  title?: string
-  showSearch?: boolean
-  actions?: React.ReactNode
-}
+export function Header() {
+  const { toggle } = useMobileMenu()
+  const isMobile = useIsMobile()
 
-export function Header({ title, showSearch = true, actions }: HeaderProps) {
-  const { t } = useTranslation()
-  const { globalSearch, setGlobalSearch, sidebarCollapsed } = useUIStore()
-
-  // Temporarily hidden - remove this line to show header again
-  return null
+  // Desktop: no header needed
+  if (!isMobile) return null
 
   return (
-    <header
-      className={cn(
-        'fixed top-0 right-0 z-30 h-16 bg-card/80 backdrop-blur-sm border-b border-border flex items-center justify-between px-6 transition-all duration-300',
-        sidebarCollapsed ? 'left-16' : 'left-60'
-      )}
-    >
-      {/* Left: Title or Search */}
-      <div className="flex items-center gap-4 flex-1">
-        {title && (
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-        )}
+    <header className="fixed top-0 left-0 right-0 z-40 h-14 bg-card border-b border-border flex items-center justify-between px-4">
+      <button
+        onClick={toggle}
+        className="p-2.5 -ml-2 rounded-lg hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        aria-label="Open menu"
+      >
+        <Menu className="w-5 h-5 text-foreground" />
+      </button>
 
-        {showSearch && (
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t('common.search') + '...'}
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-          </div>
-        )}
-      </div>
+      <img src={EllaArrow} alt="Ella" className="h-6" />
 
-      {/* Right: Actions */}
-      <div className="flex items-center gap-3">
-        {actions}
-
-        {/* Notifications */}
-        <button
-          className="relative p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label={t('common.notifications')}
-          title={t('common.notifications')}
-        >
-          <Bell className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
-          {/* Notification badge */}
-          <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" aria-label={t('header.hasNewNotifications')} />
-        </button>
-
-        {/* Quick add client */}
-        <Link to="/">
-          <Button size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('common.addClient')}</span>
-          </Button>
-        </Link>
-      </div>
+      {/* Spacer for symmetry */}
+      <div className="w-9" />
     </header>
   )
 }

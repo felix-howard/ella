@@ -76,7 +76,7 @@ function TeamPage() {
   return (
     <PageContainer>
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t('team.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -134,9 +134,9 @@ function PendingInvitationRow({ invitation }: { invitation: { id: string; emailA
   })
 
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 px-3 rounded-lg bg-muted/30">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
           <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400" />
         </div>
         <div>
@@ -146,14 +146,14 @@ function PendingInvitationRow({ invitation }: { invitation: { id: string; emailA
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 ml-11 sm:ml-0">
         <Badge variant="outline" className="text-amber-600 border-amber-300">
           {t('team.pendingInvite')}
         </Badge>
         <button
           onClick={() => revokeMutation.mutate()}
           disabled={revokeMutation.isPending}
-          className="text-xs text-destructive hover:underline disabled:opacity-50"
+          className="text-xs text-destructive hover:underline disabled:opacity-50 px-2 py-1 -my-1 rounded"
         >
           {t('team.revokeInvite')}
         </button>

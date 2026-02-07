@@ -10,6 +10,7 @@ import { cn } from '@ella/ui'
 import { MessageSquare, RefreshCw } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
 import { useUIStore } from '../stores/ui-store'
+import { useIsMobile } from '../hooks/use-mobile-breakpoint'
 import { api } from '../lib/api-client'
 import type { Conversation } from '../lib/api-client'
 
@@ -28,6 +29,7 @@ function MessagesLayout() {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { sidebarCollapsed } = useUIStore()
+  const isMobile = useIsMobile()
   const params = useParams({ strict: false })
   const activeCaseId = (params as { caseId?: string }).caseId
 
@@ -71,6 +73,64 @@ function MessagesLayout() {
     fetchConversations(true)
   }
 
+  // Shared conversation list header + list
+  const conversationPanel = (
+    <>
+      {/* Header */}
+      <div className="h-14 px-4 flex items-center justify-between border-b border-border">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-semibold text-foreground">{t('messages.title')}</h1>
+          {totalUnread > 0 && (
+            <span className="px-2 py-0.5 text-xs font-medium bg-error text-white rounded-full">
+              {totalUnread}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              isRefreshing && 'animate-spin'
+            )}
+            title={t('messages.refresh')}
+            aria-label={t('messages.refreshAriaLabel')}
+          >
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* Conversation List */}
+      <ConversationList
+        conversations={conversations}
+        activeCaseId={activeCaseId}
+        isLoading={isLoading}
+      />
+    </>
+  )
+
+  // Mobile: single-panel - show list OR detail based on URL
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-background pt-14">
+        {activeCaseId ? (
+          <div className="flex-1 flex flex-col min-w-0">
+            <Outlet />
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col bg-card">
+            {conversationPanel}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Desktop: split-view (unchanged)
   return (
     <div
       className={cn(
@@ -80,40 +140,7 @@ function MessagesLayout() {
     >
       {/* Left Panel - Conversation List */}
       <div className="w-80 flex-shrink-0 border-r border-border bg-card flex flex-col">
-        {/* Header */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">{t('messages.title')}</h1>
-            {totalUnread > 0 && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-error text-white rounded-full">
-                {totalUnread}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className={cn(
-                'p-2 rounded-lg transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted',
-                isRefreshing && 'animate-spin'
-              )}
-              title={t('messages.refresh')}
-              aria-label={t('messages.refreshAriaLabel')}
-            >
-              <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
-        {/* Conversation List */}
-        <ConversationList
-          conversations={conversations}
-          activeCaseId={activeCaseId}
-          isLoading={isLoading}
-        />
+        {conversationPanel}
       </div>
 
       {/* Right Panel - Child Route Content */}

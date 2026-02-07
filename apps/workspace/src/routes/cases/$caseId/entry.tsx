@@ -15,10 +15,13 @@ import {
   ChevronRight,
   Keyboard,
   Loader2,
+  Image as ImageIcon,
+  Database,
 } from 'lucide-react'
 import { DocTabsSidebar } from '../../../components/data-entry'
 import { OriginalImageViewer } from '../../../components/data-entry'
 import { useClipboard } from '../../../hooks'
+import { useIsMobile } from '../../../hooks/use-mobile-breakpoint'
 import { toast } from '../../../stores/toast-store'
 import {
   DOC_TYPE_LABELS,
@@ -84,6 +87,7 @@ const ENTRY_FIELD_CONFIG: Record<string, { key: string; label: string }[]> = {
 function DataEntryPage() {
   const { caseId } = Route.useParams()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [copiedFields, setCopiedFields] = useState<Record<string, Set<string>>>({})
   const [expandedImage, setExpandedImage] = useState(false)
@@ -91,6 +95,7 @@ function DataEntryPage() {
   const [focusedFieldIndex, setFocusedFieldIndex] = useState(0)
   const [isCompleting, setIsCompleting] = useState(false)
   const [hoveredFieldLabel, setHoveredFieldLabel] = useState<string | null>(null)
+  const [mobileTab, setMobileTab] = useState<'docs' | 'image' | 'data'>('data')
   const fieldListRef = useRef<HTMLDivElement>(null)
 
   const { copy } = useClipboard()
@@ -383,255 +388,433 @@ function DataEntryPage() {
   return (
     <div data-entry-page className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="flex-shrink-0 border-b border-border bg-card px-4 py-3">
-        <div className="flex items-center justify-between max-w-[1800px] mx-auto">
-          <div className="flex items-center gap-4">
+      {isMobile ? (
+        <header className="flex-shrink-0 border-b border-border bg-card px-4 py-2">
+          <div className="flex items-center justify-between">
             <Link
               to="/clients/$clientId"
               params={{ clientId: taxCase.clientId }}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại</span>
+              <ArrowLeft className="w-5 h-5" />
             </Link>
-
-            <div className="h-6 w-px bg-border" />
-
-            <div>
-              <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                {taxCase.client.name}
-                <span className={cn(
-                  'text-xs font-medium px-2 py-0.5 rounded-full',
-                  statusColors?.bg,
-                  statusColors?.text
-                )}>
-                  {CASE_STATUS_LABELS[taxCase.status]}
-                </span>
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Năm thuế {taxCase.taxYear} • {formatPhone(taxCase.client.phone)}
-              </p>
+            <div className="text-center">
+              <h1 className="text-sm font-semibold text-foreground">{taxCase.client.name}</h1>
+              <span className="text-xs text-muted-foreground">{completedDocs}/{totalDocs} tài liệu</span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Progress */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Đã copy: {completedDocs}/{totalDocs} tài liệu
-              </span>
-              <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${(completedDocs / totalDocs) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Keyboard hints toggle */}
-            <button
-              onClick={() => setShowKeyboardHints(!showKeyboardHints)}
-              className={cn(
-                'p-2 rounded-lg transition-colors',
-                showKeyboardHints ? 'bg-primary-light text-primary' : 'hover:bg-muted text-muted-foreground'
-              )}
-              title="Hiện/ẩn phím tắt"
-            >
-              <Keyboard className="w-4 h-4" />
-            </button>
-
-            {/* Complete Button */}
             <button
               onClick={handleMarkComplete}
               disabled={!allDocsComplete || isCompleting}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors',
-                allDocsComplete
-                  ? 'bg-success text-white hover:bg-success/90'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+                'p-1 transition-colors',
+                allDocsComplete ? 'text-success' : 'text-muted-foreground'
               )}
             >
               {isCompleting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="w-5 h-5" />
               )}
-              <span>Hoàn tất nhập liệu</span>
             </button>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : (
+        <header className="flex-shrink-0 border-b border-border bg-card px-4 py-3">
+          <div className="flex items-center justify-between max-w-[1800px] mx-auto">
+            <div className="flex items-center gap-4">
+              <Link
+                to="/clients/$clientId"
+                params={{ clientId: taxCase.clientId }}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+              </Link>
 
-      {/* Main Content - Split Pane */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Document List */}
-        <aside className="w-64 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
-          <div className="p-4">
-            <h2 className="text-sm font-medium text-foreground mb-3">
-              Tài liệu ({digitalDocs.length})
-            </h2>
-            <DocTabsSidebar
-              docs={digitalDocs}
-              activeDocId={selectedDocId}
-              onDocSelect={(doc) => {
-                setSelectedDocId(doc.id)
-                setFocusedFieldIndex(0)
-              }}
-              copiedFields={copiedFields}
-            />
-          </div>
-        </aside>
+              <div className="h-6 w-px bg-border" />
 
-        {/* Center - Image Viewer */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <OriginalImageViewer
-            key={selectedImage?.id || 'empty'}
-            image={selectedImage}
-            expanded={expandedImage}
-            onExpandToggle={() => setExpandedImage(!expandedImage)}
-            highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
-            className="flex-1"
-          />
-        </div>
-
-        {/* Right Panel - Data Entry */}
-        <aside className="w-96 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
-          {selectedDoc ? (
-            <>
-              {/* Doc Header */}
-              <div className="flex-shrink-0 p-4 border-b border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <h3 className="font-semibold text-foreground">
-                      {DOC_TYPE_LABELS[selectedDoc.docType] || selectedDoc.docType}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={handleCopyAll}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
-                    title="Ctrl/Cmd + Shift + C"
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>Copy tất cả</span>
-                  </button>
-                </div>
-
-                {/* Navigation */}
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={goToPrev}
-                    disabled={!canGoPrev}
-                    className={cn(
-                      'flex items-center gap-1 text-sm',
-                      canGoPrev ? 'text-primary hover:text-primary-dark' : 'text-muted-foreground cursor-not-allowed'
-                    )}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Trước</span>
-                  </button>
-                  <span className="text-sm text-muted-foreground">
-                    {currentIndex + 1} / {totalDocs}
+              <div>
+                <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  {taxCase.client.name}
+                  <span className={cn(
+                    'text-xs font-medium px-2 py-0.5 rounded-full',
+                    statusColors?.bg,
+                    statusColors?.text
+                  )}>
+                    {CASE_STATUS_LABELS[taxCase.status]}
                   </span>
-                  <button
-                    onClick={goToNext}
-                    disabled={!canGoNext}
-                    className={cn(
-                      'flex items-center gap-1 text-sm',
-                      canGoNext ? 'text-primary hover:text-primary-dark' : 'text-muted-foreground cursor-not-allowed'
-                    )}
-                  >
-                    <span>Tiếp</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Fields List */}
-              <div ref={fieldListRef} className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-1">
-                  {fieldConfig.map((field, index) => {
-                    const value = selectedDoc.extractedData[field.key]
-                    const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
-                    const isFocused = index === focusedFieldIndex
-                    const hasValue = value !== null && value !== undefined && value !== ''
-                    const isHovered = hoveredFieldLabel === field.label
-
-                    return (
-                      <div
-                        key={field.key}
-                        data-field-row
-                        className={cn(
-                          'group flex items-center justify-between rounded-lg transition-colors py-2 px-3',
-                          'hover:bg-muted/50 cursor-pointer',
-                          isFocused && 'ring-2 ring-primary bg-primary-light/30',
-                          isHovered && !isFocused && 'bg-primary-light/20'
-                        )}
-                        onClick={() => {
-                          setFocusedFieldIndex(index)
-                          if (hasValue) {
-                            handleCopyField(selectedDoc.id, field.key, value)
-                          }
-                        }}
-                        onMouseEnter={() => setHoveredFieldLabel(field.label)}
-                        onMouseLeave={() => setHoveredFieldLabel(null)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-muted-foreground">{field.label}</p>
-                          {hasValue ? (
-                            <p className="font-medium text-foreground truncate">{String(value)}</p>
-                          ) : (
-                            <p className="text-muted-foreground italic">—</p>
-                          )}
-                        </div>
-                        {hasValue && (
-                          <button
-                            className={cn(
-                              'flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg',
-                              'text-sm font-medium transition-all',
-                              isCopied
-                                ? 'bg-success/10 text-success'
-                                : 'bg-primary text-white hover:bg-primary-dark',
-                              !isFocused && 'opacity-0 group-hover:opacity-100'
-                            )}
-                          >
-                            {isCopied ? (
-                              <>
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                <span>Đã copy</span>
-                              </>
-                            ) : (
-                              <span>Copy</span>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Keyboard Hints */}
-              {showKeyboardHints && (
-                <div className="flex-shrink-0 p-3 border-t border-border bg-muted/30">
-                  <p className="text-xs text-muted-foreground text-center">
-                    Tab/↑↓: chuyển trường • Enter: copy • ←/→: chuyển doc • Ctrl+Shift+C: copy all
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                </h1>
                 <p className="text-sm text-muted-foreground">
-                  Chọn tài liệu để bắt đầu nhập liệu
+                  Năm thuế {taxCase.taxYear} • {formatPhone(taxCase.client.phone)}
                 </p>
               </div>
             </div>
+
+            <div className="flex items-center gap-4">
+              {/* Progress */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Đã copy: {completedDocs}/{totalDocs} tài liệu
+                </span>
+                <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${(completedDocs / totalDocs) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Keyboard hints toggle */}
+              <button
+                onClick={() => setShowKeyboardHints(!showKeyboardHints)}
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  showKeyboardHints ? 'bg-primary-light text-primary' : 'hover:bg-muted text-muted-foreground'
+                )}
+                title="Hiện/ẩn phím tắt"
+              >
+                <Keyboard className="w-4 h-4" />
+              </button>
+
+              {/* Complete Button */}
+              <button
+                onClick={handleMarkComplete}
+                disabled={!allDocsComplete || isCompleting}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors',
+                  allDocsComplete
+                    ? 'bg-success text-white hover:bg-success/90'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                )}
+              >
+                {isCompleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                <span>Hoàn tất nhập liệu</span>
+              </button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Mobile Tab Bar */}
+      {isMobile && (
+        <div className="flex border-b border-border bg-card flex-shrink-0">
+          {([
+            { id: 'docs' as const, label: 'Docs', icon: FileText },
+            { id: 'image' as const, label: 'Image', icon: ImageIcon },
+            { id: 'data' as const, label: 'Data', icon: Database },
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setMobileTab(tab.id)}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                mobileTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground'
+              )}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Main Content */}
+      {isMobile ? (
+        <div className="flex-1 overflow-hidden">
+          {mobileTab === 'docs' && (
+            <div className="h-full overflow-y-auto p-4">
+              <h2 className="text-sm font-medium text-foreground mb-3">
+                Tài liệu ({digitalDocs.length})
+              </h2>
+              <DocTabsSidebar
+                docs={digitalDocs}
+                activeDocId={selectedDocId}
+                onDocSelect={(doc) => {
+                  setSelectedDocId(doc.id)
+                  setFocusedFieldIndex(0)
+                  setMobileTab('data')
+                }}
+                copiedFields={copiedFields}
+              />
+            </div>
           )}
-        </aside>
-      </div>
+          {mobileTab === 'image' && (
+            <OriginalImageViewer
+              key={selectedImage?.id || 'empty'}
+              image={selectedImage}
+              expanded={expandedImage}
+              onExpandToggle={() => setExpandedImage(!expandedImage)}
+              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
+              className="h-full"
+            />
+          )}
+          {mobileTab === 'data' && (
+            <div className="h-full flex flex-col overflow-hidden">
+              {selectedDoc ? (
+                <>
+                  {/* Doc Header */}
+                  <div className="flex-shrink-0 p-3 border-b border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {DOC_TYPE_LABELS[selectedDoc.docType] || selectedDoc.docType}
+                        </h3>
+                      </div>
+                      <button
+                        onClick={handleCopyAll}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-dark transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy all</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <button onClick={goToPrev} disabled={!canGoPrev} className={cn('flex items-center gap-1 text-sm', canGoPrev ? 'text-primary' : 'text-muted-foreground cursor-not-allowed')}>
+                        <ChevronLeft className="w-4 h-4" /><span>Trước</span>
+                      </button>
+                      <span className="text-sm text-muted-foreground">{currentIndex + 1}/{totalDocs}</span>
+                      <button onClick={goToNext} disabled={!canGoNext} className={cn('flex items-center gap-1 text-sm', canGoNext ? 'text-primary' : 'text-muted-foreground cursor-not-allowed')}>
+                        <span>Tiếp</span><ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Fields List */}
+                  <div ref={fieldListRef} className="flex-1 overflow-y-auto p-3">
+                    <div className="space-y-1">
+                      {fieldConfig.map((field, index) => {
+                        const value = selectedDoc.extractedData[field.key]
+                        const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
+                        const isFocused = index === focusedFieldIndex
+                        const hasValue = value !== null && value !== undefined && value !== ''
+
+                        return (
+                          <div
+                            key={field.key}
+                            data-field-row
+                            className={cn(
+                              'flex items-center justify-between rounded-lg transition-colors py-2 px-3',
+                              'active:bg-muted/50 cursor-pointer',
+                              isFocused && 'bg-primary-light/30 ring-1 ring-primary/30',
+                              isCopied && !isFocused && 'bg-success/5'
+                            )}
+                            onClick={() => {
+                              setFocusedFieldIndex(index)
+                              if (hasValue) handleCopyField(selectedDoc.id, field.key, value)
+                            }}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">{field.label}</p>
+                              {hasValue ? (
+                                <p className="text-sm font-medium text-foreground truncate">{String(value)}</p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">—</p>
+                              )}
+                            </div>
+                            {hasValue && (
+                              <span className={cn(
+                                'flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium',
+                                isCopied ? 'bg-success/10 text-success' : 'bg-primary text-white'
+                              )}>
+                                {isCopied ? '✓' : 'Copy'}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Chọn tài liệu từ tab Docs</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Desktop: Split Pane */
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar - Document List */}
+          <aside className="w-64 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
+            <div className="p-4">
+              <h2 className="text-sm font-medium text-foreground mb-3">
+                Tài liệu ({digitalDocs.length})
+              </h2>
+              <DocTabsSidebar
+                docs={digitalDocs}
+                activeDocId={selectedDocId}
+                onDocSelect={(doc) => {
+                  setSelectedDocId(doc.id)
+                  setFocusedFieldIndex(0)
+                }}
+                copiedFields={copiedFields}
+              />
+            </div>
+          </aside>
+
+          {/* Center - Image Viewer */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <OriginalImageViewer
+              key={selectedImage?.id || 'empty'}
+              image={selectedImage}
+              expanded={expandedImage}
+              onExpandToggle={() => setExpandedImage(!expandedImage)}
+              highlightedField={hoveredFieldLabel || (fieldConfig[focusedFieldIndex]?.label)}
+              className="flex-1"
+            />
+          </div>
+
+          {/* Right Panel - Data Entry */}
+          <aside className="w-96 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
+            {selectedDoc ? (
+              <>
+                {/* Doc Header */}
+                <div className="flex-shrink-0 p-4 border-b border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">
+                        {DOC_TYPE_LABELS[selectedDoc.docType] || selectedDoc.docType}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={handleCopyAll}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
+                      title="Ctrl/Cmd + Shift + C"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>Copy tất cả</span>
+                    </button>
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={goToPrev}
+                      disabled={!canGoPrev}
+                      className={cn(
+                        'flex items-center gap-1 text-sm',
+                        canGoPrev ? 'text-primary hover:text-primary-dark' : 'text-muted-foreground cursor-not-allowed'
+                      )}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Trước</span>
+                    </button>
+                    <span className="text-sm text-muted-foreground">
+                      {currentIndex + 1} / {totalDocs}
+                    </span>
+                    <button
+                      onClick={goToNext}
+                      disabled={!canGoNext}
+                      className={cn(
+                        'flex items-center gap-1 text-sm',
+                        canGoNext ? 'text-primary hover:text-primary-dark' : 'text-muted-foreground cursor-not-allowed'
+                      )}
+                    >
+                      <span>Tiếp</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fields List */}
+                <div ref={fieldListRef} className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-1">
+                    {fieldConfig.map((field, index) => {
+                      const value = selectedDoc.extractedData[field.key]
+                      const isCopied = copiedFields[selectedDoc.id]?.has(field.key)
+                      const isFocused = index === focusedFieldIndex
+                      const hasValue = value !== null && value !== undefined && value !== ''
+                      const isHovered = hoveredFieldLabel === field.label
+
+                      return (
+                        <div
+                          key={field.key}
+                          data-field-row
+                          className={cn(
+                            'group flex items-center justify-between rounded-lg transition-colors py-2 px-3',
+                            'hover:bg-muted/50 cursor-pointer',
+                            isFocused && 'ring-2 ring-primary bg-primary-light/30',
+                            isHovered && !isFocused && 'bg-primary-light/20'
+                          )}
+                          onClick={() => {
+                            setFocusedFieldIndex(index)
+                            if (hasValue) {
+                              handleCopyField(selectedDoc.id, field.key, value)
+                            }
+                          }}
+                          onMouseEnter={() => setHoveredFieldLabel(field.label)}
+                          onMouseLeave={() => setHoveredFieldLabel(null)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-muted-foreground">{field.label}</p>
+                            {hasValue ? (
+                              <p className="font-medium text-foreground truncate">{String(value)}</p>
+                            ) : (
+                              <p className="text-muted-foreground italic">—</p>
+                            )}
+                          </div>
+                          {hasValue && (
+                            <button
+                              className={cn(
+                                'flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg',
+                                'text-sm font-medium transition-all',
+                                isCopied
+                                  ? 'bg-success/10 text-success'
+                                  : 'bg-primary text-white hover:bg-primary-dark',
+                                !isFocused && 'opacity-0 group-hover:opacity-100'
+                              )}
+                            >
+                              {isCopied ? (
+                                <>
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Đã copy</span>
+                                </>
+                              ) : (
+                                <span>Copy</span>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Keyboard Hints */}
+                {showKeyboardHints && (
+                  <div className="flex-shrink-0 p-3 border-t border-border bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Tab/↑↓: chuyển trường • Enter: copy • ←/→: chuyển doc • Ctrl+Shift+C: copy all
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Chọn tài liệu để bắt đầu nhập liệu
+                  </p>
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   )
 }

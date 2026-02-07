@@ -8,6 +8,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare } from 'lucide-react'
+import { useIsMobile } from '../../hooks/use-mobile-breakpoint'
 import { api } from '../../lib/api-client'
 
 export const Route = createFileRoute('/messages/')({
@@ -17,23 +18,25 @@ export const Route = createFileRoute('/messages/')({
 function MessagesIndex() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
-  // Fetch conversations to auto-redirect to first one
+  // Fetch conversations to auto-redirect to first one (desktop only)
   const { data } = useSuspenseQuery({
     queryKey: ['conversations', { limit: 1 }],
     queryFn: () => api.messages.listConversations({ limit: 1 }),
   })
 
-  // Auto-redirect to first conversation if available
+  // Auto-redirect to first conversation on desktop only
+  // On mobile, user sees the conversation list and picks manually
   useEffect(() => {
-    if (data?.conversations?.length > 0) {
+    if (!isMobile && data?.conversations?.length > 0) {
       navigate({
         to: '/messages/$caseId',
         params: { caseId: data.conversations[0].caseId },
         replace: true,
       })
     }
-  }, [data, navigate])
+  }, [data, navigate, isMobile])
 
   // Show empty state while redirecting or if no conversations
   return (

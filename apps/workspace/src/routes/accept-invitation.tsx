@@ -117,7 +117,7 @@ function AcceptInvitationPage() {
   if (!ticket) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <img src={logo} alt="ella.tax" className="h-10 object-contain" />
         </div>
         <div className="w-full max-w-[calc(28rem-40px)] text-center">
@@ -137,7 +137,7 @@ function AcceptInvitationPage() {
   if (isSigningIn) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <img src={logo} alt="ella.tax" className="h-10 object-contain" />
         </div>
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
@@ -150,7 +150,7 @@ function AcceptInvitationPage() {
   if (accountStatus === 'sign_up') {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <img src={logo} alt="ella.tax" className="h-10 object-contain" />
         </div>
 
@@ -170,7 +170,7 @@ function AcceptInvitationPage() {
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder={t('invite.firstNamePlaceholder')}
                 required
-                className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                 disabled={isLoading}
               />
             </div>
@@ -183,7 +183,7 @@ function AcceptInvitationPage() {
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder={t('invite.lastNamePlaceholder')}
                 required
-                className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                 disabled={isLoading}
               />
             </div>
@@ -196,7 +196,7 @@ function AcceptInvitationPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('invite.passwordPlaceholder')}
                 required
-                className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
                 disabled={isLoading}
               />
               <button
@@ -240,7 +240,7 @@ function AcceptInvitationPage() {
   // Fallback: unknown status or sign_in with error displayed
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-      <div className="mb-10">
+      <div className="mb-6 sm:mb-10">
         <img src={logo} alt="ella.tax" className="h-10 object-contain" />
       </div>
       <div className="w-full max-w-[calc(28rem-40px)] text-center">

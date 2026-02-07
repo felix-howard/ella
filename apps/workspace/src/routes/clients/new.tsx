@@ -276,7 +276,7 @@ function CreateClientPage() {
         {currentStep === 'basic' && (
           <>
             <div className="space-y-4">
-              <div className="bg-card rounded-xl border border-border p-6">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
                 <BasicInfoForm
                   data={basicInfo}
                   onChange={(updates) => setBasicInfo((prev) => ({ ...prev, ...updates }))}
@@ -401,7 +401,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
           aria-invalid={!!errors?.name}
           aria-describedby={errors?.name ? 'name-error' : undefined}
           className={cn(
-            'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
+            'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             'placeholder:text-muted-foreground',
             errors?.name ? 'border-error' : 'border-border'
@@ -428,7 +428,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             aria-invalid={!!errors?.phone}
             aria-describedby={errors?.phone ? 'phone-error' : undefined}
             className={cn(
-              'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
+              'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
               'placeholder:text-muted-foreground',
               errors?.phone ? 'border-error' : 'border-border'
@@ -463,7 +463,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
           aria-invalid={!!errors?.email}
           aria-describedby={errors?.email ? 'email-error' : undefined}
           className={cn(
-            'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
+            'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             'placeholder:text-muted-foreground',
             errors?.email ? 'border-error' : 'border-border'

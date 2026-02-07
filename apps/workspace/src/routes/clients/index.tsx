@@ -80,7 +80,7 @@ function ClientListPage() {
       </div>
 
       {/* Controls Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           {isSearchPending ? (
@@ -93,18 +93,18 @@ function ClientListPage() {
             placeholder={clientsText.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-full border border-border bg-card text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
           />
         </div>
 
         {/* Filter and View Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Sort Selector */}
           <div className="relative">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as ClientSortOption)}
-              className="appearance-none pl-9 pr-8 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
+              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border border-border bg-card text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
               aria-label={t('clients.sortBy')}
             >
               {CLIENT_SORT_OPTIONS.map((option) => (
@@ -121,7 +121,7 @@ function ClientListPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as TaxCaseStatus | 'ALL')}
-              className="appearance-none pl-9 pr-8 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
+              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border border-border bg-card text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
               aria-label={t('clients.filterByStatus')}
             >
               <option value="ALL">{UI_TEXT.actions.all}</option>
@@ -138,7 +138,7 @@ function ClientListPage() {
           <button
             onClick={handleRefresh}
             disabled={isRefetching}
-            className="p-2 rounded-lg border border-border bg-card hover:bg-muted transition-colors disabled:opacity-50"
+            className="p-2.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors disabled:opacity-50"
             aria-label={UI_TEXT.actions.refresh}
           >
             <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefetching && 'animate-spin')} />

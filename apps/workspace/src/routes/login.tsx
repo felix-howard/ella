@@ -190,7 +190,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
       {/* Logo */}
-      <div className="mb-10">
+      <div className="mb-6 sm:mb-10">
         <img
           src={logo}
           alt="ella.tax"
@@ -273,7 +273,7 @@ function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('login.emailPlaceholder')}
                   required
-                  className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
+                  className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
                   disabled={isLoading}
                 />
               </div>
@@ -286,7 +286,7 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('login.passwordPlaceholder')}
                   required
-                  className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
+                  className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary pr-12"
                   disabled={isLoading}
                 />
                 <button

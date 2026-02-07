@@ -187,10 +187,10 @@ function ConversationDetailView() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Back button (mobile) - hidden on desktop */}
+              {/* Back button (mobile) - hidden on md+ desktop */}
               <Link
                 to="/messages"
-                className="lg:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="md:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Link>
@@ -208,13 +208,13 @@ function ConversationDetailView() {
                     </span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-base font-semibold text-foreground">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h1 className="text-base font-semibold text-foreground truncate">
                         {caseData.client.name}
                       </h1>
                       <span
                         className={cn(
-                          'text-xs font-medium px-2 py-0.5 rounded-full',
+                          'text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0',
                           statusColors?.bg,
                           statusColors?.text
                         )}
@@ -222,7 +222,7 @@ function ConversationDetailView() {
                         {CASE_STATUS_LABELS[caseData.taxCase.status]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Phone className="w-3 h-3" />
                         {formatPhone(caseData.client.phone)}
@@ -247,7 +247,7 @@ function ConversationDetailView() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* Voice Call Button */}
               <CallButton
                 isAvailable={voiceState.isAvailable}

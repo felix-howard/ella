@@ -139,9 +139,9 @@ function ActionsPage() {
   return (
     <PageContainer>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
             <CheckSquare className="w-5 h-5 text-primary" />
           </div>
           <div>
@@ -305,21 +305,21 @@ function ActionsDashboard({ stats, isLoading }: ActionsDashboardProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
       {statCards.map((stat) => (
         <div
           key={stat.label}
-          className="bg-card rounded-xl border border-border p-4"
+          className="bg-card rounded-xl border border-border p-3 sm:p-4"
         >
-          <div className="flex items-center gap-3">
-            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', stat.bg)}>
-              <stat.icon className={cn('w-5 h-5', stat.color)} />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className={cn('w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0', stat.bg)}>
+              <stat.icon className={cn('w-4 h-4 sm:w-5 sm:h-5', stat.color)} />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
                 {isLoading ? '-' : stat.value}
               </p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
             </div>
           </div>
         </div>
@@ -376,7 +376,7 @@ function QuickActionsPanel({ stats: _stats }: QuickActionsPanelProps) {
         <CheckCircle className="w-4 h-4 text-primary" />
         {t('actions.quickActions')}
       </h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         {quickActions.map((action) => (
           <Link
             key={action.href}

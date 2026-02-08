@@ -4,7 +4,7 @@
  * Each row: [expense name] + [amount] + [trash icon]
  * Max 20 items, names max 100 chars
  */
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { Plus, Trash2, Package } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ella/ui'
 import { useTranslation } from 'react-i18next'
@@ -24,12 +24,30 @@ const MAX_ITEMS = 20
 
 export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseListProps) {
   const { t } = useTranslation()
+
+  // Track raw string values so intermediate inputs like "123." or "123.20" are preserved
+  const [rawAmounts, setRawAmounts] = useState<string[]>(() =>
+    items.map((item) => (item.amount === null ? '' : String(item.amount)))
+  )
+
+  // Sync rawAmounts when items change externally (e.g. add/remove row)
+  useEffect(() => {
+    setRawAmounts((prev) => {
+      if (prev.length === items.length) return prev
+      return items.map((item, i) =>
+        i < prev.length ? prev[i] : (item.amount === null ? '' : String(item.amount))
+      )
+    })
+  }, [items.length])
+
   const handleAddRow = useCallback(() => {
     if (items.length >= MAX_ITEMS) return
+    setRawAmounts((prev) => [...prev, ''])
     onChange([...items, { name: '', amount: null }])
   }, [items, onChange])
 
   const handleRemoveRow = useCallback((index: number) => {
+    setRawAmounts((prev) => prev.filter((_, i) => i !== index))
     onChange(items.filter((_, i) => i !== index))
   }, [items, onChange])
 
@@ -42,6 +60,11 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
   const handleAmountChange = useCallback((index: number, rawValue: string) => {
     // Allow empty or valid decimal input (up to 2 decimal places)
     if (rawValue !== '' && !/^\d*\.?\d{0,2}$/.test(rawValue)) return
+    setRawAmounts((prev) => {
+      const next = [...prev]
+      next[index] = rawValue
+      return next
+    })
     const updated = [...items]
     const parsed = rawValue === '' ? null : parseFloat(rawValue)
     updated[index] = { ...updated[index], amount: isNaN(parsed as number) ? null : parsed }
@@ -79,7 +102,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
               <input
                 type="text"
                 inputMode="decimal"
-                value={item.amount === null ? '' : item.amount}
+                value={rawAmounts[index] ?? ''}
                 onChange={(e) => handleAmountChange(index, e.target.value)}
                 placeholder="0.00"
                 disabled={disabled}

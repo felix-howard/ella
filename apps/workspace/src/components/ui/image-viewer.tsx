@@ -319,6 +319,7 @@ export function ImageViewer({
                 currentPage={currentPage}
                 onLoadSuccess={handlePdfLoadSuccess}
                 onLoadError={handlePdfLoadError}
+                fitToWidth
               />
             </Suspense>
           )}

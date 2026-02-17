@@ -8,6 +8,7 @@
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 1: Desktop PDF Viewer** | **Native browser PDF rendering via iframe (zero bundle impact). Desktop-only component with iframe-based rendering, native text selection, browser search (Ctrl+F). Rotation support (0°/90°/180°/270°) via ResizeObserver for aspect ratio scaling. URL sanitization (XSS protection). Loading overlay + rotate button. Props: fileUrl, rotation, onRotate, showControls toggle. Integration with mobile PdfViewer (react-pdf) for cross-platform viewing. No new dependencies (native iframe + ResizeObserver). Complete: sanitization, rotation transforms, loading states, accessibility.** | **2026-02-17** |
 | **Mobile Responsive Admin Pages Phase 4** | **Team page (responsive header flex-col→flex-row, invitation row wraps, sticky header). Settings page (scrollable tab bar overflow-x-auto, scroll fade indicator). Cases detail Entry page (mobile tab layout via useIsMobile, 3-tab nav: docs/image/data). Responsive form components, touch-friendly spacing. Code review 8.5/10.** | **2026-02-07** |
 | **Mobile Infrastructure Phase 1** | **Responsive layout framework for iOS/Android clients. New hook: useIsMobile() (matchMedia @767px, SSR-safe). Layout components: Header (mobile-only hamburger, 56px), Sidebar (desktop fixed/mobile drawer overlay with backdrop), SidebarContent (extracted shared nav/user/voice/logout), PageContainer (responsive margins). Features: Drawer auto-close on route/Escape, focus trap, prefers-reduced-motion, keyboard accessibility. Mobile drawer 240px slide-in, desktop sidebar 240px/64px (collapsed). Ready for workspace mobile flows.** | **2026-02-07** |
 | **Schedule E Phase 4: Workspace Tab** | **Frontend tab integration: ScheduleETab component (4 states: empty, draft, submitted, locked). Data hooks: useScheduleE (data fetch), useScheduleEActions (mutations with optimistic updates). 10 sub-components: property-card (XSS sanitization), totals-card, status-badge, schedule-e-empty-state, schedule-e-waiting, schedule-e-summary, copyable-value, format-utils, schedule-e-actions. API endpoints in api-client.ts. I18n: 60+ translations (EN/VI). Magic link send/resend functionality integrated.** | **2026-02-06** |
@@ -42,6 +43,7 @@
 | Styling | Tailwind CSS 4 + shadcn/ui | 4.0.0+ |
 | Voice | Twilio SDK | Latest |
 | File Storage | Cloudflare R2 | In use |
+| Document Viewing | Native iframe (desktop) + react-pdf (mobile) | Native / 3.17+ |
 
 ## Database Schema (Current)
 
@@ -169,6 +171,9 @@
 - PageContainer: Responsive page layout with sidebar offset
 - Accept-invitation page: Seamless Clerk org acceptance flow
 - Team assignment panel: View/edit client assignments
+- PDF Viewers (Phase 1 Desktop PDF Viewer):
+  - `PdfViewerDesktop` (iframe-based): Native browser PDF rendering via iframe. Zero bundle impact, native text selection, Ctrl+F search. Desktop-only. Rotation via ResizeObserver for aspect ratio scaling (90°/270° rotations). Sanitizes URLs to prevent XSS (https/http/blob only). Loading state overlay. Keyboard-accessible rotation button (aria-label "Xoay"). Props: fileUrl, rotation (0/90/180/270), onRotate callback, showControls toggle.
+  - `PdfViewer` (react-pdf): Mobile React PDF viewer using react-pdf library. Scale-based zoom (1-4x range), page pagination, rotation. Lazy loaded to avoid bundling react-pdf (~150KB). PDF.js worker from unpkg (CDN). Props: fileUrl, scale, rotation, currentPage, onLoadSuccess, onLoadError callbacks.
 
 **Org-Scoped Queries:**
 - `buildClientScopeFilter(user)` - Core scoping function
@@ -256,6 +261,8 @@
 
 ## Recent Phases Summary
 
+**2026-02-17:** Phase 1: Desktop PDF Viewer complete. Native browser PDF rendering via iframe (apps/workspace/src/components/ui/pdf-viewer-desktop.tsx, 156 LOC). Zero bundle impact, native text selection, browser search (Ctrl+F). Desktop-only component with rotation support (0°/90°/180°/270°) via ResizeObserver for aspect ratio scaling on 90°/270° rotations. Security: URL sanitization prevents XSS (allows https:/http:/blob: protocols only). State: loading overlay (Loader2 spinner), rotate button overlay (keyboard-accessible, Vietnamese aria-label "Xoay"). Props: fileUrl (required), rotation (0|90|180|270), onRotate callback, showControls toggle (default true). Integration with mobile PdfViewer (react-pdf) for responsive multi-platform PDF viewing. Firefox limitation: toolbar param ignored, toolbar may show. No new dependencies added (uses native iframe + ResizeObserver APIs). Testing complete: URL validation, rotation transforms, loading states, accessibility (ARIA labels, keyboard shortcuts).
+
 **2026-02-07:** Mobile Responsive Admin Pages Phase 4 complete. Team page (apps/workspace/src/routes/team.tsx): responsive header layout (flex-col on mobile → sm:flex-row desktop), invitation row items wrap on small screens, sticky header support. Settings page (apps/workspace/src/routes/settings.tsx): scrollable tab bar with overflow-x-auto, scroll fade indicator for mobile UX. Cases detail Entry page (apps/workspace/src/routes/cases/$caseId/entry.tsx): mobile-first tab layout via useIsMobile hook, 3-tab navigation (docs/image/data), responsive form sections, touch-friendly spacing (44px min touch targets). New utility hooks: use-mobile-breakpoint.ts (useIsMobile for component logic). Code review 8.5/10. Admin page workflows now fully responsive across mobile/tablet/desktop viewports.
 
 **2026-02-07:** Mobile Infrastructure Phase 1 complete. New hook: useIsMobile() via matchMedia (767px breakpoint, SSR-safe) in apps/workspace/src/hooks/use-mobile-breakpoint.ts. Layout refactored into responsive components: Header (mobile-only, fixed 56px top bar with hamburger menu + Ella logo), Sidebar (dual-mode: desktop fixed sidebar 240px/64px collapsed vs mobile drawer overlay w/ backdrop), SidebarContent (extracted shared nav items, user info, voice status indicator, logout), PageContainer (responsive margins: mobile pt-14 + px-4 vs desktop py-6 + sidebar offset). Mobile drawer features: auto-close on route change + Escape key, focus trap (first focusable element on open, restore on close), prefers-reduced-motion support, backdrop click-to-close, aria-modal semantics. Drawer animation: -translate-x-full → translate-x-0 (300ms ease-in-out). Sidebar integration: uses useUIStore (sidebarCollapsed state desktop only) + useMobileMenu (mobileMenuOpen state mobile only). Ready for responsive workspace flows (Cases, Clients, Messages, Team).
@@ -300,8 +307,8 @@
 
 ---
 
-**Version:** 2.8
+**Version:** 2.9
 **Created:** 2026-01-11
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-02-17
 **Maintained By:** Documentation Manager
-**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, & SMS-First Killer Features Phase 01 complete
+**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, SMS-First Killer Features Phase 01, & Phase 1 Desktop PDF Viewer complete

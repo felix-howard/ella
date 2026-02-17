@@ -330,6 +330,7 @@ function CreateClientPage() {
               phone={basicInfo.phone}
               taxYear={basicInfo.taxYear}
               language={basicInfo.language}
+              onLanguageChange={(lang) => setBasicInfo((prev) => ({ ...prev, language: lang }))}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
             />

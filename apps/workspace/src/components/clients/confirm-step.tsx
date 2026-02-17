@@ -13,6 +13,7 @@ interface ConfirmStepProps {
   phone: string
   taxYear: number
   language: 'VI' | 'EN'
+  onLanguageChange: (language: 'VI' | 'EN') => void
   onSubmit: () => void
   isSubmitting: boolean
 }
@@ -29,6 +30,7 @@ export function ConfirmStep({
   phone,
   taxYear,
   language,
+  onLanguageChange,
   onSubmit,
   isSubmitting,
 }: ConfirmStepProps) {
@@ -68,9 +70,38 @@ export function ConfirmStep({
 
       {/* SMS Preview */}
       <div className="bg-muted/50 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <MessageSquare className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Tin nhắn sẽ được gửi:</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Tin nhắn sẽ được gửi:</span>
+          </div>
+          {/* Language Toggle */}
+          <div className="flex items-center gap-1 bg-card rounded-lg p-1 border border-border">
+            <button
+              type="button"
+              onClick={() => onLanguageChange('VI')}
+              className={cn(
+                'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                language === 'VI'
+                  ? 'bg-primary text-white'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              🇻🇳 VI
+            </button>
+            <button
+              type="button"
+              onClick={() => onLanguageChange('EN')}
+              className={cn(
+                'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                language === 'EN'
+                  ? 'bg-primary text-white'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              🇺🇸 EN
+            </button>
+          </div>
         </div>
         <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground border border-border shadow-sm">
           {smsMessage}

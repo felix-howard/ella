@@ -1,10 +1,69 @@
 # Latest Documentation Updates
 
-**Date:** 2026-02-06 | **Feature:** Schedule E Phase 4 - Workspace Tab Completion | **Status:** Complete
+**Date:** 2026-02-17 | **Feature:** Phase 3 - Hybrid PDF Viewer Enhancement | **Status:** Complete
 
 ---
 
-## Schedule E Phase 4: Workspace Tab Completion (Current Update)
+## Phase 3: Hybrid PDF Viewer Enhancement (Current Update)
+
+**In One Sentence:** Platform-aware PDF viewer routing system with native iframe rendering on desktop (zero bundle) and react-pdf on mobile/iOS (DPI scaling, fit-to-width), iOS Safari forced to mobile fallback.
+
+**Changes Made:**
+
+- **Component Enhancement (apps/workspace/src/components/ui/image-viewer.tsx):**
+  - Platform detection: `useIsMobile()` hook for @767px breakpoint
+  - iOS detection: `isIOSSafari()` function to detect iPad/iPhone/iPod + force mobile fallback
+  - Conditional routing: `useMobileViewer = isMobile || isIOS` gate
+  - Lazy-loaded PDF components via React.lazy() + Suspense (zero initial bundle)
+
+- **Desktop PDF Rendering:**
+  - `PdfViewerDesktop` component (iframe-based, pre-existing)
+  - Native browser PDF controls (zoom, search, print, text selection)
+  - Rotation support (0°/90°/180°/270°) via ResizeObserver + CSS transform
+  - No additional dependencies (native iframe capability)
+
+- **Mobile PDF Rendering:**
+  - `PdfViewer` component (react-pdf library, pre-existing)
+  - Fit-to-width scaling (auto-scales to container width)
+  - DPI-aware rendering (devicePixelRatio multiplier for retina displays)
+  - Responsive skeleton loader (8.5:11 aspect ratio, pulse animation)
+
+- **Mobile Controls (PdfControls):**
+  - Zoom in/out buttons with disabled states (0.5x - 4x range)
+  - Zoom percentage display (live update on wheel/button zoom)
+  - Reset button (fit-to-width, rotation reset)
+  - Rotate button (90° increments, loops 0°→360°)
+  - Positioned top-right with semi-transparent background
+
+- **Page Navigation (mobile, multi-page only):**
+  - Previous/Next buttons (bounded by page count)
+  - Current page display (e.g., "3 / 10")
+  - Positioned bottom-center, hidden for single-page PDFs
+
+- **Interaction Handlers:**
+  - Mouse wheel zoom: `handlePdfWheel` (mobile only, Ctrl+wheel passes through for browser native zoom)
+  - Drag-to-pan: `handlePdfMouseDown/Move/Up` with scroll position tracking
+  - Cursor feedback: `cursor-grab` (idle) / `cursor-grabbing` (dragging)
+  - Rotation: 90° increments via `handleRotate` callback
+
+- **UI/UX Polish:**
+  - Accessibility: Vietnamese aria-labels on all controls
+  - Error handling: "Không thể tải file PDF" message on load failure
+  - Suspense skeleton during component load (16px padding, z-50 stacking)
+  - Disabled button states (50% opacity) for boundary conditions
+
+- **Bundle Impact Analysis:**
+  - Desktop PDF: +0 KB additional (native iframe)
+  - Mobile PDF: +150 KB (react-pdf only on mobile)
+  - Image viewer: +8 KB (react-zoom-pan-pinch, pre-existing)
+
+**Documentation Updated:**
+1. **phase-3-hybrid-pdf-viewer.md** - New comprehensive documentation
+2. **LATEST-UPDATES.md** - This update document
+
+---
+
+## Schedule E Phase 4: Workspace Tab Completion (Previous Update)
 
 **In One Sentence:** Frontend Schedule E tab added to workspace with 4 state management (empty/draft/submitted/locked), data hooks, 10 sub-components, and i18n translations for staff review of rental property expenses.
 

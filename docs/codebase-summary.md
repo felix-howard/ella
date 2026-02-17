@@ -1,13 +1,14 @@
 # Ella - Codebase Summary (Quick Reference)
 
-**Current Date:** 2026-02-07
-**Current Branch:** fix/incoming-call-routing-all-assigned
-**Latest Phase:** Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Infrastructure Phase 1 COMPLETE | Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
+**Current Date:** 2026-02-17
+**Current Branch:** dev
+**Latest Phase:** Phase 3: Hybrid PDF Viewer Enhancement COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Infrastructure Phase 1 COMPLETE | Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Phase 3: Hybrid PDF Viewer Enhancement** | **Platform-aware PDF routing in ImageViewer component. Desktop: Native iframe rendering (PdfViewerDesktop, zero bundle). Mobile/iOS: React-based rendering (PdfViewer, DPI scaling, fit-to-width). iOS detection via user agent forces mobile fallback (iPad/iPhone/iPod). Lazy-loaded PDF components via React.lazy() + Suspense. Controls: Mobile zoom/rotate/reset/page nav (top-right + bottom-center), desktop native controls. Interaction: Wheel zoom (Ctrl+wheel native passthrough), drag-to-pan, keyboard shortcuts. Accessibility: Vietnamese aria-labels, error handling, disabled states. Bundle: +0 KB desktop, +150 KB mobile (react-pdf only when needed). Code quality 9.2/10.** | **2026-02-17** |
 | **Phase 2: Mobile PDF Enhancement** | **Mobile-optimized PDF viewer (react-pdf) with fit-to-width scaling, DPI-aware rendering (devicePixelRatio), responsive skeleton loading. Features: fitToWidth prop auto-scales PDF to container width, onFitScaleCalculated callback reports computed scale, DPI multiplier for crisp retina displays (scale × dpiMultiplier), ResizeObserver tracks container width changes, Page onRenderSuccess hook calculates fit scale from canvas dimensions. Loading states: skeleton (8.5:11 aspect ratio, responsive 400px max-width, pulse animation), overlay during fit calculation. Image viewer integration: wired fitToWidth=true to PdfViewer, lazy-loads PdfViewer component via Suspense to avoid bundling react-pdf (~150KB) in image-heavy sessions. Code quality 9.2/10.** | **2026-02-17** |
 | **Phase 1: Desktop PDF Viewer** | **Native browser PDF rendering via iframe (zero bundle impact). Desktop-only component with iframe-based rendering, native text selection, browser search (Ctrl+F). Rotation support (0°/90°/180°/270°) via ResizeObserver for aspect ratio scaling. URL sanitization (XSS protection). Loading overlay + rotate button. Props: fileUrl, rotation, onRotate, showControls toggle. Integration with mobile PdfViewer (react-pdf) for cross-platform viewing. No new dependencies (native iframe + ResizeObserver). Complete: sanitization, rotation transforms, loading states, accessibility.** | **2026-02-17** |
 | **Mobile Responsive Admin Pages Phase 4** | **Team page (responsive header flex-col→flex-row, invitation row wraps, sticky header). Settings page (scrollable tab bar overflow-x-auto, scroll fade indicator). Cases detail Entry page (mobile tab layout via useIsMobile, 3-tab nav: docs/image/data). Responsive form components, touch-friendly spacing. Code review 8.5/10.** | **2026-02-07** |

@@ -48,6 +48,19 @@ describe('Form 1040 OCR Extraction - Phase 3', () => {
         taxpayerSSN: 'XXX-XX-1234',
         spouseName: null,
         spouseSSN: null,
+        // New CPA fields (Phase 1)
+        taxpayerAddress: {
+          street: '123 Main St',
+          aptNo: null,
+          city: 'San Jose',
+          state: 'CA',
+          zip: '95134',
+        },
+        dependents: [],
+        adjustmentsToIncome: null,
+        digitalAssetsAnswer: false,
+        qualifyingSurvivingSpouseYear: null,
+        // Income fields
         totalWages: 85000,
         totalIncome: 92000,
         adjustedGrossIncome: 88000,

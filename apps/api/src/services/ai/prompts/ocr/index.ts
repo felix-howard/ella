@@ -217,7 +217,11 @@ export {
   validateForm1040Data,
   FORM_1040_FIELD_LABELS_VI,
 } from './form-1040'
-export type { Form1040ExtractedData } from './form-1040'
+export type {
+  Form1040ExtractedData,
+  TaxpayerAddress,
+  DependentInfo,
+} from './form-1040'
 
 /**
  * Supported OCR document types

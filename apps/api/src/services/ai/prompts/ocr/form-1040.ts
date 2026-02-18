@@ -3,6 +3,30 @@
  * Extracts structured data from U.S. Individual Income Tax Return (Form 1040 family)
  */
 
+/**
+ * Taxpayer address from Form 1040 header
+ */
+export interface TaxpayerAddress {
+  street: string | null
+  aptNo: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  country: string | null // For 1040-NR
+}
+
+/**
+ * Dependent information from Form 1040 dependents section
+ */
+export interface DependentInfo {
+  firstName: string
+  lastName: string
+  ssn: string | null
+  relationship: string | null
+  childTaxCreditEligible: boolean
+  creditForOtherDependents: boolean
+}
+
 export interface Form1040ExtractedData {
   taxYear: number | null
   formVariant: string | null
@@ -11,6 +35,13 @@ export interface Form1040ExtractedData {
   taxpayerSSN: string | null
   spouseName: string | null
   spouseSSN: string | null
+  // New CPA fields (Phase 1)
+  taxpayerAddress: TaxpayerAddress | null
+  dependents: DependentInfo[]
+  adjustmentsToIncome: number | null // Line 10
+  digitalAssetsAnswer: boolean | null // Yes/No checkbox
+  qualifyingSurvivingSpouseYear: number | null // Year spouse died (QSS only)
+  // Income fields
   totalWages: number | null
   totalIncome: number | null
   adjustedGrossIncome: number | null
@@ -105,6 +136,7 @@ OUTPUT FORMAT (JSON):
 IMPORTANT REMINDERS:
 - Return null for any field not found or blank — never guess
 - SSNs on tax returns are often masked (XXX-XX-XXXX) — return the masked version as-is
+- For dependent SSNs: ALWAYS mask as "XXX-XX-XXXX" format — never return unmasked SSNs
 - taxYear must be a 4-digit number (e.g., 2023), not null if visible in header
 - attachedSchedules must be an array (empty [] if no schedules attached)
 - Do NOT extract Schedule data itself — only detect which schedules are present`
@@ -125,6 +157,18 @@ export function validateForm1040Data(data: unknown): boolean {
 
   // attachedSchedules must be an array
   if (!Array.isArray(d.attachedSchedules)) return false
+
+  // Validate dependents if present (must be array)
+  if (d.dependents !== undefined && !Array.isArray(d.dependents)) return false
+
+  // Validate taxpayerAddress if present (must be object or null)
+  if (
+    d.taxpayerAddress !== undefined &&
+    d.taxpayerAddress !== null &&
+    typeof d.taxpayerAddress !== 'object'
+  ) {
+    return false
+  }
 
   return true
 }

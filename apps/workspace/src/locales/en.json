@@ -272,6 +272,7 @@
   "docCategory.identity": "Identity Documents",
   "docCategory.income": "Income",
   "docCategory.other": "Other",
+  "docCategory.taxReturns": "Tax Returns",
   "docCategory.personal": "Personal Documents",
   "docType.bankStatement": "Bank Statement",
   "docType.birthCertificate": "Birth Certificate",

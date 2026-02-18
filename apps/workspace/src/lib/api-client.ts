@@ -1034,7 +1034,7 @@ export interface ChecklistResponse {
 }
 
 // Document category enum (matches DocCategory in Prisma schema)
-export type DocCategory = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+export type DocCategory = 'IDENTITY' | 'INCOME' | 'TAX_RETURNS' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
 
 // Image & Document types
 export interface RawImage {

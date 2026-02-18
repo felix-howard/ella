@@ -109,6 +109,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     const byCategory: Record<DocCategoryKey, RawImage[]> = {
       IDENTITY: [],
       INCOME: [],
+      TAX_RETURNS: [],
       EXPENSE: [],
       ASSET: [],
       EDUCATION: [],

@@ -13,6 +13,7 @@
 export type DocCategory =
   | 'IDENTITY'
   | 'INCOME'
+  | 'TAX_RETURNS'
   | 'EXPENSE'
   | 'ASSET'
   | 'EDUCATION'
@@ -85,6 +86,13 @@ export type DocType =
   | 'FORM_W9_ISSUED'
   | 'MORTGAGE_POINTS_STATEMENT'
   | 'EXTENSION_PAYMENT_PROOF'
+  | 'FORM_1040'
+  | 'FORM_1040_SR'
+  | 'FORM_1040_NR'
+  | 'FORM_1040_X'
+  | 'STATE_TAX_RETURN'
+  | 'FOREIGN_TAX_RETURN'
+  | 'TAX_RETURN_TRANSCRIPT'
   | 'OTHER'
   | 'UNKNOWN'
 
@@ -168,6 +176,16 @@ export const DOC_TYPE_TO_CATEGORY: Record<DocType, DocCategory> = {
   MORTGAGE_POINTS_STATEMENT: 'OTHER',
   EXTENSION_PAYMENT_PROOF: 'OTHER',
   FORM_8332: 'OTHER',
+
+  // TAX_RETURNS - Filed tax returns and transcripts
+  FORM_1040: 'TAX_RETURNS',
+  FORM_1040_SR: 'TAX_RETURNS',
+  FORM_1040_NR: 'TAX_RETURNS',
+  FORM_1040_X: 'TAX_RETURNS',
+  STATE_TAX_RETURN: 'TAX_RETURNS',
+  FOREIGN_TAX_RETURN: 'TAX_RETURNS',
+  TAX_RETURN_TRANSCRIPT: 'TAX_RETURNS',
+
   OTHER: 'OTHER',
   UNKNOWN: 'OTHER',
 }
@@ -187,6 +205,7 @@ export function getCategoryFromDocType(docType: DocType | string | null | undefi
 export const CATEGORY_LABELS: Record<DocCategory, string> = {
   IDENTITY: 'Giấy tờ tùy thân',
   INCOME: 'Thu nhập',
+  TAX_RETURNS: 'Khai Thuế',
   EXPENSE: 'Chi phí',
   ASSET: 'Tài sản',
   EDUCATION: 'Giáo dục',
@@ -200,6 +219,7 @@ export const CATEGORY_LABELS: Record<DocCategory, string> = {
 export const CATEGORY_ORDER: DocCategory[] = [
   'IDENTITY',
   'INCOME',
+  'TAX_RETURNS',
   'EXPENSE',
   'ASSET',
   'EDUCATION',

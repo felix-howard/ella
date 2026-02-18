@@ -100,6 +100,15 @@ export const SUPPORTED_DOC_TYPES = [
   // Prior Year Extension
   'EXTENSION_PAYMENT_PROOF',
 
+  // Tax Returns
+  'FORM_1040',
+  'FORM_1040_SR',
+  'FORM_1040_NR',
+  'FORM_1040_X',
+  'STATE_TAX_RETURN',
+  'FOREIGN_TAX_RETURN',
+  'TAX_RETURN_TRANSCRIPT',
+
   // Other
   'OTHER',
   'UNKNOWN',
@@ -154,6 +163,18 @@ Response: {"docType":"FORM_1099_NEC","confidence":0.91,"reasoning":"1099-NEC sho
 EXAMPLE 6 - Driver's License:
 Image shows: State-issued card with photo, DL number, DOB, expiration date, address
 Response: {"docType":"DRIVER_LICENSE","confidence":0.94,"reasoning":"State-issued driver's license with photo ID, license number, and expiration date visible"}
+
+EXAMPLE 7 - Form 1040 (Standard):
+Image shows: Multi-page PDF with "Form 1040" title, "U.S. Individual Income Tax Return", tax year 2023, filing status checkboxes, "Department of the Treasury—Internal Revenue Service", Line 1 wages, Line 11 AGI, Line 24 total tax
+Response: {"docType":"FORM_1040","confidence":0.93,"reasoning":"Form 1040 header clearly visible with 'U.S. Individual Income Tax Return' title, IRS logo, tax year 2023, filing status section, and income/tax summary lines","taxYear":2023,"recipientName":"NGUYEN VAN ANH"}
+
+EXAMPLE 8 - Form 1040-X (Amended):
+Image shows: "Form 1040-X" title, "Amended U.S. Individual Income Tax Return", columns A/B/C for original/net change/correct amounts, explanation of changes section at bottom
+Response: {"docType":"FORM_1040_X","confidence":0.91,"reasoning":"Form 1040-X with 'Amended U.S. Individual Income Tax Return' header, three-column layout for comparing original vs. corrected amounts","taxYear":2022}
+
+EXAMPLE 9 - State Tax Return (CA 540):
+Image shows: "California Resident Income Tax Return" header, "Form 540", Franchise Tax Board logo, California state seal, CA AGI line, CA tax liability
+Response: {"docType":"STATE_TAX_RETURN","confidence":0.90,"reasoning":"California Form 540 state income tax return with Franchise Tax Board branding and CA-specific tax lines","taxYear":2023}
 `
 
 /**
@@ -234,6 +255,22 @@ BUSINESS DOCUMENTS:
 - PROFIT_LOSS_STATEMENT: Business P&L statements
 - BUSINESS_LICENSE: Business license or registration certificate
 - EIN_LETTER: IRS EIN assignment letter (CP 575, shows XX-XXXXXXX number)
+
+TAX RETURNS - Filed Returns & Transcripts:
+- FORM_1040: Form 1040 U.S. Individual Income Tax Return (multi-page, IRS logo, tax year header, filing status checkboxes, income summary Lines 1-15, AGI Line 11, total tax Line 24, refund Line 35a)
+- FORM_1040_SR: Form 1040-SR Tax Return for Seniors (identical layout to 1040, "SR" designation in title, larger font, standard deduction chart for seniors)
+- FORM_1040_NR: Form 1040-NR Nonresident Alien Income Tax Return ("Nonresident Alien" in title, Schedule OI for country of residence)
+- FORM_1040_X: Form 1040-X Amended U.S. Individual Income Tax Return ("Amended" in title, 3-column layout comparing original vs. corrected values)
+- STATE_TAX_RETURN: State income tax return (CA Form 540, NY IT-201, etc. — state logo/seal, state-specific tax lines, state agency name)
+- FOREIGN_TAX_RETURN: Foreign country income tax return (non-US language/format, foreign government logo, foreign currency amounts)
+- TAX_RETURN_TRANSCRIPT: IRS Tax Return Transcript (IRS letterhead, "Tax Return Transcript" header, masked SSN, line-by-line 1040 data without original format)
+
+DISAMBIGUATION RULES FOR TAX RETURNS:
+- 1040 vs 1040-X: Look for "Amended" in title or three-column layout (1040-X)
+- 1040 vs 1040-SR: Look for "SR" in form number or "Seniors" in title
+- 1040 vs State return: Federal returns have IRS logo; state returns have state agency branding
+- 1040 vs Transcript: Transcripts are letters from IRS, not the actual form layout
+- Tax return vs PRIOR_YEAR_RETURN: Use FORM_1040 (not PRIOR_YEAR_RETURN) when actual 1040 form is visible
 
 OTHER DOCUMENTS:
 - RECEIPT: General receipts, invoices, purchase records

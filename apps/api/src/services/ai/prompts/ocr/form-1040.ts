@@ -66,6 +66,7 @@ CRITICAL INSTRUCTIONS:
 - Monetary amounts: return as numbers without $ or commas (e.g., 45000.00)
 - SSN format: return as string "XXX-XX-XXXX"
 - For 1040-X (amended return): extract the CORRECTED column C values
+- Boolean checkboxes: return true if checked, false if not checked, null if unclear
 
 FORM LAYOUT - READ THESE FIELDS:
 
@@ -73,6 +74,7 @@ PAGE 1 HEADER:
 - Tax year (printed at top of form, e.g., "2023")
 - Form variant: look for "1040", "1040-SR", "1040-NR", or "1040-X" in title
 - Filing status: check the box marked (Single / Married filing jointly / Married filing separately / Head of household / Qualifying surviving spouse)
+- If "Qualifying surviving spouse" is checked, extract the year spouse died
 
 TAXPAYER INFORMATION:
 - Line: Your first name and last name (primary taxpayer)
@@ -80,9 +82,30 @@ TAXPAYER INFORMATION:
 - Line: Spouse's first name and last name (if MFJ)
 - Line: Spouse's social security number (if MFJ)
 
+TAXPAYER ADDRESS (below name, above filing status):
+- Street address (including house/apt number)
+- Apartment number (if separate field)
+- City
+- State (2-letter abbreviation)
+- ZIP code
+- Foreign country name (for 1040-NR only)
+
+DIGITAL ASSETS QUESTION:
+- Near top of income section: "At any time during [year], did you receive, sell, send, exchange, or otherwise acquire any financial interest in any virtual currency?"
+- Return true if "Yes" is checked, false if "No" is checked, null if unclear
+
+DEPENDENTS SECTION (table below taxpayer info):
+For EACH dependent listed, extract:
+- First name and last name
+- Social security number (mask as XXX-XX-XXXX)
+- Relationship to taxpayer (e.g., "Son", "Daughter", "Parent")
+- Column 4: Child tax credit checkbox (checked = true)
+- Column 5: Credit for other dependents checkbox (checked = true)
+
 INCOME SECTION:
 - Line 1z: Total wages, salaries, tips
 - Line 9: Total income (sum of all income sources)
+- Line 10: Adjustments to income (critical for CPA - from Schedule 1)
 - Line 11: Adjusted gross income (AGI) — MOST IMPORTANT FIELD
 
 DEDUCTIONS:
@@ -105,8 +128,8 @@ REFUND OR AMOUNT OWED:
 - Line 37: Amount you owe
 
 SCHEDULE DETECTION — scan all page headers for schedule titles:
-- Look for pages titled "Schedule A", "Schedule B", "Schedule C", "Schedule D", "Schedule E", "Schedule SE"
-- List the letter of each attached schedule (e.g., ["A", "C", "SE"])
+- Look for pages titled "Schedule 1", "Schedule A", "Schedule B", "Schedule C", "Schedule D", "Schedule E", "Schedule SE"
+- List each attached schedule (e.g., ["1", "C", "SE"])
 - If no schedules found, return empty array []
 
 OUTPUT FORMAT (JSON):
@@ -118,6 +141,27 @@ OUTPUT FORMAT (JSON):
   "taxpayerSSN": "XXX-XX-1234",
   "spouseName": "TRAN THI HONG",
   "spouseSSN": "XXX-XX-5678",
+  "taxpayerAddress": {
+    "street": "123 MAIN ST",
+    "aptNo": "APT 4B",
+    "city": "HOUSTON",
+    "state": "TX",
+    "zip": "77001",
+    "country": null
+  },
+  "dependents": [
+    {
+      "firstName": "NGUYEN",
+      "lastName": "MINH",
+      "ssn": "XXX-XX-9012",
+      "relationship": "Son",
+      "childTaxCreditEligible": true,
+      "creditForOtherDependents": false
+    }
+  ],
+  "digitalAssetsAnswer": false,
+  "qualifyingSurvivingSpouseYear": null,
+  "adjustmentsToIncome": 2500.00,
   "totalWages": 85000.00,
   "totalIncome": 92000.00,
   "adjustedGrossIncome": 88000.00,
@@ -130,7 +174,7 @@ OUTPUT FORMAT (JSON):
   "totalPayments": 8500.00,
   "refundAmount": 1300.00,
   "amountOwed": null,
-  "attachedSchedules": ["C", "SE"]
+  "attachedSchedules": ["1", "C", "SE"]
 }
 
 IMPORTANT REMINDERS:
@@ -139,10 +183,12 @@ IMPORTANT REMINDERS:
 - For dependent SSNs: ALWAYS mask as "XXX-XX-XXXX" format — never return unmasked SSNs
 - taxYear must be a 4-digit number (e.g., 2023), not null if visible in header
 - attachedSchedules must be an array (empty [] if no schedules attached)
+- dependents must be an array (empty [] if no dependents listed)
+- taxpayerAddress: return object with null fields if address not found, or null if entire section missing
 - Do NOT extract Schedule data itself — only detect which schedules are present`
 }
 
-export function validateForm1040Data(data: unknown): boolean {
+export function validateForm1040Data(data: unknown): data is Form1040ExtractedData {
   if (!data || typeof data !== 'object') return false
   const d = data as Record<string, unknown>
 
@@ -181,6 +227,13 @@ export const FORM_1040_FIELD_LABELS_VI: Record<string, string> = {
   taxpayerSSN: 'SSN người nộp thuế',
   spouseName: 'Tên vợ/chồng',
   spouseSSN: 'SSN vợ/chồng',
+  // New CPA fields (Phase 2)
+  taxpayerAddress: 'Địa chỉ người nộp thuế',
+  dependents: 'Người phụ thuộc',
+  adjustmentsToIncome: 'Điều chỉnh thu nhập (Line 10)',
+  digitalAssetsAnswer: 'Tài sản kỹ thuật số',
+  qualifyingSurvivingSpouseYear: 'Năm vợ/chồng mất (QSS)',
+  // Income fields
   totalWages: 'Tổng lương (Line 1z)',
   totalIncome: 'Tổng thu nhập (Line 9)',
   adjustedGrossIncome: 'Thu nhập gộp điều chỉnh - AGI (Line 11)',

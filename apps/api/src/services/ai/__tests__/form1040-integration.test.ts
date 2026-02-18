@@ -55,6 +55,7 @@ describe('Form 1040 OCR Extraction - Phase 3', () => {
           city: 'San Jose',
           state: 'CA',
           zip: '95134',
+          country: null,
         },
         dependents: [],
         adjustmentsToIncome: null,

@@ -2,12 +2,13 @@
 
 **Current Date:** 2026-02-17
 **Current Branch:** dev
-**Latest Phase:** Phase 3: Hybrid PDF Viewer Enhancement COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Infrastructure Phase 1 COMPLETE | Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
+**Latest Phase:** Tax Return Recognition Phase 1 COMPLETE | Phase 3: Hybrid PDF Viewer Enhancement COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Infrastructure Phase 1 COMPLETE | Schedule E Phase 4 Workspace Tab COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Schedule E Phase 1 Backend Foundation COMPLETE | Landing Page Phase 03 Why Ella Updates COMPLETE | Phase 08 COMPLETE | Phase 06 COMPLETE
 
 ## Project Status Overview
 
 | Phase | Status | Completed |
 |-------|--------|-----------|
+| **Tax Return Recognition Phase 1** | **Database schema: New TAX_RETURNS DocCategory (enum value) with Vietnamese label "Khai Thuế". 7 new DocType values: FORM_1040, FORM_1040_SR, FORM_1040_NR, FORM_1040_X, STATE_TAX_RETURN, FOREIGN_TAX_RETURN, TAX_RETURN_TRANSCRIPT. Category mapping: DOC_TYPE_TO_CATEGORY maps all 7 types to TAX_RETURNS. Category order: IDENTITY → INCOME → TAX_RETURNS → EXPENSE → ASSET → EDUCATION → HEALTHCARE → OTHER. Types in @ella/shared/src/types/doc-category.ts (TypeScript type mirrors), CATEGORY_LABELS + CATEGORY_ORDER constants updated. Supports 1040 family + amended returns + state/foreign + IRS transcripts. Foundation for AI classification of prior-year returns during intake workflows. Code quality 9.5/10.** | **2026-02-18** |
 | **Phase 3: Hybrid PDF Viewer Enhancement** | **Platform-aware PDF routing in ImageViewer component. Desktop: Native iframe rendering (PdfViewerDesktop, zero bundle). Mobile/iOS: React-based rendering (PdfViewer, DPI scaling, fit-to-width). iOS detection via user agent forces mobile fallback (iPad/iPhone/iPod). Lazy-loaded PDF components via React.lazy() + Suspense. Controls: Mobile zoom/rotate/reset/page nav (top-right + bottom-center), desktop native controls. Interaction: Wheel zoom (Ctrl+wheel native passthrough), drag-to-pan, keyboard shortcuts. Accessibility: Vietnamese aria-labels, error handling, disabled states. Bundle: +0 KB desktop, +150 KB mobile (react-pdf only when needed). Code quality 9.2/10.** | **2026-02-17** |
 | **Phase 2: Mobile PDF Enhancement** | **Mobile-optimized PDF viewer (react-pdf) with fit-to-width scaling, DPI-aware rendering (devicePixelRatio), responsive skeleton loading. Features: fitToWidth prop auto-scales PDF to container width, onFitScaleCalculated callback reports computed scale, DPI multiplier for crisp retina displays (scale × dpiMultiplier), ResizeObserver tracks container width changes, Page onRenderSuccess hook calculates fit scale from canvas dimensions. Loading states: skeleton (8.5:11 aspect ratio, responsive 400px max-width, pulse animation), overlay during fit calculation. Image viewer integration: wired fitToWidth=true to PdfViewer, lazy-loads PdfViewer component via Suspense to avoid bundling react-pdf (~150KB) in image-heavy sessions. Code quality 9.2/10.** | **2026-02-17** |
 | **Phase 1: Desktop PDF Viewer** | **Native browser PDF rendering via iframe (zero bundle impact). Desktop-only component with iframe-based rendering, native text selection, browser search (Ctrl+F). Rotation support (0°/90°/180°/270°) via ResizeObserver for aspect ratio scaling. URL sanitization (XSS protection). Loading overlay + rotate button. Props: fileUrl, rotation, onRotate, showControls toggle. Integration with mobile PdfViewer (react-pdf) for cross-platform viewing. No new dependencies (native iframe + ResizeObserver). Complete: sanitization, rotation transforms, loading states, accessibility.** | **2026-02-17** |
@@ -64,6 +65,9 @@
 - **Message**: conversationId, channel (SMS|PORTAL|SYSTEM|CALL), content, callSid/recordingUrl
 - **AuditLog**: entityType, entityId, field, oldValue, newValue, changedById, timestamp (complete trail)
 - **Action**: actionType, priority, caseId, dueDate, status, completedBy
+
+**DocCategory Enum (8 categories):** IDENTITY, INCOME, TAX_RETURNS, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER (display order maintained)
+**DocType Enum (96 types):** 5 identity + 13 income forms + 4 K-1 variants + 3 health forms + 2 education + 1 mortgage + 45 business/receipts + 2 prior-year + 1 crypto + 8 foreign/fbar + 3 real estate + 2 credits + 2 business-misc + 1 extension + 7 tax returns (1040 family, state, foreign, transcript) + 2 catchall (OTHER, UNKNOWN)
 
 ## API Endpoints (12 Organization/Team)
 
@@ -263,6 +267,8 @@
 
 ## Recent Phases Summary
 
+**2026-02-18:** Tax Return Recognition Phase 1 complete. Database: New DocCategory enum value TAX_RETURNS with Vietnamese label "Khai Thuế" (positioned between INCOME and EXPENSE in CATEGORY_ORDER). 7 new DocType values: FORM_1040, FORM_1040_SR, FORM_1040_NR, FORM_1040_X, STATE_TAX_RETURN, FOREIGN_TAX_RETURN, TAX_RETURN_TRANSCRIPT. Prisma schema (packages/db/prisma/schema.prisma): DocType enum updated with comments (1040 variants, amended returns, state/foreign returns, IRS transcripts). TypeScript types (@ella/shared/src/types/doc-category.ts): DocCategory union type includes TAX_RETURNS, DOC_TYPE_TO_CATEGORY mapping updated with all 7 types → TAX_RETURNS, CATEGORY_LABELS and CATEGORY_ORDER constants updated. Foundation for AI classification of prior-year returns during client intake workflows. Code quality 9.5/10 (comprehensive comments, type safety, Vietnamese localization).
+
 **2026-02-17:** Phase 2: Mobile PDF Enhancement complete. Mobile-optimized PdfViewer (apps/workspace/src/components/ui/pdf-viewer.tsx, 147 LOC) with three key improvements: (1) Fit-to-width scaling—fitToWidth prop enables auto-scaling to container width via Page onRenderSuccess hook. Calculates natural PDF width from rendered canvas: naturalWidth = canvas.width / (scale × devicePixelRatio), then computes scale = containerWidth / naturalWidth. ResizeObserver tracks width changes. onFitScaleCalculated callback reports computed scale. (2) DPI-aware rendering—devicePixelRatio multiplier for crisp retina displays. Formula: renderScale = fitScale × userZoom × dpiMultiplier. When fitToWidth enabled, fitScale is base multiplier; when disabled, scale is absolute. (3) Responsive skeleton loading—8.5:11 aspect ratio placeholder (max-w-[400px]), pulse animation, shown during fit calculation. State tracking: hasCalculatedFit ref prevents recalculation race conditions. ImageViewer integration (apps/workspace/src/components/ui/image-viewer.tsx): wired fitToWidth=true, Suspense lazy-loads PdfViewer component to avoid bundling react-pdf (~150KB). Code quality 9.2/10. Zero-bundle-impact mobile PDF rendering achieved.
 
 **2026-02-17:** Phase 1: Desktop PDF Viewer complete. Native browser PDF rendering via iframe (apps/workspace/src/components/ui/pdf-viewer-desktop.tsx, 156 LOC). Zero bundle impact, native text selection, browser search (Ctrl+F). Desktop-only component with rotation support (0°/90°/180°/270°) via ResizeObserver for aspect ratio scaling on 90°/270° rotations. Security: URL sanitization prevents XSS (allows https:/http:/blob: protocols only). State: loading overlay (Loader2 spinner), rotate button overlay (keyboard-accessible, Vietnamese aria-label "Xoay"). Props: fileUrl (required), rotation (0|90|180|270), onRotate callback, showControls toggle (default true). Integration with mobile PdfViewer (react-pdf) for responsive multi-platform PDF viewing. Firefox limitation: toolbar param ignored, toolbar may show. No new dependencies added (uses native iframe + ResizeObserver APIs). Testing complete: URL validation, rotation transforms, loading states, accessibility (ARIA labels, keyboard shortcuts).
@@ -312,8 +318,8 @@
 
 ---
 
-**Version:** 3.0
+**Version:** 3.1
 **Created:** 2026-01-11
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-02-18
 **Maintained By:** Documentation Manager
-**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, SMS-First Killer Features Phase 01, Phase 1 Desktop PDF Viewer, & Phase 2 Mobile PDF Enhancement complete
+**Status:** Production-ready with Multi-Tenancy, Landing Page Animations, Schedule E Phase 1 Backend, SMS-First Killer Features Phase 01, Phase 1 Desktop PDF Viewer, Phase 2 Mobile PDF Enhancement, & Tax Return Recognition Phase 1 complete

@@ -12,6 +12,7 @@ import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } 
 import { UnclassifiedSection } from './unclassified-section'
 import { FileCategorySection } from './file-category-section'
 import { EmptyCategoryDropZone } from './empty-category-drop-zone'
+import { SimpleImageViewerModal } from './simple-image-viewer-modal'
 import { ManualClassificationModal, VerificationModal } from '../documents'
 
 export interface FilesTabProps {
@@ -34,6 +35,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  const [viewImage, setViewImage] = useState<RawImage | null>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
 
   // Fetch images only if not provided by parent (backward compatibility)
@@ -151,6 +153,12 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     setTimeout(() => setVerifyDoc(null), 200)
   }
 
+  // Handler to view files without DigitalDoc (e.g., PDFs/images in "Other" category)
+  const handleViewImage = useCallback((imageId: string) => {
+    const image = images.find((img) => img.id === imageId)
+    if (image) setViewImage(image)
+  }, [images])
+
   // Handler for drag and drop between categories
   const handleFileDrop = useCallback(
     (imageId: string, targetCategory: DocCategoryKey) => {
@@ -224,6 +232,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             docs={docs}
             caseId={caseId}
             onVerify={handleVerify}
+            onViewImage={handleViewImage}
             onFileDrop={handleFileDrop}
           />
         )
@@ -244,6 +253,15 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           isOpen={isVerifyModalOpen}
           onClose={handleCloseVerifyModal}
           caseId={caseId}
+        />
+      )}
+
+      {/* Simple Image/PDF Viewer for files without DigitalDoc (e.g., "Other" category) */}
+      {viewImage && (
+        <SimpleImageViewerModal
+          imageId={viewImage.id}
+          filename={viewImage.filename}
+          onClose={() => setViewImage(null)}
         />
       )}
     </div>

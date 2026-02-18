@@ -1,5 +1,59 @@
 # Latest Documentation Updates
 
+**Date:** 2026-02-18 | **Feature:** Tax Return Recognition Phase 3 - OCR Enhancement Phase 2 (CPA Fields) | **Status:** Complete
+
+---
+
+## Tax Return Recognition Phase 3 - OCR Enhancement Phase 2 (CPA Fields)
+
+**In One Sentence:** Extraction prompt enhanced with detailed field instructions for taxpayer address, dependents, adjustments to income, digital assets checkbox, and qualifying surviving spouse year.
+
+**Changes Made:**
+
+- **Extraction Prompt Enhancement (`apps/api/src/services/ai/prompts/ocr/form-1040.ts`):**
+  - Line-by-line mapping: Line 1z → totalWages, Line 11 → AGI, Line 24 → totalTax, Line 33 → totalPayments, Line 35a → refundAmount, Line 37 → amountOwed
+  - Taxpayer address extraction: Street, apartment number, city, state, ZIP code, country (for 1040-NR)
+  - Dependent information extraction with detailed instructions:
+    - First name and last name for each dependent
+    - Social security number (masked XXX-XX-XXXX format)
+    - Relationship to taxpayer
+    - Column (c) checkbox → childTaxCreditEligible: true/false
+    - Column (d) checkbox → creditForOtherDependents: true/false
+    - Instructions to repeat for all dependent rows
+  - Digital assets checkbox mapping: "At any time during [year], did you receive, sell, send, exchange..."
+  - Qualifying surviving spouse year extraction for QSS forms
+
+- **Vietnamese Localization Enhancement:**
+  - FORM_1040_FIELD_LABELS_VI expanded with translations:
+    - taxpayerAddress → "Địa chỉ Người nộp thuế"
+    - dependents → "Những người phụ thuộc"
+    - adjustmentsToIncome → "Điều chỉnh thu nhập"
+    - digitalAssetsAnswer → "Tài sản kỹ thuật số"
+    - qualifyingSurvivingSpouseYear → "Năm người phối ngẫu mất"
+
+- **Validation Enhancement:**
+  - validateForm1040Data() type predicate validates dependent array structure
+  - Object validation for taxpayerAddress nested interface
+  - Maintains minimum viable data requirement (at least one of: taxYear, AGI, totalTax, refund)
+
+- **Test Coverage:**
+  - `apps/api/src/services/ai/__tests__/form1040-integration.test.ts` updated
+  - Test data includes country field in taxpayerAddress
+  - All 16 tests passing
+
+**Key Implementation Details:**
+
+1. **Dependent Array Processing**: Each dependent in dependents table extracted with complete information including credit eligibility booleans
+2. **Address Fields**: Comprehensive address capture supports both US and international addresses (1040-NR)
+3. **Backward Compatibility**: All new fields optional (| null) in Form1040ExtractedData
+4. **Form Variant Support**: Instructions account for 1040/1040-SR/1040-NR/1040-X variant differences
+
+**Documentation Updated:**
+1. **codebase-summary.md** - Updated Phase 3 entry with detailed extraction instructions and test results
+2. **LATEST-UPDATES.md** - This update document
+
+---
+
 **Date:** 2026-02-17 | **Feature:** Phase 3 - Hybrid PDF Viewer Enhancement | **Status:** Complete
 
 ---

@@ -82,6 +82,11 @@ import {
   validate1099MiscData as _validate1099Misc,
   FORM_1099_MISC_FIELD_LABELS_VI as _1099MiscLabels,
 } from './1099-misc'
+import {
+  getForm1040ExtractionPrompt as _getForm1040Prompt,
+  validateForm1040Data as _validateForm1040,
+  FORM_1040_FIELD_LABELS_VI as _Form1040Labels,
+} from './form-1040'
 
 // Re-export W2 prompt and types
 export {
@@ -206,6 +211,14 @@ export {
 } from './1099-misc'
 export type { Form1099MiscExtractedData } from './1099-misc'
 
+// Re-export Form 1040 prompt and types
+export {
+  getForm1040ExtractionPrompt,
+  validateForm1040Data,
+  FORM_1040_FIELD_LABELS_VI,
+} from './form-1040'
+export type { Form1040ExtractedData } from './form-1040'
+
 /**
  * Supported OCR document types
  */
@@ -226,6 +239,7 @@ export type OcrDocType =
   | 'BANK_STATEMENT'
   | 'SSN_CARD'
   | 'DRIVER_LICENSE'
+  | 'FORM_1040'
 
 /**
  * Get the appropriate OCR prompt for a document type
@@ -265,6 +279,8 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _getSsnCardPrompt()
     case 'DRIVER_LICENSE':
       return _getDLPrompt()
+    case 'FORM_1040':
+      return _getForm1040Prompt()
     default:
       return null
   }
@@ -272,27 +288,10 @@ export function getOcrPromptForDocType(docType: string): string | null {
 
 /**
  * Check if a document type supports OCR extraction
+ * Uses getOcrPromptForDocType to avoid DRY violation
  */
 export function supportsOcrExtraction(docType: string): boolean {
-  const supportedTypes: string[] = [
-    'W2',
-    'FORM_1099_INT',
-    'FORM_1099_NEC',
-    'FORM_1099_K',
-    'FORM_1099_DIV',
-    'FORM_1099_R',
-    'FORM_1099_SSA',
-    'FORM_1099_G',
-    'FORM_1099_MISC',
-    'FORM_1098',
-    'FORM_1098_T',
-    'FORM_1095_A',
-    'SCHEDULE_K1',
-    'BANK_STATEMENT',
-    'SSN_CARD',
-    'DRIVER_LICENSE',
-  ]
-  return supportedTypes.includes(docType)
+  return getOcrPromptForDocType(docType) !== null
 }
 
 /**
@@ -332,6 +331,8 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validateSsnCard(data)
     case 'DRIVER_LICENSE':
       return _validateDL(data)
+    case 'FORM_1040':
+      return _validateForm1040(data)
     default:
       return false
   }
@@ -374,6 +375,8 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _SsnCardLabels
     case 'DRIVER_LICENSE':
       return _DLLabels
+    case 'FORM_1040':
+      return _Form1040Labels
     default:
       return {}
   }

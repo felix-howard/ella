@@ -238,6 +238,7 @@ function calculateConfidence(data: Record<string, unknown>, docType: string): nu
     BANK_STATEMENT: ['bankName', 'accountNumber', 'beginningBalance', 'endingBalance'],
     SSN_CARD: ['fullName', 'ssn'],
     DRIVER_LICENSE: ['fullName', 'licenseNumber', 'expirationDate'],
+    FORM_1040: ['adjustedGrossIncome', 'totalTax', 'taxableIncome', 'taxpayerSSN'],
   }
 
   const keyFields = keyFieldsByType[docType] || []

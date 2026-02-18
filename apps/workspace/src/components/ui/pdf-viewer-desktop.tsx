@@ -140,15 +140,15 @@ export default function PdfViewerDesktop({
       )}
 
       {/* PDF iframe with rotation transform */}
+      {/* Note: No sandbox attribute - Chrome's PDF viewer doesn't work in sandboxed iframes.
+          URL is already validated by isValidSignedUrl() in verification-modal.tsx */}
       <div className="w-full h-full" style={rotationStyles}>
         <iframe
           src={iframeSrc}
           className="w-full h-full border-0"
           title="PDF Viewer"
           onLoad={() => setIsLoading(false)}
-          sandbox="allow-scripts allow-same-origin"
           allow="fullscreen"
-          referrerPolicy="no-referrer"
         />
       </div>
     </div>

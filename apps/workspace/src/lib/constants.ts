@@ -82,6 +82,13 @@ export const DOC_TYPE_LABELS: Record<string, string> = translatedLabels({
   RECEIPT: 'docType.receipt',
   BIRTH_CERTIFICATE: 'docType.birthCertificate',
   DAYCARE_RECEIPT: 'docType.daycareReceipt',
+  FORM_1040: 'docType.form1040',
+  FORM_1040_SR: 'docType.form1040Sr',
+  FORM_1040_NR: 'docType.form1040Nr',
+  FORM_1040_X: 'docType.form1040X',
+  STATE_TAX_RETURN: 'docType.stateTaxReturn',
+  FOREIGN_TAX_RETURN: 'docType.foreignTaxReturn',
+  TAX_RETURN_TRANSCRIPT: 'docType.taxReturnTranscript',
   OTHER: 'docType.other',
   UNKNOWN: 'docType.unknown',
 })

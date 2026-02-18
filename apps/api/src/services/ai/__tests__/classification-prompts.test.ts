@@ -372,8 +372,18 @@ describe('SUPPORTED_DOC_TYPES', () => {
     expect(SUPPORTED_DOC_TYPES).toContain('OTHER')
   })
 
+  it('includes tax return form types', () => {
+    expect(SUPPORTED_DOC_TYPES).toContain('FORM_1040')
+    expect(SUPPORTED_DOC_TYPES).toContain('FORM_1040_SR')
+    expect(SUPPORTED_DOC_TYPES).toContain('FORM_1040_NR')
+    expect(SUPPORTED_DOC_TYPES).toContain('FORM_1040_X')
+    expect(SUPPORTED_DOC_TYPES).toContain('STATE_TAX_RETURN')
+    expect(SUPPORTED_DOC_TYPES).toContain('FOREIGN_TAX_RETURN')
+    expect(SUPPORTED_DOC_TYPES).toContain('TAX_RETURN_TRANSCRIPT')
+  })
+
   it('has correct total count of document types', () => {
-    // Phase 03/04: Expanded to 64 document types for comprehensive intake coverage
-    expect(SUPPORTED_DOC_TYPES.length).toBe(64)
+    // Expanded to 71 types: 64 base + 7 tax return types (FORM_1040, _SR, _NR, _X, STATE_TAX_RETURN, FOREIGN_TAX_RETURN, TAX_RETURN_TRANSCRIPT)
+    expect(SUPPORTED_DOC_TYPES.length).toBe(71)
   })
 })

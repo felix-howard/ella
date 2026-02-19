@@ -87,7 +87,7 @@ export function ConfirmStep({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              🇻🇳 VI
+              VN
             </button>
             <button
               type="button"
@@ -99,7 +99,7 @@ export function ConfirmStep({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              🇺🇸 EN
+              EN
             </button>
           </div>
         </div>

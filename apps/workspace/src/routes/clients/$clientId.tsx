@@ -403,7 +403,8 @@ function ClientDetailPage() {
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
-    { id: 'overview', label: clientsText.tabs.overview, icon: User },
+    // TODO: Temporarily hidden - re-enable when needed
+    // { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
     // TODO: Temporarily hidden - re-enable when needed
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },

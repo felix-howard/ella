@@ -133,22 +133,12 @@ function ExpenseFormPage() {
     <div className="flex-1 flex flex-col">
       {/* Header */}
       <header className="px-6 pt-6 pb-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <img src={EllaLogoLight} alt="Ella Tax" className="h-10" />
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{t('expense.formTitle')}</h1>
-              <p className="text-sm text-muted-foreground">{t('portal.taxYear')} {data.taxYear}</p>
-            </div>
+        <div className="flex items-center gap-3 mb-4">
+          <img src={EllaLogoLight} alt="Ella Tax" className="h-10" />
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">{t('expense.formTitle')}</h1>
+            <p className="text-sm text-muted-foreground">{t('portal.taxYear')} {data.taxYear}</p>
           </div>
-
-          {/* Language toggle button */}
-          <button
-            onClick={() => i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
-            className="px-3 py-1 text-xs font-medium rounded-full border border-border bg-muted hover:bg-muted/80 transition-colors"
-          >
-            {i18n.language === 'vi' ? 'EN' : 'VI'}
-          </button>
         </div>
 
         {/* Client greeting */}

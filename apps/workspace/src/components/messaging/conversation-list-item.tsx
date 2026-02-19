@@ -5,6 +5,7 @@
 
 import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
@@ -27,6 +28,7 @@ export const ConversationListItem = memo(function ConversationListItem({
   conversation,
   isActive,
 }: ConversationListItemProps) {
+  const { t } = useTranslation()
   const { client, taxCase, lastMessage, unreadCount } = conversation
   const hasUnread = unreadCount > 0
 
@@ -120,7 +122,7 @@ export const ConversationListItem = memo(function ConversationListItem({
             )}
           >
             {lastMessage?.direction === 'OUTBOUND' && (
-              <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>Bạn: </span>
+              <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>{t('messages.you')} </span>
             )}
             {messagePreview}
           </p>

@@ -19,8 +19,8 @@ export interface TaxpayerAddress {
  * Dependent information from Form 1040 dependents section
  */
 export interface DependentInfo {
-  firstName: string
-  lastName: string
+  firstName: string | null
+  lastName: string | null
   ssn: string | null
   relationship: string | null
   childTaxCreditEligible: boolean
@@ -227,9 +227,23 @@ export const FORM_1040_FIELD_LABELS_VI: Record<string, string> = {
   taxpayerSSN: 'SSN người nộp thuế',
   spouseName: 'Tên vợ/chồng',
   spouseSSN: 'SSN vợ/chồng',
-  // New CPA fields (Phase 2)
+  // CPA fields - Address
   taxpayerAddress: 'Địa chỉ người nộp thuế',
+  'taxpayerAddress.street': 'Số nhà, đường',
+  'taxpayerAddress.aptNo': 'Số căn hộ',
+  'taxpayerAddress.city': 'Thành phố',
+  'taxpayerAddress.state': 'Tiểu bang',
+  'taxpayerAddress.zip': 'Mã bưu điện (ZIP)',
+  'taxpayerAddress.country': 'Quốc gia',
+  // CPA fields - Dependents
   dependents: 'Người phụ thuộc',
+  'dependents.firstName': 'Tên',
+  'dependents.lastName': 'Họ',
+  'dependents.ssn': 'SSN',
+  'dependents.relationship': 'Quan hệ',
+  'dependents.childTaxCreditEligible': 'Đủ điều kiện tín dụng trẻ em',
+  'dependents.creditForOtherDependents': 'Tín dụng người phụ thuộc khác',
+  // CPA fields - Other
   adjustmentsToIncome: 'Điều chỉnh thu nhập (Line 10)',
   digitalAssetsAnswer: 'Tài sản kỹ thuật số',
   qualifyingSurvivingSpouseYear: 'Năm vợ/chồng mất (QSS)',

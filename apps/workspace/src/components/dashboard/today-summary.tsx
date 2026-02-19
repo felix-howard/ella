@@ -1,9 +1,10 @@
 /**
  * Today Summary Component - Dashboard header with greeting and date
- * Displays personalized greeting and current date in Vietnamese
+ * Displays personalized greeting and current date based on language
  */
 
 import { Calendar } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { UI_TEXT } from '../../lib/constants'
 
 interface TodaySummaryProps {
@@ -11,12 +12,14 @@ interface TodaySummaryProps {
 }
 
 export function TodaySummary({ staffName }: TodaySummaryProps) {
+  const { i18n } = useTranslation()
   const { dashboard, staff } = UI_TEXT
   const displayName = staffName || staff.defaultName
 
-  // Format current date in Vietnamese
+  // Format current date based on current language
   const today = new Date()
-  const dateStr = today.toLocaleDateString('vi-VN', {
+  const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US'
+  const dateStr = today.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

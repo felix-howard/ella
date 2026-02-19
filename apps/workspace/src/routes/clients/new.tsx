@@ -397,7 +397,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
           type="text"
           value={data.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="VD: Nguyễn Văn An"
+          placeholder={t('newClient.namePlaceholder')}
           aria-required="true"
           aria-invalid={!!errors?.name}
           aria-describedby={errors?.name ? 'name-error' : undefined}
@@ -424,7 +424,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             value={data.phone}
             onChange={(e) => handlePhoneChange(e.target.value)}
             onBlur={() => onPhoneBlur?.(data.phone)}
-            placeholder="(818) 222-3333 hoặc 8182223333"
+            placeholder={t('newClient.phonePlaceholder')}
             aria-required="true"
             aria-invalid={!!errors?.phone}
             aria-describedby={errors?.phone ? 'phone-error' : undefined}

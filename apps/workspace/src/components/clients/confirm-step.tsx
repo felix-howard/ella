@@ -5,6 +5,7 @@
  */
 
 import { MessageSquare, Loader2, User, Phone, Calendar, Send } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { formatPhone } from '../../lib/formatters'
 
@@ -34,6 +35,7 @@ export function ConfirmStep({
   onSubmit,
   isSubmitting,
 }: ConfirmStepProps) {
+  const { t } = useTranslation()
   const smsMessage = language === 'VI'
     ? SMS_TEMPLATE_VI(clientName, taxYear)
     : SMS_TEMPLATE_EN(clientName, taxYear)
@@ -42,26 +44,26 @@ export function ConfirmStep({
     <div className="space-y-6">
       {/* Summary Card */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h3 className="text-lg font-semibold text-primary mb-4">Xác nhận thông tin</h3>
+        <h3 className="text-lg font-semibold text-primary mb-4">{t('confirmStep.title')}</h3>
         <dl className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <User className="w-4 h-4" />
-              Tên:
+              {t('confirmStep.name')}
             </dt>
             <dd className="font-medium text-foreground">{clientName}</dd>
           </div>
           <div className="flex items-center justify-between py-2 border-b border-border">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <Phone className="w-4 h-4" />
-              Số điện thoại:
+              {t('confirmStep.phone')}
             </dt>
             <dd className="font-medium text-foreground">{formatPhone(phone)}</dd>
           </div>
           <div className="flex items-center justify-between py-2">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              Năm thuế:
+              {t('confirmStep.taxYear')}
             </dt>
             <dd className="font-medium text-foreground">{taxYear}</dd>
           </div>
@@ -73,7 +75,7 @@ export function ConfirmStep({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Tin nhắn sẽ được gửi:</span>
+            <span className="text-sm font-medium text-foreground">{t('confirmStep.messagePreview')}</span>
           </div>
           {/* Language Toggle */}
           <div className="flex items-center gap-1 bg-card rounded-lg p-1 border border-border">
@@ -107,7 +109,7 @@ export function ConfirmStep({
           {smsMessage}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          * Link portal sẽ được tạo tự động
+          {t('confirmStep.portalLinkNote')}
         </p>
       </div>
 
@@ -125,20 +127,19 @@ export function ConfirmStep({
         {isSubmitting ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Đang tạo...
+            {t('confirmStep.creating')}
           </>
         ) : (
           <>
             <Send className="w-4 h-4" />
-            Tạo khách hàng & Gửi tin nhắn
+            {t('confirmStep.submit')}
           </>
         )}
       </button>
 
       {/* Info note */}
       <p className="text-xs text-muted-foreground text-center">
-        Sau khi tạo, khách hàng sẽ nhận được tin nhắn với link để gửi tài liệu.
-        Bạn có thể cập nhật thông tin chi tiết sau trong tab Tổng quan.
+        {t('confirmStep.infoNote')}
       </p>
     </div>
   )

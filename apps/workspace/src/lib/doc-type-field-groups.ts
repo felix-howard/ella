@@ -5,7 +5,7 @@
  */
 
 import type { LucideIcon } from 'lucide-react'
-import { Building2, User, DollarSign, MapPin, FileText, Hash } from 'lucide-react'
+import { Building2, User, DollarSign, MapPin, FileText, Hash, Calculator, CreditCard, Receipt, Users } from 'lucide-react'
 import i18n from './i18n'
 
 /** Field group configuration for a document type section */
@@ -132,6 +132,88 @@ const DOC_TYPE_FIELD_GROUPS_DATA: Record<string, Array<{ key: string; labelKey: 
       labelKey: 'fieldGroup.bank',
       icon: Building2,
       fields: ['bankName', 'routingNumber', 'accountNumber'],
+    },
+  ],
+  FORM_1040: [
+    {
+      key: 'taxpayer',
+      labelKey: 'fieldGroup.taxpayer',
+      icon: User,
+      fields: ['taxpayerName', 'taxpayerSSN', 'filingStatus'],
+    },
+    {
+      key: 'spouse',
+      labelKey: 'fieldGroup.spouse',
+      icon: Users,
+      fields: ['spouseName', 'spouseSSN'],
+    },
+    {
+      key: 'income',
+      labelKey: 'fieldGroup.income',
+      icon: DollarSign,
+      fields: ['totalWages', 'totalIncome', 'adjustedGrossIncome'],
+    },
+    {
+      key: 'taxDeductions',
+      labelKey: 'fieldGroup.taxDeductions',
+      icon: Calculator,
+      fields: ['taxableIncome', 'standardOrItemizedDeduction', 'totalTax'],
+    },
+    {
+      key: 'credits',
+      labelKey: 'fieldGroup.credits',
+      icon: CreditCard,
+      fields: ['childTaxCredit', 'earnedIncomeCredit', 'adjustmentsToIncome'],
+    },
+    {
+      key: 'payments',
+      labelKey: 'fieldGroup.payments',
+      icon: Receipt,
+      fields: ['totalWithheld', 'totalPayments', 'refundAmount', 'amountOwed'],
+    },
+    {
+      key: 'formInfo',
+      labelKey: 'fieldGroup.formInfo',
+      icon: FileText,
+      fields: ['taxYear', 'formVariant', 'attachedSchedules', 'digitalAssetsAnswer'],
+    },
+  ],
+  SCHEDULE_C: [
+    {
+      key: 'businessInfo',
+      labelKey: 'fieldGroup.businessInfo',
+      icon: Building2,
+      fields: ['businessName', 'proprietorName', 'principalBusinessCode', 'businessAddress', 'ein', 'accountingMethod'],
+    },
+    {
+      key: 'income',
+      labelKey: 'fieldGroup.income',
+      icon: DollarSign,
+      fields: ['grossReceipts', 'returns', 'grossReceiptsLessReturns', 'costOfGoodsSold', 'grossProfit', 'otherIncome', 'grossIncome'],
+    },
+    {
+      key: 'expenses',
+      labelKey: 'fieldGroup.expenses',
+      icon: Receipt,
+      fields: [
+        'advertising', 'carAndTruck', 'commissions', 'contractLabor', 'depletion', 'depreciation',
+        'employeeBenefit', 'insurance', 'interestMortgage', 'interestOther', 'legalAndProfessional',
+        'officeExpense', 'pensionProfitSharing', 'rentVehicles', 'rentMachinery', 'repairs',
+        'supplies', 'taxesLicenses', 'travel', 'mealsDeductible', 'utilities', 'wages',
+        'otherExpensesDescription', 'otherExpensesAmount', 'totalExpenses'
+      ],
+    },
+    {
+      key: 'netProfit',
+      labelKey: 'fieldGroup.netProfit',
+      icon: Calculator,
+      fields: ['tentativeProfit', 'expensesForHomeUse', 'netProfit'],
+    },
+    {
+      key: 'formInfo',
+      labelKey: 'fieldGroup.formInfo',
+      icon: FileText,
+      fields: ['taxYear', 'materialParticipation', 'startedOrAcquiredInYear'],
     },
   ],
 }

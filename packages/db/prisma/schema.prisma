@@ -125,6 +125,22 @@ enum DocType {
   // Prior Year Extension
   EXTENSION_PAYMENT_PROOF    // Form 4868 / payment confirmation
 
+  // Tax Returns
+  FORM_1040              // U.S. Individual Income Tax Return
+  FORM_1040_SR           // Tax Return for Seniors
+  FORM_1040_NR           // Nonresident Alien Income Tax Return
+  FORM_1040_X            // Amended U.S. Individual Income Tax Return
+  STATE_TAX_RETURN       // State income tax return (CA 540, etc.)
+  FOREIGN_TAX_RETURN     // Foreign country tax return
+  TAX_RETURN_TRANSCRIPT  // IRS tax return transcript
+
+  // Form 1040 Schedules
+  SCHEDULE_C             // Profit or Loss From Business (Sole Proprietorship)
+  SCHEDULE_SE            // Self-Employment Tax
+  SCHEDULE_1             // Additional Income and Adjustments to Income
+  SCHEDULE_D             // Capital Gains and Losses
+  SCHEDULE_E             // Supplemental Income and Loss (Rental, Royalties, etc.)
+
   // Other
   OTHER
   UNKNOWN
@@ -225,6 +241,7 @@ enum EngagementStatus {
 enum DocCategory {
   IDENTITY    // Giay to tuy than: SSN, DL, PASSPORT
   INCOME      // Thu nhap: W2, all 1099 variants, K-1
+  TAX_RETURNS // Khai thue: 1040 family, state returns, transcripts
   EXPENSE     // Chi phi: RECEIPT, INVOICE
   ASSET       // Tai san: property, vehicle docs
   EDUCATION   // Giao duc: 1098-T, 1098-E

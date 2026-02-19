@@ -1,6 +1,7 @@
 /**
  * ImageViewer - Zoomable, pannable, rotatable image/PDF viewer
- * PDF: Uses native scale-based zoom (always crisp) + scroll for pan
+ * PDF Desktop: Uses native iframe (zero bundle, native controls)
+ * PDF Mobile: Uses react-pdf with DPI scaling (fit-to-width)
  * Images: Uses react-zoom-pan-pinch for smooth gestures
  */
 
@@ -16,9 +17,20 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react'
+import { useIsMobile } from '../../hooks'
 
 // Lazy load PDF components to reduce initial bundle size
 const PdfViewer = lazy(() => import('./pdf-viewer'))
+const PdfViewerDesktop = lazy(() => import('./pdf-viewer-desktop'))
+
+/**
+ * Detect iOS Safari - iframe PDFs don't render properly on iOS
+ * Must use react-pdf for iOS devices regardless of viewport size
+ */
+function isIOSSafari(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window)
+}
 
 export interface ImageViewerProps {
   /** Image or PDF URL to display */
@@ -166,6 +178,12 @@ export function ImageViewer({
   className,
   showControls = true,
 }: ImageViewerProps) {
+  // Platform detection (hooks must be at top level)
+  const isMobile = useIsMobile()
+  const isIOS = isIOSSafari()
+  // Force mobile viewer on mobile devices or iOS (iframe PDFs don't work on iOS)
+  const useMobileViewer = isMobile || isIOS
+
   const [rotation, setRotation] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState<number | null>(null)
@@ -208,23 +226,7 @@ export function ImageViewer({
     }
   }, [numPages])
 
-  // Empty state
-  if (!imageUrl) {
-    return (
-      <div
-        className={cn(
-          'flex items-center justify-center bg-muted rounded-lg',
-          className
-        )}
-        role="img"
-        aria-label="Không có hình ảnh"
-      >
-        <p className="text-muted-foreground text-sm">Không có hình ảnh</p>
-      </div>
-    )
-  }
-
-  // Handle mouse wheel zoom for PDF
+  // Handle mouse wheel zoom for PDF (mobile only)
   const handlePdfWheel = useCallback(
     (e: React.WheelEvent) => {
       // Only zoom when Ctrl is NOT pressed (native scroll when Ctrl+wheel)
@@ -241,7 +243,7 @@ export function ImageViewer({
     []
   )
 
-  // Drag-to-pan for PDF viewer
+  // Drag-to-pan for PDF viewer (mobile only)
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
@@ -272,12 +274,30 @@ export function ImageViewer({
     setIsDragging(false)
   }, [])
 
-  // PDF Viewer - uses native scale zoom (crisp) + scroll for pan
+  // Empty state
+  if (!imageUrl) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center bg-muted rounded-lg',
+          className
+        )}
+        role="img"
+        aria-label="Không có hình ảnh"
+      >
+        <p className="text-muted-foreground text-sm">Không có hình ảnh</p>
+      </div>
+    )
+  }
+
+  // PDF Viewer - platform-aware routing
+  // Desktop: Native iframe (zero bundle, native controls)
+  // Mobile/iOS: react-pdf with DPI scaling
   if (isPdf) {
     return (
       <div className={cn('relative overflow-hidden bg-muted/50 rounded-lg', className)}>
-        {/* PDF Controls */}
-        {showControls && (
+        {/* PDF Controls - only show for mobile viewer (desktop has its own rotate button) */}
+        {showControls && useMobileViewer && (
           <PdfControls
             zoom={pdfZoom}
             onZoomIn={handlePdfZoomIn}
@@ -287,18 +307,20 @@ export function ImageViewer({
           />
         )}
 
-        {/* Scrollable PDF container for panning - wheel zooms, click-drag pans */}
+        {/* Platform-specific PDF viewer */}
         <div
           ref={pdfContainerRef}
           className={cn(
             'w-full h-full overflow-auto select-none',
-            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            // Only show grab cursor on mobile (desktop uses native scroll)
+            useMobileViewer && (isDragging ? 'cursor-grabbing' : 'cursor-grab')
           )}
-          onWheel={handlePdfWheel}
-          onMouseDown={handlePdfMouseDown}
-          onMouseMove={handlePdfMouseMove}
-          onMouseUp={handlePdfMouseUp}
-          onMouseLeave={handlePdfMouseUp}
+          // Only attach drag/wheel handlers for mobile viewer
+          onWheel={useMobileViewer ? handlePdfWheel : undefined}
+          onMouseDown={useMobileViewer ? handlePdfMouseDown : undefined}
+          onMouseMove={useMobileViewer ? handlePdfMouseMove : undefined}
+          onMouseUp={useMobileViewer ? handlePdfMouseUp : undefined}
+          onMouseLeave={useMobileViewer ? handlePdfMouseUp : undefined}
         >
           {error ? (
             <div className="flex items-center justify-center h-full">
@@ -312,20 +334,30 @@ export function ImageViewer({
                 </div>
               }
             >
-              <PdfViewer
-                fileUrl={imageUrl}
-                scale={pdfZoom}
-                rotation={rotation}
-                currentPage={currentPage}
-                onLoadSuccess={handlePdfLoadSuccess}
-                onLoadError={handlePdfLoadError}
-              />
+              {useMobileViewer ? (
+                <PdfViewer
+                  fileUrl={imageUrl}
+                  scale={pdfZoom}
+                  rotation={rotation}
+                  currentPage={currentPage}
+                  onLoadSuccess={handlePdfLoadSuccess}
+                  onLoadError={handlePdfLoadError}
+                  fitToWidth
+                />
+              ) : (
+                <PdfViewerDesktop
+                  fileUrl={imageUrl}
+                  rotation={rotation as 0 | 90 | 180 | 270}
+                  onRotate={handleRotate}
+                  showControls={showControls}
+                />
+              )}
             </Suspense>
           )}
         </div>
 
-        {/* PDF page navigation */}
-        {numPages && numPages > 1 && showControls && (
+        {/* PDF page navigation - mobile only (desktop has native nav) */}
+        {useMobileViewer && numPages && numPages > 1 && showControls && (
           <div
             className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 rounded-full px-3 py-1.5 z-10"
             role="navigation"

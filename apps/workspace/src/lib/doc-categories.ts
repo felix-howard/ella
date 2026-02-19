@@ -11,11 +11,12 @@ import {
   GraduationCap,
   Heart,
   File,
+  FileText,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import i18n from './i18n'
 
-export type DocCategoryKey = 'IDENTITY' | 'INCOME' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
+export type DocCategoryKey = 'IDENTITY' | 'INCOME' | 'TAX_RETURNS' | 'EXPENSE' | 'ASSET' | 'EDUCATION' | 'HEALTHCARE' | 'OTHER'
 
 export interface DocCategoryConfig {
   label: string
@@ -39,6 +40,13 @@ const DOC_CATEGORIES_DATA: Record<DocCategoryKey, { labelKey: string; icon: Luci
     bgColor: 'bg-emerald-500/10',
     textColor: 'text-emerald-600',
     borderColor: 'border-emerald-500/20',
+  },
+  TAX_RETURNS: {
+    labelKey: 'docCategory.taxReturns',
+    icon: FileText,
+    bgColor: 'bg-amber-500/10',
+    textColor: 'text-amber-600',
+    borderColor: 'border-amber-500/20',
   },
   EXPENSE: {
     labelKey: 'docCategory.expense',
@@ -106,6 +114,7 @@ export const DOC_CATEGORIES: Record<DocCategoryKey, DocCategoryConfig> = new Pro
 export const CATEGORY_ORDER: DocCategoryKey[] = [
   'IDENTITY',
   'INCOME',
+  'TAX_RETURNS',
   'EXPENSE',
   'ASSET',
   'EDUCATION',

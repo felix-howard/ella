@@ -201,6 +201,8 @@ imagesRoute.post('/:id/reclassify', async (c) => {
       r2Key: true,
       mimeType: true,
       status: true,
+      classifiedType: true,
+      category: true,
     },
   })
 
@@ -211,9 +213,15 @@ imagesRoute.post('/:id/reclassify', async (c) => {
     )
   }
 
-  // Only allow reclassification for UPLOADED or UNCLASSIFIED images
+  // Allow reclassification for:
+  // 1. UPLOADED or UNCLASSIFIED images (standard flow)
+  // 2. CLASSIFIED images that are in "Other" category (AI re-try)
   const allowedStatuses = ['UPLOADED', 'UNCLASSIFIED']
-  if (!allowedStatuses.includes(rawImage.status)) {
+  const isOtherCategory = rawImage.classifiedType === 'OTHER' || rawImage.category === 'OTHER'
+  const canReclassify = allowedStatuses.includes(rawImage.status) ||
+    (rawImage.status === 'CLASSIFIED' && isOtherCategory)
+
+  if (!canReclassify) {
     return c.json(
       {
         error: 'INVALID_STATUS',
@@ -223,10 +231,25 @@ imagesRoute.post('/:id/reclassify', async (c) => {
     )
   }
 
-  // Reset status to UPLOADED to allow reprocessing
-  await prisma.rawImage.update({
-    where: { id },
-    data: { status: 'UPLOADED' as RawImageStatus },
+  // Reset image for reprocessing
+  // For "Other" category docs, also clean up old classification data
+  await prisma.$transaction(async (tx) => {
+    // Delete any existing DigitalDoc linked to this image
+    await tx.digitalDoc.deleteMany({
+      where: { rawImageId: id },
+    })
+
+    // Reset rawImage to initial state for reprocessing
+    await tx.rawImage.update({
+      where: { id },
+      data: {
+        status: 'UPLOADED' as RawImageStatus,
+        classifiedType: null,
+        category: null,
+        aiConfidence: null,
+        checklistItemId: null,
+      },
+    })
   })
 
   // Re-trigger the classification job via Inngest

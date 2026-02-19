@@ -296,6 +296,22 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     // Prior Year Extension
     EXTENSION_PAYMENT_PROOF: 'Bằng chứng extension',
 
+    // Tax Returns
+    FORM_1040: 'Tờ khai 1040 (Liên bang)',
+    FORM_1040_SR: 'Tờ khai 1040-SR (Người cao tuổi)',
+    FORM_1040_NR: 'Tờ khai 1040-NR (Người nước ngoài)',
+    FORM_1040_X: 'Tờ khai 1040-X (Điều chỉnh)',
+    STATE_TAX_RETURN: 'Tờ khai thuế tiểu bang',
+    FOREIGN_TAX_RETURN: 'Tờ khai thuế nước ngoài',
+    TAX_RETURN_TRANSCRIPT: 'Bản sao tờ khai IRS',
+
+    // Form 1040 Schedules
+    SCHEDULE_C: 'Schedule C (Lợi nhuận kinh doanh)',
+    SCHEDULE_SE: 'Schedule SE (Thuế tự làm chủ)',
+    SCHEDULE_1: 'Schedule 1 (Thu nhập & Điều chỉnh)',
+    SCHEDULE_D: 'Schedule D (Lãi/Lỗ vốn)',
+    SCHEDULE_E: 'Schedule E (Thu nhập cho thuê)',
+
     // Other
     OTHER: 'Khác',
     UNKNOWN: 'Chưa xác định',

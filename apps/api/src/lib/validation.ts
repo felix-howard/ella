@@ -131,6 +131,52 @@ export const VALID_DOC_FIELDS: Record<string, string[]> = {
     'licenseNumber', 'expirationDate', 'issueDate',
     'sex', 'height', 'eyeColor', 'documentDiscriminator',
   ],
+  SCHEDULE_C: [
+    'taxYear',
+    // Business Information
+    'businessName', 'proprietorName', 'principalBusinessCode',
+    'businessAddress', 'ein', 'accountingMethod',
+    // Income (Part I)
+    'grossReceipts', 'returns', 'grossReceiptsLessReturns',
+    'costOfGoodsSold', 'grossProfit', 'otherIncome', 'grossIncome',
+    // Expenses (Part II)
+    'advertising', 'carAndTruck', 'commissions', 'contractLabor',
+    'depletion', 'depreciation', 'employeeBenefit', 'insurance',
+    'interestMortgage', 'interestOther', 'legalAndProfessional',
+    'officeExpense', 'pensionProfitSharing', 'rentVehicles', 'rentMachinery',
+    'repairs', 'supplies', 'taxesLicenses', 'travel', 'mealsDeductible',
+    'utilities', 'wages', 'otherExpensesDescription', 'otherExpensesAmount',
+    'totalExpenses',
+    // Net Profit/Loss
+    'tentativeProfit', 'expensesForHomeUse', 'netProfit',
+    // Additional Info
+    'materialParticipation', 'startedOrAcquiredInYear',
+  ],
+  FORM_1099_DIV: [
+    'payerName', 'payerTIN', 'payerAddress',
+    'recipientName', 'recipientTIN', 'recipientAddress',
+    'ordinaryDividends', 'qualifiedDividends', 'capitalGainDistributions',
+    'unrecaptured1250Gain', 'section1202Gain', 'collectiblesGain',
+    'nondividendDistributions', 'federalTaxWithheld', 'investmentExpenses',
+    'foreignTaxPaid', 'foreignCountry', 'cashLiquidation', 'noncashLiquidation',
+    'exemptInterestDividends', 'privateBondDividends',
+    'state', 'stateId', 'stateTaxWithheld', 'taxYear',
+  ],
+  FORM_1040: [
+    'taxYear', 'formVariant',
+    'taxpayerName', 'taxpayerSSN', 'filingStatus',
+    'spouseName', 'spouseSSN',
+    'totalWages', 'totalIncome', 'adjustedGrossIncome',
+    'taxableIncome', 'standardOrItemizedDeduction', 'totalTax',
+    'childTaxCredit', 'earnedIncomeCredit', 'adjustmentsToIncome',
+    'totalWithheld', 'totalPayments', 'refundAmount', 'amountOwed',
+    'attachedSchedules', 'digitalAssetsAnswer',
+  ],
+  BANK_STATEMENT: [
+    'bankName', 'routingNumber', 'accountNumber', 'accountType',
+    'statementPeriodStart', 'statementPeriodEnd',
+    'beginningBalance', 'endingBalance', 'depositsTotal', 'withdrawalsTotal',
+  ],
   // Generic fields for other doc types
   OTHER: ['rawText', 'notes'],
   UNKNOWN: ['rawText', 'notes'],

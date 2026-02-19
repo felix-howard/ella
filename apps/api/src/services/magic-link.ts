@@ -13,10 +13,9 @@ const generateToken = customAlphabet(
   12
 )
 
-// Default TTL: 7 days for Schedule C/E, 30 days for Portal
+// Default TTL: 7 days for Schedule C/E, no expiry for Portal
 const SCHEDULE_C_TTL_DAYS = 7
 const SCHEDULE_E_TTL_DAYS = 7
-const PORTAL_TTL_DAYS = 30
 
 /**
  * Generate URL based on magic link type
@@ -49,10 +48,16 @@ export async function createMagicLink(
   const type: MagicLinkType = options?.type || 'PORTAL'
 
   // Calculate expiry based on type if not provided
-  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS
-    : type === 'SCHEDULE_E' ? SCHEDULE_E_TTL_DAYS
-    : PORTAL_TTL_DAYS
-  const expiresAt = options?.expiresAt || new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
+  // Portal links never expire (null), Schedule C/E expire after TTL days
+  let expiresAt: Date | null = null
+  if (options?.expiresAt) {
+    expiresAt = options.expiresAt
+  } else if (type === 'SCHEDULE_C') {
+    expiresAt = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
+  } else if (type === 'SCHEDULE_E') {
+    expiresAt = new Date(Date.now() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000)
+  }
+  // PORTAL type: expiresAt stays null (never expires)
 
   await prisma.magicLink.create({
     data: {
@@ -74,12 +79,17 @@ export async function createMagicLink(
 export async function createMagicLinkWithDeactivation(
   caseId: string,
   type: MagicLinkType = 'PORTAL'
-): Promise<{ url: string; expiresAt: Date }> {
+): Promise<{ url: string; expiresAt: Date | null }> {
   const token = generateToken()
-  const ttlDays = type === 'SCHEDULE_C' ? SCHEDULE_C_TTL_DAYS
-    : type === 'SCHEDULE_E' ? SCHEDULE_E_TTL_DAYS
-    : PORTAL_TTL_DAYS
-  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
+
+  // Portal links never expire (null), Schedule C/E expire after TTL days
+  let expiresAt: Date | null = null
+  if (type === 'SCHEDULE_C') {
+    expiresAt = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
+  } else if (type === 'SCHEDULE_E') {
+    expiresAt = new Date(Date.now() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000)
+  }
+  // PORTAL type: expiresAt stays null (never expires)
 
   await prisma.$transaction([
     // Deactivate all existing links of this type for this case

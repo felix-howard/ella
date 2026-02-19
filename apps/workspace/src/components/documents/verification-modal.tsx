@@ -455,10 +455,10 @@ export function VerificationModal({
           </div>
         </div>
 
-        {/* Content - Split view (60/40 for better document viewing) */}
+        {/* Content - Split view (70/30 for maximum document viewing) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left: Image Viewer - Larger space for document */}
-          <div className="h-1/2 md:h-full md:w-[60%] border-b md:border-b-0 md:border-r border-border bg-muted/20">
+          <div className="h-1/2 md:h-full md:w-[70%] border-b md:border-b-0 md:border-r border-border bg-muted/20">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -484,7 +484,7 @@ export function VerificationModal({
           </div>
 
           {/* Right: Verification Panel */}
-          <div className="h-1/2 md:h-full md:w-[40%] flex flex-col overflow-hidden bg-card">
+          <div className="h-1/2 md:h-full md:w-[30%] flex flex-col overflow-hidden bg-card">
             {/* Status bar */}
             <div className="px-4 py-3 border-b border-border bg-muted/10">
               <div className="flex items-center gap-2">

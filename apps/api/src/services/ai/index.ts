@@ -40,9 +40,11 @@ export {
 // OCR Extractor Service
 export {
   extractDocumentData,
+  extractForm1040WithSchedules,
   getExtractionStatusMessage,
   needsManualVerification,
   type OcrExtractionResult,
+  type Form1040EnhancedResult,
 } from './ocr-extractor'
 
 // OCR Prompts (for direct access)

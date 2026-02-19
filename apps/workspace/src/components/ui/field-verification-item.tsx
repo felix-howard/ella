@@ -5,10 +5,71 @@
  * Compact mode: inline layout with icon-only buttons for 8-10 fields visible
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn, Button, Input } from '@ella/ui'
 import { Check, Pencil, AlertTriangle, X } from 'lucide-react'
+
+/**
+ * Fields that represent money values and should be formatted with $ and commas
+ * ONLY explicit money fields - no pattern matching to avoid false positives
+ */
+const MONEY_FIELDS = new Set([
+  // W2 fields
+  'wagesTips', 'socialSecurityWages', 'medicareWages', 'wagesTipsOther',
+  'federalTaxWithheld', 'socialSecurityTax', 'medicareTax',
+  'socialSecurityTaxWithheld', 'medicareTaxWithheld', 'stateTaxWithheld',
+  // 1099-INT fields
+  'interestIncome', 'earlyWithdrawalPenalty', 'usSavingsBondInterest',
+  // 1099-NEC fields
+  'nonemployeeCompensation', 'stateIncome',
+  // 1099-DIV fields
+  'ordinaryDividends', 'qualifiedDividends', 'capitalGainDistributions',
+  // 1040 fields
+  'totalWages', 'totalIncome', 'adjustedGrossIncome', 'taxableIncome',
+  'standardOrItemizedDeduction', 'totalTax', 'childTaxCredit',
+  'earnedIncomeCredit', 'adjustmentsToIncome', 'totalWithheld',
+  'totalPayments', 'refundAmount', 'amountOwed',
+  // Schedule C fields - Income
+  'grossReceipts', 'returns', 'grossReceiptsLessReturns', 'costOfGoodsSold',
+  'grossProfit', 'otherIncome', 'grossIncome',
+  // Schedule C fields - Expenses
+  'advertising', 'carAndTruck', 'commissions', 'contractLabor', 'depletion',
+  'depreciation', 'employeeBenefit', 'insurance', 'interestMortgage', 'interestOther',
+  'legalAndProfessional', 'officeExpense', 'pensionProfitSharing', 'rentVehicles',
+  'rentMachinery', 'repairs', 'supplies', 'taxesLicenses', 'travel', 'mealsDeductible',
+  'utilities', 'wages', 'otherExpensesAmount', 'totalExpenses',
+  // Schedule C fields - Net Profit
+  'tentativeProfit', 'expensesForHomeUse', 'netProfit',
+])
+
+/**
+ * Check if a field key represents a money value
+ * Uses ONLY explicit whitelist - no pattern matching to avoid SSN, EIN, etc.
+ */
+function isMoneyField(fieldKey: string): boolean {
+  return MONEY_FIELDS.has(fieldKey)
+}
+
+/**
+ * Format a value as currency if it's a money field and the value is numeric
+ * @returns formatted string with $ and commas, or original value if not applicable
+ */
+function formatMoneyValue(value: string, fieldKey: string): string {
+  if (!value || !isMoneyField(fieldKey)) return value
+
+  // Try to parse as number (handle strings like "15739" or "15739.50")
+  const cleanValue = value.replace(/[$,]/g, '').trim()
+  const numericValue = parseFloat(cleanValue)
+
+  if (isNaN(numericValue)) return value
+
+  // Format with $ and thousand separators
+  return `$${numericValue.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`
+}
 
 export type FieldVerificationStatus = 'verified' | 'edited' | 'unreadable' | null
 
@@ -126,6 +187,11 @@ export function FieldVerificationItem({
     onVerify('unreadable')
   }, [disabled, onVerify])
 
+  // Format money values for display (memoized)
+  const displayValue = useMemo(() => {
+    return formatMoneyValue(value, fieldKey)
+  }, [value, fieldKey])
+
   // Compact mode: clean form-like layout
   if (compact) {
     return (
@@ -187,7 +253,7 @@ export function FieldVerificationItem({
               'flex-1 text-sm font-semibold',
               status === 'edited' ? 'text-amber-500' : 'text-foreground'
             )}>
-              {value || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
+              {displayValue || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
             </span>
           )}
         </div>
@@ -249,7 +315,7 @@ export function FieldVerificationItem({
         </div>
       ) : (
         <div className={cn('font-medium', status === 'edited' ? 'text-amber-500' : 'text-foreground')}>
-          {value || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
+          {displayValue || <span className="text-muted-foreground italic">{t('field.empty')}</span>}
         </div>
       )}
 

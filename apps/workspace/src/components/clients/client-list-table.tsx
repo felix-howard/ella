@@ -176,9 +176,6 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
           {actionCounts?.hasNewActivity && (
             <ActionBadge type="new-activity" />
           )}
-          {actionCounts?.missingDocs !== undefined && actionCounts.missingDocs > 0 && (
-            <ActionBadge type="missing" count={actionCounts.missingDocs} />
-          )}
           {actionCounts?.toVerify !== undefined && actionCounts.toVerify > 0 && (
             <ActionBadge type="verify" count={actionCounts.toVerify} />
           )}

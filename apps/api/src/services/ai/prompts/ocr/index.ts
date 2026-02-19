@@ -82,6 +82,36 @@ import {
   validate1099MiscData as _validate1099Misc,
   FORM_1099_MISC_FIELD_LABELS_VI as _1099MiscLabels,
 } from './1099-misc'
+import {
+  getForm1040ExtractionPrompt as _getForm1040Prompt,
+  validateForm1040Data as _validateForm1040,
+  FORM_1040_FIELD_LABELS_VI as _Form1040Labels,
+} from './form-1040'
+import {
+  getSchedule1ExtractionPrompt as _getSchedule1Prompt,
+  validateSchedule1Data as _validateSchedule1,
+  SCHEDULE_1_FIELD_LABELS_VI as _Schedule1Labels,
+} from './schedule-1'
+import {
+  getScheduleCExtractionPrompt as _getScheduleCPrompt,
+  validateScheduleCData as _validateScheduleC,
+  SCHEDULE_C_FIELD_LABELS_VI as _ScheduleCLabels,
+} from './schedule-c'
+import {
+  getScheduleSEExtractionPrompt as _getScheduleSEPrompt,
+  validateScheduleSEData as _validateScheduleSE,
+  SCHEDULE_SE_FIELD_LABELS_VI as _ScheduleSELabels,
+} from './schedule-se'
+import {
+  getScheduleDExtractionPrompt as _getScheduleDPrompt,
+  validateScheduleDData as _validateScheduleD,
+  SCHEDULE_D_FIELD_LABELS_VI as _ScheduleDLabels,
+} from './schedule-d'
+import {
+  getScheduleEExtractionPrompt as _getScheduleEPrompt,
+  validateScheduleEData as _validateScheduleE,
+  SCHEDULE_E_FIELD_LABELS_VI as _ScheduleELabels,
+} from './schedule-e'
 
 // Re-export W2 prompt and types
 export {
@@ -206,6 +236,63 @@ export {
 } from './1099-misc'
 export type { Form1099MiscExtractedData } from './1099-misc'
 
+// Re-export Form 1040 prompt and types
+export {
+  getForm1040ExtractionPrompt,
+  validateForm1040Data,
+  FORM_1040_FIELD_LABELS_VI,
+} from './form-1040'
+export type {
+  Form1040ExtractedData,
+  TaxpayerAddress,
+  DependentInfo,
+} from './form-1040'
+
+// Re-export Schedule 1 prompt and types
+export {
+  getSchedule1ExtractionPrompt,
+  validateSchedule1Data,
+  SCHEDULE_1_FIELD_LABELS_VI,
+} from './schedule-1'
+export type { Schedule1ExtractedData } from './schedule-1'
+
+// Re-export Schedule C prompt and types
+export {
+  getScheduleCExtractionPrompt,
+  validateScheduleCData,
+  SCHEDULE_C_FIELD_LABELS_VI,
+} from './schedule-c'
+export type { ScheduleCExtractedData } from './schedule-c'
+
+// Re-export Schedule SE prompt and types
+export {
+  getScheduleSEExtractionPrompt,
+  validateScheduleSEData,
+  SCHEDULE_SE_FIELD_LABELS_VI,
+} from './schedule-se'
+export type { ScheduleSEExtractedData } from './schedule-se'
+
+// Re-export Schedule D prompt and types
+export {
+  getScheduleDExtractionPrompt,
+  validateScheduleDData,
+  SCHEDULE_D_FIELD_LABELS_VI,
+} from './schedule-d'
+export type { ScheduleDExtractedData } from './schedule-d'
+
+// Re-export Schedule E prompt and types
+export {
+  getScheduleEExtractionPrompt,
+  validateScheduleEData,
+  SCHEDULE_E_FIELD_LABELS_VI,
+} from './schedule-e'
+export type {
+  ScheduleEExtractedData,
+  RentalPropertyDetail,
+  PartnershipDetail,
+  EstateTrustDetail,
+} from './schedule-e'
+
 /**
  * Supported OCR document types
  */
@@ -223,9 +310,15 @@ export type OcrDocType =
   | 'FORM_1098_T'
   | 'FORM_1095_A'
   | 'SCHEDULE_K1'
+  | 'SCHEDULE_1'
+  | 'SCHEDULE_C'
+  | 'SCHEDULE_SE'
+  | 'SCHEDULE_D'
+  | 'SCHEDULE_E'
   | 'BANK_STATEMENT'
   | 'SSN_CARD'
   | 'DRIVER_LICENSE'
+  | 'FORM_1040'
 
 /**
  * Get the appropriate OCR prompt for a document type
@@ -265,6 +358,18 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _getSsnCardPrompt()
     case 'DRIVER_LICENSE':
       return _getDLPrompt()
+    case 'FORM_1040':
+      return _getForm1040Prompt()
+    case 'SCHEDULE_1':
+      return _getSchedule1Prompt()
+    case 'SCHEDULE_C':
+      return _getScheduleCPrompt()
+    case 'SCHEDULE_SE':
+      return _getScheduleSEPrompt()
+    case 'SCHEDULE_D':
+      return _getScheduleDPrompt()
+    case 'SCHEDULE_E':
+      return _getScheduleEPrompt()
     default:
       return null
   }
@@ -272,27 +377,10 @@ export function getOcrPromptForDocType(docType: string): string | null {
 
 /**
  * Check if a document type supports OCR extraction
+ * Uses getOcrPromptForDocType to avoid DRY violation
  */
 export function supportsOcrExtraction(docType: string): boolean {
-  const supportedTypes: string[] = [
-    'W2',
-    'FORM_1099_INT',
-    'FORM_1099_NEC',
-    'FORM_1099_K',
-    'FORM_1099_DIV',
-    'FORM_1099_R',
-    'FORM_1099_SSA',
-    'FORM_1099_G',
-    'FORM_1099_MISC',
-    'FORM_1098',
-    'FORM_1098_T',
-    'FORM_1095_A',
-    'SCHEDULE_K1',
-    'BANK_STATEMENT',
-    'SSN_CARD',
-    'DRIVER_LICENSE',
-  ]
-  return supportedTypes.includes(docType)
+  return getOcrPromptForDocType(docType) !== null
 }
 
 /**
@@ -332,6 +420,18 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validateSsnCard(data)
     case 'DRIVER_LICENSE':
       return _validateDL(data)
+    case 'FORM_1040':
+      return _validateForm1040(data)
+    case 'SCHEDULE_1':
+      return _validateSchedule1(data)
+    case 'SCHEDULE_C':
+      return _validateScheduleC(data)
+    case 'SCHEDULE_SE':
+      return _validateScheduleSE(data)
+    case 'SCHEDULE_D':
+      return _validateScheduleD(data)
+    case 'SCHEDULE_E':
+      return _validateScheduleE(data)
     default:
       return false
   }
@@ -374,6 +474,18 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _SsnCardLabels
     case 'DRIVER_LICENSE':
       return _DLLabels
+    case 'FORM_1040':
+      return _Form1040Labels
+    case 'SCHEDULE_1':
+      return _Schedule1Labels
+    case 'SCHEDULE_C':
+      return _ScheduleCLabels
+    case 'SCHEDULE_SE':
+      return _ScheduleSELabels
+    case 'SCHEDULE_D':
+      return _ScheduleDLabels
+    case 'SCHEDULE_E':
+      return _ScheduleELabels
     default:
       return {}
   }

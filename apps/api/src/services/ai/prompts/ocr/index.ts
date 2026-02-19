@@ -102,6 +102,16 @@ import {
   validateScheduleSEData as _validateScheduleSE,
   SCHEDULE_SE_FIELD_LABELS_VI as _ScheduleSELabels,
 } from './schedule-se'
+import {
+  getScheduleDExtractionPrompt as _getScheduleDPrompt,
+  validateScheduleDData as _validateScheduleD,
+  SCHEDULE_D_FIELD_LABELS_VI as _ScheduleDLabels,
+} from './schedule-d'
+import {
+  getScheduleEExtractionPrompt as _getScheduleEPrompt,
+  validateScheduleEData as _validateScheduleE,
+  SCHEDULE_E_FIELD_LABELS_VI as _ScheduleELabels,
+} from './schedule-e'
 
 // Re-export W2 prompt and types
 export {
@@ -262,6 +272,27 @@ export {
 } from './schedule-se'
 export type { ScheduleSEExtractedData } from './schedule-se'
 
+// Re-export Schedule D prompt and types
+export {
+  getScheduleDExtractionPrompt,
+  validateScheduleDData,
+  SCHEDULE_D_FIELD_LABELS_VI,
+} from './schedule-d'
+export type { ScheduleDExtractedData } from './schedule-d'
+
+// Re-export Schedule E prompt and types
+export {
+  getScheduleEExtractionPrompt,
+  validateScheduleEData,
+  SCHEDULE_E_FIELD_LABELS_VI,
+} from './schedule-e'
+export type {
+  ScheduleEExtractedData,
+  RentalPropertyDetail,
+  PartnershipDetail,
+  EstateTrustDetail,
+} from './schedule-e'
+
 /**
  * Supported OCR document types
  */
@@ -282,6 +313,8 @@ export type OcrDocType =
   | 'SCHEDULE_1'
   | 'SCHEDULE_C'
   | 'SCHEDULE_SE'
+  | 'SCHEDULE_D'
+  | 'SCHEDULE_E'
   | 'BANK_STATEMENT'
   | 'SSN_CARD'
   | 'DRIVER_LICENSE'
@@ -333,6 +366,10 @@ export function getOcrPromptForDocType(docType: string): string | null {
       return _getScheduleCPrompt()
     case 'SCHEDULE_SE':
       return _getScheduleSEPrompt()
+    case 'SCHEDULE_D':
+      return _getScheduleDPrompt()
+    case 'SCHEDULE_E':
+      return _getScheduleEPrompt()
     default:
       return null
   }
@@ -391,6 +428,10 @@ export function validateExtractedData(docType: string, data: unknown): boolean {
       return _validateScheduleC(data)
     case 'SCHEDULE_SE':
       return _validateScheduleSE(data)
+    case 'SCHEDULE_D':
+      return _validateScheduleD(data)
+    case 'SCHEDULE_E':
+      return _validateScheduleE(data)
     default:
       return false
   }
@@ -441,6 +482,10 @@ export function getFieldLabels(docType: string): Record<string, string> {
       return _ScheduleCLabels
     case 'SCHEDULE_SE':
       return _ScheduleSELabels
+    case 'SCHEDULE_D':
+      return _ScheduleDLabels
+    case 'SCHEDULE_E':
+      return _ScheduleELabels
     default:
       return {}
   }

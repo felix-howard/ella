@@ -242,6 +242,8 @@ function calculateConfidence(data: Record<string, unknown>, docType: string): nu
     SCHEDULE_1: ['totalAdditionalIncome', 'totalAdjustments', 'businessIncome'],
     SCHEDULE_C: ['grossReceipts', 'netProfit', 'businessName', 'totalExpenses'],
     SCHEDULE_SE: ['selfEmploymentTax', 'netProfitScheduleC', 'deductionHalfSeTax'],
+    SCHEDULE_D: ['netShortTermGainLoss', 'netLongTermGainLoss', 'totalCapitalGainLoss'],
+    SCHEDULE_E: ['totalNetRentalIncome', 'totalScheduleEIncome', 'combinedIncome'],
     BANK_STATEMENT: ['bankName', 'accountNumber', 'beginningBalance', 'endingBalance'],
     SSN_CARD: ['fullName', 'ssn'],
     DRIVER_LICENSE: ['fullName', 'licenseNumber', 'expirationDate'],

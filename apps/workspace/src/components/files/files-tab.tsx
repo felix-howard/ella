@@ -262,6 +262,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
         <SimpleImageViewerModal
           imageId={viewImage.id}
           filename={viewImage.filename}
+          caseId={caseId}
           onClose={() => setViewImage(null)}
         />
       )}

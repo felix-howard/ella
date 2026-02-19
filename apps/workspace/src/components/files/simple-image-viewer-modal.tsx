@@ -2,22 +2,28 @@
  * SimpleImageViewerModal - Lightweight fullscreen viewer for files without a DigitalDoc
  * Used for irrelevant files (cat images, logos, etc.) classified as "Khác"
  * Shows only the image/PDF viewer with no verification fields
+ * Supports AI re-classification for misclassified "Other" documents
  */
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, ImageOff, RefreshCw } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { X, Loader2, ImageOff, RefreshCw, Wand2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
+import { api } from '../../lib/api-client'
+import { toast } from '../../stores/toast-store'
 
 export interface SimpleImageViewerModalProps {
   imageId: string
   filename: string
+  caseId?: string
   onClose: () => void
 }
 
-export function SimpleImageViewerModal({ imageId, filename, onClose }: SimpleImageViewerModalProps) {
+export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: SimpleImageViewerModalProps) {
+  const queryClient = useQueryClient()
   const {
     data: signedUrlData,
     isLoading,
@@ -26,6 +32,24 @@ export function SimpleImageViewerModal({ imageId, filename, onClose }: SimpleIma
   } = useSignedUrl(imageId)
 
   const isPdf = filename.toLowerCase().endsWith('.pdf')
+
+  // AI re-classification mutation
+  const reclassifyMutation = useMutation({
+    mutationFn: () => api.images.reclassify(imageId),
+    onSuccess: () => {
+      toast.success('Đang phân loại lại tài liệu...')
+      // Invalidate images to trigger polling for new classification
+      if (caseId) {
+        queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+      }
+      // Close modal - the document will move to "Processing" state
+      onClose()
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Không thể phân loại lại'
+      toast.error(message)
+    },
+  })
 
   // Escape key to close
   useEffect(() => {
@@ -55,13 +79,31 @@ export function SimpleImageViewerModal({ imageId, filename, onClose }: SimpleIma
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h2 className="text-sm font-medium text-foreground truncate">{filename}</h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
-            aria-label="Đóng"
-          >
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* AI Re-classify Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reclassifyMutation.mutate()}
+              disabled={reclassifyMutation.isPending}
+              className="gap-2"
+              title="AI phân loại lại tài liệu này"
+            >
+              {reclassifyMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">Phân loại lại</span>
+            </Button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

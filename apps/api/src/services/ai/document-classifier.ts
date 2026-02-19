@@ -305,6 +305,13 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     FOREIGN_TAX_RETURN: 'Tờ khai thuế nước ngoài',
     TAX_RETURN_TRANSCRIPT: 'Bản sao tờ khai IRS',
 
+    // Form 1040 Schedules
+    SCHEDULE_C: 'Schedule C (Lợi nhuận kinh doanh)',
+    SCHEDULE_SE: 'Schedule SE (Thuế tự làm chủ)',
+    SCHEDULE_1: 'Schedule 1 (Thu nhập & Điều chỉnh)',
+    SCHEDULE_D: 'Schedule D (Lãi/Lỗ vốn)',
+    SCHEDULE_E: 'Schedule E (Thu nhập cho thuê)',
+
     // Other
     OTHER: 'Khác',
     UNKNOWN: 'Chưa xác định',

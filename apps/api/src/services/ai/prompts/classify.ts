@@ -109,6 +109,13 @@ export const SUPPORTED_DOC_TYPES = [
   'FOREIGN_TAX_RETURN',
   'TAX_RETURN_TRANSCRIPT',
 
+  // Form 1040 Schedules
+  'SCHEDULE_C',
+  'SCHEDULE_SE',
+  'SCHEDULE_1',
+  'SCHEDULE_D',
+  'SCHEDULE_E',
+
   // Other
   'OTHER',
   'UNKNOWN',

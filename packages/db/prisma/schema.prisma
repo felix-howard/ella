@@ -134,6 +134,13 @@ enum DocType {
   FOREIGN_TAX_RETURN     // Foreign country tax return
   TAX_RETURN_TRANSCRIPT  // IRS tax return transcript
 
+  // Form 1040 Schedules
+  SCHEDULE_C             // Profit or Loss From Business (Sole Proprietorship)
+  SCHEDULE_SE            // Self-Employment Tax
+  SCHEDULE_1             // Additional Income and Adjustments to Income
+  SCHEDULE_D             // Capital Gains and Losses
+  SCHEDULE_E             // Supplemental Income and Loss (Rental, Royalties, etc.)
+
   // Other
   OTHER
   UNKNOWN

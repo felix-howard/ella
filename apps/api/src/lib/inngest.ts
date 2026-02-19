@@ -16,6 +16,7 @@ export type DocumentUploadedEvent = {
     r2Key: string
     mimeType: string
     uploadedAt: string
+    skipDuplicateCheck?: boolean
   }
 }
 

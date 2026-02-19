@@ -80,6 +80,46 @@ export const classifyDocumentJob = inngest.createFunction(
     id: 'classify-document',
     retries: 3,
     throttle: { limit: 10, period: '1m' }, // Gemini rate limit protection
+    onFailure: async ({ event, error }) => {
+      // When all retries exhausted, move document to OTHER category instead of stuck in PROCESSING
+      const { rawImageId, caseId, r2Key } = event.data.event.data
+
+      console.error(`[classify-document] All retries exhausted for ${rawImageId}:`, error.message)
+
+      try {
+        // Update status to CLASSIFIED with OTHER classifiedType
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: {
+            status: 'CLASSIFIED',
+            classifiedType: 'OTHER',
+            category: 'OTHER',
+            aiConfidence: 0,
+          },
+        })
+
+        // Create action for CPA visibility
+        const errorInfo = getVietnameseError(error.message)
+        await createAction({
+          caseId,
+          type: 'AI_FAILED',
+          priority: getActionPriority(errorInfo.severity),
+          title: 'AI xử lý thất bại sau nhiều lần thử',
+          description: errorInfo.message,
+          metadata: {
+            rawImageId,
+            r2Key,
+            errorType: errorInfo.type,
+            technicalError: sanitizeErrorMessage(error.message + ' (retries exhausted)'),
+            attemptedAt: new Date().toISOString(),
+          },
+        })
+
+        console.log(`[classify-document] Moved ${rawImageId} to OTHER category after retry exhaustion`)
+      } catch (dbError) {
+        console.error(`[classify-document] Failed to update ${rawImageId} on failure:`, dbError)
+      }
+    },
   },
   { event: 'document/uploaded' },
   async ({ event, step }) => {

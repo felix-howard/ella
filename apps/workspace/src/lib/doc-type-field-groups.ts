@@ -178,6 +178,44 @@ const DOC_TYPE_FIELD_GROUPS_DATA: Record<string, Array<{ key: string; labelKey: 
       fields: ['taxYear', 'formVariant', 'attachedSchedules', 'digitalAssetsAnswer'],
     },
   ],
+  SCHEDULE_C: [
+    {
+      key: 'businessInfo',
+      labelKey: 'fieldGroup.businessInfo',
+      icon: Building2,
+      fields: ['businessName', 'proprietorName', 'principalBusinessCode', 'businessAddress', 'ein', 'accountingMethod'],
+    },
+    {
+      key: 'income',
+      labelKey: 'fieldGroup.income',
+      icon: DollarSign,
+      fields: ['grossReceipts', 'returns', 'grossReceiptsLessReturns', 'costOfGoodsSold', 'grossProfit', 'otherIncome', 'grossIncome'],
+    },
+    {
+      key: 'expenses',
+      labelKey: 'fieldGroup.expenses',
+      icon: Receipt,
+      fields: [
+        'advertising', 'carAndTruck', 'commissions', 'contractLabor', 'depletion', 'depreciation',
+        'employeeBenefit', 'insurance', 'interestMortgage', 'interestOther', 'legalAndProfessional',
+        'officeExpense', 'pensionProfitSharing', 'rentVehicles', 'rentMachinery', 'repairs',
+        'supplies', 'taxesLicenses', 'travel', 'mealsDeductible', 'utilities', 'wages',
+        'otherExpensesDescription', 'otherExpensesAmount', 'totalExpenses'
+      ],
+    },
+    {
+      key: 'netProfit',
+      labelKey: 'fieldGroup.netProfit',
+      icon: Calculator,
+      fields: ['tentativeProfit', 'expensesForHomeUse', 'netProfit'],
+    },
+    {
+      key: 'formInfo',
+      labelKey: 'fieldGroup.formInfo',
+      icon: FileText,
+      fields: ['taxYear', 'materialParticipation', 'startedOrAcquiredInYear'],
+    },
+  ],
 }
 
 /** Field grouping definitions for different document types (with i18n) */

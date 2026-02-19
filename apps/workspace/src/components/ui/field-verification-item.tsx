@@ -30,6 +30,17 @@ const MONEY_FIELDS = new Set([
   'standardOrItemizedDeduction', 'totalTax', 'childTaxCredit',
   'earnedIncomeCredit', 'adjustmentsToIncome', 'totalWithheld',
   'totalPayments', 'refundAmount', 'amountOwed',
+  // Schedule C fields - Income
+  'grossReceipts', 'returns', 'grossReceiptsLessReturns', 'costOfGoodsSold',
+  'grossProfit', 'otherIncome', 'grossIncome',
+  // Schedule C fields - Expenses
+  'advertising', 'carAndTruck', 'commissions', 'contractLabor', 'depletion',
+  'depreciation', 'employeeBenefit', 'insurance', 'interestMortgage', 'interestOther',
+  'legalAndProfessional', 'officeExpense', 'pensionProfitSharing', 'rentVehicles',
+  'rentMachinery', 'repairs', 'supplies', 'taxesLicenses', 'travel', 'mealsDeductible',
+  'utilities', 'wages', 'otherExpensesAmount', 'totalExpenses',
+  // Schedule C fields - Net Profit
+  'tentativeProfit', 'expensesForHomeUse', 'netProfit',
 ])
 
 /**

@@ -1,0 +1,8 @@
+-- AddEnumValue: Add schedule types to DocType enum
+-- These values support IRS Form 1040 schedule classification
+
+ALTER TYPE "DocType" ADD VALUE IF NOT EXISTS 'SCHEDULE_C';
+ALTER TYPE "DocType" ADD VALUE IF NOT EXISTS 'SCHEDULE_SE';
+ALTER TYPE "DocType" ADD VALUE IF NOT EXISTS 'SCHEDULE_1';
+ALTER TYPE "DocType" ADD VALUE IF NOT EXISTS 'SCHEDULE_D';
+ALTER TYPE "DocType" ADD VALUE IF NOT EXISTS 'SCHEDULE_E';

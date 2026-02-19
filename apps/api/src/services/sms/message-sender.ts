@@ -53,7 +53,7 @@ function replacePlaceholders(
 
 /**
  * Send welcome message with magic link to new client
- * Uses database template if available (WELCOME category), otherwise fallback to hardcoded
+ * Uses database template if available (PORTAL_LINK category), otherwise fallback to hardcoded
  */
 export async function sendWelcomeMessage(
   caseId: string,
@@ -65,10 +65,10 @@ export async function sendWelcomeMessage(
 ): Promise<SendMessageResult> {
   let body: string
 
-  // Try to get welcome template from database
+  // Try to get portal link template from database
   const dbTemplate = await prisma.messageTemplate.findFirst({
     where: {
-      category: 'WELCOME',
+      category: 'PORTAL_LINK',
       isActive: true,
     },
     orderBy: { sortOrder: 'asc' },

@@ -1,24 +1,31 @@
 /**
  * Template Picker - Modal for selecting pre-defined message templates
- * Templates are fetched from API and categorized for easy access during client communication
+ * With simplified 3-template system:
+ * - PORTAL_LINK: Auto-sent, not available for manual selection
+ * - SCHEDULE_C: Available for manual selection (business expenses)
+ * - SCHEDULE_E: Available for manual selection (rental property)
  */
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@ella/ui'
-import { X, Search, FileText, Clock, AlertTriangle, CheckCircle, Send, Loader2 } from 'lucide-react'
-import { api, type MessageTemplate as ApiMessageTemplate, type MessageTemplateCategory } from '../../lib/api-client'
+import { X, Search, Receipt, Building2, Send, Loader2, FileText } from 'lucide-react'
+import {
+  api,
+  type MessageTemplate as ApiMessageTemplate,
+  type MessageTemplateCategory,
+} from '../../lib/api-client'
 
-// Local interface matching API but with lowercase category for UI compatibility
+// Local interface for template picker
 export interface MessageTemplate {
   id: string
-  category: TemplateCategory
+  category: 'schedule_c' | 'schedule_e'
   title: string
   content: string
   placeholders?: string[]
 }
 
-export type TemplateCategory = 'reminder' | 'missing' | 'blurry' | 'complete' | 'general'
+export type TemplateCategory = 'schedule_c' | 'schedule_e'
 
 export interface TemplatePickerProps {
   isOpen: boolean
@@ -28,34 +35,34 @@ export interface TemplatePickerProps {
 }
 
 // Category configuration
-const CATEGORIES: Record<TemplateCategory, { label: string; icon: typeof FileText; color: string }> = {
-  reminder: { label: 'Nhắc nhở', icon: Clock, color: 'text-warning' },
-  missing: { label: 'Tài liệu thiếu', icon: AlertTriangle, color: 'text-error' },
-  blurry: { label: 'Ảnh mờ', icon: AlertTriangle, color: 'text-warning' },
-  complete: { label: 'Hoàn thành', icon: CheckCircle, color: 'text-success' },
-  general: { label: 'Chung', icon: FileText, color: 'text-muted-foreground' },
-}
+const CATEGORIES: Record<TemplateCategory, { label: string; icon: typeof Receipt; color: string }> =
+  {
+    schedule_c: { label: 'Schedule C', icon: Receipt, color: 'text-amber-500' },
+    schedule_e: { label: 'Schedule E', icon: Building2, color: 'text-blue-500' },
+  }
 
 // Map API category (uppercase) to UI category (lowercase)
-const mapApiCategoryToUi = (apiCategory: MessageTemplateCategory): TemplateCategory => {
-  return apiCategory.toLowerCase() as TemplateCategory
+const mapApiCategoryToUi = (apiCategory: MessageTemplateCategory): TemplateCategory | null => {
+  if (apiCategory === 'SCHEDULE_C') return 'schedule_c'
+  if (apiCategory === 'SCHEDULE_E') return 'schedule_e'
+  return null // PORTAL_LINK is not selectable
 }
 
 // Convert API template to UI template format
-const mapApiTemplateToUi = (apiTemplate: ApiMessageTemplate): MessageTemplate => ({
-  id: apiTemplate.id,
-  category: mapApiCategoryToUi(apiTemplate.category),
-  title: apiTemplate.title,
-  content: apiTemplate.content,
-  placeholders: apiTemplate.placeholders,
-})
+const mapApiTemplateToUi = (apiTemplate: ApiMessageTemplate): MessageTemplate | null => {
+  const category = mapApiCategoryToUi(apiTemplate.category)
+  if (!category) return null
 
-export function TemplatePicker({
-  isOpen,
-  onClose,
-  onSelect,
-  clientName,
-}: TemplatePickerProps) {
+  return {
+    id: apiTemplate.id,
+    category,
+    title: apiTemplate.title,
+    content: apiTemplate.content,
+    placeholders: apiTemplate.placeholders,
+  }
+}
+
+export function TemplatePicker({ isOpen, onClose, onSelect, clientName }: TemplatePickerProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | 'all'>('all')
 
@@ -66,12 +73,12 @@ export function TemplatePicker({
     enabled: isOpen, // Only fetch when modal is open
   })
 
-  // Map API templates to UI format (exclude WELCOME - they're auto-sent)
+  // Map API templates to UI format (exclude PORTAL_LINK - it's auto-sent)
   const templates: MessageTemplate[] = useMemo(() => {
     if (!data?.data) return []
     return data.data
-      .filter((t) => t.category !== 'WELCOME') // WELCOME templates are auto-sent, not for manual selection
       .map(mapApiTemplateToUi)
+      .filter((t): t is MessageTemplate => t !== null)
   }, [data])
 
   // Filter templates
@@ -106,10 +113,7 @@ export function TemplatePicker({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -117,7 +121,9 @@ export function TemplatePicker({
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Chọn mẫu tin nhắn</h2>
-            <p className="text-sm text-muted-foreground">Chọn mẫu để gửi nhanh cho khách hàng</p>
+            <p className="text-sm text-muted-foreground">
+              Chọn mẫu để gửi nhanh cho khách hàng
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -192,7 +198,7 @@ export function TemplatePicker({
               <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p className="text-sm">
                 {templates.length === 0
-                  ? 'Chưa có mẫu tin nhắn nào. Hãy thêm mẫu trong Cài đặt.'
+                  ? 'Chưa có mẫu tin nhắn nào. Hãy cấu hình trong Cài đặt.'
                   : 'Không tìm thấy mẫu phù hợp'}
               </p>
             </div>

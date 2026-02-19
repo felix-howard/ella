@@ -383,7 +383,7 @@ describe('SUPPORTED_DOC_TYPES', () => {
   })
 
   it('has correct total count of document types', () => {
-    // Expanded to 71 types: 64 base + 7 tax return types (FORM_1040, _SR, _NR, _X, STATE_TAX_RETURN, FOREIGN_TAX_RETURN, TAX_RETURN_TRANSCRIPT)
-    expect(SUPPORTED_DOC_TYPES.length).toBe(71)
+    // Expanded to 76 types: 64 base + 7 tax return types + 5 schedules (C, SE, 1, D, E)
+    expect(SUPPORTED_DOC_TYPES.length).toBe(76)
   })
 })

@@ -182,6 +182,10 @@ Response: {"docType":"FORM_1040_X","confidence":0.91,"reasoning":"Form 1040-X wi
 EXAMPLE 9 - State Tax Return (CA 540):
 Image shows: "California Resident Income Tax Return" header, "Form 540", Franchise Tax Board logo, California state seal, CA AGI line, CA tax liability
 Response: {"docType":"STATE_TAX_RETURN","confidence":0.90,"reasoning":"California Form 540 state income tax return with Franchise Tax Board branding and CA-specific tax lines","taxYear":2023}
+
+EXAMPLE 10 - Schedule C (Self-Employment):
+Image shows: "SCHEDULE C (Form 1040)" header, "Profit or Loss From Business" subtitle, "(Sole Proprietorship)" indicator, six-digit principal business code, Part I Income with gross receipts Line 1, Part II Expenses Lines 8-27, net profit Line 31
+Response: {"docType":"SCHEDULE_C","confidence":0.92,"reasoning":"Schedule C form identified by 'Profit or Loss From Business' subtitle, sole proprietorship designation, IRS line number structure for business income and expenses","taxYear":2024,"recipientName":"NGUYEN VAN ANH"}
 `
 
 /**
@@ -272,12 +276,26 @@ TAX RETURNS - Filed Returns & Transcripts:
 - FOREIGN_TAX_RETURN: Foreign country income tax return (non-US language/format, foreign government logo, foreign currency amounts)
 - TAX_RETURN_TRANSCRIPT: IRS Tax Return Transcript (IRS letterhead, "Tax Return Transcript" header, masked SSN, line-by-line 1040 data without original format)
 
+TAX RETURN SCHEDULES (Form 1040 Attachments):
+- SCHEDULE_C: Schedule C - Profit or Loss From Business (Sole Proprietorship). Shows gross receipts Line 1, cost of goods sold Line 4, expenses Lines 8-27, net profit/loss Line 31. Has principal business code (6-digit NAICS).
+- SCHEDULE_SE: Schedule SE - Self-Employment Tax. Calculates Social Security and Medicare tax for self-employed. Line 2 net profit from Schedule C, Line 6 total self-employment tax.
+- SCHEDULE_1: Schedule 1 - Additional Income and Adjustments to Income. Part I: taxable refunds, business income (Schedule C), rental income (Schedule E), unemployment. Part II: educator expenses, HSA, self-employment tax deduction.
+- SCHEDULE_D: Schedule D - Capital Gains and Losses. Part I short-term (held <=1 year), Part II long-term (held >1 year). References Form 8949 for transaction details. Line 16 combined net gain/loss.
+- SCHEDULE_E: Schedule E - Supplemental Income and Loss. Part I: rental real estate (up to 3 properties), shows rental income Line 3, expenses Lines 5-19, depreciation Line 18, net income Line 21. Part II: partnership/S-corp income.
+
 DISAMBIGUATION RULES FOR TAX RETURNS:
 - 1040 vs 1040-X: Look for "Amended" in title or three-column layout (1040-X)
 - 1040 vs 1040-SR: Look for "SR" in form number or "Seniors" in title
 - 1040 vs State return: Federal returns have IRS logo; state returns have state agency branding
 - 1040 vs Transcript: Transcripts are letters from IRS, not the actual form layout
 - Tax return vs PRIOR_YEAR_RETURN: Use FORM_1040 (not PRIOR_YEAR_RETURN) when actual 1040 form is visible
+
+DISAMBIGUATION RULES FOR SCHEDULES:
+- Schedule C vs Profit/Loss Statement: Schedule C has IRS header "SCHEDULE C (Form 1040)"; business P&L has company letterhead
+- Schedule D vs Form 8949: Schedule D summarizes totals; Form 8949 lists individual transactions
+- Schedule E vs Schedule C: Schedule E = passive rental income; Schedule C = active business income
+- Schedule 1 vs Form 1040: Schedule 1 is attachment showing additional income; Form 1040 is main return
+- Schedule SE vs W-2: Schedule SE calculates self-employment tax; W-2 shows employer withholding
 
 OTHER DOCUMENTS:
 - RECEIPT: General receipts, invoices, purchase records

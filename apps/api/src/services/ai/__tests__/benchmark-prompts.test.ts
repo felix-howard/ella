@@ -39,7 +39,7 @@ const OCR_SUPPORTED_TYPES = [
 const BENCHMARK_ITERATIONS = 100
 const MAX_PROMPT_GENERATION_MS = 5 // Max time for single prompt generation
 const MAX_VALIDATION_MS = 1 // Max time for single validation
-const MAX_CLASSIFICATION_PROMPT_LENGTH = 10000 // Characters
+const MAX_CLASSIFICATION_PROMPT_LENGTH = 12000 // Characters (expanded for schedule types)
 const MIN_OCR_PROMPT_LENGTH = 500 // Minimum characters for useful prompt
 
 // =============================================================================

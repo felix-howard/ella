@@ -12,9 +12,10 @@ import { ScheduleESummary } from './schedule-e-summary'
 
 interface ScheduleETabProps {
   caseId: string
+  clientName: string
 }
 
-export function ScheduleETab({ caseId }: ScheduleETabProps) {
+export function ScheduleETab({ caseId, clientName }: ScheduleETabProps) {
   const { expense, magicLink, totals, properties, isLoading, error, refetch } = useScheduleE({
     caseId,
     enabled: true,
@@ -50,7 +51,7 @@ export function ScheduleETab({ caseId }: ScheduleETabProps) {
 
   // State 1: No Schedule E exists → Show empty state with send button
   if (!expense) {
-    return <ScheduleEEmptyState caseId={caseId} />
+    return <ScheduleEEmptyState caseId={caseId} clientName={clientName} />
   }
 
   // State 2: Schedule E exists but status is DRAFT → Show waiting state

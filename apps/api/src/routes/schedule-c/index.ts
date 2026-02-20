@@ -24,9 +24,19 @@ const scheduleCRoute = new Hono<{ Variables: AuthVariables }>()
 /**
  * POST /schedule-c/:caseId/send
  * Send Schedule C expense form to client
+ * Body: { customMessage?: string } - optional custom SMS message template
  */
 scheduleCRoute.post('/:caseId/send', async (c) => {
   const caseId = c.req.param('caseId')
+
+  // Parse optional custom message from body
+  let customMessage: string | undefined
+  try {
+    const body = await c.req.json()
+    customMessage = body?.customMessage
+  } catch {
+    // No body or invalid JSON - that's fine, customMessage stays undefined
+  }
 
   // Validate taxCase exists and has phone
   const taxCase = await prisma.taxCase.findUnique({
@@ -72,7 +82,7 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
   // Create new magic link with atomic deactivation of existing links
   const { url: magicLinkUrl, expiresAt } = await createMagicLinkWithDeactivation(caseId, 'SCHEDULE_C')
 
-  // Send SMS using org language preference
+  // Send SMS using custom message or org language preference
   const user = c.get('user')
   const smsLanguage = await getOrgSmsLanguage(user.organizationId)
   const smsResult = await sendScheduleCFormMessage(
@@ -80,14 +90,15 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
     taxCase.client.name,
     taxCase.client.phone,
     magicLinkUrl,
-    smsLanguage
+    smsLanguage,
+    customMessage
   )
 
   return c.json({
     success: true,
     magicLink: magicLinkUrl,
     messageSent: smsResult.smsSent,
-    expiresAt: expiresAt.toISOString(),
+    expiresAt: expiresAt?.toISOString() ?? null,
     expenseId: expense.id,
     prefilledGrossReceipts: prefilledGrossReceipts.toFixed(2),
   })

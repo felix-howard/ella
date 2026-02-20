@@ -3,9 +3,8 @@
  * Contains theme toggle, language switcher, and admin configuration tabs
  */
 
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Sun, Moon, Palette, MessageSquare, Globe, MessageSquareMore, PhoneMissed } from 'lucide-react'
+import { Sun, Moon, Palette, Globe, MessageSquareMore, PhoneMissed } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PageContainer } from '../components/layout'
@@ -15,65 +14,28 @@ import { cn } from '@ella/ui'
 import { useLanguageSync } from '../hooks/use-language-sync'
 import { api } from '../lib/api-client'
 import type { Language } from '../lib/api-client'
-import {
-  MessageTemplateConfigTab,
-} from '../components/settings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
 })
 
-type SettingsTab = 'appearance' | 'message-templates'
-
 function SettingsPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
   const { theme, setTheme } = useTheme()
   const { currentLanguage, changeLanguage } = useLanguageSync()
-
-  const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'appearance', label: t('settings.appearance'), icon: <Palette className="w-4 h-4" /> },
-    { id: 'message-templates', label: t('settings.messageTemplates'), icon: <MessageSquare className="w-4 h-4" /> },
-  ]
 
   return (
     <PageContainer>
       <div className="max-w-5xl">
         <h1 className="text-2xl font-bold text-foreground mb-6">{t('settings.title')}</h1>
 
-        {/* Tabs */}
-        <div className="relative mb-6">
-          <div className="flex gap-2 border-b border-border overflow-x-auto scrollbar-hide">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {/* Scroll fade indicator (right edge) */}
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
+        {/* Settings Content */}
+        <div className="space-y-4">
+          <ThemeCard theme={theme} setTheme={setTheme} />
+          <LanguageCard currentLanguage={currentLanguage} changeLanguage={changeLanguage} />
+          <SmsLanguageCard />
+          <MissedCallTextBackCard />
         </div>
-
-        {/* Tab Content */}
-        {activeTab === 'appearance' && (
-          <div className="space-y-4">
-            <ThemeCard theme={theme} setTheme={setTheme} />
-            <LanguageCard currentLanguage={currentLanguage} changeLanguage={changeLanguage} />
-            <SmsLanguageCard />
-            <MissedCallTextBackCard />
-          </div>
-        )}
-        {activeTab === 'message-templates' && <MessageTemplateConfigTab />}
       </div>
     </PageContainer>
   )

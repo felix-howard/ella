@@ -681,7 +681,7 @@ function ClientDetailPage() {
       {activeTab === 'schedule-c' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleCTab caseId={activeCaseId} />
+            <ScheduleCTab caseId={activeCaseId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -690,7 +690,7 @@ function ClientDetailPage() {
       {activeTab === 'schedule-e' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleEError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleETab caseId={activeCaseId} />
+            <ScheduleETab caseId={activeCaseId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

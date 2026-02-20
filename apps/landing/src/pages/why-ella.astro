@@ -40,8 +40,8 @@ const structuredData = [
 
   <main>
     <!-- Hero Section -->
-    <section class="pt-32 pb-20">
-      <div class="mx-auto max-w-3xl px-6 text-center">
+    <section class="pt-24 pb-16 sm:pt-32 sm:pb-20">
+      <div class="mx-auto max-w-3xl px-4 sm:px-6 text-center">
         <p
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
           data-animate="fade-up"
@@ -49,7 +49,7 @@ const structuredData = [
           Why Ella
         </p>
         <h1
-          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          class="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl"
           data-animate="fade-up"
         >
           Tax season doesn't have to be
@@ -66,8 +66,8 @@ const structuredData = [
     </section>
 
     <!-- Problem Section -->
-    <section class="bg-gray-50 py-24" aria-label="The challenge">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="bg-gray-50 py-16 sm:py-24" aria-label="The challenge">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="The Challenge" title="Why tax document management is broken" />
         <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
           {problems.map((p) => (
@@ -80,8 +80,8 @@ const structuredData = [
     </section>
 
     <!-- Solution Section -->
-    <section class="py-24" aria-label="The solution">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="py-16 sm:py-24" aria-label="The solution">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="The Solution" title="How Ella transforms your workflow" />
         <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
           {solutions.map((s) => (
@@ -94,8 +94,8 @@ const structuredData = [
     </section>
 
     <!-- Before / After Comparison -->
-    <section class="bg-gray-50 py-24" aria-label="Before and after comparison">
-      <div class="mx-auto max-w-5xl px-6">
+    <section class="bg-gray-50 py-16 sm:py-24" aria-label="Before and after comparison">
+      <div class="mx-auto max-w-5xl px-4 sm:px-6">
         <SectionHeading title="A typical tax season: Before vs After" />
         <div class="mt-12 grid gap-8 md:grid-cols-2" data-animate="fade-up">
           <!-- Before column -->
@@ -154,8 +154,8 @@ const structuredData = [
     </section>
 
     <!-- Why Ella vs Others Section -->
-    <section class="py-24" aria-label="What makes Ella different">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="py-16 sm:py-24" aria-label="What makes Ella different">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Why Ella" title="What makes Ella different" />
         <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
           {differentiators.map((d) => (
@@ -168,8 +168,8 @@ const structuredData = [
     </section>
 
     <!-- Stats / Social Proof -->
-    <section class="border-y border-gray-200 bg-white py-20" aria-label="Social proof statistics">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="border-y border-gray-200 bg-white py-16 sm:py-20" aria-label="Social proof statistics">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <StatsBar stats={whyEllaStats} />
       </div>
     </section>

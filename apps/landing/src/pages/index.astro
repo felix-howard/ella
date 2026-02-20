@@ -88,7 +88,7 @@ const testimonials = [
   <main>
     <!-- Hero Section -->
     <section
-      class="relative flex min-h-[90vh] items-center justify-center overflow-hidden pt-16"
+      class="relative flex min-h-[80vh] items-center justify-center overflow-hidden pt-16 sm:min-h-[90vh]"
     >
       <!-- Subtle background gradient -->
       <div
@@ -154,9 +154,9 @@ const testimonials = [
         </div>
       </div>
 
-      <!-- Scroll indicator -->
+      <!-- Scroll indicator - hidden on xs screens -->
       <div
-        class="absolute bottom-8 left-1/2 -translate-x-1/2"
+        class="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:block"
         aria-hidden="true"
       >
         <svg
@@ -192,7 +192,7 @@ const testimonials = [
         </div>
 
         <!-- 3 Highlight Cards -->
-        <div class="mt-20 grid gap-12 lg:grid-cols-3">
+        <div class="mt-12 grid gap-8 sm:mt-20 sm:gap-12 lg:grid-cols-3">
           <!-- Card 1: Easy Collection -->
           <div class="group" data-animate="fade-up">
             <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
@@ -318,7 +318,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-12 md:grid-cols-3" data-stagger>
+        <div class="mt-10 grid gap-8 sm:mt-16 sm:gap-12 md:grid-cols-3" data-stagger>
           {
             steps.map((item) => (
               <div class="text-center" data-animate="fade-up">
@@ -348,7 +348,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-8 md:grid-cols-3" data-stagger>
+        <div class="mt-10 grid gap-6 sm:mt-16 sm:gap-8 md:grid-cols-3" data-stagger>
           {
             testimonials.map((t) => (
               <div data-animate="fade-up">
@@ -376,7 +376,7 @@ const testimonials = [
           </p>
         </div>
 
-        <div class="mt-12 rounded-2xl bg-white p-8 shadow-xl" data-animate="fade-up">
+        <div class="mt-8 rounded-2xl bg-white p-6 shadow-xl sm:mt-12 sm:p-8" data-animate="fade-up">
           <ContactForm />
         </div>
       </div>

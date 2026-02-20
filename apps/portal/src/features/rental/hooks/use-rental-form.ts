@@ -161,15 +161,18 @@ export function useRentalForm(
   // Navigation helpers
   const goNext = useCallback(() => {
     setCurrentStep((prev) => Math.min(prev + 1, totalSteps - 1))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [totalSteps])
 
   const goBack = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 0))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   const goToStep = useCallback((step: number) => {
     if (step >= 0 && step < totalSteps) {
       setCurrentStep(step)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [totalSteps])
 

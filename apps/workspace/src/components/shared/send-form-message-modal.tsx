@@ -26,13 +26,6 @@ const PLACEHOLDERS = {
   form_link: '{{form_link}}',
 }
 
-// Replace placeholders with actual/preview values
-function renderPreview(template: string, clientName: string): string {
-  return template
-    .replace(/\{\{client_name\}\}/g, clientName)
-    .replace(/\{\{form_link\}\}/g, '[Form Link]')
-}
-
 export function SendFormMessageModal({
   isOpen,
   onClose,
@@ -66,7 +59,6 @@ export function SendFormMessageModal({
   }, [isOpen, defaultTemplateVI, defaultTemplateEN])
 
   const currentMessage = messages[language]
-  const preview = renderPreview(currentMessage, clientName)
 
   const handleMessageChange = (value: string) => {
     setMessages((prev) => ({
@@ -177,13 +169,6 @@ export function SendFormMessageModal({
             </div>
           </div>
 
-          {/* Preview */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">{t('sendFormModal.preview')}</p>
-            <div className="bg-muted/30 rounded-lg p-3 text-sm text-foreground border border-border">
-              {preview}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

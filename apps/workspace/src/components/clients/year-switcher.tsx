@@ -7,21 +7,13 @@ import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Calendar, Plus, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
-import type { TaxEngagement, EngagementStatus } from '../../lib/api-client'
+import type { TaxEngagement } from '../../lib/api-client'
 
 interface YearSwitcherProps {
   engagements: TaxEngagement[]
   selectedYear: number
   onYearChange: (year: number, engagementId: string) => void
   onCreateNew: () => void
-}
-
-// Status label keys with styling
-const STATUS_CONFIG: Record<EngagementStatus, { key: string; className: string }> = {
-  DRAFT: { key: 'yearSwitcher.draft', className: 'text-muted-foreground' },
-  ACTIVE: { key: 'yearSwitcher.processing', className: 'text-primary' },
-  COMPLETE: { key: 'yearSwitcher.completed', className: 'text-success' },
-  ARCHIVED: { key: 'yearSwitcher.archived', className: 'text-muted-foreground' },
 }
 
 export function YearSwitcher({
@@ -33,9 +25,6 @@ export function YearSwitcher({
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // Find the selected engagement for status display
-  const selectedEngagement = engagements.find((e) => e.taxYear === selectedYear)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,11 +69,6 @@ export function YearSwitcher({
       >
         <Calendar className="w-4 h-4 text-primary" aria-hidden="true" />
         <span className="font-medium">{selectedYear}</span>
-        {selectedEngagement && (
-          <span className={cn('text-xs', STATUS_CONFIG[selectedEngagement.status].className)}>
-            ({t(STATUS_CONFIG[selectedEngagement.status].key)})
-          </span>
-        )}
         <ChevronDown
           className={cn(
             'w-4 h-4 text-muted-foreground transition-transform',
@@ -116,12 +100,7 @@ export function YearSwitcher({
                 engagement.taxYear === selectedYear && 'bg-primary-light/30'
               )}
             >
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{engagement.taxYear}</span>
-                <span className={cn('text-xs', STATUS_CONFIG[engagement.status].className)}>
-                  {t(STATUS_CONFIG[engagement.status].key)}
-                </span>
-              </div>
+              <span className="font-medium">{engagement.taxYear}</span>
               {engagement.taxYear === selectedYear && (
                 <Check className="w-4 h-4 text-primary" aria-hidden="true" />
               )}

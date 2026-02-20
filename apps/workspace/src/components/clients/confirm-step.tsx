@@ -156,15 +156,6 @@ export function ConfirmStep({
           </div>
         </div>
 
-        {/* Preview */}
-        {onMessageChange && (
-          <div className="mt-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">{t('confirmStep.preview')}</p>
-            <div className="bg-card rounded-lg p-3 text-sm text-foreground border border-border shadow-sm">
-              {smsPreview}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Submit Button */}

@@ -7,7 +7,6 @@
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
 import SectionHeading from "@/components/section-heading.astro";
-import FeatureCard from "@/components/feature-card.astro";
 import TestimonialCard from "@/components/testimonial-card.astro";
 import StatsBar from "@/components/stats-bar.astro";
 import ContactForm from "@/components/contact-form.astro";
@@ -33,34 +32,6 @@ const stats = [
   { value: 80, label: "Time Saved", suffix: "%" },
 ];
 
-/* Feature highlights — 4 key capabilities (SMS + Auto-Rename first) */
-const features = [
-  {
-    icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z",
-    title: "SMS Direct Upload",
-    description:
-      "Clients text tax docs directly to your firm's Ella number. No app download, no portal login — documents still processed by AI automatically.",
-  },
-  {
-    icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z",
-    title: "AI Auto-Rename",
-    description:
-      "Client sends 'IMG_2847.jpg'. Ella names it '2024_W2_Amazon_JohnSmith.pdf'. Messy uploads → organized, searchable files automatically.",
-  },
-  {
-    icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
-    title: "AI Classification",
-    description:
-      "Identify 89+ tax document types automatically. W-2s, 1099s, K-1s — classified in seconds with confidence scoring.",
-  },
-  {
-    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6",
-    title: "Smart OCR",
-    description:
-      "Extract income figures, employer info, and tax details from W-2s, 1099s, K-1s — parsed and structured automatically.",
-  },
-];
-
 /* How it works — 3-step SMS-focused process */
 const steps = [
   {
@@ -83,19 +54,19 @@ const steps = [
   },
 ];
 
-/* Testimonials — placeholder quotes from fictional CPAs/EAs */
+/* Testimonials — quotes from CPAs/Tax Preparers */
 const testimonials = [
   {
     quote:
       "Ella cut our document collection time by 75%. Clients love the magic link portal.",
-    author: "Sarah Johnson",
-    role: "CPA, Johnson & Associates",
+    author: "Tuyet Nguyen",
+    role: "CPA, Nguyen & Associates",
   },
   {
     quote:
       "The AI classification is incredibly accurate. We barely need to manually review anymore.",
-    author: "Michael Chen",
-    role: "EA, TaxPro Solutions",
+    author: "Nancy Nguyen",
+    role: "Tax Preparer, TaxPro Solutions",
   },
   {
     quote:
@@ -203,40 +174,137 @@ const testimonials = [
       </div>
     </section>
 
+    <!-- Problem / Solution Highlight Section -->
+    <section class="py-24">
+      <div class="mx-auto max-w-7xl px-6">
+        <!-- Section intro -->
+        <div class="mx-auto max-w-3xl text-center" data-animate="fade-up">
+          <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">
+            Why CPAs Choose Ella
+          </p>
+          <h2 class="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Your time is too valuable for document chaos
+          </h2>
+          <p class="mt-4 text-lg text-gray-600">
+            Stop chasing documents, stop manual data entry, stop the endless back-and-forth.
+            Let AI handle the busywork so you can focus on what actually matters — serving your clients.
+          </p>
+        </div>
+
+        <!-- 3 Highlight Cards -->
+        <div class="mt-20 grid gap-12 lg:grid-cols-3">
+          <!-- Card 1: Easy Collection -->
+          <div class="group" data-animate="fade-up">
+            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+              <div class="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/assets/Screenshot_379.png"
+                  alt="SMS messaging interface showing clients sending documents directly via text"
+                  class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
+              <div class="p-6">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                  </svg>
+                </div>
+                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                  Clients Send Docs in Seconds
+                </h3>
+                <p class="mt-2 text-gray-600">
+                  No app downloads. No portal logins. Clients simply text photos or click a passwordless link.
+                  Documents flow directly into Ella — even via MMS.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Organized Documents -->
+          <div class="group" data-animate="fade-up">
+            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+              <div class="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/assets/Screenshot_369.png"
+                  alt="Client dashboard showing documents automatically organized by category"
+                  class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
+              <div class="p-6">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+                  </svg>
+                </div>
+                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                  Chaos → Organized Instantly
+                </h3>
+                <p class="mt-2 text-gray-600">
+                  "IMG_4827.jpg" becomes "2024_W2_Amazon_JohnSmith.pdf". AI classifies 89+ document types,
+                  auto-renames, and organizes everything by client and category.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: AI Data Extraction -->
+          <div class="group" data-animate="fade-up">
+            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+              <div class="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/assets/Screenshot_370.png"
+                  alt="AI extracting structured data from a 1099-NEC tax form"
+                  class="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
+              <div class="p-6">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                  </svg>
+                </div>
+                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                  Data Extracted, Ready for Entry
+                </h3>
+                <p class="mt-2 text-gray-600">
+                  Stop squinting at blurry photos and typing manually. AI reads W-2s, 1099s, and more —
+                  extracting income, employer info, and tax details for one-click data entry.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom CTA -->
+        <div class="mt-16 text-center" data-animate="fade-up">
+          <p class="text-lg font-medium text-gray-900">
+            Document chasing, manual downloads, and endless back-and-forth?
+          </p>
+          <p class="mt-1 text-gray-600">
+            That's the old way. Ella automates it all so you can focus on advisory work that actually grows your firm.
+          </p>
+          <a
+            href="https://www.facebook.com/andy.hayven"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          >
+            See Ella in Action
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Stats / Trust Bar -->
     <section class="border-y border-gray-100 bg-white py-16" data-animate="fade-up">
       <div class="mx-auto max-w-6xl px-6">
         <StatsBar stats={stats} />
-      </div>
-    </section>
-
-    <!-- Feature Highlights -->
-    <section id="features" class="bg-gray-50 py-24">
-      <div class="mx-auto max-w-6xl px-6">
-        <div data-animate="fade-up">
-          <SectionHeading
-            eyebrow="Capabilities"
-            title="Everything tax professionals need"
-            subtitle="From document intake to team collaboration, Ella covers the full tax preparation workflow."
-          />
-        </div>
-
-        <div
-          class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
-          data-stagger
-        >
-          {
-            features.map((feature) => (
-              <div data-animate="fade-up">
-                <FeatureCard
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                />
-              </div>
-            ))
-          }
-        </div>
       </div>
     </section>
 

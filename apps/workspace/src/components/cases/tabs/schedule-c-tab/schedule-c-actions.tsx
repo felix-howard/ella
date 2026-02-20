@@ -1,25 +1,50 @@
 /**
- * Schedule C Actions - Action buttons for lock/unlock/resend
+ * Schedule C Actions - Action buttons for lock/unlock and form link access
  */
 import { useState } from 'react'
-import { Lock, Unlock, RefreshCw, Loader2 } from 'lucide-react'
+import { Lock, Unlock, Loader2, ExternalLink, Copy, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '@ella/ui'
 import type { ScheduleCStatus } from '../../../../lib/api-client'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
+import { toast } from '../../../../stores/toast-store'
 
 interface ScheduleCActionsProps {
   caseId: string
   status: ScheduleCStatus
+  magicLinkToken?: string | null
 }
 
-export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
+// Build form URL from token
+const PORTAL_URL = import.meta.env.VITE_PORTAL_URL || 'http://localhost:5173'
+
+export function ScheduleCActions({ caseId, status, magicLinkToken }: ScheduleCActionsProps) {
   const { t } = useTranslation()
-  const { lock, unlock, resend, isLoading } = useScheduleCActions({ caseId })
+  const { lock, unlock, isLoading } = useScheduleCActions({ caseId })
   const [showLockConfirm, setShowLockConfirm] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const isLocked = status === 'LOCKED'
   const isDraft = status === 'DRAFT'
+  const formLink = magicLinkToken ? `${PORTAL_URL}/expense/${magicLinkToken}` : null
+
+  const handleCopyLink = async () => {
+    if (!formLink) return
+    try {
+      await navigator.clipboard.writeText(formLink)
+      setCopied(true)
+      toast.success(t('common.linkCopied'))
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error(t('common.copyFailed'))
+    }
+  }
+
+  const handleOpenLink = () => {
+    if (formLink) {
+      window.open(formLink, '_blank', 'noopener,noreferrer')
+    }
+  }
 
   return (
     <>
@@ -57,23 +82,34 @@ export function ScheduleCActions({ caseId, status }: ScheduleCActionsProps) {
           )
         )}
 
-        {/* Resend Button */}
-        {!isLocked && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => resend.mutate()}
-            disabled={isLoading}
-            className="gap-2"
-            aria-label={t('scheduleC.resendLink')}
-          >
-            {resend.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="w-4 h-4" aria-hidden="true" />
-            )}
-            {t('scheduleC.resendLink')}
-          </Button>
+        {/* Form Link Buttons - only show if link exists and not locked */}
+        {!isLocked && formLink && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleOpenLink}
+              className="gap-2"
+              aria-label={t('common.openLink')}
+            >
+              <ExternalLink className="w-4 h-4" aria-hidden="true" />
+              {t('common.openLink')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyLink}
+              className="gap-2"
+              aria-label={t('common.copyLink')}
+            >
+              {copied ? (
+                <Check className="w-4 h-4 text-green-500" aria-hidden="true" />
+              ) : (
+                <Copy className="w-4 h-4" aria-hidden="true" />
+              )}
+              {t('common.copyLink')}
+            </Button>
+          </>
         )}
       </div>
 

@@ -99,7 +99,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
       </div>
 
       {/* Actions */}
-      <ScheduleCActions caseId={caseId} status={expense.status} />
+      <ScheduleCActions caseId={caseId} status={expense.status} magicLinkToken={magicLink?.token} />
     </div>
   )
 }

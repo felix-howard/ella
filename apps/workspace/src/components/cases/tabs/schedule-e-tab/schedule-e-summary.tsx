@@ -24,7 +24,7 @@ interface ScheduleESummaryProps {
   caseId: string
 }
 
-export function ScheduleESummary({ expense, magicLink: _magicLink, totals, properties, caseId }: ScheduleESummaryProps) {
+export function ScheduleESummary({ expense, magicLink, totals, properties, caseId }: ScheduleESummaryProps) {
   const { t } = useTranslation()
   const isLocked = expense.status === 'LOCKED'
 
@@ -88,7 +88,7 @@ export function ScheduleESummary({ expense, magicLink: _magicLink, totals, prope
       )}
 
       {/* Actions */}
-      <ScheduleEActions caseId={caseId} status={expense.status} />
+      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkToken={magicLink?.token} />
     </div>
   )
 }

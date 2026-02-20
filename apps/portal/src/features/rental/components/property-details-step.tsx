@@ -37,13 +37,19 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   const [rentsReceived, setRentsReceived] = useState(String(property.rentsReceived || ''))
 
   // Sync local state with property changes
+  // Only update rentsReceived if numeric value changed (preserves intermediate input like "300.")
   useEffect(() => {
     setAddress(property.address)
     setPropertyType(property.propertyType)
     setPropertyTypeOther(property.propertyTypeOther || '')
     setMonthsRented(String(property.monthsRented || ''))
     setPersonalUseDays(String(property.personalUseDays || ''))
-    setRentsReceived(String(property.rentsReceived || ''))
+    setRentsReceived((prev) => {
+      const propValue = property.rentsReceived || 0
+      const localValue = parseFloat(prev) || 0
+      // Only update if numeric values differ (preserves "300." while typing)
+      return propValue !== localValue ? (propValue ? String(propValue) : '') : prev
+    })
   }, [property])
 
   // Update handlers
@@ -92,8 +98,9 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   }, [onUpdate])
 
   const handleRentsChange = useCallback((value: string) => {
-    // Allow: empty, digits only, or digits with decimal up to 2 places
-    if (value === '' || /^\d+$/.test(value) || /^\d+\.\d{0,2}$/.test(value) || /^\d*\.$/.test(value)) {
+    // Allow: empty, or any valid decimal number with up to 2 decimal places
+    // Pattern: optional digits, optional decimal point, optional 0-2 digits after decimal
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
       setRentsReceived(value)
       const num = parseFloat(value)
       if (!isNaN(num) && num >= 0) {

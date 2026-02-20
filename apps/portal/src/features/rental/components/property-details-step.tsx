@@ -29,6 +29,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
   // Local state for form values
   const [address, setAddress] = useState<ScheduleEPropertyAddress>(property.address)
+  const [showStateError, setShowStateError] = useState(false)
   const [propertyType, setPropertyType] = useState<ScheduleEPropertyType>(property.propertyType)
   const [propertyTypeOther, setPropertyTypeOther] = useState(property.propertyTypeOther || '')
   const [monthsRented, setMonthsRented] = useState(String(property.monthsRented || ''))
@@ -36,13 +37,19 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   const [rentsReceived, setRentsReceived] = useState(String(property.rentsReceived || ''))
 
   // Sync local state with property changes
+  // Only update rentsReceived if numeric value changed (preserves intermediate input like "300.")
   useEffect(() => {
     setAddress(property.address)
     setPropertyType(property.propertyType)
     setPropertyTypeOther(property.propertyTypeOther || '')
     setMonthsRented(String(property.monthsRented || ''))
     setPersonalUseDays(String(property.personalUseDays || ''))
-    setRentsReceived(String(property.rentsReceived || ''))
+    setRentsReceived((prev) => {
+      const propValue = property.rentsReceived || 0
+      const localValue = parseFloat(prev) || 0
+      // Only update if numeric values differ (preserves "300." while typing)
+      return propValue !== localValue ? (propValue ? String(propValue) : '') : prev
+    })
   }, [property])
 
   // Update handlers
@@ -91,8 +98,9 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   }, [onUpdate])
 
   const handleRentsChange = useCallback((value: string) => {
-    // Allow: empty, digits only, or digits with decimal up to 2 places
-    if (value === '' || /^\d+$/.test(value) || /^\d+\.\d{0,2}$/.test(value) || /^\d*\.$/.test(value)) {
+    // Allow: empty, or any valid decimal number with up to 2 decimal places
+    // Pattern: optional digits, optional decimal point, optional 0-2 digits after decimal
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
       setRentsReceived(value)
       const num = parseFloat(value)
       if (!isNaN(num) && num >= 0) {
@@ -105,6 +113,25 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
   // Calculate fair rental days
   const fairRentalDays = (parseInt(monthsRented, 10) || 0) * 30
+
+  // Handle next with validation
+  const handleNext = useCallback(() => {
+    // Validate state is selected (must be 2 characters)
+    if (!address.state || address.state.length !== 2) {
+      setShowStateError(true)
+      return
+    }
+    setShowStateError(false)
+    onNext()
+  }, [address.state, onNext])
+
+  // Clear state error when state is selected
+  const handleStateChange = useCallback((value: string) => {
+    if (value && value.length === 2) {
+      setShowStateError(false)
+    }
+    handleAddressChange('state', value)
+  }, [handleAddressChange])
 
   return (
     <div className="flex-1 flex flex-col px-6 py-4 overflow-y-auto">
@@ -170,10 +197,16 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
             <StateCombobox
               id="state"
               value={address.state}
-              onChange={(val) => handleAddressChange('state', val)}
+              onChange={handleStateChange}
               disabled={readOnly}
               placeholder={t('rental.selectState')}
+              error={showStateError}
             />
+            {showStateError && (
+              <p className="text-xs text-destructive mt-1">
+                {t('rental.stateRequired')}
+              </p>
+            )}
           </div>
 
           <div className="col-span-3">
@@ -338,7 +371,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
           {t('rental.back')}
         </Button>
         <Button
-          onClick={onNext}
+          onClick={handleNext}
           disabled={readOnly}
           className="flex-1 gap-2 h-12"
           size="lg"

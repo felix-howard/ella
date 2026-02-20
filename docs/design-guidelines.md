@@ -436,6 +436,92 @@ transition: all 0.2s ease;
 - Sidebar collapse: 0.3s ease
 - Modal: Fade + scale up (0.2s)
 
+### Mobile Header Animations (Phase 01 Mobile Header Polish)
+
+**Slide-down Mobile Menu:**
+```css
+/* Closed state */
+.mobile-menu {
+  origin: top;
+  scale-y: 0;
+  opacity: 0;
+  transition: all 0.2s ease-out;
+}
+
+/* Open state */
+.mobile-menu.scale-y-100 {
+  scale-y: 1;
+  opacity: 1;
+}
+```
+- Origin set to top for natural slide-down entrance
+- 0.2s ease-out timing for responsive feel
+
+**Hamburger-to-X Icon Rotation:**
+```css
+/* Hamburger icon (default) */
+#hamburger-icon {
+  opacity: 1;
+  rotate: 0deg;
+  transition: all 0.2s;
+}
+
+/* Close icon (hidden by default) */
+#close-icon {
+  opacity: 0;
+  rotate: 90deg;
+  transition: all 0.2s;
+}
+
+/* On menu open */
+#hamburger-icon.opacity-0 {
+  opacity: 0;
+  rotate: 90deg;
+}
+
+#close-icon.opacity-100 {
+  opacity: 1;
+  rotate: 0deg;
+}
+```
+- 90-degree rotation creates natural morphing effect
+- Opacity crossfade for smooth icon transition
+
+**Backdrop Overlay:**
+```css
+#mobile-backdrop {
+  fixed inset-0 z-40;
+  background: rgb(0 0 0 / 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+/* When menu open */
+#mobile-backdrop.opacity-100 {
+  opacity: 1;
+  pointer-events: auto;
+}
+```
+- Fixed positioning covers entire viewport
+- Semi-transparent black (50% opacity)
+- Click-to-close interaction
+- Fade-in/out timing matched to menu animation
+
+**Scroll Shadow (Navbar Depth):**
+```css
+nav {
+  transition: box-shadow 0.2s;
+}
+
+nav.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.12);
+}
+```
+- Appears when scrolled 10px or more
+- Provides visual depth separation from content
+- Passive scroll listener for performance
+
 ---
 
 ## 10. Design Principles
@@ -524,6 +610,92 @@ Primary green (`#10B981`) remains consistent across modes.
 - Post-acceptance: Auto-redirect to /team dashboard
 - Fallback for expired/invalid invites
 
+## 14. Landing Page Navigation (Mobile Responsive Phase 01)
+
+### Sticky Navbar Component (navbar.astro)
+
+**Layout & Styling:**
+- Fixed position (top-0, z-50, full-width)
+- Semi-transparent white with backdrop blur (bg-white/80 backdrop-blur-md)
+- Subtle top border for definition (border-b border-gray-100)
+- Max-width container (max-w-6xl) centered with responsive padding (px-6)
+
+**Desktop Layout (md breakpoint & up):**
+- Flex layout: logo [gap] nav-links [flex-grow] CTA button hamburger
+- Logo left: ella.tax logo 32px height
+- Center nav: 8px gap between links, hidden on mobile (hidden md:flex)
+- Right CTA: "Book a Demo" pill button, hidden on mobile (hidden sm:inline-block)
+- Hamburger: Hidden on desktop (md:hidden)
+
+**Mobile Layout (below md breakpoint):**
+- Flex layout: logo [flex-grow] CTA button hamburger
+- CTA button: Hidden, replaced by full-width button in mobile menu (sm:inline-block classes)
+- Hamburger: 40×40px button with animated icon (md:hidden)
+- Responsive padding: py-4 for adequate vertical spacing
+
+**Mobile Menu Slide-down:**
+- Absolute positioning (left-0 right-0 top-full) below navbar
+- Origin set to top (origin-top) for scale-y animation
+- 0.2s ease-out transition (duration-200 ease-out)
+- Max-width inherits from navbar container
+- Responsive padding (px-6 pb-4 pt-2)
+- Border top separates from navbar (border-t border-gray-100)
+
+**Mobile Menu Items:**
+- Flex column layout (flex-col gap-1)
+- 44px height with py-3 padding (md: py-3 for touch targets)
+- Rounded corners (rounded-lg)
+- Bottom border separators (border-b border-gray-50, except last item)
+- Active state: bg-primary-50 + text-primary-600 (mint green highlight)
+- Hover state: bg-gray-50 + text-gray-900 (light gray background)
+- Active press feedback: active:scale-[0.98] (slight scale down)
+- Full-width CTA button at bottom: mt-3, w-full, py-3
+
+**Navigation Links (nav-links config):**
+```javascript
+navLinks = [
+  { label: "...", href: "/..." },
+  // Sourced from @/config/navigation
+]
+```
+- Configurable via shared navigation config
+- Highlights current page via currentPath prop
+- aria-current="page" semantic ARIA on active link
+
+**Link Styling (Desktop & Mobile):**
+```css
+/* Default state */
+text-gray-600 hover:text-gray-900
+transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500
+
+/* Active state */
+text-primary-600 (desktop)
+bg-primary-50 text-primary-600 (mobile)
+```
+
+**CTA Button Styling:**
+- Desktop: Inline-block, hidden on small screens (hidden sm:inline-block)
+- Mobile: Full-width in dropdown menu (w-full mt-3)
+- Pill shape (rounded-full)
+- Primary color background (bg-primary-600)
+- Hover state (hover:bg-primary-700)
+- Shadow for depth (shadow-sm)
+- Focus ring: outline-2 offset-2 primary-500
+- Target: Facebook magic link (https://www.facebook.com/andy.hayven)
+
+### Scroll Shadow Effect
+
+**Implementation:**
+- Threshold: 10px scroll offset (SCROLL_SHADOW_THRESHOLD constant)
+- Shadow class: shadow-md (0 4px 6px -1px with mint undertone)
+- Passive scroll listener for performance optimization
+- Initial check on component load
+
+**Visual Purpose:**
+- Indicates content beneath navbar
+- Provides depth separation when user scrolls
+- Subtle elevation without distraction
+
 ## 12. Responsive Breakpoints
 
 | Breakpoint | Width | Behavior |
@@ -541,6 +713,55 @@ Primary green (`#10B981`) remains consistent across modes.
 - Touch targets: Minimum 44x44px on mobile
 - Semantic HTML: Proper heading hierarchy
 - ARIA labels: For icon-only buttons
+
+### Mobile Header Accessibility (Phase 01 Mobile Header Polish)
+
+**Focus Trap & Keyboard Navigation (WCAG 2.1):**
+- Tab cycling within mobile menu loops through focusable elements (links, buttons, inputs)
+- Tab from last element moves to hamburger button (maintains focus within modal context)
+- Shift+Tab from first element or hamburger button goes to last element
+- Escape key closes menu and returns focus to hamburger button
+- First link auto-focused when menu opens (improves keyboard navigation)
+
+**Touch Target Sizing:**
+- Hamburger button: 40px × 40px (h-10 w-10 in Tailwind)
+- Menu items: py-3 padding (48px height minimum including focus ring)
+- CTA button: py-3 (48px tall, full-width on mobile)
+- Exceeds WCAG 2.5.5 Level AAA target size recommendation (44px minimum)
+
+**Semantic ARIA:**
+- `<nav aria-label="Main navigation">` identifies navigation region
+- `<button aria-expanded="false/true">` announces menu state
+- `<button aria-controls="mobile-menu">` associates toggle with controlled element
+- `<button aria-label="Toggle navigation menu">` describes icon-only button purpose
+- `<div id="mobile-menu" aria-hidden="true/false">` announces menu visibility
+- `<div id="mobile-backdrop" aria-hidden="true">` hides decorative backdrop from screen readers
+
+**Body Scroll Lock (iOS Prevention):**
+```javascript
+// On menu open
+document.body.style.overflow = "hidden";
+
+// On menu close
+document.body.style.overflow = "";
+```
+- Prevents unwanted background scrolling on iOS/Safari
+- Critical for mobile UX during modal interactions
+- Removed on menu close to restore scroll access
+
+**Focus Management:**
+```javascript
+// Open menu: focus first link
+const firstLink = menu?.querySelector("a");
+firstLink?.focus();
+
+// Close menu: restore focus to button
+closeMenu() {
+  btn?.focus();
+}
+```
+- Improves keyboard-only navigation experience
+- Follows WAI-ARIA authoring practices for modals
 
 ---
 

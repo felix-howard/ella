@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { X, AlertTriangle, FileText } from 'lucide-react'
 import { Badge } from '@ella/ui'
 import { CopyableField } from '../ui/copyable-field'
@@ -36,6 +37,7 @@ export function DataEntryModal({
   isOpen,
   onClose,
 }: DataEntryModalProps) {
+  const { t } = useTranslation()
   // Local in-session state for tracking which fields have been copied (not persisted)
   const [copiedFields, setCopiedFields] = useState<Record<string, boolean>>({})
 
@@ -150,7 +152,7 @@ export function DataEntryModal({
                 {docLabel}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Click vào giá trị để sao chép
+                {t('dataEntry.clickToCopy')}
               </p>
             </div>
             {doc.entryCompleted && (
@@ -226,7 +228,7 @@ export function DataEntryModal({
                       <FileText className="w-3.5 h-3.5" />
                     </div>
                     <h3 className="text-sm font-semibold text-foreground">
-                      Thông tin khác
+                      {t('dataEntry.otherInfo')}
                     </h3>
                     <span className="text-xs text-muted-foreground">
                       ({ungroupedFields.length})

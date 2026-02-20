@@ -4,6 +4,7 @@
  */
 
 import { memo, useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
@@ -16,41 +17,28 @@ export interface MessageBubbleProps {
   showTime?: boolean
 }
 
-// Channel icons and labels
-const CHANNEL_INFO = {
-  SMS: { icon: Phone, label: 'SMS', color: 'text-primary' },
-  PORTAL: { icon: Globe, label: 'Portal', color: 'text-accent' },
-  SYSTEM: { icon: Bot, label: 'Hệ thống', color: 'text-muted-foreground' },
-  CALL: { icon: PhoneCall, label: 'Cuộc gọi', color: 'text-green-600' },
+// Channel icons (labels are i18n keys)
+const CHANNEL_ICONS = {
+  SMS: { icon: Phone, labelKey: 'messages.channel.sms', color: 'text-primary' },
+  PORTAL: { icon: Globe, labelKey: 'messages.channel.portal', color: 'text-accent' },
+  SYSTEM: { icon: Bot, labelKey: 'messages.channel.system', color: 'text-muted-foreground' },
+  CALL: { icon: PhoneCall, labelKey: 'messages.channel.call', color: 'text-green-600' },
 } as const
 
-// Call status info for different call outcomes
-function getCallStatusInfo(status?: string): {
-  icon: React.ReactNode
-  label: string
-  color: string
-} {
-  switch (status) {
-    case 'completed':
-      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Hoàn thành', color: 'text-green-600' }
-    case 'busy':
-      return { icon: <PhoneOff className="w-4 h-4" />, label: 'Bận', color: 'text-yellow-600' }
-    case 'no-answer':
-      return { icon: <PhoneMissed className="w-4 h-4" />, label: 'Không bắt máy', color: 'text-orange-600' }
-    case 'failed':
-    case 'canceled':
-      return { icon: <PhoneOff className="w-4 h-4" />, label: 'Thất bại', color: 'text-destructive' }
-    case 'initiated':
-    case 'ringing':
-      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang gọi...', color: 'text-blue-600' }
-    case 'in-progress':
-      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Đang kết nối', color: 'text-green-600' }
-    case 'voicemail':
-      return { icon: <PhoneMissed className="w-4 h-4" />, label: 'Tin nhắn thoại', color: 'text-orange-600' }
-    default:
-      return { icon: <PhoneCall className="w-4 h-4" />, label: 'Cuộc gọi', color: 'text-muted-foreground' }
-  }
+// Call status mapping (labels are i18n keys)
+const CALL_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: string; color: string }> = {
+  completed: { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.callStatus.completed', color: 'text-green-600' },
+  busy: { icon: <PhoneOff className="w-4 h-4" />, labelKey: 'messages.callStatus.busy', color: 'text-yellow-600' },
+  'no-answer': { icon: <PhoneMissed className="w-4 h-4" />, labelKey: 'messages.callStatus.noAnswer', color: 'text-orange-600' },
+  failed: { icon: <PhoneOff className="w-4 h-4" />, labelKey: 'messages.callStatus.failed', color: 'text-destructive' },
+  canceled: { icon: <PhoneOff className="w-4 h-4" />, labelKey: 'messages.callStatus.failed', color: 'text-destructive' },
+  initiated: { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.callStatus.calling', color: 'text-blue-600' },
+  ringing: { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.callStatus.calling', color: 'text-blue-600' },
+  'in-progress': { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.callStatus.connecting', color: 'text-green-600' },
+  voicemail: { icon: <PhoneMissed className="w-4 h-4" />, labelKey: 'messages.callStatus.voicemail', color: 'text-orange-600' },
 }
+
+const DEFAULT_CALL_STATUS = { icon: <PhoneCall className="w-4 h-4" />, labelKey: 'messages.channel.call', color: 'text-muted-foreground' }
 
 // Format call duration as M:SS
 function formatCallDuration(seconds: number): string {
@@ -60,10 +48,12 @@ function formatCallDuration(seconds: number): string {
 }
 
 export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {
+  const { t } = useTranslation()
   const isOutbound = message.direction === 'OUTBOUND'
   const isSystem = message.channel === 'SYSTEM'
-  const channelInfo = CHANNEL_INFO[message.channel]
-  const ChannelIcon = channelInfo.icon
+  const channelConfig = CHANNEL_ICONS[message.channel]
+  const ChannelIcon = channelConfig.icon
+  const channelLabel = t(channelConfig.labelKey)
   const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
 
   // Format time
@@ -93,7 +83,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
 
   // Call messages with special styling and audio player
   if (message.channel === 'CALL') {
-    const callStatusInfo = getCallStatusInfo(message.callStatus)
+    const callStatusConfig = CALL_STATUS_CONFIG[message.callStatus || ''] || DEFAULT_CALL_STATUS
+    const callStatusLabel = t(callStatusConfig.labelKey)
     const hasRecording = message.recordingUrl && (message.callStatus === 'completed' || message.callStatus === 'voicemail')
     // Extract recording SID from URL (format: .../Recordings/RE.../...)
     const recordingSid = message.recordingUrl?.match(/RE[0-9a-fA-F]{32}/)?.[0]
@@ -111,8 +102,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <div className="px-4 py-3">
             {/* Call header with icon and status */}
             <div className="flex items-center gap-2 mb-2">
-              <span className={callStatusInfo.color}>{callStatusInfo.icon}</span>
-              <span className="text-sm font-medium">{callStatusInfo.label}</span>
+              <span className={callStatusConfig.color}>{callStatusConfig.icon}</span>
+              <span className="text-sm font-medium">{callStatusLabel}</span>
               {message.recordingDuration && message.recordingDuration > 0 && (
                 <span className="text-xs text-muted-foreground">
                   ({formatCallDuration(message.recordingDuration)})
@@ -168,7 +159,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           )}
         >
           <ChannelIcon className="w-3 h-3" />
-          <span>{channelInfo.label}</span>
+          <span>{channelLabel}</span>
           {showTime && <span>{time}</span>}
         </div>
       </div>
@@ -226,7 +217,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             )}
           >
             <ChannelIcon className="w-2.5 h-2.5" />
-            <span>{channelInfo.label}</span>
+            <span>{channelLabel}</span>
             {showTime && <span>{time}</span>}
           </div>
         </div>

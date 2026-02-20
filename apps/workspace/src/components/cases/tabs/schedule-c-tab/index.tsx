@@ -11,9 +11,10 @@ import { ScheduleCSummary } from './schedule-c-summary'
 
 interface ScheduleCTabProps {
   caseId: string
+  clientName: string
 }
 
-export function ScheduleCTab({ caseId }: ScheduleCTabProps) {
+export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
   const { expense, magicLink, totals, has1099NEC, count1099NEC, necBreakdown, isLoading, error, refetch } = useScheduleC({
     caseId,
     enabled: true,
@@ -49,7 +50,7 @@ export function ScheduleCTab({ caseId }: ScheduleCTabProps) {
 
   // State 1: No Schedule C exists, but 1099-NEC detected → Show empty state with send button
   if (!expense && has1099NEC) {
-    return <ScheduleCEmptyState caseId={caseId} count1099NEC={count1099NEC} necBreakdown={necBreakdown} />
+    return <ScheduleCEmptyState caseId={caseId} clientName={clientName} count1099NEC={count1099NEC} necBreakdown={necBreakdown} />
   }
 
   // State 2: Schedule C exists but status is DRAFT → Show waiting state

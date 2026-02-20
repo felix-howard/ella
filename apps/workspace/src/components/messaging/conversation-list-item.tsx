@@ -5,6 +5,7 @@
 
 import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
@@ -27,7 +28,9 @@ export const ConversationListItem = memo(function ConversationListItem({
   conversation,
   isActive,
 }: ConversationListItemProps) {
+  const { t, i18n } = useTranslation()
   const { client, taxCase, lastMessage, unreadCount } = conversation
+  const locale = i18n.language === 'vi' ? 'vi' : 'en'
   const hasUnread = unreadCount > 0
 
   // Status styling
@@ -38,7 +41,7 @@ export const ConversationListItem = memo(function ConversationListItem({
   // Truncate and sanitize last message
   const messagePreview = lastMessage
     ? sanitizeText(lastMessage.content).slice(0, 60) + (lastMessage.content.length > 60 ? '...' : '')
-    : 'Chưa có tin nhắn'
+    : t('messages.noMessages')
 
   return (
     <Link
@@ -96,7 +99,7 @@ export const ConversationListItem = memo(function ConversationListItem({
               'text-xs flex-shrink-0 ml-2',
               isActive ? 'text-primary/70' : 'text-muted-foreground'
             )}>
-              {formatRelativeTime(lastMessage.createdAt)}
+              {formatRelativeTime(lastMessage.createdAt, locale)}
             </span>
           )}
         </div>
@@ -120,7 +123,7 @@ export const ConversationListItem = memo(function ConversationListItem({
             )}
           >
             {lastMessage?.direction === 'OUTBOUND' && (
-              <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>Bạn: </span>
+              <span className={isActive ? 'text-foreground/70' : 'text-muted-foreground'}>{t('messages.you')} </span>
             )}
             {messagePreview}
           </p>

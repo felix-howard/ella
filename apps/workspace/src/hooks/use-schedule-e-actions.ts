@@ -24,9 +24,9 @@ export function useScheduleEActions({ caseId, onSuccess }: UseScheduleEActionsOp
     onSuccess?.()
   }
 
-  // Send rental form to client
+  // Send rental form to client with optional custom message
   const sendForm = useMutation({
-    mutationFn: () => api.scheduleE.send(caseId),
+    mutationFn: (customMessage?: string) => api.scheduleE.send(caseId, customMessage),
     onSuccess: (data) => {
       if (data.messageSent) {
         toast.success(t('scheduleE.formSent'))

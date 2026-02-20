@@ -678,10 +678,13 @@ export const api = {
     get: (caseId: string) =>
       request<ScheduleCResponse>(`/schedule-c/${caseId}`),
 
-    // Send expense form to client
-    send: (caseId: string) =>
+    // Send expense form to client with optional custom message
+    // retries: 0 to prevent duplicate SMS if server error after SMS sent
+    send: (caseId: string, customMessage?: string) =>
       request<ScheduleCSendResponse>(`/schedule-c/${caseId}/send`, {
         method: 'POST',
+        body: customMessage ? JSON.stringify({ customMessage }) : undefined,
+        retries: 0,
       }),
 
     // Lock form to prevent client edits
@@ -697,9 +700,11 @@ export const api = {
       }),
 
     // Resend form link (extend TTL)
+    // retries: 0 to prevent duplicate SMS if server error after SMS sent
     resend: (caseId: string) =>
       request<ScheduleCResendResponse>(`/schedule-c/${caseId}/resend`, {
         method: 'POST',
+        retries: 0,
       }),
   },
 
@@ -709,10 +714,13 @@ export const api = {
     get: (caseId: string) =>
       request<ScheduleEResponse>(`/schedule-e/${caseId}`),
 
-    // Send rental form to client
-    send: (caseId: string) =>
+    // Send rental form to client with optional custom message
+    // retries: 0 to prevent duplicate SMS if server error after SMS sent
+    send: (caseId: string, customMessage?: string) =>
       request<ScheduleESendResponse>(`/schedule-e/${caseId}/send`, {
         method: 'POST',
+        body: customMessage ? JSON.stringify({ customMessage }) : undefined,
+        retries: 0,
       }),
 
     // Lock form to prevent client edits
@@ -728,9 +736,11 @@ export const api = {
       }),
 
     // Resend form link (extend TTL)
+    // retries: 0 to prevent duplicate SMS if server error after SMS sent
     resend: (caseId: string) =>
       request<ScheduleEResendResponse>(`/schedule-e/${caseId}/resend`, {
         method: 'POST',
+        retries: 0,
       }),
   },
 
@@ -1182,6 +1192,8 @@ export interface CreateClientInput {
     // Full intake answers JSON (supports arrays/objects for dependents, etc.)
     intakeAnswers?: Record<string, unknown>
   }
+  // Custom welcome SMS message with placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
+  customMessage?: string
 }
 
 export interface CreateClientResponse {
@@ -1419,7 +1431,7 @@ export interface CreateDocTypeLibraryInput {
 export type UpdateDocTypeLibraryInput = Partial<Omit<CreateDocTypeLibraryInput, 'code'>>
 
 // Admin types - Message Templates
-export type MessageTemplateCategory = 'WELCOME' | 'REMINDER' | 'MISSING' | 'BLURRY' | 'COMPLETE' | 'GENERAL' | 'SCHEDULE_C'
+export type MessageTemplateCategory = 'PORTAL_LINK' | 'SCHEDULE_C' | 'SCHEDULE_E'
 
 export interface MessageTemplate {
   id: string

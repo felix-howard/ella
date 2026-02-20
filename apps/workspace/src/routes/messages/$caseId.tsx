@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { ArrowLeft, User, Phone, Globe, RefreshCw, ExternalLink } from 'lucide-react'
+import { ArrowLeft, User, Phone, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -33,7 +33,6 @@ function ConversationDetailView() {
     client: { id: string; name: string; phone: string; language: Language }
     taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
   } | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const prevCaseIdRef = useRef<string>(caseId)
 
   // Voice call state
@@ -43,7 +42,6 @@ function ConversationDetailView() {
   // Fetch messages
   const fetchMessages = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true)
-    else setIsRefreshing(true)
 
     try {
       const response = await api.messages.list(caseId)
@@ -65,7 +63,6 @@ function ConversationDetailView() {
       }
     } finally {
       setIsLoading(false)
-      setIsRefreshing(false)
     }
   }, [caseId])
 
@@ -152,11 +149,6 @@ function ConversationDetailView() {
     [caseId]
   )
 
-  // Handle refresh
-  const handleRefresh = () => {
-    fetchMessages(true)
-  }
-
   // Handle call button click
   const handleCallClick = useCallback(() => {
     if (caseData?.client.phone) {
@@ -227,11 +219,6 @@ function ConversationDetailView() {
                         <Phone className="w-3 h-3" />
                         {formatPhone(caseData.client.phone)}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
-                        {caseData.client.language === 'VI' ? t('messages.languageVi') : t('messages.languageEn')}
-                      </span>
-                      <span>{caseData.taxCase.taxYear}</span>
                     </div>
                   </div>
                 </div>
@@ -255,18 +242,6 @@ function ConversationDetailView() {
                 callState={voiceState.callState}
                 onClick={handleCallClick}
               />
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className={cn(
-                  'p-2 rounded-lg transition-colors',
-                  'text-muted-foreground hover:text-foreground hover:bg-muted',
-                  isRefreshing && 'animate-spin'
-                )}
-                aria-label={t('messages.refreshMessages')}
-              >
-                <RefreshCw className="w-4 h-4" aria-hidden="true" />
-              </button>
               {caseData && (
                 <Link
                   to="/clients/$clientId"

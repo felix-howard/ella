@@ -22,9 +22,9 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
     onSuccess?.()
   }
 
-  // Send expense form to client
+  // Send expense form to client with optional custom message
   const sendForm = useMutation({
-    mutationFn: () => api.scheduleC.send(caseId),
+    mutationFn: (customMessage?: string) => api.scheduleC.send(caseId, customMessage),
     onSuccess: (data) => {
       if (data.messageSent) {
         toast.success(t('scheduleC.formSent'))

@@ -4,9 +4,9 @@
  */
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { Send, FileText, Link2 } from 'lucide-react'
-import { TemplatePicker, type MessageTemplate } from './template-picker'
+import { Send, Link2 } from 'lucide-react'
 import { stripHtmlTags } from '../../lib/formatters'
 import { api } from '../../lib/api-client'
 
@@ -31,8 +31,8 @@ export function QuickActionsBar({
   defaultChannel: _defaultChannel = 'SMS',
   autoFocus,
 }: QuickActionsBarProps) {
+  const { t } = useTranslation()
   const [message, setMessage] = useState('')
-  const [showTemplates, setShowTemplates] = useState(false)
   const [isLoadingPortalLink, setIsLoadingPortalLink] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -99,52 +99,32 @@ export function QuickActionsBar({
     }
   }
 
-  // Handle template selection
-  const handleTemplateSelect = (template: MessageTemplate) => {
-    setMessage(template.content)
-    textareaRef.current?.focus()
-  }
-
   const canSend = message.trim().length > 0 && !isSending && !disabled
 
   return (
-    <>
-      <div className="border-t border-border bg-card px-3 py-2">
+    <div className="border-t border-border bg-card px-3 py-2">
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
           {/* Quick action buttons */}
-          <div className="flex items-center">
+          {clientId && (
             <button
-              onClick={() => setShowTemplates(true)}
+              onClick={handleInsertPortalLink}
+              disabled={isLoadingPortalLink}
               className={cn(
                 'p-2 rounded-lg transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted'
+                'text-muted-foreground hover:text-foreground hover:bg-muted',
+                isLoadingPortalLink && 'opacity-50 cursor-wait'
               )}
-              aria-label="Chọn mẫu tin nhắn"
-              title="Mẫu tin nhắn"
+              aria-label={t('messages.insertPortalLink')}
+              title={t('messages.insertPortalLink')}
             >
-              <FileText className="w-[18px] h-[18px]" />
+              {isLoadingPortalLink ? (
+                <div className="w-[18px] h-[18px] border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+              ) : (
+                <Link2 className="w-[18px] h-[18px]" />
+              )}
             </button>
-            {clientId && (
-              <button
-                onClick={handleInsertPortalLink}
-                disabled={isLoadingPortalLink}
-                className={cn(
-                  'p-2 rounded-lg transition-colors',
-                  'text-muted-foreground hover:text-foreground hover:bg-muted',
-                  isLoadingPortalLink && 'opacity-50 cursor-wait'
-                )}
-                aria-label="Chèn link portal"
-                title="Chèn link portal"
-              >
-                {isLoadingPortalLink ? (
-                  <div className="w-[18px] h-[18px] border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                ) : (
-                  <Link2 className="w-[18px] h-[18px]" />
-                )}
-              </button>
-            )}
-          </div>
+          )}
 
           {/* Text input */}
           <div className="flex-1">
@@ -153,7 +133,7 @@ export function QuickActionsBar({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Nhập tin nhắn..."
+              placeholder={t('messages.inputPlaceholder')}
               disabled={disabled}
               rows={1}
               className={cn(
@@ -176,7 +156,7 @@ export function QuickActionsBar({
                 ? 'bg-primary text-white hover:bg-primary-dark'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
-            aria-label="Gửi tin nhắn"
+            aria-label={t('messages.sendMessage')}
           >
             {isSending ? (
               <div className="w-[18px] h-[18px] border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -185,15 +165,6 @@ export function QuickActionsBar({
             )}
           </button>
         </div>
-      </div>
-
-      {/* Template picker modal */}
-      <TemplatePicker
-        isOpen={showTemplates}
-        onClose={() => setShowTemplates(false)}
-        onSelect={handleTemplateSelect}
-        clientName={clientName}
-      />
-    </>
+    </div>
   )
 }

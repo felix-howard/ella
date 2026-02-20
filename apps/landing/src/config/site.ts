@@ -12,7 +12,7 @@ export const siteConfig = {
   themeColor: "#10B981",
 
   // Social / contact
-  twitter: "@ella_tax",
+  facebook: "https://www.facebook.com/andy.hayven",
   linkedIn: "", // Add LinkedIn profile URL when available
   formspreeId: "YOUR_FORMSPREE_ID", // Replace with real Formspree form ID
 

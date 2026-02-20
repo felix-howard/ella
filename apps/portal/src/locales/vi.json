@@ -167,6 +167,7 @@
   "rental.cityPlaceholder": "VD: Atlanta",
   "rental.state": "Tiểu bang",
   "rental.selectState": "Chọn",
+  "rental.stateRequired": "Vui lòng chọn tiểu bang",
   "rental.zip": "Mã ZIP",
   "rental.propertyType": "Loại bất động sản",
   "rental.propertyTypeOtherPlaceholder": "Mô tả loại bất động sản khác",

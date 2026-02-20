@@ -221,14 +221,9 @@ enum FieldType {
 }
 
 enum MessageTemplateCategory {
-  WELCOME
-  REMINDER
-  MISSING
-  BLURRY
-  COMPLETE
-  GENERAL
-  SCHEDULE_C
-  SCHEDULE_E
+  PORTAL_LINK  // Initial message requesting doc upload (sends client portal link)
+  SCHEDULE_C   // Request for Schedule C (business expenses)
+  SCHEDULE_E   // Request for Schedule E (rental property)
 }
 
 enum EngagementStatus {

@@ -585,7 +585,7 @@ export function VerificationModal({
                           <FileText className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          Thông tin khác
+                          {t('dataEntry.otherInfo')}
                         </span>
                         <span className="text-xs text-muted-foreground">({ungroupedFields.length})</span>
                       </div>

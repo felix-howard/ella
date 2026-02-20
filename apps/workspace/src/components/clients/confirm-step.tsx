@@ -1,10 +1,11 @@
 /**
  * ConfirmStep - Final step in simplified client creation
- * Shows summary of client info and SMS preview before creating
+ * Shows summary of client info and editable SMS preview before creating
  * Part of Phase 1: Simplify Client Workflow
  */
 
-import { MessageSquare, Loader2, User, Phone, Calendar, Send } from 'lucide-react'
+import { MessageSquare, Loader2, User, Phone, Calendar, Send, Info } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { formatPhone } from '../../lib/formatters'
 
@@ -16,14 +17,22 @@ interface ConfirmStepProps {
   onLanguageChange: (language: 'VI' | 'EN') => void
   onSubmit: () => void
   isSubmitting: boolean
+  customMessage?: string
+  onMessageChange?: (message: string) => void
 }
 
-// SMS message template (matches backend welcome message)
-const SMS_TEMPLATE_VI = (name: string, year: number) =>
-  `Xin chào ${name}, để chuẩn bị hồ sơ thuế năm ${year}, vui lòng gửi các tài liệu cần thiết qua link: [Portal Link]`
+// Default SMS message templates with placeholders
+export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi các tài liệu cần thiết qua link: {{portal_link}}`
 
-const SMS_TEMPLATE_EN = (name: string, year: number) =>
-  `Hello ${name}, to prepare your ${year} tax documents, please send the required documents via the link: [Portal Link]`
+export const DEFAULT_SMS_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax documents, please send the required documents via the link: {{portal_link}}`
+
+// Replace placeholders with actual values for preview
+function renderMessage(template: string, name: string, year: number): string {
+  return template
+    .replace(/\{\{client_name\}\}/g, name)
+    .replace(/\{\{tax_year\}\}/g, String(year))
+    .replace(/\{\{portal_link\}\}/g, '[Portal Link]')
+}
 
 export function ConfirmStep({
   clientName,
@@ -33,47 +42,56 @@ export function ConfirmStep({
   onLanguageChange,
   onSubmit,
   isSubmitting,
+  customMessage,
+  onMessageChange,
 }: ConfirmStepProps) {
-  const smsMessage = language === 'VI'
-    ? SMS_TEMPLATE_VI(clientName, taxYear)
-    : SMS_TEMPLATE_EN(clientName, taxYear)
+  const { t } = useTranslation()
+
+  // Get the default template based on language
+  const defaultTemplate = language === 'VI' ? DEFAULT_SMS_TEMPLATE_VI : DEFAULT_SMS_TEMPLATE_EN
+
+  // Use custom message if provided, otherwise use default
+  const messageTemplate = customMessage ?? defaultTemplate
+
+  // Preview with actual values
+  const smsPreview = renderMessage(messageTemplate, clientName, taxYear)
 
   return (
     <div className="space-y-6">
       {/* Summary Card */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h3 className="text-lg font-semibold text-primary mb-4">Xác nhận thông tin</h3>
+        <h3 className="text-lg font-semibold text-primary mb-4">{t('confirmStep.title')}</h3>
         <dl className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-border">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <User className="w-4 h-4" />
-              Tên:
+              {t('confirmStep.name')}
             </dt>
             <dd className="font-medium text-foreground">{clientName}</dd>
           </div>
           <div className="flex items-center justify-between py-2 border-b border-border">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <Phone className="w-4 h-4" />
-              Số điện thoại:
+              {t('confirmStep.phone')}
             </dt>
             <dd className="font-medium text-foreground">{formatPhone(phone)}</dd>
           </div>
           <div className="flex items-center justify-between py-2">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              Năm thuế:
+              {t('confirmStep.taxYear')}
             </dt>
             <dd className="font-medium text-foreground">{taxYear}</dd>
           </div>
         </dl>
       </div>
 
-      {/* SMS Preview */}
+      {/* SMS Preview & Editor */}
       <div className="bg-muted/50 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Tin nhắn sẽ được gửi:</span>
+            <span className="text-sm font-medium text-foreground">{t('confirmStep.messagePreview')}</span>
           </div>
           {/* Language Toggle */}
           <div className="flex items-center gap-1 bg-card rounded-lg p-1 border border-border">
@@ -87,7 +105,7 @@ export function ConfirmStep({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              🇻🇳 VI
+              VN
             </button>
             <button
               type="button"
@@ -99,16 +117,45 @@ export function ConfirmStep({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              🇺🇸 EN
+              EN
             </button>
           </div>
         </div>
-        <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground border border-border shadow-sm">
-          {smsMessage}
+
+        {/* Editable Message Template */}
+        {onMessageChange ? (
+          <textarea
+            value={messageTemplate}
+            onChange={(e) => onMessageChange(e.target.value)}
+            rows={4}
+            className={cn(
+              'w-full px-3 py-2.5 rounded-lg border bg-card text-sm text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'placeholder:text-muted-foreground resize-none border-border'
+            )}
+            placeholder={t('confirmStep.messagePlaceholder')}
+          />
+        ) : (
+          <div className="bg-card rounded-lg p-3 text-sm text-muted-foreground border border-border shadow-sm">
+            {smsPreview}
+          </div>
+        )}
+
+        {/* Placeholder Guide */}
+        <div className="mt-3 p-3 bg-card/50 rounded-lg border border-border/50">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="font-medium">{t('confirmStep.placeholderGuide')}</p>
+              <ul className="space-y-0.5 ml-2">
+                <li><code className="bg-muted px-1 rounded">{'{{client_name}}'}</code> → {clientName}</li>
+                <li><code className="bg-muted px-1 rounded">{'{{tax_year}}'}</code> → {taxYear}</li>
+                <li><code className="bg-muted px-1 rounded">{'{{portal_link}}'}</code> → {t('confirmStep.autoGenerated')}</li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          * Link portal sẽ được tạo tự động
-        </p>
+
       </div>
 
       {/* Submit Button */}
@@ -125,20 +172,19 @@ export function ConfirmStep({
         {isSubmitting ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Đang tạo...
+            {t('confirmStep.creating')}
           </>
         ) : (
           <>
             <Send className="w-4 h-4" />
-            Tạo khách hàng & Gửi tin nhắn
+            {t('confirmStep.submit')}
           </>
         )}
       </button>
 
       {/* Info note */}
       <p className="text-xs text-muted-foreground text-center">
-        Sau khi tạo, khách hàng sẽ nhận được tin nhắn với link để gửi tài liệu.
-        Bạn có thể cập nhật thông tin chi tiết sau trong tab Tổng quan.
+        {t('confirmStep.infoNote')}
       </p>
     </div>
   )

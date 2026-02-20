@@ -7,7 +7,7 @@ import { z } from 'zod'
 // Shared enums
 const TaxTypeEnum = z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])
 const FieldTypeEnum = z.enum(['BOOLEAN', 'SELECT', 'NUMBER', 'TEXT'])
-const MessageTemplateCategoryEnum = z.enum(['WELCOME', 'REMINDER', 'MISSING', 'BLURRY', 'COMPLETE', 'GENERAL', 'SCHEDULE_C'])
+const MessageTemplateCategoryEnum = z.enum(['PORTAL_LINK', 'SCHEDULE_C', 'SCHEDULE_E'])
 
 /**
  * JSON string validator with size limit

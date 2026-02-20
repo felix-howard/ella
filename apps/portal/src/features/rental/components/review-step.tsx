@@ -40,13 +40,13 @@ export const ReviewStep = memo(function ReviewStep({
     )
   }, [properties])
 
-  // Format currency
+  // Format currency with decimals
   const formatCurrency = (value: number) => {
     return value.toLocaleString('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     })
   }
 

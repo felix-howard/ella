@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   MoreVertical,
   Pencil,
@@ -41,6 +42,7 @@ export function FileActionDropdown({
   currentCategory,
   onRenameClick,
 }: FileActionDropdownProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -208,7 +210,7 @@ export function FileActionDropdown({
     },
     onSuccess: (_data, category) => {
       const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
-      toast.success(`Đã chuyển sang "${categoryConfig.label}"`)
+      toast.success(t('fileActions.movedToCategory', { category: categoryConfig.label }))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       setIsOpen(false)
       setShowCategorySubmenu(false)
@@ -217,7 +219,7 @@ export function FileActionDropdown({
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error('Lỗi chuyển danh mục')
+      toast.error(t('fileActions.moveCategoryError'))
     },
   })
 
@@ -235,7 +237,7 @@ export function FileActionDropdown({
 
   const handleOpenInNewTab = () => {
     if (!signedUrlData?.url) {
-      toast.error('Không thể mở tệp')
+      toast.error(t('fileActions.cannotOpenFile'))
       return
     }
 
@@ -262,7 +264,7 @@ export function FileActionDropdown({
 
       URL.revokeObjectURL(blobUrl)
     } catch {
-      toast.error('Không thể tải tệp')
+      toast.error(t('fileActions.cannotDownloadFile'))
     }
 
     setIsOpen(false)
@@ -333,7 +335,7 @@ export function FileActionDropdown({
       return { previousImages }
     },
     onSuccess: () => {
-      toast.success('Đã xóa tệp')
+      toast.success(t('fileActions.fileDeleted'))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
       queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
       setIsOpen(false)
@@ -342,7 +344,7 @@ export function FileActionDropdown({
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error('Lỗi xóa tệp')
+      toast.error(t('fileActions.deleteError'))
     },
   })
 
@@ -375,7 +377,7 @@ export function FileActionDropdown({
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors"
       >
         <Pencil className="w-4 h-4 text-muted-foreground" />
-        Đổi tên
+        {t('fileActions.rename')}
       </button>
 
       {/* Open in new tab */}
@@ -385,7 +387,7 @@ export function FileActionDropdown({
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <ExternalLink className="w-4 h-4 text-muted-foreground" />
-        Mở trong tab mới
+        {t('fileActions.openInNewTab')}
       </button>
 
       {/* Download */}
@@ -395,7 +397,7 @@ export function FileActionDropdown({
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Download className="w-4 h-4 text-muted-foreground" />
-        Tải xuống
+        {t('fileActions.download')}
       </button>
 
       {/* Move to Category - shows submenu on hover */}
@@ -410,7 +412,7 @@ export function FileActionDropdown({
       >
         <div className="flex items-center gap-2">
           <FolderInput className="w-4 h-4 text-muted-foreground" />
-          Chuyển sang mục
+          {t('fileActions.moveToCategory')}
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground" />
       </div>
@@ -427,7 +429,7 @@ export function FileActionDropdown({
           ) : (
             <Trash2 className="w-4 h-4" />
           )}
-          Xóa tệp
+          {t('fileActions.deleteFile')}
         </button>
       </div>
     </div>,
@@ -496,10 +498,10 @@ export function FileActionDropdown({
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-foreground">
-              Xóa tệp?
+              {t('fileActions.deleteConfirmTitle')}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Bạn có chắc muốn xóa "{image.displayName || image.filename}"? Hành động này không thể hoàn tác.
+              {t('fileActions.deleteConfirmMessage', { filename: image.displayName || image.filename })}
             </p>
           </div>
         </div>
@@ -508,7 +510,7 @@ export function FileActionDropdown({
             onClick={() => setShowDeleteConfirm(false)}
             className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors"
           >
-            Hủy
+            {t('common.cancel')}
           </button>
           <button
             onClick={confirmDelete}
@@ -516,7 +518,7 @@ export function FileActionDropdown({
             className="px-4 py-2 text-sm font-medium rounded-lg bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Xóa
+            {t('common.delete')}
           </button>
         </div>
       </div>
@@ -535,7 +537,7 @@ export function FileActionDropdown({
           'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/50',
           isOpen && 'bg-muted'
         )}
-        aria-label="Tùy chọn tệp"
+        aria-label={t('fileActions.fileOptions')}
         aria-haspopup="true"
         aria-expanded={isOpen}
       >

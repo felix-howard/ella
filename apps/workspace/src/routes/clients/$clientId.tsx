@@ -403,7 +403,8 @@ function ClientDetailPage() {
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
-    { id: 'overview', label: clientsText.tabs.overview, icon: User },
+    // TODO: Temporarily hidden - re-enable when needed
+    // { id: 'overview', label: clientsText.tabs.overview, icon: User },
     { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
     // TODO: Temporarily hidden - re-enable when needed
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
@@ -680,7 +681,7 @@ function ClientDetailPage() {
       {activeTab === 'schedule-c' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleCTab caseId={activeCaseId} />
+            <ScheduleCTab caseId={activeCaseId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -689,7 +690,7 @@ function ClientDetailPage() {
       {activeTab === 'schedule-e' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleEError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleETab caseId={activeCaseId} />
+            <ScheduleETab caseId={activeCaseId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

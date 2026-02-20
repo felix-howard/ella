@@ -45,16 +45,17 @@ export const DATE_FORMAT = {
 }
 
 /**
- * Format date string to Vietnamese locale
+ * Format date string based on locale
  */
 export function formatDateTime(
   dateString: string | null | undefined,
-  format: keyof typeof DATE_FORMAT = 'DATETIME_FULL'
+  format: keyof typeof DATE_FORMAT = 'DATETIME_FULL',
+  locale: string = 'en-US'
 ): string {
   if (!dateString) return 'N/A'
   try {
     const date = new Date(dateString)
-    return date.toLocaleDateString('vi-VN', DATE_FORMAT[format])
+    return date.toLocaleDateString(locale, DATE_FORMAT[format])
   } catch {
     return 'N/A'
   }

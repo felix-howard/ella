@@ -1,22 +1,28 @@
 /**
  * Message Template Add/Edit Modal
- * Form modal for creating or editing message templates
+ * Simplified form modal for editing message templates
+ * Category is fixed (passed as prop), only title, content, placeholders can be edited
  */
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Trash2, Info, ChevronDown } from 'lucide-react'
+import { X, Plus, Trash2, Info, FileText, Receipt, Building2 } from 'lucide-react'
 import { Button, Input, cn } from '@ella/ui'
-import { api, type MessageTemplate, type CreateMessageTemplateInput, type MessageTemplateCategory } from '../../lib/api-client'
+import {
+  api,
+  type MessageTemplate,
+  type CreateMessageTemplateInput,
+  type MessageTemplateCategory,
+} from '../../lib/api-client'
 
-const CATEGORY_OPTIONS: { value: MessageTemplateCategory; label: string; description?: string }[] = [
-  { value: 'WELCOME', label: 'Chào mừng', description: 'Tự động gửi khi tạo khách hàng mới' },
-  { value: 'REMINDER', label: 'Nhắc nhở' },
-  { value: 'MISSING', label: 'Tài liệu thiếu' },
-  { value: 'BLURRY', label: 'Ảnh mờ' },
-  { value: 'COMPLETE', label: 'Hoàn thành' },
-  { value: 'GENERAL', label: 'Chung' },
-  { value: 'SCHEDULE_C', label: 'Chi phí (Schedule C)', description: 'Tin nhắn gửi form chi phí kinh doanh' },
-]
+// Template config for display
+const TEMPLATE_CONFIG: Record<
+  MessageTemplateCategory,
+  { label: string; icon: typeof FileText; color: string }
+> = {
+  PORTAL_LINK: { label: 'Gửi link tải tài liệu', icon: FileText, color: 'text-primary' },
+  SCHEDULE_C: { label: 'Yêu cầu Schedule C', icon: Receipt, color: 'text-amber-500' },
+  SCHEDULE_E: { label: 'Yêu cầu Schedule E', icon: Building2, color: 'text-blue-500' },
+}
 
 // Common placeholders with descriptions
 const COMMON_PLACEHOLDERS = [
@@ -24,29 +30,27 @@ const COMMON_PLACEHOLDERS = [
   { name: 'portalUrl', desc: 'Link gửi tài liệu' },
   { name: 'taxYear', desc: 'Năm thuế (VD: 2025)' },
   { name: 'docType', desc: 'Loại tài liệu' },
-  { name: 'expenseUrl', desc: 'Link form chi phí (Schedule C)' },
+  { name: 'expenseUrl', desc: 'Link form chi phí (Schedule C/E)' },
 ]
 
 interface MessageTemplateModalProps {
   isOpen: boolean
   onClose: () => void
   template?: MessageTemplate | null
-  hasWelcomeTemplate?: boolean
-  hasScheduleCTemplate?: boolean
+  category: MessageTemplateCategory | null
 }
 
-export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemplate, hasScheduleCTemplate }: MessageTemplateModalProps) {
+export function MessageTemplateModal({
+  isOpen,
+  onClose,
+  template,
+  category,
+}: MessageTemplateModalProps) {
   const queryClient = useQueryClient()
   const isEditing = !!template
 
-  // Check if WELCOME should be disabled (already exists and not editing the existing welcome template)
-  const isWelcomeDisabled = hasWelcomeTemplate && (!isEditing || template?.category !== 'WELCOME')
-  // Check if SCHEDULE_C should be disabled (already exists and not editing the existing schedule_c template)
-  const isScheduleCDisabled = hasScheduleCTemplate && (!isEditing || template?.category !== 'SCHEDULE_C')
-
   // Form state
-  const [formData, setFormData] = useState<CreateMessageTemplateInput>({
-    category: 'GENERAL',
+  const [formData, setFormData] = useState<Omit<CreateMessageTemplateInput, 'category'>>({
     title: '',
     content: '',
     placeholders: [],
@@ -54,14 +58,11 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
     isActive: true,
   })
   const [newPlaceholder, setNewPlaceholder] = useState('')
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false)
 
   // Reset form when template changes or modal opens
   useEffect(() => {
     if (template) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
-        category: template.category,
         title: template.title,
         content: template.content,
         placeholders: template.placeholders || [],
@@ -69,21 +70,18 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
         isActive: template.isActive,
       })
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // Default content based on category
+      const defaultContent = getDefaultContent(category)
       setFormData({
-        category: 'GENERAL',
-        title: '',
-        content: '',
-        placeholders: [],
+        title: getDefaultTitle(category),
+        content: defaultContent.content,
+        placeholders: defaultContent.placeholders,
         sortOrder: 0,
         isActive: true,
       })
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNewPlaceholder('')
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsCategoryDropdownOpen(false)
-  }, [template, isOpen])
+  }, [template, isOpen, category])
 
   const createMutation = useMutation({
     mutationFn: (data: CreateMessageTemplateInput) => api.admin.messageTemplates.create(data),
@@ -104,10 +102,13 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!category) return
+
+    const data = { ...formData, category }
     if (isEditing) {
-      updateMutation.mutate(formData)
+      updateMutation.mutate(data)
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(data)
     }
   }
 
@@ -120,7 +121,10 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
   }
 
   const removePlaceholder = (placeholder: string) => {
-    setFormData({ ...formData, placeholders: formData.placeholders?.filter((p) => p !== placeholder) })
+    setFormData({
+      ...formData,
+      placeholders: formData.placeholders?.filter((p) => p !== placeholder),
+    })
   }
 
   const insertPlaceholder = (placeholder: string) => {
@@ -141,7 +145,10 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
 
   const isPending = createMutation.isPending || updateMutation.isPending
 
-  if (!isOpen) return null
+  if (!isOpen || !category) return null
+
+  const config = TEMPLATE_CONFIG[category]
+  const Icon = config.icon
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -152,9 +159,17 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
       <div className="relative bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">
-            {isEditing ? 'Chỉnh sửa mẫu tin nhắn' : 'Thêm mẫu tin nhắn'}
-          </h2>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+              <Icon className={cn('w-4 h-4', config.color)} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {isEditing ? 'Chỉnh sửa' : 'Cấu hình'} mẫu tin nhắn
+              </h2>
+              <p className="text-sm text-muted-foreground">{config.label}</p>
+            </div>
+          </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted transition-colors">
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -162,75 +177,13 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Category - Custom dropdown */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Danh mục</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                className={cn(
-                  'w-full flex items-center justify-between px-3 py-2.5 text-left',
-                  'border border-border rounded-lg bg-background',
-                  'hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
-                )}
-              >
-                <span className="text-foreground">
-                  {CATEGORY_OPTIONS.find((opt) => opt.value === formData.category)?.label || 'Chọn danh mục'}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    'w-4 h-4 text-muted-foreground transition-transform',
-                    isCategoryDropdownOpen && 'rotate-180'
-                  )}
-                />
-              </button>
-
-              {/* Dropdown list */}
-              {isCategoryDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
-                  {CATEGORY_OPTIONS.map((opt) => {
-                    const isDisabled =
-                      (opt.value === 'WELCOME' && isWelcomeDisabled) ||
-                      (opt.value === 'SCHEDULE_C' && isScheduleCDisabled)
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (!isDisabled) {
-                            setFormData({ ...formData, category: opt.value })
-                            setIsCategoryDropdownOpen(false)
-                          }
-                        }}
-                        className={cn(
-                          'w-full px-3 py-2 text-left text-sm transition-colors',
-                          formData.category === opt.value && 'bg-primary/10 text-primary',
-                          isDisabled
-                            ? 'opacity-50 cursor-not-allowed text-muted-foreground'
-                            : 'hover:bg-muted'
-                        )}
-                      >
-                        {opt.label}
-                        {isDisabled && (
-                          <span className="text-xs ml-2">(đã có)</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Title */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Tiêu đề</label>
             <Input
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="VD: Nhắc nộp tài liệu"
+              placeholder="VD: Gửi link tải tài liệu"
               required
             />
           </div>
@@ -310,41 +263,74 @@ export function MessageTemplateModal({ isOpen, onClose, template, hasWelcomeTemp
             </div>
           </div>
 
-          {/* Sort Order */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Thứ tự sắp xếp</label>
-            <Input
-              type="number"
-              value={formData.sortOrder}
-              onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
-            />
-          </div>
-
-          {/* Is Active */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="w-4 h-4 rounded border-border"
-            />
-            <label htmlFor="isActive" className="text-sm font-medium text-foreground">
-              Kích hoạt
-            </label>
-          </div>
-
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
               Hủy
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Thêm mới'}
+              {isPending ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Lưu'}
             </Button>
           </div>
         </form>
       </div>
     </div>
   )
+}
+
+// Helper functions for default content
+function getDefaultTitle(category: MessageTemplateCategory | null): string {
+  switch (category) {
+    case 'PORTAL_LINK':
+      return 'Gửi link tải tài liệu thuế'
+    case 'SCHEDULE_C':
+      return 'Yêu cầu thông tin Schedule C'
+    case 'SCHEDULE_E':
+      return 'Yêu cầu thông tin Schedule E'
+    default:
+      return ''
+  }
+}
+
+function getDefaultContent(category: MessageTemplateCategory | null): {
+  content: string
+  placeholders: string[]
+} {
+  switch (category) {
+    case 'PORTAL_LINK':
+      return {
+        content: `Chào {clientName},
+
+Cảm ơn bạn đã liên hệ với Ella Tax. Vui lòng nhấn vào link bên dưới để tải lên tài liệu thuế của bạn:
+
+{portalUrl}
+
+Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        placeholders: ['clientName', 'portalUrl'],
+      }
+    case 'SCHEDULE_C':
+      return {
+        content: `Chào {clientName},
+
+Chúng tôi cần thông tin chi phí kinh doanh (Schedule C) của bạn cho năm thuế {taxYear}. Vui lòng nhấn vào link bên dưới để điền thông tin:
+
+{expenseUrl}
+
+Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        placeholders: ['clientName', 'taxYear', 'expenseUrl'],
+      }
+    case 'SCHEDULE_E':
+      return {
+        content: `Chào {clientName},
+
+Chúng tôi cần thông tin bất động sản cho thuê (Schedule E) của bạn cho năm thuế {taxYear}. Vui lòng nhấn vào link bên dưới để điền thông tin:
+
+{expenseUrl}
+
+Nếu có thắc mắc, hãy liên hệ với chúng tôi.`,
+        placeholders: ['clientName', 'taxYear', 'expenseUrl'],
+      }
+    default:
+      return { content: '', placeholders: [] }
+  }
 }

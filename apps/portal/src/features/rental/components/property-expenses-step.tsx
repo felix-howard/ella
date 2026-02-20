@@ -43,26 +43,50 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
     property.otherExpenses || []
   )
 
+  // Track raw string values for other expense amounts to preserve intermediate input like "123."
+  const [otherAmountStrings, setOtherAmountStrings] = useState<string[]>(
+    () => (property.otherExpenses || []).map((e) => e.amount ? String(e.amount) : '')
+  )
+
   const [showTooltip, setShowTooltip] = useState<string | null>(null)
 
-  // Sync with property changes
+  // Sync with property changes - only update if numeric value actually changed
+  // This prevents losing intermediate input like "300." when parent re-renders
   useEffect(() => {
-    setExpenseValues({
-      insurance: String(property.insurance || ''),
-      mortgageInterest: String(property.mortgageInterest || ''),
-      repairs: String(property.repairs || ''),
-      taxes: String(property.taxes || ''),
-      utilities: String(property.utilities || ''),
-      managementFees: String(property.managementFees || ''),
-      cleaningMaintenance: String(property.cleaningMaintenance || ''),
+    setExpenseValues((prev) => {
+      const fields = ['insurance', 'mortgageInterest', 'repairs', 'taxes', 'utilities', 'managementFees', 'cleaningMaintenance'] as const
+      const updated = { ...prev }
+      for (const field of fields) {
+        const propValue = property[field] || 0
+        const localValue = parseFloat(prev[field]) || 0
+        // Only update if the numeric values differ (preserves intermediate input like "300.")
+        if (propValue !== localValue) {
+          updated[field] = propValue ? String(propValue) : ''
+        }
+      }
+      return updated
     })
     setOtherExpenses(property.otherExpenses || [])
+    // Only update otherAmountStrings if numeric values differ (preserves "300." while typing)
+    setOtherAmountStrings((prev) => {
+      const propExpenses = property.otherExpenses || []
+      // If lengths differ, need full sync
+      if (prev.length !== propExpenses.length) {
+        return propExpenses.map((e) => e.amount ? String(e.amount) : '')
+      }
+      // Otherwise, only update entries where numeric value changed
+      return prev.map((localStr, i) => {
+        const propValue = propExpenses[i]?.amount || 0
+        const localValue = parseFloat(localStr) || 0
+        return propValue !== localValue ? (propValue ? String(propValue) : '') : localStr
+      })
+    })
   }, [property])
 
   // Handle expense field change
-  // Regex allows: empty, digits only, or digits with decimal point followed by up to 2 digits
+  // Regex allows: empty, or any valid decimal number with up to 2 decimal places
   const handleExpenseChange = useCallback((field: string, value: string) => {
-    if (value === '' || /^\d+$/.test(value) || /^\d+\.\d{0,2}$/.test(value) || /^\d*\.$/.test(value)) {
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
       setExpenseValues((prev) => ({ ...prev, [field]: value }))
       const num = parseFloat(value)
       if (!isNaN(num) && num >= 0) {
@@ -95,8 +119,14 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   }, [onUpdate])
 
   const handleOtherExpenseAmountChange = useCallback((index: number, value: string) => {
-    // Same validation: empty, digits only, or digits with decimal up to 2 places
-    if (value === '' || /^\d+$/.test(value) || /^\d+\.\d{0,2}$/.test(value) || /^\d*\.$/.test(value)) {
+    // Same validation: empty, or any valid decimal number with up to 2 decimal places
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+      // Update raw string state to preserve intermediate values like "123."
+      setOtherAmountStrings((prev) => {
+        const updated = [...prev]
+        updated[index] = value
+        return updated
+      })
       setOtherExpenses((prev) => {
         const updated = [...prev]
         const num = parseFloat(value)
@@ -109,6 +139,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
 
   const handleAddOtherExpense = useCallback(() => {
     if (otherExpenses.length >= MAX_OTHER_EXPENSES) return
+    setOtherAmountStrings((prev) => [...prev, ''])
     setOtherExpenses((prev) => {
       const updated = [...prev, { name: '', amount: 0 }]
       onUpdate({ otherExpenses: updated })
@@ -117,6 +148,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   }, [otherExpenses.length, onUpdate])
 
   const handleRemoveOtherExpense = useCallback((index: number) => {
+    setOtherAmountStrings((prev) => prev.filter((_, i) => i !== index))
     setOtherExpenses((prev) => {
       const updated = prev.filter((_, i) => i !== index)
       onUpdate({ otherExpenses: updated })
@@ -228,7 +260,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={expense.amount || ''}
+                  value={otherAmountStrings[index] ?? ''}
                   onChange={(e) => handleOtherExpenseAmountChange(index, e.target.value)}
                   disabled={readOnly}
                   placeholder="0.00"

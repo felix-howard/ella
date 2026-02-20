@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { MessageSquare } from 'lucide-react'
 import { MessageBubble, TypingIndicator } from './message-bubble'
@@ -22,6 +23,7 @@ export function MessageThread({
   isTyping,
   className,
 }: MessageThreadProps) {
+  const { t, i18n } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const prevMessagesLengthRef = useRef(0)
@@ -37,8 +39,9 @@ export function MessageThread({
     const groups: { date: string; messages: Message[] }[] = []
     let currentDate = ''
 
+    const dateLocale = i18n.language === 'vi' ? 'vi-VN' : 'en-US'
     sortedMessages.forEach((message) => {
-      const messageDate = new Date(message.createdAt).toLocaleDateString('vi-VN', {
+      const messageDate = new Date(message.createdAt).toLocaleDateString(dateLocale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -53,7 +56,7 @@ export function MessageThread({
     })
 
     return groups
-  }, [messages])
+  }, [messages, i18n.language])
 
   // Reset scroll state when messages are cleared (e.g., navigating between conversations)
   useEffect(() => {
@@ -99,7 +102,7 @@ export function MessageThread({
       <div className={cn('flex-1 flex items-center justify-center', className)}>
         <div className="text-center text-muted-foreground">
           <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-          <p className="text-sm">Đang tải tin nhắn...</p>
+          <p className="text-sm">{t('messages.loading')}</p>
         </div>
       </div>
     )
@@ -111,8 +114,8 @@ export function MessageThread({
       <div className={cn('flex-1 flex items-center justify-center', className)}>
         <div className="text-center text-muted-foreground">
           <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm font-medium">Chưa có tin nhắn</p>
-          <p className="text-xs mt-1">Bắt đầu cuộc trò chuyện với khách hàng</p>
+          <p className="text-sm font-medium">{t('messages.noMessages')}</p>
+          <p className="text-xs mt-1">{t('messages.startConversation')}</p>
         </div>
       </div>
     )
@@ -132,7 +135,7 @@ export function MessageThread({
           <div className="flex items-center justify-center my-4">
             <div className="h-px bg-border flex-1" />
             <span className="px-3 text-xs text-muted-foreground font-medium">
-              {formatDateLabel(group.date)}
+              {formatDateLabel(group.date, t('messages.today'), t('messages.yesterday'))}
             </span>
             <div className="h-px bg-border flex-1" />
           </div>
@@ -158,7 +161,7 @@ export function MessageThread({
 /**
  * Format date for display
  */
-function formatDateLabel(dateStr: string): string {
+function formatDateLabel(dateStr: string, todayLabel: string, yesterdayLabel: string): string {
   const [day, month, year] = dateStr.split('/')
   const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
   const today = new Date()
@@ -167,12 +170,12 @@ function formatDateLabel(dateStr: string): string {
 
   // Check if today
   if (date.toDateString() === today.toDateString()) {
-    return 'Hôm nay'
+    return todayLabel
   }
 
   // Check if yesterday
   if (date.toDateString() === yesterday.toDateString()) {
-    return 'Hôm qua'
+    return yesterdayLabel
   }
 
   // Otherwise show full date

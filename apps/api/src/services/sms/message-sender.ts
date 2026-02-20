@@ -53,7 +53,7 @@ function replacePlaceholders(
 
 /**
  * Send welcome message with magic link to new client
- * Uses database template if available (WELCOME category), otherwise fallback to hardcoded
+ * Priority: customMessage > database template > hardcoded template
  */
 export async function sendWelcomeMessage(
   caseId: string,
@@ -61,34 +61,43 @@ export async function sendWelcomeMessage(
   clientPhone: string,
   magicLink: string,
   taxYear: number,
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  customMessage?: string
 ): Promise<SendMessageResult> {
   let body: string
 
-  // Try to get welcome template from database
-  const dbTemplate = await prisma.messageTemplate.findFirst({
-    where: {
-      category: 'WELCOME',
-      isActive: true,
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
-
-  if (dbTemplate) {
-    // Use database template with placeholder replacement
-    body = replacePlaceholders(dbTemplate.content, {
-      clientName,
-      portalUrl: magicLink,
-      taxYear,
-    })
+  if (customMessage) {
+    // Use custom message from form with placeholder replacement
+    body = customMessage
+      .replace(/\{\{client_name\}\}/g, clientName)
+      .replace(/\{\{tax_year\}\}/g, String(taxYear))
+      .replace(/\{\{portal_link\}\}/g, magicLink)
   } else {
-    // Fallback to hardcoded template
-    body = generateWelcomeMessage({
-      clientName,
-      magicLink,
-      taxYear,
-      language,
+    // Try to get portal link template from database
+    const dbTemplate = await prisma.messageTemplate.findFirst({
+      where: {
+        category: 'PORTAL_LINK',
+        isActive: true,
+      },
+      orderBy: { sortOrder: 'asc' },
     })
+
+    if (dbTemplate) {
+      // Use database template with placeholder replacement
+      body = replacePlaceholders(dbTemplate.content, {
+        clientName,
+        portalUrl: magicLink,
+        taxYear,
+      })
+    } else {
+      // Fallback to hardcoded template
+      body = generateWelcomeMessage({
+        clientName,
+        magicLink,
+        taxYear,
+        language,
+      })
+    }
   }
 
   return sendAndRecordMessage(caseId, clientPhone, body, 'welcome')
@@ -267,32 +276,24 @@ async function sendAndRecordMessage(
 
 /**
  * Send Schedule C expense form link to client
- * Uses database template if available (SCHEDULE_C category), otherwise fallback to hardcoded
+ * If customMessage provided, use it with placeholder replacement
+ * Otherwise falls back to hardcoded template (database templates are deprecated)
  */
 export async function sendScheduleCFormMessage(
   caseId: string,
   clientName: string,
   clientPhone: string,
   magicLink: string,
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  customMessage?: string
 ): Promise<SendMessageResult> {
   let body: string
 
-  // Try to get Schedule C template from database
-  const dbTemplate = await prisma.messageTemplate.findFirst({
-    where: {
-      category: 'SCHEDULE_C',
-      isActive: true,
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
-
-  if (dbTemplate) {
-    // Use database template with placeholder replacement
-    body = replacePlaceholders(dbTemplate.content, {
-      clientName,
-      expenseUrl: magicLink,
-    })
+  if (customMessage) {
+    // Use custom message from frontend with placeholder replacement
+    body = customMessage
+      .replace(/\{\{client_name\}\}/g, clientName)
+      .replace(/\{\{form_link\}\}/g, magicLink)
   } else {
     // Fallback to hardcoded template
     body = generateScheduleCMessage({ clientName, magicLink, language })
@@ -310,32 +311,24 @@ export function isSmsEnabled(): boolean {
 
 /**
  * Send Schedule E rental property form link to client
- * Uses database template if available (SCHEDULE_E category), otherwise fallback to hardcoded
+ * If customMessage provided, use it with placeholder replacement
+ * Otherwise falls back to hardcoded template (database templates are deprecated)
  */
 export async function sendScheduleEFormMessage(
   caseId: string,
   clientName: string,
   clientPhone: string,
   magicLink: string,
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  customMessage?: string
 ): Promise<SendMessageResult> {
   let body: string
 
-  // Try to get Schedule E template from database
-  const dbTemplate = await prisma.messageTemplate.findFirst({
-    where: {
-      category: 'SCHEDULE_E',
-      isActive: true,
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
-
-  if (dbTemplate) {
-    // Use database template with placeholder replacement
-    body = replacePlaceholders(dbTemplate.content, {
-      clientName,
-      rentalUrl: magicLink,
-    })
+  if (customMessage) {
+    // Use custom message from frontend with placeholder replacement
+    body = customMessage
+      .replace(/\{\{client_name\}\}/g, clientName)
+      .replace(/\{\{form_link\}\}/g, magicLink)
   } else {
     // Fallback to hardcoded template
     body = generateScheduleEMessage({ clientName, magicLink, language })

@@ -13,9 +13,10 @@ const generateToken = customAlphabet(
   12
 )
 
-// Default TTL: 7 days for Schedule C/E, no expiry for Portal
-const SCHEDULE_C_TTL_DAYS = 7
-const SCHEDULE_E_TTL_DAYS = 7
+// All link types now have no expiry (null = never expires)
+// Previously: Schedule C/E had 7-day TTL, now removed for better UX
+// TTL constant kept for extendMagicLinkExpiry (1 year expiry for extended links)
+const MAGIC_LINK_TTL_DAYS = 365
 
 /**
  * Generate URL based on magic link type
@@ -47,17 +48,8 @@ export async function createMagicLink(
   const token = generateToken()
   const type: MagicLinkType = options?.type || 'PORTAL'
 
-  // Calculate expiry based on type if not provided
-  // Portal links never expire (null), Schedule C/E expire after TTL days
-  let expiresAt: Date | null = null
-  if (options?.expiresAt) {
-    expiresAt = options.expiresAt
-  } else if (type === 'SCHEDULE_C') {
-    expiresAt = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
-  } else if (type === 'SCHEDULE_E') {
-    expiresAt = new Date(Date.now() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000)
-  }
-  // PORTAL type: expiresAt stays null (never expires)
+  // All link types never expire (null) unless explicitly provided
+  const expiresAt: Date | null = options?.expiresAt ?? null
 
   await prisma.magicLink.create({
     data: {
@@ -82,14 +74,8 @@ export async function createMagicLinkWithDeactivation(
 ): Promise<{ url: string; expiresAt: Date | null }> {
   const token = generateToken()
 
-  // Portal links never expire (null), Schedule C/E expire after TTL days
-  let expiresAt: Date | null = null
-  if (type === 'SCHEDULE_C') {
-    expiresAt = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
-  } else if (type === 'SCHEDULE_E') {
-    expiresAt = new Date(Date.now() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000)
-  }
-  // PORTAL type: expiresAt stays null (never expires)
+  // All link types never expire (null)
+  const expiresAt: Date | null = null
 
   await prisma.$transaction([
     // Deactivate all existing links of this type for this case
@@ -266,8 +252,7 @@ export interface ScheduleCValidationResult {
   isLocked?: boolean
 }
 
-// Auto-extend threshold: 30 days before expiry
-const AUTO_EXTEND_THRESHOLD_DAYS = 30
+// Auto-extend disabled: links no longer expire
 
 /**
  * Validate Schedule C token and return minimal data needed for expense form
@@ -309,20 +294,12 @@ export async function validateScheduleCToken(token: string): Promise<ScheduleCVa
     return { valid: false, error: 'FORM_LOCKED' }
   }
 
-  // Auto-extend expiry if within threshold
-  const now = new Date()
-  const thresholdMs = AUTO_EXTEND_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
-  const shouldExtend = link.expiresAt && (link.expiresAt.getTime() - now.getTime()) < thresholdMs
-
-  // Update usage stats and optionally extend expiry
+  // Update usage stats
   await prisma.magicLink.update({
     where: { id: link.id },
     data: {
-      lastUsedAt: now,
+      lastUsedAt: new Date(),
       usageCount: { increment: 1 },
-      ...(shouldExtend && {
-        expiresAt: new Date(now.getTime() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000),
-      }),
     },
   })
 
@@ -341,7 +318,7 @@ export async function validateScheduleCToken(token: string): Promise<ScheduleCVa
  * Extend magic link expiry by 7 days
  */
 export async function extendMagicLinkExpiry(linkId: string): Promise<Date> {
-  const newExpiry = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const newExpiry = new Date(Date.now() + MAGIC_LINK_TTL_DAYS * 24 * 60 * 60 * 1000)
   await prisma.magicLink.update({
     where: { id: linkId },
     data: { expiresAt: newExpiry },
@@ -425,20 +402,12 @@ export async function validateScheduleEToken(token: string): Promise<ScheduleEVa
     return { valid: false, error: 'FORM_LOCKED' }
   }
 
-  // Auto-extend expiry if within threshold
-  const now = new Date()
-  const thresholdMs = AUTO_EXTEND_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
-  const shouldExtend = link.expiresAt && (link.expiresAt.getTime() - now.getTime()) < thresholdMs
-
-  // Update usage stats and optionally extend expiry
+  // Update usage stats
   await prisma.magicLink.update({
     where: { id: link.id },
     data: {
-      lastUsedAt: now,
+      lastUsedAt: new Date(),
       usageCount: { increment: 1 },
-      ...(shouldExtend && {
-        expiresAt: new Date(now.getTime() + SCHEDULE_E_TTL_DAYS * 24 * 60 * 60 * 1000),
-      }),
     },
   })
 

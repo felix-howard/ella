@@ -23,10 +23,10 @@ function LanguageToggle() {
   return (
     <button
       onClick={toggleLanguage}
-      className="fixed top-3 right-3 z-50 px-2.5 py-1 rounded-full bg-muted/80 backdrop-blur-sm text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/50"
+      className="fixed top-3 right-3 z-50 px-3 py-1.5 rounded-full bg-muted/80 backdrop-blur-sm text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/50"
       aria-label="Switch language"
     >
-      {isVi ? 'EN' : 'VI'}
+      {isVi ? 'English' : 'Vietnamese'}
     </button>
   )
 }

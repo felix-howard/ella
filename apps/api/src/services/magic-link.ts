@@ -15,6 +15,8 @@ const generateToken = customAlphabet(
 
 // All link types now have no expiry (null = never expires)
 // Previously: Schedule C/E had 7-day TTL, now removed for better UX
+// TTL constant kept for extendMagicLinkExpiry (1 year expiry for extended links)
+const MAGIC_LINK_TTL_DAYS = 365
 
 /**
  * Generate URL based on magic link type
@@ -316,7 +318,7 @@ export async function validateScheduleCToken(token: string): Promise<ScheduleCVa
  * Extend magic link expiry by 7 days
  */
 export async function extendMagicLinkExpiry(linkId: string): Promise<Date> {
-  const newExpiry = new Date(Date.now() + SCHEDULE_C_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const newExpiry = new Date(Date.now() + MAGIC_LINK_TTL_DAYS * 24 * 60 * 60 * 1000)
   await prisma.magicLink.update({
     where: { id: linkId },
     data: { expiresAt: newExpiry },

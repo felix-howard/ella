@@ -249,7 +249,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, ...clientData } = body
+  const { profile, customMessage, ...clientData } = body
   const user = c.get('user')
 
   try {
@@ -341,17 +341,18 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const magicLink = await createMagicLink(result.taxCase.id)
 
   // Send welcome SMS with magic link (async, non-blocking)
+  // Use client's language preference (from form), not org default
   let smsStatus: { sent: boolean; error?: string } = { sent: false }
   if (isSmsEnabled()) {
     try {
-      const smsLanguage = await getOrgSmsLanguage(user.organizationId)
       const smsResult = await sendWelcomeMessage(
         result.taxCase.id,
         result.client.name,
         result.client.phone,
         magicLink,
         result.taxCase.taxYear,
-        smsLanguage
+        result.client.language as 'VI' | 'EN',
+        customMessage // Pass custom message from form
       )
       smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
     } catch (error) {

@@ -53,7 +53,7 @@ function replacePlaceholders(
 
 /**
  * Send welcome message with magic link to new client
- * Uses database template if available (PORTAL_LINK category), otherwise fallback to hardcoded
+ * Priority: customMessage > database template > hardcoded template
  */
 export async function sendWelcomeMessage(
   caseId: string,
@@ -61,34 +61,43 @@ export async function sendWelcomeMessage(
   clientPhone: string,
   magicLink: string,
   taxYear: number,
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  customMessage?: string
 ): Promise<SendMessageResult> {
   let body: string
 
-  // Try to get portal link template from database
-  const dbTemplate = await prisma.messageTemplate.findFirst({
-    where: {
-      category: 'PORTAL_LINK',
-      isActive: true,
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
-
-  if (dbTemplate) {
-    // Use database template with placeholder replacement
-    body = replacePlaceholders(dbTemplate.content, {
-      clientName,
-      portalUrl: magicLink,
-      taxYear,
-    })
+  if (customMessage) {
+    // Use custom message from form with placeholder replacement
+    body = customMessage
+      .replace(/\{\{client_name\}\}/g, clientName)
+      .replace(/\{\{tax_year\}\}/g, String(taxYear))
+      .replace(/\{\{portal_link\}\}/g, magicLink)
   } else {
-    // Fallback to hardcoded template
-    body = generateWelcomeMessage({
-      clientName,
-      magicLink,
-      taxYear,
-      language,
+    // Try to get portal link template from database
+    const dbTemplate = await prisma.messageTemplate.findFirst({
+      where: {
+        category: 'PORTAL_LINK',
+        isActive: true,
+      },
+      orderBy: { sortOrder: 'asc' },
     })
+
+    if (dbTemplate) {
+      // Use database template with placeholder replacement
+      body = replacePlaceholders(dbTemplate.content, {
+        clientName,
+        portalUrl: magicLink,
+        taxYear,
+      })
+    } else {
+      // Fallback to hardcoded template
+      body = generateWelcomeMessage({
+        clientName,
+        magicLink,
+        taxYear,
+        language,
+      })
+    }
   }
 
   return sendAndRecordMessage(caseId, clientPhone, body, 'welcome')

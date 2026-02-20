@@ -1192,6 +1192,8 @@ export interface CreateClientInput {
     // Full intake answers JSON (supports arrays/objects for dependents, etc.)
     intakeAnswers?: Record<string, unknown>
   }
+  // Custom welcome SMS message with placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
+  customMessage?: string
 }
 
 export interface CreateClientResponse {

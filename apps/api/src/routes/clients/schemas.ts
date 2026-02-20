@@ -119,6 +119,8 @@ export const createClientSchema = z.object({
   email: z.string().email().optional(),
   language: z.enum(['VI', 'EN']).default('VI'),
   profile: clientProfileSchema,
+  // Custom welcome message (optional) - uses placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
+  customMessage: z.string().max(500).optional(),
 })
 
 // Update client input

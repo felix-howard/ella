@@ -195,6 +195,8 @@ function CreateClientPage() {
             taxYear: basicInfo.taxYear,
             taxTypes: ['FORM_1040'], // Default to individual form
           },
+          // Pass custom message if edited (with placeholders)
+          customMessage: currentMessage,
         })
         clientId = response.client.id
       }

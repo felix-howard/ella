@@ -32,16 +32,29 @@ export function getInitials(name: string): string {
 }
 
 /**
- * Get relative time in Vietnamese
- * Example: "5 phút trước", "2 giờ trước", "3 ngày trước"
+ * Get relative time with locale support
+ * Example: "5 minutes ago" / "5 phút trước"
  */
-export function getRelativeTimeVi(date: Date): string {
+export function getRelativeTime(date: Date, locale: 'en' | 'vi' = 'vi'): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMinutes = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMinutes / 60)
   const diffDays = Math.floor(diffHours / 24)
 
+  if (locale === 'en') {
+    if (diffMinutes < 1) return 'Just now'
+    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+    })
+  }
+
+  // Vietnamese (default)
   if (diffMinutes < 1) return 'Vừa xong'
   if (diffMinutes < 60) return `${diffMinutes} phút trước`
   if (diffHours < 24) return `${diffHours} giờ trước`
@@ -51,6 +64,14 @@ export function getRelativeTimeVi(date: Date): string {
     day: 'numeric',
     month: 'short',
   })
+}
+
+/**
+ * Get relative time in Vietnamese (backwards compatible)
+ * @deprecated Use getRelativeTime(date, 'vi') instead
+ */
+export function getRelativeTimeVi(date: Date): string {
+  return getRelativeTime(date, 'vi')
 }
 
 /**
@@ -122,11 +143,10 @@ export function stripHtmlTags(text: string): string {
 }
 
 /**
- * Format relative time from ISO string
- * Wrapper for getRelativeTimeVi that handles string input
+ * Format relative time from ISO string with locale support
  */
-export function formatRelativeTime(isoString: string): string {
-  return getRelativeTimeVi(new Date(isoString))
+export function formatRelativeTime(isoString: string, locale: 'en' | 'vi' = 'vi'): string {
+  return getRelativeTime(new Date(isoString), locale)
 }
 
 /**

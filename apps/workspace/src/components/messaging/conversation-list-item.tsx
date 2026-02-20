@@ -28,8 +28,9 @@ export const ConversationListItem = memo(function ConversationListItem({
   conversation,
   isActive,
 }: ConversationListItemProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { client, taxCase, lastMessage, unreadCount } = conversation
+  const locale = i18n.language === 'vi' ? 'vi' : 'en'
   const hasUnread = unreadCount > 0
 
   // Status styling
@@ -40,7 +41,7 @@ export const ConversationListItem = memo(function ConversationListItem({
   // Truncate and sanitize last message
   const messagePreview = lastMessage
     ? sanitizeText(lastMessage.content).slice(0, 60) + (lastMessage.content.length > 60 ? '...' : '')
-    : 'Chưa có tin nhắn'
+    : t('messages.noMessages')
 
   return (
     <Link
@@ -98,7 +99,7 @@ export const ConversationListItem = memo(function ConversationListItem({
               'text-xs flex-shrink-0 ml-2',
               isActive ? 'text-primary/70' : 'text-muted-foreground'
             )}>
-              {formatRelativeTime(lastMessage.createdAt)}
+              {formatRelativeTime(lastMessage.createdAt, locale)}
             </span>
           )}
         </div>

@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { getValidNextStatuses } from '@ella/shared'
 import { toast } from '../../stores/toast-store'
@@ -24,6 +25,7 @@ export function StatusSelector({
   onStatusChange,
   disabled = false,
 }: StatusSelectorProps) {
+  const { t } = useTranslation()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
 
@@ -41,10 +43,10 @@ export function StatusSelector({
 
     try {
       await api.cases.update(caseId, { status: newStatus })
-      toast.success(`Đã cập nhật trạng thái: ${CASE_STATUS_LABELS[newStatus]}`)
+      toast.success(t('caseStatus.updateSuccess', { status: CASE_STATUS_LABELS[newStatus] }))
       onStatusChange?.(newStatus)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể cập nhật trạng thái'
+      const message = error instanceof Error ? error.message : t('caseStatus.updateError')
       toast.error(message)
     } finally {
       setIsUpdating(false)

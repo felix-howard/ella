@@ -3,6 +3,7 @@
  */
 import { useState, useMemo } from 'react'
 import { History, ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { VersionHistoryEntry } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 
@@ -11,6 +12,7 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({ history }: VersionHistoryProps) {
+  const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Memoize sorted history to avoid sorting on every render
@@ -31,7 +33,7 @@ export function VersionHistory({ history }: VersionHistoryProps) {
     <div>
       <h3 className="text-sm font-medium text-foreground uppercase tracking-wide mb-3 pb-2 border-b border-border flex items-center gap-2">
         <History className="w-4 h-4" />
-        Lịch sử phiên bản
+        {t('schedule.versionHistory')}
       </h3>
 
       <div className="space-y-3">
@@ -48,14 +50,14 @@ export function VersionHistory({ history }: VersionHistoryProps) {
             <div className="flex-1 min-w-0">
               {/* Timestamp */}
               <p className="text-xs text-muted-foreground truncate">
-                {formatDateTime(entry.submittedAt, 'DATETIME_FULL')}
+                {formatDateTime(entry.submittedAt, 'DATETIME_FULL', i18n.language === 'vi' ? 'vi-VN' : 'en-US')}
               </p>
 
               {/* Changes */}
               <p className="text-foreground break-words">
                 {entry.changes.length > 0
                   ? entry.changes.join(', ')
-                  : 'Tạo mới'}
+                  : t('schedule.initialSubmission')}
               </p>
             </div>
           </div>
@@ -71,12 +73,12 @@ export function VersionHistory({ history }: VersionHistoryProps) {
           {isExpanded ? (
             <>
               <ChevronUp className="w-3 h-3" />
-              Thu gọn
+              {t('common.collapse')}
             </>
           ) : (
             <>
               <ChevronDown className="w-3 h-3" />
-              Xem thêm ({sortedHistory.length - 3})
+              {t('common.showMore', { count: sortedHistory.length - 3 })}
             </>
           )}
         </button>

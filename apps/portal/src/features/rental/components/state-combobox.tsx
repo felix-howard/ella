@@ -13,6 +13,7 @@ interface StateComboboxProps {
   disabled?: boolean
   placeholder?: string
   id?: string
+  error?: boolean
 }
 
 export function StateCombobox({
@@ -21,6 +22,7 @@ export function StateCombobox({
   disabled = false,
   placeholder = 'Select state',
   id,
+  error = false,
 }: StateComboboxProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -128,11 +130,12 @@ export function StateCombobox({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm text-left',
+          'w-full h-10 px-3 bg-card border rounded-lg text-sm text-left',
           'flex items-center justify-between gap-2',
           'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          !value && 'text-muted-foreground'
+          !value && 'text-muted-foreground',
+          error ? 'border-destructive focus:ring-destructive/20 focus:border-destructive' : 'border-border'
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}

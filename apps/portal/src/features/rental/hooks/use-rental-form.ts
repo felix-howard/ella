@@ -72,7 +72,7 @@ export function useRentalForm(
   const { expense } = initialData
 
   // Initialize property count from existing data or default to 1
-  const initialPropertyCount = useMemo(() => {
+  const loadedPropertyCount = useMemo(() => {
     if (expense?.properties?.length) {
       return Math.min(3, Math.max(1, expense.properties.length)) as 1 | 2 | 3
     }
@@ -93,11 +93,13 @@ export function useRentalForm(
 
   // State
   const [currentStep, setCurrentStep] = useState(0)
-  const [propertyCount, setPropertyCountState] = useState<1 | 2 | 3>(initialPropertyCount)
+  const [propertyCount, setPropertyCountState] = useState<1 | 2 | 3>(loadedPropertyCount)
   const [properties, setProperties] = useState<ScheduleEProperty[]>(initialProperties)
   const [isDirty, setIsDirty] = useState(false)
   const [status, setStatus] = useState<FormStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  // Track submitted count - used to show confirmation when reducing property count
+  const [submittedPropertyCount, setSubmittedPropertyCount] = useState<1 | 2 | 3>(loadedPropertyCount)
 
   // Refs for tracking
   const propertiesRef = useRef(properties)
@@ -209,6 +211,8 @@ export function useRentalForm(
       await rentalApi.submit(token, { properties: propertiesRef.current })
       setStatus('submitted')
       setIsDirty(false)
+      // Update submitted count so confirmation shows if user reduces later
+      setSubmittedPropertyCount(propertiesRef.current.length as 1 | 2 | 3)
       return true
     } catch (err) {
       setStatus('error')
@@ -251,7 +255,7 @@ export function useRentalForm(
     errorMessage,
     isLocked,
     version,
-    initialPropertyCount,
+    initialPropertyCount: submittedPropertyCount,
 
     // Actions
     submit,

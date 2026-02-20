@@ -167,6 +167,7 @@
   "rental.cityPlaceholder": "e.g., Atlanta",
   "rental.state": "State",
   "rental.selectState": "Select",
+  "rental.stateRequired": "Please select a state",
   "rental.zip": "ZIP Code",
   "rental.propertyType": "Property Type",
   "rental.propertyTypeOtherPlaceholder": "Describe other property type",

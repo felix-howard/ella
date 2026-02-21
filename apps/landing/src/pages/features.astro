@@ -171,9 +171,13 @@ import { checkPath } from "@/lib/icons";
         return (
           <section class:list={[bgClass, "py-16 sm:py-24"]} aria-label={feature.title}>
             <div class="mx-auto max-w-7xl px-4 sm:px-6">
-              <div class:list={["grid items-center gap-16", isOdd ? "lg:grid-cols-[2fr_3fr]" : "lg:grid-cols-[3fr_2fr]"]}>
-                {/* Content side */}
-                <div class:list={[!isOdd && "lg:order-2"]}>
+              <div class:list={[
+                "flex flex-col gap-8 sm:gap-16",
+                "lg:grid lg:items-center",
+                isOdd ? "lg:grid-cols-[2fr_3fr]" : "lg:grid-cols-[3fr_2fr]"
+              ]}>
+                {/* Content side - always first on mobile, position varies on desktop */}
+                <div class:list={["order-1", !isOdd && "lg:order-2"]}>
                   {/* Heading */}
                   <h2
                     class="text-3xl font-bold text-gray-900"
@@ -214,10 +218,10 @@ import { checkPath } from "@/lib/icons";
                   </ul>
                 </div>
 
-                {/* Image side */}
-                <div class:list={[!isOdd && "lg:order-1"]} data-animate="fade-up">
+                {/* Image side - always second on mobile, position varies on desktop */}
+                <div class:list={["order-2", !isOdd && "lg:order-1"]} data-animate="fade-up">
                   {feature.images ? (
-                    <div class="flex gap-4 justify-center items-start">
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center sm:items-start">
                       {feature.images.map((img) => (
                         <div class="overflow-hidden rounded-2xl border border-gray-200 shadow-xl">
                           <img

@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock, Download } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
@@ -17,7 +17,7 @@ import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { getFieldLabelForDocType, isExcludedField } from '../../lib/field-labels'
 import { getDocTypeFields } from '../../lib/doc-type-fields'
 import { DOC_TYPE_FIELD_GROUPS } from '../../lib/doc-type-field-groups'
-import { api, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
+import { api, fetchMediaBlobUrl, type DigitalDoc, type FieldVerificationStatus } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 
@@ -308,6 +308,32 @@ export function VerificationModal({
     completeMutation.mutate()
   }, [completeMutation])
 
+  // Handle download file
+  const handleDownload = useCallback(async () => {
+    if (!rawImageId) {
+      toast.error(t('fileActions.cannotDownloadFile'))
+      return
+    }
+    try {
+      const blobUrl = await fetchMediaBlobUrl(`/cases/images/${rawImageId}/file`)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      // Get display name from displayName, r2Key (formatted name), or original filename
+      let downloadName = doc.rawImage?.displayName
+      if (!downloadName && doc.rawImage?.r2Key) {
+        const parts = doc.rawImage.r2Key.split('/')
+        downloadName = parts[parts.length - 1]
+      }
+      link.download = downloadName || doc.rawImage?.filename || 'document'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.error(t('fileActions.cannotDownloadFile'))
+    }
+  }, [rawImageId, doc.rawImage, t])
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return
@@ -374,6 +400,19 @@ export function VerificationModal({
   const docLabel = DOC_TYPE_LABELS[doc.docType] || doc.docType
   const isPdf = doc.rawImage?.r2Key?.endsWith('.pdf')
 
+  // Get display name: prefer displayName, then extract from r2Key (formatted name), then original filename
+  const getDisplayName = () => {
+    if (doc.rawImage?.displayName) return doc.rawImage.displayName
+    // Extract formatted name from r2Key (e.g., "cases/.../docs/2024_W2_Name.pdf" -> "2024_W2_Name.pdf")
+    if (doc.rawImage?.r2Key) {
+      const parts = doc.rawImage.r2Key.split('/')
+      const fileName = parts[parts.length - 1]
+      if (fileName) return fileName
+    }
+    return doc.rawImage?.filename || docLabel
+  }
+  const modalTitle = getDisplayName()
+
   // URL validation
   const validatedUrl =
     signedUrlData?.url && isValidSignedUrl(signedUrlData.url) ? signedUrlData.url : null
@@ -406,7 +445,7 @@ export function VerificationModal({
                 id="verification-modal-title"
                 className="text-lg font-bold text-foreground"
               >
-                {docLabel}
+                {modalTitle}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {t('verificationModal.verifyInfo')}
@@ -444,6 +483,16 @@ export function VerificationModal({
                   {t('digitalDoc.extracted')}
                 </>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={!rawImageId}
+              className="gap-1.5 px-4"
+            >
+              <Download className="w-4 h-4" />
+              {t('fileActions.download')}
             </Button>
             <button
               onClick={onClose}

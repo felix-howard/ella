@@ -1118,7 +1118,7 @@ export interface DigitalDoc {
   aiConfidence?: number | null
   createdAt: string
   updatedAt: string
-  rawImage?: { id: string; filename: string; r2Key: string }
+  rawImage?: { id: string; filename: string; r2Key: string; displayName?: string | null }
   // Phase 02: Field-level verification & entry tracking
   fieldVerifications?: Record<string, FieldVerificationStatus>
   copiedFields?: Record<string, boolean>

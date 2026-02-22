@@ -156,7 +156,10 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
         orderBy: { template: { sortOrder: 'asc' } },
       },
       rawImages: { orderBy: { createdAt: 'desc' } },
-      digitalDocs: { orderBy: { createdAt: 'desc' } },
+      digitalDocs: {
+        orderBy: { createdAt: 'desc' },
+        include: { rawImage: { select: { id: true, filename: true, r2Key: true, displayName: true } } },
+      },
     },
   })
 

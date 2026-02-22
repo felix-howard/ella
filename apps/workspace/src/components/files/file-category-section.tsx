@@ -210,7 +210,9 @@ const FileItemRow = memo(function FileItemRow({
     mutationFn: (filename: string) => api.images.rename(image.id, filename),
     onSuccess: () => {
       toast.success(t('classify.fileRenamed'))
+      // Invalidate both images and case queries to refresh all views
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
       setIsRenaming(false)
     },
     onError: () => {

@@ -545,17 +545,19 @@ imagesRoute.patch(
       )
     }
 
-    // Update filename
+    // Update displayName (user-visible name shown in UI)
+    // Note: `filename` is the original upload name, `displayName` is what's shown in UI
     const updated = await prisma.rawImage.update({
       where: { id },
-      data: { filename: sanitizedFilename },
-      select: { id: true, filename: true },
+      data: { displayName: sanitizedFilename },
+      select: { id: true, filename: true, displayName: true },
     })
 
     return c.json({
       success: true,
       id: updated.id,
-      filename: updated.filename,
+      filename: updated.displayName || updated.filename,
+      displayName: updated.displayName,
     })
   }
 )

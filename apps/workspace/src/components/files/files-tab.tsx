@@ -6,9 +6,10 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import JSZip from 'jszip'
 import { Upload, Download, CheckCheck, Loader2 } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
+import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { UnclassifiedSection } from './unclassified-section'
@@ -217,45 +218,55 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
   })
 
-  // Handle download all files
+  // Handle download all files as ZIP
   const handleDownloadAll = useCallback(async () => {
     if (images.length === 0) return
 
     setIsDownloading(true)
-    let downloadedCount = 0
 
     try {
-      // Download files sequentially to avoid overwhelming the browser
+      const zip = new JSZip()
+      const usedFilenames = new Map<string, number>()
+
+      // Fetch all files and add to ZIP
       for (const img of images) {
         try {
-          const { url } = await api.cases.getImageSignedUrl(img.id)
-
-          // Fetch as blob to force download (cross-origin URLs ignore download attribute)
-          const response = await fetch(url)
+          // Use fetchMediaBlobUrl which includes Bearer auth token
+          const blobUrl = await fetchMediaBlobUrl(`/cases/images/${img.id}/file`)
+          const response = await fetch(blobUrl)
           const blob = await response.blob()
-          const blobUrl = URL.createObjectURL(blob)
-
-          // Create a temporary link and trigger download
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = img.displayName || img.filename
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-
-          // Clean up blob URL
           URL.revokeObjectURL(blobUrl)
-          downloadedCount++
 
-          // Small delay between downloads to prevent browser blocking
-          await new Promise((resolve) => setTimeout(resolve, 300))
+          // Handle duplicate filenames by adding suffix
+          let filename = img.displayName || img.filename
+          const count = usedFilenames.get(filename) || 0
+          if (count > 0) {
+            const ext = filename.lastIndexOf('.')
+            filename = ext > 0
+              ? `${filename.slice(0, ext)} (${count})${filename.slice(ext)}`
+              : `${filename} (${count})`
+          }
+          usedFilenames.set(img.displayName || img.filename, count + 1)
+
+          zip.file(filename, blob)
         } catch {
-          // Continue with next file if one fails
-          console.warn(`Failed to download: ${img.filename}`)
+          console.warn(`Failed to fetch: ${img.filename}`)
         }
       }
 
-      toast.success(t('filesTab.downloadedFiles', { count: downloadedCount }))
+      // Generate ZIP and trigger download
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const zipUrl = URL.createObjectURL(zipBlob)
+
+      const link = document.createElement('a')
+      link.href = zipUrl
+      link.download = `documents-${new Date().toISOString().slice(0, 10)}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      URL.revokeObjectURL(zipUrl)
+      toast.success(t('filesTab.downloadedFiles', { count: images.length }))
     } catch {
       toast.error(t('filesTab.downloadError'))
     } finally {

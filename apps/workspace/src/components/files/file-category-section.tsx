@@ -2,6 +2,7 @@
  * FileCategorySection - Collapsible folder view for categorized documents
  * Shows category with color styling and displayName for files
  * Supports drag-and-drop between categories
+ * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
 import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
@@ -15,6 +16,7 @@ import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
+import { useMarkDocumentViewed } from '../../hooks'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 
 export interface FileCategorySectionProps {
@@ -166,6 +168,7 @@ interface FileItemRowProps {
 /**
  * Single file row with thumbnail, displayName, and status/action
  * Supports drag to move between categories and inline renaming
+ * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 const FileItemRow = memo(function FileItemRow({
   image,
@@ -177,6 +180,7 @@ const FileItemRow = memo(function FileItemRow({
 }: FileItemRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const markViewed = useMarkDocumentViewed()
   const [isDragging, setIsDragging] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFilename, setNewFilename] = useState('')
@@ -280,6 +284,23 @@ const FileItemRow = memo(function FileItemRow({
         )}
         onClick={() => {
           if (isRenaming) return
+          // Mark as viewed when opening (fire and forget with optimistic update)
+          if (image.isNew) {
+            // Optimistic update - remove NEW badge immediately
+            queryClient.setQueryData(
+              ['images', caseId],
+              (old: { images: RawImage[] } | undefined) => {
+                if (!old) return old
+                return {
+                  ...old,
+                  images: old.images.map((img) =>
+                    img.id === image.id ? { ...img, isNew: false } : img
+                  ),
+                }
+              }
+            )
+            markViewed.mutate(image.id)
+          }
           if (doc) onVerify(doc)
           else if (isProcessedNoDoc) onViewImage?.(image.id)
         }}
@@ -289,15 +310,39 @@ const FileItemRow = memo(function FileItemRow({
           if (isRenaming) return
           if ((e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
+            // Mark as viewed when opening via keyboard
+            if (image.isNew) {
+              queryClient.setQueryData(
+                ['images', caseId],
+                (old: { images: RawImage[] } | undefined) => {
+                  if (!old) return old
+                  return {
+                    ...old,
+                    images: old.images.map((img) =>
+                      img.id === image.id ? { ...img, isNew: false } : img
+                    ),
+                  }
+                }
+              )
+              markViewed.mutate(image.id)
+            }
             if (doc) onVerify(doc)
             else if (isProcessedNoDoc) onViewImage?.(image.id)
           }
         }}
         aria-label={(doc || isProcessedNoDoc) && !isRenaming ? `Mở ${displayName}` : undefined}
       >
-        {/* Thumbnail */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-          <ImageThumbnail imageId={image.id} filename={image.filename} />
+        {/* Thumbnail with NEW badge */}
+        <div className="relative w-12 h-12 flex-shrink-0">
+          <div className="w-full h-full rounded-lg overflow-hidden bg-muted">
+            <ImageThumbnail imageId={image.id} filename={image.filename} />
+          </div>
+          {/* NEW badge overlay */}
+          {image.isNew && (
+            <span className="absolute -top-1 -right-1 px-1 py-0.5 text-[9px] font-bold bg-primary text-primary-foreground rounded shadow-sm">
+              {t('files.new')}
+            </span>
+          )}
         </div>
 
         {/* Info - Show displayName as primary, docType as secondary */}

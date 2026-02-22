@@ -10,3 +10,4 @@ export type { CallState, VoiceCallState, VoiceCallActions } from './use-voice-ca
 export { useScheduleC } from './use-schedule-c'
 export { useScheduleCActions } from './use-schedule-c-actions'
 export { useIsMobile } from './use-mobile-breakpoint'
+export { useMarkDocumentViewed } from './use-mark-document-viewed'

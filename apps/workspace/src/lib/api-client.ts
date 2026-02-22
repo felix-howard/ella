@@ -431,6 +431,13 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ category }),
       }),
+
+    // Mark document as viewed by current staff (for NEW badge tracking)
+    markViewed: (id: string) =>
+      request<{ success: boolean }>(`/images/${id}/mark-viewed`, {
+        method: 'POST',
+        retries: 0, // Fire and forget - don't retry
+      }),
   },
 
   // Messages
@@ -1078,6 +1085,8 @@ export interface RawImage {
   reuploadRequestedAt?: string | null
   reuploadReason?: string | null
   reuploadFields?: string[] | null
+  // Phase 04: Per-CPA document view tracking
+  isNew?: boolean
 }
 
 // Image group for duplicate detection

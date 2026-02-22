@@ -268,6 +268,7 @@
   "confidenceLevel.high": "High",
   "confidenceLevel.low": "Low",
   "confidenceLevel.medium": "Medium",
+  "files.new": "NEW",
   "fileActions.rename": "Rename",
   "fileActions.openInNewTab": "Open in new tab",
   "fileActions.download": "Download",

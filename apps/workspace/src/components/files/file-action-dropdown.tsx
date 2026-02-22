@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, type RawImage, type DocCategory } from '../../lib/api-client'
+import { api, fetchMediaBlobUrl, type RawImage, type DocCategory } from '../../lib/api-client'
 import { DOC_CATEGORIES, CATEGORY_ORDER, type DocCategoryKey } from '../../lib/doc-categories'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
@@ -247,13 +247,8 @@ export function FileActionDropdown({
 
   const handleDownload = async () => {
     try {
-      // Use API proxy endpoint to bypass CORS issues with R2 signed URLs for images
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3002'
-      const response = await fetch(`${apiBase}/cases/images/${image.id}/file`, { credentials: 'include' })
-      if (!response.ok) throw new Error('Download failed')
-
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
+      // Use fetchMediaBlobUrl which includes Bearer auth token
+      const blobUrl = await fetchMediaBlobUrl(`/cases/images/${image.id}/file`)
 
       const link = document.createElement('a')
       link.href = blobUrl

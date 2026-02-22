@@ -24,7 +24,7 @@ import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
-import type { AuthUser, AuthVariables } from '../../middleware/auth'
+import type { AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
 
@@ -327,6 +327,7 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
   const where: Record<string, unknown> = { caseId: id }
   if (status) where.status = status as RawImageStatus
 
+  // Include documentViews to determine isNew status per staff member
   const [images, total] = await Promise.all([
     prisma.rawImage.findMany({
       where,
@@ -335,17 +336,30 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
       orderBy: { createdAt: 'desc' },
       include: {
         checklistItem: { include: { template: true } },
+        // Include documentViews for current staff to check isNew
+        documentViews: user.staffId ? {
+          where: { staffId: user.staffId },
+          select: { id: true },
+        } : false,
       },
     }),
     prisma.rawImage.count({ where }),
   ])
 
   return c.json({
-    images: images.map((img) => ({
-      ...img,
-      createdAt: img.createdAt.toISOString(),
-      updatedAt: img.updatedAt.toISOString(),
-    })),
+    images: images.map((img) => {
+      // Check if current staff has viewed this document
+      const documentViews = 'documentViews' in img ? img.documentViews : []
+      const isNew = Array.isArray(documentViews) && documentViews.length === 0
+
+      return {
+        ...img,
+        isNew,
+        documentViews: undefined, // Don't expose in response
+        createdAt: img.createdAt.toISOString(),
+        updatedAt: img.updatedAt.toISOString(),
+      }
+    }),
     pagination: buildPaginationResponse(safePage, safeLimit, total),
   })
 })

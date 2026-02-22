@@ -675,4 +675,52 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
   return c.json({ success: true, message: 'Classification started' })
 })
 
+/**
+ * POST /images/:id/mark-viewed - Mark document as viewed by current staff
+ * Creates DocumentView record for per-CPA notification tracking
+ * Idempotent - uses upsert to handle concurrent calls
+ */
+imagesRoute.post('/:id/mark-viewed', async (c) => {
+  const id = c.req.param('id')
+  const user = c.get('user')
+
+  if (!user.staffId) {
+    return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+  }
+
+  // Verify image exists and user has access (org-scoped)
+  const image = await prisma.rawImage.findFirst({
+    where: {
+      id,
+      taxCase: {
+        client: buildClientScopeFilter(user),
+      },
+    },
+    select: { id: true },
+  })
+
+  if (!image) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  // Upsert DocumentView (handles concurrent calls atomically)
+  await prisma.documentView.upsert({
+    where: {
+      staffId_rawImageId: {
+        staffId: user.staffId,
+        rawImageId: id,
+      },
+    },
+    create: {
+      staffId: user.staffId,
+      rawImageId: id,
+    },
+    update: {
+      viewedAt: new Date(),
+    },
+  })
+
+  return c.json({ success: true })
+})
+
 export { imagesRoute }

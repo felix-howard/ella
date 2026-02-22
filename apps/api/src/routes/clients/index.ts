@@ -32,6 +32,7 @@ import type { ActionCounts, ClientWithActions } from '@ella/shared'
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
+import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -156,6 +157,41 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     prisma.client.count({ where }),
   ])
 
+  // Compute upload stats per client using raw SQL for efficiency
+  // Counts new uploads (no DocumentView for current staff) and total uploads
+  const clientIds = clients.map(c => c.id)
+  let uploadStatsMap = new Map<string, ClientUploads>()
+
+  if (clientIds.length > 0 && user.staffId) {
+    const uploadStats = await prisma.$queryRaw<Array<{
+      clientId: string
+      totalCount: bigint
+      newCount: bigint
+      latestAt: Date | null
+    }>>`
+      SELECT
+        c.id as "clientId",
+        COUNT(ri.id) as "totalCount",
+        COUNT(ri.id) FILTER (WHERE dv.id IS NULL) as "newCount",
+        MAX(ri."createdAt") as "latestAt"
+      FROM "Client" c
+      LEFT JOIN "TaxCase" tc ON tc."clientId" = c.id
+      LEFT JOIN "RawImage" ri ON ri."caseId" = tc.id
+      LEFT JOIN "DocumentView" dv ON dv."rawImageId" = ri.id AND dv."staffId" = ${user.staffId}
+      WHERE c.id IN (${Prisma.join(clientIds)})
+      GROUP BY c.id
+    `
+
+    uploadStatsMap = new Map(
+      uploadStats.map(s => [s.clientId, {
+        // Cap at 9999 for display (bigint safety)
+        newCount: Math.min(Number(s.newCount), 9999),
+        totalCount: Math.min(Number(s.totalCount), 9999),
+        latestAt: s.latestAt ? s.latestAt.toISOString() : null,
+      }])
+    )
+  }
+
   // Transform to ClientWithActions
   const data: ClientWithActions[] = clients.map((client) => {
     const latestCase = client.taxCases[0]
@@ -202,6 +238,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       ? (client.assignments as unknown as { staff: { id: string; name: string } }[]).map((a) => a.staff)
       : undefined
 
+    // Get upload stats for this client
+    const uploads = uploadStatsMap.get(client.id) ?? { newCount: 0, totalCount: 0, latestAt: null }
+
     return {
       id: client.id,
       name: client.name,
@@ -213,6 +252,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       computedStatus: computedStatusValue,
       ...(assignedStaff ? { assignedStaff } : {}),
       actionCounts,
+      uploads,
       latestCase: latestCase ? {
         id: latestCase.id,
         taxYear: latestCase.taxYear,
@@ -237,6 +277,12 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : Infinity
       const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : Infinity
       return aTime - bTime // Oldest first (most stale)
+    })
+  } else if (sort === 'recentUploads') {
+    sortedData = [...data].sort((a, b) => {
+      const aTime = a.uploads?.latestAt ? new Date(a.uploads.latestAt).getTime() : 0
+      const bTime = b.uploads?.latestAt ? new Date(b.uploads.latestAt).getTime() : 0
+      return bTime - aTime // Most recent uploads first
     })
   }
 

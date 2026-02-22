@@ -197,7 +197,8 @@ Organization (root entity)
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
-- **RawImage** - Classification states, AI confidence
+- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews
+- **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DigitalDoc** - OCR extracted fields
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E), token, caseId/type reference, isActive, expiresAt (7-day TTL)
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels

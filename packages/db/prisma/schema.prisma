@@ -271,6 +271,7 @@ model Staff {
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   clientAssignments ClientAssignment[]
+  documentViews     DocumentView[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -509,6 +510,7 @@ model RawImage {
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
   digitalDoc      DigitalDoc?
+  documentViews   DocumentView[]
 
   uploadedVia    MessageChannel @default(PORTAL)
 
@@ -993,4 +995,23 @@ model ScheduleEExpense {
   @@index([status])
   @@index([taxCaseId, status])
   @@index([lockedById])
+}
+
+// ============================================
+// DOCUMENT VIEW TRACKING
+// ============================================
+
+// Tracks which documents each staff member has viewed
+// Used for per-CPA "new upload" badge calculations
+model DocumentView {
+  id         String   @id @default(cuid())
+  staffId    String
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  rawImageId String
+  rawImage   RawImage @relation(fields: [rawImageId], references: [id], onDelete: Cascade)
+  viewedAt   DateTime @default(now())
+
+  @@unique([staffId, rawImageId])
+  @@index([staffId])
+  @@index([rawImageId])
 }

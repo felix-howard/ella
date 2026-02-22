@@ -113,8 +113,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PUT /client-assignments/transfer` - Transfer client
 - Similar for invitations & staff assignments
 
-**Clients (8):**
-- `GET /clients` - List with org scoping + sort
+**Clients (8+):**
+- `GET /clients` - List with org scoping + sort (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client)
 - `POST /clients` - Create with organization
 - `GET /clients/:id` - Detail with org verification
 - `PATCH /clients/:id` - Update profile/intakeAnswers
@@ -122,21 +122,23 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /clients/:id/resend-sms` - Resend welcome link
 - Status endpoints for action tracking
 
-**Cases & Engagements (14):**
+**Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
 - `POST /engagements` - Create (with copy-from for year reuse)
 - `GET /engagements/:id` - Engagement detail
 - `PATCH /engagements/:id` - Update profile
 - `GET /cases/:id` - Case detail with checklist
+- `GET /cases/:id/images` - Case images with `isNew` boolean per image (Phase 2)
 - `PATCH /cases/:id` - Update case status
 - Actions for compliance tracking
 
-**Documents & Classification (12):**
+**Documents & Classification (13+):**
 - `POST /documents/upload` - Upload images
 - `POST /documents/classify` - Trigger AI classification
 - `GET /documents/:id` - Document detail
 - `PATCH /documents/:id/verify` - Mark verified with extracted fields
 - `GET /documents/:id/ocr` - Request OCR extraction
+- `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
 - Endpoints for document lifecycle
 
 **Messages & Voice (15):**
@@ -197,11 +199,15 @@ Organization (root entity)
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
-- **RawImage** - Classification states, AI confidence
+- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews
+- **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DigitalDoc** - OCR extracted fields
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E), token, caseId/type reference, isActive, expiresAt (7-day TTL)
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
+
+**Phase 2 Types (Document Upload Notification):**
+- **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.
 
 **Indexes:**
 - Organization: clerkOrgId (unique), name
@@ -402,6 +408,6 @@ ScheduleETab (index.tsx) [4 states]
 
 ---
 
-**Version:** 2.1
-**Last Updated:** 2026-02-04
-**Status:** Multi-Tenant architecture with Clerk integration
+**Version:** 2.2
+**Last Updated:** 2026-02-22
+**Status:** Multi-Tenant architecture with Clerk integration + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)

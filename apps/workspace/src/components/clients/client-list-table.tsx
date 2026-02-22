@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Mail, Calendar, ChevronRight, Users } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { TAX_TYPE_LABELS, UI_TEXT } from '../../lib/constants'
-import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { formatPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
@@ -54,8 +54,11 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
                   {t('team.assignedTo')}
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+                {t('clients.uploads')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
-                Việc cần làm
+                {t('clients.tasks')}
               </th>
               <th className="w-10"></th>
             </tr>
@@ -78,7 +81,8 @@ interface ClientRowProps {
 }
 
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
-  const { computedStatus, actionCounts, latestCase } = client
+  const { t } = useTranslation()
+  const { computedStatus, actionCounts, latestCase, uploads } = client
   // Memoize avatar color to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
 
@@ -170,6 +174,24 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         </td>
       )}
 
+      {/* Uploads column */}
+      <td className="px-4 py-3 hidden md:table-cell">
+        {uploads && uploads.newCount > 0 ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+              {t('clients.newUploads', { count: uploads.newCount })}
+            </span>
+            {uploads.latestAt && (
+              <span className="text-xs text-muted-foreground">
+                {formatRelativeTime(uploads.latestAt)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+
       {/* Action badges column */}
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -240,6 +262,9 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
@@ -274,6 +299,12 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                     </div>
                   </td>
                 )}
+                <td className="px-4 py-3 hidden md:table-cell">
+                  <div className="flex flex-col gap-1">
+                    <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
+                    <div className="h-3 w-12 bg-muted rounded animate-pulse" />
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
                     <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />

@@ -137,7 +137,7 @@ export const clientIdParamSchema = z.object({
 })
 
 // Sort options for client list
-export const clientSortOptions = ['activity', 'stale', 'name'] as const
+export const clientSortOptions = ['activity', 'stale', 'name', 'recentUploads'] as const
 export type ClientSortOption = typeof clientSortOptions[number]
 
 // Query params for listing clients

@@ -8,6 +8,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { X, Loader2, ImageOff, RefreshCw, Wand2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
@@ -23,6 +24,7 @@ export interface SimpleImageViewerModalProps {
 }
 
 export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: SimpleImageViewerModalProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const {
     data: signedUrlData,
@@ -37,7 +39,7 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
   const reclassifyMutation = useMutation({
     mutationFn: () => api.images.reclassify(imageId),
     onSuccess: () => {
-      toast.success('Đang phân loại lại tài liệu...')
+      toast.success(t('classify.reclassifying'))
       // Invalidate images to trigger polling for new classification
       if (caseId) {
         queryClient.invalidateQueries({ queryKey: ['images', caseId] })
@@ -46,7 +48,7 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
       onClose()
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Không thể phân loại lại'
+      const message = error instanceof Error ? error.message : t('classify.reclassifyFailed')
       toast.error(message)
     },
   })
@@ -87,19 +89,19 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
               onClick={() => reclassifyMutation.mutate()}
               disabled={reclassifyMutation.isPending}
               className="gap-2"
-              title="AI phân loại lại tài liệu này"
+              title={t('classify.reclassifyTooltip')}
             >
               {reclassifyMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Wand2 className="w-4 h-4" />
               )}
-              <span className="hidden sm:inline">Phân loại lại</span>
+              <span className="hidden sm:inline">{t('classify.reclassify')}</span>
             </Button>
             <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-muted/80 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('common.close')}
             >
               <X className="w-5 h-5 text-muted-foreground" />
             </button>
@@ -115,10 +117,10 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
           ) : error || !signedUrlData?.url ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
               <ImageOff className="w-12 h-12" />
-              <p className="text-sm">Không thể tải file</p>
+              <p className="text-sm">{t('common.cannotLoadFile')}</p>
               <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
                 <RefreshCw className="w-4 h-4" />
-                Thử lại
+                {t('common.retry')}
               </Button>
             </div>
           ) : (

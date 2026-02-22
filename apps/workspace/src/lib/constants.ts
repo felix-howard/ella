@@ -348,6 +348,7 @@ export const STALE_THRESHOLD_DAYS = 7 as const
 // Sort options for client list
 const CLIENT_SORT_OPTIONS_DATA = [
   { value: 'activity' as const, labelKey: 'clientSort.activity' },
+  { value: 'recentUploads' as const, labelKey: 'clientSort.recentUploads' },
   { value: 'stale' as const, labelKey: 'clientSort.stale' },
   { value: 'name' as const, labelKey: 'clientSort.name' },
 ] as const

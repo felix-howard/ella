@@ -204,7 +204,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' }) =>
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' | 'recentUploads' }) =>
       request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
 
     // Search for existing client by phone (for returning client detection)
@@ -430,6 +430,13 @@ export const api = {
       request<{ success: boolean; id: string; category: DocCategory }>(`/images/${id}/category`, {
         method: 'PATCH',
         body: JSON.stringify({ category }),
+      }),
+
+    // Mark document as viewed by current staff (for NEW badge tracking)
+    markViewed: (id: string) =>
+      request<{ success: boolean }>(`/images/${id}/mark-viewed`, {
+        method: 'POST',
+        retries: 0, // Fire and forget - don't retry
       }),
   },
 
@@ -895,6 +902,13 @@ export interface ActionCounts {
   hasNewActivity: boolean
 }
 
+// Upload counts for client list view (per-CPA tracking)
+export interface ClientUploads {
+  newCount: number
+  totalCount: number
+  latestAt: string | null
+}
+
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
@@ -908,6 +922,8 @@ export interface ClientWithActions {
   actionCounts: ActionCounts | null
   /** Staff assigned to this client (admin-only) */
   assignedStaff?: { id: string; name: string }[]
+  /** Upload counts per CPA (new uploads they haven't viewed) */
+  uploads?: ClientUploads
   latestCase: {
     id: string
     taxYear: number
@@ -1069,6 +1085,8 @@ export interface RawImage {
   reuploadRequestedAt?: string | null
   reuploadReason?: string | null
   reuploadFields?: string[] | null
+  // Phase 04: Per-CPA document view tracking
+  isNew?: boolean
 }
 
 // Image group for duplicate detection

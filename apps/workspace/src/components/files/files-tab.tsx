@@ -5,7 +5,9 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Upload, Download, CheckCheck, Loader2 } from 'lucide-react'
+import { cn, Button } from '@ella/ui'
 import { api, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
@@ -30,6 +32,7 @@ export interface FilesTabProps {
  * Grouped by DB category field, unclassified at top
  */
 export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoading: parentLoading }: FilesTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
@@ -37,6 +40,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [viewImage, setViewImage] = useState<RawImage | null>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   // Fetch images only if not provided by parent (backward compatibility)
   const { data: imagesData, isPending: imagesLoading } = useQuery({
@@ -177,6 +181,101 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     setIsDraggingFile(false)
   }, [])
 
+  // Batch mark all documents as viewed (removes NEW badges)
+  const batchMarkViewedMutation = useMutation({
+    mutationFn: (imageIds: string[]) => api.images.batchMarkViewed(imageIds),
+    onMutate: async () => {
+      // Optimistic update - remove all NEW badges immediately
+      await queryClient.cancelQueries({ queryKey: ['images', caseId] })
+      const previousImages = queryClient.getQueryData(['images', caseId])
+
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) => ({ ...img, isNew: false })),
+          }
+        }
+      )
+
+      return { previousImages }
+    },
+    onSuccess: (data) => {
+      toast.success(t('filesTab.markedAllRead', { count: data.marked }))
+    },
+    onError: (_error, _vars, context) => {
+      // Rollback on error
+      if (context?.previousImages) {
+        queryClient.setQueryData(['images', caseId], context.previousImages)
+      }
+      toast.error(t('filesTab.markAllReadError'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    },
+  })
+
+  // Handle download all files
+  const handleDownloadAll = useCallback(async () => {
+    if (images.length === 0) return
+
+    setIsDownloading(true)
+    let downloadedCount = 0
+
+    try {
+      // Download files sequentially to avoid overwhelming the browser
+      for (const img of images) {
+        try {
+          const { url } = await api.cases.getImageSignedUrl(img.id)
+
+          // Fetch as blob to force download (cross-origin URLs ignore download attribute)
+          const response = await fetch(url)
+          const blob = await response.blob()
+          const blobUrl = URL.createObjectURL(blob)
+
+          // Create a temporary link and trigger download
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = img.displayName || img.filename
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+
+          // Clean up blob URL
+          URL.revokeObjectURL(blobUrl)
+          downloadedCount++
+
+          // Small delay between downloads to prevent browser blocking
+          await new Promise((resolve) => setTimeout(resolve, 300))
+        } catch {
+          // Continue with next file if one fails
+          console.warn(`Failed to download: ${img.filename}`)
+        }
+      }
+
+      toast.success(t('filesTab.downloadedFiles', { count: downloadedCount }))
+    } catch {
+      toast.error(t('filesTab.downloadError'))
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [images, t])
+
+  // Handle mark all as read
+  const handleMarkAllRead = useCallback(() => {
+    const newImages = images.filter((img) => img.isNew)
+    if (newImages.length === 0) {
+      toast.success(t('filesTab.noNewFiles'))
+      return
+    }
+    batchMarkViewedMutation.mutate(newImages.map((img) => img.id))
+  }, [images, batchMarkViewedMutation, t])
+
+  // Count new files
+  const newFilesCount = useMemo(() => images.filter((img) => img.isNew).length, [images])
+
   // Loading state - show skeleton only when actually loading
   if (showLoading) {
     return <FilesTabSkeleton />
@@ -187,9 +286,9 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return (
       <div className="text-center py-12">
         <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">Chưa có tài liệu nào</p>
+        <p className="text-muted-foreground">{t('filesTab.noFiles')}</p>
         <p className="text-sm text-muted-foreground mt-1">
-          Khách hàng chưa gửi tài liệu qua portal hoặc tin nhắn
+          {t('filesTab.noFilesDesc')}
         </p>
       </div>
     )
@@ -201,6 +300,53 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       onDragEnter={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      {/* Action buttons header */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {t('filesTab.filesCount', { count: images.length })}
+          {newFilesCount > 0 && (
+            <span className="ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded">
+              {t('filesTab.newCount', { count: newFilesCount })}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Mark all as read button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMarkAllRead}
+            disabled={batchMarkViewedMutation.isPending || newFilesCount === 0}
+            className={cn(
+              'gap-1.5',
+              newFilesCount === 0 && 'opacity-50'
+            )}
+          >
+            {batchMarkViewedMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CheckCheck className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">{t('filesTab.markAllRead')}</span>
+          </Button>
+
+          {/* Download all button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadAll}
+            disabled={isDownloading}
+            className="gap-1.5"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">{t('filesTab.downloadAll')}</span>
+          </Button>
+        </div>
+      </div>
       {/* Processing Section - Shows docs still being processed by AI */}
       <UnclassifiedSection images={processing} />
 

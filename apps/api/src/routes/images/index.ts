@@ -676,6 +676,60 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
 })
 
 /**
+ * POST /images/batch-mark-viewed - Mark multiple documents as viewed by current staff
+ * Creates DocumentView records for per-CPA notification tracking
+ * Used by "Mark all as read" feature in Files tab
+ */
+imagesRoute.post('/batch-mark-viewed', async (c) => {
+  const user = c.get('user')
+
+  if (!user.staffId) {
+    return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+  }
+
+  const body = await c.req.json<{ imageIds: string[] }>()
+  const { imageIds } = body
+
+  if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
+    return c.json({ error: 'INVALID_INPUT', message: 'imageIds array required' }, 400)
+  }
+
+  // Limit batch size to prevent abuse
+  if (imageIds.length > 500) {
+    return c.json({ error: 'BATCH_TOO_LARGE', message: 'Maximum 500 images per batch' }, 400)
+  }
+
+  // Verify all images exist and user has access (org-scoped)
+  const validImages = await prisma.rawImage.findMany({
+    where: {
+      id: { in: imageIds },
+      taxCase: {
+        client: buildClientScopeFilter(user),
+      },
+    },
+    select: { id: true },
+  })
+
+  const validImageIds = validImages.map((img) => img.id)
+
+  if (validImageIds.length === 0) {
+    return c.json({ success: true, marked: 0 })
+  }
+
+  // Batch upsert DocumentView records
+  // Using createMany with skipDuplicates for efficiency
+  await prisma.documentView.createMany({
+    data: validImageIds.map((rawImageId) => ({
+      staffId: user.staffId!,
+      rawImageId,
+    })),
+    skipDuplicates: true,
+  })
+
+  return c.json({ success: true, marked: validImageIds.length })
+})
+
+/**
  * POST /images/:id/mark-viewed - Mark document as viewed by current staff
  * Creates DocumentView record for per-CPA notification tracking
  * Idempotent - uses upsert to handle concurrent calls

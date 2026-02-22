@@ -438,6 +438,14 @@ export const api = {
         method: 'POST',
         retries: 0, // Fire and forget - don't retry
       }),
+
+    // Batch mark multiple documents as viewed (for "Mark all as read" feature)
+    batchMarkViewed: (imageIds: string[]) =>
+      request<{ success: boolean; marked: number }>('/images/batch-mark-viewed', {
+        method: 'POST',
+        body: JSON.stringify({ imageIds }),
+        retries: 0,
+      }),
   },
 
   // Messages

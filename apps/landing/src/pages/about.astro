@@ -34,8 +34,8 @@ const structuredData = [
 
   <main>
     <!-- Hero: Mission Statement -->
-    <section class="pt-32 pb-20">
-      <div class="mx-auto max-w-3xl px-6 text-center">
+    <section class="pt-24 pb-16 sm:pt-32 sm:pb-20">
+      <div class="mx-auto max-w-3xl px-4 sm:px-6 text-center">
         <p
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
           data-animate="fade-up"
@@ -43,7 +43,7 @@ const structuredData = [
           About Ella
         </p>
         <h1
-          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          class="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl"
           data-animate="fade-up"
         >
           Building the future of
@@ -61,8 +61,8 @@ const structuredData = [
     </section>
 
     <!-- Story Section -->
-    <section class="bg-gray-50 py-24" aria-label="Our story">
-      <div class="mx-auto max-w-4xl px-6">
+    <section class="bg-gray-50 py-16 sm:py-24" aria-label="Our story">
+      <div class="mx-auto max-w-4xl px-4 sm:px-6">
         <SectionHeading eyebrow="Our Story" title="Why we built Ella" />
         <div
           class="mt-12 space-y-6 text-lg leading-relaxed text-gray-700"
@@ -91,11 +91,11 @@ const structuredData = [
     </section>
 
     <!-- Values Section -->
-    <section class="py-24" aria-label="Our values">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="py-16 sm:py-24" aria-label="Our values">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Our Values" title="What we believe" />
         <div
-          class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
+          class="mt-8 sm:mt-12 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-4"
           data-stagger
         >
           {values.map((v) => (
@@ -108,8 +108,8 @@ const structuredData = [
     </section>
 
     <!-- Team Section -->
-    <section class="bg-gray-50 py-24" aria-label="Our team">
-      <div class="mx-auto max-w-4xl px-6">
+    <section class="bg-gray-50 py-16 sm:py-24" aria-label="Our team">
+      <div class="mx-auto max-w-4xl px-4 sm:px-6">
         <div class="text-center">
           <SectionHeading
             eyebrow="Our Team"
@@ -120,10 +120,10 @@ const structuredData = [
           </p>
         </div>
 
-        <div class="mt-16 grid gap-12 sm:grid-cols-2" data-stagger>
+        <div class="mt-12 sm:mt-16 grid gap-8 sm:gap-12 sm:grid-cols-2" data-stagger>
           <!-- Andy Nguyen -->
           <div class="text-center" data-animate="fade-up">
-            <div class="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-lg">
+            <div class="mx-auto h-36 w-36 sm:h-48 sm:w-48 overflow-hidden rounded-full border-4 border-white shadow-lg">
               <img
                 src="/assets/andy.jpg"
                 alt="Andy Nguyen"
@@ -139,7 +139,7 @@ const structuredData = [
 
           <!-- Felix Huynh -->
           <div class="text-center" data-animate="fade-up">
-            <div class="mx-auto h-48 w-48 overflow-hidden rounded-full border-4 border-white shadow-lg">
+            <div class="mx-auto h-36 w-36 sm:h-48 sm:w-48 overflow-hidden rounded-full border-4 border-white shadow-lg">
               <img
                 src="/assets/felix.jpg"
                 alt="Felix Huynh"
@@ -157,14 +157,14 @@ const structuredData = [
     </section>
 
     <!-- Contact Section -->
-    <section id="contact" class="py-24" aria-label="Get in touch">
-      <div class="mx-auto max-w-2xl px-6 text-center">
+    <section id="contact" class="py-16 sm:py-24" aria-label="Get in touch">
+      <div class="mx-auto max-w-2xl px-4 sm:px-6 text-center">
         <SectionHeading title="Get in touch" />
 
         <!-- Email CTA -->
         <a
           href="mailto:oneteam@alphamedia.ai"
-          class="mt-10 inline-flex items-center gap-3 rounded-full bg-primary-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          class="mt-10 inline-flex items-center gap-3 rounded-full bg-primary-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
           data-animate="fade-up"
         >
           <svg
@@ -195,7 +195,7 @@ const structuredData = [
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Follow Ella on ${link.label}`}
-              class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-primary-100 hover:text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+              class="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-all hover:bg-primary-100 hover:text-primary-600 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             >
               <svg
                 class="h-5 w-5"

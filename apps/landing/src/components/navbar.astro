@@ -55,7 +55,7 @@ const { currentPath = "/" } = Astro.props;
         href="https://www.facebook.com/andy.hayven"
         target="_blank"
         rel="noopener noreferrer"
-        class="hidden rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 sm:inline-block"
+        class="hidden rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 sm:inline-block"
       >
         Book a Demo
       </a>
@@ -63,7 +63,7 @@ const { currentPath = "/" } = Astro.props;
       <!-- Mobile hamburger with animated icon -->
       <button
         id="mobile-menu-btn"
-        class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:hidden"
+        class="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-transform focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 md:hidden"
         aria-expanded="false"
         aria-controls="mobile-menu"
         aria-label="Toggle navigation menu"

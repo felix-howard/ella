@@ -91,6 +91,22 @@
 /* Base styles */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Touch-friendly button tap states */
+.btn-tap {
+  @apply transition-transform active:scale-[0.98];
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-tap {
+    transform: none !important;
+  }
 }
 
 /* Scroll animation: elements start hidden, animate when .animate is added */

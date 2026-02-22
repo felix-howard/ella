@@ -137,8 +137,8 @@ import { checkPath } from "@/lib/icons";
 
   <main>
     <!-- Hero Section -->
-    <section class="pt-32 pb-20">
-      <div class="mx-auto max-w-4xl px-6 text-center">
+    <section class="pt-24 pb-16 sm:pt-32 sm:pb-20">
+      <div class="mx-auto max-w-4xl px-4 sm:px-6 text-center">
         <p
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
           data-animate="fade-up"
@@ -146,7 +146,7 @@ import { checkPath } from "@/lib/icons";
           Capabilities
         </p>
         <h1
-          class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          class="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl"
           data-animate="fade-up"
         >
           Powerful features built for
@@ -169,11 +169,15 @@ import { checkPath } from "@/lib/icons";
         const bgClass = isOdd ? "bg-white" : "bg-gray-50";
 
         return (
-          <section class:list={[bgClass, "py-24"]} aria-label={feature.title}>
-            <div class="mx-auto max-w-7xl px-6">
-              <div class:list={["grid items-center gap-16", isOdd ? "lg:grid-cols-[2fr_3fr]" : "lg:grid-cols-[3fr_2fr]"]}>
-                {/* Content side */}
-                <div class:list={[!isOdd && "lg:order-2"]}>
+          <section class:list={[bgClass, "py-16 sm:py-24"]} aria-label={feature.title}>
+            <div class="mx-auto max-w-7xl px-4 sm:px-6">
+              <div class:list={[
+                "flex flex-col gap-8 sm:gap-16",
+                "lg:grid lg:items-center",
+                isOdd ? "lg:grid-cols-[2fr_3fr]" : "lg:grid-cols-[3fr_2fr]"
+              ]}>
+                {/* Content side - always first on mobile, position varies on desktop */}
+                <div class:list={["order-1", !isOdd && "lg:order-2"]}>
                   {/* Heading */}
                   <h2
                     class="text-3xl font-bold text-gray-900"
@@ -214,10 +218,10 @@ import { checkPath } from "@/lib/icons";
                   </ul>
                 </div>
 
-                {/* Image side */}
-                <div class:list={[!isOdd && "lg:order-1"]} data-animate="fade-up">
+                {/* Image side - always second on mobile, position varies on desktop */}
+                <div class:list={["order-2", !isOdd && "lg:order-1"]} data-animate="fade-up">
                   {feature.images ? (
-                    <div class="flex gap-4 justify-center items-start">
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center sm:items-start">
                       {feature.images.map((img) => (
                         <div class="overflow-hidden rounded-2xl border border-gray-200 shadow-xl">
                           <img

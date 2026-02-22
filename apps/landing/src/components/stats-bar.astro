@@ -20,7 +20,7 @@ const { stats } = Astro.props;
   {stats.map((stat) => (
     <div class="text-center" data-animate="fade-up">
       <p
-        class="text-4xl font-bold text-primary-600"
+        class="text-3xl font-bold text-primary-600 sm:text-4xl"
         data-count={stat.value}
         data-suffix={stat.suffix ?? ""}
       >

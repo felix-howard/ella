@@ -706,13 +706,47 @@ bg-primary-50 text-primary-600 (mobile)
 
 ---
 
-## 13. Accessibility
+## 13. Accessibility & Touch Targets (Phase 05: Touch Targets & Final Polish)
+
+### Touch Target Sizing (WCAG 2.5.5 AAA Compliant)
+
+**Minimum Touch Target**: 44×44px (physical size, not just visual)
+
+| Component | Implementation | Validation |
+|-----------|---|---|
+| CTA Buttons | `py-3 px-6` + `active:scale-[0.98]` | 44px+ height with tap feedback |
+| Hamburger Button | `min-h-[44px] min-w-[44px]` | Square 44px minimum |
+| Footer Nav Links | `py-2` padding | 44px+ touchable area |
+| Footer Social Icons | 44px tap area wrapper | Circular buttons with padding |
+| Form Inputs | `py-2.5 px-3` + focus ring | Adequate touch targeting |
+
+**Tap Feedback Utility (`.btn-tap`):**
+```css
+.btn-tap {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:active {
+      transform: none;
+    }
+  }
+}
+```
+- Applied to all CTA buttons and interactive elements
+- Provides tactile feedback on press without animation
+- Respects `prefers-reduced-motion` for accessibility
+
+### General Accessibility Standards
 
 - Color contrast: Minimum 4.5:1 for text
 - Focus states: Visible focus rings (green outline)
-- Touch targets: Minimum 44x44px on mobile
 - Semantic HTML: Proper heading hierarchy
 - ARIA labels: For icon-only buttons
+- Overflow prevention: `overflow-x: hidden` prevents horizontal scroll on mobile
 
 ### Mobile Header Accessibility (Phase 01 Mobile Header Polish)
 

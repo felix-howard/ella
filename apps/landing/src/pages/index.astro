@@ -88,7 +88,7 @@ const testimonials = [
   <main>
     <!-- Hero Section -->
     <section
-      class="relative flex min-h-[90vh] items-center justify-center overflow-hidden pt-16"
+      class="relative flex min-h-[80vh] items-center justify-center overflow-hidden pt-16 sm:min-h-[90vh]"
     >
       <!-- Subtle background gradient -->
       <div
@@ -97,7 +97,7 @@ const testimonials = [
       >
       </div>
 
-      <div class="relative mx-auto max-w-6xl px-6 py-24 text-center">
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 text-center">
         <p
           class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600"
           data-animate="fade-up"
@@ -105,7 +105,7 @@ const testimonials = [
           SMS-First Document Collection
         </p>
         <h1
-          class="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl"
+          class="mx-auto max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
           data-animate="fade-up"
         >
           Automate tax document collection and classification
@@ -128,13 +128,13 @@ const testimonials = [
             href="https://www.facebook.com/andy.hayven"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-full bg-primary-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="rounded-full bg-primary-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             Request a Demo
           </a>
           <a
             href="#how-it-works"
-            class="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-all hover:border-gray-400 hover:bg-gray-50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             See How It Works
           </a>
@@ -154,9 +154,9 @@ const testimonials = [
         </div>
       </div>
 
-      <!-- Scroll indicator -->
+      <!-- Scroll indicator - hidden on xs screens -->
       <div
-        class="absolute bottom-8 left-1/2 -translate-x-1/2"
+        class="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:block"
         aria-hidden="true"
       >
         <svg
@@ -175,8 +175,8 @@ const testimonials = [
     </section>
 
     <!-- Problem / Solution Highlight Section -->
-    <section class="py-24">
-      <div class="mx-auto max-w-7xl px-6">
+    <section class="py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6">
         <!-- Section intro -->
         <div class="mx-auto max-w-3xl text-center" data-animate="fade-up">
           <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">
@@ -192,7 +192,7 @@ const testimonials = [
         </div>
 
         <!-- 3 Highlight Cards -->
-        <div class="mt-20 grid gap-12 lg:grid-cols-3">
+        <div class="mt-12 grid gap-8 sm:mt-20 sm:gap-12 lg:grid-cols-3">
           <!-- Card 1: Easy Collection -->
           <div class="group" data-animate="fade-up">
             <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
@@ -290,7 +290,7 @@ const testimonials = [
             href="https://www.facebook.com/andy.hayven"
             target="_blank"
             rel="noopener noreferrer"
-            class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             See Ella in Action
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -302,15 +302,15 @@ const testimonials = [
     </section>
 
     <!-- Stats / Trust Bar -->
-    <section class="border-y border-gray-100 bg-white py-16" data-animate="fade-up">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="border-y border-gray-100 bg-white py-12 sm:py-16" data-animate="fade-up">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <StatsBar stats={stats} />
       </div>
     </section>
 
     <!-- How It Works -->
-    <section id="how-it-works" class="py-24">
-      <div class="mx-auto max-w-6xl px-6">
+    <section id="how-it-works" class="py-16 sm:py-24">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <div data-animate="fade-up">
           <SectionHeading
             eyebrow="Process"
@@ -318,7 +318,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-12 md:grid-cols-3" data-stagger>
+        <div class="mt-10 grid gap-8 sm:mt-16 sm:gap-12 md:grid-cols-3" data-stagger>
           {
             steps.map((item) => (
               <div class="text-center" data-animate="fade-up">
@@ -339,8 +339,8 @@ const testimonials = [
     </section>
 
     <!-- Testimonials -->
-    <section class="bg-gray-50 py-24">
-      <div class="mx-auto max-w-6xl px-6">
+    <section class="bg-gray-50 py-16 sm:py-24">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <div data-animate="fade-up">
           <SectionHeading
             eyebrow="Testimonials"
@@ -348,7 +348,7 @@ const testimonials = [
           />
         </div>
 
-        <div class="mt-16 grid gap-8 md:grid-cols-3" data-stagger>
+        <div class="mt-10 grid gap-6 sm:mt-16 sm:gap-8 md:grid-cols-3" data-stagger>
           {
             testimonials.map((t) => (
               <div data-animate="fade-up">
@@ -365,8 +365,8 @@ const testimonials = [
     </section>
 
     <!-- CTA + Contact Form -->
-    <section id="contact" class="bg-primary-600 py-24">
-      <div class="mx-auto max-w-4xl px-6">
+    <section id="contact" class="bg-primary-600 py-16 sm:py-24">
+      <div class="mx-auto max-w-4xl px-4 sm:px-6">
         <div class="text-center" data-animate="fade-up">
           <h2 class="text-3xl font-bold text-white md:text-4xl">
             Ready to transform your tax workflow?
@@ -376,7 +376,7 @@ const testimonials = [
           </p>
         </div>
 
-        <div class="mt-12 rounded-2xl bg-white p-8 shadow-xl" data-animate="fade-up">
+        <div class="mt-8 rounded-2xl bg-white p-6 shadow-xl sm:mt-12 sm:p-8" data-animate="fade-up">
           <ContactForm />
         </div>
       </div>

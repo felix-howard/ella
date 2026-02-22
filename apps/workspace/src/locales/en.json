@@ -228,6 +228,7 @@
   "clients.newUploads_one": "{{count}} new upload",
   "clients.newUploads_other": "{{count}} new uploads",
   "clients.tasks": "Tasks",
+  "clients.documents": "Documents",
   "clientsTabs.documents": "Documents",
   "clientsTabs.messages": "Messages",
   "clientsTabs.overview": "Overview",

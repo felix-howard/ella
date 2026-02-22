@@ -6,9 +6,9 @@
 import { memo, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Mail, Calendar, ChevronRight, Users } from 'lucide-react'
+import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { TAX_TYPE_LABELS, UI_TEXT } from '../../lib/constants'
+import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { ActionBadge } from './action-badge'
@@ -47,7 +47,7 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
                 {UI_TEXT.form.taxYear}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                {UI_TEXT.form.taxTypes}
+                {t('clients.documents')}
               </th>
               {isAdmin && (
                 <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
@@ -136,21 +136,15 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         )}
       </td>
 
-      {/* Tax Types column */}
+      {/* Documents column */}
       <td className="px-4 py-3 hidden lg:table-cell">
-        {latestCase?.taxTypes && latestCase.taxTypes.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {latestCase.taxTypes.map((taxType) => (
-              <span
-                key={taxType}
-                className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground"
-              >
-                {TAX_TYPE_LABELS[taxType] || taxType}
-              </span>
-            ))}
+        {uploads && uploads.totalCount > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+            <span className="font-medium">{uploads.totalCount}</span>
           </div>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">0</span>
         )}
       </td>
 

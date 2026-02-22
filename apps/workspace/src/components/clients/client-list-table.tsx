@@ -58,7 +58,7 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
                 {t('clients.uploads')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
-                Việc cần làm
+                {t('clients.tasks')}
               </th>
               <th className="w-10"></th>
             </tr>

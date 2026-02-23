@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ./node_modules/dotenv-cli/cli.js -e .env -- tsx watch src/index.ts",
+    "dev": "concurrently -n api,inngest -c blue,magenta \"node ./node_modules/dotenv-cli/cli.js -e .env -- tsx watch src/index.ts\" \"inngest-cli dev\"",
+    "dev:api": "node ./node_modules/dotenv-cli/cli.js -e .env -- tsx watch src/index.ts",
+    "dev:inngest": "inngest-cli dev",
     "build": "tsup",
     "start": "node dist/index.cjs",
     "type-check": "tsc --noEmit",
@@ -34,7 +36,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "concurrently": "^9.1.2",
     "dotenv-cli": "^8.0.0",
+    "inngest-cli": "^1.17.1",
     "@types/node-cron": "^3.0.11",
     "@types/sharp": "^0.32.0",
     "@vitest/coverage-v8": "^4.0.17",

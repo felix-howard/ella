@@ -228,6 +228,7 @@
   "clients.newUploads_one": "{{count}} tài liệu mới",
   "clients.newUploads_other": "{{count}} tài liệu mới",
   "clients.tasks": "Việc cần làm",
+  "clients.lastUpload": "Lần gửi cuối",
   "clients.documents": "Tài liệu",
   "clientsTabs.documents": "Tài liệu",
   "clientsTabs.messages": "Tin nhắn",

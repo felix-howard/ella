@@ -45,7 +45,7 @@ export function Sidebar() {
   const { signOut } = useClerk()
   const { user } = useUser()
   const { state: voiceState } = useVoiceCallContext()
-  const { isAdmin } = useOrgRole()
+  const { isAdmin, avatarUrl } = useOrgRole()
   const { organization } = useOrganization()
   const isMobile = useIsMobile()
 
@@ -132,6 +132,7 @@ export function Sidebar() {
     userInitials,
     userName,
     organizationName: organization?.name,
+    avatarUrl,
     voiceState,
     onClose: handleClose,
     onLogout: handleLogout,

@@ -32,6 +32,7 @@ interface SidebarContentProps {
   userInitials: string
   userName: string
   organizationName?: string
+  avatarUrl?: string | null
   voiceState: {
     isAvailable: boolean
     isRegistered: boolean
@@ -51,6 +52,7 @@ export function SidebarContent({
   userInitials,
   userName,
   organizationName,
+  avatarUrl,
   voiceState,
   onClose,
   onLogout,
@@ -122,10 +124,27 @@ export function SidebarContent({
 
       {/* Bottom Section */}
       <div className="border-t border-border p-3 space-y-2">
-        <div className={cn('flex items-center gap-3 px-3 py-2', isCollapsedDesktop && 'justify-center')}>
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-            <span className="text-white text-sm font-medium">{userInitials}</span>
-          </div>
+        <Link
+          to="/team/profile/$staffId"
+          params={{ staffId: 'me' }}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+            'hover:bg-muted cursor-pointer',
+            isCollapsedDesktop && 'justify-center'
+          )}
+          title={t('profile.viewProfile')}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={userName}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+              <span className="text-white text-sm font-medium">{userInitials}</span>
+            </div>
+          )}
           {showLabels && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{userName}</p>
@@ -134,7 +153,7 @@ export function SidebarContent({
               )}
             </div>
           )}
-        </div>
+        </Link>
 
         {/* Voice status */}
         {voiceState.isAvailable && (

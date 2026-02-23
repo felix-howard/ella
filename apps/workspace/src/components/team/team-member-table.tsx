@@ -5,7 +5,8 @@
 import { useState, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal, Shield, Users, ChevronDown, ChevronUp, Loader2, UserMinus } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { MoreHorizontal, Shield, Users, ChevronDown, ChevronUp, Loader2, UserMinus, ArrowRight } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { api, type TeamMember, type OrgRole } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -83,9 +84,23 @@ interface MemberRowProps {
 const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggleExpand }: MemberRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [showActions, setShowActions] = useState(false)
   const avatarColor = getAvatarColor(member.name)
   const isAdmin = member.role === 'ADMIN'
+
+  // Navigate to profile when row is clicked (avoid interactive elements)
+  const handleRowClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (
+      target.closest('button') ||
+      target.closest('[role="menu"]') ||
+      target.closest('[aria-expanded]')
+    ) {
+      return
+    }
+    navigate({ to: '/team/profile/$staffId', params: { staffId: member.id } })
+  }
 
   // Role change mutation
   const roleChangeMutation = useMutation({
@@ -109,15 +124,24 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
 
   return (
     <>
-      <tr className={cn(!isLast && !isExpanded && 'border-b border-border', 'hover:bg-muted/50 transition-colors')}>
+      <tr
+        onClick={handleRowClick}
+        className={cn(
+          !isLast && !isExpanded && 'border-b border-border',
+          'hover:bg-muted/50 transition-colors cursor-pointer group'
+        )}
+      >
         {/* Name */}
         <td className="px-4 py-3">
           <div className="flex items-center gap-3">
             <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', avatarColor.bg, avatarColor.text)}>
               <span className="font-semibold text-sm">{getInitials(member.name)}</span>
             </div>
-            <div>
-              <p className="font-medium text-foreground">{member.name}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-foreground">{member.name}</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <p className="text-xs text-muted-foreground md:hidden">{member.email}</p>
             </div>
           </div>

@@ -1055,5 +1055,6 @@
   "profile.updateSuccess": "Profile updated successfully",
   "profile.updateError": "Failed to update profile",
   "profile.assignedClients": "Assigned Clients",
-  "profile.noAssignedClients": "No clients assigned yet"
+  "profile.noAssignedClients": "No clients assigned yet",
+  "profile.viewProfile": "View your profile"
 }

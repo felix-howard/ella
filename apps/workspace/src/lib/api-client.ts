@@ -770,7 +770,7 @@ export const api = {
   // Staff
   staff: {
     me: () =>
-      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null }>('/staff/me'),
+      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null; avatarUrl: string | null }>('/staff/me'),
 
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {

@@ -300,17 +300,18 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 
 ---
 
-### Member Profile Page - Phase 2 Profile API (50% Complete) ✅
-**Completed:** 2026-02-23
-**Deliverable:** Backend profile endpoints with authentication, authorization, and avatar presigned URL workflow
+### Member Profile Page - Phase 4 Navigation (80% Complete) ✅
+**Started:** 2026-02-23
+**Target Completion:** 2026-02-24
+**Deliverable:** Complete member profile feature with database, API, frontend page, navigation integration, and avatar upload
 
 **Phase Breakdown:**
 | Phase | Component | Status | Completion | Notes |
 |-------|-----------|--------|-----------|-------|
 | 1 | Database Migration | ✅ DONE | 2026-02-23 | Added phoneNumber field to Staff model |
 | 2 | Profile API Endpoints | ✅ DONE | 2026-02-23 | GET profile, PATCH profile, Avatar presigned URL, Avatar confirm - code review 8.5/10 |
-| 3 | Profile Page | ⏳ PENDING | - | Frontend route + ProfileForm + AssignedClients |
-| 4 | Navigation | ⏳ PENDING | - | Sidebar + Team table click navigation |
+| 3 | Profile Page | ✅ DONE | 2026-02-23 | Frontend route + ProfileForm + AssignedClients |
+| 4 | Navigation | ✅ DONE | 2026-02-23 | Sidebar + Team table click navigation (sidebar user link + team table row click) |
 | 5 | Avatar Upload | ⏳ PENDING | - | AvatarUploader with presigned URL workflow |
 
 **Completion Summary (Phase 1-2):**

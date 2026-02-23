@@ -23,7 +23,7 @@ staffRoute.get('/me', async (c) => {
 
   const staff = await prisma.staff.findUnique({
     where: { id: user.staffId },
-    select: { id: true, name: true, email: true, role: true, language: true },
+    select: { id: true, name: true, email: true, role: true, language: true, avatarUrl: true },
   })
 
   if (!staff) {

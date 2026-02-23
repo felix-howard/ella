@@ -1055,5 +1055,6 @@
   "profile.updateSuccess": "Cập nhật thành công",
   "profile.updateError": "Lỗi cập nhật thông tin",
   "profile.assignedClients": "Khách hàng được gán",
-  "profile.noAssignedClients": "Chưa có khách hàng nào được gán"
+  "profile.noAssignedClients": "Chưa có khách hàng nào được gán",
+  "profile.viewProfile": "Xem hồ sơ của bạn"
 }

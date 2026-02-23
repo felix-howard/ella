@@ -11,8 +11,8 @@ import { Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
+import { AvatarUploader } from '../../../components/profile/avatar-uploader'
 import { api } from '../../../lib/api-client'
-import { getInitials, getAvatarColor } from '../../../lib/formatters'
 
 export const Route = createFileRoute('/team/profile/$staffId')({
   component: ProfilePage,
@@ -58,7 +58,6 @@ function ProfilePage() {
   }
 
   const { staff, assignedClients, assignedCount, canEdit } = data
-  const avatarColor = getAvatarColor(staff.name)
 
   return (
     <PageContainer>
@@ -73,21 +72,13 @@ function ProfilePage() {
 
       {/* Header */}
       <div className="flex items-start gap-6 mb-8">
-        {/* Avatar */}
-        <div className="relative">
-          {staff.avatarUrl ? (
-            <img
-              src={staff.avatarUrl}
-              alt={staff.name}
-              className="w-20 h-20 rounded-full object-cover"
-            />
-          ) : (
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center ${avatarColor.bg} ${avatarColor.text}`}>
-              <span className="text-2xl font-semibold">{getInitials(staff.name)}</span>
-            </div>
-          )}
-          {/* Avatar upload button added in Phase 5 */}
-        </div>
+        {/* Avatar with uploader */}
+        <AvatarUploader
+          staffId={staffId}
+          currentAvatarUrl={staff.avatarUrl}
+          name={staff.name}
+          canEdit={canEdit}
+        />
 
         {/* Name & Email */}
         <div className="flex-1">

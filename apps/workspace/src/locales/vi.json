@@ -1056,5 +1056,13 @@
   "profile.updateError": "Lỗi cập nhật thông tin",
   "profile.assignedClients": "Khách hàng được gán",
   "profile.noAssignedClients": "Chưa có khách hàng nào được gán",
-  "profile.viewProfile": "Xem hồ sơ của bạn"
+  "profile.viewProfile": "Xem hồ sơ của bạn",
+  "profile.changeAvatar": "Thay đổi ảnh đại diện",
+  "profile.avatarUpdated": "Đã cập nhật ảnh đại diện",
+  "profile.avatarUploadFailed": "Lỗi khi tải ảnh đại diện",
+  "profile.invalidImageType": "Vui lòng chọn file ảnh hợp lệ (JPEG, PNG, hoặc WebP)",
+  "profile.imageTooLarge": "Ảnh phải nhỏ hơn 10MB",
+  "profile.compressing": "Đang nén ảnh...",
+  "profile.uploading": "Đang tải lên...",
+  "profile.saving": "Đang lưu..."
 }

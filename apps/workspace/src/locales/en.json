@@ -1056,5 +1056,13 @@
   "profile.updateError": "Failed to update profile",
   "profile.assignedClients": "Assigned Clients",
   "profile.noAssignedClients": "No clients assigned yet",
-  "profile.viewProfile": "View your profile"
+  "profile.viewProfile": "View your profile",
+  "profile.changeAvatar": "Change profile picture",
+  "profile.avatarUpdated": "Profile picture updated",
+  "profile.avatarUploadFailed": "Failed to upload profile picture",
+  "profile.invalidImageType": "Please select a valid image file (JPEG, PNG, or WebP)",
+  "profile.imageTooLarge": "Image must be less than 10MB",
+  "profile.compressing": "Compressing...",
+  "profile.uploading": "Uploading...",
+  "profile.saving": "Saving..."
 }

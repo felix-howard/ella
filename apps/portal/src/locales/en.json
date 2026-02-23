@@ -236,5 +236,20 @@
   "rental.autoSave.saving": "Saving...",
   "rental.autoSave.saved": "Auto-saved",
   "rental.autoSave.savedAt": "Saved at {{time}}",
-  "rental.autoSave.failed": "Save failed"
+  "rental.autoSave.failed": "Save failed",
+  "draft.title": "Draft Tax Return for Review",
+  "draft.loading": "Loading your draft tax return...",
+  "draft.taxYear": "Tax Year",
+  "draft.version": "Version",
+  "draft.contactCpa": "Please contact your CPA if you have any questions.",
+  "draft.errorTitle": "Unable to Load",
+  "draft.errorLoading": "Could not load the draft tax return. Please try again.",
+  "draft.errorInvalidLink": "This link is not valid. Please contact your CPA for a new link.",
+  "draft.errorRevoked": "This link has been revoked. Please contact your CPA.",
+  "draft.errorExpired": "This link has expired. Please contact your CPA for a new link.",
+  "draft.linkInvalid": "Link Invalid",
+  "draft.viewerUnsupported": "PDF Viewer Unavailable",
+  "draft.viewerFallback": "Your browser cannot display PDFs directly. Please use the buttons below.",
+  "draft.openInNewTab": "Open in New Tab",
+  "draft.download": "Download PDF"
 }

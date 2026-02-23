@@ -35,6 +35,7 @@ import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
+const DraftReturnTab = lazy(() => import('../../components/draft-return').then(m => ({ default: m.DraftReturnTab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -64,7 +65,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return'
 
 function ClientDetailPage() {
   const { t } = useTranslation()
@@ -413,6 +414,8 @@ function ClientDetailPage() {
     // Schedule E tab: Always visible (no trigger condition like Schedule C)
     { id: 'schedule-e', label: 'Schedule E', icon: Home },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+    // Draft Return tab: For sharing draft tax returns with clients
+    { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
   ]
 
   return (
@@ -700,6 +703,15 @@ function ClientDetailPage() {
           docs={digitalDocs}
           caseId={activeCaseId || ''}
         />
+      )}
+
+      {/* Draft Return Tab - For sharing draft tax returns with clients */}
+      {activeTab === 'draft-return' && activeCaseId && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.draftReturnError')}</div>}>
+          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
+            <DraftReturnTab caseId={activeCaseId} clientName={client.name} />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* Delete Client Confirmation Modal */}

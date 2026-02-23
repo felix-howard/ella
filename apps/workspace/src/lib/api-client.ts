@@ -869,6 +869,53 @@ export const api = {
         method: 'PUT', body: JSON.stringify(data),
       }),
   },
+
+  // Draft Returns - Sharing draft tax returns with clients
+  draftReturns: {
+    get: (caseId: string) =>
+      request<GetDraftReturnResponse>(`/draft-returns/${caseId}`),
+
+    upload: async (caseId: string, file: File): Promise<UploadDraftReturnResponse> => {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Get auth token
+      let authHeaders: Record<string, string> = {}
+      if (getAuthToken) {
+        const token = await getAuthToken()
+        if (token) {
+          authHeaders = { Authorization: `Bearer ${token}` }
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/draft-returns/${caseId}/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: authHeaders,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new ApiError(
+          response.status,
+          (errorData as { error?: string }).error || 'UPLOAD_FAILED',
+          (errorData as { message?: string }).message || 'Failed to upload draft return'
+        )
+      }
+
+      return response.json()
+    },
+
+    revoke: (draftId: string) =>
+      request<{ success: boolean }>(`/draft-returns/${draftId}/revoke`, {
+        method: 'POST',
+      }),
+
+    extend: (draftId: string) =>
+      request<{ success: boolean; expiresAt: string }>(`/draft-returns/${draftId}/extend`, {
+        method: 'POST',
+      }),
+  },
 }
 
 // Type definitions
@@ -1934,4 +1981,49 @@ export interface AvatarPresignedUrlResponse {
   presignedUrl: string
   key: string
   expiresIn: number
+}
+
+// Draft Return types for sharing draft tax returns with clients
+export type DraftReturnStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
+
+export interface DraftReturnData {
+  id: string
+  version: number
+  filename: string
+  fileSize: number
+  status: DraftReturnStatus
+  viewCount: number
+  lastViewedAt: string | null
+  uploadedAt: string
+  uploadedBy: {
+    id: string
+    name: string
+  }
+}
+
+export interface DraftMagicLinkData {
+  token: string
+  url: string
+  expiresAt: string | null
+  isActive: boolean
+  usageCount: number
+  lastUsedAt: string | null
+}
+
+export interface DraftVersionData {
+  version: number
+  uploadedAt: string
+  status: string
+}
+
+export interface GetDraftReturnResponse {
+  draftReturn: DraftReturnData | null
+  magicLink: DraftMagicLinkData | null
+  versions: DraftVersionData[]
+}
+
+export interface UploadDraftReturnResponse {
+  draftReturn: DraftReturnData
+  magicLink: DraftMagicLinkData
+  portalUrl: string
 }

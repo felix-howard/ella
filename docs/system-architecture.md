@@ -197,7 +197,7 @@ Organization (root entity)
 
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA)
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false). Notification preferences for client upload alerts.
 - **Client** - organizationId FK, profile data, intakeAnswers Json
 - **ClientAssignment** - Unique (clientId, staffId), organizationId FK
 - **TaxCase** - Year-specific tax case, engagementId FK

@@ -27,6 +27,8 @@ function getMagicLinkUrl(token: string, type: MagicLinkType): string {
       return `${PORTAL_URL}/expense/${token}`
     case 'SCHEDULE_E':
       return `${PORTAL_URL}/rental/${token}`
+    case 'DRAFT_RETURN':
+      return `${PORTAL_URL}/draft/${token}`
     case 'PORTAL':
     default:
       return `${PORTAL_URL}/u/${token}`

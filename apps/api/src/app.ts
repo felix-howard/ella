@@ -26,6 +26,8 @@ import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { clientAssignmentsRoute } from './routes/client-assignments'
 import { orgSettingsRoute } from './routes/org-settings'
+import { draftReturnsRoute } from './routes/draft-returns'
+import { portalDraftRoute } from './routes/portal/draft'
 
 const app = new OpenAPIHono()
 
@@ -51,6 +53,7 @@ app.route('/api/health', healthRoute) // Alias for Railway health check
 app.route('/portal', portalRoute)
 app.route('/expense', expenseRoute) // Public Schedule C expense form
 app.route('/rental', rentalRoute) // Public Schedule E rental form
+app.route('/portal/draft', portalDraftRoute) // Public draft return viewer
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 
@@ -70,6 +73,7 @@ app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/client-assignments/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
+app.use('/draft-returns/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -89,6 +93,7 @@ app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/client-assignments', clientAssignmentsRoute)
 app.route('/org-settings', orgSettingsRoute)
+app.route('/draft-returns', draftReturnsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

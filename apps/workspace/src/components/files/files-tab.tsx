@@ -28,6 +28,13 @@ export interface FilesTabProps {
   isLoading?: boolean
 }
 
+/** Navigation item for file viewer modals */
+export interface FileNavItem {
+  imageId: string
+  doc?: DigitalDoc
+  image: RawImage
+}
+
 /**
  * Files Tab - Document explorer view showing all uploaded files
  * Grouped by DB category field, unclassified at top
@@ -138,6 +145,20 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return { processing, categorized: byCategory }
   }, [images])
 
+  // Build flat navigation list for prev/next navigation in modals
+  // Order: by category (CATEGORY_ORDER), then by image order within each category
+  const navItems: FileNavItem[] = useMemo(() => {
+    const items: FileNavItem[] = []
+    for (const categoryKey of CATEGORY_ORDER) {
+      const categoryImages = categorized[categoryKey]
+      for (const img of categoryImages) {
+        const doc = docs.find((d) => d.rawImageId === img.id)
+        items.push({ imageId: img.id, doc, image: img })
+      }
+    }
+    return items
+  }, [categorized, docs])
+
   // Handlers
   const handleClassify = (image: RawImage) => {
     setClassifyImage(image)
@@ -164,6 +185,49 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     const image = images.find((img) => img.id === imageId)
     if (image) setViewImage(image)
   }, [images])
+
+  // Navigation handlers for modals - find current index and navigate to prev/next
+  const getCurrentNavIndex = useCallback(() => {
+    if (verifyDoc) {
+      return navItems.findIndex((item) => item.doc?.id === verifyDoc.id)
+    }
+    if (viewImage) {
+      return navItems.findIndex((item) => item.imageId === viewImage.id)
+    }
+    return -1
+  }, [navItems, verifyDoc, viewImage])
+
+  const handleNavigatePrev = useCallback(() => {
+    const currentIndex = getCurrentNavIndex()
+    if (currentIndex <= 0) return
+
+    const prevItem = navItems[currentIndex - 1]
+    if (prevItem.doc) {
+      setViewImage(null)
+      setVerifyDoc(prevItem.doc)
+      setIsVerifyModalOpen(true)
+    } else {
+      setVerifyDoc(null)
+      setIsVerifyModalOpen(false)
+      setViewImage(prevItem.image)
+    }
+  }, [getCurrentNavIndex, navItems])
+
+  const handleNavigateNext = useCallback(() => {
+    const currentIndex = getCurrentNavIndex()
+    if (currentIndex < 0 || currentIndex >= navItems.length - 1) return
+
+    const nextItem = navItems[currentIndex + 1]
+    if (nextItem.doc) {
+      setViewImage(null)
+      setVerifyDoc(nextItem.doc)
+      setIsVerifyModalOpen(true)
+    } else {
+      setVerifyDoc(null)
+      setIsVerifyModalOpen(false)
+      setViewImage(nextItem.image)
+    }
+  }, [getCurrentNavIndex, navItems])
 
   // Handler for drag and drop between categories
   const handleFileDrop = useCallback(
@@ -411,6 +475,10 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           isOpen={isVerifyModalOpen}
           onClose={handleCloseVerifyModal}
           caseId={caseId}
+          onNavigatePrev={getCurrentNavIndex() > 0 ? handleNavigatePrev : undefined}
+          onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
+          currentIndex={getCurrentNavIndex()}
+          totalCount={navItems.length}
         />
       )}
 
@@ -421,6 +489,10 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           filename={viewImage.filename}
           caseId={caseId}
           onClose={() => setViewImage(null)}
+          onNavigatePrev={getCurrentNavIndex() > 0 ? handleNavigatePrev : undefined}
+          onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
+          currentIndex={getCurrentNavIndex()}
+          totalCount={navItems.length}
         />
       )}
     </div>

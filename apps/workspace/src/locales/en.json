@@ -256,6 +256,7 @@
   "common.logout": "Logout",
   "common.name": "Name",
   "common.next": "Next",
+  "common.previous": "Previous",
   "common.no": "No",
   "common.noCopyData": "No data to copy",
   "common.noData": "No data",

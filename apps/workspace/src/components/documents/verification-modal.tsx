@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock, Download } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
@@ -30,6 +30,14 @@ export interface VerificationModalProps {
   onClose: () => void
   /** Case ID for query invalidation */
   caseId: string
+  /** Navigate to previous file (undefined if at first) */
+  onNavigatePrev?: () => void
+  /** Navigate to next file (undefined if at last) */
+  onNavigateNext?: () => void
+  /** Current file index (0-based) */
+  currentIndex?: number
+  /** Total number of files */
+  totalCount?: number
 }
 
 /**
@@ -82,6 +90,10 @@ export function VerificationModal({
   isOpen,
   onClose,
   caseId,
+  onNavigatePrev,
+  onNavigateNext,
+  currentIndex,
+  totalCount,
 }: VerificationModalProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -349,9 +361,23 @@ export function VerificationModal({
         return
       }
 
+      // Arrow left/right to navigate between files (when not in input)
+      const target = e.target as HTMLElement
+      if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+        if (e.key === 'ArrowLeft' && onNavigatePrev) {
+          e.preventDefault()
+          onNavigatePrev()
+          return
+        }
+        if (e.key === 'ArrowRight' && onNavigateNext) {
+          e.preventDefault()
+          onNavigateNext()
+          return
+        }
+      }
+
       // Tab to navigate fields (when not in an input)
       if (e.key === 'Tab' && !e.shiftKey) {
-        const target = e.target as HTMLElement
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
           e.preventDefault()
           const nextIndex = (currentFieldIndex + 1) % fields.length
@@ -361,7 +387,6 @@ export function VerificationModal({
 
       // Shift+Tab to navigate backwards
       if (e.key === 'Tab' && e.shiftKey) {
-        const target = e.target as HTMLElement
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
           e.preventDefault()
           const prevIndex = currentFieldIndex === 0 ? fields.length - 1 : currentFieldIndex - 1
@@ -371,7 +396,6 @@ export function VerificationModal({
 
       // Enter to complete
       if (e.key === 'Enter' && !completeMutation.isPending) {
-        const target = e.target as HTMLElement
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
           e.preventDefault()
           handleComplete()
@@ -381,7 +405,7 @@ export function VerificationModal({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, currentFieldIndex, fields.length, completeMutation.isPending, handleComplete])
+  }, [isOpen, onClose, currentFieldIndex, fields.length, completeMutation.isPending, handleComplete, onNavigatePrev, onNavigateNext])
 
   // Reset state when modal opens or doc changes
   // Note: setState is intentional here to sync internal state with prop changes
@@ -507,7 +531,7 @@ export function VerificationModal({
         {/* Content - Split view (70/30 for maximum document viewing) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left: Image Viewer - Larger space for document */}
-          <div className="h-1/2 md:h-full md:w-[70%] border-b md:border-b-0 md:border-r border-border bg-muted/20">
+          <div className="h-1/2 md:h-full md:w-[70%] border-b md:border-b-0 md:border-r border-border bg-muted/20 relative">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -529,6 +553,52 @@ export function VerificationModal({
                 isPdf={isPdf}
                 className="w-full h-full"
               />
+            )}
+
+            {/* Navigation Arrows - Floating on the image viewer */}
+            {(onNavigatePrev || onNavigateNext) && (
+              <>
+                {/* Previous button */}
+                <button
+                  onClick={onNavigatePrev}
+                  disabled={!onNavigatePrev}
+                  className={cn(
+                    'absolute left-3 top-1/2 -translate-y-1/2 z-10',
+                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    'bg-background/90 border border-border shadow-lg',
+                    'transition-all hover:bg-background hover:scale-105',
+                    !onNavigatePrev && 'opacity-30 cursor-not-allowed hover:scale-100'
+                  )}
+                  aria-label={t('common.previous')}
+                  title={`${t('common.previous')} (←)`}
+                >
+                  <ChevronLeft className="w-5 h-5 text-foreground" />
+                </button>
+
+                {/* Next button */}
+                <button
+                  onClick={onNavigateNext}
+                  disabled={!onNavigateNext}
+                  className={cn(
+                    'absolute right-3 top-1/2 -translate-y-1/2 z-10',
+                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    'bg-background/90 border border-border shadow-lg',
+                    'transition-all hover:bg-background hover:scale-105',
+                    !onNavigateNext && 'opacity-30 cursor-not-allowed hover:scale-100'
+                  )}
+                  aria-label={t('common.next')}
+                  title={`${t('common.next')} (→)`}
+                >
+                  <ChevronRight className="w-5 h-5 text-foreground" />
+                </button>
+
+                {/* File counter */}
+                {currentIndex !== undefined && totalCount !== undefined && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-background/90 border border-border shadow-lg text-xs font-medium text-foreground">
+                    {currentIndex + 1} / {totalCount}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

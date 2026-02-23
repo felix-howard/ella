@@ -1041,5 +1041,19 @@
   "verificationModal.noExtractedData": "No data extracted",
   "verificationModal.extractWithAi": "Extract with AI",
   "field.empty": "Empty",
-  "field.unreadable": "Unreadable"
+  "field.unreadable": "Unreadable",
+  "profile.info": "Profile Information",
+  "profile.name": "Name",
+  "profile.nameRequired": "Name is required",
+  "profile.email": "Email",
+  "profile.emailReadOnly": "Email cannot be changed",
+  "profile.phone": "Phone Number",
+  "profile.phoneInvalid": "Please enter a valid phone number",
+  "profile.notSet": "Not set",
+  "profile.backToTeam": "Back to Team",
+  "profile.notFound": "Profile not found",
+  "profile.updateSuccess": "Profile updated successfully",
+  "profile.updateError": "Failed to update profile",
+  "profile.assignedClients": "Assigned Clients",
+  "profile.noAssignedClients": "No clients assigned yet"
 }

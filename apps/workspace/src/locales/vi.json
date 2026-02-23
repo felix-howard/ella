@@ -1041,5 +1041,19 @@
   "verificationModal.noExtractedData": "Không có dữ liệu được trích xuất",
   "verificationModal.extractWithAi": "Trích xuất bằng AI",
   "field.empty": "Trống",
-  "field.unreadable": "Không đọc được"
+  "field.unreadable": "Không đọc được",
+  "profile.info": "Thông tin cá nhân",
+  "profile.name": "Họ tên",
+  "profile.nameRequired": "Vui lòng nhập họ tên",
+  "profile.email": "Email",
+  "profile.emailReadOnly": "Email không thể thay đổi",
+  "profile.phone": "Số điện thoại",
+  "profile.phoneInvalid": "Số điện thoại không hợp lệ",
+  "profile.notSet": "Chưa thiết lập",
+  "profile.backToTeam": "Quay lại danh sách",
+  "profile.notFound": "Không tìm thấy thông tin",
+  "profile.updateSuccess": "Cập nhật thành công",
+  "profile.updateError": "Lỗi cập nhật thông tin",
+  "profile.assignedClients": "Khách hàng được gán",
+  "profile.noAssignedClients": "Chưa có khách hàng nào được gán"
 }

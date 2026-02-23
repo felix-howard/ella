@@ -21,6 +21,7 @@ import { Route as ActionsIndexRouteImport } from './routes/actions/index'
 import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
+import { Route as TeamProfileStaffIdRouteImport } from './routes/team/profile/$staffId'
 import { Route as CasesCaseIdMessagesRouteImport } from './routes/cases/$caseId/messages'
 import { Route as CasesCaseIdEntryRouteImport } from './routes/cases/$caseId/entry'
 
@@ -84,6 +85,11 @@ const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
   path: '/clients/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamProfileStaffIdRoute = TeamProfileStaffIdRouteImport.update({
+  id: '/profile/$staffId',
+  path: '/profile/$staffId',
+  getParentRoute: () => TeamRoute,
+} as any)
 const CasesCaseIdMessagesRoute = CasesCaseIdMessagesRouteImport.update({
   id: '/cases/$caseId/messages',
   path: '/cases/$caseId/messages',
@@ -101,7 +107,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -110,13 +116,14 @@ export interface FileRoutesByFullPath {
   '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
+  '/team/profile/$staffId': typeof TeamProfileStaffIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
+  '/team/profile/$staffId': typeof TeamProfileStaffIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -133,7 +141,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRouteWithChildren
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/messages/': typeof MessagesIndexRoute
   '/cases/$caseId/entry': typeof CasesCaseIdEntryRoute
   '/cases/$caseId/messages': typeof CasesCaseIdMessagesRoute
+  '/team/profile/$staffId': typeof TeamProfileStaffIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/messages/'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
+    | '/team/profile/$staffId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
+    | '/team/profile/$staffId'
   id:
     | '__root__'
     | '/'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/messages/'
     | '/cases/$caseId/entry'
     | '/cases/$caseId/messages'
+    | '/team/profile/$staffId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -199,7 +211,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRouteWithChildren
   SettingsRoute: typeof SettingsRoute
-  TeamRoute: typeof TeamRoute
+  TeamRoute: typeof TeamRouteWithChildren
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
@@ -294,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/team/profile/$staffId': {
+      id: '/team/profile/$staffId'
+      path: '/profile/$staffId'
+      fullPath: '/team/profile/$staffId'
+      preLoaderRoute: typeof TeamProfileStaffIdRouteImport
+      parentRoute: typeof TeamRoute
+    }
     '/cases/$caseId/messages': {
       id: '/cases/$caseId/messages'
       path: '/cases/$caseId/messages'
@@ -325,13 +344,23 @@ const MessagesRouteWithChildren = MessagesRoute._addFileChildren(
   MessagesRouteChildren,
 )
 
+interface TeamRouteChildren {
+  TeamProfileStaffIdRoute: typeof TeamProfileStaffIdRoute
+}
+
+const TeamRouteChildren: TeamRouteChildren = {
+  TeamProfileStaffIdRoute: TeamProfileStaffIdRoute,
+}
+
+const TeamRouteWithChildren = TeamRoute._addFileChildren(TeamRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRouteWithChildren,
   SettingsRoute: SettingsRoute,
-  TeamRoute: TeamRoute,
+  TeamRoute: TeamRouteWithChildren,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
   ActionsIndexRoute: ActionsIndexRoute,

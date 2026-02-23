@@ -258,6 +258,10 @@ model Staff {
   phoneNumber String?   // E.164 format (+84901234567)
   isActive    Boolean   @default(true)
 
+  // Upload notification preferences
+  notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
+  notifyAllClients  Boolean @default(false)  // Admin: notify for ALL clients (not just assigned)
+
   // Audit fields
   deactivatedAt DateTime?
   lastLoginAt   DateTime?

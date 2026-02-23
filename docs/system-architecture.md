@@ -59,6 +59,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/team` - Team member management (Phase 3)
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
+**Key Pages (Portal):**
+- `/` - Document upload portal (magic link auth)
+- `/schedule-c/:token` - Schedule C expense form (magic link auth)
+- `/schedule-e/:token` - Schedule E rental form (magic link auth)
+- `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
+
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
@@ -73,9 +79,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **API Client:**
 - Type-safe endpoint groups (team, clients, cases, messages, etc.)
-- Org context: Bearer JWT includes orgId
+- Org context: Bearer JWT includes orgId (workspace)
+- Portal: Token-based public endpoints (no auth, portal app)
 - Retry logic: 3 attempts, exponential backoff
 - Pagination: limit=20, max=100
+- **Portal API Methods (portalApi):**
+  - `getDraft(token)` - Fetch draft return data + signed PDF URL
+  - `trackDraftView(token)` - Post-load view tracking (fire & forget)
 
 ## Backend Layer
 
@@ -89,7 +99,22 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Services: `src/services/{auth,org,ai,webhook-handlers}/`
 - Database: `src/lib/db.ts` (Prisma singleton)
 
-**Endpoints (74+ total):**
+**Endpoints (80+ total):**
+
+**Draft Return Sharing (6 - Phase 02):**
+- `POST /draft-returns/:caseId/upload` - Upload PDF, create DraftReturn + MagicLink (14-day TTL)
+- `GET /draft-returns/:caseId` - Get current draft + link status + version history
+- `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
+- `POST /draft-returns/:id/extend` - Extend expiry by 14 days
+- `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
+- `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
+
+**Portal PDF Viewer (Phase 03):**
+- Route: `/draft/:token` - Token-based public viewer page (no auth required)
+- Component: `PdfViewer` - iFrame-based viewer with fallback (open/download buttons)
+- View tracking: Auto-calls trackDraftView on PDF load (fire & forget)
+- Bilingual: Auto-syncs language from client preference (EN/VI)
+- Error handling: Invalid token, expired link, revoked link, PDF unavailable
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
@@ -207,8 +232,8 @@ Organization (root entity)
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DigitalDoc** - OCR extracted fields
-- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking, uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links)
-- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token, caseId/type reference, optional draftReturnId FK (SetNull), isActive, expiresAt (7-day TTL)
+- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links). Indexes: taxCaseId (single), taxCaseId+status (compound), unique(taxCaseId, version)
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 
@@ -237,6 +262,116 @@ Organization (root entity)
 - All endpoints verify orgId from JWT matches resource org
 - Staff see only assigned clients via ClientAssignment query
 - Admins see all org clients
+
+## Phase 03: Portal PDF Viewer - Token-Based Draft Return Viewing
+
+**Overview:**
+Public-facing draft tax return viewer accessible via magic link tokens. No authentication required. Supports bilingual UI (EN/VI), view tracking, and error states for invalid/expired/revoked links.
+
+**Route & Components:**
+```
+apps/portal/src/routes/draft/$token/index.tsx
+  ├── Page load → GET /portal/draft/:token
+  ├── Validate token (type, active, expiry)
+  ├── Return draft data + signed PDF URL
+  ├── Auto-sync client language preference
+  └── Track view on PDF load
+
+apps/portal/src/components/pdf-viewer.tsx
+  ├── iFrame-based PDF rendering
+  ├── Fallback: Open in new tab / Download buttons
+  ├── Error handling: Browser unsupported fallback
+  └── Bilingual UI (EN/VI)
+```
+
+**Data Flow:**
+1. Client receives magic link email: `/draft/abc123token`
+2. Client clicks link (no login required)
+3. Frontend fetches `GET /portal/draft/abc123token`
+4. Backend validates: token exists, type=DRAFT_RETURN, isActive=true, !expired, updates usageCount
+5. Backend returns: clientName, taxYear, version, pdfUrl (signed R2 URL, 15min TTL)
+6. Frontend syncs language from clientLanguage field
+7. PdfViewer renders iFrame with pdfUrl
+8. On successful load, frontend calls `POST /portal/draft/abc123token/viewed` (fire & forget)
+9. Backend increments viewCount, updates lastViewedAt
+
+**Error States:**
+- `INVALID_TOKEN` - Token not found in database
+- `LINK_REVOKED` - Staff revoked the draft access
+- `LINK_EXPIRED` - Token expiresAt date passed
+- `PDF_UNAVAILABLE` - R2 signed URL generation failed
+- Browser unsupported - iFrame load error, fallback to download/open buttons
+
+**API Endpoints:**
+- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData
+- `POST /portal/draft/:token/viewed` - Public, fire & forget, updates view tracking
+
+**Portal API Client (apps/portal/src/lib/api-client.ts):**
+```typescript
+export interface DraftReturnData {
+  clientName: string           // Display name
+  clientLanguage: 'EN' | 'VI'  // Auto-sync language
+  taxYear: number              // Tax year
+  version: number              // Draft version
+  filename: string             // Original filename
+  uploadedAt: string           // ISO8601
+  pdfUrl: string              // Signed R2 URL (15min expiry)
+}
+
+portalApi.getDraft(token: string) → Promise<DraftReturnData>
+portalApi.trackDraftView(token: string) → Promise<void>
+```
+
+**Localization Keys:**
+```
+draft.title              → "Draft Tax Return for Review"
+draft.loading            → "Loading your draft tax return..."
+draft.taxYear            → "Tax Year"
+draft.version            → "Version"
+draft.contactCpa         → "Please contact your CPA if you have any questions."
+draft.errorTitle         → "Unable to Load"
+draft.errorLoading       → "Could not load the draft tax return. Please try again."
+draft.errorInvalidLink   → "This link is not valid. Please contact your CPA for a new link."
+draft.errorRevoked       → "This link has been revoked. Please contact your CPA."
+draft.errorExpired       → "This link has expired. Please contact your CPA for a new link."
+draft.linkInvalid        → "Link Invalid"
+draft.viewerUnsupported  → "PDF Viewer Unavailable"
+draft.viewerFallback     → "Your browser cannot display PDFs directly. Please use the buttons below."
+draft.openInNewTab       → "Open in New Tab"
+draft.download           → "Download PDF"
+```
+
+**Security:**
+- Token validation: Checks type=DRAFT_RETURN, isActive=true, expiresAt > now
+- Signed URL expiry: 15 minutes (prevents URL sharing beyond session)
+- No sensitive data exposure: Error messages don't reveal internal details
+- Magic link type safety: Only DRAFT_RETURN type can access this endpoint
+- Cross-origin: iFrame sandbox="allow-same-origin allow-scripts" prevents XSS
+
+**View Tracking:**
+- Called on successful PDF load (fire & forget pattern)
+- Updates `DraftReturn.viewCount` and `lastViewedAt`
+- Staff can monitor engagement in workspace dashboard
+- No sensitive data logged (token only)
+
+**Browser Compatibility:**
+- Modern browsers: iFrame native PDF viewer
+- Fallback browsers (some mobile): Download PDF or open in new tab
+- onError handler detects iFrame load failure
+
+**Performance:**
+- Single GET request to validate token + fetch metadata
+- R2 signed URL good for 15 minutes (client-side PDF load)
+- View tracking is async (doesn't block UI)
+- No polling or refetching after load
+
+**Accessibility:**
+- ARIA roles: role="status" for loading, role="alert" for errors
+- aria-label for loading state and error messages
+- Keyboard navigation: Tab through action buttons in error state
+- Retry button available for non-permanent errors
+
+---
 
 ## Phase 05: Avatar Upload - Client-Side Compression & Presigned R2 Upload
 
@@ -775,6 +910,6 @@ Success toast: "Profile updated"
 
 ---
 
-**Version:** 2.5
+**Version:** 2.6
 **Last Updated:** 2026-02-23
-**Status:** Multi-Tenant architecture with Clerk integration + CPA Upload SMS Notification Phase 04 (Frontend Profile Toggles - notifyOnUpload/notifyAllClients toggles, accessible Switch component) + Phase 05 Avatar Upload (client-side compression, presigned R2 upload, cache invalidation) + Phase 04 Navigation (sidebar + team table profile links) + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)
+**Status:** Multi-Tenant architecture with Clerk integration + Phase 02 Draft Return Sharing (6 endpoints: upload, get, revoke, extend, portal view, view tracking) + CPA Upload SMS Notification Phase 04 (notifyOnUpload/notifyAllClients toggles, accessible Switch component) + Phase 05 Avatar Upload (client-side compression, presigned R2 upload, cache invalidation) + Phase 04 Navigation (sidebar + team table profile links) + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)

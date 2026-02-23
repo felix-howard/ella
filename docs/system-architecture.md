@@ -236,6 +236,102 @@ Organization (root entity)
 - Staff see only assigned clients via ClientAssignment query
 - Admins see all org clients
 
+## Phase 05: Avatar Upload - Client-Side Compression & Presigned R2 Upload
+
+**Overview:**
+Self-service avatar upload with client-side Canvas compression, presigned R2 workflow, keyboard accessibility, and real-time preview.
+
+**Image Compression Utility (`image-utils.ts`):**
+```typescript
+compressImage(file): Promise<{ blob, dataUrl, width, height }>
+- Resizes to 400x400px max (maintains aspect ratio)
+- Targets 200KB with adaptive quality reduction
+- Quality loop: 0.85 → 0.5 in 0.1 increments (max 10 iterations)
+- Returns compressed JPEG blob + preview dataUrl
+- Memory management: revokes ObjectURL on load/error
+
+isValidImageFile(file): boolean
+- Accepts: image/jpeg, image/png, image/webp, image/gif
+- Prevents unsupported formats pre-compression
+
+formatFileSize(bytes): string
+- Display helper: "123 KB", "1.5 MB"
+```
+
+**AvatarUploader Component (`avatar-uploader.tsx`):**
+```typescript
+Props:
+- staffId: string (user being edited)
+- currentAvatarUrl: string | null (existing avatar)
+- name: string (for initials fallback)
+- canEdit: boolean (self-only enforced)
+
+States: idle | compressing | uploading | confirming | success | error
+
+Upload Flow:
+1. User clicks avatar (if canEdit=true)
+2. File input → validation (type + size ≤10MB)
+3. Compress via Canvas (progress: "Compressing...")
+4. GET presigned URL from backend
+5. Fetch PUT to R2 with compressed blob (progress: "Uploading...")
+6. PATCH /confirm with R2 key (progress: "Saving...")
+7. Success → toast + cache invalidation
+
+Accessibility:
+- Enter/Space triggers upload (keyboard)
+- Disabled when uploading or !canEdit
+- aria-label: "Change avatar" (EN/VI)
+- Focus ring: focus:ring-2 focus:ring-primary
+
+Visual Feedback:
+- Idle: Camera icon on hover (canEdit only)
+- Uploading: Spinner overlay
+- Success: Green check overlay (1.5s fade)
+- Error: AlertCircle icon + error message + dismiss button
+```
+
+**API Integration:**
+```typescript
+POST /team/members/:staffId/avatar/presigned-url
+  Request: { contentType: 'image/jpeg', fileSize: number }
+  Response: { presignedUrl, expiresIn, key }
+  Notes: Expires 15min, R2 PUT requires Content-Type header
+
+PATCH /team/members/:staffId/avatar
+  Request: { r2Key: string }
+  Response: { avatarUrl: string } (signed download URL, 7-day TTL)
+  Notes: Validates avatars/ prefix, creates signed URL immediately
+```
+
+**Cache Invalidation:**
+```typescript
+confirmMutation.onSuccess:
+  - queryClient.invalidateQueries(['team-member-profile', staffId])
+  - queryClient.invalidateQueries(['staff-me']) ← Sidebar update
+  - Success toast + preview reset (1.5s delay)
+```
+
+**Localization Keys:**
+```
+profile.changeAvatar - Button aria-label
+profile.compressing - Upload state text
+profile.uploading - Upload state text
+profile.saving - Confirmation state text
+profile.avatarUpdated - Success toast (EN: "Profile picture updated")
+profile.avatarUploadFailed - Error toast
+profile.invalidImageType - Validation error (EN: "Image must be JPEG, PNG, WebP, or GIF")
+profile.imageTooLarge - Validation error (EN: "Image cannot exceed 10MB")
+```
+
+**Security:**
+- Self-only enforcement: Backend validates JWT staffId matches request
+- Presigned URLs expire: 15min (upload), 7 days (download)
+- R2 key validation: avatars/{staffId}/{timestamp}-{random}.jpg (directory traversal safe)
+- File size limits: 10MB pre-compression, 200KB post-compression target
+- HTTPS only: Presigned URLs include X-Amz-* signatures
+
+---
+
 ## Phase 04: Navigation Integration - Staff Profile Routes
 
 **Overview:**
@@ -542,6 +638,6 @@ ScheduleETab (index.tsx) [4 states]
 
 ---
 
-**Version:** 2.3
+**Version:** 2.4
 **Last Updated:** 2026-02-23
-**Status:** Multi-Tenant architecture with Clerk integration + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)
+**Status:** Multi-Tenant architecture with Clerk integration + Phase 05 Avatar Upload (client-side compression, presigned R2 upload, cache invalidation) + Phase 04 Navigation (sidebar + team table profile links) + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)

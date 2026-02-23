@@ -20,3 +20,24 @@ export const staffIdParamSchema = z.object({
 export const invitationIdParamSchema = z.object({
   invitationId: z.string().min(1),
 })
+
+// Profile update schema - self-edit only
+export const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  phoneNumber: z
+    .string()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Invalid E.164 format')
+    .optional()
+    .nullable(),
+})
+
+// Avatar presigned URL request
+export const avatarPresignedUrlSchema = z.object({
+  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  fileSize: z.number().min(100).max(5 * 1024 * 1024), // 100B - 5MB
+})
+
+// Avatar confirm schema - after direct browser upload
+export const avatarConfirmSchema = z.object({
+  r2Key: z.string().startsWith('avatars/'),
+})

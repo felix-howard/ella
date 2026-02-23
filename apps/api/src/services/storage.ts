@@ -81,6 +81,45 @@ export async function uploadFile(
 }
 
 /**
+ * Generate presigned PUT URL for direct browser uploads
+ * Used for avatar uploads - bypasses server for bandwidth efficiency
+ */
+export async function getSignedUploadUrl(
+  key: string,
+  contentType: string,
+  contentLength: number,
+  expiresIn = 900 // 15 minutes
+): Promise<string | null> {
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, cannot generate upload URL')
+    return null
+  }
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+      ContentLength: contentLength,
+    })
+
+    return await getSignedUrl(s3Client, command, { expiresIn })
+  } catch (error) {
+    console.error('[Storage] Failed to generate upload URL:', key, error)
+    return null
+  }
+}
+
+/**
+ * Generate unique avatar key with timestamp and random suffix
+ */
+export function generateAvatarKey(staffId: string): string {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 8) // 6-char random suffix
+  return `avatars/${staffId}/${timestamp}-${random}.jpg`
+}
+
+/**
  * Get a signed download URL for a file
  */
 export async function getSignedDownloadUrl(

@@ -805,6 +805,28 @@ export const api = {
 
     revokeInvitation: (invitationId: string) =>
       request<{ success: boolean }>(`/team/invitations/${invitationId}`, { method: 'DELETE' }),
+
+    // Profile endpoints
+    getProfile: (staffId: string) =>
+      request<ProfileResponse>(`/team/members/${staffId}/profile`),
+
+    updateProfile: (staffId: string, data: UpdateStaffProfileInput) =>
+      request<{ success: boolean; staff: StaffProfile }>(`/team/members/${staffId}/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    getAvatarPresignedUrl: (staffId: string, data: AvatarPresignedUrlInput) =>
+      request<AvatarPresignedUrlResponse>(`/team/members/${staffId}/avatar/presigned-url`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    confirmAvatarUpload: (staffId: string, r2Key: string) =>
+      request<{ success: boolean; avatarUrl: string }>(`/team/members/${staffId}/avatar`, {
+        method: 'PATCH',
+        body: JSON.stringify({ r2Key }),
+      }),
   },
 
   // Organization Settings
@@ -1869,4 +1891,37 @@ export interface ClientAssignment {
   createdAt: string
   client?: { id: string; name: string; phone: string }
   staff?: { id: string; name: string; email: string }
+}
+
+// Staff Profile types
+export interface StaffProfile {
+  id: string
+  name: string
+  email: string
+  role: string
+  avatarUrl: string | null
+  phoneNumber: string | null
+}
+
+export interface ProfileResponse {
+  staff: StaffProfile & { _count: { clientAssignments: number } }
+  assignedClients: Array<{ id: string; name: string; phone: string }>
+  assignedCount: number
+  canEdit: boolean
+}
+
+export interface UpdateStaffProfileInput {
+  name?: string
+  phoneNumber?: string | null
+}
+
+export interface AvatarPresignedUrlInput {
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp'
+  fileSize: number
+}
+
+export interface AvatarPresignedUrlResponse {
+  presignedUrl: string
+  key: string
+  expiresIn: number
 }

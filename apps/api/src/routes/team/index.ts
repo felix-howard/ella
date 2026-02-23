@@ -15,9 +15,15 @@ import type { AuthVariables } from '../../middleware/auth'
 import {
   inviteMemberSchema,
   updateMemberRoleSchema,
-  staffIdParamSchema,
-  invitationIdParamSchema,
+  updateProfileSchema,
+  avatarPresignedUrlSchema,
+  avatarConfirmSchema,
 } from './schemas'
+import {
+  getSignedUploadUrl,
+  generateAvatarKey,
+  getSignedDownloadUrl,
+} from '../../services/storage'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -277,6 +283,215 @@ teamRoute.delete(
       const message = error instanceof Error ? error.message : 'Failed to revoke invitation'
       return c.json({ error: message }, 400)
     }
+  }
+)
+
+// ===== PROFILE ENDPOINTS =====
+
+// GET /team/members/:staffId/profile - Get member profile with assignments
+teamRoute.get('/members/:staffId/profile', async (c) => {
+  const user = c.get('user')
+  const staffId = c.req.param('staffId')
+
+  // Resolve 'me' to current user's staffId
+  const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+  if (!targetStaffId) {
+    return c.json({ error: 'Staff ID required' }, 400)
+  }
+
+  // Verify staff belongs to same org
+  const staff = await prisma.staff.findFirst({
+    where: {
+      id: targetStaffId,
+      organizationId: user.organizationId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatarUrl: true,
+      phoneNumber: true,
+      _count: { select: { clientAssignments: true } },
+    },
+  })
+
+  if (!staff) {
+    return c.json({ error: 'Staff not found' }, 404)
+  }
+
+  // Get assigned clients (limited for display)
+  const assignments = await prisma.clientAssignment.findMany({
+    where: { staffId: targetStaffId },
+    include: {
+      client: { select: { id: true, name: true, phone: true } },
+    },
+    take: 50,
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const canEdit = targetStaffId === user.staffId
+
+  return c.json({
+    staff,
+    assignedClients: assignments.map((a) => a.client),
+    assignedCount: staff._count.clientAssignments,
+    canEdit,
+  })
+})
+
+// PATCH /team/members/:staffId/profile - Update profile (self only)
+teamRoute.patch(
+  '/members/:staffId/profile',
+  zValidator('json', updateProfileSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    // Self-only check
+    if (targetStaffId !== user.staffId) {
+      return c.json({ error: 'Can only edit your own profile' }, 403)
+    }
+
+    const { name, phoneNumber } = c.req.valid('json')
+
+    // Verify staff exists and belongs to org
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: targetStaffId,
+        organizationId: user.organizationId,
+        isActive: true,
+      },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    // Update profile
+    const updated = await prisma.staff.update({
+      where: { id: targetStaffId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(phoneNumber !== undefined && { phoneNumber }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true,
+        avatarUrl: true,
+      },
+    })
+
+    return c.json({ success: true, staff: updated })
+  }
+)
+
+// POST /team/members/:staffId/avatar/presigned-url - Get upload URL (self only)
+teamRoute.post(
+  '/members/:staffId/avatar/presigned-url',
+  zValidator('json', avatarPresignedUrlSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    // Self-only check
+    if (targetStaffId !== user.staffId) {
+      return c.json({ error: 'Can only upload your own avatar' }, 403)
+    }
+
+    const { contentType, fileSize } = c.req.valid('json')
+
+    // Verify staff exists
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: targetStaffId,
+        organizationId: user.organizationId,
+        isActive: true,
+      },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    // Generate key and presigned URL
+    const key = generateAvatarKey(targetStaffId)
+    const presignedUrl = await getSignedUploadUrl(key, contentType, fileSize)
+
+    if (!presignedUrl) {
+      return c.json({ error: 'Storage not configured' }, 503)
+    }
+
+    return c.json({
+      presignedUrl,
+      key,
+      expiresIn: 900, // 15 minutes
+    })
+  }
+)
+
+// PATCH /team/members/:staffId/avatar - Confirm avatar upload (self only)
+teamRoute.patch(
+  '/members/:staffId/avatar',
+  zValidator('json', avatarConfirmSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    // Self-only check
+    if (targetStaffId !== user.staffId) {
+      return c.json({ error: 'Can only update your own avatar' }, 403)
+    }
+
+    const { r2Key } = c.req.valid('json')
+
+    // Verify key belongs to this staff
+    if (!r2Key.startsWith(`avatars/${targetStaffId}/`)) {
+      return c.json({ error: 'Invalid avatar key' }, 400)
+    }
+
+    // Verify staff exists
+    const staff = await prisma.staff.findFirst({
+      where: {
+        id: targetStaffId,
+        organizationId: user.organizationId,
+        isActive: true,
+      },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    // Get signed download URL for the avatar (7-day expiry)
+    const avatarUrl = await getSignedDownloadUrl(r2Key, 86400 * 7)
+
+    // Update staff with new avatar URL
+    await prisma.staff.update({
+      where: { id: targetStaffId },
+      data: { avatarUrl },
+    })
+
+    return c.json({ success: true, avatarUrl })
   }
 )
 

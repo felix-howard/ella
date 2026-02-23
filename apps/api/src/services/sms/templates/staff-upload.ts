@@ -17,15 +17,13 @@ export interface StaffUploadTemplateParams {
 const TEMPLATES = {
   VI: (params: StaffUploadTemplateParams) => {
     const { clientName, uploadCount } = params
-    // Max ~145 chars: "[Ella] {name} vua gui {n} tai lieu. Dang nhap de xem."
-    return `[Ella] ${clientName} vua gui ${uploadCount} tai lieu. Dang nhap de xem.`
+    return `[Ella] ${clientName} vua gui ${uploadCount} tai lieu.`
   },
 
   EN: (params: StaffUploadTemplateParams) => {
     const { clientName, uploadCount } = params
-    // Max ~110 chars: "[Ella] {name} uploaded {n} documents. Log in to view."
     const docWord = uploadCount === 1 ? 'document' : 'documents'
-    return `[Ella] ${clientName} uploaded ${uploadCount} ${docWord}. Log in to view.`
+    return `[Ella] ${clientName} uploaded ${uploadCount} ${docWord}.`
   },
 }
 

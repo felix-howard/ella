@@ -35,7 +35,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     id: 'notify-staff-upload',
     batchEvents: {
       maxSize: 100,
-      timeout: '300s', // 5 minutes in seconds
+      timeout: '300s', // 5 minutes
       key: 'event.data.caseId',
     },
   },
@@ -99,7 +99,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
       // Build OR conditions for recipient query
       const orConditions: object[] = [
         // Assigned staff
-        { assignments: { some: { clientId } } },
+        { clientAssignments: { some: { clientId } } },
       ]
 
       // Admins with notifyAllClients=true

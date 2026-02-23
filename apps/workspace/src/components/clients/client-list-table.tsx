@@ -81,7 +81,7 @@ interface ClientRowProps {
 }
 
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
   // Memoize avatar color to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
@@ -177,7 +177,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
             </span>
             {uploads.latestAt && (
               <span className="text-xs text-muted-foreground">
-                {formatRelativeTime(uploads.latestAt)}
+                {formatRelativeTime(uploads.latestAt, i18n.language as 'en' | 'vi')}
               </span>
             )}
           </div>

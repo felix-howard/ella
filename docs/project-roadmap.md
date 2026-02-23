@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-02-23 ICT
-> **Current Phase:** Member Profile Page Phase 5 Avatar Upload COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE + Member Profile Page All 5 Phases COMPLETE + Mobile Responsive Phase 1-2 COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
+> **Current Phase:** CPA Upload SMS Notification Phase 04 Frontend Profile Toggles COMPLETE | Member Profile Page Phase 5 Avatar Upload COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE + Member Profile Page All 5 Phases COMPLETE + Mobile Responsive Phase 1-2 COMPLETE + Schedule C Phase 4 Complete + CPA Upload SMS Notification Phase 1-4 COMPLETE + All prior enhancements
 
 ### Mobile Responsive Admin Pages Phase 4 - COMPLETE ✅
 **Completed:** 2026-02-07
@@ -297,6 +297,36 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Phase 5.2 (Core Workflow - Production Gaps):** ✅ COMPLETE (Status Management, Document Verification, Action Completion, Search) - as of 2026-01-14 15:54
 - **Phase 5.3 (Enhanced Portal Upload):** ✅ COMPLETE (4/4 phases: API progress tracking, i18n strings, enhanced uploader component, upload page integration) - as of 2026-01-14 19:05
 - **Phase 6 (AI Classification Testing & Polish):** ✅ COMPLETE (28 tests, 100% pass rate, all security hardening) - as of 2026-01-15 07:40
+
+---
+
+### CPA Upload SMS Notification - Phase 04 Frontend Profile Toggles (80% Complete) ⏳
+**Started:** 2026-02-23
+**Target Completion:** 2026-02-24
+**Deliverable:** SMS notifications to staff when clients upload documents via portal, batch-processed over 5-minute windows
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema - notification prefs | ✅ DONE | 2026-02-23 | Added notifyOnUpload, notifyAllClients fields to Staff model |
+| 2 | Backend Inngest batching job | ✅ DONE | 2026-02-23 | Batching job with 5-min window, SMS notification service |
+| 3 | SMS template & service | ✅ DONE | 2026-02-23 | SMS templates (EN + VI), notification service layer |
+| 4 | Frontend profile toggles | ✅ DONE | 2026-02-23 | Switch toggles in profile form, admin-only field, i18n support |
+| 5 | Testing & integration | ⏳ PENDING | - | Full integration testing, E2E scenarios |
+
+**Completion Summary (Phases 1-4):**
+- **Phase 1:** Database schema adds notifyOnUpload & notifyAllClients boolean fields to Staff model. Prisma migration applied.
+- **Phase 2:** Inngest batching job (notifyStaffOnUploadJob) processes document/uploaded events in 5-min batches by caseId. Query staff + admins with notification prefs, send SMS with 1msg/sec spacing.
+- **Phase 3:** SMS notification service with templates for both English & Vietnamese. Template: "{Client Name} uploaded {count} document(s)". Graceful skip if staff lacks phone number.
+- **Phase 4:** Frontend UI adds Notification Preferences section to staff profile page:
+  - Switch component for notifyOnUpload (all staff)
+  - Switch component for notifyAllClients (admin-only)
+  - Phone number requirement hint
+  - Full i18n support (EN + VI)
+  - Backend profile endpoints support new fields
+  - Code review: 9.5/10, Tests: 13/13 passing
+- Branch: dev
+- **Next:** Phase 5 (Full integration testing + performance validation)
 
 ---
 

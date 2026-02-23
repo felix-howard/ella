@@ -29,6 +29,9 @@ export const updateProfileSchema = z.object({
     .regex(/^\+[1-9]\d{6,14}$/, 'Invalid E.164 format')
     .optional()
     .nullable(),
+  // Notification preferences
+  notifyOnUpload: z.boolean().optional(),
+  notifyAllClients: z.boolean().optional(),
 })
 
 // Avatar presigned URL request

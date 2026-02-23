@@ -1069,5 +1069,11 @@
   "profile.imageTooLarge": "Image must be less than 10MB",
   "profile.compressing": "Compressing...",
   "profile.uploading": "Uploading...",
-  "profile.saving": "Saving..."
+  "profile.saving": "Saving...",
+  "profile.notifications": "Notification Preferences",
+  "profile.notifyOnUpload": "Document upload notifications",
+  "profile.notifyOnUploadDesc": "Receive SMS when clients upload documents",
+  "profile.notifyAllClients": "Notify for all clients",
+  "profile.notifyAllClientsDesc": "Receive notifications for all clients, not just assigned ones",
+  "profile.phoneRequiredForSms": "Phone number required for SMS notifications"
 }

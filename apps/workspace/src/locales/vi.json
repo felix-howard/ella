@@ -1069,5 +1069,11 @@
   "profile.imageTooLarge": "Ảnh phải nhỏ hơn 10MB",
   "profile.compressing": "Đang nén ảnh...",
   "profile.uploading": "Đang tải lên...",
-  "profile.saving": "Đang lưu..."
+  "profile.saving": "Đang lưu...",
+  "profile.notifications": "Cài đặt thông báo",
+  "profile.notifyOnUpload": "Thông báo tài liệu mới",
+  "profile.notifyOnUploadDesc": "Nhận SMS khi khách hàng tải tài liệu lên",
+  "profile.notifyAllClients": "Thông báo cho tất cả khách hàng",
+  "profile.notifyAllClientsDesc": "Nhận thông báo cho tất cả khách hàng, không chỉ khách hàng được gán",
+  "profile.phoneRequiredForSms": "Cần số điện thoại để nhận SMS"
 }

@@ -253,9 +253,10 @@ model Staff {
   clerkId   String?   @unique  // Clerk user ID for auth sync
   email     String    @unique
   name      String
-  role      StaffRole @default(STAFF)
-  avatarUrl String?
-  isActive  Boolean   @default(true)
+  role        StaffRole @default(STAFF)
+  avatarUrl   String?
+  phoneNumber String?   // E.164 format (+84901234567)
+  isActive    Boolean   @default(true)
 
   // Audit fields
   deactivatedAt DateTime?

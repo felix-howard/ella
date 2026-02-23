@@ -917,7 +917,9 @@ export interface OcrTriggerResponse {
 // Client types
 export interface Client {
   id: string
-  name: string
+  firstName: string
+  lastName: string | null
+  name: string  // Computed: firstName + lastName (backward compat)
   phone: string
   email: string | null
   language: Language
@@ -950,7 +952,9 @@ export interface ClientUploads {
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
-  name: string
+  firstName: string
+  lastName: string | null
+  name: string  // Computed: firstName + lastName (backward compat)
   phone: string
   email: string | null
   language: 'VI' | 'EN'
@@ -1224,7 +1228,8 @@ export interface Message {
 
 // Input types
 export interface CreateClientInput {
-  name: string
+  firstName: string
+  lastName?: string
   phone: string
   email?: string
   language?: Language
@@ -1261,7 +1266,8 @@ export interface CreateClientResponse {
 }
 
 export interface UpdateClientInput {
-  name?: string
+  firstName?: string
+  lastName?: string | null
   phone?: string
   email?: string | null
   language?: Language

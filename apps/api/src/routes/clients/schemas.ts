@@ -114,7 +114,8 @@ export const clientProfileSchema = z.object({
 
 // Create client input
 export const createClientSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  firstName: z.string().min(1, 'First name is required').max(50),
+  lastName: z.string().max(50).optional(),
   phone: phoneSchema,
   email: z.string().email().optional(),
   language: z.enum(['VI', 'EN']).default('VI'),
@@ -125,7 +126,8 @@ export const createClientSchema = z.object({
 
 // Update client input
 export const updateClientSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().max(50).nullable().optional(),
   phone: phoneSchema.optional(),
   email: z.string().email().nullable().optional(),
   language: z.enum(['VI', 'EN']).optional(),

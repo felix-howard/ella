@@ -29,7 +29,7 @@ interface ClientOverviewSectionsProps {
 }
 
 // Personal info fields that support quick-edit
-const QUICK_EDIT_FIELDS: QuickEditField[] = ['name', 'phone', 'email']
+const QUICK_EDIT_FIELDS: QuickEditField[] = ['firstName', 'lastName', 'phone', 'email']
 
 export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) {
   const { t } = useTranslation()
@@ -117,9 +117,10 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
     const sections: Record<string, Array<{ key: string; label: string; value: string; rawValue: unknown; editable?: boolean }>> = {}
 
     // Add personal info section (from client directly)
-    // name, phone, email are quick-editable via QuickEditModal
+    // firstName, lastName, phone, email are quick-editable via QuickEditModal
     sections.personal_info = [
-      { key: 'name', label: UI_TEXT.form.clientName, value: client.name, rawValue: client.name, editable: true },
+      { key: 'firstName', label: UI_TEXT.form.firstName, value: client.firstName, rawValue: client.firstName, editable: true },
+      { key: 'lastName', label: UI_TEXT.form.lastName, value: client.lastName || '—', rawValue: client.lastName || '', editable: true },
       { key: 'phone', label: UI_TEXT.form.phone, value: client.phone, rawValue: client.phone, editable: true },
     ]
     // Always include email row (show edit icon even if empty)
@@ -327,7 +328,8 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
           onClose={() => setQuickEditField(null)}
           field={quickEditField}
           currentValue={
-            quickEditField === 'name' ? client.name :
+            quickEditField === 'firstName' ? client.firstName :
+            quickEditField === 'lastName' ? (client.lastName || '') :
             quickEditField === 'phone' ? client.phone :
             quickEditField === 'email' ? (client.email || '') :
             ''

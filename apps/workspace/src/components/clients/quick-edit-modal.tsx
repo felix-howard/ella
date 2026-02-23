@@ -12,12 +12,13 @@ import { api, type UpdateClientInput } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
 // Supported editable fields for personal info
-export type QuickEditField = 'name' | 'phone' | 'email'
+export type QuickEditField = 'firstName' | 'lastName' | 'phone' | 'email'
 
 // Field configuration for labels and input types
 const FIELD_CONFIG: Record<QuickEditField, { label: string; type: string; placeholder: string }> = {
-  name: { label: 'Tên khách hàng', type: 'text', placeholder: 'Nhập tên...' },
-  phone: { label: 'Số điện thoại', type: 'tel', placeholder: '+1XXXXXXXXXX' },
+  firstName: { label: 'First Name', type: 'text', placeholder: 'Enter first name...' },
+  lastName: { label: 'Last Name', type: 'text', placeholder: 'Enter last name...' },
+  phone: { label: 'Phone', type: 'tel', placeholder: '+1XXXXXXXXXX' },
   email: { label: 'Email', type: 'email', placeholder: 'email@example.com' },
 }
 
@@ -77,13 +78,21 @@ function QuickEditModalContent({
     const trimmedValue = value.trim()
 
     switch (field) {
-      case 'name':
-        if (trimmedValue.length < 2) {
-          setError('Tên phải có ít nhất 2 ký tự')
+      case 'firstName':
+        if (trimmedValue.length < 1) {
+          setError('First name is required')
           return false
         }
-        if (trimmedValue.length > 100) {
-          setError('Tên không được quá 100 ký tự')
+        if (trimmedValue.length > 50) {
+          setError('First name must be at most 50 characters')
+          return false
+        }
+        break
+
+      case 'lastName':
+        // lastName is optional, just validate length
+        if (trimmedValue.length > 50) {
+          setError('Last name must be at most 50 characters')
           return false
         }
         break
@@ -130,8 +139,13 @@ function QuickEditModalContent({
     if (field === 'email') {
       // Email can be null (empty string -> null)
       updateData.email = trimmedValue || null
-    } else {
-      updateData[field] = trimmedValue
+    } else if (field === 'lastName') {
+      // lastName can be null (empty string -> null)
+      updateData.lastName = trimmedValue || null
+    } else if (field === 'firstName') {
+      updateData.firstName = trimmedValue
+    } else if (field === 'phone') {
+      updateData.phone = trimmedValue
     }
 
     updateMutation.mutate(updateData)

@@ -333,7 +333,9 @@ model ClientAssignment {
 
 model Client {
   id        String   @id @default(cuid())
-  name      String
+  firstName String
+  lastName  String?
+  name      String   @default("")  // Computed field for backward compat - will be populated by API
   phone     String   @unique
   email     String?
   language  Language @default(VI)

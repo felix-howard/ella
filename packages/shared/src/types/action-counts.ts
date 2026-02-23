@@ -30,7 +30,9 @@ export interface ActionCounts {
 
 export interface ClientWithActions {
   id: string
-  name: string
+  firstName: string
+  lastName: string | null
+  name: string  // Computed: firstName + lastName (backward compat)
   phone: string
   email: string | null
   language: 'VI' | 'EN'

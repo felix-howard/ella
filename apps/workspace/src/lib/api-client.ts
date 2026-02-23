@@ -446,6 +446,14 @@ export const api = {
         body: JSON.stringify({ imageIds }),
         retries: 0,
       }),
+
+    // Update image rotation (persist document orientation)
+    updateRotation: (id: string, rotation: 0 | 90 | 180 | 270) =>
+      request<{ success: boolean; id: string; rotation: number }>(`/images/${id}/rotation`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rotation }),
+        retries: 0, // Non-critical, don't retry
+      }),
   },
 
   // Messages
@@ -1095,6 +1103,8 @@ export interface RawImage {
   reuploadFields?: string[] | null
   // Phase 04: Per-CPA document view tracking
   isNew?: boolean
+  // Viewer display settings (persisted rotation)
+  rotation?: number
 }
 
 // Image group for duplicate detection
@@ -1118,7 +1128,7 @@ export interface DigitalDoc {
   aiConfidence?: number | null
   createdAt: string
   updatedAt: string
-  rawImage?: { id: string; filename: string; r2Key: string; displayName?: string | null }
+  rawImage?: { id: string; filename: string; r2Key: string; displayName?: string | null; rotation?: number }
   // Phase 02: Field-level verification & entry tracking
   fieldVerifications?: Record<string, FieldVerificationStatus>
   copiedFields?: Record<string, boolean>

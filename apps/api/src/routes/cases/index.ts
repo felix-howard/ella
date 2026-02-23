@@ -158,7 +158,7 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
       rawImages: { orderBy: { createdAt: 'desc' } },
       digitalDocs: {
         orderBy: { createdAt: 'desc' },
-        include: { rawImage: { select: { id: true, filename: true, r2Key: true, displayName: true } } },
+        include: { rawImage: { select: { id: true, filename: true, r2Key: true, displayName: true, rotation: true } } },
       },
     },
   })
@@ -392,7 +392,7 @@ casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) 
       take: safeLimit,
       orderBy: { createdAt: 'desc' },
       include: {
-        rawImage: { select: { id: true, filename: true, r2Key: true } },
+        rawImage: { select: { id: true, filename: true, r2Key: true, rotation: true } },
       },
     }),
     prisma.digitalDoc.count({ where }),

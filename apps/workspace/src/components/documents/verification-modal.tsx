@@ -320,6 +320,15 @@ export function VerificationModal({
     completeMutation.mutate()
   }, [completeMutation])
 
+  // Handle rotation change (persist to DB)
+  const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
+    if (!rawImageId) return
+    // Fire-and-forget, don't block UI
+    api.images.updateRotation(rawImageId, rotation).catch(() => {
+      // Silent fail - rotation is non-critical
+    })
+  }, [rawImageId])
+
   // Handle download file
   const handleDownload = useCallback(async () => {
     if (!rawImageId) {
@@ -552,6 +561,8 @@ export function VerificationModal({
                 imageUrl={validatedUrl}
                 isPdf={isPdf}
                 className="w-full h-full"
+                initialRotation={(doc.rawImage?.rotation as 0 | 90 | 180 | 270) || 0}
+                onRotationChange={handleRotationChange}
               />
             )}
 

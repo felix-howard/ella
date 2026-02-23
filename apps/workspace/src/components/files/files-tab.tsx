@@ -493,6 +493,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
           currentIndex={getCurrentNavIndex()}
           totalCount={navItems.length}
+          initialRotation={(viewImage.rotation as 0 | 90 | 180 | 270) || 0}
         />
       )}
     </div>

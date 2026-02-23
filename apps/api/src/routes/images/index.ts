@@ -46,6 +46,14 @@ const changeCategorySchema = z.object({
   category: z.enum(['IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
 })
 
+// Schema for updating rotation
+const updateRotationSchema = z.object({
+  rotation: z.number().int().refine(
+    (val) => [0, 90, 180, 270].includes(val),
+    { message: 'Rotation must be 0, 90, 180, or 270' }
+  ),
+})
+
 /**
  * PATCH /images/:id/classification - Update image classification
  * Used by CPA to approve/reject AI classification with optional type change
@@ -778,5 +786,45 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
 
   return c.json({ success: true })
 })
+
+/**
+ * PATCH /images/:id/rotation - Update image rotation
+ * Persists rotation (0, 90, 180, 270) so documents display correctly on re-open
+ */
+imagesRoute.patch(
+  '/:id/rotation',
+  zValidator('json', updateRotationSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { rotation } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Find and update the raw image (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+      select: { id: true },
+    })
+
+    if (!rawImage) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Image not found' },
+        404
+      )
+    }
+
+    // Update rotation
+    const updated = await prisma.rawImage.update({
+      where: { id },
+      data: { rotation },
+      select: { id: true, rotation: true },
+    })
+
+    return c.json({
+      success: true,
+      id: updated.id,
+      rotation: updated.rotation,
+    })
+  }
+)
 
 export { imagesRoute }

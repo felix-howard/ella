@@ -514,6 +514,9 @@ model RawImage {
 
   uploadedVia    MessageChannel @default(PORTAL)
 
+  // Viewer display settings (persisted rotation for correct document orientation)
+  rotation       Int            @default(0)  // 0, 90, 180, 270 degrees clockwise
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -5,7 +5,7 @@
  * Supports AI re-classification for misclassified "Other" documents
  */
 
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -29,6 +29,8 @@ export interface SimpleImageViewerModalProps {
   currentIndex?: number
   /** Total number of files */
   totalCount?: number
+  /** Initial rotation from DB (persisted orientation) */
+  initialRotation?: 0 | 90 | 180 | 270
 }
 
 export function SimpleImageViewerModal({
@@ -40,6 +42,7 @@ export function SimpleImageViewerModal({
   onNavigateNext,
   currentIndex,
   totalCount,
+  initialRotation = 0,
 }: SimpleImageViewerModalProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -69,6 +72,14 @@ export function SimpleImageViewerModal({
       toast.error(message)
     },
   })
+
+  // Handle rotation change (persist to DB)
+  const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
+    // Fire-and-forget, don't block UI
+    api.images.updateRotation(imageId, rotation).catch(() => {
+      // Silent fail - rotation is non-critical
+    })
+  }, [imageId])
 
   // Keyboard shortcuts: Escape to close, Arrow keys to navigate
   useEffect(() => {
@@ -160,6 +171,8 @@ export function SimpleImageViewerModal({
               imageUrl={signedUrlData.url}
               isPdf={isPdf}
               className="w-full h-full"
+              initialRotation={initialRotation}
+              onRotationChange={handleRotationChange}
             />
           )}
 

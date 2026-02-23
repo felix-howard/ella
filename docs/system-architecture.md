@@ -207,7 +207,8 @@ Organization (root entity)
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DigitalDoc** - OCR extracted fields
-- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E), token, caseId/type reference, isActive, expiresAt (7-day TTL)
+- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking, uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links)
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token, caseId/type reference, optional draftReturnId FK (SetNull), isActive, expiresAt (7-day TTL)
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 
@@ -219,6 +220,7 @@ Organization (root entity)
 - Staff: organizationId + clerkId (compound unique)
 - ClientAssignment: organizationId + (clientId, staffId)
 - Client: organizationId + status
+- DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
 - Messages: conversationId + createdAt (ordering)
 
 ## Authentication Flow

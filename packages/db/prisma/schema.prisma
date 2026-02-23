@@ -277,6 +277,7 @@ model Staff {
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   clientAssignments ClientAssignment[]
   documentViews     DocumentView[]
+  uploadedDraftReturns DraftReturn[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -457,6 +458,7 @@ model TaxCase {
   imageGroups       ImageGroup[]
   scheduleCExpense  ScheduleCExpense?
   scheduleEExpense  ScheduleEExpense?
+  draftReturns      DraftReturn[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -715,6 +717,10 @@ model MagicLink {
   token     String   @unique @default(cuid())
   type      MagicLinkType @default(PORTAL)  // PORTAL for docs, SCHEDULE_C for expense form
 
+  // Optional reference for DRAFT_RETURN type
+  draftReturnId String?
+  draftReturn   DraftReturn? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
+
   lastUsedAt DateTime?
   usageCount Int      @default(0)
 
@@ -729,6 +735,7 @@ model MagicLink {
   @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
   @@index([type])  // Filter by link type
   @@index([caseId, type, isActive])  // Phase 02: Composite index for Schedule C queries
+  @@index([draftReturnId])  // Draft return lookup
 }
 
 model Action {
@@ -857,6 +864,7 @@ enum MagicLinkType {
   PORTAL       // Existing document upload
   SCHEDULE_C   // Self-employed expense collection form
   SCHEDULE_E   // Rental property expense collection form
+  DRAFT_RETURN // Draft tax return PDF viewing
 }
 
 enum ScheduleCStatus {
@@ -869,6 +877,13 @@ enum ScheduleEStatus {
   DRAFT       // Client editing
   SUBMITTED   // Client submitted, CPA can review
   LOCKED      // CPA locked, no more edits
+}
+
+enum DraftReturnStatus {
+  ACTIVE      // Current version, link valid
+  REVOKED     // Link manually revoked
+  EXPIRED     // Link expired
+  SUPERSEDED  // Replaced by newer version
 }
 
 // Audit log for tracking field-level changes
@@ -1005,6 +1020,47 @@ model ScheduleEExpense {
   @@index([status])
   @@index([taxCaseId, status])
   @@index([lockedById])
+}
+
+// ============================================
+// DRAFT RETURN SHARING
+// ============================================
+
+// Draft tax return sharing - CPAs upload PDF for client review via portal
+model DraftReturn {
+  id            String   @id @default(cuid())
+  taxCaseId     String
+  taxCase       TaxCase  @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  // PDF storage
+  r2Key         String   @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
+  filename      String   // Original filename for display
+  fileSize      Int      // Bytes
+
+  // Versioning
+  version       Int      @default(1)
+
+  // Uploader
+  uploadedById  String
+  uploadedBy    Staff    @relation(fields: [uploadedById], references: [id])
+
+  // Status
+  status        DraftReturnStatus @default(ACTIVE)
+
+  // View tracking
+  viewCount     Int      @default(0)
+  lastViewedAt  DateTime?
+
+  // Magic link for portal access
+  magicLinks    MagicLink[]
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([taxCaseId])
+  @@index([taxCaseId, status])
+  @@index([status])
 }
 
 // ============================================

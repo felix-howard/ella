@@ -52,7 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail (overview + documents tabs)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return (Phase 04)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -101,7 +101,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Draft Return Sharing (6 - Phase 02):**
+**Draft Return Sharing (6 - Phase 02 Backend + Phase 04 Frontend Complete):**
 - `POST /draft-returns/:caseId/upload` - Upload PDF, create DraftReturn + MagicLink (14-day TTL)
 - `GET /draft-returns/:caseId` - Get current draft + link status + version history
 - `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
@@ -115,6 +115,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - View tracking: Auto-calls trackDraftView on PDF load (fire & forget)
 - Bilingual: Auto-syncs language from client preference (EN/VI)
 - Error handling: Invalid token, expired link, revoked link, PDF unavailable
+
+**Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
+- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page
+- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (draft summary + actions)
+- Upload: Drag-drop or file picker, PDF validation (50MB max), upload progress
+- Link display: Filename, fileSize, status badge, shareable link with copy button
+- Actions: Extend link (14 days), Revoke link (with confirmation), Upload new version
+- Version history: Track all drafts, display uploadedBy + timestamp, mark current version
+- View tracking: Display viewCount + lastViewedAt
+- i18n: 26 keys (EN/VI) for all UI strings
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status

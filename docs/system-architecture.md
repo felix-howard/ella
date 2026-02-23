@@ -89,7 +89,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Services: `src/services/{auth,org,ai,webhook-handlers}/`
 - Database: `src/lib/db.ts` (Prisma singleton)
 
-**Endpoints (70+ total):**
+**Endpoints (74+ total):**
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
@@ -102,11 +102,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /rental/:token/submit` - Submit form, create version entry
 - Staff routes authenticated, public routes token-authenticated
 
-**Team & Organization (12 - Phase 3):**
+**Team & Organization (16 - Phase 3 + Phase 02 Profile API):**
 - `GET /team/members` - List org staff
 - `POST /team/invite` - Send Clerk org invitation
 - `PATCH /team/members/:staffId/role` - Update role
 - `DELETE /team/members/:staffId` - Deactivate staff
+- `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
+- `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
+- `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
+- `PATCH /team/members/:staffId/avatar` - Confirm avatar upload (self only, Phase 02)
 - `GET /client-assignments` - List staff-client mappings
 - `POST /client-assignments` - Create assignment
 - `POST /client-assignments/bulk` - Bulk assign
@@ -408,6 +412,6 @@ ScheduleETab (index.tsx) [4 states]
 
 ---
 
-**Version:** 2.2
-**Last Updated:** 2026-02-22
-**Status:** Multi-Tenant architecture with Clerk integration + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)
+**Version:** 2.3
+**Last Updated:** 2026-02-23
+**Status:** Multi-Tenant architecture with Clerk integration + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)

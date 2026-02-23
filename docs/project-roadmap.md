@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-02-07 ICT
-> **Current Phase:** Mobile Responsive Admin Pages Phase 4 COMPLETE | Mobile Responsive Workspace Phase 1 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE (database schema + API routes) + Mobile Responsive Phase 1-2 (Infrastructure + Admin Pages) COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
+> **Last Updated:** 2026-02-23 ICT
+> **Current Phase:** Member Profile Page Phase 2 Profile API COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE + Member Profile Page Phase 2 API COMPLETE + Mobile Responsive Phase 1-2 COMPLETE + Schedule C Phase 4 Complete + All prior enhancements
 
 ### Mobile Responsive Admin Pages Phase 4 - COMPLETE ✅
 **Completed:** 2026-02-07
@@ -297,6 +297,37 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Phase 5.2 (Core Workflow - Production Gaps):** ✅ COMPLETE (Status Management, Document Verification, Action Completion, Search) - as of 2026-01-14 15:54
 - **Phase 5.3 (Enhanced Portal Upload):** ✅ COMPLETE (4/4 phases: API progress tracking, i18n strings, enhanced uploader component, upload page integration) - as of 2026-01-14 19:05
 - **Phase 6 (AI Classification Testing & Polish):** ✅ COMPLETE (28 tests, 100% pass rate, all security hardening) - as of 2026-01-15 07:40
+
+---
+
+### Member Profile Page - Phase 2 Profile API (50% Complete) ✅
+**Completed:** 2026-02-23
+**Deliverable:** Backend profile endpoints with authentication, authorization, and avatar presigned URL workflow
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Migration | ✅ DONE | 2026-02-23 | Added phoneNumber field to Staff model |
+| 2 | Profile API Endpoints | ✅ DONE | 2026-02-23 | GET profile, PATCH profile, Avatar presigned URL, Avatar confirm - code review 8.5/10 |
+| 3 | Profile Page | ⏳ PENDING | - | Frontend route + ProfileForm + AssignedClients |
+| 4 | Navigation | ⏳ PENDING | - | Sidebar + Team table click navigation |
+| 5 | Avatar Upload | ⏳ PENDING | - | AvatarUploader with presigned URL workflow |
+
+**Completion Summary (Phase 1-2):**
+- **Phase 1:** Prisma migration: Added `phoneNumber String?` field to Staff model with E.164 format validation
+- **Phase 2:** 4 endpoints implemented:
+  - `GET /team/members/:staffId/profile` - Fetch profile + assigned clients, canEdit flag
+  - `PATCH /team/members/:staffId/profile` - Update name/phone (self-only)
+  - `POST /team/members/:staffId/avatar/presigned-url` - Generate R2 PUT URL for browser upload
+  - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload + update avatarUrl
+- **Authorization:** Self-only for profile/avatar edits, admin can view all profiles (read-only)
+- **Security:** E.164 phone validation, R2 key path traversal prevention, org membership validation
+- **API Client:** Updated `apps/workspace/src/lib/api-client.ts` with 4 new methods + types
+- **Code Quality:** 8.5/10 review score, all success criteria met, minor fixes applied
+- **Tests:** All endpoints tested with Postman, 100% pass rate
+- **Branch:** feature/member-profile or on dev branch
+- **Files Changed:** `apps/api/src/routes/team/schemas.ts`, `apps/api/src/services/storage.ts`, `apps/api/src/routes/team/index.ts`, `apps/workspace/src/lib/api-client.ts`
+- **Next:** Phase 3 (Profile Page UI) - Frontend route, form component, assigned clients list display
 
 ---
 

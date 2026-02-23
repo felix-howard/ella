@@ -106,6 +106,7 @@ function ProfilePage() {
           <AssignedClientsList
             clients={assignedClients}
             totalCount={assignedCount}
+            isAdmin={staff.role === 'ADMIN'}
           />
         </div>
       </div>

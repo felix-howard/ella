@@ -231,7 +231,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
       {isExpanded && (
         <tr className={cn(!isLast && 'border-b border-border')}>
           <td colSpan={5} className="px-4 py-3 bg-muted/20">
-            <MemberAssignmentsPanel staffId={member.id} staffName={member.name} />
+            <MemberAssignmentsPanel staffId={member.id} staffName={member.name} isAdmin={isAdmin} />
           </td>
         </tr>
       )}

@@ -34,6 +34,11 @@ teamRoute.use('*', requireOrg)
 teamRoute.get('/members', async (c) => {
   const user = c.get('user')
 
+  // Get total client count for admins (they have access to all clients)
+  const totalClientCount = await prisma.client.count({
+    where: { organizationId: user.organizationId },
+  })
+
   const members = await prisma.staff.findMany({
     where: {
       organizationId: user.organizationId,
@@ -52,7 +57,15 @@ teamRoute.get('/members', async (c) => {
     orderBy: { name: 'asc' },
   })
 
-  return c.json({ data: members })
+  // For ADMIN: show total client count, for STAFF: show assignment count
+  const data = members.map((m) => ({
+    ...m,
+    _count: {
+      clientAssignments: m.role === 'ADMIN' ? totalClientCount : m._count.clientAssignments,
+    },
+  }))
+
+  return c.json({ data })
 })
 
 // POST /team/invite - Send org invitation via Clerk (admin only)
@@ -324,22 +337,44 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     return c.json({ error: 'Staff not found' }, 404)
   }
 
-  // Get assigned clients (limited for display)
-  const assignments = await prisma.clientAssignment.findMany({
-    where: { staffId: targetStaffId },
-    include: {
-      client: { select: { id: true, name: true, phone: true } },
-    },
-    take: 50,
-    orderBy: { createdAt: 'desc' },
-  })
+  // For ADMIN: return all clients in org (implicit access)
+  // For STAFF: return only explicitly assigned clients
+  let assignedClients: Array<{ id: string; name: string; phone: string }>
+  let assignedCount: number
+
+  if (staff.role === 'ADMIN') {
+    // Admins have access to all clients
+    const allClients = await prisma.client.findMany({
+      where: { organizationId: user.organizationId },
+      select: { id: true, name: true, phone: true },
+      take: 50,
+      orderBy: { name: 'asc' },
+    })
+    const totalClients = await prisma.client.count({
+      where: { organizationId: user.organizationId },
+    })
+    assignedClients = allClients
+    assignedCount = totalClients
+  } else {
+    // Staff only see explicitly assigned clients
+    const assignments = await prisma.clientAssignment.findMany({
+      where: { staffId: targetStaffId },
+      include: {
+        client: { select: { id: true, name: true, phone: true } },
+      },
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+    })
+    assignedClients = assignments.map((a) => a.client)
+    assignedCount = staff._count.clientAssignments
+  }
 
   const canEdit = targetStaffId === user.staffId
 
   return c.json({
     staff,
-    assignedClients: assignments.map((a) => a.client),
-    assignedCount: staff._count.clientAssignments,
+    assignedClients,
+    assignedCount,
     canEdit,
   })
 })

@@ -10,16 +10,20 @@ import { Badge } from '@ella/ui'
 interface AssignedClientsListProps {
   clients: Array<{ id: string; name: string; phone: string }>
   totalCount: number
+  isAdmin?: boolean
 }
 
 const COLLAPSED_LIMIT = 5
 
-export function AssignedClientsList({ clients, totalCount }: AssignedClientsListProps) {
+export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedClientsListProps) {
   const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const displayClients = isExpanded ? clients : clients.slice(0, COLLAPSED_LIMIT)
   const hasMore = totalCount > COLLAPSED_LIMIT
+
+  // Admin sees "All Clients", staff sees "Assigned Clients"
+  const title = isAdmin ? t('profile.allClients') : t('profile.assignedClients')
 
   return (
     <div className="bg-card rounded-xl border border-border p-6">
@@ -27,14 +31,16 @@ export function AssignedClientsList({ clients, totalCount }: AssignedClientsList
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold text-foreground">{t('profile.assignedClients')}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         </div>
         <Badge variant="secondary">{totalCount}</Badge>
       </div>
 
       {/* Client List */}
       {clients.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('profile.noAssignedClients')}</p>
+        <p className="text-sm text-muted-foreground">
+          {isAdmin ? t('profile.noClientsInOrg') : t('profile.noAssignedClients')}
+        </p>
       ) : (
         <ul className="space-y-2">
           {displayClients.map((client) => (

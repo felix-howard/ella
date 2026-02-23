@@ -14,9 +14,10 @@ import { BulkAssignDialog } from './bulk-assign-dialog'
 interface MemberAssignmentsPanelProps {
   staffId: string
   staffName: string
+  isAdmin?: boolean
 }
 
-export function MemberAssignmentsPanel({ staffId, staffName }: MemberAssignmentsPanelProps) {
+export function MemberAssignmentsPanel({ staffId, staffName, isAdmin }: MemberAssignmentsPanelProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false)
@@ -24,6 +25,8 @@ export function MemberAssignmentsPanel({ staffId, staffName }: MemberAssignments
   const { data, isLoading } = useQuery({
     queryKey: ['member-assignments', staffId],
     queryFn: () => api.team.getMemberAssignments(staffId),
+    // Skip fetching assignments for admins - they have access to all clients
+    enabled: !isAdmin,
   })
 
   const unassignMutation = useMutation({
@@ -37,11 +40,22 @@ export function MemberAssignmentsPanel({ staffId, staffName }: MemberAssignments
 
   const assignments = data?.data ?? []
 
-  if (isLoading) {
+  if (isLoading && !isAdmin) {
     return (
       <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
         <Loader2 className="w-4 h-4 animate-spin" />
         {t('common.loading')}
+      </div>
+    )
+  }
+
+  // Admin has access to all clients - show message instead of assignments
+  if (isAdmin) {
+    return (
+      <div className="py-2">
+        <p className="text-sm text-muted-foreground py-2">
+          {t('team.adminAllClientsAccess')}
+        </p>
       </div>
     )
   }

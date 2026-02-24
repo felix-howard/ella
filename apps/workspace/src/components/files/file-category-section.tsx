@@ -5,7 +5,7 @@
  * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
-import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
+import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
@@ -18,6 +18,8 @@ import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
 import { useMarkDocumentViewed } from '../../hooks'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
+import { groupDocuments } from '../../lib/document-grouping'
+import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
 
 export interface FileCategorySectionProps {
   categoryKey: DocCategoryKey
@@ -46,6 +48,9 @@ export function FileCategorySection({
   const [isExpanded, setIsExpanded] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
+
+  // Group multi-page documents
+  const { groups, ungrouped } = useMemo(() => groupDocuments(images), [images])
 
   // Count verified documents
   const verifiedCount = images.filter((img) => {
@@ -140,7 +145,31 @@ export function FileCategorySection({
         'border-t border-border divide-y divide-border bg-card',
         !isExpanded && 'hidden'
       )}>
-        {images.map((img) => (
+        {/* Render grouped documents */}
+        {groups.map((group) => (
+          <GroupedFileRow
+            key={group.groupKey}
+            group={group}
+            renderFileRow={(image, options) => (
+              <FileItemRow
+                key={image.id}
+                image={image}
+                doc={docs.find((d) => d.rawImageId === image.id)}
+                caseId={caseId}
+                categoryKey={categoryKey}
+                onVerify={onVerify}
+                onViewImage={onViewImage}
+                isGrouped={options.isGrouped}
+                isFirst={options.isFirst}
+                isLast={options.isLast}
+                pageDisplay={options.pageDisplay}
+              />
+            )}
+          />
+        ))}
+
+        {/* Render ungrouped documents */}
+        {ungrouped.map((img) => (
           <FileItemRow
             key={img.id}
             image={img}
@@ -163,6 +192,11 @@ interface FileItemRowProps {
   categoryKey: DocCategoryKey
   onVerify: (doc: DigitalDoc) => void
   onViewImage?: (imageId: string) => void
+  // Multi-page grouping props
+  isGrouped?: boolean
+  isFirst?: boolean
+  isLast?: boolean
+  pageDisplay?: string | null
 }
 
 /**
@@ -177,6 +211,10 @@ const FileItemRow = memo(function FileItemRow({
   categoryKey,
   onVerify,
   onViewImage,
+  isGrouped,
+  isFirst,
+  isLast,
+  pageDisplay,
 }: FileItemRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -270,6 +308,11 @@ const FileItemRow = memo(function FileItemRow({
         isDragging && 'opacity-50'
       )}
     >
+      {/* Group Connector (for multi-page groups) */}
+      {isGrouped && isFirst !== undefined && isLast !== undefined && (
+        <GroupConnector isFirst={isFirst} isLast={isLast} />
+      )}
+
       {/* Drag Handle */}
       <div className={cn(
         'flex-shrink-0 transition-opacity',
@@ -407,6 +450,7 @@ const FileItemRow = memo(function FileItemRow({
               </p>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{docLabel}</span>
+                {pageDisplay && <PageBadge display={pageDisplay} />}
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
               </div>

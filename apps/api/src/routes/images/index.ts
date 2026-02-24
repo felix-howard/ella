@@ -43,7 +43,13 @@ const renameSchema = z.object({
 
 // Schema for changing category
 const changeCategorySchema = z.object({
-  category: z.enum(['IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+})
+
+// Schema for batch category change
+const batchCategorySchema = z.object({
+  imageIds: z.array(z.string()).min(1, 'At least one image ID required').max(20, 'Maximum 20 images per batch'),
+  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
 })
 
 // Schema for updating rotation
@@ -606,6 +612,46 @@ imagesRoute.patch(
       success: true,
       id: updated.id,
       category: updated.category,
+    })
+  }
+)
+
+/**
+ * PATCH /images/batch-category - Change category for multiple images
+ * Used for group drag-and-drop in Files tab (multi-page documents)
+ */
+imagesRoute.patch(
+  '/batch-category',
+  zValidator('json', batchCategorySchema),
+  async (c) => {
+    const { imageIds, category } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify all images exist and user has access (org-scoped)
+    const images = await prisma.rawImage.findMany({
+      where: {
+        id: { in: imageIds },
+        taxCase: { client: buildClientScopeFilter(user) },
+      },
+      select: { id: true },
+    })
+
+    if (images.length !== imageIds.length) {
+      return c.json(
+        { error: 'FORBIDDEN', message: 'Some images not found or not accessible' },
+        403
+      )
+    }
+
+    // Batch update category for all images
+    const result = await prisma.rawImage.updateMany({
+      where: { id: { in: imageIds } },
+      data: { category: category as DocCategory },
+    })
+
+    return c.json({
+      success: true,
+      updated: result.count,
     })
   }
 )

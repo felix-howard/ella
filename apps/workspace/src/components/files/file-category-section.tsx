@@ -29,7 +29,7 @@ export interface FileCategorySectionProps {
   caseId: string
   onVerify: (doc: DigitalDoc) => void
   onViewImage?: (imageId: string) => void
-  onFileDrop?: (imageId: string, targetCategory: DocCategoryKey) => void
+  onFileDrop?: (imageIds: string | string[], targetCategory: DocCategoryKey) => void
 }
 
 /**
@@ -91,9 +91,16 @@ export function FileCategorySection({
 
     const imageId = e.dataTransfer.getData('application/x-ella-file')
     const sourceCategory = e.dataTransfer.getData('application/x-ella-category')
+    const groupIds = e.dataTransfer.getData('application/x-ella-group-ids')
 
     if (imageId && sourceCategory !== categoryKey && onFileDrop) {
-      onFileDrop(imageId, categoryKey)
+      // If group IDs present, move entire group; otherwise move single file
+      if (groupIds) {
+        const ids = groupIds.split(',').filter(Boolean)
+        onFileDrop(ids, categoryKey)
+      } else {
+        onFileDrop(imageId, categoryKey)
+      }
     }
   }
 
@@ -163,6 +170,8 @@ export function FileCategorySection({
                 isFirst={options.isFirst}
                 isLast={options.isLast}
                 pageDisplay={options.pageDisplay}
+                groupKey={group.groupKey}
+                groupImageIds={group.images.map((img) => img.id)}
               />
             )}
           />
@@ -197,6 +206,8 @@ interface FileItemRowProps {
   isFirst?: boolean
   isLast?: boolean
   pageDisplay?: string | null
+  groupKey?: string
+  groupImageIds?: string[]
 }
 
 /**
@@ -215,11 +226,14 @@ const FileItemRow = memo(function FileItemRow({
   isFirst,
   isLast,
   pageDisplay,
+  groupKey,
+  groupImageIds,
 }: FileItemRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const markViewed = useMarkDocumentViewed()
   const [isDragging, setIsDragging] = useState(false)
+  const [isGroupDragging, setIsGroupDragging] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFilename, setNewFilename] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -234,6 +248,32 @@ const FileItemRow = memo(function FileItemRow({
   // Show displayName if available, fallback to original filename
   // Sanitize to prevent XSS (extra safety layer beyond React's default escaping)
   const displayName = sanitizeText(image.displayName || image.filename)
+
+  // Listen for group drag events to highlight all group members
+  useEffect(() => {
+    if (!groupKey) return
+
+    const handleGroupDragStart = (e: Event) => {
+      const customEvent = e as CustomEvent<{ groupKey: string }>
+      if (customEvent.detail.groupKey === groupKey) {
+        setIsGroupDragging(true)
+      }
+    }
+    const handleGroupDragEnd = (e: Event) => {
+      const customEvent = e as CustomEvent<{ groupKey: string }>
+      if (customEvent.detail.groupKey === groupKey) {
+        setIsGroupDragging(false)
+      }
+    }
+
+    window.addEventListener('group-drag-start', handleGroupDragStart)
+    window.addEventListener('group-drag-end', handleGroupDragEnd)
+
+    return () => {
+      window.removeEventListener('group-drag-start', handleGroupDragStart)
+      window.removeEventListener('group-drag-end', handleGroupDragEnd)
+    }
+  }, [groupKey])
 
   // Focus input when entering rename mode
   useEffect(() => {
@@ -288,12 +328,23 @@ const FileItemRow = memo(function FileItemRow({
     }
     e.dataTransfer.setData('application/x-ella-file', image.id)
     e.dataTransfer.setData('application/x-ella-category', categoryKey)
+    // Include group IDs for multi-page document group drag
+    if (groupKey && groupImageIds && groupImageIds.length > 1) {
+      e.dataTransfer.setData('application/x-ella-group-ids', groupImageIds.join(','))
+      e.dataTransfer.setData('application/x-ella-group-key', groupKey)
+      // Emit event for visual feedback on other group members
+      window.dispatchEvent(new CustomEvent('group-drag-start', { detail: { groupKey } }))
+    }
     e.dataTransfer.effectAllowed = 'move'
     setIsDragging(true)
   }
 
   const handleDragEnd = () => {
     setIsDragging(false)
+    // Emit event to clear visual state on other group members
+    if (groupKey) {
+      window.dispatchEvent(new CustomEvent('group-drag-end', { detail: { groupKey } }))
+    }
   }
 
   return (
@@ -305,7 +356,8 @@ const FileItemRow = memo(function FileItemRow({
         'flex items-center gap-4 p-3',
         'hover:bg-muted/30 transition-colors',
         !isRenaming && 'cursor-grab active:cursor-grabbing',
-        isDragging && 'opacity-50'
+        isDragging && 'opacity-50',
+        isGroupDragging && !isDragging && 'opacity-50 ring-2 ring-primary ring-inset'
       )}
     >
       {/* Group Connector (for multi-page groups) */}

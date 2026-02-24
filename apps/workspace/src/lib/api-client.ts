@@ -432,6 +432,13 @@ export const api = {
         body: JSON.stringify({ category }),
       }),
 
+    // Batch change category for multiple images (for group drag-drop)
+    changeCategoryBatch: (imageIds: string[], category: DocCategory) =>
+      request<{ success: boolean; updated: number }>('/images/batch-category', {
+        method: 'PATCH',
+        body: JSON.stringify({ imageIds, category }),
+      }),
+
     // Mark document as viewed by current staff (for NEW badge tracking)
     markViewed: (id: string) =>
       request<{ success: boolean }>(`/images/${id}/mark-viewed`, {

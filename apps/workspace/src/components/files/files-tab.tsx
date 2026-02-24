@@ -57,7 +57,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     enabled: !parentImages, // Skip fetch if parent provides data
   })
 
-  // Mutation for changing file category (drag and drop)
+  // Mutation for changing file category (drag and drop - single file)
   const changeCategoryMutation = useMutation({
     mutationFn: ({ imageId, category }: { imageId: string; category: DocCategory }) =>
       api.images.changeCategory(imageId, category),
@@ -83,14 +83,51 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
     onSuccess: (_data, { category }) => {
       const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
-      toast.success(`Đã chuyển sang "${categoryConfig.label}"`)
+      toast.success(t('filesTab.movedToCategory', { category: categoryConfig.label }))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
     },
     onError: (_error, _vars, context) => {
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error('Lỗi chuyển danh mục')
+      toast.error(t('filesTab.moveCategoryError'))
+    },
+  })
+
+  // Mutation for batch category change (drag and drop - multi-page groups)
+  const changeCategoryBatchMutation = useMutation({
+    mutationFn: ({ imageIds, category }: { imageIds: string[]; category: DocCategory }) =>
+      api.images.changeCategoryBatch(imageIds, category),
+    onMutate: async ({ imageIds, category }) => {
+      await queryClient.cancelQueries({ queryKey: ['images', caseId] })
+      const previousImages = queryClient.getQueryData(['images', caseId])
+
+      // Optimistic update for all images
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              imageIds.includes(img.id) ? { ...img, category } : img
+            ),
+          }
+        }
+      )
+
+      return { previousImages }
+    },
+    onSuccess: (_data, { category, imageIds }) => {
+      const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
+      toast.success(t('filesTab.movedBatchToCategory', { count: imageIds.length, category: categoryConfig.label }))
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousImages) {
+        queryClient.setQueryData(['images', caseId], context.previousImages)
+      }
+      toast.error(t('filesTab.moveCategoryError'))
     },
   })
 
@@ -229,12 +266,18 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     }
   }, [getCurrentNavIndex, navItems])
 
-  // Handler for drag and drop between categories
+  // Handler for drag and drop between categories (supports single file or batch)
   const handleFileDrop = useCallback(
-    (imageId: string, targetCategory: DocCategoryKey) => {
-      changeCategoryMutation.mutate({ imageId, category: targetCategory })
+    (imageIds: string | string[], targetCategory: DocCategoryKey) => {
+      // Normalize to array
+      const ids = Array.isArray(imageIds) ? imageIds : [imageIds]
+      if (ids.length === 1) {
+        changeCategoryMutation.mutate({ imageId: ids[0], category: targetCategory })
+      } else {
+        changeCategoryBatchMutation.mutate({ imageIds: ids, category: targetCategory })
+      }
     },
-    [changeCategoryMutation]
+    [changeCategoryMutation, changeCategoryBatchMutation]
   )
 
   // Track global drag state for showing empty category drop zones

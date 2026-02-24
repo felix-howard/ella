@@ -768,8 +768,16 @@ export function getGroupingAnalysisPrompt(candidateCount: number): string {
   return `You are comparing a NEW document (first image) against ${candidateCount} existing documents.
 Determine if the NEW document belongs with any of the existing documents as part of the same multi-page document.
 
-INDICATORS OF SAME DOCUMENT:
-1. Same form number/title (e.g., both show "Form 4562")
+CRITICAL RULE - SAME FORM TYPE REQUIRED:
+- Documents MUST be the same form type/number to be grouped
+- Form 1040 pages can ONLY group with other Form 1040 pages
+- Schedule C pages can ONLY group with other Schedule C pages
+- NEVER group: Form 1040 + Schedule EIC (different forms, same taxpayer)
+- NEVER group: W-2 + 1099-NEC (different income forms, same person)
+- Same taxpayer name is NOT sufficient - form type must match
+
+REQUIRED FOR GROUPING (ALL must be true):
+1. SAME form number/title - THIS IS MANDATORY (e.g., all show "Form 4562")
 2. Same person's name and identifying info (SSN, address, account #)
 3. Page numbers indicating continuation (Page 2 of 3)
 4. "Continued" markers or references to other pages
@@ -777,12 +785,33 @@ INDICATORS OF SAME DOCUMENT:
 6. Sequential content (tables continue, numbers progress)
 7. Same document identifier (case #, account #, policy #)
 
-INDICATORS OF DIFFERENT DOCUMENTS:
-1. Different form types (W-2 vs 1099)
+NEGATIVE EXAMPLES (DO NOT GROUP):
+- Form 1040 page 1 + Schedule C → Different form types, do not group
+- Form 4562 + Schedule E → Different form types, do not group
+- W-2 from Employer A + W-2 from Employer B → Different sources, do not group
+- Form 1040 + Schedule EIC → Different forms for same taxpayer, do not group
+
+INDICATORS OF DIFFERENT DOCUMENTS (any of these = do NOT group):
+1. Different form types (W-2 vs 1099, Form 1040 vs Schedule C)
 2. Different dates/years
 3. Different names/entities
 4. Completely different content/purpose
 5. Different visual style/format
+
+PAGE ORDER DETERMINATION:
+1. FIRST: Look for explicit page numbers ("Page X of Y", "1/3", "2/3")
+2. SECOND: Look for continuation markers ("Continued from page 1")
+3. THIRD: Look for sequential content (tables continuing, numbered items)
+4. FOURTH: Look for header page vs detail pages (summary page usually first)
+
+ORDERING EXAMPLES:
+- Document with "Page 2 of 3" in footer → This is page 2
+- Document with "Continued" at top → This is NOT page 1
+- Document with totals/summary → Usually the LAST page
+- Document with headers only, no data → Usually the FIRST page
+
+pageOrder MUST reflect actual content order, NOT upload order or image index.
+The "existing_doc_0" label is just an identifier - determine its TRUE page position from content.
 
 RESPONSE FORMAT (JSON):
 {
@@ -801,12 +830,13 @@ If no match found:
   "confidence": 0,
   "groupName": null,
   "pageOrder": [],
-  "reasoning": "New document is Schedule C, existing docs are W-2 and 1099-NEC"
+  "reasoning": "New document is Schedule C, existing docs are W-2 and 1099-NEC - different form types cannot be grouped"
 }
 
 RULES:
 - Only match if confident (>80%) they belong together
-- Consider page order based on content continuity
+- SAME FORM TYPE IS MANDATORY - never group different form types
+- pageOrder must be based on CONTENT (page numbers, continuation markers), not image index
 - The new document could be ANY page (first, middle, or last)
 - matchedIndices are 0-based indices of existing docs that match (not including new doc)
 - pageOrder uses: "existing_doc_N" for existing docs, "new_doc" for the new document

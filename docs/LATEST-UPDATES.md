@@ -1,6 +1,93 @@
 # Latest Documentation Updates
 
-**Date:** 2026-02-24 | **Feature:** Portal PDF Viewer Phase 04 Controls UI COMPLETE | Portal PDF Viewer Phase 03 Mobile Gesture Support COMPLETE | Draft Return Sharing Phase 04 Workspace Tab Integration COMPLETE | Phase 05 CPA Upload SMS Notification Testing Complete | Phase 04 Navigation Integration COMPLETE | Phase 5 & 6 Form 1040 CPA Enhancement COMPLETE | Phase 4 Multi-Pass OCR Implementation | **Status:** Complete
+**Date:** 2026-02-24 | **Feature:** Phase 03 Multi-Page Document Detection (Bug Fixes) COMPLETE | Portal PDF Viewer Phase 04 Controls UI COMPLETE | Portal PDF Viewer Phase 03 Mobile Gesture Support COMPLETE | Draft Return Sharing Phase 04 Workspace Tab Integration COMPLETE | Phase 05 CPA Upload SMS Notification Testing Complete | Phase 04 Navigation Integration COMPLETE | Phase 5 & 6 Form 1040 CPA Enhancement COMPLETE | Phase 4 Multi-Pass OCR Implementation | **Status:** Complete
+
+---
+
+## Phase 03 Multi-Page Document Detection: Bug Fixes
+
+**Date:** 2026-02-24 | **Status:** Bug Fix Complete
+
+**In One Sentence:** Fixed critical grouping rules (same form type required), enabled late-arriving pages to join existing groups, preserved each document's own displayName, and corrected page ordering to use content not upload time.
+
+**Critical Fixes Implemented:**
+
+### 1. AI Prompt - SAME FORM TYPE REQUIRED
+
+Updated `apps/api/src/services/ai/prompts/classify.ts` with explicit grouping rules:
+
+**CRITICAL RULE (mandatory):** Documents must be identical form types to group
+- Form 1040 pages ONLY group with other Form 1040 pages
+- Schedule C pages ONLY group with other Schedule C pages
+- Form 1040 + Schedule EIC = NEVER group (different forms, same taxpayer)
+- W-2 + 1099-NEC = NEVER group (different income forms, same person)
+- Same taxpayer name is NOT sufficient - form type must match exactly
+
+**Page Order Determination (content-based, not index-based):**
+1. FIRST: Explicit page numbers ("Page 2 of 3", "1/3")
+2. SECOND: Continuation markers ("Continued from page 1")
+3. THIRD: Sequential content (tables continuing, numbered items)
+4. FOURTH: Header vs detail pages (summary usually last)
+
+**Negative Examples Added to Prompt:**
+- Form 1040 page 1 + Schedule C → Different form types, do not group
+- Form 4562 + Schedule E → Different form types, do not group
+- W-2 from Employer A + W-2 from Employer B → Different sources, do not group
+
+### 2. Late-Arriving Pages Can Join Existing Groups
+
+Updated `apps/api/src/jobs/detect-multi-page.ts` Step 2 query:
+
+**Before:** Only fetched `documentGroupId: null` (ungrouped documents only)
+**After:** Removed documentGroupId filter, allows pages uploaded days later to find and join existing groups
+
+**Implementation:**
+- Check if matched document already in a group (existingGroupId)
+- If found: JOIN existing group, increment pageCount, update totalPages on all group members
+- If not found: CREATE new group (original behavior)
+- Example: Page 1 grouped on Day 1, Page 2 uploaded Day 8 → automatically joins Day 1's group
+
+### 3. Each Document Preserves Own DisplayName + Part Suffix
+
+Updated `apps/api/src/jobs/detect-multi-page.ts` Step 5 renaming logic:
+
+**Before:** All pages used shared baseName (e.g., all became "Form_1040_Part1of2", "Form_1040_Part2of2")
+**After:** Each document preserves its own displayName, appends PartXofY suffix
+
+**Example Scenario:**
+```
+Upload 1 (name "Form_1040"):
+  → Grouped as "Form_1040_Part1of2"
+
+Upload 2 (name "1040_Page2"):
+  Joins group, becomes "1040_Page2_Part2of2"
+```
+
+Not forced to same basename - each keeps original identity with part suffix.
+
+**Files Modified:**
+- `apps/api/src/services/storage.ts`: NEW renameFileRaw(r2Key, caseId, newFilenameBase) for simple suffix appending (doesn't generate new displayName, just appends Part suffix)
+- `apps/api/src/jobs/detect-multi-page.ts`: Extract each document's own displayName, strip old suffix, append new PartXofY
+
+### 4. Page Ordering Based on Content, Not Upload Time
+
+**Implementation:**
+- AI prompt explicitly returns pageOrder array based on visual analysis
+- Uses explicit page numbers when present (most reliable)
+- Falls back to continuation markers, sequential content
+- NOT based on document array index or upload timestamp
+- Example: New doc analyzed as "Page 2 of 3" → correctly ordered even if uploaded first
+
+**Files Modified:**
+- `apps/api/src/services/ai/prompts/classify.ts`: Added PAGE ORDER DETERMINATION section with 4-level hierarchy and ordering examples
+
+### Storage Function Updates
+
+**Changed Function Name:**
+- From: `renameFile()` - auto-generated displayName via Prisma mapping
+- To: `renameFileRaw()` - simple filename base appending, Part suffix added directly
+
+This allows each document's own name to be preserved while cleanly appending the _PartXofY suffix.
 
 ---
 

@@ -11,7 +11,7 @@
 
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
-import { fetchImageBuffer, renameFile } from '../services/storage'
+import { fetchImageBuffer, renameFileRaw } from '../services/storage'
 import { analyzeDocumentGrouping } from '../services/ai'
 
 // Confidence threshold for accepting AI grouping
@@ -95,7 +95,7 @@ export const detectMultiPageJob = inngest.createFunction(
       return { skipped: true, reason: 'Already grouped' }
     }
 
-    // Step 2: Fetch recent ungrouped docs in same case
+    // Step 2: Fetch recent docs in same case (including already-grouped for late page joining)
     const recentDocs = await step.run('fetch-recent-docs', async () => {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - LOOKBACK_DAYS)
@@ -105,7 +105,7 @@ export const detectMultiPageJob = inngest.createFunction(
           caseId,
           id: { not: rawImageId },
           createdAt: { gte: cutoffDate },
-          documentGroupId: null, // Only ungrouped documents
+          // REMOVED: documentGroupId: null - allow late pages to find existing groups
           status: { in: ['CLASSIFIED', 'LINKED'] }, // Only processed documents
         },
         select: {
@@ -115,6 +115,8 @@ export const detectMultiPageJob = inngest.createFunction(
           classifiedType: true,
           aiMetadata: true,
           mimeType: true,
+          documentGroupId: true, // Include for late page joining
+          pageNumber: true, // Include for page reordering
         },
         orderBy: { createdAt: 'desc' },
         take: 50, // Fetch more than MAX_CANDIDATES for filtering
@@ -203,7 +205,7 @@ export const detectMultiPageJob = inngest.createFunction(
       }
     }
 
-    // Step 4: Apply grouping - create DocumentGroup and update documents
+    // Step 4: Apply grouping - create/join DocumentGroup and update documents
     const groupingApplied = await step.run('apply-grouping', async () => {
       const validCandidates = groupingResult.validCandidates
 
@@ -222,25 +224,89 @@ export const detectMultiPageJob = inngest.createFunction(
         return { success: false, reason: 'Not enough valid pages', groupId: null, pageCount: 0 }
       }
 
-      const totalPages = pageDocIds.length
-      const baseName = groupingResult.groupName || newDoc.displayName || 'MultiPageDoc'
+      // Check if any matched doc is already in a group (for late page joining)
+      let existingGroupId: string | null = null
+      for (const { docId } of pageDocIds) {
+        if (docId === rawImageId) continue // Skip new doc
+        const matchedDoc = await prisma.rawImage.findUnique({
+          where: { id: docId },
+          select: { documentGroupId: true },
+        })
+        if (matchedDoc?.documentGroupId) {
+          existingGroupId = matchedDoc.documentGroupId
+          break
+        }
+      }
 
-      // Create DocumentGroup
-      const group = await prisma.documentGroup.create({
-        data: {
-          caseId,
-          baseName,
-          documentType: newDoc.classifiedType || 'OTHER',
-          pageCount: totalPages,
-          confidence: groupingResult.confidence,
-        },
+      // Get base name from first document's existing displayName (for group display)
+      const firstDocId = pageDocIds[0].docId
+      const firstDoc = await prisma.rawImage.findUnique({
+        where: { id: firstDocId },
+        select: { displayName: true },
       })
+      const existingName = firstDoc?.displayName || newDoc.displayName || 'MultiPageDoc'
+      const baseName = existingName.replace(/_Part\d+of\d+$/i, '')
 
-      console.log(
-        `[detect-multi-page] Created group ${group.id}: ${baseName} (${totalPages} pages)`
-      )
+      let group: { id: string; baseName: string; pageCount: number }
+      let totalPages: number
+
+      if (existingGroupId) {
+        // JOIN existing group - late page arriving
+        const existingGroup = await prisma.documentGroup.findUnique({
+          where: { id: existingGroupId },
+          include: { images: { select: { id: true, pageNumber: true } } },
+        })
+
+        if (!existingGroup) {
+          console.warn('[detect-multi-page] Existing group not found')
+          return { success: false, reason: 'Existing group not found', groupId: null, pageCount: 0 }
+        }
+
+        // Calculate new total: existing pages + new doc (only count docs not already in group)
+        const existingPageIds = new Set(existingGroup.images.map((r) => r.id))
+        const newDocsCount = pageDocIds.filter(({ docId }) => !existingPageIds.has(docId)).length
+        totalPages = existingGroup.pageCount + newDocsCount
+
+        // Update group pageCount
+        await prisma.documentGroup.update({
+          where: { id: existingGroupId },
+          data: { pageCount: totalPages },
+        })
+
+        // Update existing members' totalPages
+        await prisma.rawImage.updateMany({
+          where: { documentGroupId: existingGroupId },
+          data: { totalPages },
+        })
+
+        group = { id: existingGroupId, baseName: existingGroup.baseName, pageCount: totalPages }
+
+        console.log(
+          `[detect-multi-page] Joined existing group ${group.id}: ${group.baseName} (now ${totalPages} pages)`
+        )
+      } else {
+        // CREATE new group
+        totalPages = pageDocIds.length
+
+        const newGroup = await prisma.documentGroup.create({
+          data: {
+            caseId,
+            baseName,
+            documentType: newDoc.classifiedType || 'OTHER',
+            pageCount: totalPages,
+            confidence: groupingResult.confidence,
+          },
+        })
+
+        group = { id: newGroup.id, baseName, pageCount: totalPages }
+
+        console.log(
+          `[detect-multi-page] Created group ${group.id}: ${baseName} (${totalPages} pages)`
+        )
+      }
 
       // Update all documents with page numbers and rename
+      // PHASE 02 FIX: Use each document's OWN displayName, not group baseName
       const renameResults: Array<{
         docId: string
         pageNum: number
@@ -250,17 +316,30 @@ export const detectMultiPageJob = inngest.createFunction(
 
       for (const { docId, pageNum } of pageDocIds) {
         const partSuffix = `_Part${pageNum}of${totalPages}`
-        const newDisplayName = `${baseName}${partSuffix}`
 
         // Get current document data
         const doc = await prisma.rawImage.findUnique({
           where: { id: docId },
-          select: { r2Key: true, displayName: true },
+          select: { r2Key: true, displayName: true, documentGroupId: true },
         })
 
         if (!doc) continue
 
-        // Update document in DB
+        // Skip if already in this group (just update totalPages)
+        if (doc.documentGroupId === group.id) {
+          await prisma.rawImage.update({
+            where: { id: docId },
+            data: { totalPages, pageNumber: pageNum },
+          })
+          renameResults.push({ docId, pageNum, renamed: false })
+          continue
+        }
+
+        // PHASE 02 FIX: Use THIS document's own displayName, not group baseName
+        const ownBaseName = (doc.displayName || '').replace(/_Part\d+of\d+$/i, '')
+        const newDisplayName = ownBaseName ? `${ownBaseName}${partSuffix}` : `${baseName}${partSuffix}`
+
+        // Update document in DB with its own displayName + part suffix
         await prisma.rawImage.update({
           where: { id: docId },
           data: {
@@ -272,16 +351,15 @@ export const detectMultiPageJob = inngest.createFunction(
           },
         })
 
-        // Rename file in R2 to include part suffix
-        const renameResult = await renameFile(doc.r2Key, caseId, {
-          taxYear: null,
-          docType: newDisplayName,
-          source: null,
-          recipientName: null,
-        })
+        // Rename file in R2: append _PartXofY suffix to existing filename
+        const currentFilename = doc.r2Key.split('/').pop() || ''
+        const nameWithoutExt = currentFilename.replace(/\.[^.]+$/, '')
+        const cleanName = nameWithoutExt.replace(/_Part\d+of\d+$/i, '')
+        const newFilenameBase = `${cleanName}${partSuffix}`
+
+        const renameResult = await renameFileRaw(doc.r2Key, caseId, newFilenameBase)
 
         if (renameResult.success && renameResult.newKey !== doc.r2Key) {
-          // Update r2Key in DB
           await prisma.rawImage.update({
             where: { id: docId },
             data: { r2Key: renameResult.newKey },
@@ -299,7 +377,7 @@ export const detectMultiPageJob = inngest.createFunction(
       return {
         success: true,
         groupId: group.id,
-        baseName,
+        baseName: group.baseName,
         pageCount: totalPages,
         renameResults,
       }

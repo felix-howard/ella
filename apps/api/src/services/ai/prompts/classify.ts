@@ -755,3 +755,100 @@ export function validateSmartRenameResult(result: unknown): result is SmartRenam
 
   return true
 }
+
+// ============================================
+// MULTI-PAGE DOCUMENT GROUPING (Phase 3)
+// ============================================
+
+/**
+ * Multi-page document grouping prompt
+ * Compares new document against candidates to find related pages
+ */
+export function getGroupingAnalysisPrompt(candidateCount: number): string {
+  return `You are comparing a NEW document (first image) against ${candidateCount} existing documents.
+Determine if the NEW document belongs with any of the existing documents as part of the same multi-page document.
+
+INDICATORS OF SAME DOCUMENT:
+1. Same form number/title (e.g., both show "Form 4562")
+2. Same person's name and identifying info (SSN, address, account #)
+3. Page numbers indicating continuation (Page 2 of 3)
+4. "Continued" markers or references to other pages
+5. Same letterhead, formatting, visual style
+6. Sequential content (tables continue, numbers progress)
+7. Same document identifier (case #, account #, policy #)
+
+INDICATORS OF DIFFERENT DOCUMENTS:
+1. Different form types (W-2 vs 1099)
+2. Different dates/years
+3. Different names/entities
+4. Completely different content/purpose
+5. Different visual style/format
+
+RESPONSE FORMAT (JSON):
+{
+  "matchFound": true,
+  "matchedIndices": [0, 2],
+  "confidence": 0.92,
+  "groupName": "Form4562_Depreciation_JohnDoe",
+  "pageOrder": ["existing_doc_0", "new_doc", "existing_doc_2"],
+  "reasoning": "All three documents show Form 4562 header with same taxpayer John Doe, pages 1-3"
+}
+
+If no match found:
+{
+  "matchFound": false,
+  "matchedIndices": [],
+  "confidence": 0,
+  "groupName": null,
+  "pageOrder": [],
+  "reasoning": "New document is Schedule C, existing docs are W-2 and 1099-NEC"
+}
+
+RULES:
+- Only match if confident (>80%) they belong together
+- Consider page order based on content continuity
+- The new document could be ANY page (first, middle, or last)
+- matchedIndices are 0-based indices of existing docs that match (not including new doc)
+- pageOrder uses: "existing_doc_N" for existing docs, "new_doc" for the new document
+- groupName should be descriptive: FormType_Description_PersonName (max 50 chars, no spaces)`
+}
+
+/**
+ * Grouping analysis result from AI
+ */
+export interface GroupingAnalysisResult {
+  matchFound: boolean
+  matchedIndices: number[]
+  confidence: number
+  groupName: string | null
+  pageOrder: string[]
+  reasoning: string
+}
+
+/**
+ * Validate GroupingAnalysisResult structure
+ */
+export function validateGroupingResult(result: unknown): result is GroupingAnalysisResult {
+  if (!result || typeof result !== 'object') return false
+  const r = result as Record<string, unknown>
+
+  if (typeof r.matchFound !== 'boolean') return false
+  if (!Array.isArray(r.matchedIndices)) return false
+  if (typeof r.confidence !== 'number') return false
+  if (!Array.isArray(r.pageOrder)) return false
+  if (typeof r.reasoning !== 'string') return false
+
+  // Validate matchedIndices contains only numbers
+  if (!r.matchedIndices.every((idx) => typeof idx === 'number')) return false
+
+  // Validate pageOrder contains only strings
+  if (!r.pageOrder.every((p) => typeof p === 'string')) return false
+
+  // Validate confidence range
+  if (r.confidence < 0 || r.confidence > 1) return false
+
+  // groupName can be string or null
+  if (r.groupName !== null && typeof r.groupName !== 'string') return false
+
+  return true
+}

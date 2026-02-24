@@ -37,11 +37,24 @@ export type ClassificationCompleteEvent = {
 }
 
 /**
+ * Event payload for document classified
+ * Triggers multi-page detection job
+ * @phase Phase 03 - Multi-Page Detection
+ */
+export type DocumentClassifiedEvent = {
+  data: {
+    rawImageId: string
+    caseId: string
+  }
+}
+
+/**
  * Event map for type-safe event handling
  */
 export type Events = {
   'document/uploaded': DocumentUploadedEvent
   'document/classification.complete': ClassificationCompleteEvent
+  'document/classified': DocumentClassifiedEvent
 }
 
 /**

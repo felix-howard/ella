@@ -5,3 +5,4 @@
 
 export { classifyDocumentJob } from './classify-document'
 export { notifyStaffOnUploadJob } from './notify-staff-upload'
+export { detectMultiPageJob } from './detect-multi-page'

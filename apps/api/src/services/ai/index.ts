@@ -8,6 +8,7 @@ export {
   generateContent,
   generateJsonContent,
   analyzeImage,
+  analyzeMultipleImages,
   parseJsonResponse,
   imageBufferToPart,
   validateImageBuffer,
@@ -24,6 +25,7 @@ export {
   requiresOcrExtraction,
   getDocTypeLabel,
   generateSmartFilename,
+  analyzeDocumentGrouping,
   type DocumentClassificationResult,
 } from './document-classifier'
 
@@ -69,6 +71,7 @@ export {
   type ClassificationResult,
   type SmartRenameResult,
   type PageInfo,
+  type GroupingAnalysisResult,
 } from './prompts/classify'
 
 // Blur detection types

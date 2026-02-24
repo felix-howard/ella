@@ -724,6 +724,17 @@ export const classifyDocumentJob = inngest.createFunction(
       })
     }
 
+    // Step 6: Emit event for multi-page detection (Phase 3)
+    // Only trigger for successfully classified documents
+    if (classification.success && classification.confidence >= LOW_CONFIDENCE) {
+      await step.run('emit-classified-event', async () => {
+        await inngest.send({
+          name: 'document/classified',
+          data: { rawImageId, caseId },
+        })
+      })
+    }
+
     // Return final result
     return {
       rawImageId,

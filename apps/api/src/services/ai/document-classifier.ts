@@ -2,14 +2,21 @@
  * Document Classifier Service
  * Classifies uploaded images into document types using Gemini vision
  */
-import { analyzeImage, isGeminiConfigured } from './gemini-client'
+import { analyzeImage, analyzeMultipleImages, isGeminiConfigured } from './gemini-client'
 import {
   getClassificationPrompt,
   validateClassificationResult,
   getSmartRenamePrompt,
   validateSmartRenameResult,
+  getGroupingAnalysisPrompt,
+  validateGroupingResult,
 } from './prompts/classify'
-import type { ClassificationResult, SupportedDocType, SmartRenameResult } from './prompts/classify'
+import type {
+  ClassificationResult,
+  SupportedDocType,
+  SmartRenameResult,
+  GroupingAnalysisResult,
+} from './prompts/classify'
 import { config } from '../../lib/config'
 import { getCategoryFromDocType } from '@ella/shared'
 import type { DocCategory } from '@ella/shared'
@@ -530,5 +537,94 @@ export async function generateSmartFilename(
   } catch (error) {
     console.error('[SmartRename] Error:', error)
     return null
+  }
+}
+
+/**
+ * Analyze documents for potential multi-page grouping
+ * Compares new document against candidate documents from the same case
+ *
+ * @param newDocImage - Buffer of the newly uploaded document
+ * @param candidateImages - Buffers of existing documents to compare against
+ * @param candidateDocs - Metadata for candidates (id, displayName) for logging
+ * @returns Grouping analysis result indicating if documents belong together
+ */
+export async function analyzeDocumentGrouping(
+  newDocImage: Buffer,
+  candidateImages: Buffer[],
+  candidateDocs: Array<{ id: string; displayName: string | null }>
+): Promise<GroupingAnalysisResult> {
+  const startTime = Date.now()
+
+  // Return early if no candidates or AI not configured
+  if (!isGeminiConfigured || candidateImages.length === 0) {
+    return {
+      matchFound: false,
+      matchedIndices: [],
+      confidence: 0,
+      groupName: null,
+      pageOrder: [],
+      reasoning: 'No candidates or AI not configured',
+    }
+  }
+
+  try {
+    const prompt = getGroupingAnalysisPrompt(candidateImages.length)
+
+    // Create multi-image array: new doc first, then candidates
+    const images = [newDocImage, ...candidateImages]
+
+    const result = await analyzeMultipleImages<GroupingAnalysisResult>(
+      images,
+      'image/jpeg',
+      prompt
+    )
+
+    if (!result.success || !result.data) {
+      console.warn('[Grouping] AI analysis failed:', result.error)
+      return {
+        matchFound: false,
+        matchedIndices: [],
+        confidence: 0,
+        groupName: null,
+        pageOrder: [],
+        reasoning: result.error || 'AI analysis failed',
+      }
+    }
+
+    // Validate response structure
+    if (!validateGroupingResult(result.data)) {
+      console.warn('[Grouping] Invalid response structure')
+      return {
+        matchFound: false,
+        matchedIndices: [],
+        confidence: 0,
+        groupName: null,
+        pageOrder: [],
+        reasoning: 'Invalid AI response structure',
+      }
+    }
+
+    const elapsed = Date.now() - startTime
+    if (result.data.matchFound) {
+      console.log(
+        `[Grouping] Match found: ${result.data.groupName} ` +
+        `(confidence: ${(result.data.confidence * 100).toFixed(0)}%, ${elapsed}ms)`
+      )
+    } else {
+      console.log(`[Grouping] No match found (${elapsed}ms)`)
+    }
+
+    return result.data
+  } catch (error) {
+    console.error('[Grouping] Analysis error:', error)
+    return {
+      matchFound: false,
+      matchedIndices: [],
+      confidence: 0,
+      groupName: null,
+      pageOrder: [],
+      reasoning: 'Analysis error',
+    }
   }
 }

@@ -578,6 +578,7 @@ model TaxCase {
   magicLinks        MagicLink[]
   actions           Action[]
   imageGroups       ImageGroup[]
+  documentGroups    DocumentGroup[]
   scheduleCExpense  ScheduleCExpense?
   scheduleEExpense  ScheduleEExpense?
   draftReturns      DraftReturn[]
@@ -636,6 +637,13 @@ model RawImage {
   // { fallbackRename: boolean, documentTitle: string, pageInfo: {...}, reasoning: string }
   aiMetadata      Json?
 
+  // Multi-page document grouping (Phase 3)
+  documentGroupId   String?
+  documentGroup     DocumentGroup?  @relation(fields: [documentGroupId], references: [id])
+  pageNumber        Int?            // Page within group (1, 2, 3...)
+  totalPages        Int?            // Total pages in group (known or estimated)
+  groupConfidence   Float?          // AI confidence in grouping (0-1)
+
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
   reuploadRequestedAt DateTime?
@@ -662,6 +670,8 @@ model RawImage {
   @@index([caseId, classifiedType])  // For duplicate detection queries
   @@index([reuploadRequested])
   @@index([caseId, reuploadRequested])
+  @@index([documentGroupId])          // Multi-page grouping lookup
+  @@index([caseId, documentGroupId])  // Find pages in same group
 }
 
 // Groups duplicate images of the same physical document
@@ -680,6 +690,27 @@ model ImageGroup {
 
   @@index([caseId])
   @@index([caseId, docType])
+}
+
+// Groups multi-page document uploads (Phase 3)
+// Tracks related pages uploaded separately (e.g., 3-page form uploaded as 3 images)
+model DocumentGroup {
+  id              String      @id @default(cuid())
+  caseId          String
+  case            TaxCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  baseName        String      // Base filename without _PartXofY
+  documentType    String?     // Identified document type (or from fallback)
+  pageCount       Int         @default(1)
+  confidence      Float       // AI confidence in grouping
+
+  images          RawImage[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([caseId])
+  @@index([caseId, createdAt])  // Recent groups in case
 }
 
 model DigitalDoc {

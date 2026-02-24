@@ -373,6 +373,127 @@ export async function analyzeImage<T>(
 }
 
 /**
+ * Analyze multiple images with vision capabilities
+ * Used for multi-page document grouping analysis
+ * Supports comparing multiple documents in a single API call
+ */
+export async function analyzeMultipleImages<T>(
+  imageBuffers: Buffer[],
+  mimeType: string,
+  prompt: string
+): Promise<GeminiResponse<T>> {
+  if (!isGeminiConfigured) {
+    return {
+      success: false,
+      error: 'Gemini API key not configured',
+    }
+  }
+
+  if (imageBuffers.length === 0) {
+    return {
+      success: false,
+      error: 'No images provided',
+    }
+  }
+
+  // Validate all buffers
+  for (let i = 0; i < imageBuffers.length; i++) {
+    const validation = validateImageBuffer(imageBuffers[i], mimeType)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: `Image ${i} validation failed: ${validation.error}`,
+      }
+    }
+  }
+
+  // Build model list: active model first, then fallbacks
+  const activeModel = getActiveModel()
+  const modelsToTry = [
+    activeModel,
+    ...config.ai.fallbackModels.filter((m) => m !== activeModel),
+  ]
+
+  const maxRetries = config.ai.maxRetries
+  const retryDelay = config.ai.retryDelayMs
+
+  for (const modelName of modelsToTry) {
+    const model = genAI.getGenerativeModel({ model: modelName })
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Build parts array: prompt + all images
+        const parts: Part[] = [
+          { text: prompt },
+          ...imageBuffers.map((buffer) => ({
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType,
+            },
+          })),
+        ]
+
+        const result = await model.generateContent(parts)
+
+        // Success - cache working model
+        setWorkingModel(modelName)
+
+        const parsed = parseJsonResponse<T>(result.response.text())
+        if (!parsed) {
+          return {
+            success: false,
+            error: 'Failed to parse JSON response from Gemini',
+            retries: attempt,
+          }
+        }
+
+        return {
+          success: true,
+          data: parsed,
+          retries: attempt,
+        }
+      } catch (error) {
+        lastError = error as Error
+
+        // Model not found - try next model
+        if (isModelNotFoundError(lastError)) {
+          console.warn(`[Gemini] Model ${modelName} not found, trying fallback...`)
+          break
+        }
+
+        // Retryable error - exponential backoff
+        if (isRetryableError(lastError) && attempt < maxRetries - 1) {
+          const delay = retryDelay * Math.pow(2, attempt)
+          console.warn(`[Gemini] Retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+          await sleep(delay)
+        } else if (!isRetryableError(lastError)) {
+          break
+        }
+      }
+    }
+
+    if (lastError && isModelNotFoundError(lastError)) {
+      continue
+    }
+
+    if (lastError) {
+      return {
+        success: false,
+        error: sanitizeErrorMessage(lastError.message),
+        retries: maxRetries,
+      }
+    }
+  }
+
+  return {
+    success: false,
+    error: 'All Gemini models unavailable',
+    retries: config.ai.maxRetries,
+  }
+}
+
+/**
  * Validate Gemini model availability with fallback
  * Tries primary model first, then fallbacks if 404
  * Non-blocking, caches result for health endpoint

@@ -18,7 +18,10 @@ import type { DocType } from '@ella/db'
 // Constants
 const HASH_SIZE = 8 // 8x8 = 64 bits
 const HASH_BIT_LENGTH = HASH_SIZE * HASH_SIZE // 64 bits
-const DUPLICATE_THRESHOLD = 5 // Hamming distance: lower = stricter, higher = more lenient
+// Hamming distance threshold: lower = stricter (fewer duplicates), higher = more lenient
+// Changed from 5 to 3 to reduce false positives on tax forms with same layout but different content
+// Only truly identical/near-identical images (< 3 bits different) are duplicates
+const DUPLICATE_THRESHOLD = 3
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024 // 50MB max input size for DoS protection
 const VALID_HASH_REGEX = /^[01]{64}$/ // 64-character binary string
 

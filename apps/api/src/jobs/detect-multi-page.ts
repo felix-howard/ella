@@ -325,11 +325,21 @@ export const detectMultiPageJob = inngest.createFunction(
 
         if (!doc) continue
 
-        // Skip if already in this group (just update totalPages)
+        // If already in this group, update totalPages AND displayName with new part suffix
         if (doc.documentGroupId === group.id) {
+          const partSuffixForExisting = `_Part${pageNum}of${totalPages}`
+          const existingBaseName = (doc.displayName || '').replace(/_Part\d+of\d+$/i, '')
+          const updatedDisplayName = existingBaseName
+            ? `${existingBaseName}${partSuffixForExisting}`
+            : `${group.baseName}${partSuffixForExisting}`
+
           await prisma.rawImage.update({
             where: { id: docId },
-            data: { totalPages, pageNumber: pageNum },
+            data: {
+              totalPages,
+              pageNumber: pageNum,
+              displayName: updatedDisplayName,
+            },
           })
           renameResults.push({ docId, pageNum, renamed: false })
           continue

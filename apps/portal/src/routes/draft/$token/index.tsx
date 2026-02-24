@@ -10,7 +10,8 @@ import { Button } from '@ella/ui'
 import { portalApi, ApiError, type DraftReturnData } from '../../../lib/api-client'
 
 // Lazy load PDF viewer to split bundle (~155KB)
-const PdfViewer = lazy(() => import('../../../components/pdf-viewer'))
+// Note: Must use explicit /index path for Vite dynamic import resolution
+const PdfViewer = lazy(() => import('../../../components/pdf-viewer/index'))
 
 export const Route = createFileRoute('/draft/$token/')({
   component: DraftViewerPage,

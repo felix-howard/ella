@@ -330,6 +330,13 @@ export const api = {
       request<{ success: boolean }>(`/cases/${id}/reopen`, {
         method: 'POST',
       }),
+
+    // Trigger batch document grouping (manual)
+    groupDocuments: (id: string, data?: { forceRegroup?: boolean }) =>
+      request<GroupDocumentsResponse>(`/cases/${id}/group-documents`, {
+        method: 'POST',
+        body: JSON.stringify(data ?? {}),
+      }),
   },
 
   // Actions
@@ -2042,4 +2049,12 @@ export interface UploadDraftReturnResponse {
   draftReturn: DraftReturnData
   magicLink: DraftMagicLinkData
   portalUrl: string
+}
+
+// Group documents response (manual document grouping)
+export interface GroupDocumentsResponse {
+  success: boolean
+  jobId: string
+  documentCount: number
+  message: string
 }

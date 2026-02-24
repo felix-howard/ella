@@ -799,8 +799,19 @@ casesRoute.post(
 )
 
 // In-memory rate limiter for group-documents endpoint (per caseId)
+// Auto-cleanup after cooldown to prevent memory leak
 const groupingInProgress = new Map<string, number>()
 const GROUPING_COOLDOWN_MS = 30000 // 30 seconds between triggers for same case
+
+// Cleanup old entries every minute to prevent memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [caseId, timestamp] of groupingInProgress.entries()) {
+    if (now - timestamp > GROUPING_COOLDOWN_MS) {
+      groupingInProgress.delete(caseId)
+    }
+  }
+}, 60000)
 
 // POST /cases/:id/group-documents - Trigger batch document grouping (staff-only)
 casesRoute.post(

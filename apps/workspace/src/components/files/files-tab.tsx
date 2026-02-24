@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
-import { Upload, Download, CheckCheck, Loader2 } from 'lucide-react'
+import { Upload, Download, CheckCheck, Loader2, FolderSync } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
 import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
@@ -410,6 +410,29 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   // Count new files
   const newFilesCount = useMemo(() => images.filter((img) => img.isNew).length, [images])
 
+  // Count ungrouped classified documents (candidates for grouping)
+  const ungroupedCount = useMemo(
+    () => images.filter((img) => img.status === 'CLASSIFIED' && !img.documentGroupId).length,
+    [images]
+  )
+
+  // Mutation for batch document grouping
+  const groupDocumentsMutation = useMutation({
+    mutationFn: () => api.cases.groupDocuments(caseId),
+    onMutate: () => {
+      toast.info(t('filesTab.groupingStarted'))
+    },
+    onSuccess: (data) => {
+      toast.success(t('filesTab.groupingSuccess', { count: data.documentCount }))
+      // Refetch images to show updated groupings
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    },
+    onError: (error) => {
+      toast.error(t('filesTab.groupingError'))
+      console.error('[GroupDocuments]', error)
+    },
+  })
+
   // Loading state - show skeleton only when actually loading
   if (showLoading) {
     return <FilesTabSkeleton />
@@ -445,6 +468,30 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Group Files button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => groupDocumentsMutation.mutate()}
+            disabled={groupDocumentsMutation.isPending || ungroupedCount === 0}
+            className={cn(
+              'gap-1.5',
+              ungroupedCount === 0 && 'opacity-50'
+            )}
+          >
+            {groupDocumentsMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FolderSync className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
+            {ungroupedCount > 0 && (
+              <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                {ungroupedCount}
+              </span>
+            )}
+          </Button>
+
           {/* Mark all as read button */}
           <Button
             variant="outline"

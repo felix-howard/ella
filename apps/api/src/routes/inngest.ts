@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { serve } from 'inngest/hono'
 import { inngest } from '../lib/inngest'
-import { classifyDocumentJob, notifyStaffOnUploadJob, detectMultiPageJob } from '../jobs'
+import { classifyDocumentJob, notifyStaffOnUploadJob, detectMultiPageJob, groupDocumentsBatchJob } from '../jobs'
 import { config } from '../lib/config'
 
 const inngestRoute = new Hono()
@@ -40,7 +40,7 @@ inngestRoute.on(
   },
   serve({
     client: inngest,
-    functions: [classifyDocumentJob, notifyStaffOnUploadJob, detectMultiPageJob],
+    functions: [classifyDocumentJob, notifyStaffOnUploadJob, detectMultiPageJob, groupDocumentsBatchJob],
     signingKey: config.inngest.signingKey || undefined,
     serveHost,
     servePath,

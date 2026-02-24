@@ -251,5 +251,6 @@
   "draft.viewerUnsupported": "PDF Viewer Unavailable",
   "draft.viewerFallback": "Your browser cannot display PDFs directly. Please use the buttons below.",
   "draft.openInNewTab": "Open in New Tab",
-  "draft.download": "Download PDF"
+  "draft.download": "Download PDF",
+  "draft.loadingPdf": "Loading PDF..."
 }

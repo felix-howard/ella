@@ -109,9 +109,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
-**Portal PDF Viewer (Phase 02-03 Complete):**
+**Portal PDF Viewer (Phase 02-05 Complete):**
 - Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading
 - Phase 03: iFrame wrapper for public portal page with token validation, view tracking, error handling
+- Phase 04: Gesture support (swipe navigation, pinch-to-zoom, double-tap)
+- Phase 05: Lazy loading in route to split bundle, auto-hide controls on mobile
 - Components: `PdfViewer` (navigation), `PdfDocument` (rendering)
 - Features: Fit-to-width, DPI-aware crisp display, touch-friendly controls, fallback buttons
 - View tracking: Auto-calls trackDraftView on PDF load (fire & forget)
@@ -283,18 +285,37 @@ Mobile-first PDF viewer using react-pdf library with fit-to-width scaling, DPI-a
 **Components:**
 ```
 apps/portal/src/components/pdf-viewer/
-  ├── index.tsx (85 LOC)
+  ├── index.tsx
   │   ├── Page navigation state (currentPage, numPages)
   │   ├── Load handlers (success/error callbacks)
-  │   ├── Navigation methods (goToNextPage, goToPrevPage)
-  │   └── Simple page indicator UI (← page/total →)
+  │   ├── Gesture handler integration (swipe, pinch, double-tap)
+  │   ├── Auto-hide controls UI (visible toggle)
+  │   └── Navigation + controls bar with auto-hide
   │
-  └── pdf-document.tsx (169 LOC)
-      ├── ResizeObserver for container width tracking
-      ├── Fit-to-width calculation (naturalWidth = canvas.width / (scale × dpi))
-      ├── DPI multiplier for retina displays (devicePixelRatio)
-      ├── Loading state with pulse skeleton (8.5:11 aspect ratio)
-      └── Error state with fallback buttons (Open/Download)
+  ├── pdf-document.tsx
+  │   ├── ResizeObserver for container width tracking
+  │   ├── Fit-to-width calculation
+  │   ├── DPI-aware rendering (devicePixelRatio)
+  │   ├── Loading state with pulse skeleton
+  │   └── Error state with fallback buttons
+  │
+  ├── pdf-controls.tsx
+  │   ├── Navigation buttons (← →)
+  │   ├── Page indicator (current/total)
+  │   ├── Mobile-optimized touch targets (44px min)
+  │   └── Fade in/out animation
+  │
+  ├── use-pdf-gestures.ts
+  │   ├── Swipe detection (left/right for page nav)
+  │   ├── Pinch-to-zoom (scale factor)
+  │   ├── Double-tap to fit-width reset
+  │   └── Touch event listeners + cleanup
+  │
+  └── use-auto-hide.ts
+      ├── Auto-hide timer (3s default after interaction)
+      ├── show() callback to reset and display
+      ├── Cleanup on unmount
+      └── Configurable delay + initial visibility
 ```
 
 **Key Features:**
@@ -360,10 +381,11 @@ draft.download       → "Download PDF"
 - Fallback: Download/open buttons if library fails
 - Workers: PDF.js from unpkg CDN (no build step needed)
 
-**Future Phases:**
-- Phase 03: iFrame wrapper for public portal page
-- Phase 04: Gesture support (swipe navigation)
-- Phase 05: Auto-hide controls, fullscreen mode
+**Future Enhancements:**
+- Fullscreen mode toggle
+- Keyboard shortcuts (+ - 0 for zoom/reset, arrow keys for navigation)
+- PDF annotation/markup (draw on PDF in workspace)
+- Side-by-side document viewer for comparison
 
 ## Phase 03: Portal PDF Viewer - Token-Based Draft Return Viewing
 
@@ -377,13 +399,15 @@ apps/portal/src/routes/draft/$token/index.tsx
   ├── Validate token (type, active, expiry)
   ├── Return draft data + signed PDF URL
   ├── Auto-sync client language preference
-  └── Track view on PDF load
+  ├── Track view on PDF load
+  └── Lazy load PdfViewer via dynamic import (Phase 05)
 
-apps/portal/src/components/pdf-viewer.tsx
-  ├── iFrame-based PDF rendering
-  ├── Fallback: Open in new tab / Download buttons
-  ├── Error handling: Browser unsupported fallback
-  └── Bilingual UI (EN/VI)
+apps/portal/src/components/pdf-viewer/ (modular structure)
+  ├── index.tsx - Main viewer with gesture + auto-hide integration
+  ├── pdf-document.tsx - Core react-pdf rendering
+  ├── pdf-controls.tsx - Mobile-optimized touch controls
+  ├── use-pdf-gestures.ts - Swipe/pinch/double-tap detection
+  └── use-auto-hide.ts - Auto-hide controls on inactivity
 ```
 
 **Data Flow:**
@@ -472,6 +496,92 @@ draft.download           → "Download PDF"
 - aria-label for loading state and error messages
 - Keyboard navigation: Tab through action buttons in error state
 - Retry button available for non-permanent errors
+
+## Phase 04-05: Portal PDF Viewer - Gestures & Lazy Loading Integration
+
+**Overview (Phase 04):**
+Mobile gesture support for PDF viewer: swipe-to-navigate pages, pinch-to-zoom, and double-tap to reset zoom. Auto-hide controls bar after 3 seconds of inactivity with mobile-optimized touch targets (44px minimum).
+
+**Overview (Phase 05):**
+Lazy load PdfViewer component in route via dynamic import to split bundle (~155KB chunk). Removed old iframe-based pdf-viewer.tsx in favor of gesture-enabled modular components. Integrated auto-hide controls with Suspense fallback for smooth UX.
+
+**Route Integration (`apps/portal/src/routes/draft/$token/index.tsx`):**
+```typescript
+// Lazy load PDF viewer to split bundle (~155KB)
+const PdfViewer = lazy(() => import('../../../components/pdf-viewer'))
+
+// In JSX: Wrap with Suspense for smooth loading
+<Suspense fallback={<PdfLoadingSkeleton />}>
+  <PdfViewer url={data.pdfUrl} filename={data.filename} />
+</Suspense>
+```
+
+**Bundle Impact:**
+- react-pdf (~155KB gzipped) lazy-loaded on-demand
+- Dynamic import splits into separate chunk
+- Non-PDF users: Zero impact on initial bundle
+- PdfLoadingSkeleton: Lightweight fallback UI during chunk load
+
+**Gesture Hook (`use-pdf-gestures.ts`):**
+```typescript
+const { scale, onTouchStart, onTouchMove, onTouchEnd, resetZoom } = usePdfGestures()
+
+// Touch listeners track:
+- Single-finger swipe: Left/right triggers page navigation
+- Two-finger pinch: Scale multiplier (1.0 to 3.0)
+- Double-tap: Reset scale to 1.0 (fit-width)
+- Momentum-aware: Only trigger nav on sufficient swipe distance
+```
+
+**Auto-Hide Hook (`use-auto-hide.ts`):**
+```typescript
+const { visible, show } = useAutoHide({ delay: 3000, initialVisible: true })
+
+// Triggers on:
+- User interaction (touch, mouse move)
+- Page navigation (next/prev buttons)
+- Zoom changes (pinch)
+// Hides after 3s inactivity
+```
+
+**Controls Component (`pdf-controls.tsx`):**
+```
+Mobile-optimized UI:
+- Button size: 44px (touch target minimum)
+- Fade animation: Opacity transition 200ms
+- Position: Bottom bar with safe-area-inset-bottom
+- Buttons: Previous, Page Indicator, Next
+- Responsive: Adapts to viewport width
+```
+
+**Mobile-First Design:**
+- Touch-friendly spacing (gap-2 between buttons)
+- Full-width viewport usage (h-dvh = dynamic viewport height)
+- Auto-hide improves immersion (controls fade after interaction)
+- Swipe-to-navigate intuitive for mobile users
+- Pinch-to-zoom native gesture (matches user expectations)
+
+**Data Flow (Phase 05):**
+1. Route fetches draft data via portalApi.getDraft()
+2. On success, renders PdfViewer with Suspense fallback
+3. Browser downloads react-pdf chunk (~155KB) via dynamic import
+4. PdfViewer mounts: initializes gesture hooks + auto-hide
+5. User touches PDF: show() resets auto-hide timer, controls visible
+6. User swipes left: gesture handler calls goToNextPage()
+7. User pinches: scale updates, gesture handler manages zoom
+8. 3 seconds of inactivity: controls fade out automatically
+9. User taps again: show() restores controls visibility
+
+**Cleanup & Migration:**
+- Deleted: Old `apps/portal/src/components/pdf-viewer.tsx` (iframe-based)
+- Reason: Replaced by modular gesture-aware components
+- Migration: Route now uses lazy-loaded PdfViewer directory
+
+**Browser Support:**
+- Touch events: Modern mobile browsers (iOS Safari 13+, Chrome Android)
+- Pinch detection: Native touch events (no library needed)
+- Swipe detection: Distance + velocity calculation
+- Fallback: Native PDF controls still available if gestures fail
 
 ---
 

@@ -251,5 +251,6 @@
   "draft.viewerUnsupported": "Không thể hiển thị PDF",
   "draft.viewerFallback": "Trình duyệt không hỗ trợ hiển thị PDF. Vui lòng sử dụng các nút bên dưới.",
   "draft.openInNewTab": "Mở trong tab mới",
-  "draft.download": "Tải PDF"
+  "draft.download": "Tải PDF",
+  "draft.loadingPdf": "Đang tải PDF..."
 }

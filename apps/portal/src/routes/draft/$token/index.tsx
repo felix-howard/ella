@@ -2,13 +2,15 @@
  * Draft Return Viewer - Public portal page for viewing draft tax returns
  * Token-based access, no authentication required
  */
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, FileText, Calendar, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { portalApi, ApiError, type DraftReturnData } from '../../../lib/api-client'
-import { PdfViewer } from '../../../components/pdf-viewer'
+
+// Lazy load PDF viewer to split bundle (~155KB)
+const PdfViewer = lazy(() => import('../../../components/pdf-viewer'))
 
 export const Route = createFileRoute('/draft/$token/')({
   component: DraftViewerPage,
@@ -115,21 +117,21 @@ function DraftViewerPage() {
     return <ErrorView error={error} onRetry={handleReload} />
   }
 
-  // Success state
+  // Success state - use h-dvh to ensure full viewport height
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-border bg-card">
-        <h1 className="text-lg font-semibold text-foreground text-center mb-2">
+    <div className="h-dvh flex flex-col">
+      {/* Header - compact */}
+      <div className="px-4 py-3 border-b border-border bg-card shrink-0">
+        <h1 className="text-base font-semibold text-foreground text-center mb-1">
           {t('draft.title')}
         </h1>
-        <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <FileText className="w-4 h-4" />
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5" />
             {data.clientName}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5" />
             {t('draft.taxYear')}: {data.taxYear}
           </span>
           <span>
@@ -138,17 +140,32 @@ function DraftViewerPage() {
         </div>
       </div>
 
-      {/* PDF Viewer */}
-      <div className="flex-1 min-h-0">
-        <PdfViewer url={data.pdfUrl} filename={data.filename} />
+      {/* PDF Viewer - lazy loaded with Suspense */}
+      <div className="flex-1 min-h-0 overflow-hidden h-[calc(100dvh-120px)]">
+        <Suspense fallback={<PdfLoadingSkeleton />}>
+          <PdfViewer url={data.pdfUrl} filename={data.filename} />
+        </Suspense>
       </div>
 
-      {/* Footer */}
-      <footer className="px-4 py-3 text-center border-t border-border bg-muted/30">
+      {/* Footer - compact */}
+      <footer className="px-4 py-2 text-center border-t border-border bg-muted/30 shrink-0">
         <p className="text-xs text-muted-foreground">
           {t('draft.contactCpa')}
         </p>
       </footer>
+    </div>
+  )
+}
+
+// Loading skeleton for lazy-loaded PDF viewer
+function PdfLoadingSkeleton() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex-1 flex items-center justify-center h-full">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">{t('draft.loadingPdf')}</p>
+      </div>
     </div>
   )
 }

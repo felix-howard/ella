@@ -26,10 +26,6 @@ export function useAutoHide(options: UseAutoHideOptions = {}): UseAutoHideReturn
 
   const [visible, setVisible] = useState(initialVisible)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const delayRef = useRef(delay)
-
-  // Keep delay ref in sync
-  delayRef.current = delay
 
   // Clear existing timeout helper
   const clearHideTimeout = useCallback(() => {
@@ -45,20 +41,20 @@ export function useAutoHide(options: UseAutoHideOptions = {}): UseAutoHideReturn
     clearHideTimeout()
     timeoutRef.current = setTimeout(() => {
       setVisible(false)
-    }, delayRef.current)
-  }, [clearHideTimeout])
+    }, delay)
+  }, [clearHideTimeout, delay])
 
   // Start hide timer on mount (visible starts as true)
   useEffect(() => {
     if (initialVisible) {
       timeoutRef.current = setTimeout(() => {
         setVisible(false)
-      }, delayRef.current)
+      }, delay)
     }
 
     // Cleanup on unmount
     return clearHideTimeout
-  }, [initialVisible, clearHideTimeout])
+  }, [initialVisible, clearHideTimeout, delay])
 
   return { visible, show }
 }

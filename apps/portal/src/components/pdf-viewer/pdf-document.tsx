@@ -13,6 +13,8 @@ export interface PdfDocumentProps {
   url: string
   filename: string
   currentPage: number
+  zoom?: number
+  gestureBindings?: ReturnType<() => Record<string, unknown>>
   onLoadSuccess: (numPages: number) => void
   onLoadError: () => void
 }
@@ -21,6 +23,8 @@ export function PdfDocument({
   url,
   filename,
   currentPage,
+  zoom = 1,
+  gestureBindings,
   onLoadSuccess,
   onLoadError,
 }: PdfDocumentProps) {
@@ -91,8 +95,8 @@ export function PdfDocument({
   const dpiMultiplier =
     typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
-  // Effective scale: fitScale * DPI
-  const renderScale = fitScale * dpiMultiplier
+  // Effective scale: fitScale * zoom * DPI
+  const renderScale = fitScale * zoom * dpiMultiplier
 
   // Error state - show fallback UI
   if (hasError) {
@@ -129,7 +133,12 @@ export function PdfDocument({
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+    <div
+      ref={containerRef}
+      className="w-full h-full relative overflow-hidden"
+      style={{ touchAction: 'none' }}
+      {...(gestureBindings || {})}
+    >
       <Document
         file={url}
         onLoadSuccess={handleLoadSuccess}

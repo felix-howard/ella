@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { PdfDocument } from './pdf-document'
+import { usePdfGestures } from './use-pdf-gestures'
 
 // Configure PDF.js worker from unpkg CDN (matches workspace pattern)
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
@@ -41,6 +42,18 @@ export function PdfViewer({ url, filename }: PdfViewerProps) {
     setCurrentPage((prev) => Math.max(prev - 1, 1))
   }, [])
 
+  // Page change handler for gesture hook
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
+
+  // Gesture support - swipe, pinch, double-tap
+  const { bind, zoom } = usePdfGestures({
+    currentPage,
+    totalPages: numPages,
+    onPageChange: handlePageChange,
+  })
+
   return (
     <div className="w-full h-full flex flex-col">
       {/* PDF Document */}
@@ -49,6 +62,8 @@ export function PdfViewer({ url, filename }: PdfViewerProps) {
           url={url}
           filename={filename}
           currentPage={currentPage}
+          zoom={zoom}
+          gestureBindings={bind()}
           onLoadSuccess={handleLoadSuccess}
           onLoadError={handleLoadError}
         />

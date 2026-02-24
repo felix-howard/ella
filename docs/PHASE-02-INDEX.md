@@ -66,7 +66,7 @@
 **When to Use:** Quick lookup during development & deployment
 
 ### 2.1 **API Endpoints Documentation**
-📄 [`phase-02-api-endpoints.md`](./phase-02-api-endpoints.md) (NEW)
+📄 [`phase-02-api-endpoints.md`](./phase-02-api-endpoints.md)
 - **Size:** 650+ lines
 - **Purpose:** Complete API endpoint reference for data entry workflow
 - **Contains:**
@@ -82,6 +82,22 @@
   - Deployment checklist
 
 **When to Use:** Deep dive into Phase 02 API implementation and data entry workflow
+
+### 2.2 **Fallback Smart Rename Documentation**
+📄 `phase-02-fallback-smart-rename.md` (NEW)
+- **Purpose:** Smart filename generation fallback when classification confidence < 60%
+- **Contains:**
+  - SmartRename prompt engineering (Gemini vision + document analysis)
+  - generateSmartFilename() function implementation
+  - Fallback trigger logic (confidence thresholds)
+  - aiMetadata JSON schema (storage in RawImage)
+  - File naming convention: YYYY_DocumentTitle_Source_RecipientName (max 60 chars)
+  - Phase 03 integration: pageInfo for multi-page detection
+  - Error handling & graceful degradation
+  - Testing approach and edge cases
+  - Security & validation considerations
+
+**When to Use:** Understanding smart filename generation for low-confidence documents
 
 ---
 

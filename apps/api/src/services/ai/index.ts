@@ -23,6 +23,7 @@ export {
   batchClassifyDocuments,
   requiresOcrExtraction,
   getDocTypeLabel,
+  generateSmartFilename,
   type DocumentClassificationResult,
 } from './document-classifier'
 
@@ -66,6 +67,8 @@ export {
   SUPPORTED_DOC_TYPES,
   type SupportedDocType,
   type ClassificationResult,
+  type SmartRenameResult,
+  type PageInfo,
 } from './prompts/classify'
 
 // Blur detection types

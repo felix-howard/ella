@@ -626,3 +626,132 @@ export function validateClassificationResult(
 
   return true
 }
+
+// ============================================
+// SMART RENAME - FALLBACK FOR UNCLASSIFIABLE DOCS
+// ============================================
+
+/**
+ * PageInfo for multi-page detection (Phase 3 preparation)
+ */
+export interface PageInfo {
+  isMultiPage: boolean
+  currentPage: number | null
+  totalPages: number | null
+  continuationMarker: string | null
+  documentIdentifier: string | null
+}
+
+/**
+ * SmartRename result structure for fallback naming
+ */
+export interface SmartRenameResult {
+  documentTitle: string
+  taxYear: number | null
+  source: string | null
+  recipientName: string | null
+  pageInfo: PageInfo
+  suggestedFilename: string
+  confidence: number
+  reasoning: string
+}
+
+/**
+ * Fallback smart rename prompt
+ * Used when document can't be classified to predefined type (<60% confidence)
+ */
+export function getSmartRenamePrompt(): string {
+  return `You are analyzing a document that couldn't be classified into a predefined type.
+Your ONLY job is to generate a meaningful, descriptive filename.
+
+ANALYZE AND EXTRACT:
+1. documentTitle: What IS this document? Be specific.
+   - Good: "BankStatement", "PropertyTaxBill", "InsuranceEOB", "CourtOrder"
+   - Bad: "Document", "Paper", "Form", "Letter"
+
+2. taxYear: What year? Look for:
+   - Statement periods ("January 2024 - December 2024")
+   - Tax year references ("Tax Year 2024")
+   - Document dates
+   - Default to current year if truly unclear
+
+3. source: Who issued this?
+   - Company name (Chase, Wells Fargo, Blue Cross)
+   - Government agency (IRS, Texas DMV, Harris County)
+   - Person/entity name if applicable
+
+4. recipientName: Whose document is this?
+   - Account holder name
+   - Taxpayer name
+   - Property owner name
+
+5. pageInfo: Multi-page document?
+   - Look for "Page X of Y", "Continued", page numbers
+   - Note if this appears to be part of a larger document
+
+RESPONSE FORMAT (JSON):
+{
+  "documentTitle": "PropertyTaxBill",
+  "taxYear": 2024,
+  "source": "HarrisCounty",
+  "recipientName": "JohnNguyen",
+  "pageInfo": {
+    "isMultiPage": false,
+    "currentPage": null,
+    "totalPages": null,
+    "continuationMarker": null,
+    "documentIdentifier": null
+  },
+  "suggestedFilename": "2024_PropertyTaxBill_HarrisCounty_JohnNguyen",
+  "confidence": 0.85,
+  "reasoning": "Property tax statement from Harris County Appraisal District for 2024"
+}
+
+NAMING RULES:
+- Max 60 characters
+- No spaces (use PascalCase or underscores)
+- No special characters except underscores
+- Be descriptive, not generic
+- Include year, source, and name when available
+- Format: YYYY_DocumentTitle_Source_RecipientName`
+}
+
+/**
+ * Validate SmartRename result structure
+ */
+export function validateSmartRenameResult(result: unknown): result is SmartRenameResult {
+  if (!result || typeof result !== 'object') return false
+  const r = result as Record<string, unknown>
+
+  // Required string fields
+  if (typeof r.documentTitle !== 'string' || r.documentTitle.trim() === '') return false
+  if (typeof r.suggestedFilename !== 'string' || r.suggestedFilename.trim() === '') return false
+  if (typeof r.reasoning !== 'string') return false
+
+  // Required number field
+  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) return false
+
+  // Optional fields (can be null)
+  if ('taxYear' in r && r.taxYear !== null) {
+    if (typeof r.taxYear !== 'number' || r.taxYear < 2000 || r.taxYear > 2100) {
+      return false
+    }
+  }
+
+  if ('source' in r && r.source !== null) {
+    if (typeof r.source !== 'string') return false
+  }
+
+  if ('recipientName' in r && r.recipientName !== null) {
+    if (typeof r.recipientName !== 'string') return false
+  }
+
+  // pageInfo validation (optional but structured if present)
+  if ('pageInfo' in r && r.pageInfo !== null) {
+    const p = r.pageInfo as Record<string, unknown>
+    if (typeof p !== 'object') return false
+    if (typeof p.isMultiPage !== 'boolean') return false
+  }
+
+  return true
+}

@@ -632,6 +632,10 @@ model RawImage {
   imageGroupId    String?
   imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
 
+  // AI metadata for fallback rename and multi-page detection (Phase 2+3)
+  // { fallbackRename: boolean, documentTitle: string, pageInfo: {...}, reasoning: string }
+  aiMetadata      Json?
+
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
   reuploadRequestedAt DateTime?

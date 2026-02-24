@@ -3,8 +3,13 @@
  * Classifies uploaded images into document types using Gemini vision
  */
 import { analyzeImage, isGeminiConfigured } from './gemini-client'
-import { getClassificationPrompt, validateClassificationResult } from './prompts/classify'
-import type { ClassificationResult, SupportedDocType } from './prompts/classify'
+import {
+  getClassificationPrompt,
+  validateClassificationResult,
+  getSmartRenamePrompt,
+  validateSmartRenameResult,
+} from './prompts/classify'
+import type { ClassificationResult, SupportedDocType, SmartRenameResult } from './prompts/classify'
 import { config } from '../../lib/config'
 import { getCategoryFromDocType } from '@ella/shared'
 import type { DocCategory } from '@ella/shared'
@@ -439,4 +444,91 @@ export function getDocTypeLabel(docType: SupportedDocType | 'UNKNOWN'): string {
     UNKNOWN: 'Chưa xác định',
   }
   return labels[docType] || 'Chưa xác định'
+}
+
+// Suspicious patterns for prompt injection detection (H3)
+const SUSPICIOUS_PATTERNS = [
+  /\.\.\//,           // Path traversal
+  /\/etc\//i,         // Unix config paths
+  /\/passwd/i,        // Password files
+  /\$\{/,             // Template injection
+  /<script/i,         // XSS attempts
+  /javascript:/i,     // JS protocol
+]
+
+/**
+ * Sanitize filename: ensure max 60 chars, no special chars, no suspicious patterns
+ * @param filename - Raw filename from AI
+ * @returns Sanitized filename or null if suspicious
+ */
+function sanitizeFilename(filename: string): string | null {
+  // H3: Check for suspicious patterns (prompt injection)
+  for (const pattern of SUSPICIOUS_PATTERNS) {
+    if (pattern.test(filename)) {
+      console.warn('[SmartRename] Suspicious pattern detected in filename, rejecting')
+      return null
+    }
+  }
+
+  // Sanitize: remove special chars, collapse underscores, max 60 chars
+  const sanitized = filename
+    .replace(/[^a-zA-Z0-9_]/g, '_') // Replace special chars with underscore
+    .replace(/_+/g, '_')             // Collapse multiple underscores
+    .replace(/^_|_$/g, '')           // Remove leading/trailing underscores
+    .substring(0, 60)                // Max 60 chars
+
+  // M6: Ensure non-empty after sanitization
+  return sanitized.length > 0 ? sanitized : null
+}
+
+/**
+ * Generate smart filename for documents that can't be classified
+ * Used as fallback when classification confidence < 60%
+ *
+ * @param imageBuffer - The image file buffer
+ * @param mimeType - MIME type of the image
+ * @returns SmartRename result with suggested filename and metadata
+ */
+export async function generateSmartFilename(
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<SmartRenameResult | null> {
+  const startTime = Date.now()
+
+  if (!isGeminiConfigured) {
+    console.warn('[SmartRename] Gemini not configured, skipping')
+    return null
+  }
+
+  try {
+    const prompt = getSmartRenamePrompt()
+    const result = await analyzeImage<SmartRenameResult>(imageBuffer, mimeType, prompt)
+
+    if (!result.success || !result.data) {
+      console.warn('[SmartRename] AI call failed:', result.error)
+      return null
+    }
+
+    // H1: Sanitize BEFORE validation to check real filename length
+    const sanitizedFilename = sanitizeFilename(result.data.suggestedFilename)
+    if (!sanitizedFilename) {
+      console.warn('[SmartRename] Filename sanitization failed')
+      return null
+    }
+
+    if (!validateSmartRenameResult(result.data)) {
+      console.warn('[SmartRename] Invalid response structure')
+      return null
+    }
+
+    console.log(`[SmartRename] Generated: ${sanitizedFilename} (${Date.now() - startTime}ms)`)
+
+    return {
+      ...result.data,
+      suggestedFilename: sanitizedFilename,
+    }
+  } catch (error) {
+    console.error('[SmartRename] Error:', error)
+    return null
+  }
 }

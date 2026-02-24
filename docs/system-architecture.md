@@ -813,12 +813,13 @@ Frontend Hook (useOrgRole)
 ## AI Document Processing
 
 **Gemini Integration:**
-- Image validation: JPEG, PNG, WebP, HEIC (10MB max)
+- Image validation: JPEG, PNG, WebP, HEIC, PDF (10MB max)
 - Retry logic: 3 attempts, exponential backoff
 - Batch processing: 3 concurrent images
 - Classification: Multi-class tax form detection (180+ types)
-- OCR: W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A
+- OCR: W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A, Schedule 1/C/SE/D/E, Form 1040
 - Confidence scoring for verification workflow
+- **NEW (Phase 02):** Fallback smart rename for confidence < 60% (semantic filename generation via vision analysis)
 
 **Services:**
 
@@ -834,10 +835,21 @@ Gemini Service:
 ```typescript
 apps/api/src/services/ai/
 ├── gemini-client.ts - API client with retry/validation
-├── document-classifier.ts - Classification service
+├── document-classifier.ts - Classification service (+ generateSmartFilename NEW)
 ├── blur-detector.ts - Quality detection
-└── prompts/ - Classification + OCR templates
+└── prompts/
+    ├── classify.ts - Classification + SmartRename prompts
+    └── ocr/ - 22 OCR extraction prompts (forms 1040, schedules, income docs)
 ```
+
+**Phase 02 Fallback Smart Rename:**
+- Triggered when classification confidence < 60%
+- Extracts semantic naming elements: documentTitle, source, recipientName
+- Generates filename: `{TaxYear}_{DocumentTitle}_{Source}_{RecipientName}.pdf` (max 60 chars)
+- Stores in RawImage.aiMetadata JSON field for audit trail
+- Graceful degradation: failures don't block job or create false classifications
+- Vietnamese name handling: diacritics removed (ă→a, đ→d), PascalCase formatting
+- See: [`phase-02-fallback-smart-rename.md`](./phase-02-fallback-smart-rename.md) for details
 
 Magic Link Service:
 ```typescript

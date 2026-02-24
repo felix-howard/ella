@@ -1,6 +1,265 @@
 # Latest Documentation Updates
 
-**Date:** 2026-02-23 | **Feature:** Draft Return Sharing Phase 04 Workspace Tab Integration COMPLETE | Phase 05 CPA Upload SMS Notification Testing Complete | Phase 04 Navigation Integration COMPLETE | Phase 5 & 6 Form 1040 CPA Enhancement COMPLETE | Phase 4 Multi-Pass OCR Implementation | **Status:** Complete
+**Date:** 2026-02-24 | **Feature:** Portal PDF Viewer Phase 04 Controls UI COMPLETE | Portal PDF Viewer Phase 03 Mobile Gesture Support COMPLETE | Draft Return Sharing Phase 04 Workspace Tab Integration COMPLETE | Phase 05 CPA Upload SMS Notification Testing Complete | Phase 04 Navigation Integration COMPLETE | Phase 5 & 6 Form 1040 CPA Enhancement COMPLETE | Phase 4 Multi-Pass OCR Implementation | **Status:** Complete
+
+---
+
+## Portal PDF Viewer Phase 04: Controls UI
+
+**Date:** 2026-02-24 | **Status:** Complete
+
+**In One Sentence:** Floating controls bar with auto-hide (3s inactivity timeout), page indicator pill, download button, keyboard focus management, and full WCAG accessibility support.
+
+**Feature Summary:**
+
+### Components Implemented
+
+- **PdfControls Component**: Floating page indicator + download button
+  - Page indicator pill: Bottom center, shows "currentPage / totalPages"
+  - Download button: Bottom right, downloads PDF with original filename
+  - Both elements auto-hide after 3s inactivity, show on tap/gesture
+  - Smooth fade transitions (300ms opacity animation)
+  - Dark semi-transparent background (bg-black/60) with backdrop blur
+
+- **useAutoHide Hook**: 3s idle timeout with manual show trigger
+  - Configurable delay (default 3000ms)
+  - Initial visibility option (default visible=true)
+  - Exposes: visible (boolean), show() (callback to reset timer and show)
+  - Handles timeout cleanup on unmount (prevents memory leaks)
+  - Smart ref-based delay tracking for dynamic delay updates
+
+### Integration Points
+
+- **Gesture Interaction**: usePdfGestures exports onInteraction callback
+  - Swipe/pinch/double-tap → calls show() to reset auto-hide timer
+  - Keeps controls visible while user actively gestures
+  - No controls flicker during rapid interaction
+
+- **Tap to Show**: onClick + onTouchStart handlers on viewer container
+  - Any tap on PDF surface shows controls and resets timer
+  - Prevents controls from staying hidden during active use
+  - tabIndex management: tabIndex=0 when visible, tabIndex=-1 when hidden
+
+### Accessibility
+
+- **ARIA Labels**: aria-label on download button (translated via i18n)
+- **Status Role**: role="status" + aria-live="polite" on page indicator
+  - Screen readers announce page changes without interrupting flow
+  - aria-atomic="true" ensures full "3 / 10" read, not individual numbers
+- **Keyboard Navigation**: Focus management with tabIndex
+  - Hidden controls unreachable via Tab key (tabIndex=-1)
+  - Download button focusable when visible, proper focus styling
+  - focus:outline-none + focus:ring-2 focus:ring-white/50 for focus indicator
+- **i18n**: draft.download key translated (EN/VI)
+
+### Files Modified
+
+**New Files:**
+- `apps/portal/src/components/pdf-viewer/pdf-controls.tsx` (66 LOC)
+  - Exports: PdfControlsProps interface, PdfControls component
+  - Props: currentPage, totalPages, url, filename, visible (boolean)
+  - Rendered conditionally in index.tsx based on visibility state
+
+- `apps/portal/src/components/pdf-viewer/use-auto-hide.ts` (65 LOC)
+  - Exports: UseAutoHideOptions interface, UseAutoHideReturn interface, useAutoHide hook
+  - Options: delay (ms, default 3000), initialVisible (boolean, default true)
+  - Returns: visible (boolean), show (function)
+
+**Updated Files:**
+- `apps/portal/src/components/pdf-viewer/index.tsx`
+  - Imported PdfControls, useAutoHide
+  - Added: const { visible, show } = useAutoHide({ delay: 3000 })
+  - Added: handleTap callback → show() on onClick + onTouchStart
+  - Passed onInteraction={show} to usePdfGestures hook
+  - Rendered PdfControls with all required props
+
+- `apps/portal/src/components/pdf-viewer/use-pdf-gestures.ts`
+  - Added: onInteraction callback option to UsePdfGesturesOptions
+  - Added: Calls onInteraction?.() when swipe/pinch detected
+  - Keeps gesture interaction separate from tap (both drive controls visibility)
+
+### Technical Details
+
+**Auto-Hide Flow:**
+```
+Mount with initialVisible=true
+  ↓
+Start 3000ms timer
+  ↓
+User taps / gestures
+  ↓
+show() called → setVisible(true) → clearTimeout() → restart timer
+  ↓
+3000ms passes without interaction
+  ↓
+setVisible(false) → controls fade out
+```
+
+**Visibility State Management:**
+- useState(initialVisible) tracks visible boolean
+- useRef(timeoutRef) persists timeout ID across renders
+- useRef(delayRef) tracks delay parameter for setTimeout closure
+- useCallback prevents unnecessary hook recreations
+
+**Event Handler Priority:**
+1. Gesture interaction (swipe/pinch/double-tap) → onInteraction callback
+2. Tap on surface (onClick/onTouchStart) → handleTap callback
+3. Either call show() → resets timer, shows controls
+
+**Cleanup Strategy:**
+- useEffect cleanup function calls clearHideTimeout
+- Prevents timeout from firing after unmount (common React bug)
+- Safe for rapid mount/unmount cycles (route transitions)
+
+### UX Flow
+
+```
+User opens PDF
+  ↓
+Controls visible for 3s (page indicator + download button)
+  ↓
+No interaction → controls fade out (opacity: 0, pointer-events: none)
+  ↓
+User swipes page / pinches to zoom
+  ↓
+Controls immediately reappear, timer restarts
+  ↓
+User taps anywhere on PDF
+  ↓
+Controls show, timer restarts
+  ↓
+3s idle again → fade out
+```
+
+### Accessibility & Performance
+
+- Zero external dependencies (built-in React hooks)
+- Smooth CSS transitions prevent jarring show/hide
+- pointer-events: none when hidden prevents dead-click area
+- Font sizing (text-sm) and padding (px-3 py-1.5) mobile-optimized
+- Download link with native <a href download> attribute (no JS fetch needed)
+- No layout shift: absolute positioning, fixed dimensions
+
+### Code Quality
+
+- Type-safe: Full TypeScript interfaces for props/return types
+- Modular: useAutoHide is reusable (any floating UI, any delay)
+- Clean: No setTimeout callback hell, useCallback + useRef pattern
+- Accessible: WCAG 2.1 AA compliant (ARIA, keyboard nav, focus indicator)
+- Bilingual: All user-facing strings translated (EN/VI)
+
+### Foundation for Phase 05
+
+- Controls UI complete and production-ready
+- Phase 05 can add keyboard shortcuts (arrow keys for page nav)
+- Phase 05 can add zoom controls (+ / - buttons) if needed
+- Extensible: PdfControls props accept any additional buttons/indicators
+
+---
+
+## Portal PDF Viewer Phase 03: Mobile Gesture Support
+
+**Date:** 2026-02-24 | **Status:** Complete
+
+**In One Sentence:** Mobile-optimized PDF viewer with full touch gesture support—swipe left/right for page navigation, pinch-to-zoom (1x-3x range), double-tap to toggle fit/2x zoom, and intelligent swipe disabling when zoomed.
+
+**Feature Summary:**
+
+### Core Gestures Implemented
+- **Swipe Page Navigation**: Swipe left for next page, swipe right for previous page
+  - Velocity threshold: 0.3 (minimum swipe intensity to distinguish from scroll)
+  - Boundary-aware: Disabled at first/last page
+  - Zoom-aware: Disabled when zoomed > 1x (user expects pan instead)
+
+- **Pinch-to-Zoom**: Gesture scaling with intelligent bounds
+  - Range: 1x (fit-to-width) to 3x (maximum zoom)
+  - Initial zoom tracking via ref to prevent calculation drift
+  - Smooth scaling: newZoom = initialZoom × scale, clamped to [MIN_ZOOM, MAX_ZOOM]
+
+- **Double-Tap Toggle**: Quick zoom toggle between fit (1x) and 2x
+  - Single tap does nothing (prevents false positives)
+  - Double-tap toggles: 1x ↔ 2x (common reading zoom levels)
+
+- **Touch-Action Optimization**: `touch-action: none` on container
+  - Prevents default browser scroll interference
+  - Enables gesture library full control
+  - Improves responsiveness on high-latency mobile devices
+
+### Files Modified
+
+**New File:**
+- `apps/portal/src/components/pdf-viewer/use-pdf-gestures.ts` (114 LOC)
+  - `usePdfGestures()` hook exports: bind (gesture bindings), zoom (current zoom level), resetZoom (callback)
+  - Implementation: @use-gesture/react with swipe + pinch + double-tap handlers
+  - Type interfaces: UsePdfGesturesOptions (currentPage, totalPages, onPageChange), UsePdfGesturesReturn (bind, zoom, resetZoom)
+
+**Updated Files:**
+- `apps/portal/src/components/pdf-viewer/pdf-document.tsx`
+  - Added props: zoom (number, default 1), gestureBindings (optional gesture object)
+  - Applied gesture bindings to container div via spread {...(gestureBindings || {})}
+  - Render scale calculation updated: renderScale = fitScale × zoom × dpiMultiplier
+
+- `apps/portal/src/components/pdf-viewer/index.tsx`
+  - Integrated usePdfGestures hook with currentPage/totalPages/onPageChange
+  - Destructured bind and zoom from hook return
+  - Passed zoom prop to PdfDocument component
+  - Passed gestureBindings={bind()} to PdfDocument for gesture wire-up
+
+### Technical Details
+
+**Gesture Detection Constants:**
+- MIN_ZOOM = 1 (fit-to-width)
+- MAX_ZOOM = 3 (maximum readable magnification)
+- SWIPE_VELOCITY_THRESHOLD = 0.3 (sensitivity threshold)
+
+**Event Handlers:**
+1. `handleSwipe(direction, velocity)`: Pages left/right based on swipe direction and velocity
+2. `handlePinch(scale, first)`: Applies scale multiplier, tracks initial zoom, clamps to bounds
+3. `handleDoubleTap()`: Toggles between 1x and 2x zoom levels
+
+**Gesture Library Configuration:**
+- `onDrag` with swipe detection (X-axis only, filterTaps=true to exclude touch)
+- `onPinch` with scaleBounds enforcement
+- `onDoubleClick` (double-tap equivalent on touch)
+
+### UX Flow
+
+```
+User Touch Interaction
+  ↓
+1. Two-finger swipe left/right
+   → Page navigation (if zoom === 1)
+   → No action if zoomed (user expects pan)
+
+2. Two-finger pinch gesture
+   → Zoom in/out (1x to 3x range)
+   → Smooth scaling with initial position tracking
+
+3. Double-tap screen
+   → Toggle: 1x ↔ 2x zoom
+
+4. Pan when zoomed (implicit)
+   → Container scroll enabled when zoom > 1
+   → User scrolls to view zoomed content
+```
+
+### Accessibility & Performance
+- Touch-action CSS prevents scroll conflicts on iOS/Android
+- Velocity threshold filters accidental touch events
+- Bounds checking prevents over-zoom (max 3x)
+- Reset zoom button available in page indicator (Phase 04 feature)
+- No external API calls (gesture-based, offline-capable)
+
+### Code Quality
+- Type-safe: Full TypeScript interfaces for all props and returns
+- Modular: Gesture logic isolated in hook, reusable across components
+- Efficient: No unnecessary re-renders, refs for zoom tracking
+- Accessible: Keyboard support via Phase 04 controls (Phase 05 enhancement)
+
+### Foundation for Phase 04
+- Gestures complete mobile interaction model
+- Phase 04 will add auto-hiding controls (touch idle timeout)
+- Phase 05 will add keyboard shortcuts for desktop keyboard support (if porting to workspace)
 
 ---
 

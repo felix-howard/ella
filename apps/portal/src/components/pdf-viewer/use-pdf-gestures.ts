@@ -14,6 +14,8 @@ export interface UsePdfGesturesOptions {
   currentPage: number
   totalPages: number
   onPageChange: (page: number) => void
+  /** Called on any gesture interaction (swipe, pinch, double-tap) */
+  onInteraction?: () => void
 }
 
 export interface UsePdfGesturesReturn {
@@ -26,6 +28,7 @@ export function usePdfGestures({
   currentPage,
   totalPages,
   onPageChange,
+  onInteraction,
 }: UsePdfGesturesOptions): UsePdfGesturesReturn {
   const [zoom, setZoom] = useState(1)
   const initialZoomRef = useRef(1)
@@ -38,6 +41,9 @@ export function usePdfGestures({
   // Handle page navigation via swipe
   const handleSwipe = useCallback(
     (direction: number, velocity: number) => {
+      // Trigger interaction callback to reset auto-hide timer
+      onInteraction?.()
+
       // Disable swipe when zoomed - user expects pan instead
       if (zoom > 1) return
 
@@ -52,17 +58,20 @@ export function usePdfGestures({
         onPageChange(currentPage - 1)
       }
     },
-    [zoom, currentPage, totalPages, onPageChange]
+    [zoom, currentPage, totalPages, onPageChange, onInteraction]
   )
 
   // Handle double tap to toggle fit/2x zoom
   const handleDoubleTap = useCallback(() => {
+    onInteraction?.()
     setZoom((prev) => (prev === 1 ? 2 : 1))
-  }, [])
+  }, [onInteraction])
 
   // Handle pinch zoom with bounds
   const handlePinch = useCallback(
     (scale: number, first: boolean) => {
+      onInteraction?.()
+
       if (first) {
         initialZoomRef.current = zoom
       }
@@ -72,7 +81,7 @@ export function usePdfGestures({
       // Clamp to bounds
       setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom)))
     },
-    [zoom]
+    [zoom, onInteraction]
   )
 
   // Combined gesture binding

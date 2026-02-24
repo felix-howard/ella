@@ -12,6 +12,7 @@ import { cn, Button } from '@ella/ui'
 import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
+import { groupDocuments } from '../../lib/document-grouping'
 import { UnclassifiedSection } from './unclassified-section'
 import { FileCategorySection } from './file-category-section'
 import { EmptyCategoryDropZone } from './empty-category-drop-zone'
@@ -183,12 +184,27 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   }, [images])
 
   // Build flat navigation list for prev/next navigation in modals
-  // Order: by category (CATEGORY_ORDER), then by image order within each category
+  // Order: by category (CATEGORY_ORDER), then by grouped order (groups first, pages sorted)
+  // This matches the visual display order in FileCategorySection
   const navItems: FileNavItem[] = useMemo(() => {
     const items: FileNavItem[] = []
     for (const categoryKey of CATEGORY_ORDER) {
       const categoryImages = categorized[categoryKey]
-      for (const img of categoryImages) {
+      if (categoryImages.length === 0) continue
+
+      // Use same grouping logic as FileCategorySection for consistent order
+      const { groups, ungrouped } = groupDocuments(categoryImages)
+
+      // Groups first (each group's pages in order)
+      for (const group of groups) {
+        for (const img of group.images) {
+          const doc = docs.find((d) => d.rawImageId === img.id)
+          items.push({ imageId: img.id, doc, image: img })
+        }
+      }
+
+      // Then ungrouped
+      for (const img of ungrouped) {
         const doc = docs.find((d) => d.rawImageId === img.id)
         items.push({ imageId: img.id, doc, image: img })
       }

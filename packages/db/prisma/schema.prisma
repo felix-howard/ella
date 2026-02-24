@@ -37,10 +37,21 @@ enum DocType {
   PASSPORT
   BIRTH_CERTIFICATE
   ITIN_LETTER
+  MARRIAGE_CERTIFICATE
+  DIVORCE_DECREE
+  GREEN_CARD
+  WORK_VISA
+  NATURALIZATION_CERTIFICATE
+  POWER_OF_ATTORNEY
 
   // Employment Income
   W2
   W2G                    // Gambling winnings
+  PAY_STUB
+  EMPLOYMENT_CONTRACT
+  STOCK_OPTION_AGREEMENT
+  RSU_STATEMENT
+  ESPP_STATEMENT
 
   // 1099 Series - Various Income
   FORM_1099_INT          // Bank interest
@@ -56,6 +67,17 @@ enum DocType {
   FORM_1099_C            // Cancellation of debt
   FORM_1099_SA           // HSA distributions
   FORM_1099_Q            // 529 distributions
+  FORM_1099_A            // Acquisition or Abandonment
+  FORM_1099_CAP          // Corp Control Changes
+  FORM_1099_H            // Health Coverage Tax Credit
+  FORM_1099_LS           // Life Insurance Sale
+  FORM_1099_LTC          // Long-Term Care Benefits
+  FORM_1099_OID          // Original Issue Discount
+  FORM_1099_PATR         // Patronage Dividends
+  FORM_1099_QA           // ABLE Account Distributions
+  FORM_1099_SB           // Seller's Investment in Life Insurance
+  RRB_1099               // Railroad Retirement
+  RRB_1099_R             // Railroad Retirement Tier 2
 
   // K-1 Forms (Pass-through income)
   SCHEDULE_K1            // Generic K-1
@@ -88,6 +110,13 @@ enum DocType {
   PAYROLL_REPORT         // 941, W-3, etc.
   DEPRECIATION_SCHEDULE
   VEHICLE_MILEAGE_LOG
+  PARTNERSHIP_AGREEMENT
+  SHAREHOLDER_AGREEMENT
+  BUSINESS_INVOICE
+  ACCOUNTS_RECEIVABLE
+  ACCOUNTS_PAYABLE
+  INVENTORY_REPORT
+  SALES_TAX_REPORT
 
   // Receipts & Supporting Docs
   RECEIPT                // Generic receipt
@@ -96,6 +125,7 @@ enum DocType {
   MEDICAL_RECEIPT
   PROPERTY_TAX_STATEMENT
   ESTIMATED_TAX_PAYMENT
+  RENT_RECEIPT
 
   // Prior Year / IRS
   PRIOR_YEAR_RETURN
@@ -103,6 +133,9 @@ enum DocType {
 
   // Crypto
   CRYPTO_STATEMENT
+  CRYPTO_TAX_REPORT
+  CRYPTO_TRANSACTION_HISTORY
+  STAKING_REWARDS
 
   // Foreign
   FOREIGN_BANK_STATEMENT
@@ -113,6 +146,10 @@ enum DocType {
   // Real Estate / Home Sale
   CLOSING_DISCLOSURE         // HUD closing statement
   LEASE_AGREEMENT            // Rental lease contracts
+  HUD_1
+  PROPERTY_DEED
+  HOME_APPRAISAL
+  PMI_STATEMENT
 
   // Credits / Energy
   EV_PURCHASE_AGREEMENT      // Electric vehicle purchase docs
@@ -140,6 +177,91 @@ enum DocType {
   SCHEDULE_1             // Additional Income and Adjustments to Income
   SCHEDULE_D             // Capital Gains and Losses
   SCHEDULE_E             // Supplemental Income and Loss (Rental, Royalties, etc.)
+  SCHEDULE_2             // Additional Taxes
+  SCHEDULE_3             // Additional Credits and Payments
+  SCHEDULE_A             // Itemized Deductions
+  SCHEDULE_B             // Interest and Dividends
+  SCHEDULE_EIC           // Earned Income Credit
+  SCHEDULE_F             // Farm Income
+  SCHEDULE_H             // Household Employment
+  SCHEDULE_J             // Income Averaging
+  SCHEDULE_R             // Credit for Elderly/Disabled
+  SCHEDULE_8812          // Additional Child Tax Credit
+
+  // Critical IRS Forms
+  FORM_2210              // Underpayment Penalty
+  FORM_2441              // Child Care Expenses
+  FORM_2555              // Foreign Earned Income
+  FORM_3903              // Moving Expenses
+  FORM_4562              // Depreciation & Amortization
+  FORM_4684              // Casualties and Thefts
+  FORM_4797              // Sales of Business Property
+  FORM_4868              // Extension to File
+  FORM_5329              // Additional Tax on Qualified Plans
+  FORM_5695              // Residential Energy Credits
+  FORM_6251              // Alternative Minimum Tax
+  FORM_8283              // Noncash Charitable Contributions
+  FORM_8379              // Injured Spouse Allocation
+  FORM_8582              // Passive Activity Loss
+  FORM_8606              // Nondeductible IRAs
+  FORM_8829              // Home Office Expenses
+  FORM_8863              // Education Credits
+  FORM_8880              // Retirement Savings Credit
+  FORM_8889              // HSA Deductions
+  FORM_8936              // EV Credit
+  FORM_8949              // Sales of Capital Assets
+  FORM_8959              // Additional Medicare Tax
+  FORM_8960              // Net Investment Income Tax
+  FORM_8962              // Premium Tax Credit
+  FORM_8995              // QBI Deduction
+  FORM_8995_A            // QBI Deduction (Complex)
+
+  // Investment Documents
+  BROKERAGE_STATEMENT
+  TRADE_CONFIRMATION
+  COST_BASIS_STATEMENT
+  MUTUAL_FUND_STATEMENT
+  DIVIDEND_REINVESTMENT
+
+  // Retirement Documents
+  PENSION_STATEMENT
+  IRA_STATEMENT
+  STATEMENT_401K
+  ROTH_IRA_STATEMENT
+  RMD_STATEMENT
+
+  // Healthcare Documents
+  MEDICAL_BILL
+  INSURANCE_EOB
+  HSA_STATEMENT
+  FSA_STATEMENT
+
+  // Insurance Documents
+  AUTO_INSURANCE
+  HOME_INSURANCE
+  LIFE_INSURANCE_STATEMENT
+  DISABILITY_INSURANCE
+
+  // Legal Documents
+  COURT_ORDER
+  SETTLEMENT_AGREEMENT
+  ALIMONY_AGREEMENT
+  CHILD_SUPPORT_ORDER
+  BANKRUPTCY_DOCUMENTS
+
+  // Childcare Documents
+  DAYCARE_STATEMENT
+  DEPENDENT_CARE_FSA
+  NANNY_DOCUMENTATION
+
+  // Gambling Documents
+  GAMBLING_LOSS_STATEMENT
+
+  // Miscellaneous Documents
+  BANK_LETTER
+  LOAN_STATEMENT
+  MEMBERSHIP_DUES
+  PROFESSIONAL_LICENSE
 
   // Other
   OTHER

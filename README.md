@@ -12,7 +12,7 @@ Ella streamlines tax preparation workflows by automating document collection, cl
 
 ### Document Management
 - Client magic link upload portal (passwordless access)
-- AI-powered document classification (89+ tax document types)
+- AI-powered document classification (180+ tax document types)
 - OCR data extraction (W2, 1099s, K-1, bank statements)
 - Document verification workflow with staff review
 - Duplicate detection and auto-categorization

@@ -816,7 +816,7 @@ Frontend Hook (useOrgRole)
 - Image validation: JPEG, PNG, WebP, HEIC (10MB max)
 - Retry logic: 3 attempts, exponential backoff
 - Batch processing: 3 concurrent images
-- Classification: Multi-class tax form detection (89+ types)
+- Classification: Multi-class tax form detection (180+ types)
 - OCR: W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A
 - Confidence scoring for verification workflow
 

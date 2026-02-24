@@ -12,10 +12,21 @@ export const SUPPORTED_DOC_TYPES = [
   'PASSPORT',
   'BIRTH_CERTIFICATE',
   'ITIN_LETTER',
+  'MARRIAGE_CERTIFICATE',
+  'DIVORCE_DECREE',
+  'GREEN_CARD',
+  'WORK_VISA',
+  'NATURALIZATION_CERTIFICATE',
+  'POWER_OF_ATTORNEY',
 
   // Employment Income
   'W2',
   'W2G',
+  'PAY_STUB',
+  'EMPLOYMENT_CONTRACT',
+  'STOCK_OPTION_AGREEMENT',
+  'RSU_STATEMENT',
+  'ESPP_STATEMENT',
 
   // 1099 Series - Various Income
   'FORM_1099_INT',
@@ -31,6 +42,17 @@ export const SUPPORTED_DOC_TYPES = [
   'FORM_1099_C',
   'FORM_1099_SA',
   'FORM_1099_Q',
+  'FORM_1099_A',
+  'FORM_1099_CAP',
+  'FORM_1099_H',
+  'FORM_1099_LS',
+  'FORM_1099_LTC',
+  'FORM_1099_OID',
+  'FORM_1099_PATR',
+  'FORM_1099_QA',
+  'FORM_1099_SB',
+  'RRB_1099',
+  'RRB_1099_R',
 
   // K-1 Forms (Pass-through income)
   'SCHEDULE_K1',
@@ -63,6 +85,13 @@ export const SUPPORTED_DOC_TYPES = [
   'PAYROLL_REPORT',
   'DEPRECIATION_SCHEDULE',
   'VEHICLE_MILEAGE_LOG',
+  'PARTNERSHIP_AGREEMENT',
+  'SHAREHOLDER_AGREEMENT',
+  'BUSINESS_INVOICE',
+  'ACCOUNTS_RECEIVABLE',
+  'ACCOUNTS_PAYABLE',
+  'INVENTORY_REPORT',
+  'SALES_TAX_REPORT',
 
   // Receipts & Supporting Docs
   'RECEIPT',
@@ -71,6 +100,7 @@ export const SUPPORTED_DOC_TYPES = [
   'MEDICAL_RECEIPT',
   'PROPERTY_TAX_STATEMENT',
   'ESTIMATED_TAX_PAYMENT',
+  'RENT_RECEIPT',
 
   // Prior Year / IRS
   'PRIOR_YEAR_RETURN',
@@ -78,6 +108,9 @@ export const SUPPORTED_DOC_TYPES = [
 
   // Crypto
   'CRYPTO_STATEMENT',
+  'CRYPTO_TAX_REPORT',
+  'CRYPTO_TRANSACTION_HISTORY',
+  'STAKING_REWARDS',
 
   // Foreign
   'FOREIGN_BANK_STATEMENT',
@@ -88,6 +121,10 @@ export const SUPPORTED_DOC_TYPES = [
   // Real Estate / Home Sale
   'CLOSING_DISCLOSURE',
   'LEASE_AGREEMENT',
+  'HUD_1',
+  'PROPERTY_DEED',
+  'HOME_APPRAISAL',
+  'PMI_STATEMENT',
 
   // Credits / Energy
   'EV_PURCHASE_AGREEMENT',
@@ -115,6 +152,91 @@ export const SUPPORTED_DOC_TYPES = [
   'SCHEDULE_1',
   'SCHEDULE_D',
   'SCHEDULE_E',
+  'SCHEDULE_2',
+  'SCHEDULE_3',
+  'SCHEDULE_A',
+  'SCHEDULE_B',
+  'SCHEDULE_EIC',
+  'SCHEDULE_F',
+  'SCHEDULE_H',
+  'SCHEDULE_J',
+  'SCHEDULE_R',
+  'SCHEDULE_8812',
+
+  // Critical IRS Forms
+  'FORM_2210',
+  'FORM_2441',
+  'FORM_2555',
+  'FORM_3903',
+  'FORM_4562',
+  'FORM_4684',
+  'FORM_4797',
+  'FORM_4868',
+  'FORM_5329',
+  'FORM_5695',
+  'FORM_6251',
+  'FORM_8283',
+  'FORM_8379',
+  'FORM_8582',
+  'FORM_8606',
+  'FORM_8829',
+  'FORM_8863',
+  'FORM_8880',
+  'FORM_8889',
+  'FORM_8936',
+  'FORM_8949',
+  'FORM_8959',
+  'FORM_8960',
+  'FORM_8962',
+  'FORM_8995',
+  'FORM_8995_A',
+
+  // Investment Documents
+  'BROKERAGE_STATEMENT',
+  'TRADE_CONFIRMATION',
+  'COST_BASIS_STATEMENT',
+  'MUTUAL_FUND_STATEMENT',
+  'DIVIDEND_REINVESTMENT',
+
+  // Retirement Documents
+  'PENSION_STATEMENT',
+  'IRA_STATEMENT',
+  'STATEMENT_401K',
+  'ROTH_IRA_STATEMENT',
+  'RMD_STATEMENT',
+
+  // Healthcare Documents
+  'MEDICAL_BILL',
+  'INSURANCE_EOB',
+  'HSA_STATEMENT',
+  'FSA_STATEMENT',
+
+  // Insurance Documents
+  'AUTO_INSURANCE',
+  'HOME_INSURANCE',
+  'LIFE_INSURANCE_STATEMENT',
+  'DISABILITY_INSURANCE',
+
+  // Legal Documents
+  'COURT_ORDER',
+  'SETTLEMENT_AGREEMENT',
+  'ALIMONY_AGREEMENT',
+  'CHILD_SUPPORT_ORDER',
+  'BANKRUPTCY_DOCUMENTS',
+
+  // Childcare Documents
+  'DAYCARE_STATEMENT',
+  'DEPENDENT_CARE_FSA',
+  'NANNY_DOCUMENTATION',
+
+  // Gambling Documents
+  'GAMBLING_LOSS_STATEMENT',
+
+  // Miscellaneous Documents
+  'BANK_LETTER',
+  'LOAN_STATEMENT',
+  'MEMBERSHIP_DUES',
+  'PROFESSIONAL_LICENSE',
 
   // Other
   'OTHER',
@@ -186,6 +308,26 @@ Response: {"docType":"STATE_TAX_RETURN","confidence":0.90,"reasoning":"Californi
 EXAMPLE 10 - Schedule C (Self-Employment):
 Image shows: "SCHEDULE C (Form 1040)" header, "Profit or Loss From Business" subtitle, "(Sole Proprietorship)" indicator, six-digit principal business code, Part I Income with gross receipts Line 1, Part II Expenses Lines 8-27, net profit Line 31
 Response: {"docType":"SCHEDULE_C","confidence":0.92,"reasoning":"Schedule C form identified by 'Profit or Loss From Business' subtitle, sole proprietorship designation, IRS line number structure for business income and expenses","taxYear":2024,"recipientName":"NGUYEN VAN ANH"}
+
+EXAMPLE 11 - Form 5695 (Residential Energy Credits):
+Image shows: "Form 5695" title, "Residential Energy Credits" subtitle, Part I for nonbusiness energy property, Part II for residential energy efficient property, Line 13 total credits
+Response: {"docType":"FORM_5695","confidence":0.91,"reasoning":"Form 5695 identified by 'Residential Energy Credits' header, has solar/wind/geothermal sections in Part II, total credit calculation","taxYear":2024}
+
+EXAMPLE 12 - Form 8962 (Premium Tax Credit):
+Image shows: "Form 8962" title, "Premium Tax Credit (PTC)" subtitle, Part I annual/monthly amounts, Part II-III marketplace information, reconciliation of advance payments
+Response: {"docType":"FORM_8962","confidence":0.90,"reasoning":"Form 8962 with Premium Tax Credit header, references Form 1095-A data, has PTC reconciliation sections","taxYear":2024}
+
+EXAMPLE 13 - Form 4562 (Depreciation):
+Image shows: "Form 4562" title, "Depreciation and Amortization" subtitle, Part I Section 179 deduction, Part II special depreciation allowance, Part III MACRS depreciation, asset listings
+Response: {"docType":"FORM_4562","confidence":0.92,"reasoning":"Form 4562 identified by depreciation sections, Section 179 election area, MACRS tables, attached to Schedule C or E","taxYear":2024}
+
+EXAMPLE 14 - Form 8949 (Capital Asset Sales):
+Image shows: "Form 8949" title, "Sales and Other Dispositions of Capital Assets" subtitle, checkbox for 1099-B reporting, Part I short-term (A/B/C), Part II long-term (D/E/F), columns for description/date acquired/date sold/proceeds/cost basis/gain or loss
+Response: {"docType":"FORM_8949","confidence":0.91,"reasoning":"Form 8949 with individual transaction rows, references Schedule D, has checkbox for 1099-B basis reporting type","taxYear":2024}
+
+EXAMPLE 15 - Schedule A (Itemized Deductions):
+Image shows: "SCHEDULE A (Form 1040)" header, "Itemized Deductions" subtitle, sections for medical expenses, state/local taxes, mortgage interest, charitable contributions, casualty losses
+Response: {"docType":"SCHEDULE_A","confidence":0.92,"reasoning":"Schedule A with itemized deduction categories, medical expense threshold calculation, SALT limitation reference","taxYear":2024}
 `
 
 /**
@@ -243,9 +385,19 @@ IDENTIFICATION DOCUMENTS:
 - SSN_CARD: Social Security Card (blue/white card with 9-digit SSN)
 - DRIVER_LICENSE: Driver's license or state ID card (has photo, license number)
 - PASSPORT: US or foreign passport (has photo, passport number)
+- BIRTH_CERTIFICATE: Birth certificate (for dependents)
+- ITIN_LETTER: IRS ITIN assignment letter (9XX-XX-XXXX format)
+- MARRIAGE_CERTIFICATE: Marriage certificate for filing status
+- DIVORCE_DECREE: Divorce decree for filing status changes
+- GREEN_CARD: Permanent resident card (I-551)
+- WORK_VISA: Employment authorization (H1B, L1, etc.)
+- NATURALIZATION_CERTIFICATE: Certificate of naturalization (N-550/N-570)
+- POWER_OF_ATTORNEY: POA documents (Form 2848 or legal POA)
 
 TAX FORMS - INCOME:
 - W2: Form W-2 Wage and Tax Statement (employer-issued, shows wages Box 1, tax Box 2)
+- W2G: Form W-2G Gambling Winnings (casino winnings, lottery prizes)
+- PAY_STUB: Pay stub/paycheck statement (not W-2, shows gross pay, deductions)
 - FORM_1099_INT: Form 1099-INT Interest Income (from banks, interest in Box 1)
 - FORM_1099_DIV: Form 1099-DIV Dividend Income (dividends in Box 1a/1b)
 - FORM_1099_NEC: Form 1099-NEC Nonemployee Compensation (contractor income Box 1)
@@ -254,18 +406,72 @@ TAX FORMS - INCOME:
 - FORM_1099_R: Form 1099-R Retirement Distributions (401k, IRA, pension withdrawals)
 - FORM_1099_G: Form 1099-G Government Payments (unemployment, state tax refunds)
 - FORM_1099_SSA: Form SSA-1099 Social Security Benefits (benefits in Box 5)
+- FORM_1099_B: Form 1099-B Broker Sales (stock/securities sales, cost basis)
+- FORM_1099_S: Form 1099-S Real Estate Proceeds (home/property sales)
+- FORM_1099_C: Form 1099-C Cancellation of Debt (forgiven debt as income)
+- FORM_1099_A: Form 1099-A Acquisition/Abandonment of Property
+- FORM_1099_OID: Form 1099-OID Original Issue Discount (bond discount)
+- FORM_1099_LTC: Form 1099-LTC Long-Term Care Benefits
+- RRB_1099: Railroad Retirement Form RRB-1099
+- RRB_1099_R: Railroad Retirement Form RRB-1099-R (annuity)
 - SCHEDULE_K1: Schedule K-1 Partnership Income (Form 1065 or 1120S)
 
 TAX FORMS - DEDUCTIONS/CREDITS:
 - FORM_1098: Form 1098 Mortgage Interest Statement (mortgage interest Box 1)
 - FORM_1098_T: Form 1098-T Tuition Statement (education credits)
+- FORM_1098_E: Form 1098-E Student Loan Interest (interest paid Box 1)
 - FORM_1095_A: Form 1095-A Health Insurance Marketplace Statement
+- FORM_1095_B: Form 1095-B Health Coverage (employer/insurer provided)
+- FORM_1095_C: Form 1095-C Employer Health Coverage (ALE reporting)
+- FORM_5498_SA: Form 5498-SA HSA Contributions (HSA/MSA contributions)
+
+CRITICAL IRS FORMS (Schedules & Credits):
+- FORM_5695: Form 5695 Residential Energy Credits (solar, wind, geothermal - Part I nonbusiness, Part II qualified property)
+- FORM_8962: Form 8962 Premium Tax Credit (reconciles 1095-A marketplace coverage)
+- FORM_4562: Form 4562 Depreciation & Amortization (Section 179, MACRS depreciation tables)
+- FORM_8949: Form 8949 Sales of Capital Assets (individual transaction detail, feeds Schedule D)
+- FORM_2441: Form 2441 Child Care Expenses (dependent care credit)
+- FORM_8829: Form 8829 Home Office Expenses (home business use percentage)
+- FORM_8863: Form 8863 Education Credits (AOTC, Lifetime Learning)
+- FORM_8889: Form 8889 HSA Deduction (HSA contributions and distributions)
+- FORM_8995: Form 8995 QBI Deduction (Qualified Business Income - simple)
+- FORM_8995_A: Form 8995-A QBI Deduction (Complex - multiple businesses)
+- FORM_8606: Form 8606 Nondeductible IRAs (basis tracking)
+- FORM_6251: Form 6251 Alternative Minimum Tax (AMT calculation)
 
 BUSINESS DOCUMENTS:
 - BANK_STATEMENT: Bank account statements (monthly/quarterly, shows transactions)
-- PROFIT_LOSS_STATEMENT: Business P&L statements
+- PROFIT_LOSS_STATEMENT: Business P&L statements (company letterhead, not IRS form)
 - BUSINESS_LICENSE: Business license or registration certificate
 - EIN_LETTER: IRS EIN assignment letter (CP 575, shows XX-XXXXXXX number)
+- PARTNERSHIP_AGREEMENT: Partnership operating agreement
+- SHAREHOLDER_AGREEMENT: S-Corp/C-Corp shareholder agreement
+- BUSINESS_INVOICE: Business invoice sent to customers
+- SALES_TAX_REPORT: State sales tax filings
+
+INVESTMENT DOCUMENTS:
+- BROKERAGE_STATEMENT: Brokerage account statement (holdings, transactions)
+- TRADE_CONFIRMATION: Individual trade confirmations (buy/sell)
+- COST_BASIS_STATEMENT: Cost basis report from broker
+- MUTUAL_FUND_STATEMENT: Mutual fund account statement
+- CRYPTO_TAX_REPORT: Cryptocurrency tax report (8949 format from exchanges)
+- CRYPTO_TRANSACTION_HISTORY: Raw crypto transaction history
+
+RETIREMENT DOCUMENTS:
+- PENSION_STATEMENT: Pension benefit statement (not 1099-R)
+- IRA_STATEMENT: IRA account statement (balance, contributions)
+- STATEMENT_401K: 401(k) account statement (balance, contributions)
+- ROTH_IRA_STATEMENT: Roth IRA account statement
+- RMD_STATEMENT: Required Minimum Distribution statement
+
+REAL ESTATE DOCUMENTS:
+- CLOSING_DISCLOSURE: HUD Closing Disclosure (home purchase/sale)
+- HUD_1: HUD-1 Settlement Statement (older format)
+- LEASE_AGREEMENT: Rental lease contract
+- PROPERTY_DEED: Property deed/title
+- HOME_APPRAISAL: Property appraisal report
+- PROPERTY_TAX_STATEMENT: Property tax bill/statement
+- PMI_STATEMENT: Private Mortgage Insurance statement
 
 TAX RETURNS - Filed Returns & Transcripts:
 - FORM_1040: Form 1040 U.S. Individual Income Tax Return (multi-page, IRS logo, tax year header, filing status checkboxes, income summary Lines 1-15, AGI Line 11, total tax Line 24, refund Line 35a)
@@ -296,6 +502,46 @@ DISAMBIGUATION RULES FOR SCHEDULES:
 - Schedule E vs Schedule C: Schedule E = passive rental income; Schedule C = active business income
 - Schedule 1 vs Form 1040: Schedule 1 is attachment showing additional income; Form 1040 is main return
 - Schedule SE vs W-2: Schedule SE calculates self-employment tax; W-2 shows employer withholding
+- Schedule A vs receipts: Schedule A is IRS form for itemized deductions; receipts are source docs
+- Schedule 8812 vs Form 8812: Same form - use SCHEDULE_8812 for Additional Child Tax Credit
+
+DISAMBIGUATION RULES FOR CREDITS/DEDUCTIONS:
+- Form 5695 vs ENERGY_CREDIT_INVOICE: Form 5695 is IRS form; invoice is purchase receipt
+- Form 8962 vs Form 1095-A: Form 8962 calculates PTC; Form 1095-A reports marketplace coverage
+- Form 4562 vs DEPRECIATION_SCHEDULE: Form 4562 is IRS form; depreciation schedule is supporting doc
+- Form 8949 vs BROKERAGE_STATEMENT: Form 8949 is IRS form; brokerage statement is source doc
+- Form 2441 vs DAYCARE_RECEIPT: Form 2441 calculates credit; receipt is source doc
+
+DISAMBIGUATION RULES FOR 1099 VARIANTS:
+- 1099-INT vs 1099-DIV: INT = interest only; DIV = dividends (may include interest)
+- 1099-K vs 1099-NEC: 1099-K from payment processors (Square, PayPal); 1099-NEC from payer company
+- 1099-R vs RRB-1099-R: 1099-R from retirement plans; RRB from Railroad Retirement
+- 1099-B vs BROKERAGE_STATEMENT: 1099-B is tax form; brokerage statement is account summary
+- 1099-SSA vs RRB-1099: SSA from Social Security; RRB from Railroad Retirement
+
+DISAMBIGUATION RULES FOR IDENTITY DOCS:
+- SSN_CARD vs ITIN_LETTER: SSN has 9-digit XXX-XX-XXXX; ITIN starts with 9 (9XX-XX-XXXX)
+- GREEN_CARD vs WORK_VISA: Green card is permanent; visa is temporary authorization
+- PASSPORT vs DRIVER_LICENSE: Passport for travel/citizenship; DL for state ID
+
+HEALTHCARE DOCUMENTS:
+- MEDICAL_BILL: Medical bills/invoices (hospital, doctor charges)
+- INSURANCE_EOB: Explanation of Benefits from insurer
+- HSA_STATEMENT: HSA account statement (not Form 5498-SA)
+- FSA_STATEMENT: FSA account statement
+
+LEGAL DOCUMENTS:
+- COURT_ORDER: Court orders (custody, support)
+- ALIMONY_AGREEMENT: Alimony/spousal support agreement
+- CHILD_SUPPORT_ORDER: Child support order
+- SETTLEMENT_AGREEMENT: Legal settlement documents
+- BANKRUPTCY_DOCUMENTS: Bankruptcy filings
+
+CHILDCARE DOCUMENTS:
+- DAYCARE_STATEMENT: Daycare/childcare provider statement (EIN, amount paid)
+- DAYCARE_RECEIPT: Individual daycare receipts
+- DEPENDENT_CARE_FSA: Dependent Care FSA statement
+- NANNY_DOCUMENTATION: Nanny employment records (W-2/W-4, payments)
 
 OTHER DOCUMENTS:
 - RECEIPT: General receipts, invoices, purchase records

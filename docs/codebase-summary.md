@@ -143,11 +143,11 @@
 - **Home Page (Phase 03 + Killer Features Phase 01):** 7-section layout (Hero, Stats, Features, How It Works, Testimonials, CTA, Contact Form)
   - Hero: SMS-first positioning. Eyebrow "SMS-First Document Collection". Headline "Clients text docs to your Ella number. No app. No friction." Subheadline emphasizes SMS-first messaging.
   - Stats: 1M documents processed, 500 tax firms, 99% accuracy, 80% time saved (animated counters with Phase 08)
-  - Features: 4 cards prioritized SMS-first. SMS Direct Upload (clients text to Ella number), AI Auto-Rename (IMG_xxx → 2024_W2_Employer_Name.pdf), AI Classification (89+ tax docs), Smart OCR (extract income data)
+  - Features: 4 cards prioritized SMS-first. SMS Direct Upload (clients text to Ella number), AI Auto-Rename (IMG_xxx → 2024_W2_Employer_Name.pdf), AI Classification (180+ tax docs), Smart OCR (extract income data)
 - **Features Page (Phase 02):** 8 detailed feature sections with alternating zigzag layout, icons, descriptions, benefits bullets, image placeholders
   - SMS Direct Upload: Clients text docs to firm's Twilio number, no app/password required, processes via AI classification
   - AI Auto-Rename: Transforms IMG_2847.jpg → structured pattern (YEAR_DOCTYPE_SOURCE_CLIENT), filters duplicates/irrelevant uploads
-  - AI Classification: 89+ tax document types (W-2s, 1099s, K-1s, bank statements), 99% accuracy with confidence scoring
+  - AI Classification: 180+ tax document types (W-2s, 1099s, K-1s, bank statements, schedules, forms, and more), 99% accuracy with confidence scoring
   - Data Extraction (OCR): Extracts income figures, employer details, dates from forms into structured fields, export to CSV or tax software
   - Client Portal Upload: Passwordless magic link, drag-drop interface, mobile-friendly, email notifications on upload
   - Team Management: Role-based access (Admin/Staff), assign clients to staff, task queues, audit trail for compliance

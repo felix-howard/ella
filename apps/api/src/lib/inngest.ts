@@ -49,12 +49,26 @@ export type DocumentClassifiedEvent = {
 }
 
 /**
+ * Event payload for batch document grouping
+ * Triggered manually via API endpoint
+ * @phase Manual Document Grouping Refactor
+ */
+export type DocumentGroupBatchEvent = {
+  data: {
+    caseId: string
+    forceRegroup?: boolean
+    triggeredBy?: string // staffId who triggered
+  }
+}
+
+/**
  * Event map for type-safe event handling
  */
 export type Events = {
   'document/uploaded': DocumentUploadedEvent
   'document/classification.complete': ClassificationCompleteEvent
   'document/classified': DocumentClassifiedEvent
+  'document/group-batch': DocumentGroupBatchEvent
 }
 
 /**

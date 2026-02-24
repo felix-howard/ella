@@ -83,9 +83,15 @@ export const caseIdParamSchema = z.object({
   id: z.string().min(1).regex(/^c[a-z0-9]{24}$/, 'Invalid case ID format'),
 })
 
+// Group documents schema for manual batch grouping
+export const groupDocumentsSchema = z.object({
+  forceRegroup: z.boolean().optional().default(false),
+})
+
 // Type exports
 export type CreateCaseInput = z.infer<typeof createCaseSchema>
 export type UpdateCaseInput = z.infer<typeof updateCaseSchema>
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>
 export type AddChecklistItemInput = z.infer<typeof addChecklistItemSchema>
 export type SkipChecklistItemInput = z.infer<typeof skipChecklistItemSchema>
+export type GroupDocumentsInput = z.infer<typeof groupDocumentsSchema>

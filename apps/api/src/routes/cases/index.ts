@@ -19,7 +19,9 @@ import {
   skipChecklistItemSchema,
   updateChecklistItemNotesSchema,
   caseIdParamSchema,
+  groupDocumentsSchema,
 } from './schemas'
+import { inngest } from '../../lib/inngest'
 import { generateChecklist } from '../../services/checklist-generator'
 import { getSignedDownloadUrl } from '../../services/storage'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
@@ -793,6 +795,86 @@ casesRoute.post(
     })
 
     return c.json({ success: true })
+  }
+)
+
+// In-memory rate limiter for group-documents endpoint (per caseId)
+const groupingInProgress = new Map<string, number>()
+const GROUPING_COOLDOWN_MS = 30000 // 30 seconds between triggers for same case
+
+// POST /cases/:id/group-documents - Trigger batch document grouping (staff-only)
+casesRoute.post(
+  '/:id/group-documents',
+  zValidator('param', caseIdParamSchema),
+  zValidator('json', groupDocumentsSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { forceRegroup } = c.req.valid('json')
+    const user = c.get('user')
+
+    // M1: Staff-only restriction
+    if (!user.staffId) {
+      return c.json({ error: 'FORBIDDEN', message: 'Only staff can trigger grouping' }, 403)
+    }
+
+    // H2: Rate limiting - prevent concurrent triggers for same case
+    const lastTrigger = groupingInProgress.get(id)
+    if (lastTrigger && Date.now() - lastTrigger < GROUPING_COOLDOWN_MS) {
+      const remainingSec = Math.ceil((GROUPING_COOLDOWN_MS - (Date.now() - lastTrigger)) / 1000)
+      return c.json({
+        error: 'RATE_LIMITED',
+        message: `Grouping already in progress. Try again in ${remainingSec}s`
+      }, 429)
+    }
+
+    // Verify case exists and belongs to user's org
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id, ...buildNestedClientScope(user) },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            rawImages: { where: { status: { in: ['CLASSIFIED', 'LINKED'] } } }
+          }
+        }
+      },
+    })
+
+    if (!taxCase) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    // Check if there are documents to group
+    const classifiedCount = taxCase._count.rawImages
+    if (classifiedCount === 0) {
+      return c.json({
+        error: 'NO_DOCUMENTS',
+        message: 'No classified documents to group'
+      }, 400)
+    }
+
+    // Set rate limit before triggering
+    groupingInProgress.set(id, Date.now())
+
+    // M2: Audit logging
+    console.log(`[Manual Grouping] caseId=${id} staffId=${user.staffId} forceRegroup=${forceRegroup} docCount=${classifiedCount}`)
+
+    // Trigger Inngest batch grouping job
+    const { ids } = await inngest.send({
+      name: 'document/group-batch',
+      data: {
+        caseId: id,
+        forceRegroup,
+        triggeredBy: user.staffId,
+      },
+    })
+
+    return c.json({
+      success: true,
+      jobId: ids[0],
+      documentCount: classifiedCount,
+      message: `Grouping started for ${classifiedCount} documents`,
+    })
   }
 )
 

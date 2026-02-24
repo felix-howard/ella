@@ -632,6 +632,7 @@ model RawImage {
   imageHash       String?        // Perceptual hash (pHash) for duplicate detection
   imageGroupId    String?
   imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
+  duplicateOfId   String?        // ID of original image this duplicates (for UI badge/link)
 
   // AI metadata for fallback rename and multi-page detection (Phase 2+3)
   // { fallbackRename: boolean, documentTitle: string, pageInfo: {...}, reasoning: string }

@@ -130,10 +130,10 @@ const DuplicateDocItem = memo(function DuplicateDocItem({
         </div>
       </div>
 
-      {/* Filename - single line with truncation */}
+      {/* Display name - single line with truncation */}
       <div className="px-1.5 py-1">
-        <p className="text-[10px] text-foreground truncate" title={image.filename}>
-          {image.filename}
+        <p className="text-[10px] text-foreground truncate" title={image.displayName || image.filename}>
+          {image.displayName || image.filename}
         </p>
       </div>
 

@@ -193,21 +193,48 @@ export async function markImageUnclassified(rawImageId: string) {
 }
 
 /**
- * Mark image as duplicate and store hash
+ * Mark image as duplicate and copy metadata from original
  * Called when pre-classification duplicate check finds a match
+ * Copies displayName, classifiedType, category from matched original so duplicate shows proper name
  */
 export async function markImageDuplicate(
   rawImageId: string,
   imageHash: string,
   groupId: string | null,
-  _matchedImageId: string | null // Kept for future use (e.g., logging, linking)
+  matchedImageId: string | null
 ): Promise<void> {
+  // Fetch original image data to copy displayName, classifiedType, category
+  let copyData: {
+    displayName: string | null
+    classifiedType: DocType | null
+    category: string | null
+  } = { displayName: null, classifiedType: null, category: null }
+
+  if (matchedImageId) {
+    const originalImage = await prisma.rawImage.findUnique({
+      where: { id: matchedImageId },
+      select: { displayName: true, classifiedType: true, category: true },
+    })
+    if (originalImage) {
+      copyData = {
+        displayName: originalImage.displayName,
+        classifiedType: originalImage.classifiedType,
+        category: originalImage.category,
+      }
+    }
+  }
+
   await prisma.rawImage.update({
     where: { id: rawImageId },
     data: {
       status: 'DUPLICATE' as RawImageStatus,
       imageHash,
       imageGroupId: groupId,
+      duplicateOfId: matchedImageId,
+      // Copy from original so duplicate shows proper name in UI
+      ...(copyData.displayName && { displayName: `${copyData.displayName} (Duplicate)` }),
+      ...(copyData.classifiedType && { classifiedType: copyData.classifiedType }),
+      ...(copyData.category && { category: copyData.category }),
     },
   })
 }

@@ -321,8 +321,35 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     })
 
-    // Early return if duplicate found - skip AI classification (cost saving)
+    // Handle duplicate - still need meaningful displayName before returning
     if (duplicateCheck.isDuplicate) {
+      // Check if original has displayName - if not, run smart rename
+      const originalImage = duplicateCheck.matchedImageId
+        ? await prisma.rawImage.findUnique({
+            where: { id: duplicateCheck.matchedImageId },
+            select: { displayName: true, classifiedType: true, category: true },
+          })
+        : null
+
+      // If original has no displayName, generate one via smart rename
+      if (!originalImage?.displayName) {
+        const buffer = fileBuffer!
+        const smartRename = await generateSmartFilename(buffer, imageData.mimeType)
+
+        if (smartRename && smartRename.suggestedFilename) {
+          // Use smart rename for this duplicate
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              displayName: `${smartRename.suggestedFilename} (Duplicate)`,
+              category: 'OTHER',
+            },
+          })
+          console.log(`[classify-document] Duplicate smart-renamed: ${smartRename.suggestedFilename}`)
+        }
+      }
+      // Note: markImageDuplicate already copies displayName from original if it exists
+
       return {
         rawImageId,
         duplicateDetected: true,

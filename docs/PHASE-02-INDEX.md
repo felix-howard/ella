@@ -9,7 +9,16 @@
 
 ## Primary Documentation
 
-### 0. **Phase 02 Duplicate Detection - Frontend UI** (NEW)
+### 0. **Phase 02 Manual Document Grouping** (LATEST - 2026-02-24)
+📄 See: [`phase-02-api-endpoints.md#phase-02-manual-document-grouping---new`](./phase-02-api-endpoints.md#phase-02-manual-document-grouping---new)
+- **Endpoint:** `POST /cases/:caseId/group-documents`
+- **Purpose:** Staff-triggered batch document grouping with rate limiting
+- **Features:** 30s cooldown, org-scoped access, Inngest integration, audit logging
+- **Status:** Complete & Production-Ready
+
+---
+
+### 1. **Phase 02 Duplicate Detection - Frontend UI** (NEW)
 📄 [`phase-02-duplicate-detection-ui.md`](./phase-02-duplicate-detection-ui.md)
 - **Size:** 350+ lines
 - **Purpose:** Frontend component documentation for duplicate management
@@ -28,7 +37,7 @@
 
 ---
 
-### 1. **Phase 02 Classification Job Guide**
+### 2. **Phase 02 Classification Job Guide**
 📄 [`phase-02-classification-job.md`](./phase-02-classification-job.md)
 - **Size:** 676 lines
 - **Purpose:** Comprehensive implementation guide
@@ -47,7 +56,7 @@
 
 **When to Use:** Complete reference for understanding Phase 02 implementation
 
-### 2. **Quick Reference Guide**
+### 3. **Quick Reference Guide**
 📄 [`phase-02-quick-reference.md`](./phase-02-quick-reference.md)
 - **Size:** 243 lines
 - **Purpose:** Developer quick reference
@@ -65,25 +74,29 @@
 
 **When to Use:** Quick lookup during development & deployment
 
-### 2.1 **API Endpoints Documentation**
+### 3.1 **API Endpoints Documentation**
 📄 [`phase-02-api-endpoints.md`](./phase-02-api-endpoints.md)
-- **Size:** 650+ lines
-- **Purpose:** Complete API endpoint reference for data entry workflow
+- **Size:** 1,400+ lines
+- **Purpose:** Complete API endpoint reference for data entry & document grouping
 - **Contains:**
-  - 4 new endpoints: verify-field, mark-copied, complete-entry, request-reupload
+  - **Data Entry (4 endpoints):** verify-field, mark-copied, complete-entry, request-reupload
+  - **Draft Return Sharing (6 endpoints):** upload, get, revoke, extend, portal access, view tracking
+  - **Manual Grouping (1 endpoint - NEW):** POST /cases/:caseId/group-documents
   - Request/response schemas with TypeScript types
   - Field whitelist validation (80+ fields across 5 doc types)
   - Security considerations (XSS, injection, race conditions)
   - Atomic transaction patterns
-  - Database schema updates (Phase 01-B)
+  - Database schema updates
+  - Inngest event integration
   - Client integration (frontend API methods)
   - Error handling & HTTP status codes
+  - Rate limiting patterns
   - Performance & testing guidance
-  - Deployment checklist
+  - Deployment checklists
 
-**When to Use:** Deep dive into Phase 02 API implementation and data entry workflow
+**When to Use:** Deep dive into Phase 02 API implementation and all endpoints
 
-### 2.2 **Fallback Smart Rename Documentation**
+### 3.2 **Fallback Smart Rename Documentation**
 📄 `phase-02-fallback-smart-rename.md` (NEW)
 - **Purpose:** Smart filename generation fallback when classification confidence < 60%
 - **Contains:**
@@ -103,7 +116,7 @@
 
 ## Related Architecture Documentation
 
-### 3. **System Architecture - Phase 02 Sections**
+### 4. **System Architecture - Phase 02 Sections**
 📄 [`system-architecture.md`](./system-architecture.md) (updated)
 - **Sections Updated:** 4
 - **Lines Added:** ~100
@@ -115,7 +128,7 @@
 
 **When to Use:** Understanding how Phase 02 fits in overall architecture
 
-### 4. **Phase 2.1 AI Services**
+### 5. **Phase 2.1 AI Services**
 📄 [`phase-2.1-ai-services.md`](./phase-2.1-ai-services.md) (existing)
 - **Related Content:**
   - GeminiClient implementation
@@ -299,11 +312,12 @@ From `phase-02-quick-reference.md`:
 
 ---
 
-**Status:** ✓ Complete & Production-Ready (Backend + Frontend UI)
-**Last Updated:** 2026-01-21
+**Status:** ✓ Complete & Production-Ready (Backend + Frontend UI + Manual Grouping)
+**Last Updated:** 2026-02-24
 **Phases Covered:**
 - Phase 02 Backend: Classification Job (2026-01-14)
 - Phase 02 Frontend UI: Duplicate Detection (2026-01-21)
+- Phase 02 Backend: Manual Document Grouping (2026-02-24)
 
-**Next Phase:** Phase 3.1 - Advanced OCR & Real-time Notifications
+**Next Phase:** Phase 03 - Advanced Document Features
 

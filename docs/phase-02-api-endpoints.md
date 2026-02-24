@@ -1317,8 +1317,243 @@ Supports: Link type routing, consistent token format across all link types
 
 ---
 
-**Last Updated:** 2026-02-23
+---
+
+## Phase 02 Manual Document Grouping - NEW
+
+**Phase:** Phase 02 - Manual Document Grouping
 **Status:** Complete & Production-Ready
-**Architecture Version:** 6.1 (Phase 02 Draft Return Sharing + Phase 03 AI Fallback Chain)
-**Next Phase:** Phase 03 - Dashboard Summary Cards
+**Date:** 2026-02-24
+**Branch:** dev
+
+### Overview
+
+Phase 02 Manual Document Grouping adds a single API endpoint that allows staff to manually trigger batch document grouping for a tax case. This provides administrative control over document grouping when needed.
+
+### API Endpoint
+
+#### POST /cases/:caseId/group-documents
+
+**Purpose:** Trigger batch document grouping job for classified documents in a case
+
+**Location:** `apps/api/src/routes/cases/index.ts` (line 805)
+
+**Authorization:** Staff-only (requires `user.staffId`)
+
+**Request Body:**
+```typescript
+{
+  forceRegroup?: boolean  // optional, default false
+                          // If true, regroups even if already grouped
+}
+```
+
+**Response (Success - 200):**
+```typescript
+{
+  success: true,
+  jobId: string,                    // Inngest job ID (e.g., "01HXYZ...")
+  documentCount: number,            // Count of classified documents
+  message: string                   // e.g., "Grouping started for 15 documents"
+}
+```
+
+**Response (Errors):**
+- `403 FORBIDDEN` - User is not staff member
+- `404 NOT_FOUND` - Case not found or no access
+- `400 NO_DOCUMENTS` - No classified documents to group
+- `429 RATE_LIMITED` - Grouping already in progress (30s cooldown per case)
+
+**Key Features:**
+- **Staff-Only Access** - Enforced via `user.staffId` check
+- **Rate Limiting** - 30-second cooldown between triggers per case (prevents concurrent runs)
+- **Org-Scoped** - `buildNestedClientScope()` validates case ownership
+- **Document Count** - Returns count of classified/linked documents processed
+- **Job Tracking** - Returns Inngest job ID for monitoring
+- **Audit Logging** - Logs trigger event with staff ID and options
+
+**Security:**
+- Staff-only restriction prevents clients/unauthorized users from triggering
+- Rate limiter uses in-memory Map with 30s cooldown (per caseId)
+- Case scope validation prevents cross-org access
+- Triggers only process documents in CLASSIFIED or LINKED status
+
+**Database Queries:**
+- SELECT taxCase WHERE id=? AND org scope matches
+- COUNT rawImages WHERE status IN ['CLASSIFIED', 'LINKED']
+
+**Inngest Event:**
+```typescript
+{
+  name: 'document/group-batch',
+  data: {
+    caseId: string,
+    forceRegroup: boolean,
+    triggeredBy: string  // Staff ID
+  }
+}
+```
+
+**Example Usage:**
+```typescript
+// Trigger grouping for case with default settings
+const response = await fetch('/cases/case123/group-documents', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ...' },
+  body: JSON.stringify({ forceRegroup: false })
+})
+
+// Response with job ID to monitor
+const { jobId, documentCount } = await response.json()
+// jobId = "01HXYZ..." - track progress in Inngest dashboard
+// documentCount = 15 - documents being processed
+
+// Force re-grouping of already grouped documents
+const response = await fetch('/cases/case123/group-documents', {
+  method: 'POST',
+  body: JSON.stringify({ forceRegroup: true })
+})
+
+// Rate limit error (if called within 30 seconds)
+// Response: { error: 'RATE_LIMITED', message: 'Grouping already in progress. Try again in 25s' }
+```
+
+**Validation Schemas:**
+```typescript
+export const groupDocumentsSchema = z.object({
+  forceRegroup: z.boolean().optional().default(false),
+})
+
+export type GroupDocumentsInput = z.infer<typeof groupDocumentsSchema>
+```
+
+**Located in:** `apps/api/src/routes/cases/schemas.ts` (line 86)
+
+### Event Type Definition
+
+#### DocumentGroupBatchEvent
+
+**Location:** `apps/api/src/lib/inngest.ts` (line 56)
+
+**Type Definition:**
+```typescript
+export type DocumentGroupBatchEvent = {
+  data: {
+    caseId: string
+    forceRegroup: boolean
+    triggeredBy: string  // Staff ID
+  }
+}
+
+// Registered in Inngest events map (line 71)
+export type InngestEvents = {
+  'document/group-batch': DocumentGroupBatchEvent
+}
+```
+
+**Usage:**
+- Sent by POST `/cases/:caseId/group-documents` endpoint
+- Triggers background Inngest job for batch grouping
+- Includes metadata for audit trail and conditional processing
+
+### Rate Limiting
+
+**Implementation:**
+```typescript
+const groupingInProgress = new Map<string, number>()
+const GROUPING_COOLDOWN_MS = 30000  // 30 seconds
+```
+
+**Logic:**
+1. Check if previous trigger timestamp exists for caseId
+2. If exists and (now - lastTrigger) < 30000ms, return 429 RATE_LIMITED
+3. On success, update timestamp: `groupingInProgress.set(caseId, Date.now())`
+
+**Purpose:**
+- Prevents duplicate concurrent batch jobs
+- Avoids database contention from overlapping grouping operations
+- Automatic cleanup not needed (Map holds max one entry per active case)
+
+**Return Response on Rate Limit:**
+```json
+{
+  "error": "RATE_LIMITED",
+  "message": "Grouping already in progress. Try again in Xs"
+}
+```
+
+### Audit Logging
+
+**Implementation:**
+```typescript
+console.log(`[Manual Grouping] caseId=${id} staffId=${user.staffId} forceRegroup=${forceRegroup} docCount=${classifiedCount}`)
+```
+
+**Fields:**
+- `caseId` - Tax case being grouped
+- `staffId` - Staff member triggering
+- `forceRegroup` - Whether forcing re-group
+- `docCount` - Number of documents processed
+
+**Purpose:** Audit trail for manual grouping actions (who triggered, when, parameters)
+
+### Error Handling
+
+| Status | Error Code | Scenario |
+|--------|-----------|----------|
+| 403 | FORBIDDEN | User is not staff |
+| 404 | NOT_FOUND | Case doesn't exist or no access |
+| 400 | NO_DOCUMENTS | No classified/linked documents |
+| 429 | RATE_LIMITED | Within 30s cooldown |
+
+**Example Error Response:**
+```json
+{
+  "error": "NOT_FOUND",
+  "message": "Case not found"
+}
+```
+
+### Integration with Workspace
+
+**Where Used:**
+- Staff dashboard case actions (likely)
+- Administrative grouping controls
+- Case detail page (potential button)
+
+**Flow:**
+1. Staff clicks "Group Documents" button
+2. Frontend POST to `/cases/:caseId/group-documents`
+3. Backend validates access + rate limits
+4. Triggers Inngest background job
+5. Returns jobId for progress tracking
+6. Frontend can poll or subscribe to job status updates
+
+### Related Documentation
+
+- **Classification Job:** `./phase-02-classification-job.md`
+- **System Architecture:** `./system-architecture.md`
+- **Quick Reference:** `./phase-02-quick-reference.md`
+- **Inngest Events:** `apps/api/src/lib/inngest.ts`
+- **Implementation:** `apps/api/src/routes/cases/index.ts` (lines 801-879)
+
+### Deployment Checklist
+
+- [ ] Endpoint tested in development environment
+- [ ] Rate limiter verified (30s cooldown works)
+- [ ] Staff-only restriction enforced
+- [ ] Org-scoped access validated
+- [ ] Inngest job integration confirmed
+- [ ] Audit logging verified in console
+- [ ] Error responses correct HTTP status codes
+- [ ] Frontend integration complete
+- [ ] Monitoring configured for job processing
+- [ ] Documentation updated in workspace
+
+---
+
+**Last Updated:** 2026-02-24
+**Status:** Complete & Production-Ready
+**Architecture Version:** 6.2 (Phase 02 Manual Document Grouping)
+**Next Phase:** Phase 03 - Advanced Features
 

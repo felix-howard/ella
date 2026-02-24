@@ -410,9 +410,13 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   // Count new files
   const newFilesCount = useMemo(() => images.filter((img) => img.isNew).length, [images])
 
-  // Count ungrouped classified documents (candidates for grouping)
+  // Count ungrouped classified/linked documents (candidates for grouping)
   const ungroupedCount = useMemo(
-    () => images.filter((img) => img.status === 'CLASSIFIED' && !img.documentGroupId).length,
+    () =>
+      images.filter(
+        (img) =>
+          (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
+      ).length,
     [images]
   )
 

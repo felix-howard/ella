@@ -109,12 +109,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
-**Portal PDF Viewer (Phase 03):**
-- Route: `/draft/:token` - Token-based public viewer page (no auth required)
-- Component: `PdfViewer` - iFrame-based viewer with fallback (open/download buttons)
+**Portal PDF Viewer (Phase 02-03 Complete):**
+- Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading
+- Phase 03: iFrame wrapper for public portal page with token validation, view tracking, error handling
+- Components: `PdfViewer` (navigation), `PdfDocument` (rendering)
+- Features: Fit-to-width, DPI-aware crisp display, touch-friendly controls, fallback buttons
 - View tracking: Auto-calls trackDraftView on PDF load (fire & forget)
 - Bilingual: Auto-syncs language from client preference (EN/VI)
-- Error handling: Invalid token, expired link, revoked link, PDF unavailable
+- Error handling: Invalid token, expired link, revoked link, PDF unavailable, browser unsupported
 
 **Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
 - Component: `DraftReturnTab` - Main tab component in `/clients/:id` page
@@ -272,6 +274,96 @@ Organization (root entity)
 - All endpoints verify orgId from JWT matches resource org
 - Staff see only assigned clients via ClientAssignment query
 - Admins see all org clients
+
+## Phase 02: Portal PDF Viewer - Core React PDF Rendering
+
+**Overview:**
+Mobile-first PDF viewer using react-pdf library with fit-to-width scaling, DPI-aware rendering, and responsive skeleton loading. Lazy-loaded to avoid bundling react-pdf (~150KB) for users who don't view PDFs.
+
+**Components:**
+```
+apps/portal/src/components/pdf-viewer/
+  ├── index.tsx (85 LOC)
+  │   ├── Page navigation state (currentPage, numPages)
+  │   ├── Load handlers (success/error callbacks)
+  │   ├── Navigation methods (goToNextPage, goToPrevPage)
+  │   └── Simple page indicator UI (← page/total →)
+  │
+  └── pdf-document.tsx (169 LOC)
+      ├── ResizeObserver for container width tracking
+      ├── Fit-to-width calculation (naturalWidth = canvas.width / (scale × dpi))
+      ├── DPI multiplier for retina displays (devicePixelRatio)
+      ├── Loading state with pulse skeleton (8.5:11 aspect ratio)
+      └── Error state with fallback buttons (Open/Download)
+```
+
+**Key Features:**
+
+1. **Fit-to-Width Scaling**
+   - Calculates natural PDF width from rendered canvas
+   - Scale formula: `containerWidth / naturalWidth`
+   - ResizeObserver tracks responsive width changes
+   - Prevents recalculation race conditions (hasCalculatedFit ref)
+
+2. **DPI-Aware Rendering**
+   - Multiplier: `window.devicePixelRatio` (1.0 on standard, 2.0+ on retina)
+   - Effective scale: `fitScale × dpiMultiplier`
+   - Crisp rendering on high-DPI displays
+
+3. **Loading State**
+   - 8.5:11 aspect ratio placeholder (max-w-[400px])
+   - Pulse animation during fit calculation
+   - Prevents layout shift (min-h-0 on scrollable container)
+
+4. **Error Handling**
+   - Browser unsupported fallback (AlertTriangle icon)
+   - Open in New Tab button (external link icon)
+   - Download PDF button (file-down icon)
+   - Bilingual error messages (EN/VI via i18n)
+
+**Props (PdfViewer):**
+```typescript
+interface PdfViewerProps {
+  url: string         // PDF URL from signed R2 link
+  filename: string    // Original filename for download
+}
+```
+
+**Data Flow:**
+1. Page route passes url + filename to PdfViewer
+2. PdfDocument loads Document from react-pdf
+3. ResizeObserver measures container width
+4. Page renders at scale 1, canvas renders
+5. onRenderSuccess handler calculates fit scale
+6. Page re-renders at `fitScale × dpi` for crisp display
+7. Page navigation controls currentPage state
+8. PdfViewer renders selected page at calculated scale
+
+**Bundle Impact:**
+- react-pdf (~150KB gzipped) lazy-loaded via dynamic import in route
+- Index.tsx + pdf-document.tsx: minimal (~3KB together)
+- Saves ~150KB bundle for non-PDF users
+- Worker (pdf.js) fetched from unpkg CDN (matches workspace pattern)
+
+**Localization Keys:**
+```
+draft.loadingPdf     → "Loading PDF..."
+draft.viewerUnsupported  → "PDF Viewer Unavailable"
+draft.viewerFallback → "Your browser cannot display PDFs directly..."
+draft.openInNewTab   → "Open in New Tab"
+draft.download       → "Download PDF"
+```
+
+**Browser Compatibility:**
+- Modern browsers: Full react-pdf support with fit-to-width
+- Mobile: Touch-friendly navigation, zoom support
+- Fallback: Download/open buttons if library fails
+- Workers: PDF.js from unpkg CDN (no build step needed)
+
+**Future Phases:**
+- Phase 03: iFrame wrapper for public portal page
+- Phase 04: Gesture support (swipe navigation)
+- Phase 05: Auto-hide controls, fullscreen mode
 
 ## Phase 03: Portal PDF Viewer - Token-Based Draft Return Viewing
 

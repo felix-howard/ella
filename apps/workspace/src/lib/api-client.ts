@@ -1178,6 +1178,15 @@ export interface RawImage {
   isNew?: boolean
   // Viewer display settings (persisted rotation)
   rotation?: number
+  // Duplicate detection: ID of original image this duplicates
+  duplicateOfId?: string | null
+  // Resolved duplicate-of reference (from API join)
+  duplicateOf?: { id: string; displayName: string | null; filename: string } | null
+  // Multi-page document grouping (Phase 04)
+  documentGroupId?: string | null
+  pageNumber?: number | null
+  totalPages?: number | null
+  groupConfidence?: number | null
 }
 
 // Image group for duplicate detection

@@ -270,6 +270,81 @@ export interface RenameResult {
 }
 
 /**
+ * Rename a file in R2 storage using a raw filename (no naming convention applied)
+ * Used by multi-page grouping to append _PartXofY suffix to existing names
+ *
+ * @param oldKey - Current R2 key
+ * @param caseId - Case ID for path construction
+ * @param newFilename - New filename (without extension)
+ */
+export async function renameFileRaw(
+  oldKey: string,
+  caseId: string,
+  newFilename: string
+): Promise<RenameResult> {
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, skipping rename')
+    return { success: false, newKey: oldKey, oldKey, error: 'R2_NOT_CONFIGURED' }
+  }
+
+  // Extract extension from old key
+  const parts = oldKey.split('.')
+  const ext = parts.length > 1 ? parts.pop()! : 'pdf'
+
+  let newKey = `cases/${caseId}/docs/${newFilename}.${ext}`
+
+  // Skip if same key (no rename needed)
+  if (oldKey === newKey) {
+    console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
+    return { success: true, newKey, oldKey }
+  }
+
+  // Check for r2Key collision in DB and append sequence number if needed
+  const MAX_COLLISION_ATTEMPTS = 10
+  for (let seq = 2; seq <= MAX_COLLISION_ATTEMPTS + 1; seq++) {
+    const existing = await prisma.rawImage.findUnique({
+      where: { r2Key: newKey },
+      select: { id: true },
+    })
+    if (!existing) break
+
+    newKey = `cases/${caseId}/docs/${newFilename} (${seq}).${ext}`
+    console.log(`[Storage] Key collision detected, trying: ${newKey}`)
+  }
+
+  try {
+    console.log(`[Storage] Copying: ${oldKey} -> ${newKey}`)
+    await s3Client.send(
+      new CopyObjectCommand({
+        Bucket: BUCKET_NAME,
+        CopySource: `${BUCKET_NAME}/${oldKey}`,
+        Key: newKey,
+      })
+    )
+
+    // Delete old file (can fail safely)
+    try {
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: oldKey,
+        })
+      )
+      console.log(`[Storage] Deleted old key: ${oldKey}`)
+    } catch (deleteError) {
+      console.warn(`[Storage] Failed to delete old key (orphaned): ${oldKey}`, deleteError)
+    }
+
+    console.log(`[Storage] Rename complete: ${newKey}`)
+    return { success: true, newKey, oldKey }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[Storage] Rename failed: ${oldKey}`, error)
+    return { success: false, newKey: oldKey, oldKey, error: errorMessage }
+  }
+}
+
+/**
  * Rename a file in R2 storage using copy+delete pattern
  * R2/S3 has no native rename, so we:
  * 1. Copy to new key

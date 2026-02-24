@@ -751,16 +751,9 @@ export const classifyDocumentJob = inngest.createFunction(
       })
     }
 
-    // Step 6: Emit event for multi-page detection (Phase 3)
-    // Only trigger for successfully classified documents
-    if (classification.success && classification.confidence >= LOW_CONFIDENCE) {
-      await step.run('emit-classified-event', async () => {
-        await inngest.send({
-          name: 'document/classified',
-          data: { rawImageId, caseId },
-        })
-      })
-    }
+    // NOTE: Multi-page detection moved to manual trigger via POST /cases/:caseId/group-documents
+    // Auto-trigger removed to prevent race conditions during bulk uploads
+    // See: plans/260224-2044-manual-document-grouping/phase-01-remove-auto-trigger.md
 
     // Return final result
     return {

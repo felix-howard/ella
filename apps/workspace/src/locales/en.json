@@ -301,8 +301,6 @@
   "filesTab.moveCategoryError": "Error moving to category",
   "filesTab.groupPageCount_one": "{{count}} page",
   "filesTab.groupPageCount_other": "{{count}} pages",
-  "filesTab.groupNewFiles": "Group New Files",
-  "filesTab.regroupAll": "Re-group All Files",
   "fileActions.rename": "Rename",
   "fileActions.openInNewTab": "Open in new tab",
   "fileActions.download": "Download",

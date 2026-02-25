@@ -73,13 +73,30 @@ export function SimpleImageViewerModal({
     },
   })
 
-  // Handle rotation change (persist to DB)
+  // Handle rotation change (persist to DB and update cache)
   const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
-    // Fire-and-forget, don't block UI
+    // Update React Query cache immediately (optimistic update)
+    // This ensures navigation shows correct rotation without refetch
+    if (caseId) {
+      queryClient.setQueryData<{ images: Array<{ id: string; rotation?: number }> }>(
+        ['images', caseId],
+        (oldData) => {
+          if (!oldData?.images) return oldData
+          return {
+            ...oldData,
+            images: oldData.images.map((img) =>
+              img.id === imageId ? { ...img, rotation } : img
+            ),
+          }
+        }
+      )
+    }
+
+    // Fire-and-forget persist to DB
     api.images.updateRotation(imageId, rotation).catch(() => {
       // Silent fail - rotation is non-critical
     })
-  }, [imageId])
+  }, [imageId, caseId, queryClient])
 
   // Keyboard shortcuts: Escape to close, Arrow keys to navigate
   useEffect(() => {

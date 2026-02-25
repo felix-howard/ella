@@ -93,9 +93,17 @@ export function DocVerificationModal({
     })
   }, [image?.id])
 
-  // Note: When using this modal, pass a key prop with image.id
-  // to reset state automatically on image change, e.g.:
-  // <DocVerificationModal key={image?.id} image={image} ... />
+  // Sync state when navigating to a different image
+  // This ensures rotation (and other state) is correct when using prev/next navigation
+  useEffect(() => {
+    if (image?.id) {
+      setRotation((image.rotation as 0 | 90 | 180 | 270) || 0)
+      setSelectedDocType(image.checklistItem?.template?.docType || '')
+      setZoom(1)
+      setStatus('pending')
+      setRejectReason('')
+    }
+  }, [image?.id]) // Only trigger when image ID changes (navigation)
 
   // Keyboard navigation
   const handleKeyDown = useCallback(

@@ -320,14 +320,30 @@ export function VerificationModal({
     completeMutation.mutate()
   }, [completeMutation])
 
-  // Handle rotation change (persist to DB)
+  // Handle rotation change (persist to DB and update cache)
   const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
     if (!rawImageId) return
-    // Fire-and-forget, don't block UI
+
+    // Update React Query cache immediately (optimistic update)
+    // This ensures navigation shows correct rotation without refetch
+    queryClient.setQueryData<{ images: Array<{ id: string; rotation?: number }> }>(
+      ['images', caseId],
+      (oldData) => {
+        if (!oldData?.images) return oldData
+        return {
+          ...oldData,
+          images: oldData.images.map((img) =>
+            img.id === rawImageId ? { ...img, rotation } : img
+          ),
+        }
+      }
+    )
+
+    // Fire-and-forget persist to DB
     api.images.updateRotation(rawImageId, rotation).catch(() => {
       // Silent fail - rotation is non-critical
     })
-  }, [rawImageId])
+  }, [rawImageId, caseId, queryClient])
 
   // Handle download file
   const handleDownload = useCallback(async () => {

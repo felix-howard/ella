@@ -5,7 +5,7 @@
  * Images: Uses react-zoom-pan-pinch for smooth gestures
  */
 
-import { useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch'
 import { cn } from '@ella/ui'
 import {
@@ -191,6 +191,12 @@ export function ImageViewer({
   const useMobileViewer = isMobile || isIOS
 
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(initialRotation)
+
+  // Sync rotation when initialRotation prop changes (e.g., when navigating between files)
+  useEffect(() => {
+    setRotation(initialRotation)
+  }, [initialRotation])
+
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)

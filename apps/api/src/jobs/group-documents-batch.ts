@@ -231,6 +231,78 @@ function parsePageRefBatch(
 }
 
 /**
+ * Sort documents by page markers extracted from AI metadata
+ * Falls back to original index (upload order) if no page markers available
+ * Phase 3: Page Order Detection
+ */
+function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; originalIndex: number }>(
+  documents: T[]
+): Array<T & { pageNum: number }> {
+  const docsWithPages = documents.map((d) => {
+    const metadata = d.doc.aiMetadata
+    const pageMarker = metadata?.pageInfo
+
+    // Use extracted page marker if available and valid
+    // pageInfo.currentPage from Phase 1 metadata extraction
+    const pageNum = pageMarker?.currentPage && pageMarker.currentPage > 0
+      ? pageMarker.currentPage
+      : d.originalIndex + 1  // Fallback to upload order (1-indexed)
+
+    return { ...d, pageNum }
+  })
+
+  // Sort by page number (ascending)
+  docsWithPages.sort((a, b) => a.pageNum - b.pageNum)
+
+  return docsWithPages
+}
+
+/**
+ * Validate page sequence for completeness (no gaps, no duplicates)
+ * Phase 3: Page Order Detection
+ */
+function validatePageSequence(
+  documents: Array<{ pageNum: number }>
+): { valid: boolean; reason: string } {
+  // Handle empty array edge case
+  if (documents.length === 0) {
+    return { valid: false, reason: 'No documents in sequence' }
+  }
+
+  const pageNums = documents.map((d) => d.pageNum)
+  const uniquePages = new Set(pageNums)
+
+  // Check for duplicates
+  if (uniquePages.size !== pageNums.length) {
+    return {
+      valid: false,
+      reason: `Duplicate page numbers: ${pageNums.join(', ')}`,
+    }
+  }
+
+  // Check for gaps (e.g., 1, 3, 4 missing 2)
+  const sorted = [...pageNums].sort((a, b) => a - b)
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i + 1] !== sorted[i] + 1) {
+      return {
+        valid: false,
+        reason: `Gap in sequence: page ${sorted[i]} → ${sorted[i + 1]}`,
+      }
+    }
+  }
+
+  // Check if sequence starts at 1
+  if (sorted[0] !== 1) {
+    return {
+      valid: false,
+      reason: `Sequence should start at page 1, got ${sorted[0]}`,
+    }
+  }
+
+  return { valid: true, reason: 'Valid sequence' }
+}
+
+/**
  * Process a metadata bucket using N×N pairwise comparison + Union-Find
  * Key improvements over single-pass:
  * - All pairs compared (not just first vs rest)
@@ -366,7 +438,18 @@ async function processBucket(
 
   // Process each group
   for (const [rootId, docIds] of multiDocGroups) {
-    const groupDocs = validDocs.filter((v) => docIds.includes(v.doc.id))
+    const groupDocsUnsorted = validDocs.filter((v) => docIds.includes(v.doc.id))
+
+    // Phase 3: Sort documents by page markers before group creation
+    const groupDocs = sortDocumentsByPageMarker(groupDocsUnsorted)
+
+    // Validate page sequence (log warning if invalid but proceed)
+    const validation = validatePageSequence(groupDocs)
+    if (!validation.valid) {
+      console.warn(
+        `[batch-grouping] Page sequence validation: ${validation.reason}. Using extracted order.`
+      )
+    }
 
     // Fix C3: Detect ALL existing group IDs for conflict handling
     const existingGroupIds = new Set<string>()
@@ -461,11 +544,14 @@ async function processBucket(
       )
     }
 
-    // Update all documents with page numbers (order by createdAt via validDocs order)
-    let pageNum = 1
-    for (const v of groupDocs) {
+    // Update all documents with page numbers
+    // Phase 3: Use extracted pageNum from sortDocumentsByPageMarker
+    for (let i = 0; i < groupDocs.length; i++) {
+      const v = groupDocs[i]
       const docId = v.doc.id
-      const partSuffix = `_Part${pageNum}of${totalPages}`
+      // Use sequential position (1, 2, 3...) since docs are now sorted by pageMarker
+      const assignedPageNum = i + 1
+      const partSuffix = `_Part${assignedPageNum}of${totalPages}`
 
       const doc = await prisma.rawImage.findUnique({
         where: { id: docId },
@@ -483,9 +569,8 @@ async function processBucket(
 
         await prisma.rawImage.update({
           where: { id: docId },
-          data: { totalPages, pageNumber: pageNum, displayName: updatedDisplayName },
+          data: { totalPages, pageNumber: assignedPageNum, displayName: updatedDisplayName },
         })
-        pageNum++
         continue
       }
 
@@ -499,7 +584,7 @@ async function processBucket(
         where: { id: docId },
         data: {
           documentGroupId: groupId,
-          pageNumber: pageNum,
+          pageNumber: assignedPageNum,
           totalPages,
           displayName: newDisplayName,
           groupConfidence,
@@ -541,8 +626,6 @@ async function processBucket(
           }
         }
       }
-
-      pageNum++
     }
   }
 

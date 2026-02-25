@@ -615,11 +615,31 @@ Extract the following for document clustering:
    - Only last 4 digits as string (e.g., "1234")
    - Use null if not visible or fully redacted
 
-3. pageMarker: Page/Part indicators
-   - Extract from "Page X of Y", "X/Y", "Part N" patterns
-   - current: page number or null
-   - total: total pages or null
-   - partNumber: Roman numeral (e.g., "IV") or null
+3. pageMarker: Page/Part indicators (LOOK IN HEADER/FOOTER ZONES - top 15%, bottom 10%)
+
+   PATTERNS TO FIND (in order of priority):
+   a. "Page X of Y" format:
+      - "Form 1040 (2025) Page 2 of 2" → current: 2, total: 2
+      - "Page 3" alone → current: 3, total: null
+
+   b. "X/Y" slash notation:
+      - "1/3", "2/3", "3/3" → current: X, total: Y
+
+   c. Part-based markers (Roman numerals):
+      - "Part IV - Other Taxes" → partNumber: "IV"
+      - "Part II" → partNumber: "II"
+      - Convert to: I=1, II=2, III=3, IV=4, V=5, VI=6
+
+   d. Continuation indicators (affects page ordering):
+      - "Continued" or "Cont." in header → NOT page 1
+      - "(continued from page 1)" → current page is 2+
+
+   OUTPUT FORMAT:
+   - current: page number (integer) or null
+   - total: total pages (integer) or null
+   - partNumber: Roman numeral string (e.g., "IV") or null
+
+   If multiple patterns found, prioritize "Page X of Y" > slash notation > Part markers.
 
 4. continuationMarker: Attachment/continuation indicators
    - type: "line-reference" if "Line X (FormNum)"
@@ -910,11 +930,20 @@ INDICATORS OF DIFFERENT DOCUMENTS (any of these = do NOT group):
 4. Completely different content/purpose
 5. Different visual style/format
 
-PAGE ORDER DETERMINATION:
-1. FIRST: Look for explicit page numbers ("Page X of Y", "1/3", "2/3")
-2. SECOND: Look for continuation markers ("Continued from page 1")
-3. THIRD: Look for sequential content (tables continuing, numbered items)
-4. FOURTH: Look for header page vs detail pages (summary page usually first)
+PAGE ORDER DETERMINATION (Enhanced with Metadata):
+
+1. FIRST: Check aiMetadata.pageInfo.currentPage from classification
+   - If documents have pre-extracted page markers, USE them for ordering
+   - "currentPage: 2" means this is page 2, regardless of upload order
+
+2. SECOND: Look for explicit page numbers in image ("Page X of Y", "1/3")
+3. THIRD: Look for continuation markers ("Continued from page 1")
+4. FOURTH: Look for sequential content (tables continuing, numbered items)
+5. FIFTH: Look for header page vs detail pages (summary page usually first)
+
+NOTE: Pre-classification has extracted page markers where visible.
+Your job is to VALIDATE the order, not guess it.
+If metadata says "Page 2 of 3", confirm this matches visual content.
 
 ORDERING EXAMPLES:
 - Document with "Page 2 of 3" in footer → This is page 2

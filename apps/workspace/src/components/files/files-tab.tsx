@@ -53,6 +53,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [isDownloading, setIsDownloading] = useState(false)
   const [isGroupingActive, setIsGroupingActive] = useState(false)
   const groupingPollRef = useRef<NodeJS.Timeout | null>(null)
+  const isDownloadingRef = useRef(false) // Prevent multiple concurrent downloads
   const markViewed = useMarkDocumentViewed()
 
   // Fetch images only if not provided by parent (backward compatibility)
@@ -383,8 +384,9 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
 
   // Handle download all files as ZIP (parallel downloads for speed)
   const handleDownloadAll = useCallback(async () => {
-    if (images.length === 0) return
-
+    // Prevent multiple concurrent downloads (ref guard for instant check)
+    if (images.length === 0 || isDownloadingRef.current) return
+    isDownloadingRef.current = true
     setIsDownloading(true)
 
     try {
@@ -412,16 +414,30 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       for (const result of results) {
         if (!result.success || !result.blob) continue
 
-        // Handle duplicate filenames by adding suffix
-        let filename = result.img.displayName || result.img.filename
-        const count = usedFilenames.get(filename) || 0
-        if (count > 0) {
-          const ext = filename.lastIndexOf('.')
-          filename = ext > 0
-            ? `${filename.slice(0, ext)} (${count})${filename.slice(ext)}`
-            : `${filename} (${count})`
+        // Build filename with proper extension
+        // displayName doesn't include extension, so extract from r2Key or filename
+        let baseName = result.img.displayName || result.img.filename
+
+        // Ensure filename has extension (displayName omits it)
+        if (!baseName.includes('.')) {
+          // Extract extension from r2Key (most reliable) or original filename
+          const extSource = result.img.r2Key || result.img.filename
+          const extMatch = extSource.match(/\.([^.]+)$/)
+          const ext = extMatch ? extMatch[1] : 'pdf'
+          baseName = `${baseName}.${ext}`
         }
-        usedFilenames.set(result.img.displayName || result.img.filename, count + 1)
+
+        // Handle duplicate filenames by adding suffix
+        const baseKey = baseName.toLowerCase() // Case-insensitive dedup
+        const count = usedFilenames.get(baseKey) || 0
+        let filename = baseName
+        if (count > 0) {
+          const dotIdx = baseName.lastIndexOf('.')
+          filename = dotIdx > 0
+            ? `${baseName.slice(0, dotIdx)} (${count})${baseName.slice(dotIdx)}`
+            : `${baseName} (${count})`
+        }
+        usedFilenames.set(baseKey, count + 1)
 
         zip.file(filename, result.blob)
       }
@@ -442,6 +458,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     } catch {
       toast.error(t('filesTab.downloadError'))
     } finally {
+      isDownloadingRef.current = false
       setIsDownloading(false)
     }
   }, [images, t])

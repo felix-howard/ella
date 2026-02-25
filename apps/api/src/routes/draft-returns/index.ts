@@ -132,25 +132,32 @@ draftReturnsRoute.post('/:caseId/upload', async (c) => {
       },
     })
 
-    // Deactivate old magic links (but we'll reuse the token)
-    await tx.magicLink.updateMany({
-      where: { caseId, type: 'DRAFT_RETURN', isActive: true },
-      data: { isActive: false },
-    })
-
-    // Create magic link with 14-day expiry (reuse existing token if available)
+    // Create or update magic link with 14-day expiry (reuse existing token if available)
     const expiresAt = new Date(Date.now() + DRAFT_RETURN_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-    const magicLink = await tx.magicLink.create({
-      data: {
-        caseId,
-        type: 'DRAFT_RETURN',
-        draftReturnId: draftReturn.id,
-        expiresAt,
-        isActive: true,
-        // Reuse existing token so URL stays the same across versions
-        ...(existingMagicLink ? { token: existingMagicLink.token } : {}),
-      },
-    })
+
+    let magicLink
+    if (existingMagicLink) {
+      // Update existing magic link to point to new draft return (keeps same token/URL)
+      magicLink = await tx.magicLink.update({
+        where: { token: existingMagicLink.token },
+        data: {
+          draftReturnId: draftReturn.id,
+          expiresAt,
+          isActive: true,
+        },
+      })
+    } else {
+      // Create new magic link
+      magicLink = await tx.magicLink.create({
+        data: {
+          caseId,
+          type: 'DRAFT_RETURN',
+          draftReturnId: draftReturn.id,
+          expiresAt,
+          isActive: true,
+        },
+      })
+    }
 
     return { draftReturn, magicLink, r2Key }
   })

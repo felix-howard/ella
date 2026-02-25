@@ -150,7 +150,7 @@ export function DraftReturnSummary({
         <div className="flex flex-col lg:flex-row">
           {/* Left: PDF Thumbnail Preview */}
           <div className="lg:w-48 flex-shrink-0 bg-muted/30 border-b lg:border-b-0 lg:border-r border-border">
-            <div className="aspect-[3/4] relative flex items-center justify-center p-4">
+            <div className="aspect-[3/4] max-h-[200px] lg:max-h-none mx-auto lg:mx-0 w-auto lg:w-full relative flex items-center justify-center p-4">
               {isLoadingUrl ? (
                 <div className="flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />

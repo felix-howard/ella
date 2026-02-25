@@ -1123,5 +1123,12 @@
   "draftReturn.noActiveLink": "Không có link hoạt động",
   "draftReturn.uploadNewToShare": "Tải lên phiên bản mới để tạo link chia sẻ",
   "draftReturn.versionHistory": "Lịch sử phiên bản",
-  "draftReturn.current": "hiện tại"
+  "draftReturn.current": "hiện tại",
+  "draftReturn.superseded": "đã thay thế",
+  "draftReturn.revoked": "đã thu hồi",
+  "draftReturn.openLink": "Mở",
+  "draftReturn.copyLink": "Sao chép link",
+  "draftReturn.loadingPreview": "Đang tải...",
+  "draftReturn.versionLoadError": "Không thể tải phiên bản",
+  "draftReturn.sameUrlNote": "Link giữ nguyên cho tất cả phiên bản"
 }

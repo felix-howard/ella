@@ -929,6 +929,12 @@ export const api = {
       request<{ success: boolean; expiresAt: string }>(`/draft-returns/${draftId}/extend`, {
         method: 'POST',
       }),
+
+    getSignedUrl: (draftId: string) =>
+      request<{ url: string; filename: string }>(`/draft-returns/${draftId}/signed-url`),
+
+    getVersionSignedUrl: (caseId: string, version: number) =>
+      request<{ url: string; filename: string }>(`/draft-returns/version/${caseId}/${version}/signed-url`),
   },
 }
 

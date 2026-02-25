@@ -4,7 +4,7 @@
  */
 import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
-import { uploadFile } from '../../services/storage'
+import { uploadFile, getSignedDownloadUrl } from '../../services/storage'
 import { PORTAL_URL } from '../../lib/constants'
 import { buildNestedClientScope } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
@@ -105,10 +105,11 @@ draftReturnsRoute.post('/:caseId/upload', async (c) => {
       data: { status: 'SUPERSEDED' },
     })
 
-    // Deactivate old magic links
-    await tx.magicLink.updateMany({
-      where: { caseId, type: 'DRAFT_RETURN', isActive: true },
-      data: { isActive: false },
+    // Check if there's an existing magic link for this case (reuse token for version continuity)
+    const existingMagicLink = await tx.magicLink.findFirst({
+      where: { caseId, type: 'DRAFT_RETURN' },
+      orderBy: { createdAt: 'desc' },
+      select: { token: true },
     })
 
     // Upload to R2 (outside transaction, but after we've locked the version)
@@ -131,7 +132,13 @@ draftReturnsRoute.post('/:caseId/upload', async (c) => {
       },
     })
 
-    // Create magic link with 14-day expiry
+    // Deactivate old magic links (but we'll reuse the token)
+    await tx.magicLink.updateMany({
+      where: { caseId, type: 'DRAFT_RETURN', isActive: true },
+      data: { isActive: false },
+    })
+
+    // Create magic link with 14-day expiry (reuse existing token if available)
     const expiresAt = new Date(Date.now() + DRAFT_RETURN_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
     const magicLink = await tx.magicLink.create({
       data: {
@@ -140,6 +147,8 @@ draftReturnsRoute.post('/:caseId/upload', async (c) => {
         draftReturnId: draftReturn.id,
         expiresAt,
         isActive: true,
+        // Reuse existing token so URL stays the same across versions
+        ...(existingMagicLink ? { token: existingMagicLink.token } : {}),
       },
     })
 
@@ -346,6 +355,88 @@ draftReturnsRoute.post('/:id/extend', async (c) => {
     success: true,
     expiresAt: newExpiry.toISOString(),
   })
+})
+
+/**
+ * GET /draft-returns/:id/signed-url
+ * Get signed URL to view/download draft return PDF
+ */
+draftReturnsRoute.get('/:id/signed-url', async (c) => {
+  const id = c.req.param('id')
+  const user = c.get('user')
+
+  // Find draft return
+  const draftReturn = await prisma.draftReturn.findUnique({
+    where: { id },
+    select: { r2Key: true, taxCaseId: true, filename: true },
+  })
+
+  if (!draftReturn) {
+    return c.json({ error: 'NOT_FOUND', message: 'Draft return not found' }, 404)
+  }
+
+  // Verify the associated taxCase belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: draftReturn.taxCaseId, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+
+  if (!caseCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Draft return not found' }, 404)
+  }
+
+  // Generate signed URL (15 min expiry for thumbnail/preview)
+  const url = await getSignedDownloadUrl(draftReturn.r2Key, 900)
+
+  if (!url) {
+    return c.json({ error: 'PDF_UNAVAILABLE', message: 'Could not generate PDF URL' }, 500)
+  }
+
+  return c.json({ url, filename: draftReturn.filename })
+})
+
+/**
+ * GET /draft-returns/version/:caseId/:version/signed-url
+ * Get signed URL for a specific version of draft return
+ */
+draftReturnsRoute.get('/version/:caseId/:version/signed-url', async (c) => {
+  const caseId = c.req.param('caseId')
+  const versionStr = c.req.param('version')
+  const version = parseInt(versionStr, 10)
+  const user = c.get('user')
+
+  if (isNaN(version) || version < 1) {
+    return c.json({ error: 'INVALID_VERSION', message: 'Invalid version number' }, 400)
+  }
+
+  // Verify case belongs to user's org
+  const caseCheck = await prisma.taxCase.findFirst({
+    where: { id: caseId, ...buildNestedClientScope(user) },
+    select: { id: true },
+  })
+
+  if (!caseCheck) {
+    return c.json({ error: 'CASE_NOT_FOUND', message: 'Tax case not found' }, 404)
+  }
+
+  // Find the specific version
+  const draftReturn = await prisma.draftReturn.findFirst({
+    where: { taxCaseId: caseId, version },
+    select: { r2Key: true, filename: true },
+  })
+
+  if (!draftReturn) {
+    return c.json({ error: 'VERSION_NOT_FOUND', message: 'Version not found' }, 404)
+  }
+
+  // Generate signed URL (15 min expiry)
+  const url = await getSignedDownloadUrl(draftReturn.r2Key, 900)
+
+  if (!url) {
+    return c.json({ error: 'PDF_UNAVAILABLE', message: 'Could not generate PDF URL' }, 500)
+  }
+
+  return c.json({ url, filename: draftReturn.filename })
 })
 
 export { draftReturnsRoute }

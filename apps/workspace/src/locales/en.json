@@ -1124,5 +1124,12 @@
   "draftReturn.noActiveLink": "No Active Link",
   "draftReturn.uploadNewToShare": "Upload a new version to generate a shareable link",
   "draftReturn.versionHistory": "Version History",
-  "draftReturn.current": "current"
+  "draftReturn.current": "current",
+  "draftReturn.superseded": "superseded",
+  "draftReturn.revoked": "revoked",
+  "draftReturn.openLink": "Open",
+  "draftReturn.copyLink": "Copy link",
+  "draftReturn.loadingPreview": "Loading...",
+  "draftReturn.versionLoadError": "Could not load version",
+  "draftReturn.sameUrlNote": "Link stays the same for all versions"
 }

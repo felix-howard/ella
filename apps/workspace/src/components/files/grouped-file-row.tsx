@@ -4,6 +4,8 @@
  */
 
 import { Fragment, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Files } from 'lucide-react'
 import type { RawImage } from '../../lib/api-client'
 import type { DocumentGroup } from '../../lib/document-grouping'
 import { getPageDisplay } from '../../lib/document-grouping'
@@ -25,6 +27,8 @@ export function GroupedFileRow({
   group,
   renderFileRow,
 }: GroupedFileRowProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="relative">
       {/* Left connector line */}
@@ -35,10 +39,10 @@ export function GroupedFileRow({
 
       {/* Group header badge - shows base name + count for all groups */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary/10 border-b border-primary/20">
-        <span className="ml-8 text-primary" aria-hidden="true">📑</span>
+        <Files className="ml-8 h-4 w-4 text-primary" aria-hidden="true" />
         <span className="text-primary">{group.baseName}</span>
         <span className="text-primary/70">
-          ({group.pageCount} trang)
+          ({t('filesTab.groupPageCount', { count: group.pageCount })})
         </span>
       </div>
 

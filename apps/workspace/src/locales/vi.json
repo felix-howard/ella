@@ -299,6 +299,7 @@
   "filesTab.movedToCategory": "Đã chuyển sang \"{{category}}\"",
   "filesTab.movedBatchToCategory": "Đã chuyển {{count}} trang sang \"{{category}}\"",
   "filesTab.moveCategoryError": "Lỗi chuyển danh mục",
+  "filesTab.groupPageCount": "{{count}} trang",
   "fileActions.rename": "Đổi tên",
   "fileActions.openInNewTab": "Mở trong tab mới",
   "fileActions.download": "Tải xuống",

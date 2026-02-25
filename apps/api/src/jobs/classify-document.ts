@@ -416,10 +416,38 @@ export const classifyDocumentJob = inngest.createFunction(
         }
 
         // Smart rename failed or low confidence - fall back to existing behavior
+        // BUT: still use smart rename filename if available (even at low confidence)
+        // Better to have "Tax_Penalty_Calculation" than "image"
         const errorInfo = getVietnameseError(error || classification.reasoning)
 
         // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
         await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
+
+        // Use smart rename displayName even at low confidence - any descriptive name beats "image"
+        // Threshold: 30% confidence to have any meaningful name generated
+        const MINIMUM_RENAME_CONFIDENCE = 0.30
+        const useSmartRenameDisplayName = smartRename &&
+          smartRename.suggestedFilename &&
+          smartRename.confidence >= MINIMUM_RENAME_CONFIDENCE
+
+        if (useSmartRenameDisplayName) {
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              displayName: smartRename.suggestedFilename,
+              aiMetadata: {
+                documentTitle: smartRename.documentTitle,
+                pageInfo: JSON.parse(JSON.stringify(smartRename.pageInfo)),
+                fallbackRename: true,
+                lowConfidenceRename: true,
+                reasoning: smartRename.reasoning,
+                smartRenameConfidence: smartRename.confidence,
+                originalClassificationConfidence: confidence,
+              },
+            },
+          })
+          console.log(`[classify-document] Low-confidence smart rename used: ${smartRename.suggestedFilename} (${(smartRename.confidence * 100).toFixed(0)}%)`)
+        }
 
         // Still create AI_FAILED action for CPA visibility
         await createAction({
@@ -434,8 +462,9 @@ export const classifyDocumentJob = inngest.createFunction(
             technicalError: sanitizeErrorMessage(error || classification.reasoning),
             r2Key,
             attemptedAt: new Date().toISOString(),
-            smartRenameFailed: smartRename ? false : true,
+            smartRenameFailed: !smartRename,
             smartRenameConfidence: smartRename?.confidence,
+            displayNameUsed: useSmartRenameDisplayName ? smartRename?.suggestedFilename : null,
           },
         })
 

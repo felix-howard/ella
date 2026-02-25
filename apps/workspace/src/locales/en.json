@@ -281,6 +281,8 @@
   "filesTab.noFiles": "No documents yet",
   "filesTab.noFilesDesc": "Client has not sent any documents via portal or message",
   "filesTab.groupFiles": "Group Files",
+  "filesTab.groupingButton": "Grouping...",
+  "filesTab.groupingInProgress": "AI is grouping documents...",
   "filesTab.groupingStarted": "Document grouping started...",
   "filesTab.groupingSuccess": "Successfully grouped {{count}} documents",
   "filesTab.groupingError": "Failed to start document grouping",

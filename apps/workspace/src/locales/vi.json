@@ -281,6 +281,8 @@
   "filesTab.noFiles": "Chưa có tài liệu nào",
   "filesTab.noFilesDesc": "Khách hàng chưa gửi tài liệu qua portal hoặc tin nhắn",
   "filesTab.groupFiles": "Nhóm file",
+  "filesTab.groupingButton": "Đang nhóm...",
+  "filesTab.groupingInProgress": "AI đang nhóm tài liệu...",
   "filesTab.groupingStarted": "Đang bắt đầu nhóm tài liệu...",
   "filesTab.groupingSuccess": "Đã nhóm thành công {{count}} tài liệu",
   "filesTab.groupingError": "Không thể bắt đầu nhóm tài liệu",

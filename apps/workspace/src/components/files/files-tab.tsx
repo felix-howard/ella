@@ -3,14 +3,14 @@
  * Shows all documents grouped by AI-classified category from DB
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
-import { Upload, Download, CheckCheck, Loader2, FolderSync } from 'lucide-react'
+import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
 import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
-import { toast } from '../../stores/toast-store'
+import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
 import { UnclassifiedSection } from './unclassified-section'
@@ -50,6 +50,8 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [viewImage, setViewImage] = useState<RawImage | null>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isGroupingActive, setIsGroupingActive] = useState(false)
+  const groupingPollRef = useRef<NodeJS.Timeout | null>(null)
 
   // Fetch images only if not provided by parent (backward compatibility)
   const { data: imagesData, isPending: imagesLoading } = useQuery({
@@ -420,22 +422,97 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     [images]
   )
 
-  // Mutation for batch document grouping
+  // Mutation for batch document grouping with persistent AI notification
   const groupDocumentsMutation = useMutation({
     mutationFn: () => api.cases.groupDocuments(caseId),
     onMutate: () => {
-      toast.info(t('filesTab.groupingStarted'))
+      // Show persistent AI grouping toast with sparkle icon
+      setIsGroupingActive(true)
+      hotToast.custom(
+        (toastState) => (
+          <div
+            className={`${toastState.visible ? 'animate-enter' : 'animate-leave'} flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-lg`}
+          >
+            <Sparkles className="w-4 h-4 animate-pulse" />
+            <span className="font-medium text-sm">{t('filesTab.groupingInProgress')}</span>
+          </div>
+        ),
+        { duration: Infinity, id: 'ai-grouping' }
+      )
     },
-    onSuccess: (data) => {
-      toast.success(t('filesTab.groupingSuccess', { count: data.documentCount }))
-      // Refetch images to show updated groupings
-      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    onSuccess: () => {
+      // Start polling to detect when grouping job completes
+      // Don't dismiss toast yet - wait for polling to confirm completion
+      startGroupingPoll()
     },
     onError: (error) => {
+      setIsGroupingActive(false)
+      hotToast.dismiss('ai-grouping')
       toast.error(t('filesTab.groupingError'))
       console.error('[GroupDocuments]', error)
     },
   })
+
+  // Poll images to detect when grouping job completes
+  const startGroupingPoll = useCallback(() => {
+    let stableCount = 0
+    let lastUngroupedCount = ungroupedCount
+
+    const poll = async () => {
+      try {
+        // Refetch images to get latest grouping status
+        const result = await queryClient.fetchQuery({
+          queryKey: ['images', caseId],
+          queryFn: () => api.cases.getImages(caseId),
+          staleTime: 0, // Force fresh fetch
+        })
+
+        // Count current ungrouped documents
+        const currentUngrouped = result.images.filter(
+          (img: RawImage) =>
+            (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
+        ).length
+
+        // Check if grouping is complete (no more ungrouped docs OR count stabilized)
+        if (currentUngrouped === 0 || (currentUngrouped === lastUngroupedCount && stableCount >= 2)) {
+          // Grouping complete!
+          setIsGroupingActive(false)
+          hotToast.dismiss('ai-grouping')
+          toast.success(t('filesTab.groupingSuccess', { count: lastUngroupedCount - currentUngrouped }))
+          queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+          if (groupingPollRef.current) {
+            clearInterval(groupingPollRef.current)
+            groupingPollRef.current = null
+          }
+          return
+        }
+
+        // Track stability
+        if (currentUngrouped === lastUngroupedCount) {
+          stableCount++
+        } else {
+          stableCount = 0
+          lastUngroupedCount = currentUngrouped
+        }
+      } catch (error) {
+        console.error('[GroupingPoll] Error:', error)
+      }
+    }
+
+    // Poll every 2 seconds
+    groupingPollRef.current = setInterval(poll, 2000)
+    // Also run immediately
+    poll()
+  }, [caseId, queryClient, t, ungroupedCount])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (groupingPollRef.current) {
+        clearInterval(groupingPollRef.current)
+      }
+    }
+  }, [])
 
   // Loading state - show skeleton only when actually loading
   if (showLoading) {
@@ -477,22 +554,28 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             variant="outline"
             size="sm"
             onClick={() => groupDocumentsMutation.mutate()}
-            disabled={groupDocumentsMutation.isPending || ungroupedCount === 0}
+            disabled={isGroupingActive || ungroupedCount === 0}
             className={cn(
               'gap-1.5',
-              ungroupedCount === 0 && 'opacity-50'
+              ungroupedCount === 0 && 'opacity-50',
+              isGroupingActive && 'cursor-not-allowed'
             )}
           >
-            {groupDocumentsMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {isGroupingActive ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="hidden sm:inline">{t('filesTab.groupingButton')}</span>
+              </>
             ) : (
-              <FolderSync className="w-3.5 h-3.5" />
-            )}
-            <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
-            {ungroupedCount > 0 && (
-              <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
-                {ungroupedCount}
-              </span>
+              <>
+                <FolderSync className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
+                {ungroupedCount > 0 && (
+                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                    {ungroupedCount}
+                  </span>
+                )}
+              </>
             )}
           </Button>
 

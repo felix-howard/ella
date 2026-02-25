@@ -864,37 +864,75 @@ export function getSmartRenamePrompt(): string {
   return `You are analyzing a document that couldn't be classified into a predefined type.
 Your ONLY job is to generate a meaningful, descriptive filename.
 
+CRITICAL: Even if you're uncertain, ALWAYS generate a descriptive filename.
+Never output generic names like "Document", "Image", "Paper", "Form", "Letter".
+
 ANALYZE AND EXTRACT:
-1. documentTitle: What IS this document? Be specific.
-   - Good: "BankStatement", "PropertyTaxBill", "InsuranceEOB", "CourtOrder"
-   - Bad: "Document", "Paper", "Form", "Letter"
+1. documentTitle: What IS this document? Be as specific as possible.
+   - TAX DOCUMENTS: Look for IRS form numbers, "Line X", "Form XXXX", "Schedule X"
+     * "Line 19 (2210)" → "Form2210_PenaltyCalculation"
+     * "Underpayment of Estimated Tax" → "EstimatedTaxPenalty"
+     * "Schedule C" → "ScheduleC_BusinessIncome"
+     * Any IRS worksheet → Include form reference in title
+   - FINANCIAL: "BankStatement", "InvestmentSummary", "LoanPayment"
+   - GOVERNMENT: "PropertyTaxBill", "VehicleRegistration", "CourtOrder"
+   - MEDICAL: "InsuranceEOB", "MedicalBill", "LabResults"
+   - LEGAL: "Contract", "Agreement", "CourtFiling"
+
+   BAD (never use): "Document", "Paper", "Form", "Letter", "Image", "Scan", "File"
 
 2. taxYear: What year? Look for:
+   - Tax year references ("Tax Year 2024", "2024", "FY 2024")
    - Statement periods ("January 2024 - December 2024")
-   - Tax year references ("Tax Year 2024")
-   - Document dates
-   - Default to current year if truly unclear
+   - Due dates, payment dates
+   - Default to current year (2025) if truly unclear
 
 3. source: Who issued this?
+   - For IRS forms: "IRS"
    - Company name (Chase, Wells Fargo, Blue Cross)
-   - Government agency (IRS, Texas DMV, Harris County)
-   - Person/entity name if applicable
+   - Government agency (Texas DMV, Harris County)
+   - Person/entity name on letterhead
 
 4. recipientName: Whose document is this?
+   - Taxpayer name (from header, "Name" field)
    - Account holder name
-   - Taxpayer name
    - Property owner name
+   - Vietnamese names common: NGUYEN, TRAN, LE, PHAM
 
 5. pageInfo: Multi-page document?
    - Look for "Page X of Y", "Continued", page numbers
    - Note if this appears to be part of a larger document
 
+EXAMPLES:
+
+Input: Tax form showing "Line 19 (2210) - Penalty Calculation", names "LYNNE DO and NHAT T TRAN"
+Output: {
+  "documentTitle": "Form2210_PenaltyCalculation",
+  "taxYear": 2024,
+  "source": "IRS",
+  "recipientName": "LynneDo_NhatTran",
+  "suggestedFilename": "2024_Form2210_PenaltyCalculation_LynneDo",
+  "confidence": 0.75,
+  "reasoning": "IRS Form 2210 Line 19 penalty calculation worksheet for estimated tax underpayment"
+}
+
+Input: Bank statement from Chase, account holder John Nguyen
+Output: {
+  "documentTitle": "BankStatement",
+  "taxYear": 2024,
+  "source": "Chase",
+  "recipientName": "JohnNguyen",
+  "suggestedFilename": "2024_BankStatement_Chase_JohnNguyen",
+  "confidence": 0.80,
+  "reasoning": "Monthly bank statement from Chase Bank"
+}
+
 RESPONSE FORMAT (JSON):
 {
-  "documentTitle": "PropertyTaxBill",
+  "documentTitle": "DescriptiveTitle",
   "taxYear": 2024,
-  "source": "HarrisCounty",
-  "recipientName": "JohnNguyen",
+  "source": "SourceName",
+  "recipientName": "PersonName",
   "pageInfo": {
     "isMultiPage": false,
     "currentPage": null,
@@ -902,18 +940,19 @@ RESPONSE FORMAT (JSON):
     "continuationMarker": null,
     "documentIdentifier": null
   },
-  "suggestedFilename": "2024_PropertyTaxBill_HarrisCounty_JohnNguyen",
-  "confidence": 0.85,
-  "reasoning": "Property tax statement from Harris County Appraisal District for 2024"
+  "suggestedFilename": "YYYY_DescriptiveTitle_Source_PersonName",
+  "confidence": 0.XX,
+  "reasoning": "Brief description of what you see"
 }
 
 NAMING RULES:
 - Max 60 characters
 - No spaces (use PascalCase or underscores)
 - No special characters except underscores
-- Be descriptive, not generic
+- BE SPECIFIC - include form numbers, line references, document type
 - Include year, source, and name when available
-- Format: YYYY_DocumentTitle_Source_RecipientName`
+- Format: YYYY_DocumentTitle_Source_RecipientName
+- For tax forms: Include form number in title (Form2210, ScheduleC, etc.)`
 }
 
 /**

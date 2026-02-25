@@ -70,6 +70,7 @@ export interface AiFailedMetadata extends ActionMetadataBase {
   // Smart rename fallback fields
   smartRenameFailed?: boolean
   smartRenameConfidence?: number
+  displayNameUsed?: string | null
 }
 
 /**

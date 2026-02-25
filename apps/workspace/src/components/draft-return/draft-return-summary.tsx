@@ -322,11 +322,6 @@ export function DraftReturnSummary({
             )}
             {t('draftReturn.uploadNewVersion')}
           </label>
-          {versions.length > 1 && (
-            <span className="ml-3 text-sm text-muted-foreground">
-              {t('draftReturn.sameUrlNote')}
-            </span>
-          )}
         </div>
       </div>
 

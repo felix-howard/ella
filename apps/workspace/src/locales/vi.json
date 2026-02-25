@@ -1129,6 +1129,5 @@
   "draftReturn.openLink": "Mở",
   "draftReturn.copyLink": "Sao chép link",
   "draftReturn.loadingPreview": "Đang tải...",
-  "draftReturn.versionLoadError": "Không thể tải phiên bản",
-  "draftReturn.sameUrlNote": "Link giữ nguyên cho tất cả phiên bản"
+  "draftReturn.versionLoadError": "Không thể tải phiên bản"
 }

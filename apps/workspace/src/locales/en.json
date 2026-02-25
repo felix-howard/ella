@@ -1130,6 +1130,5 @@
   "draftReturn.openLink": "Open",
   "draftReturn.copyLink": "Copy link",
   "draftReturn.loadingPreview": "Loading...",
-  "draftReturn.versionLoadError": "Could not load version",
-  "draftReturn.sameUrlNote": "Link stays the same for all versions"
+  "draftReturn.versionLoadError": "Could not load version"
 }

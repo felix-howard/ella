@@ -16,6 +16,7 @@
  * - Explainability: Logs show bucket keys and confidence scores
  */
 
+import type { DocType } from '@ella/db'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
 import { fetchImageBuffer, renameFileRaw } from '../services/storage'
@@ -464,26 +465,105 @@ export const groupDocumentsBatchJob = inngest.createFunction(
         // Log bucket formation
         const entries = Array.from(metadataBuckets.entries())
         for (const [key, bucket] of entries) {
-          console.log(`[batch-grouping] Pass ${passCount} Bucket: ${key} → ${bucket.documents.length} docs`)
+          console.log(`[batch-grouping] Pass ${passCount} Bucket: ${key} → ${bucket.documents.length} new docs`)
         }
 
-        return Array.from(metadataBuckets.values()).filter(
-          (bucket) => bucket.documents.length >= 2
-        )
+        return Array.from(metadataBuckets.values())
       })
 
-      // No buckets with 2+ docs means no grouping possible
-      if (buckets.length === 0) {
-        console.log(`[batch-grouping] Pass ${passCount}: No buckets with multiple documents`)
+      // Step 2b: Fetch representative docs from existing groups for each bucket
+      // This allows new docs to be compared against and joined to existing groups
+      const bucketsWithRepresentatives = await step.run(`augment-buckets-pass-${passCount}`, async () => {
+        const augmentedBuckets: MetadataBucket[] = []
+
+        for (const bucket of buckets) {
+          // Query one representative doc per existing group matching this bucket's formType
+          // We'll filter by taxpayerName in code since it's in JSON metadata
+          const existingGroupedDocs = await prisma.rawImage.findMany({
+            where: {
+              caseId,
+              status: { in: ['CLASSIFIED', 'LINKED'] },
+              documentGroupId: { not: null },
+              classifiedType: bucket.formType as DocType,
+            },
+            select: {
+              id: true,
+              r2Key: true,
+              displayName: true,
+              classifiedType: true,
+              documentGroupId: true,
+              pageNumber: true,
+              mimeType: true,
+              aiConfidence: true,
+              aiMetadata: true,
+            },
+            orderBy: { pageNumber: 'asc' }, // Get first page of each group
+            distinct: ['documentGroupId'], // One representative per group
+          })
+
+          // Filter representatives by taxpayerName match
+          const matchingReps: DocumentForGrouping[] = []
+          for (const doc of existingGroupedDocs) {
+            const metadata = doc.aiMetadata as DocumentForGrouping['aiMetadata']
+            const docTaxpayer = normalizeTaxpayerName(metadata?.taxpayerName)
+
+            // Match if both null/undefined OR both equal
+            const bucketTaxpayer = bucket.taxpayerName // Already normalized
+            if (docTaxpayer === bucketTaxpayer) {
+              matchingReps.push({
+                id: doc.id,
+                r2Key: doc.r2Key,
+                displayName: doc.displayName,
+                classifiedType: doc.classifiedType,
+                documentGroupId: doc.documentGroupId,
+                pageNumber: doc.pageNumber,
+                mimeType: doc.mimeType,
+                aiConfidence: doc.aiConfidence,
+                aiMetadata: metadata,
+              })
+            }
+          }
+
+          if (matchingReps.length > 0) {
+            console.log(
+              `[batch-grouping] Bucket ${bucket.key}: Adding ${matchingReps.length} representatives from existing groups`
+            )
+          }
+
+          // Combine: new ungrouped docs + representatives from existing groups
+          const combinedDocs = [...bucket.documents, ...matchingReps]
+
+          // Only include bucket if there's potential for grouping:
+          // - 2+ new docs (can group together), OR
+          // - 1+ new docs AND 1+ existing group reps (can join existing group)
+          const newDocsCount = bucket.documents.length
+          const existingRepsCount = matchingReps.length
+
+          if (newDocsCount >= 2 || (newDocsCount >= 1 && existingRepsCount >= 1)) {
+            augmentedBuckets.push({
+              key: bucket.key,
+              formType: bucket.formType,
+              taxpayerName: bucket.taxpayerName,
+              documents: combinedDocs,
+            })
+          }
+        }
+
+        return augmentedBuckets
+      })
+
+      // No buckets with grouping potential means no grouping possible
+      if (bucketsWithRepresentatives.length === 0) {
+        console.log(`[batch-grouping] Pass ${passCount}: No buckets with grouping potential`)
         break
       }
 
-      // Step 3: Process each bucket
+      // Step 3: Process each bucket (now includes representatives from existing groups)
       let passCreated = 0
       let passUpdated = 0
       let passProcessed = 0
 
-      for (const bucket of buckets) {
+      for (const bucket of bucketsWithRepresentatives) {
         const typedBucket: MetadataBucket = {
           key: bucket.key as string,
           formType: bucket.formType as string,

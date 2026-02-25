@@ -667,6 +667,96 @@ describe('sortDocumentsByPageMarker', () => {
     })
   })
 
+  describe('pageMarker format (AI classification output)', () => {
+    it('sorts by pageMarker.current when pageInfo is not present', () => {
+      // This tests the actual format from AI classification
+      // AI stores: pageMarker.current, not pageInfo.currentPage
+      const docs = [
+        {
+          doc: {
+            ...createMockDocument('page3'),
+            aiMetadata: {
+              pageMarker: { current: 3, total: 3, partNumber: null, isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 0,
+        },
+        {
+          doc: {
+            ...createMockDocument('page1'),
+            aiMetadata: {
+              pageMarker: { current: 1, total: 3, partNumber: 'I', isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 1,
+        },
+        {
+          doc: {
+            ...createMockDocument('page2'),
+            aiMetadata: {
+              pageMarker: { current: 2, total: 3, partNumber: 'II', isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 2,
+        },
+      ]
+
+      const sorted = sortDocumentsByPageMarker(docs)
+
+      // Should sort by pageMarker.current ascending: page1, page2, page3
+      expect(sorted.map((d) => d.doc.id)).toEqual(['page1', 'page2', 'page3'])
+      expect(sorted.map((d) => d.pageNum)).toEqual([1, 2, 3])
+    })
+
+    it('handles Form 5695 3-page scenario with pageMarker format', () => {
+      // Real scenario: Form 5695 with 3 pages uploaded out of order
+      // Page 1 = Part I (first page, no "Page X" indicator)
+      // Page 2 = Part II (has "Page 2" in header)
+      // Page 3 = Section B continued (has "Page 3" in header)
+      const docs = [
+        {
+          doc: {
+            ...createMockDocument('sectionB_page3'),
+            displayName: '2024_FORM_5695_LynnieDoAndNhatTTran_(3)',
+            aiMetadata: {
+              taxpayerName: 'LYNNIE DO AND NHAT T TRAN',
+              pageMarker: { current: 3, total: null, partNumber: null, isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 0,
+        },
+        {
+          doc: {
+            ...createMockDocument('partII_page2'),
+            displayName: '2024_FORM_5695_LynnieDoAndNhatTTran',
+            aiMetadata: {
+              taxpayerName: 'LYNNIE DO AND NHAT T TRAN',
+              pageMarker: { current: 2, total: null, partNumber: 'II', isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 1,
+        },
+        {
+          doc: {
+            ...createMockDocument('partI_page1'),
+            displayName: '2024_FORM_5695_LynnieDoAndNhatTTran_(2)',
+            aiMetadata: {
+              taxpayerName: 'LYNNIE DO AND NHAT T TRAN',
+              pageMarker: { current: 1, total: null, partNumber: 'I', isWorksheet: false },
+            } as unknown as DocumentForGrouping['aiMetadata'],
+          },
+          originalIndex: 2,
+        },
+      ]
+
+      const sorted = sortDocumentsByPageMarker(docs)
+
+      // Expected order: Part I (page 1), Part II (page 2), Section B (page 3)
+      expect(sorted.map((d) => d.doc.id)).toEqual(['partI_page1', 'partII_page2', 'sectionB_page3'])
+      expect(sorted.map((d) => d.pageNum)).toEqual([1, 2, 3])
+    })
+  })
+
   describe('empty input', () => {
     it('returns empty array for empty input', () => {
       const sorted = sortDocumentsByPageMarker([])

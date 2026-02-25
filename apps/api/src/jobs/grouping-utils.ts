@@ -231,11 +231,21 @@ export function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; 
   // First pass: assign sort keys to each document
   const docsWithSortInfo = documents.map((d) => {
     const metadata = d.doc.aiMetadata
+    // Support both pageInfo (legacy/tests) and pageMarker (AI classification output)
+    // AI classification stores: pageMarker.current, pageMarker.total
+    // Legacy/tests use: pageInfo.currentPage, pageInfo.totalPages
     const pageInfo = metadata?.pageInfo
+    const pageMarker = (metadata as Record<string, unknown>)?.pageMarker as {
+      current?: number | null
+      total?: number | null
+      partNumber?: string | null
+      isWorksheet?: boolean | null
+    } | null | undefined
     const continuationMarker = metadata?.continuationMarker
 
     // Determine if this is a worksheet/supplement (should come last)
-    const isWorksheet = pageInfo?.isWorksheet === true
+    // Check both pageInfo and pageMarker for isWorksheet
+    const isWorksheet = pageInfo?.isWorksheet === true || pageMarker?.isWorksheet === true
     const displayName = d.doc.displayName?.toLowerCase() || ''
     const isLikelyWorksheet = isWorksheet ||
       displayName.includes('universaltax') ||
@@ -247,12 +257,14 @@ export function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; 
     const hasContinuationMarker = continuationMarker?.type != null
 
     // Get explicit page number if available
-    const explicitPageNum = pageInfo?.currentPage && pageInfo.currentPage > 0
-      ? pageInfo.currentPage
-      : null
+    // Check pageMarker.current (from AI classification) first, then pageInfo.currentPage (legacy)
+    const currentFromMarker = pageMarker?.current && pageMarker.current > 0 ? pageMarker.current : null
+    const currentFromInfo = pageInfo?.currentPage && pageInfo.currentPage > 0 ? pageInfo.currentPage : null
+    const explicitPageNum = currentFromMarker ?? currentFromInfo
 
     // Check if this looks like page 1 (Part I without explicit page number)
-    const partNumber = pageInfo?.partNumber?.toUpperCase()
+    // Check both pageInfo and pageMarker for partNumber
+    const partNumber = (pageInfo?.partNumber ?? pageMarker?.partNumber)?.toUpperCase()
     const isLikelyPage1 = partNumber === 'I' && explicitPageNum === null && !hasContinuationMarker && !isLikelyWorksheet
 
     return {

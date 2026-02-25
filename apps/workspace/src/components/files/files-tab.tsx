@@ -18,6 +18,7 @@ import { FileCategorySection } from './file-category-section'
 import { EmptyCategoryDropZone } from './empty-category-drop-zone'
 import { SimpleImageViewerModal } from './simple-image-viewer-modal'
 import { ManualClassificationModal, VerificationModal } from '../documents'
+import { useMarkDocumentViewed } from '../../hooks'
 
 export interface FilesTabProps {
   caseId: string
@@ -52,6 +53,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [isDownloading, setIsDownloading] = useState(false)
   const [isGroupingActive, setIsGroupingActive] = useState(false)
   const groupingPollRef = useRef<NodeJS.Timeout | null>(null)
+  const markViewed = useMarkDocumentViewed()
 
   // Fetch images only if not provided by parent (backward compatibility)
   const { data: imagesData, isPending: imagesLoading } = useQuery({
@@ -257,6 +259,24 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     if (currentIndex <= 0) return
 
     const prevItem = navItems[currentIndex - 1]
+
+    // Mark as viewed when navigating (optimistic update + API call)
+    if (prevItem.image.isNew) {
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              img.id === prevItem.imageId ? { ...img, isNew: false } : img
+            ),
+          }
+        }
+      )
+      markViewed.mutate(prevItem.imageId)
+    }
+
     if (prevItem.doc) {
       setViewImage(null)
       setVerifyDoc(prevItem.doc)
@@ -266,13 +286,31 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       setIsVerifyModalOpen(false)
       setViewImage(prevItem.image)
     }
-  }, [getCurrentNavIndex, navItems])
+  }, [getCurrentNavIndex, navItems, caseId, queryClient, markViewed])
 
   const handleNavigateNext = useCallback(() => {
     const currentIndex = getCurrentNavIndex()
     if (currentIndex < 0 || currentIndex >= navItems.length - 1) return
 
     const nextItem = navItems[currentIndex + 1]
+
+    // Mark as viewed when navigating (optimistic update + API call)
+    if (nextItem.image.isNew) {
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              img.id === nextItem.imageId ? { ...img, isNew: false } : img
+            ),
+          }
+        }
+      )
+      markViewed.mutate(nextItem.imageId)
+    }
+
     if (nextItem.doc) {
       setViewImage(null)
       setVerifyDoc(nextItem.doc)
@@ -282,7 +320,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       setIsVerifyModalOpen(false)
       setViewImage(nextItem.image)
     }
-  }, [getCurrentNavIndex, navItems])
+  }, [getCurrentNavIndex, navItems, caseId, queryClient, markViewed])
 
   // Handler for drag and drop between categories (supports single file or batch)
   const handleFileDrop = useCallback(

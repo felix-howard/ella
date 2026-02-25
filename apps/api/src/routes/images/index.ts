@@ -683,9 +683,8 @@ imagesRoute.delete('/:id', async (c) => {
 })
 
 /**
- * POST /images/:id/classify-anyway - Force classification on duplicate
+ * POST /images/:id/classify-anyway - Force re-classification
  * Resets status to UPLOADED and triggers classification pipeline
- * with skipDuplicateCheck flag to avoid re-detecting as duplicate
  */
 imagesRoute.post('/:id/classify-anyway', async (c) => {
   const id = c.req.param('id')
@@ -700,23 +699,16 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
 
-  if (image.status !== 'DUPLICATE') {
-    return c.json(
-      { error: 'INVALID_STATUS', message: 'Image is not a duplicate' },
-      400
-    )
-  }
-
   // Reset to UPLOADED so pipeline will process it
   await prisma.rawImage.update({
     where: { id },
     data: {
       status: 'UPLOADED' as RawImageStatus,
-      imageGroupId: null, // Remove from duplicate group
+      imageGroupId: null,
     },
   })
 
-  // Trigger classification via Inngest with skipDuplicateCheck flag
+  // Trigger classification via Inngest
   await inngest.send({
     name: 'document/uploaded',
     data: {
@@ -724,7 +716,6 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
       caseId: image.caseId,
       r2Key: image.r2Key,
       mimeType: image.mimeType || 'application/octet-stream',
-      skipDuplicateCheck: true, // Skip duplicate check on re-classification
     },
   })
 

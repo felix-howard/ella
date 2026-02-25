@@ -27,14 +27,12 @@ import {
   linkToChecklistItem,
   createAction,
   processOcrResultAtomic,
-  markImageDuplicate,
 } from '../services/ai/pipeline-helpers'
 import {
   getVietnameseError,
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
-import { generateImageHash, findDuplicateInCase } from '../services/ai/duplicate-detector'
 import type { DocType, DocCategory } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -157,7 +155,7 @@ export const classifyDocumentJob = inngest.createFunction(
   },
   { event: 'document/uploaded' },
   async ({ event, step }) => {
-    const { rawImageId, caseId, r2Key, mimeType: eventMimeType, skipDuplicateCheck } = event.data
+    const { rawImageId, caseId, r2Key, mimeType: eventMimeType } = event.data
 
     // Step 0: Atomic idempotency check + mark processing (prevents race condition)
     const idempotencyCheck = await step.run('check-idempotency', async () => {
@@ -262,102 +260,6 @@ export const classifyDocumentJob = inngest.createFunction(
           .toBuffer()
       }
       fileBuffer = buffer
-    }
-
-    // Step 1.5: Check for duplicates BEFORE AI classification (cost saving)
-    // Skip if: 1) flag set (classify-anyway), 2) PDF (pHash doesn't work well), 3) was resized
-    interface DuplicateCheckStepResult {
-      isDuplicate: boolean
-      skipped: boolean
-      imageHash: string | null
-      matchedImageId: string | null
-      groupId: string | null
-      hammingDistance: number | null
-    }
-
-    const duplicateCheck = await step.run('check-duplicate', async (): Promise<DuplicateCheckStepResult> => {
-      // Skip duplicate check if requested (classify-anyway endpoint)
-      if (skipDuplicateCheck) {
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-
-      // Skip for PDFs - pHash works on images only
-      if (imageData.isPdf) {
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-
-      try {
-        const buffer = fileBuffer!
-        const imageHash = await generateImageHash(buffer)
-
-        // Check for duplicates in this case
-        const result = await findDuplicateInCase(caseId, imageHash, rawImageId)
-
-        if (result.isDuplicate) {
-          // Mark as duplicate and store hash
-          await markImageDuplicate(rawImageId, imageHash, result.groupId, result.matchedImageId)
-
-          return {
-            isDuplicate: true,
-            skipped: false,
-            imageHash,
-            matchedImageId: result.matchedImageId,
-            groupId: result.groupId,
-            hammingDistance: result.hammingDistance,
-          }
-        }
-
-        // Not a duplicate - store hash for future comparisons
-        await prisma.rawImage.update({
-          where: { id: rawImageId },
-          data: { imageHash },
-        })
-
-        return { isDuplicate: false, skipped: false, imageHash, matchedImageId: null, groupId: null, hammingDistance: null }
-      } catch (error) {
-        // Hash generation failed - continue to classification
-        console.warn(`[classify-document] Hash generation failed for ${rawImageId}:`, error)
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-    })
-
-    // Handle duplicate - still need meaningful displayName before returning
-    if (duplicateCheck.isDuplicate) {
-      // Check if original has displayName - if not, run smart rename
-      const originalImage = duplicateCheck.matchedImageId
-        ? await prisma.rawImage.findUnique({
-            where: { id: duplicateCheck.matchedImageId },
-            select: { displayName: true, classifiedType: true, category: true },
-          })
-        : null
-
-      // If original has no displayName, generate one via smart rename
-      if (!originalImage?.displayName) {
-        const buffer = fileBuffer!
-        const smartRename = await generateSmartFilename(buffer, imageData.mimeType)
-
-        if (smartRename && smartRename.suggestedFilename) {
-          // Use smart rename for this duplicate
-          await prisma.rawImage.update({
-            where: { id: rawImageId },
-            data: {
-              displayName: `${smartRename.suggestedFilename} (Duplicate)`,
-              category: 'OTHER',
-            },
-          })
-          console.log(`[classify-document] Duplicate smart-renamed: ${smartRename.suggestedFilename}`)
-        }
-      }
-      // Note: markImageDuplicate already copies displayName from original if it exists
-
-      return {
-        rawImageId,
-        duplicateDetected: true,
-        matchedImageId: duplicateCheck.matchedImageId,
-        groupId: duplicateCheck.groupId,
-        hammingDistance: duplicateCheck.hammingDistance,
-        wasResized: imageData.wasResized,
-      }
     }
 
     // Step 2: Classify with Gemini (with service unavailability handling)
@@ -768,10 +670,6 @@ export const classifyDocumentJob = inngest.createFunction(
         newKey: renameResult.newKey,
         displayName: renameResult.displayName,
         category: renameResult.category,
-      },
-      duplicateCheck: {
-        checked: !duplicateCheck.skipped,
-        imageHash: duplicateCheck.imageHash,
       },
       digitalDocId,
       wasResized: imageData.wasResized,

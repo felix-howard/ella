@@ -5,7 +5,7 @@
  * Images: Uses react-zoom-pan-pinch for smooth gestures
  */
 
-import { useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { TransformWrapper, TransformComponent, useControls } from 'react-zoom-pan-pinch'
 import { cn } from '@ella/ui'
 import {
@@ -41,6 +41,10 @@ export interface ImageViewerProps {
   className?: string
   /** Show controls (default true) */
   showControls?: boolean
+  /** Initial rotation (persisted from DB) */
+  initialRotation?: 0 | 90 | 180 | 270
+  /** Callback when rotation changes (to persist to DB) */
+  onRotationChange?: (rotation: 0 | 90 | 180 | 270) => void
 }
 
 // Zoom configuration
@@ -177,6 +181,8 @@ export function ImageViewer({
   isPdf = false,
   className,
   showControls = true,
+  initialRotation = 0,
+  onRotationChange,
 }: ImageViewerProps) {
   // Platform detection (hooks must be at top level)
   const isMobile = useIsMobile()
@@ -184,7 +190,13 @@ export function ImageViewer({
   // Force mobile viewer on mobile devices or iOS (iframe PDFs don't work on iOS)
   const useMobileViewer = isMobile || isIOS
 
-  const [rotation, setRotation] = useState(0)
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(initialRotation)
+
+  // Sync rotation when initialRotation prop changes (e.g., when navigating between files)
+  useEffect(() => {
+    setRotation(initialRotation)
+  }, [initialRotation])
+
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -192,8 +204,13 @@ export function ImageViewer({
   const [imageZoom, setImageZoom] = useState(1)
 
   const handleRotate = useCallback(() => {
-    setRotation((r) => (r + 90) % 360)
-  }, [])
+    setRotation((r) => {
+      const newRotation = ((r + 90) % 360) as 0 | 90 | 180 | 270
+      // Notify parent to persist rotation
+      onRotationChange?.(newRotation)
+      return newRotation
+    })
+  }, [onRotationChange])
 
   const handlePdfZoomIn = useCallback(() => {
     setPdfZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))

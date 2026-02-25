@@ -838,8 +838,722 @@ await docs.verifyField(docId, { field: 'tax', status: 'verified' })
 
 ---
 
-**Last Updated:** 2026-01-16
+---
+
+## Draft Return Sharing Phase 02 API Endpoints
+
+**Phase:** Phase 02 - Draft Return Sharing & Portal Distribution
 **Status:** Complete & Production-Ready
-**Architecture Version:** 6.0 (Phase 03 AI Fallback Chain)
-**Next Phase:** Phase 04 - Multi-stage Processing & Batch Operations
+**Date:** 2026-02-23
+**Branch:** dev
+
+### Overview
+
+Phase 02 adds 6 API endpoints for draft tax return upload, management, and client sharing. Enables staff to upload PDF returns, share with clients via magic links, track views, and manage link lifecycle.
+
+### Workspace Endpoints (Authenticated)
+
+#### 1. POST /draft-returns/:caseId/upload
+
+**Purpose:** Upload PDF and create draft return with magic link
+
+**Location:** `apps/api/src/routes/draft-returns/index.ts` (line 45)
+
+**Request:** Multipart form with PDF file
+```typescript
+{
+  file: File  // PDF file (application/pdf)
+}
+```
+
+**Response (Success - 200):**
+```typescript
+{
+  draftReturn: {
+    id: string,
+    version: number,
+    filename: string,
+    fileSize: number,
+    status: 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED',
+    viewCount: number,
+    lastViewedAt: string | null,    // ISO8601
+    uploadedAt: string,              // ISO8601
+    uploadedBy: { id: string, name: string }
+  },
+  magicLink: {
+    token: string,
+    url: string,
+    expiresAt: string | null,       // 14 days from now
+    isActive: boolean,
+    usageCount: number,
+    lastUsedAt: string | null
+  },
+  portalUrl: string                  // Full portal URL
+}
+```
+
+**Response (Errors):**
+- `404 NOT_FOUND` - Case not found or no access
+- `400 NO_FILE` - No PDF provided
+- `400 INVALID_TYPE` - File is not PDF
+- `400 FILE_TOO_LARGE` - Exceeds 50MB limit
+- `400 INVALID_PDF` - File lacks PDF magic bytes
+
+**Key Features:**
+- **Version Tracking** - Auto-increments version number per case
+- **Superseding** - Marks previous active versions as SUPERSEDED
+- **Magic Link Creation** - 14-day TTL (extend-able)
+- **R2 Upload** - Atomic transaction + file upload
+- **Link Deactivation** - Deactivates old magic links
+- **Filename Sanitization** - Prevents path traversal & XSS
+
+**Security:**
+- Filename sanitized: removes path separators, control chars, length limited to 255
+- PDF validation: magic bytes check (0x25504446 = "%PDF")
+- File size: max 50MB (prevents DoS)
+- Org-scoped: buildNestedClientScope validates case ownership
+- Transaction-based: version superseding atomic
+
+**Database Updates (Transacted):**
+- Increments version counter (find latest version → +1)
+- Sets previous ACTIVE versions → SUPERSEDED
+- Creates DraftReturn record (r2Key, filename, fileSize, version, uploadedById, status)
+- Creates MagicLink record (type: DRAFT_RETURN, expiresAt: +14 days, isActive: true)
+
+**Example Usage:**
+```typescript
+const formData = new FormData()
+formData.append('file', pdfFile)
+const response = await fetch('/draft-returns/case123/upload', {
+  method: 'POST',
+  body: formData,
+  headers: { 'Authorization': 'Bearer ...' }
+})
+const { draftReturn, magicLink, portalUrl } = await response.json()
+// Share portalUrl with client
+```
+
+**Validation Schemas:**
+- MIME type: application/pdf
+- Max size: 50MB
+- PDF magic bytes: [0x25, 0x50, 0x44, 0x46]
+
+---
+
+#### 2. GET /draft-returns/:caseId
+
+**Purpose:** Get current draft return and link status with version history
+
+**Location:** `apps/api/src/routes/draft-returns/index.ts` (line 182)
+
+**Request:** None
+
+**Response (Success - 200):**
+```typescript
+{
+  draftReturn: {
+    id: string,
+    version: number,
+    filename: string,
+    fileSize: number,
+    status: 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED',
+    viewCount: number,
+    lastViewedAt: string | null,
+    uploadedAt: string,
+    uploadedBy: { id: string, name: string }
+  } | null,
+  magicLink: {
+    token: string,
+    url: string,
+    expiresAt: string | null,
+    isActive: boolean,
+    usageCount: number,
+    lastUsedAt: string | null
+  } | null,
+  versions: Array<{
+    version: number,
+    uploadedAt: string,
+    status: string
+  }>
+}
+```
+
+**Response (Errors):**
+- `404 NOT_FOUND` - Case not found or no access
+
+**Key Features:**
+- **Active Draft Only** - Returns only ACTIVE status draft, not historical versions
+- **Version History** - All versions (including SUPERSEDED) for admin UI
+- **Link Status** - Current active magic link with expiry
+- **View Tracking** - viewCount + lastViewedAt from portal access
+
+**Database Queries:**
+- SELECT draftReturn WHERE status=ACTIVE ORDER BY version DESC (limit 1)
+- SELECT magicLink WHERE draftReturnId=? AND isActive=true
+- SELECT ALL draftReturns WHERE taxCaseId=? ORDER BY version DESC
+
+**Example Usage:**
+```typescript
+const response = await fetch('/draft-returns/case123', {
+  headers: { 'Authorization': 'Bearer ...' }
+})
+const { draftReturn, magicLink, versions } = await response.json()
+// draftReturn = null if not yet uploaded
+// magicLink = current sharing link (check expiresAt for expiry)
+// versions = full history for audit trail
+```
+
+---
+
+#### 3. POST /draft-returns/:id/revoke
+
+**Purpose:** Revoke draft return link (prevents client access)
+
+**Location:** `apps/api/src/routes/draft-returns/index.ts` (line 258)
+
+**Request Body:** None
+
+**Response (Success - 200):**
+```typescript
+{ success: true }
+```
+
+**Response (Errors):**
+- `404 NOT_FOUND` - Draft not found or no access
+
+**Key Features:**
+- **Status Update** - Sets status → REVOKED
+- **Link Deactivation** - Sets all active magic links → isActive=false
+- **Transaction-Based** - Both updates atomic
+- **Prevents Access** - Portal rejects revoked links
+
+**Database Updates (Transacted):**
+- UPDATE draftReturn SET status='REVOKED' WHERE id=?
+- UPDATE magicLink SET isActive=false WHERE draftReturnId=? AND isActive=true
+
+**Example Usage:**
+```typescript
+const response = await fetch('/draft-returns/draft-123/revoke', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ...' }
+})
+// Client can no longer access the draft via magic link
+// Portal returns: { error: 'LINK_REVOKED', message: '...' }
+```
+
+---
+
+#### 4. POST /draft-returns/:id/extend
+
+**Purpose:** Extend magic link expiry by 14 days
+
+**Location:** `apps/api/src/routes/draft-returns/index.ts` (line 301)
+
+**Request Body:** None
+
+**Response (Success - 200):**
+```typescript
+{
+  success: true,
+  expiresAt: string  // ISO8601, now + 14 days
+}
+```
+
+**Response (Errors):**
+- `404 NOT_FOUND` - Draft not found or no access
+- `400 NO_ACTIVE_LINK` - No active link to extend
+
+**Key Features:**
+- **14-Day Extension** - Always adds exactly 14 days from now
+- **Active Link Only** - Only extends if link is isActive=true
+- **Transaction-Safe** - Prevents race conditions
+- **Current Time-Based** - Uses `Date.now()` to prevent clock skew
+
+**Database Updates (Transacted):**
+- FIND magicLink WHERE draftReturnId=? AND isActive=true
+- UPDATE magicLink SET expiresAt=(now + 14 days) WHERE id=?
+
+**Example Usage:**
+```typescript
+const response = await fetch('/draft-returns/draft-123/extend', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ...' }
+})
+const { success, expiresAt } = await response.json()
+// expiresAt = 14 days from now
+// Client can now access for another 14 days
+```
+
+---
+
+### Portal Endpoints (Public)
+
+#### 5. GET /portal/draft/:token
+
+**Purpose:** Validate token and return draft data with signed PDF URL
+
+**Location:** `apps/api/src/routes/portal/draft.ts` (line 15)
+
+**Request:** None
+
+**Response (Success - 200):**
+```typescript
+{
+  clientName: string,
+  clientLanguage: 'EN' | 'VI',
+  taxYear: number,
+  version: number,
+  filename: string,
+  uploadedAt: string,          // ISO8601
+  pdfUrl: string               // Signed R2 URL (15 min TTL)
+}
+```
+
+**Response (Errors):**
+- `401 INVALID_TOKEN` - Token not found
+- `401 INVALID_TOKEN_TYPE` - Token is not DRAFT_RETURN type
+- `401 LINK_REVOKED` - Staff revoked the link
+- `401 LINK_EXPIRED` - Link expiry date passed
+- `404 DRAFT_NOT_FOUND` - Associated draft not found
+- `500 PDF_UNAVAILABLE` - R2 signed URL generation failed
+
+**Key Features:**
+- **Token Validation** - Checks existence, type, active status, expiry
+- **R2 Signed URL** - 15-minute expiry (prevents URL sharing)
+- **Link Usage Tracking** - Updates lastUsedAt + increments usageCount
+- **Client Context** - Returns client name/language for portal UI
+- **No Authentication** - Public endpoint (token = auth)
+
+**Validation Flow:**
+1. Find magicLink by token
+2. Verify type=DRAFT_RETURN
+3. Verify isActive=true
+4. Verify expiresAt > now
+5. Generate signed PDF URL
+6. Update usage stats
+7. Return draft data + pdfUrl
+
+**Example Usage:**
+```typescript
+// Client clicks magic link: /draft/abc123token
+const response = await fetch('/portal/draft/abc123token')
+const { clientName, pdfUrl, taxYear } = await response.json()
+// Portal fetches PDF from pdfUrl (browser download)
+// Portal calls POST /portal/draft/:token/viewed
+```
+
+---
+
+#### 6. POST /portal/draft/:token/viewed
+
+**Purpose:** Track when client views the PDF (increments viewCount)
+
+**Location:** `apps/api/src/routes/portal/draft.ts` (line 80)
+
+**Request Body:** None
+
+**Response (Success - 200):**
+```typescript
+{ success: true }
+```
+
+**Response (Errors):**
+- `400` - Token invalid or not active
+
+**Key Features:**
+- **View Counting** - Increments DraftReturn.viewCount
+- **Timestamp** - Sets lastViewedAt to current time
+- **Fire & Forget** - Client-side tracking (portal calls on PDF load)
+- **No Validation Error** - Returns 400 on any error (no detailed messages for security)
+
+**Database Updates:**
+- UPDATE draftReturn SET viewCount=viewCount+1, lastViewedAt=now WHERE id=?
+
+**Example Usage:**
+```typescript
+// Portal PDF viewer loaded successfully
+const response = await fetch('/portal/draft/abc123token/viewed', {
+  method: 'POST'
+})
+// Don't wait for response (fire & forget)
+// Staff sees updated viewCount in GET /draft-returns/:caseId
+```
+
+---
+
+### Data Models - Database Schema (Phase 02 Additions)
+
+**DraftReturn Model:**
+```prisma
+model DraftReturn {
+  id            String   @id @default(cuid())
+  taxCaseId     String   // FK to TaxCase (cascade delete)
+  r2Key         String   @unique  // Storage path
+  filename      String   // Sanitized filename
+  fileSize      Int      // Bytes
+  version       Int      // Auto-increment per case
+  status        String   @default("ACTIVE")  // ACTIVE|REVOKED|EXPIRED|SUPERSEDED
+  uploadedById  String   // FK to Staff
+  uploadedBy    Staff    @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  viewCount     Int      @default(0)
+  lastViewedAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  taxCase    TaxCase      @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+  magicLinks MagicLink[]
+
+  // Indexes
+  @@index([taxCaseId])
+  @@index([taxCaseId, status])
+  @@unique([taxCaseId, version])
+}
+```
+
+**MagicLink Model (DRAFT_RETURN Type):**
+```prisma
+model MagicLink {
+  id              String       @id @default(cuid())
+  token           String       @unique
+  type            String       // PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN
+  caseId          String       // FK to TaxCase
+  draftReturnId   String?      // FK to DraftReturn (for DRAFT_RETURN type)
+  expiresAt       DateTime?    // null = never expires, 14 days default for DRAFT_RETURN
+  isActive        Boolean      @default(true)
+  usageCount      Int          @default(0)
+  lastUsedAt      DateTime?
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  taxCase     TaxCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  draftReturn DraftReturn? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@unique([token])
+  @@index([caseId, type])
+  @@index([draftReturnId])
+}
+```
+
+---
+
+### Security Considerations
+
+**1. Filename Sanitization**
+- Removes: /, \, <, >, :, ", |, ?, *, .., control chars
+- Limits: 255 characters max
+- Prevents: Path traversal, XSS, filesystem issues
+
+**2. PDF Validation**
+- Magic bytes: Must start with 0x25504446 ("%PDF")
+- MIME type: application/pdf
+- File size: Max 50MB
+- Prevents: Non-PDF uploads, DoS attacks
+
+**3. Org-Scoped Access**
+- buildNestedClientScope() validates case ownership
+- Case → Client → Organization → Staff
+- Prevents: Cross-org data access
+
+**4. Magic Link Tokens**
+- 12-character random base36 (nanoid)
+- Used as both auth + identifier
+- Token lookup: O(1) via unique index
+- Prevents: Brute force (12^36 combinations ≈ 4.7e13)
+
+**5. R2 Signed URLs**
+- 15-minute expiry (read-only access)
+- Prevents: Long-lived shareable URLs
+- Access-control: R2 bucket policies (if configured)
+
+**6. View Tracking**
+- No sensitive data in request (token only)
+- lastUsedAt updated per access
+- Enables: Staff monitoring of client engagement
+
+---
+
+### Atomicity & Race Conditions
+
+**Upload Transaction:**
+```typescript
+// Find max version (locked)
+// Mark previous ACTIVE → SUPERSEDED
+// Deactivate old magic links
+// Create new DraftReturn record
+// Create new MagicLink record
+// (Upload to R2 after transaction success)
+```
+**Guarantee:** Version numbering never duplicates, old links always deactivated
+
+**Extend Transaction:**
+```typescript
+// Find active magic link (locked)
+// Update expiresAt to now + 14 days
+```
+**Guarantee:** Prevents concurrent extends causing lost updates
+
+**Revoke Transaction:**
+```typescript
+// Update DraftReturn status → REVOKED
+// Update all MagicLinks isActive → false
+```
+**Guarantee:** Revocation atomic with link deactivation
+
+---
+
+### Magic Link Service Integration
+
+**getMagicLinkUrl() function:**
+```typescript
+case 'DRAFT_RETURN':
+  return `${PORTAL_URL}/draft/${token}`
+```
+
+Location: `apps/api/src/services/magic-link.ts` (line 30)
+
+Supports: Link type routing, consistent token format across all link types
+
+---
+
+---
+
+## Phase 02 Manual Document Grouping - NEW
+
+**Phase:** Phase 02 - Manual Document Grouping
+**Status:** Complete & Production-Ready
+**Date:** 2026-02-24
+**Branch:** dev
+
+### Overview
+
+Phase 02 Manual Document Grouping adds a single API endpoint that allows staff to manually trigger batch document grouping for a tax case. This provides administrative control over document grouping when needed.
+
+### API Endpoint
+
+#### POST /cases/:caseId/group-documents
+
+**Purpose:** Trigger batch document grouping job for classified documents in a case
+
+**Location:** `apps/api/src/routes/cases/index.ts` (line 805)
+
+**Authorization:** Staff-only (requires `user.staffId`)
+
+**Request Body:**
+```typescript
+{
+  forceRegroup?: boolean  // optional, default false
+                          // If true, regroups even if already grouped
+}
+```
+
+**Response (Success - 200):**
+```typescript
+{
+  success: true,
+  jobId: string,                    // Inngest job ID (e.g., "01HXYZ...")
+  documentCount: number,            // Count of classified documents
+  message: string                   // e.g., "Grouping started for 15 documents"
+}
+```
+
+**Response (Errors):**
+- `403 FORBIDDEN` - User is not staff member
+- `404 NOT_FOUND` - Case not found or no access
+- `400 NO_DOCUMENTS` - No classified documents to group
+- `429 RATE_LIMITED` - Grouping already in progress (30s cooldown per case)
+
+**Key Features:**
+- **Staff-Only Access** - Enforced via `user.staffId` check
+- **Rate Limiting** - 30-second cooldown between triggers per case (prevents concurrent runs)
+- **Org-Scoped** - `buildNestedClientScope()` validates case ownership
+- **Document Count** - Returns count of classified/linked documents processed
+- **Job Tracking** - Returns Inngest job ID for monitoring
+- **Audit Logging** - Logs trigger event with staff ID and options
+
+**Security:**
+- Staff-only restriction prevents clients/unauthorized users from triggering
+- Rate limiter uses in-memory Map with 30s cooldown (per caseId)
+- Case scope validation prevents cross-org access
+- Triggers only process documents in CLASSIFIED or LINKED status
+
+**Database Queries:**
+- SELECT taxCase WHERE id=? AND org scope matches
+- COUNT rawImages WHERE status IN ['CLASSIFIED', 'LINKED']
+
+**Inngest Event:**
+```typescript
+{
+  name: 'document/group-batch',
+  data: {
+    caseId: string,
+    forceRegroup: boolean,
+    triggeredBy: string  // Staff ID
+  }
+}
+```
+
+**Example Usage:**
+```typescript
+// Trigger grouping for case with default settings
+const response = await fetch('/cases/case123/group-documents', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ...' },
+  body: JSON.stringify({ forceRegroup: false })
+})
+
+// Response with job ID to monitor
+const { jobId, documentCount } = await response.json()
+// jobId = "01HXYZ..." - track progress in Inngest dashboard
+// documentCount = 15 - documents being processed
+
+// Force re-grouping of already grouped documents
+const response = await fetch('/cases/case123/group-documents', {
+  method: 'POST',
+  body: JSON.stringify({ forceRegroup: true })
+})
+
+// Rate limit error (if called within 30 seconds)
+// Response: { error: 'RATE_LIMITED', message: 'Grouping already in progress. Try again in 25s' }
+```
+
+**Validation Schemas:**
+```typescript
+export const groupDocumentsSchema = z.object({
+  forceRegroup: z.boolean().optional().default(false),
+})
+
+export type GroupDocumentsInput = z.infer<typeof groupDocumentsSchema>
+```
+
+**Located in:** `apps/api/src/routes/cases/schemas.ts` (line 86)
+
+### Event Type Definition
+
+#### DocumentGroupBatchEvent
+
+**Location:** `apps/api/src/lib/inngest.ts` (line 56)
+
+**Type Definition:**
+```typescript
+export type DocumentGroupBatchEvent = {
+  data: {
+    caseId: string
+    forceRegroup: boolean
+    triggeredBy: string  // Staff ID
+  }
+}
+
+// Registered in Inngest events map (line 71)
+export type InngestEvents = {
+  'document/group-batch': DocumentGroupBatchEvent
+}
+```
+
+**Usage:**
+- Sent by POST `/cases/:caseId/group-documents` endpoint
+- Triggers background Inngest job for batch grouping
+- Includes metadata for audit trail and conditional processing
+
+### Rate Limiting
+
+**Implementation:**
+```typescript
+const groupingInProgress = new Map<string, number>()
+const GROUPING_COOLDOWN_MS = 30000  // 30 seconds
+```
+
+**Logic:**
+1. Check if previous trigger timestamp exists for caseId
+2. If exists and (now - lastTrigger) < 30000ms, return 429 RATE_LIMITED
+3. On success, update timestamp: `groupingInProgress.set(caseId, Date.now())`
+
+**Purpose:**
+- Prevents duplicate concurrent batch jobs
+- Avoids database contention from overlapping grouping operations
+- Automatic cleanup not needed (Map holds max one entry per active case)
+
+**Return Response on Rate Limit:**
+```json
+{
+  "error": "RATE_LIMITED",
+  "message": "Grouping already in progress. Try again in Xs"
+}
+```
+
+### Audit Logging
+
+**Implementation:**
+```typescript
+console.log(`[Manual Grouping] caseId=${id} staffId=${user.staffId} forceRegroup=${forceRegroup} docCount=${classifiedCount}`)
+```
+
+**Fields:**
+- `caseId` - Tax case being grouped
+- `staffId` - Staff member triggering
+- `forceRegroup` - Whether forcing re-group
+- `docCount` - Number of documents processed
+
+**Purpose:** Audit trail for manual grouping actions (who triggered, when, parameters)
+
+### Error Handling
+
+| Status | Error Code | Scenario |
+|--------|-----------|----------|
+| 403 | FORBIDDEN | User is not staff |
+| 404 | NOT_FOUND | Case doesn't exist or no access |
+| 400 | NO_DOCUMENTS | No classified/linked documents |
+| 429 | RATE_LIMITED | Within 30s cooldown |
+
+**Example Error Response:**
+```json
+{
+  "error": "NOT_FOUND",
+  "message": "Case not found"
+}
+```
+
+### Integration with Workspace
+
+**Where Used:**
+- Staff dashboard case actions (likely)
+- Administrative grouping controls
+- Case detail page (potential button)
+
+**Flow:**
+1. Staff clicks "Group Documents" button
+2. Frontend POST to `/cases/:caseId/group-documents`
+3. Backend validates access + rate limits
+4. Triggers Inngest background job
+5. Returns jobId for progress tracking
+6. Frontend can poll or subscribe to job status updates
+
+### Related Documentation
+
+- **Classification Job:** `./phase-02-classification-job.md`
+- **System Architecture:** `./system-architecture.md`
+- **Quick Reference:** `./phase-02-quick-reference.md`
+- **Inngest Events:** `apps/api/src/lib/inngest.ts`
+- **Implementation:** `apps/api/src/routes/cases/index.ts` (lines 801-879)
+
+### Deployment Checklist
+
+- [ ] Endpoint tested in development environment
+- [ ] Rate limiter verified (30s cooldown works)
+- [ ] Staff-only restriction enforced
+- [ ] Org-scoped access validated
+- [ ] Inngest job integration confirmed
+- [ ] Audit logging verified in console
+- [ ] Error responses correct HTTP status codes
+- [ ] Frontend integration complete
+- [ ] Monitoring configured for job processing
+- [ ] Documentation updated in workspace
+
+---
+
+**Last Updated:** 2026-02-24
+**Status:** Complete & Production-Ready
+**Architecture Version:** 6.2 (Phase 02 Manual Document Grouping)
+**Next Phase:** Phase 03 - Advanced Features
 

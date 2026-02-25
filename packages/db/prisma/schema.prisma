@@ -37,10 +37,21 @@ enum DocType {
   PASSPORT
   BIRTH_CERTIFICATE
   ITIN_LETTER
+  MARRIAGE_CERTIFICATE
+  DIVORCE_DECREE
+  GREEN_CARD
+  WORK_VISA
+  NATURALIZATION_CERTIFICATE
+  POWER_OF_ATTORNEY
 
   // Employment Income
   W2
   W2G                    // Gambling winnings
+  PAY_STUB
+  EMPLOYMENT_CONTRACT
+  STOCK_OPTION_AGREEMENT
+  RSU_STATEMENT
+  ESPP_STATEMENT
 
   // 1099 Series - Various Income
   FORM_1099_INT          // Bank interest
@@ -56,6 +67,17 @@ enum DocType {
   FORM_1099_C            // Cancellation of debt
   FORM_1099_SA           // HSA distributions
   FORM_1099_Q            // 529 distributions
+  FORM_1099_A            // Acquisition or Abandonment
+  FORM_1099_CAP          // Corp Control Changes
+  FORM_1099_H            // Health Coverage Tax Credit
+  FORM_1099_LS           // Life Insurance Sale
+  FORM_1099_LTC          // Long-Term Care Benefits
+  FORM_1099_OID          // Original Issue Discount
+  FORM_1099_PATR         // Patronage Dividends
+  FORM_1099_QA           // ABLE Account Distributions
+  FORM_1099_SB           // Seller's Investment in Life Insurance
+  RRB_1099               // Railroad Retirement
+  RRB_1099_R             // Railroad Retirement Tier 2
 
   // K-1 Forms (Pass-through income)
   SCHEDULE_K1            // Generic K-1
@@ -88,6 +110,13 @@ enum DocType {
   PAYROLL_REPORT         // 941, W-3, etc.
   DEPRECIATION_SCHEDULE
   VEHICLE_MILEAGE_LOG
+  PARTNERSHIP_AGREEMENT
+  SHAREHOLDER_AGREEMENT
+  BUSINESS_INVOICE
+  ACCOUNTS_RECEIVABLE
+  ACCOUNTS_PAYABLE
+  INVENTORY_REPORT
+  SALES_TAX_REPORT
 
   // Receipts & Supporting Docs
   RECEIPT                // Generic receipt
@@ -96,6 +125,7 @@ enum DocType {
   MEDICAL_RECEIPT
   PROPERTY_TAX_STATEMENT
   ESTIMATED_TAX_PAYMENT
+  RENT_RECEIPT
 
   // Prior Year / IRS
   PRIOR_YEAR_RETURN
@@ -103,6 +133,9 @@ enum DocType {
 
   // Crypto
   CRYPTO_STATEMENT
+  CRYPTO_TAX_REPORT
+  CRYPTO_TRANSACTION_HISTORY
+  STAKING_REWARDS
 
   // Foreign
   FOREIGN_BANK_STATEMENT
@@ -113,6 +146,10 @@ enum DocType {
   // Real Estate / Home Sale
   CLOSING_DISCLOSURE         // HUD closing statement
   LEASE_AGREEMENT            // Rental lease contracts
+  HUD_1
+  PROPERTY_DEED
+  HOME_APPRAISAL
+  PMI_STATEMENT
 
   // Credits / Energy
   EV_PURCHASE_AGREEMENT      // Electric vehicle purchase docs
@@ -140,6 +177,91 @@ enum DocType {
   SCHEDULE_1             // Additional Income and Adjustments to Income
   SCHEDULE_D             // Capital Gains and Losses
   SCHEDULE_E             // Supplemental Income and Loss (Rental, Royalties, etc.)
+  SCHEDULE_2             // Additional Taxes
+  SCHEDULE_3             // Additional Credits and Payments
+  SCHEDULE_A             // Itemized Deductions
+  SCHEDULE_B             // Interest and Dividends
+  SCHEDULE_EIC           // Earned Income Credit
+  SCHEDULE_F             // Farm Income
+  SCHEDULE_H             // Household Employment
+  SCHEDULE_J             // Income Averaging
+  SCHEDULE_R             // Credit for Elderly/Disabled
+  SCHEDULE_8812          // Additional Child Tax Credit
+
+  // Critical IRS Forms
+  FORM_2210              // Underpayment Penalty
+  FORM_2441              // Child Care Expenses
+  FORM_2555              // Foreign Earned Income
+  FORM_3903              // Moving Expenses
+  FORM_4562              // Depreciation & Amortization
+  FORM_4684              // Casualties and Thefts
+  FORM_4797              // Sales of Business Property
+  FORM_4868              // Extension to File
+  FORM_5329              // Additional Tax on Qualified Plans
+  FORM_5695              // Residential Energy Credits
+  FORM_6251              // Alternative Minimum Tax
+  FORM_8283              // Noncash Charitable Contributions
+  FORM_8379              // Injured Spouse Allocation
+  FORM_8582              // Passive Activity Loss
+  FORM_8606              // Nondeductible IRAs
+  FORM_8829              // Home Office Expenses
+  FORM_8863              // Education Credits
+  FORM_8880              // Retirement Savings Credit
+  FORM_8889              // HSA Deductions
+  FORM_8936              // EV Credit
+  FORM_8949              // Sales of Capital Assets
+  FORM_8959              // Additional Medicare Tax
+  FORM_8960              // Net Investment Income Tax
+  FORM_8962              // Premium Tax Credit
+  FORM_8995              // QBI Deduction
+  FORM_8995_A            // QBI Deduction (Complex)
+
+  // Investment Documents
+  BROKERAGE_STATEMENT
+  TRADE_CONFIRMATION
+  COST_BASIS_STATEMENT
+  MUTUAL_FUND_STATEMENT
+  DIVIDEND_REINVESTMENT
+
+  // Retirement Documents
+  PENSION_STATEMENT
+  IRA_STATEMENT
+  STATEMENT_401K
+  ROTH_IRA_STATEMENT
+  RMD_STATEMENT
+
+  // Healthcare Documents
+  MEDICAL_BILL
+  INSURANCE_EOB
+  HSA_STATEMENT
+  FSA_STATEMENT
+
+  // Insurance Documents
+  AUTO_INSURANCE
+  HOME_INSURANCE
+  LIFE_INSURANCE_STATEMENT
+  DISABILITY_INSURANCE
+
+  // Legal Documents
+  COURT_ORDER
+  SETTLEMENT_AGREEMENT
+  ALIMONY_AGREEMENT
+  CHILD_SUPPORT_ORDER
+  BANKRUPTCY_DOCUMENTS
+
+  // Childcare Documents
+  DAYCARE_STATEMENT
+  DEPENDENT_CARE_FSA
+  NANNY_DOCUMENTATION
+
+  // Gambling Documents
+  GAMBLING_LOSS_STATEMENT
+
+  // Miscellaneous Documents
+  BANK_LETTER
+  LOAN_STATEMENT
+  MEMBERSHIP_DUES
+  PROFESSIONAL_LICENSE
 
   // Other
   OTHER
@@ -253,9 +375,14 @@ model Staff {
   clerkId   String?   @unique  // Clerk user ID for auth sync
   email     String    @unique
   name      String
-  role      StaffRole @default(STAFF)
-  avatarUrl String?
-  isActive  Boolean   @default(true)
+  role        StaffRole @default(STAFF)
+  avatarUrl   String?
+  phoneNumber String?   // E.164 format (+84901234567)
+  isActive    Boolean   @default(true)
+
+  // Upload notification preferences
+  notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
+  notifyAllClients  Boolean @default(false)  // Admin: notify for ALL clients (not just assigned)
 
   // Audit fields
   deactivatedAt DateTime?
@@ -272,6 +399,7 @@ model Staff {
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   clientAssignments ClientAssignment[]
   documentViews     DocumentView[]
+  uploadedDraftReturns DraftReturn[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -332,7 +460,9 @@ model ClientAssignment {
 
 model Client {
   id        String   @id @default(cuid())
-  name      String
+  firstName String
+  lastName  String?
+  name      String   @default("")  // Computed field for backward compat - will be populated by API
   phone     String   @unique
   email     String?
   language  Language @default(VI)
@@ -448,8 +578,10 @@ model TaxCase {
   magicLinks        MagicLink[]
   actions           Action[]
   imageGroups       ImageGroup[]
+  documentGroups    DocumentGroup[]
   scheduleCExpense  ScheduleCExpense?
   scheduleEExpense  ScheduleEExpense?
+  draftReturns      DraftReturn[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -461,6 +593,11 @@ model TaxCase {
 
   // Activity tracking for sorting & stale detection
   lastActivityAt DateTime  @default(now())
+
+  // Batch document grouping job tracking
+  // When non-null, indicates a grouping job is in progress
+  groupingJobId    String?
+  groupingStartedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -476,6 +613,7 @@ model TaxCase {
   @@index([engagementId])
   @@index([engagementId, status])         // Filter engagement's cases by status
   @@index([engagementId, lastActivityAt]) // Sort engagement's cases by activity
+  @@index([groupingJobId])                // Query cases with active grouping jobs
 }
 
 model RawImage {
@@ -500,6 +638,18 @@ model RawImage {
   imageHash       String?        // Perceptual hash (pHash) for duplicate detection
   imageGroupId    String?
   imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
+  duplicateOfId   String?        // ID of original image this duplicates (for UI badge/link)
+
+  // AI metadata for fallback rename and multi-page detection (Phase 2+3)
+  // { fallbackRename: boolean, documentTitle: string, pageInfo: {...}, reasoning: string }
+  aiMetadata      Json?
+
+  // Multi-page document grouping (Phase 3)
+  documentGroupId   String?
+  documentGroup     DocumentGroup?  @relation(fields: [documentGroupId], references: [id])
+  pageNumber        Int?            // Page within group (1, 2, 3...)
+  totalPages        Int?            // Total pages in group (known or estimated)
+  groupConfidence   Float?          // AI confidence in grouping (0-1)
 
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
@@ -514,6 +664,9 @@ model RawImage {
 
   uploadedVia    MessageChannel @default(PORTAL)
 
+  // Viewer display settings (persisted rotation for correct document orientation)
+  rotation       Int            @default(0)  // 0, 90, 180, 270 degrees clockwise
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -524,6 +677,8 @@ model RawImage {
   @@index([caseId, classifiedType])  // For duplicate detection queries
   @@index([reuploadRequested])
   @@index([caseId, reuploadRequested])
+  @@index([documentGroupId])          // Multi-page grouping lookup
+  @@index([caseId, documentGroupId])  // Find pages in same group
 }
 
 // Groups duplicate images of the same physical document
@@ -542,6 +697,27 @@ model ImageGroup {
 
   @@index([caseId])
   @@index([caseId, docType])
+}
+
+// Groups multi-page document uploads (Phase 3)
+// Tracks related pages uploaded separately (e.g., 3-page form uploaded as 3 images)
+model DocumentGroup {
+  id              String      @id @default(cuid())
+  caseId          String
+  case            TaxCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  baseName        String      // Base filename without _PartXofY
+  documentType    String?     // Identified document type (or from fallback)
+  pageCount       Int         @default(1)
+  confidence      Float       // AI confidence in grouping
+
+  images          RawImage[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([caseId])
+  @@index([caseId, createdAt])  // Recent groups in case
 }
 
 model DigitalDoc {
@@ -705,6 +881,10 @@ model MagicLink {
   token     String   @unique @default(cuid())
   type      MagicLinkType @default(PORTAL)  // PORTAL for docs, SCHEDULE_C for expense form
 
+  // Optional reference for DRAFT_RETURN type
+  draftReturnId String?
+  draftReturn   DraftReturn? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
+
   lastUsedAt DateTime?
   usageCount Int      @default(0)
 
@@ -719,6 +899,7 @@ model MagicLink {
   @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
   @@index([type])  // Filter by link type
   @@index([caseId, type, isActive])  // Phase 02: Composite index for Schedule C queries
+  @@index([draftReturnId])  // Draft return lookup
 }
 
 model Action {
@@ -847,6 +1028,7 @@ enum MagicLinkType {
   PORTAL       // Existing document upload
   SCHEDULE_C   // Self-employed expense collection form
   SCHEDULE_E   // Rental property expense collection form
+  DRAFT_RETURN // Draft tax return PDF viewing
 }
 
 enum ScheduleCStatus {
@@ -859,6 +1041,13 @@ enum ScheduleEStatus {
   DRAFT       // Client editing
   SUBMITTED   // Client submitted, CPA can review
   LOCKED      // CPA locked, no more edits
+}
+
+enum DraftReturnStatus {
+  ACTIVE      // Current version, link valid
+  REVOKED     // Link manually revoked
+  EXPIRED     // Link expired
+  SUPERSEDED  // Replaced by newer version
 }
 
 // Audit log for tracking field-level changes
@@ -995,6 +1184,47 @@ model ScheduleEExpense {
   @@index([status])
   @@index([taxCaseId, status])
   @@index([lockedById])
+}
+
+// ============================================
+// DRAFT RETURN SHARING
+// ============================================
+
+// Draft tax return sharing - CPAs upload PDF for client review via portal
+model DraftReturn {
+  id            String   @id @default(cuid())
+  taxCaseId     String
+  taxCase       TaxCase  @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  // PDF storage
+  r2Key         String   @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
+  filename      String   // Original filename for display
+  fileSize      Int      // Bytes
+
+  // Versioning
+  version       Int      @default(1)
+
+  // Uploader
+  uploadedById  String
+  uploadedBy    Staff    @relation(fields: [uploadedById], references: [id])
+
+  // Status
+  status        DraftReturnStatus @default(ACTIVE)
+
+  // View tracking
+  viewCount     Int      @default(0)
+  lastViewedAt  DateTime?
+
+  // Magic link for portal access
+  magicLinks    MagicLink[]
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([taxCaseId])
+  @@index([taxCaseId, status])
+  @@index([status])
 }
 
 // ============================================

@@ -457,6 +457,8 @@ const UI_TEXT_KEYS = {
   // Forms
   form: {
     clientName: 'form.clientName',
+    firstName: 'form.firstName',
+    lastName: 'form.lastName',
     phone: 'form.phone',
     email: 'form.email',
     language: 'form.language',

@@ -5,12 +5,12 @@
  * Supports AI re-classification for misclassified "Other" documents
  */
 
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X, Loader2, ImageOff, RefreshCw, Wand2 } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { X, Loader2, ImageOff, RefreshCw, Wand2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import { api } from '../../lib/api-client'
@@ -21,9 +21,29 @@ export interface SimpleImageViewerModalProps {
   filename: string
   caseId?: string
   onClose: () => void
+  /** Navigate to previous file (undefined if at first) */
+  onNavigatePrev?: () => void
+  /** Navigate to next file (undefined if at last) */
+  onNavigateNext?: () => void
+  /** Current file index (0-based) */
+  currentIndex?: number
+  /** Total number of files */
+  totalCount?: number
+  /** Initial rotation from DB (persisted orientation) */
+  initialRotation?: 0 | 90 | 180 | 270
 }
 
-export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: SimpleImageViewerModalProps) {
+export function SimpleImageViewerModal({
+  imageId,
+  filename,
+  caseId,
+  onClose,
+  onNavigatePrev,
+  onNavigateNext,
+  currentIndex,
+  totalCount,
+  initialRotation = 0,
+}: SimpleImageViewerModalProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const {
@@ -53,14 +73,54 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
     },
   })
 
-  // Escape key to close
+  // Handle rotation change (persist to DB and update cache)
+  const handleRotationChange = useCallback((rotation: 0 | 90 | 180 | 270) => {
+    // Update React Query cache immediately (optimistic update)
+    // This ensures navigation shows correct rotation without refetch
+    if (caseId) {
+      queryClient.setQueryData<{ images: Array<{ id: string; rotation?: number }> }>(
+        ['images', caseId],
+        (oldData) => {
+          if (!oldData?.images) return oldData
+          return {
+            ...oldData,
+            images: oldData.images.map((img) =>
+              img.id === imageId ? { ...img, rotation } : img
+            ),
+          }
+        }
+      )
+    }
+
+    // Fire-and-forget persist to DB
+    api.images.updateRotation(imageId, rotation).catch(() => {
+      // Silent fail - rotation is non-critical
+    })
+  }, [imageId, caseId, queryClient])
+
+  // Keyboard shortcuts: Escape to close, Arrow keys to navigate
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      // Arrow left/right to navigate between files
+      if (e.key === 'ArrowLeft' && onNavigatePrev) {
+        e.preventDefault()
+        onNavigatePrev()
+        return
+      }
+      if (e.key === 'ArrowRight' && onNavigateNext) {
+        e.preventDefault()
+        onNavigateNext()
+        return
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, onNavigatePrev, onNavigateNext])
 
   return createPortal(
     <>
@@ -109,7 +169,7 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden bg-muted/20">
+        <div className="flex-1 overflow-hidden bg-muted/20 relative">
           {isLoading ? (
             <div className="w-full h-full flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -128,7 +188,55 @@ export function SimpleImageViewerModal({ imageId, filename, caseId, onClose }: S
               imageUrl={signedUrlData.url}
               isPdf={isPdf}
               className="w-full h-full"
+              initialRotation={initialRotation}
+              onRotationChange={handleRotationChange}
             />
+          )}
+
+          {/* Navigation Arrows - Floating on the image viewer */}
+          {(onNavigatePrev || onNavigateNext) && (
+            <>
+              {/* Previous button */}
+              <button
+                onClick={onNavigatePrev}
+                disabled={!onNavigatePrev}
+                className={cn(
+                  'absolute left-3 top-1/2 -translate-y-1/2 z-10',
+                  'w-10 h-10 rounded-full flex items-center justify-center',
+                  'bg-background/90 border border-border shadow-lg',
+                  'transition-all hover:bg-background hover:scale-105',
+                  !onNavigatePrev && 'opacity-30 cursor-not-allowed hover:scale-100'
+                )}
+                aria-label={t('common.previous')}
+                title={`${t('common.previous')} (←)`}
+              >
+                <ChevronLeft className="w-5 h-5 text-foreground" />
+              </button>
+
+              {/* Next button */}
+              <button
+                onClick={onNavigateNext}
+                disabled={!onNavigateNext}
+                className={cn(
+                  'absolute right-3 top-1/2 -translate-y-1/2 z-10',
+                  'w-10 h-10 rounded-full flex items-center justify-center',
+                  'bg-background/90 border border-border shadow-lg',
+                  'transition-all hover:bg-background hover:scale-105',
+                  !onNavigateNext && 'opacity-30 cursor-not-allowed hover:scale-100'
+                )}
+                aria-label={t('common.next')}
+                title={`${t('common.next')} (→)`}
+              >
+                <ChevronRight className="w-5 h-5 text-foreground" />
+              </button>
+
+              {/* File counter */}
+              {currentIndex !== undefined && totalCount !== undefined && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-background/90 border border-border shadow-lg text-xs font-medium text-foreground">
+                  {currentIndex + 1} / {totalCount}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

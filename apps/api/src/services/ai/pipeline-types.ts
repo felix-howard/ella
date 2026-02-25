@@ -67,6 +67,10 @@ export interface AiFailedMetadata extends ActionMetadataBase {
   r2Key?: string
   attemptedAt?: string
   errorType: AIErrorType
+  // Smart rename fallback fields
+  smartRenameFailed?: boolean
+  smartRenameConfidence?: number
+  displayNameUsed?: string | null
 }
 
 /**

@@ -24,7 +24,8 @@ export const Route = createFileRoute('/clients/new')({
 type Step = 'basic' | 'confirm'
 
 interface BasicInfoData {
-  name: string
+  firstName: string
+  lastName: string
   phone: string
   email: string
   language: Language
@@ -53,9 +54,10 @@ function CreateClientPage() {
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [copyFromEngagementId, setCopyFromEngagementId] = useState<string | null>(null)
 
-  // Form data - simplified: just name, phone, email, language, year
+  // Form data - simplified: firstName, lastName, phone, email, language, year
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
-    name: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     email: '',
     language: 'VI',
@@ -89,9 +91,13 @@ function CreateClientPage() {
     try {
       const client = await api.clients.searchByPhone(phone)
       setExistingClient(client)
-      // If existing client found, pre-fill name from existing
-      if (client && !basicInfo.name) {
-        setBasicInfo((prev) => ({ ...prev, name: client.name }))
+      // If existing client found, pre-fill firstName and lastName from existing
+      if (client && !basicInfo.firstName) {
+        setBasicInfo((prev) => ({
+          ...prev,
+          firstName: client.firstName,
+          lastName: client.lastName || '',
+        }))
       }
     } catch {
       // Ignore errors - just means no existing client found
@@ -99,7 +105,7 @@ function CreateClientPage() {
     } finally {
       setIsCheckingPhone(false)
     }
-  }, [basicInfo.name])
+  }, [basicInfo.firstName])
 
   // Handle copy from previous engagement
   const handleCopyFromPrevious = useCallback((engagementId: string | null, shouldCopy: boolean) => {
@@ -118,11 +124,10 @@ function CreateClientPage() {
   const validateBasicInfo = (): boolean => {
     const newErrors: Partial<Record<keyof BasicInfoData, string>> = {}
 
-    if (!basicInfo.name.trim()) {
-      newErrors.name = t('newClient.errorNameRequired')
-    } else if (basicInfo.name.trim().length < 2) {
-      newErrors.name = t('newClient.errorNameMinLength')
+    if (!basicInfo.firstName.trim()) {
+      newErrors.firstName = t('newClient.errorFirstNameRequired')
     }
+    // lastName is optional, no validation needed
 
     const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
     if (!cleanedPhone) {
@@ -187,7 +192,8 @@ function CreateClientPage() {
       } else {
         // Create new client with minimal profile
         const response = await api.clients.create({
-          name: basicInfo.name.trim().slice(0, 100), // Limit name length
+          firstName: basicInfo.firstName.trim().slice(0, 50),
+          lastName: basicInfo.lastName.trim().slice(0, 50) || undefined,
           phone: formattedPhone,
           email: sanitizedEmail || undefined,
           language: basicInfo.language,
@@ -343,7 +349,7 @@ function CreateClientPage() {
         {currentStep === 'confirm' && (
           <>
             <ConfirmStep
-              clientName={basicInfo.name}
+              clientName={basicInfo.lastName ? `${basicInfo.firstName} ${basicInfo.lastName}` : basicInfo.firstName}
               phone={basicInfo.phone}
               taxYear={basicInfo.taxYear}
               language={basicInfo.language}
@@ -405,29 +411,52 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
     <div className="space-y-5">
       <h2 className="text-lg font-semibold text-primary mb-4">{t('newClient.basicInfoTitle')}</h2>
 
-      {/* Name */}
-      <div className="space-y-1.5">
-        <label htmlFor="client-name" className="block text-sm font-medium text-foreground">
-          {UI_TEXT.form.clientName}
-          <span className="text-error ml-1" aria-hidden="true">*</span>
-        </label>
-        <input
-          id="client-name"
-          type="text"
-          value={data.name}
-          onChange={(e) => onChange({ name: e.target.value })}
-          placeholder={t('newClient.namePlaceholder')}
-          aria-required="true"
-          aria-invalid={!!errors?.name}
-          aria-describedby={errors?.name ? 'name-error' : undefined}
-          className={cn(
-            'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-            'placeholder:text-muted-foreground',
-            errors?.name ? 'border-error' : 'border-border'
-          )}
-        />
-        {errors?.name && <p id="name-error" className="text-sm text-error" role="alert">{errors.name}</p>}
+      {/* First Name + Last Name (side by side on desktop) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* First Name */}
+        <div className="space-y-1.5">
+          <label htmlFor="client-first-name" className="block text-sm font-medium text-foreground">
+            {UI_TEXT.form.firstName}
+            <span className="text-error ml-1" aria-hidden="true">*</span>
+          </label>
+          <input
+            id="client-first-name"
+            type="text"
+            value={data.firstName}
+            onChange={(e) => onChange({ firstName: e.target.value })}
+            placeholder={t('newClient.firstNamePlaceholder')}
+            aria-required="true"
+            aria-invalid={!!errors?.firstName}
+            aria-describedby={errors?.firstName ? 'first-name-error' : undefined}
+            className={cn(
+              'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'placeholder:text-muted-foreground',
+              errors?.firstName ? 'border-error' : 'border-border'
+            )}
+          />
+          {errors?.firstName && <p id="first-name-error" className="text-sm text-error" role="alert">{errors.firstName}</p>}
+        </div>
+
+        {/* Last Name */}
+        <div className="space-y-1.5">
+          <label htmlFor="client-last-name" className="block text-sm font-medium text-foreground">
+            {UI_TEXT.form.lastName}
+            <span className="text-muted-foreground ml-1">({t('newClient.optional')})</span>
+          </label>
+          <input
+            id="client-last-name"
+            type="text"
+            value={data.lastName}
+            onChange={(e) => onChange({ lastName: e.target.value })}
+            placeholder={t('newClient.lastNamePlaceholder')}
+            className={cn(
+              'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'placeholder:text-muted-foreground border-border'
+            )}
+          />
+        </div>
       </div>
 
       {/* Phone */}

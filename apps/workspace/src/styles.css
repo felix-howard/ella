@@ -5,3 +5,32 @@
 
 @source "../src/**/*.{ts,tsx}";
 @source "../../packages/ui/src/**/*.{ts,tsx}";
+
+/* Phone Input Styling */
+.phone-input-wrapper {
+  @apply flex h-10 w-full rounded-md border border-input bg-background text-sm;
+}
+
+.phone-input-wrapper .PhoneInputInput {
+  @apply flex-1 bg-transparent outline-none px-3 py-2;
+}
+
+.phone-input-wrapper .PhoneInputCountry {
+  @apply flex items-center gap-1 pl-3 pr-2 border-r border-input;
+}
+
+.phone-input-wrapper .PhoneInputCountrySelect {
+  @apply bg-transparent cursor-pointer outline-none appearance-none;
+}
+
+.phone-input-wrapper .PhoneInputCountryIcon {
+  @apply w-5 h-auto;
+}
+
+.phone-input-wrapper .PhoneInputCountrySelectArrow {
+  @apply ml-1 opacity-50;
+}
+
+.phone-input-wrapper:focus-within {
+  @apply ring-2 ring-ring ring-offset-2;
+}

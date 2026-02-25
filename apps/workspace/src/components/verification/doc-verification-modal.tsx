@@ -20,7 +20,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import type { RawImage, DigitalDoc } from '../../lib/api-client'
+import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
 
 // Document types for classification
 const COMMON_DOC_TYPES = [
@@ -68,7 +68,9 @@ export function DocVerificationModal({
   const { t } = useTranslation()
   // Initialize selectedDocType from image on mount
   const [zoom, setZoom] = useState(1)
-  const [rotation, setRotation] = useState(0)
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(
+    () => (image?.rotation as 0 | 90 | 180 | 270) || 0
+  )
   const [status, setStatus] = useState<VerificationStatus>('pending')
   const [selectedDocType, setSelectedDocType] = useState<string>(
     () => image?.checklistItem?.template?.docType || ''
@@ -77,9 +79,31 @@ export function DocVerificationModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Note: When using this modal, pass a key prop with image.id
-  // to reset state automatically on image change, e.g.:
-  // <DocVerificationModal key={image?.id} image={image} ... />
+  // Persist rotation to DB
+  const handleRotate = useCallback(() => {
+    setRotation((r) => {
+      const newRotation = ((r + 90) % 360) as 0 | 90 | 180 | 270
+      // Fire-and-forget persist
+      if (image?.id) {
+        api.images.updateRotation(image.id, newRotation).catch(() => {
+          // Silent fail - rotation is non-critical
+        })
+      }
+      return newRotation
+    })
+  }, [image?.id])
+
+  // Sync state when navigating to a different image
+  // This ensures rotation (and other state) is correct when using prev/next navigation
+  useEffect(() => {
+    if (image?.id) {
+      setRotation((image.rotation as 0 | 90 | 180 | 270) || 0)
+      setSelectedDocType(image.checklistItem?.template?.docType || '')
+      setZoom(1)
+      setStatus('pending')
+      setRejectReason('')
+    }
+  }, [image?.id]) // Only trigger when image ID changes (navigation)
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -99,11 +123,11 @@ export function DocVerificationModal({
           break
         case 'r':
         case 'R':
-          setRotation((r) => (r + 90) % 360)
+          handleRotate()
           break
         case '0':
           setZoom(1)
-          setRotation(0)
+          // Reset rotation also persists (but we keep the persisted value, only reset zoom)
           break
         case 'ArrowLeft':
           if (onNavigate && currentIndex > 0) {
@@ -117,7 +141,7 @@ export function DocVerificationModal({
           break
       }
     },
-    [isOpen, onClose, onNavigate, currentIndex, images.length]
+    [isOpen, onClose, onNavigate, currentIndex, images.length, handleRotate]
   )
 
   useEffect(() => {
@@ -307,7 +331,7 @@ export function DocVerificationModal({
           </button>
           <div className="w-px h-6 bg-white/20 mx-2" />
           <button
-            onClick={() => setRotation((r) => (r + 90) % 360)}
+            onClick={handleRotate}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
             aria-label={t('docVerification.rotate')}
           >

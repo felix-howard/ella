@@ -3,19 +3,22 @@
  * Shows all documents grouped by AI-classified category from DB
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Upload, Download, CheckCheck, Loader2 } from 'lucide-react'
+import JSZip from 'jszip'
+import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
-import { toast } from '../../stores/toast-store'
+import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
+import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
+import { groupDocuments } from '../../lib/document-grouping'
 import { UnclassifiedSection } from './unclassified-section'
 import { FileCategorySection } from './file-category-section'
 import { EmptyCategoryDropZone } from './empty-category-drop-zone'
 import { SimpleImageViewerModal } from './simple-image-viewer-modal'
 import { ManualClassificationModal, VerificationModal } from '../documents'
+import { useMarkDocumentViewed } from '../../hooks'
 
 export interface FilesTabProps {
   caseId: string
@@ -25,6 +28,13 @@ export interface FilesTabProps {
   docs?: DigitalDoc[]
   /** Loading state from parent */
   isLoading?: boolean
+}
+
+/** Navigation item for file viewer modals */
+export interface FileNavItem {
+  imageId: string
+  doc?: DigitalDoc
+  image: RawImage
 }
 
 /**
@@ -41,6 +51,9 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [viewImage, setViewImage] = useState<RawImage | null>(null)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isGroupingActive, setIsGroupingActive] = useState(false)
+  const groupingPollRef = useRef<NodeJS.Timeout | null>(null)
+  const markViewed = useMarkDocumentViewed()
 
   // Fetch images only if not provided by parent (backward compatibility)
   const { data: imagesData, isPending: imagesLoading } = useQuery({
@@ -49,7 +62,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     enabled: !parentImages, // Skip fetch if parent provides data
   })
 
-  // Mutation for changing file category (drag and drop)
+  // Mutation for changing file category (drag and drop - single file)
   const changeCategoryMutation = useMutation({
     mutationFn: ({ imageId, category }: { imageId: string; category: DocCategory }) =>
       api.images.changeCategory(imageId, category),
@@ -75,14 +88,51 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
     onSuccess: (_data, { category }) => {
       const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
-      toast.success(`Đã chuyển sang "${categoryConfig.label}"`)
+      toast.success(t('filesTab.movedToCategory', { category: categoryConfig.label }))
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
     },
     onError: (_error, _vars, context) => {
       if (context?.previousImages) {
         queryClient.setQueryData(['images', caseId], context.previousImages)
       }
-      toast.error('Lỗi chuyển danh mục')
+      toast.error(t('filesTab.moveCategoryError'))
+    },
+  })
+
+  // Mutation for batch category change (drag and drop - multi-page groups)
+  const changeCategoryBatchMutation = useMutation({
+    mutationFn: ({ imageIds, category }: { imageIds: string[]; category: DocCategory }) =>
+      api.images.changeCategoryBatch(imageIds, category),
+    onMutate: async ({ imageIds, category }) => {
+      await queryClient.cancelQueries({ queryKey: ['images', caseId] })
+      const previousImages = queryClient.getQueryData(['images', caseId])
+
+      // Optimistic update for all images
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              imageIds.includes(img.id) ? { ...img, category } : img
+            ),
+          }
+        }
+      )
+
+      return { previousImages }
+    },
+    onSuccess: (_data, { category, imageIds }) => {
+      const categoryConfig = DOC_CATEGORIES[category as DocCategoryKey]
+      toast.success(t('filesTab.movedBatchToCategory', { count: imageIds.length, category: categoryConfig.label }))
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previousImages) {
+        queryClient.setQueryData(['images', caseId], context.previousImages)
+      }
+      toast.error(t('filesTab.moveCategoryError'))
     },
   })
 
@@ -137,6 +187,35 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return { processing, categorized: byCategory }
   }, [images])
 
+  // Build flat navigation list for prev/next navigation in modals
+  // Order: by category (CATEGORY_ORDER), then by grouped order (groups first, pages sorted)
+  // This matches the visual display order in FileCategorySection
+  const navItems: FileNavItem[] = useMemo(() => {
+    const items: FileNavItem[] = []
+    for (const categoryKey of CATEGORY_ORDER) {
+      const categoryImages = categorized[categoryKey]
+      if (categoryImages.length === 0) continue
+
+      // Use same grouping logic as FileCategorySection for consistent order
+      const { groups, ungrouped } = groupDocuments(categoryImages)
+
+      // Groups first (each group's pages in order)
+      for (const group of groups) {
+        for (const img of group.images) {
+          const doc = docs.find((d) => d.rawImageId === img.id)
+          items.push({ imageId: img.id, doc, image: img })
+        }
+      }
+
+      // Then ungrouped
+      for (const img of ungrouped) {
+        const doc = docs.find((d) => d.rawImageId === img.id)
+        items.push({ imageId: img.id, doc, image: img })
+      }
+    }
+    return items
+  }, [categorized, docs])
+
   // Handlers
   const handleClassify = (image: RawImage) => {
     setClassifyImage(image)
@@ -164,12 +243,97 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     if (image) setViewImage(image)
   }, [images])
 
-  // Handler for drag and drop between categories
+  // Navigation handlers for modals - find current index and navigate to prev/next
+  const getCurrentNavIndex = useCallback(() => {
+    if (verifyDoc) {
+      return navItems.findIndex((item) => item.doc?.id === verifyDoc.id)
+    }
+    if (viewImage) {
+      return navItems.findIndex((item) => item.imageId === viewImage.id)
+    }
+    return -1
+  }, [navItems, verifyDoc, viewImage])
+
+  const handleNavigatePrev = useCallback(() => {
+    const currentIndex = getCurrentNavIndex()
+    if (currentIndex <= 0) return
+
+    const prevItem = navItems[currentIndex - 1]
+
+    // Mark as viewed when navigating (optimistic update + API call)
+    if (prevItem.image.isNew) {
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              img.id === prevItem.imageId ? { ...img, isNew: false } : img
+            ),
+          }
+        }
+      )
+      markViewed.mutate(prevItem.imageId)
+    }
+
+    if (prevItem.doc) {
+      setViewImage(null)
+      setVerifyDoc(prevItem.doc)
+      setIsVerifyModalOpen(true)
+    } else {
+      setVerifyDoc(null)
+      setIsVerifyModalOpen(false)
+      setViewImage(prevItem.image)
+    }
+  }, [getCurrentNavIndex, navItems, caseId, queryClient, markViewed])
+
+  const handleNavigateNext = useCallback(() => {
+    const currentIndex = getCurrentNavIndex()
+    if (currentIndex < 0 || currentIndex >= navItems.length - 1) return
+
+    const nextItem = navItems[currentIndex + 1]
+
+    // Mark as viewed when navigating (optimistic update + API call)
+    if (nextItem.image.isNew) {
+      queryClient.setQueryData(
+        ['images', caseId],
+        (old: { images: RawImage[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            images: old.images.map((img) =>
+              img.id === nextItem.imageId ? { ...img, isNew: false } : img
+            ),
+          }
+        }
+      )
+      markViewed.mutate(nextItem.imageId)
+    }
+
+    if (nextItem.doc) {
+      setViewImage(null)
+      setVerifyDoc(nextItem.doc)
+      setIsVerifyModalOpen(true)
+    } else {
+      setVerifyDoc(null)
+      setIsVerifyModalOpen(false)
+      setViewImage(nextItem.image)
+    }
+  }, [getCurrentNavIndex, navItems, caseId, queryClient, markViewed])
+
+  // Handler for drag and drop between categories (supports single file or batch)
   const handleFileDrop = useCallback(
-    (imageId: string, targetCategory: DocCategoryKey) => {
-      changeCategoryMutation.mutate({ imageId, category: targetCategory })
+    (imageIds: string | string[], targetCategory: DocCategoryKey) => {
+      // Normalize to array
+      const ids = Array.isArray(imageIds) ? imageIds : [imageIds]
+      if (ids.length === 1) {
+        changeCategoryMutation.mutate({ imageId: ids[0], category: targetCategory })
+      } else {
+        changeCategoryBatchMutation.mutate({ imageIds: ids, category: targetCategory })
+      }
     },
-    [changeCategoryMutation]
+    [changeCategoryMutation, changeCategoryBatchMutation]
   )
 
   // Track global drag state for showing empty category drop zones
@@ -217,45 +381,55 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
   })
 
-  // Handle download all files
+  // Handle download all files as ZIP
   const handleDownloadAll = useCallback(async () => {
     if (images.length === 0) return
 
     setIsDownloading(true)
-    let downloadedCount = 0
 
     try {
-      // Download files sequentially to avoid overwhelming the browser
+      const zip = new JSZip()
+      const usedFilenames = new Map<string, number>()
+
+      // Fetch all files and add to ZIP
       for (const img of images) {
         try {
-          const { url } = await api.cases.getImageSignedUrl(img.id)
-
-          // Fetch as blob to force download (cross-origin URLs ignore download attribute)
-          const response = await fetch(url)
+          // Use fetchMediaBlobUrl which includes Bearer auth token
+          const blobUrl = await fetchMediaBlobUrl(`/cases/images/${img.id}/file`)
+          const response = await fetch(blobUrl)
           const blob = await response.blob()
-          const blobUrl = URL.createObjectURL(blob)
-
-          // Create a temporary link and trigger download
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = img.displayName || img.filename
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-
-          // Clean up blob URL
           URL.revokeObjectURL(blobUrl)
-          downloadedCount++
 
-          // Small delay between downloads to prevent browser blocking
-          await new Promise((resolve) => setTimeout(resolve, 300))
+          // Handle duplicate filenames by adding suffix
+          let filename = img.displayName || img.filename
+          const count = usedFilenames.get(filename) || 0
+          if (count > 0) {
+            const ext = filename.lastIndexOf('.')
+            filename = ext > 0
+              ? `${filename.slice(0, ext)} (${count})${filename.slice(ext)}`
+              : `${filename} (${count})`
+          }
+          usedFilenames.set(img.displayName || img.filename, count + 1)
+
+          zip.file(filename, blob)
         } catch {
-          // Continue with next file if one fails
-          console.warn(`Failed to download: ${img.filename}`)
+          console.warn(`Failed to fetch: ${img.filename}`)
         }
       }
 
-      toast.success(t('filesTab.downloadedFiles', { count: downloadedCount }))
+      // Generate ZIP and trigger download
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const zipUrl = URL.createObjectURL(zipBlob)
+
+      const link = document.createElement('a')
+      link.href = zipUrl
+      link.download = `documents-${new Date().toISOString().slice(0, 10)}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      URL.revokeObjectURL(zipUrl)
+      toast.success(t('filesTab.downloadedFiles', { count: images.length }))
     } catch {
       toast.error(t('filesTab.downloadError'))
     } finally {
@@ -275,6 +449,163 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
 
   // Count new files
   const newFilesCount = useMemo(() => images.filter((img) => img.isNew).length, [images])
+
+  // Count ungrouped classified/linked documents (candidates for grouping)
+  const ungroupedCount = useMemo(
+    () =>
+      images.filter(
+        (img) =>
+          (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
+      ).length,
+    [images]
+  )
+
+  // Mutation for batch document grouping with persistent AI notification
+  const groupDocumentsMutation = useMutation({
+    mutationFn: () => api.cases.groupDocuments(caseId),
+    onMutate: () => {
+      // Show persistent AI grouping toast with sparkle icon
+      setIsGroupingActive(true)
+      hotToast.custom(
+        (toastState) => (
+          <div
+            className={`${toastState.visible ? 'animate-enter' : 'animate-leave'} flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-lg`}
+          >
+            <Sparkles className="w-4 h-4 animate-pulse" />
+            <span className="font-medium text-sm">{t('filesTab.groupingInProgress')}</span>
+          </div>
+        ),
+        { duration: Infinity, id: 'ai-grouping' }
+      )
+    },
+    onSuccess: () => {
+      // Start polling to detect when grouping job completes
+      // Don't dismiss toast yet - wait for polling to confirm completion
+      startGroupingPoll()
+    },
+    onError: (error) => {
+      setIsGroupingActive(false)
+      hotToast.dismiss('ai-grouping')
+      toast.error(t('filesTab.groupingError'))
+      console.error('[GroupDocuments]', error)
+    },
+  })
+
+  // Track initial ungrouped count when grouping starts (for success message)
+  const initialUngroupedCountRef = useRef<number>(0)
+
+  // Poll grouping job status via dedicated endpoint
+  // This is reliable because Inngest job clears groupingJobId when complete
+  const startGroupingPoll = useCallback((captureInitialCount = true) => {
+    // Capture initial count for success message (only on fresh start, not resume)
+    if (captureInitialCount) {
+      initialUngroupedCountRef.current = ungroupedCount
+    }
+
+    // Clear any existing poll
+    if (groupingPollRef.current) {
+      clearInterval(groupingPollRef.current)
+      groupingPollRef.current = null
+    }
+
+    const finishGrouping = async () => {
+      setIsGroupingActive(false)
+      hotToast.dismiss('ai-grouping')
+
+      // Refetch images to get final state
+      const result = await queryClient.fetchQuery({
+        queryKey: ['images', caseId],
+        queryFn: () => api.cases.getImages(caseId),
+        staleTime: 0,
+      })
+
+      const finalUngrouped = result.images.filter(
+        (img: RawImage) =>
+          (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
+      ).length
+
+      const grouped = initialUngroupedCountRef.current - finalUngrouped
+      if (grouped > 0) {
+        toast.success(t('filesTab.groupingSuccess', { count: grouped }))
+      } else {
+        toast.info(t('filesTab.groupingNoMatches'))
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+
+      if (groupingPollRef.current) {
+        clearInterval(groupingPollRef.current)
+        groupingPollRef.current = null
+      }
+    }
+
+    const poll = async () => {
+      try {
+        // Check actual job status from backend
+        const status = await api.cases.getGroupingStatus(caseId)
+
+        // Job completed when groupingJobId is null (cleared by Inngest)
+        if (!status.isRunning) {
+          await finishGrouping()
+        }
+      } catch (error) {
+        console.error('[GroupingPoll] Error checking status:', error)
+        // On error, don't stop polling - job might still be running
+      }
+    }
+
+    // Poll every 3 seconds (job status check is cheap)
+    groupingPollRef.current = setInterval(poll, 3000)
+    // Run first poll after a short delay to let Inngest start
+    setTimeout(poll, 2000)
+  }, [caseId, queryClient, t, ungroupedCount])
+
+  // Check if a grouping job is already running on mount
+  // (e.g., user navigated away and came back)
+  useEffect(() => {
+    let mounted = true
+
+    const checkExistingJob = async () => {
+      try {
+        const status = await api.cases.getGroupingStatus(caseId)
+        if (status.isRunning && mounted) {
+          // Resume showing the grouping UI
+          setIsGroupingActive(true)
+          hotToast.custom(
+            (toastState) => (
+              <div
+                className={`${toastState.visible ? 'animate-enter' : 'animate-leave'} flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-lg`}
+              >
+                <Sparkles className="w-4 h-4 animate-pulse" />
+                <span className="font-medium text-sm">{t('filesTab.groupingInProgress')}</span>
+              </div>
+            ),
+            { duration: Infinity, id: 'ai-grouping' }
+          )
+          // Start polling for completion (don't capture initial count - we're resuming)
+          startGroupingPoll(false)
+        }
+      } catch {
+        // Ignore errors on initial check
+      }
+    }
+
+    checkExistingJob()
+
+    return () => {
+      mounted = false
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]) // Only run on mount/caseId change, not on startGroupingPoll change
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (groupingPollRef.current) {
+        clearInterval(groupingPollRef.current)
+      }
+    }
+  }, [])
 
   // Loading state - show skeleton only when actually loading
   if (showLoading) {
@@ -311,6 +642,36 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Group Files button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => groupDocumentsMutation.mutate()}
+            disabled={isGroupingActive || ungroupedCount === 0}
+            className={cn(
+              'gap-1.5',
+              ungroupedCount === 0 && 'opacity-50',
+              isGroupingActive && 'cursor-not-allowed'
+            )}
+          >
+            {isGroupingActive ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="hidden sm:inline">{t('filesTab.groupingButton')}</span>
+              </>
+            ) : (
+              <>
+                <FolderSync className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
+                {ungroupedCount > 0 && (
+                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                    {ungroupedCount}
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+
           {/* Mark all as read button */}
           <Button
             variant="outline"
@@ -400,6 +761,10 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           isOpen={isVerifyModalOpen}
           onClose={handleCloseVerifyModal}
           caseId={caseId}
+          onNavigatePrev={getCurrentNavIndex() > 0 ? handleNavigatePrev : undefined}
+          onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
+          currentIndex={getCurrentNavIndex()}
+          totalCount={navItems.length}
         />
       )}
 
@@ -410,6 +775,11 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           filename={viewImage.filename}
           caseId={caseId}
           onClose={() => setViewImage(null)}
+          onNavigatePrev={getCurrentNavIndex() > 0 ? handleNavigatePrev : undefined}
+          onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
+          currentIndex={getCurrentNavIndex()}
+          totalCount={navItems.length}
+          initialRotation={(viewImage.rotation as 0 | 90 | 180 | 270) || 0}
         />
       )}
     </div>

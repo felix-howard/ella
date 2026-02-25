@@ -330,6 +330,17 @@ export const api = {
       request<{ success: boolean }>(`/cases/${id}/reopen`, {
         method: 'POST',
       }),
+
+    // Trigger batch document grouping (manual)
+    groupDocuments: (id: string, data?: { forceRegroup?: boolean }) =>
+      request<GroupDocumentsResponse>(`/cases/${id}/group-documents`, {
+        method: 'POST',
+        body: JSON.stringify(data ?? {}),
+      }),
+
+    // Check batch document grouping job status
+    getGroupingStatus: (id: string) =>
+      request<GroupingStatusResponse>(`/cases/${id}/grouping-status`),
   },
 
   // Actions
@@ -432,6 +443,13 @@ export const api = {
         body: JSON.stringify({ category }),
       }),
 
+    // Batch change category for multiple images (for group drag-drop)
+    changeCategoryBatch: (imageIds: string[], category: DocCategory) =>
+      request<{ success: boolean; updated: number }>('/images/batch-category', {
+        method: 'PATCH',
+        body: JSON.stringify({ imageIds, category }),
+      }),
+
     // Mark document as viewed by current staff (for NEW badge tracking)
     markViewed: (id: string) =>
       request<{ success: boolean }>(`/images/${id}/mark-viewed`, {
@@ -445,6 +463,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ imageIds }),
         retries: 0,
+      }),
+
+    // Update image rotation (persist document orientation)
+    updateRotation: (id: string, rotation: 0 | 90 | 180 | 270) =>
+      request<{ success: boolean; id: string; rotation: number }>(`/images/${id}/rotation`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rotation }),
+        retries: 0, // Non-critical, don't retry
       }),
   },
 
@@ -762,7 +788,7 @@ export const api = {
   // Staff
   staff: {
     me: () =>
-      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null }>('/staff/me'),
+      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null; avatarUrl: string | null }>('/staff/me'),
 
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
@@ -797,6 +823,28 @@ export const api = {
 
     revokeInvitation: (invitationId: string) =>
       request<{ success: boolean }>(`/team/invitations/${invitationId}`, { method: 'DELETE' }),
+
+    // Profile endpoints
+    getProfile: (staffId: string) =>
+      request<ProfileResponse>(`/team/members/${staffId}/profile`),
+
+    updateProfile: (staffId: string, data: UpdateStaffProfileInput) =>
+      request<{ success: boolean; staff: StaffProfile }>(`/team/members/${staffId}/profile`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    getAvatarPresignedUrl: (staffId: string, data: AvatarPresignedUrlInput) =>
+      request<AvatarPresignedUrlResponse>(`/team/members/${staffId}/avatar/presigned-url`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    confirmAvatarUpload: (staffId: string, r2Key: string) =>
+      request<{ success: boolean; avatarUrl: string }>(`/team/members/${staffId}/avatar`, {
+        method: 'PATCH',
+        body: JSON.stringify({ r2Key }),
+      }),
   },
 
   // Organization Settings
@@ -838,6 +886,59 @@ export const api = {
       request<{ success: boolean }>('/client-assignments/transfer', {
         method: 'PUT', body: JSON.stringify(data),
       }),
+  },
+
+  // Draft Returns - Sharing draft tax returns with clients
+  draftReturns: {
+    get: (caseId: string) =>
+      request<GetDraftReturnResponse>(`/draft-returns/${caseId}`),
+
+    upload: async (caseId: string, file: File): Promise<UploadDraftReturnResponse> => {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Get auth token
+      let authHeaders: Record<string, string> = {}
+      if (getAuthToken) {
+        const token = await getAuthToken()
+        if (token) {
+          authHeaders = { Authorization: `Bearer ${token}` }
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/draft-returns/${caseId}/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: authHeaders,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new ApiError(
+          response.status,
+          (errorData as { error?: string }).error || 'UPLOAD_FAILED',
+          (errorData as { message?: string }).message || 'Failed to upload draft return'
+        )
+      }
+
+      return response.json()
+    },
+
+    revoke: (draftId: string) =>
+      request<{ success: boolean }>(`/draft-returns/${draftId}/revoke`, {
+        method: 'POST',
+      }),
+
+    extend: (draftId: string) =>
+      request<{ success: boolean; expiresAt: string }>(`/draft-returns/${draftId}/extend`, {
+        method: 'POST',
+      }),
+
+    getSignedUrl: (draftId: string) =>
+      request<{ url: string; filename: string }>(`/draft-returns/${draftId}/signed-url`),
+
+    getVersionSignedUrl: (caseId: string, version: number) =>
+      request<{ url: string; filename: string }>(`/draft-returns/version/${caseId}/${version}/signed-url`),
   },
 }
 
@@ -887,7 +988,9 @@ export interface OcrTriggerResponse {
 // Client types
 export interface Client {
   id: string
-  name: string
+  firstName: string
+  lastName: string | null
+  name: string  // Computed: firstName + lastName (backward compat)
   phone: string
   email: string | null
   language: Language
@@ -920,7 +1023,9 @@ export interface ClientUploads {
 // Client with computed status and action counts for list view
 export interface ClientWithActions {
   id: string
-  name: string
+  firstName: string
+  lastName: string | null
+  name: string  // Computed: firstName + lastName (backward compat)
   phone: string
   email: string | null
   language: 'VI' | 'EN'
@@ -1095,6 +1200,17 @@ export interface RawImage {
   reuploadFields?: string[] | null
   // Phase 04: Per-CPA document view tracking
   isNew?: boolean
+  // Viewer display settings (persisted rotation)
+  rotation?: number
+  // Duplicate detection: ID of original image this duplicates
+  duplicateOfId?: string | null
+  // Resolved duplicate-of reference (from API join)
+  duplicateOf?: { id: string; displayName: string | null; filename: string } | null
+  // Multi-page document grouping (Phase 04)
+  documentGroupId?: string | null
+  pageNumber?: number | null
+  totalPages?: number | null
+  groupConfidence?: number | null
 }
 
 // Image group for duplicate detection
@@ -1118,7 +1234,7 @@ export interface DigitalDoc {
   aiConfidence?: number | null
   createdAt: string
   updatedAt: string
-  rawImage?: { id: string; filename: string; r2Key: string }
+  rawImage?: { id: string; filename: string; r2Key: string; displayName?: string | null; rotation?: number }
   // Phase 02: Field-level verification & entry tracking
   fieldVerifications?: Record<string, FieldVerificationStatus>
   copiedFields?: Record<string, boolean>
@@ -1192,7 +1308,8 @@ export interface Message {
 
 // Input types
 export interface CreateClientInput {
-  name: string
+  firstName: string
+  lastName?: string
   phone: string
   email?: string
   language?: Language
@@ -1229,7 +1346,8 @@ export interface CreateClientResponse {
 }
 
 export interface UpdateClientInput {
-  name?: string
+  firstName?: string
+  lastName?: string | null
   phone?: string
   email?: string | null
   language?: Language
@@ -1859,4 +1977,101 @@ export interface ClientAssignment {
   createdAt: string
   client?: { id: string; name: string; phone: string }
   staff?: { id: string; name: string; email: string }
+}
+
+// Staff Profile types
+export interface StaffProfile {
+  id: string
+  name: string
+  email: string
+  role: string
+  avatarUrl: string | null
+  phoneNumber: string | null
+  notifyOnUpload: boolean
+  notifyAllClients: boolean
+}
+
+export interface ProfileResponse {
+  staff: StaffProfile & { _count: { clientAssignments: number } }
+  assignedClients: Array<{ id: string; name: string; phone: string }>
+  assignedCount: number
+  canEdit: boolean
+}
+
+export interface UpdateStaffProfileInput {
+  name?: string
+  phoneNumber?: string | null
+  notifyOnUpload?: boolean
+  notifyAllClients?: boolean
+}
+
+export interface AvatarPresignedUrlInput {
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp'
+  fileSize: number
+}
+
+export interface AvatarPresignedUrlResponse {
+  presignedUrl: string
+  key: string
+  expiresIn: number
+}
+
+// Draft Return types for sharing draft tax returns with clients
+export type DraftReturnStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
+
+export interface DraftReturnData {
+  id: string
+  version: number
+  filename: string
+  fileSize: number
+  status: DraftReturnStatus
+  viewCount: number
+  lastViewedAt: string | null
+  uploadedAt: string
+  uploadedBy: {
+    id: string
+    name: string
+  }
+}
+
+export interface DraftMagicLinkData {
+  token: string
+  url: string
+  expiresAt: string | null
+  isActive: boolean
+  usageCount: number
+  lastUsedAt: string | null
+}
+
+export interface DraftVersionData {
+  version: number
+  uploadedAt: string
+  status: string
+}
+
+export interface GetDraftReturnResponse {
+  draftReturn: DraftReturnData | null
+  magicLink: DraftMagicLinkData | null
+  versions: DraftVersionData[]
+}
+
+export interface UploadDraftReturnResponse {
+  draftReturn: DraftReturnData
+  magicLink: DraftMagicLinkData
+  portalUrl: string
+}
+
+// Group documents response (manual document grouping)
+export interface GroupDocumentsResponse {
+  success: boolean
+  jobId: string
+  documentCount: number
+  message: string
+}
+
+// Grouping status response (check if batch grouping job is running)
+export interface GroupingStatusResponse {
+  isRunning: boolean
+  jobId: string | null
+  startedAt: string | null
 }

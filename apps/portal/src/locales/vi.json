@@ -236,5 +236,21 @@
   "rental.autoSave.saving": "Đang lưu...",
   "rental.autoSave.saved": "Đã lưu tự động",
   "rental.autoSave.savedAt": "Đã lưu lúc {{time}}",
-  "rental.autoSave.failed": "Lưu thất bại"
+  "rental.autoSave.failed": "Lưu thất bại",
+  "draft.title": "Bản nháp tờ khai thuế để xem xét",
+  "draft.loading": "Đang tải bản nháp tờ khai thuế...",
+  "draft.taxYear": "Năm thuế",
+  "draft.version": "Phiên bản",
+  "draft.contactCpa": "Vui lòng liên hệ CPA nếu bạn có câu hỏi.",
+  "draft.errorTitle": "Không thể tải",
+  "draft.errorLoading": "Không thể tải bản nháp. Vui lòng thử lại.",
+  "draft.errorInvalidLink": "Link không hợp lệ. Vui lòng liên hệ CPA để nhận link mới.",
+  "draft.errorRevoked": "Link đã bị thu hồi. Vui lòng liên hệ CPA.",
+  "draft.errorExpired": "Link đã hết hạn. Vui lòng liên hệ CPA để nhận link mới.",
+  "draft.linkInvalid": "Link không hợp lệ",
+  "draft.viewerUnsupported": "Không thể hiển thị PDF",
+  "draft.viewerFallback": "Trình duyệt không hỗ trợ hiển thị PDF. Vui lòng sử dụng các nút bên dưới.",
+  "draft.openInNewTab": "Mở trong tab mới",
+  "draft.download": "Tải PDF",
+  "draft.loadingPdf": "Đang tải PDF..."
 }

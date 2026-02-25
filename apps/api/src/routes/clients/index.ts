@@ -38,6 +38,13 @@ import type { AuthVariables } from '../../middleware/auth'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
+/**
+ * Compute display name from firstName and lastName
+ */
+function computeDisplayName(firstName: string, lastName?: string | null): string {
+  return lastName ? `${firstName} ${lastName}` : firstName
+}
+
 // GET /clients/intake-questions - Get intake questions for selected tax types
 // This is used by the client creation form to dynamically load questions
 clientsRoute.get('/intake-questions', async (c) => {
@@ -89,7 +96,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     const sanitizedSearch = sanitizeSearchInput(search)
     if (sanitizedSearch) {
       where.OR = [
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' } },  // Keep for backward compat
         { phone: { contains: sanitizedSearch } },
       ]
     }
@@ -100,10 +109,10 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   }
 
   // Determine sort order based on sort parameter
-  type OrderByType = { name: 'asc' } | { createdAt: 'desc' }
+  type OrderByType = { firstName: 'asc' } | { createdAt: 'desc' }
   let orderBy: OrderByType = { createdAt: 'desc' }
   if (sort === 'name') {
-    orderBy = { name: 'asc' }
+    orderBy = { firstName: 'asc' }
   }
   // For activity and stale sorting, we sort in JS after fetching due to relation complexity
 
@@ -243,7 +252,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
     return {
       id: client.id,
-      name: client.name,
+      firstName: client.firstName,
+      lastName: client.lastName,
+      name: computeDisplayName(client.firstName, client.lastName),
       phone: client.phone,
       email: client.email,
       language: client.language as 'VI' | 'EN',
@@ -295,8 +306,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, customMessage, ...clientData } = body
+  const { profile, customMessage, firstName, lastName, ...clientData } = body
   const user = c.get('user')
+
+  // Compute display name from firstName and lastName
+  const displayName = computeDisplayName(firstName, lastName)
 
   try {
   // Create client with profile and tax case in transaction
@@ -304,6 +318,9 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     // Create client with org scope
     const client = await tx.client.create({
       data: {
+        firstName,
+        lastName: lastName || null,
+        name: displayName,  // Computed for backward compatibility
         ...clientData,
         language: clientData.language as Language,
         organizationId: user.organizationId,
@@ -411,7 +428,9 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     {
       client: {
         id: result.client.id,
-        name: result.client.name,
+        firstName: result.client.firstName,
+        lastName: result.client.lastName,
+        name: computeDisplayName(result.client.firstName, result.client.lastName),
         phone: result.client.phone,
         email: result.client.email,
         language: result.client.language,
@@ -502,6 +521,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 
   return c.json({
     ...client,
+    name: computeDisplayName(client.firstName, client.lastName),
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: taxCasesWithPortal,
@@ -617,23 +637,37 @@ clientsRoute.patch(
     // Verify access before update (org + assignment scope)
     const existing = await prisma.client.findFirst({
       where: { id, ...buildClientScopeFilter(user) },
-      select: { id: true },
+      select: { id: true, firstName: true, lastName: true },
     })
     if (!existing) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
     }
 
     // Explicitly pick only allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'phone', 'email', 'language'] as const
-    const updateData = pickFields(body, [...allowedFields])
+    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language'] as const
+    const updateData = pickFields(body, [...allowedFields]) as {
+      firstName?: string
+      lastName?: string | null
+      phone?: string
+      email?: string | null
+      language?: Language
+    }
+
+    // Recompute display name if firstName or lastName changed
+    if (updateData.firstName !== undefined || updateData.lastName !== undefined) {
+      const newFirstName = updateData.firstName ?? existing.firstName
+      const newLastName = updateData.lastName !== undefined ? updateData.lastName : existing.lastName
+      ;(updateData as Record<string, unknown>).name = computeDisplayName(newFirstName, newLastName)
+    }
 
     const client = await prisma.client.update({
       where: { id },
-      data: updateData as { name?: string; phone?: string; email?: string | null; language?: Language },
+      data: updateData,
     })
 
     return c.json({
       ...client,
+      name: computeDisplayName(client.firstName, client.lastName),
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
     })

@@ -44,6 +44,12 @@ import {
   type MissedCallTextbackParams,
 } from './missed-call-textback'
 
+import {
+  generateStaffUploadMessage,
+  STAFF_UPLOAD_TEMPLATE_NAME,
+  type StaffUploadTemplateParams,
+} from './staff-upload'
+
 // Re-export everything
 export {
   generateWelcomeMessage,
@@ -60,6 +66,8 @@ export {
   SCHEDULE_E_TEMPLATE_NAME,
   generateMissedCallTextbackMessage,
   MISSED_CALL_TEXTBACK_TEMPLATE_NAME,
+  generateStaffUploadMessage,
+  STAFF_UPLOAD_TEMPLATE_NAME,
 }
 
 export type {
@@ -70,6 +78,7 @@ export type {
   ScheduleCTemplateParams,
   ScheduleETemplateParams,
   MissedCallTextbackParams,
+  StaffUploadTemplateParams,
 }
 
 // Template name union type
@@ -81,6 +90,7 @@ export type TemplateName =
   | typeof SCHEDULE_C_TEMPLATE_NAME
   | typeof SCHEDULE_E_TEMPLATE_NAME
   | typeof MISSED_CALL_TEXTBACK_TEMPLATE_NAME
+  | typeof STAFF_UPLOAD_TEMPLATE_NAME
 
 // Language type
 export type SmsLanguage = 'VI' | 'EN'

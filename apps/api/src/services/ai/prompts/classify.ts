@@ -12,10 +12,21 @@ export const SUPPORTED_DOC_TYPES = [
   'PASSPORT',
   'BIRTH_CERTIFICATE',
   'ITIN_LETTER',
+  'MARRIAGE_CERTIFICATE',
+  'DIVORCE_DECREE',
+  'GREEN_CARD',
+  'WORK_VISA',
+  'NATURALIZATION_CERTIFICATE',
+  'POWER_OF_ATTORNEY',
 
   // Employment Income
   'W2',
   'W2G',
+  'PAY_STUB',
+  'EMPLOYMENT_CONTRACT',
+  'STOCK_OPTION_AGREEMENT',
+  'RSU_STATEMENT',
+  'ESPP_STATEMENT',
 
   // 1099 Series - Various Income
   'FORM_1099_INT',
@@ -31,6 +42,17 @@ export const SUPPORTED_DOC_TYPES = [
   'FORM_1099_C',
   'FORM_1099_SA',
   'FORM_1099_Q',
+  'FORM_1099_A',
+  'FORM_1099_CAP',
+  'FORM_1099_H',
+  'FORM_1099_LS',
+  'FORM_1099_LTC',
+  'FORM_1099_OID',
+  'FORM_1099_PATR',
+  'FORM_1099_QA',
+  'FORM_1099_SB',
+  'RRB_1099',
+  'RRB_1099_R',
 
   // K-1 Forms (Pass-through income)
   'SCHEDULE_K1',
@@ -63,6 +85,13 @@ export const SUPPORTED_DOC_TYPES = [
   'PAYROLL_REPORT',
   'DEPRECIATION_SCHEDULE',
   'VEHICLE_MILEAGE_LOG',
+  'PARTNERSHIP_AGREEMENT',
+  'SHAREHOLDER_AGREEMENT',
+  'BUSINESS_INVOICE',
+  'ACCOUNTS_RECEIVABLE',
+  'ACCOUNTS_PAYABLE',
+  'INVENTORY_REPORT',
+  'SALES_TAX_REPORT',
 
   // Receipts & Supporting Docs
   'RECEIPT',
@@ -71,6 +100,7 @@ export const SUPPORTED_DOC_TYPES = [
   'MEDICAL_RECEIPT',
   'PROPERTY_TAX_STATEMENT',
   'ESTIMATED_TAX_PAYMENT',
+  'RENT_RECEIPT',
 
   // Prior Year / IRS
   'PRIOR_YEAR_RETURN',
@@ -78,6 +108,9 @@ export const SUPPORTED_DOC_TYPES = [
 
   // Crypto
   'CRYPTO_STATEMENT',
+  'CRYPTO_TAX_REPORT',
+  'CRYPTO_TRANSACTION_HISTORY',
+  'STAKING_REWARDS',
 
   // Foreign
   'FOREIGN_BANK_STATEMENT',
@@ -88,6 +121,10 @@ export const SUPPORTED_DOC_TYPES = [
   // Real Estate / Home Sale
   'CLOSING_DISCLOSURE',
   'LEASE_AGREEMENT',
+  'HUD_1',
+  'PROPERTY_DEED',
+  'HOME_APPRAISAL',
+  'PMI_STATEMENT',
 
   // Credits / Energy
   'EV_PURCHASE_AGREEMENT',
@@ -115,6 +152,91 @@ export const SUPPORTED_DOC_TYPES = [
   'SCHEDULE_1',
   'SCHEDULE_D',
   'SCHEDULE_E',
+  'SCHEDULE_2',
+  'SCHEDULE_3',
+  'SCHEDULE_A',
+  'SCHEDULE_B',
+  'SCHEDULE_EIC',
+  'SCHEDULE_F',
+  'SCHEDULE_H',
+  'SCHEDULE_J',
+  'SCHEDULE_R',
+  'SCHEDULE_8812',
+
+  // Critical IRS Forms
+  'FORM_2210',
+  'FORM_2441',
+  'FORM_2555',
+  'FORM_3903',
+  'FORM_4562',
+  'FORM_4684',
+  'FORM_4797',
+  'FORM_4868',
+  'FORM_5329',
+  'FORM_5695',
+  'FORM_6251',
+  'FORM_8283',
+  'FORM_8379',
+  'FORM_8582',
+  'FORM_8606',
+  'FORM_8829',
+  'FORM_8863',
+  'FORM_8880',
+  'FORM_8889',
+  'FORM_8936',
+  'FORM_8949',
+  'FORM_8959',
+  'FORM_8960',
+  'FORM_8962',
+  'FORM_8995',
+  'FORM_8995_A',
+
+  // Investment Documents
+  'BROKERAGE_STATEMENT',
+  'TRADE_CONFIRMATION',
+  'COST_BASIS_STATEMENT',
+  'MUTUAL_FUND_STATEMENT',
+  'DIVIDEND_REINVESTMENT',
+
+  // Retirement Documents
+  'PENSION_STATEMENT',
+  'IRA_STATEMENT',
+  'STATEMENT_401K',
+  'ROTH_IRA_STATEMENT',
+  'RMD_STATEMENT',
+
+  // Healthcare Documents
+  'MEDICAL_BILL',
+  'INSURANCE_EOB',
+  'HSA_STATEMENT',
+  'FSA_STATEMENT',
+
+  // Insurance Documents
+  'AUTO_INSURANCE',
+  'HOME_INSURANCE',
+  'LIFE_INSURANCE_STATEMENT',
+  'DISABILITY_INSURANCE',
+
+  // Legal Documents
+  'COURT_ORDER',
+  'SETTLEMENT_AGREEMENT',
+  'ALIMONY_AGREEMENT',
+  'CHILD_SUPPORT_ORDER',
+  'BANKRUPTCY_DOCUMENTS',
+
+  // Childcare Documents
+  'DAYCARE_STATEMENT',
+  'DEPENDENT_CARE_FSA',
+  'NANNY_DOCUMENTATION',
+
+  // Gambling Documents
+  'GAMBLING_LOSS_STATEMENT',
+
+  // Miscellaneous Documents
+  'BANK_LETTER',
+  'LOAN_STATEMENT',
+  'MEMBERSHIP_DUES',
+  'PROFESSIONAL_LICENSE',
 
   // Other
   'OTHER',
@@ -122,6 +244,69 @@ export const SUPPORTED_DOC_TYPES = [
 ] as const
 
 export type SupportedDocType = (typeof SUPPORTED_DOC_TYPES)[number]
+
+/**
+ * Parent-child form relationships for continuation detection (Phase 5)
+ * Maps parent form types to their possible child/continuation forms
+ */
+export const FORM_RELATIONSHIPS: Record<string, string[]> = {
+  FORM_1040: [
+    'SCHEDULE_A', 'SCHEDULE_B', 'SCHEDULE_C', 'SCHEDULE_D',
+    'SCHEDULE_E', 'SCHEDULE_F', 'SCHEDULE_SE',
+    'SCHEDULE_1', 'SCHEDULE_2', 'SCHEDULE_3', 'SCHEDULE_8812',
+    'FORM_2210', 'FORM_2441', 'FORM_8812', 'FORM_8889',
+  ],
+  SCHEDULE_C: ['FORM_4562', 'FORM_8829'],
+  SCHEDULE_E: ['CONTINUATION_SHEET'],
+  FORM_2210: ['CONTINUATION_SHEET'],
+  FORM_8949: ['CONTINUATION_SHEET'],
+  SCHEDULE_D: ['FORM_8949'],
+}
+
+/**
+ * Regex patterns for detecting parent form references in continuation pages (Phase 5)
+ * Used when classifiedType is OTHER/UNKNOWN but continuation marker detected
+ */
+export const PARENT_FORM_PATTERNS: Record<string, RegExp> = {
+  FORM_2210: /Line\s+19\s*\(2210\)/i,
+  SCHEDULE_E: /Schedule\s+E.*(?:continuation|attachment|additional\s+propert)/i,
+  FORM_8949: /Form\s+8949.*(?:continuation|attachment)/i,
+  SCHEDULE_D: /Schedule\s+D.*(?:continuation|capital\s+gain)/i,
+  FORM_4562: /Form\s+4562|depreciation.*(?:continuation|attachment)/i,
+  FORM_8829: /Form\s+8829|home\s+office.*(?:continuation|expenses)/i,
+  SCHEDULE_1: /Schedule\s+1.*Line\s+\d+[a-z]?/i,
+}
+
+/**
+ * Page marker extracted from document (e.g., "Page 2 of 3", "Part IV")
+ * Note: partNumber is for section indicators only, NOT used for page ordering
+ */
+export interface PageMarker {
+  current: number | null  // "Page 2 of 3" → 2 (PHYSICAL page number from header)
+  total: number | null    // "Page 2 of 3" → 3
+  partNumber: string | null  // "Part IV" → "IV" (section only, NOT page number)
+  isWorksheet: boolean | null  // True for software-generated supplements (e.g., Universal Tax Systems)
+}
+
+/**
+ * Continuation marker for supplemental pages (e.g., "Line 19 (2210)")
+ */
+export interface ContinuationMarker {
+  type: 'line-reference' | 'attachment' | 'see-attached' | null
+  parentForm: string | null  // "Line 19 (2210)" → "FORM_2210"
+  lineNumber: string | null  // "Line 19 (2210)" → "19"
+}
+
+/**
+ * Extracted metadata for hierarchical clustering
+ * Used by Phase 2 grouping algorithm to bucket documents
+ */
+export interface ExtractedMetadata {
+  taxpayerName: string | null      // Primary person's name on document
+  ssn4: string | null              // Last 4 digits of SSN (e.g., "1234")
+  pageMarker: PageMarker | null    // Page/Part indicators
+  continuationMarker: ContinuationMarker | null  // Attachment/continuation indicators
+}
 
 /**
  * Expected classification result structure
@@ -138,6 +323,8 @@ export interface ClassificationResult {
   taxYear: number | null // e.g., 2025 - extracted from document period
   source: string | null // Employer/bank/issuer name - extracted from document
   recipientName: string | null // Person's name from document (employee, recipient, account holder)
+  // Metadata for hierarchical clustering (Phase 1 grouping redesign)
+  extractedMetadata?: ExtractedMetadata
 }
 
 /**
@@ -186,6 +373,46 @@ Response: {"docType":"STATE_TAX_RETURN","confidence":0.90,"reasoning":"Californi
 EXAMPLE 10 - Schedule C (Self-Employment):
 Image shows: "SCHEDULE C (Form 1040)" header, "Profit or Loss From Business" subtitle, "(Sole Proprietorship)" indicator, six-digit principal business code, Part I Income with gross receipts Line 1, Part II Expenses Lines 8-27, net profit Line 31
 Response: {"docType":"SCHEDULE_C","confidence":0.92,"reasoning":"Schedule C form identified by 'Profit or Loss From Business' subtitle, sole proprietorship designation, IRS line number structure for business income and expenses","taxYear":2024,"recipientName":"NGUYEN VAN ANH"}
+
+EXAMPLE 11 - Form 5695 (Residential Energy Credits):
+Image shows: "Form 5695" title, "Residential Energy Credits" subtitle, Part I for nonbusiness energy property, Part II for residential energy efficient property, Line 13 total credits
+Response: {"docType":"FORM_5695","confidence":0.91,"reasoning":"Form 5695 identified by 'Residential Energy Credits' header, has solar/wind/geothermal sections in Part II, total credit calculation","taxYear":2024}
+
+EXAMPLE 12 - Form 8962 (Premium Tax Credit):
+Image shows: "Form 8962" title, "Premium Tax Credit (PTC)" subtitle, Part I annual/monthly amounts, Part II-III marketplace information, reconciliation of advance payments
+Response: {"docType":"FORM_8962","confidence":0.90,"reasoning":"Form 8962 with Premium Tax Credit header, references Form 1095-A data, has PTC reconciliation sections","taxYear":2024}
+
+EXAMPLE 13 - Form 4562 (Depreciation):
+Image shows: "Form 4562" title, "Depreciation and Amortization" subtitle, Part I Section 179 deduction, Part II special depreciation allowance, Part III MACRS depreciation, asset listings
+Response: {"docType":"FORM_4562","confidence":0.92,"reasoning":"Form 4562 identified by depreciation sections, Section 179 election area, MACRS tables, attached to Schedule C or E","taxYear":2024}
+
+EXAMPLE 14 - Form 8949 (Capital Asset Sales):
+Image shows: "Form 8949" title, "Sales and Other Dispositions of Capital Assets" subtitle, checkbox for 1099-B reporting, Part I short-term (A/B/C), Part II long-term (D/E/F), columns for description/date acquired/date sold/proceeds/cost basis/gain or loss
+Response: {"docType":"FORM_8949","confidence":0.91,"reasoning":"Form 8949 with individual transaction rows, references Schedule D, has checkbox for 1099-B basis reporting type","taxYear":2024}
+
+EXAMPLE 15 - Schedule A (Itemized Deductions):
+Image shows: "SCHEDULE A (Form 1040)" header, "Itemized Deductions" subtitle, sections for medical expenses, state/local taxes, mortgage interest, charitable contributions, casualty losses
+Response: {"docType":"SCHEDULE_A","confidence":0.92,"reasoning":"Schedule A with itemized deduction categories, medical expense threshold calculation, SALT limitation reference","taxYear":2024}
+
+EXAMPLE 16 - W-2 with extractedMetadata:
+Image shows: Form W-2, Employee name "NGUYEN VAN ANH", SSN "XXX-XX-1234", employer "ABC NAIL SALON LLC"
+Response: {"docType":"W2","confidence":0.93,"reasoning":"W-2 with visible employee name and SSN-4","taxYear":2024,"source":"ABC Nail Salon","recipientName":"NGUYEN VAN ANH","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":null,"continuationMarker":null}}
+
+EXAMPLE 17 - Schedule C continuation page:
+Image shows: "SCHEDULE C" header, "Page 2 of 2", "See attached" text at line 30, expenses listing continues from page 1
+Response: {"docType":"SCHEDULE_C","confidence":0.90,"reasoning":"Schedule C page 2 with continuation marker","taxYear":2024,"extractedMetadata":{"taxpayerName":"JOHN DOE","ssn4":"5678","pageMarker":{"current":2,"total":2,"partNumber":null,"isWorksheet":false},"continuationMarker":{"type":"see-attached","parentForm":null,"lineNumber":"30"}}}
+
+EXAMPLE 18 - Form 2210 Page 2 with Part III (PHYSICAL page number vs Part number):
+Image shows: "Form 2210 (2024)" in header, "Page 2" visible in top-right corner, "Part III - Penalty Computation" section
+Response: {"docType":"FORM_2210","confidence":0.92,"reasoning":"Form 2210 page 2 showing Part III section - Page 2 from header, Part III is section indicator only","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNE DO","ssn4":"6618","pageMarker":{"current":2,"total":null,"partNumber":"III","isWorksheet":false},"continuationMarker":null}}
+
+EXAMPLE 19 - Universal Tax Systems calculation worksheet (software-generated supplement):
+Image shows: "Universal Tax Systems" logo, "Line 19 (2210) - Penalty Calculation" title, calculation grid
+Response: {"docType":"FORM_2210","confidence":0.85,"reasoning":"Software-generated penalty calculation worksheet for Form 2210 Line 19","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNE DO AND NHAT T TRAN","ssn4":"6618","pageMarker":{"current":null,"total":null,"partNumber":null,"isWorksheet":true},"continuationMarker":{"type":"line-reference","parentForm":"FORM_2210","lineNumber":"19"}}}
+
+EXAMPLE 20 - Form 5695 Page 1 with Part I (first page of multi-page form):
+Image shows: "Form 5695 (2024)" in header, "Part I - Residential Clean Energy Credit" section, NO "Page 2" indicator
+Response: {"docType":"FORM_5695","confidence":0.91,"reasoning":"Form 5695 page 1 showing Part I - main form page with no page indicator means page 1","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNIE DO AND NHAT T TRAN","ssn4":"6618","pageMarker":{"current":1,"total":null,"partNumber":"I","isWorksheet":false},"continuationMarker":null}}
 `
 
 /**
@@ -230,6 +457,40 @@ LOW CONFIDENCE (< 0.60):
 `
 
 /**
+ * Metadata extraction confidence calibration
+ * Guides AI on when to extract vs return null for metadata fields
+ */
+const METADATA_CONFIDENCE_GUIDE = `
+METADATA EXTRACTION CONFIDENCE:
+
+taxpayerName:
+- HIGH (extract): Name clearly printed in header, "Taxpayer's name" field, employee box (W2 Box e/f)
+- HIGH (extract): Name visible in designated recipient/account holder area
+- LOW (use null): Business entity names only, unclear/blurry text, multiple names without designation
+- LOW (use null): Name partially visible or cut off, illegible handwriting
+
+ssn4:
+- HIGH (extract): Last 4 digits visible in XXX-XX-1234 format, clearly readable
+- HIGH (extract): SSN field shows partial masking with readable last 4
+- LOW (use null): Fully redacted (XXX-XX-XXXX), checksum fails (repeated digits like 0000)
+- LOW (use null): Only 2-3 digits visible, blurry/unreadable digits
+
+pageMarker:
+- HIGH (extract all fields): "Page 2 of 3" clearly visible in header/footer
+- HIGH (extract all fields): "1/3" notation visible, unambiguous
+- MEDIUM (extract partial): Only "Page 2" visible (current yes, total null)
+- MEDIUM (extract partial): "Part IV" visible without page numbers (partNumber only)
+- LOW (use null): No page indicators, single-page document, ambiguous marks
+
+continuationMarker:
+- HIGH (extract full): "Line X (FormNum)" pattern visible with clear form reference
+- HIGH (extract full): "Attachment Sheet" with explicit form reference
+- MEDIUM (extract type only): "See attached" without form reference (type="see-attached", parentForm=null)
+- MEDIUM (extract type only): "Continued" without line number
+- LOW (use null): No continuation indicators, standalone document
+`
+
+/**
  * Generate the classification prompt with enhanced accuracy features
  */
 export function getClassificationPrompt(): string {
@@ -243,9 +504,19 @@ IDENTIFICATION DOCUMENTS:
 - SSN_CARD: Social Security Card (blue/white card with 9-digit SSN)
 - DRIVER_LICENSE: Driver's license or state ID card (has photo, license number)
 - PASSPORT: US or foreign passport (has photo, passport number)
+- BIRTH_CERTIFICATE: Birth certificate (for dependents)
+- ITIN_LETTER: IRS ITIN assignment letter (9XX-XX-XXXX format)
+- MARRIAGE_CERTIFICATE: Marriage certificate for filing status
+- DIVORCE_DECREE: Divorce decree for filing status changes
+- GREEN_CARD: Permanent resident card (I-551)
+- WORK_VISA: Employment authorization (H1B, L1, etc.)
+- NATURALIZATION_CERTIFICATE: Certificate of naturalization (N-550/N-570)
+- POWER_OF_ATTORNEY: POA documents (Form 2848 or legal POA)
 
 TAX FORMS - INCOME:
 - W2: Form W-2 Wage and Tax Statement (employer-issued, shows wages Box 1, tax Box 2)
+- W2G: Form W-2G Gambling Winnings (casino winnings, lottery prizes)
+- PAY_STUB: Pay stub/paycheck statement (not W-2, shows gross pay, deductions)
 - FORM_1099_INT: Form 1099-INT Interest Income (from banks, interest in Box 1)
 - FORM_1099_DIV: Form 1099-DIV Dividend Income (dividends in Box 1a/1b)
 - FORM_1099_NEC: Form 1099-NEC Nonemployee Compensation (contractor income Box 1)
@@ -254,18 +525,72 @@ TAX FORMS - INCOME:
 - FORM_1099_R: Form 1099-R Retirement Distributions (401k, IRA, pension withdrawals)
 - FORM_1099_G: Form 1099-G Government Payments (unemployment, state tax refunds)
 - FORM_1099_SSA: Form SSA-1099 Social Security Benefits (benefits in Box 5)
+- FORM_1099_B: Form 1099-B Broker Sales (stock/securities sales, cost basis)
+- FORM_1099_S: Form 1099-S Real Estate Proceeds (home/property sales)
+- FORM_1099_C: Form 1099-C Cancellation of Debt (forgiven debt as income)
+- FORM_1099_A: Form 1099-A Acquisition/Abandonment of Property
+- FORM_1099_OID: Form 1099-OID Original Issue Discount (bond discount)
+- FORM_1099_LTC: Form 1099-LTC Long-Term Care Benefits
+- RRB_1099: Railroad Retirement Form RRB-1099
+- RRB_1099_R: Railroad Retirement Form RRB-1099-R (annuity)
 - SCHEDULE_K1: Schedule K-1 Partnership Income (Form 1065 or 1120S)
 
 TAX FORMS - DEDUCTIONS/CREDITS:
 - FORM_1098: Form 1098 Mortgage Interest Statement (mortgage interest Box 1)
 - FORM_1098_T: Form 1098-T Tuition Statement (education credits)
+- FORM_1098_E: Form 1098-E Student Loan Interest (interest paid Box 1)
 - FORM_1095_A: Form 1095-A Health Insurance Marketplace Statement
+- FORM_1095_B: Form 1095-B Health Coverage (employer/insurer provided)
+- FORM_1095_C: Form 1095-C Employer Health Coverage (ALE reporting)
+- FORM_5498_SA: Form 5498-SA HSA Contributions (HSA/MSA contributions)
+
+CRITICAL IRS FORMS (Schedules & Credits):
+- FORM_5695: Form 5695 Residential Energy Credits (solar, wind, geothermal - Part I nonbusiness, Part II qualified property)
+- FORM_8962: Form 8962 Premium Tax Credit (reconciles 1095-A marketplace coverage)
+- FORM_4562: Form 4562 Depreciation & Amortization (Section 179, MACRS depreciation tables)
+- FORM_8949: Form 8949 Sales of Capital Assets (individual transaction detail, feeds Schedule D)
+- FORM_2441: Form 2441 Child Care Expenses (dependent care credit)
+- FORM_8829: Form 8829 Home Office Expenses (home business use percentage)
+- FORM_8863: Form 8863 Education Credits (AOTC, Lifetime Learning)
+- FORM_8889: Form 8889 HSA Deduction (HSA contributions and distributions)
+- FORM_8995: Form 8995 QBI Deduction (Qualified Business Income - simple)
+- FORM_8995_A: Form 8995-A QBI Deduction (Complex - multiple businesses)
+- FORM_8606: Form 8606 Nondeductible IRAs (basis tracking)
+- FORM_6251: Form 6251 Alternative Minimum Tax (AMT calculation)
 
 BUSINESS DOCUMENTS:
 - BANK_STATEMENT: Bank account statements (monthly/quarterly, shows transactions)
-- PROFIT_LOSS_STATEMENT: Business P&L statements
+- PROFIT_LOSS_STATEMENT: Business P&L statements (company letterhead, not IRS form)
 - BUSINESS_LICENSE: Business license or registration certificate
 - EIN_LETTER: IRS EIN assignment letter (CP 575, shows XX-XXXXXXX number)
+- PARTNERSHIP_AGREEMENT: Partnership operating agreement
+- SHAREHOLDER_AGREEMENT: S-Corp/C-Corp shareholder agreement
+- BUSINESS_INVOICE: Business invoice sent to customers
+- SALES_TAX_REPORT: State sales tax filings
+
+INVESTMENT DOCUMENTS:
+- BROKERAGE_STATEMENT: Brokerage account statement (holdings, transactions)
+- TRADE_CONFIRMATION: Individual trade confirmations (buy/sell)
+- COST_BASIS_STATEMENT: Cost basis report from broker
+- MUTUAL_FUND_STATEMENT: Mutual fund account statement
+- CRYPTO_TAX_REPORT: Cryptocurrency tax report (8949 format from exchanges)
+- CRYPTO_TRANSACTION_HISTORY: Raw crypto transaction history
+
+RETIREMENT DOCUMENTS:
+- PENSION_STATEMENT: Pension benefit statement (not 1099-R)
+- IRA_STATEMENT: IRA account statement (balance, contributions)
+- STATEMENT_401K: 401(k) account statement (balance, contributions)
+- ROTH_IRA_STATEMENT: Roth IRA account statement
+- RMD_STATEMENT: Required Minimum Distribution statement
+
+REAL ESTATE DOCUMENTS:
+- CLOSING_DISCLOSURE: HUD Closing Disclosure (home purchase/sale)
+- HUD_1: HUD-1 Settlement Statement (older format)
+- LEASE_AGREEMENT: Rental lease contract
+- PROPERTY_DEED: Property deed/title
+- HOME_APPRAISAL: Property appraisal report
+- PROPERTY_TAX_STATEMENT: Property tax bill/statement
+- PMI_STATEMENT: Private Mortgage Insurance statement
 
 TAX RETURNS - Filed Returns & Transcripts:
 - FORM_1040: Form 1040 U.S. Individual Income Tax Return (multi-page, IRS logo, tax year header, filing status checkboxes, income summary Lines 1-15, AGI Line 11, total tax Line 24, refund Line 35a)
@@ -296,6 +621,46 @@ DISAMBIGUATION RULES FOR SCHEDULES:
 - Schedule E vs Schedule C: Schedule E = passive rental income; Schedule C = active business income
 - Schedule 1 vs Form 1040: Schedule 1 is attachment showing additional income; Form 1040 is main return
 - Schedule SE vs W-2: Schedule SE calculates self-employment tax; W-2 shows employer withholding
+- Schedule A vs receipts: Schedule A is IRS form for itemized deductions; receipts are source docs
+- Schedule 8812 vs Form 8812: Same form - use SCHEDULE_8812 for Additional Child Tax Credit
+
+DISAMBIGUATION RULES FOR CREDITS/DEDUCTIONS:
+- Form 5695 vs ENERGY_CREDIT_INVOICE: Form 5695 is IRS form; invoice is purchase receipt
+- Form 8962 vs Form 1095-A: Form 8962 calculates PTC; Form 1095-A reports marketplace coverage
+- Form 4562 vs DEPRECIATION_SCHEDULE: Form 4562 is IRS form; depreciation schedule is supporting doc
+- Form 8949 vs BROKERAGE_STATEMENT: Form 8949 is IRS form; brokerage statement is source doc
+- Form 2441 vs DAYCARE_RECEIPT: Form 2441 calculates credit; receipt is source doc
+
+DISAMBIGUATION RULES FOR 1099 VARIANTS:
+- 1099-INT vs 1099-DIV: INT = interest only; DIV = dividends (may include interest)
+- 1099-K vs 1099-NEC: 1099-K from payment processors (Square, PayPal); 1099-NEC from payer company
+- 1099-R vs RRB-1099-R: 1099-R from retirement plans; RRB from Railroad Retirement
+- 1099-B vs BROKERAGE_STATEMENT: 1099-B is tax form; brokerage statement is account summary
+- 1099-SSA vs RRB-1099: SSA from Social Security; RRB from Railroad Retirement
+
+DISAMBIGUATION RULES FOR IDENTITY DOCS:
+- SSN_CARD vs ITIN_LETTER: SSN has 9-digit XXX-XX-XXXX; ITIN starts with 9 (9XX-XX-XXXX)
+- GREEN_CARD vs WORK_VISA: Green card is permanent; visa is temporary authorization
+- PASSPORT vs DRIVER_LICENSE: Passport for travel/citizenship; DL for state ID
+
+HEALTHCARE DOCUMENTS:
+- MEDICAL_BILL: Medical bills/invoices (hospital, doctor charges)
+- INSURANCE_EOB: Explanation of Benefits from insurer
+- HSA_STATEMENT: HSA account statement (not Form 5498-SA)
+- FSA_STATEMENT: FSA account statement
+
+LEGAL DOCUMENTS:
+- COURT_ORDER: Court orders (custody, support)
+- ALIMONY_AGREEMENT: Alimony/spousal support agreement
+- CHILD_SUPPORT_ORDER: Child support order
+- SETTLEMENT_AGREEMENT: Legal settlement documents
+- BANKRUPTCY_DOCUMENTS: Bankruptcy filings
+
+CHILDCARE DOCUMENTS:
+- DAYCARE_STATEMENT: Daycare/childcare provider statement (EIN, amount paid)
+- DAYCARE_RECEIPT: Individual daycare receipts
+- DEPENDENT_CARE_FSA: Dependent Care FSA statement
+- NANNY_DOCUMENTATION: Nanny employment records (W-2/W-4, payments)
 
 OTHER DOCUMENTS:
 - RECEIPT: General receipts, invoices, purchase records
@@ -307,8 +672,97 @@ ${VIETNAMESE_NAME_HANDLING}
 
 ${CONFIDENCE_CALIBRATION}
 
+${METADATA_CONFIDENCE_GUIDE}
+
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name"}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":{"current":2,"total":3,"partNumber":null,"isWorksheet":false},"continuationMarker":null}}
+
+**PAGE MARKER EXAMPLES:**
+- Form 2210 showing "Form 2210 (2024)" with "Page 2" in top-right, Part III section:
+  {"current":2,"total":null,"partNumber":"III","isWorksheet":false}
+  NOTE: current=2 from "Page 2" header, NOT from Part III!
+
+- Form 5695 showing "Form 5695 (2024)" with Part I content, no page indicator:
+  {"current":1,"total":null,"partNumber":"I","isWorksheet":false}
+  NOTE: current=1 because this is the first page of the form (no "Page 2" indicator)
+
+- Universal Tax Systems calculation sheet (software-generated):
+  {"current":null,"total":null,"partNumber":null,"isWorksheet":true}
+  NOTE: isWorksheet=true, these come AFTER all official IRS form pages
+
+METADATA EXTRACTION (for hierarchical grouping):
+
+Extract the following for document clustering:
+
+1. taxpayerName: Primary person's name on document
+   - W2: Employee name (Box e/f)
+   - 1099: Recipient's name
+   - Tax returns: "Your first name and middle initial" + "Last name"
+   - Schedule C: "Proprietor name"
+   - Use null if unclear or business entity name only
+
+2. ssn4: Last 4 digits of SSN/EIN
+   - Extract from "XXX-XX-1234" format
+   - Only last 4 digits as string (e.g., "1234")
+   - Use null if not visible or fully redacted
+
+3. pageMarker: Page/Part indicators (LOOK IN HEADER/FOOTER ZONES - top 15%, bottom 10%)
+
+   **CRITICAL: LOOK FOR PHYSICAL PAGE NUMBER, NOT PART/SECTION NUMBER!**
+
+   On IRS forms, the PHYSICAL page number appears in the top-right corner of each page:
+   - "Form 2210 (2024)" followed by "Page 2" in top-right → current: 2
+   - "Form 5695 (2024)" with "Page 2" in corner → current: 2
+   - "Form 4562 (2024)" with page indicator → use that number
+
+   **WARNING: Part numbers are NOT page numbers!**
+   - Form 2210: Part I is on Page 1, Part II is on Page 1, Part III is on Page 2
+   - Form 5695: Part I is on Page 1, Part II is on Page 2
+   - DO NOT convert Part numbers to page numbers!
+
+   PATTERNS TO FIND (in strict priority order):
+
+   a. PHYSICAL PAGE NUMBER (HIGHEST PRIORITY):
+      - Look in TOP-RIGHT corner for "Page 2", "Page 2 of 2"
+      - Look in BOTTOM footer for page indicators
+      - "Form 1040 (2025) Page 2 of 2" → current: 2, total: 2
+      - Just "Page 2" alone → current: 2, total: null
+
+   b. "X/Y" slash notation (in header/footer only):
+      - "1/3", "2/3", "3/3" → current: X, total: Y
+
+   c. Part-based markers (ONLY for partNumber field, NOT current):
+      - "Part IV - Other Taxes" → partNumber: "IV", current: null
+      - "Part II" → partNumber: "II", current: null
+      - NEVER use Part numbers to set current page number!
+
+   d. Continuation indicators:
+      - "Continued" or "Cont." in header → likely NOT page 1
+      - "(continued)" in section header → NOT page 1
+      - Text like "Section B—Residential Energy Property Expenditures (continued)" → Page 2+
+
+   e. SUPPLEMENTARY WORKSHEETS (software-generated):
+      - "Universal Tax Systems" logo → isWorksheet: true
+      - Tax software calculation sheets → isWorksheet: true
+      - These should come AFTER official IRS form pages
+
+   OUTPUT FORMAT:
+   - current: PHYSICAL page number (integer) or null - FROM HEADER/FOOTER ONLY
+   - total: total pages (integer) or null
+   - partNumber: Roman numeral string (e.g., "IV") or null - section indicator only
+   - isWorksheet: true if software-generated supplement, false/null otherwise
+
+   PRIORITIZATION: "Page X" header > slash notation > continuation clues > upload order
+   NEVER use Part numbers (I, II, III, IV) to determine current page number!
+
+4. continuationMarker: Attachment/continuation indicators
+   - type: "line-reference" if "Line X (FormNum)"
+   - type: "attachment" if "Attachment Sheet X"
+   - type: "see-attached" if "See attached", "See continuation"
+   - parentForm: referenced form type (e.g., "FORM_2210")
+   - lineNumber: referenced line (e.g., "19")
+
+extractedMetadata is REQUIRED for tax documents with >80% confidence.
 
 EXTRACTION RULES FOR NAMING:
 - taxYear: Extract from Box period, statement date, form header "Tax Year 20XX", or document date. Use null if unclear.
@@ -375,6 +829,431 @@ export function validateClassificationResult(
   if ('recipientName' in r && r.recipientName !== null) {
     if (typeof r.recipientName !== 'string' || r.recipientName.trim() === '') {
       return false
+    }
+  }
+
+  // Validate extractedMetadata (optional but structured if present)
+  if ('extractedMetadata' in r && r.extractedMetadata !== null && r.extractedMetadata !== undefined) {
+    const meta = r.extractedMetadata as Record<string, unknown>
+
+    // taxpayerName: optional string or null
+    if ('taxpayerName' in meta && meta.taxpayerName !== null) {
+      if (typeof meta.taxpayerName !== 'string') return false
+    }
+
+    // ssn4: optional 4-digit string or null
+    // Reject placeholder patterns like "0000", "XXXX"
+    if ('ssn4' in meta && meta.ssn4 !== null) {
+      if (typeof meta.ssn4 !== 'string' || !/^\d{4}$/.test(meta.ssn4)) return false
+      // Reject placeholder values (fully masked or zeros)
+      if (meta.ssn4 === '0000' || /^(\d)\1{3}$/.test(meta.ssn4)) return false
+    }
+
+    // pageMarker: optional object or null
+    if ('pageMarker' in meta && meta.pageMarker !== null) {
+      const pm = meta.pageMarker as Record<string, unknown>
+      if (typeof pm !== 'object') return false
+      if ('current' in pm && pm.current !== null && typeof pm.current !== 'number') return false
+      if ('total' in pm && pm.total !== null && typeof pm.total !== 'number') return false
+      if ('partNumber' in pm && pm.partNumber !== null && typeof pm.partNumber !== 'string') return false
+      if ('isWorksheet' in pm && pm.isWorksheet !== null && typeof pm.isWorksheet !== 'boolean') return false
+    }
+
+    // continuationMarker: optional object or null
+    if ('continuationMarker' in meta && meta.continuationMarker !== null) {
+      const cm = meta.continuationMarker as Record<string, unknown>
+      if (typeof cm !== 'object') return false
+      if ('type' in cm && cm.type !== null) {
+        if (!['line-reference', 'attachment', 'see-attached'].includes(cm.type as string)) return false
+      }
+      if ('parentForm' in cm && cm.parentForm !== null && typeof cm.parentForm !== 'string') return false
+      if ('lineNumber' in cm && cm.lineNumber !== null && typeof cm.lineNumber !== 'string') return false
+    }
+  }
+
+  return true
+}
+
+// ============================================
+// SMART RENAME - FALLBACK FOR UNCLASSIFIABLE DOCS
+// ============================================
+
+/**
+ * PageInfo for multi-page detection (Phase 3 preparation)
+ */
+export interface PageInfo {
+  isMultiPage: boolean
+  currentPage: number | null
+  totalPages: number | null
+  continuationMarker: string | null
+  documentIdentifier: string | null
+}
+
+/**
+ * SmartRename result structure for fallback naming
+ */
+export interface SmartRenameResult {
+  documentTitle: string
+  taxYear: number | null
+  source: string | null
+  recipientName: string | null
+  pageInfo: PageInfo
+  suggestedFilename: string
+  confidence: number
+  reasoning: string
+}
+
+/**
+ * Fallback smart rename prompt
+ * Used when document can't be classified to predefined type (<60% confidence)
+ */
+export function getSmartRenamePrompt(): string {
+  return `You are analyzing a document that couldn't be classified into a predefined type.
+Your ONLY job is to generate a meaningful, descriptive filename.
+
+CRITICAL: Even if you're uncertain, ALWAYS generate a descriptive filename.
+Never output generic names like "Document", "Image", "Paper", "Form", "Letter".
+
+ANALYZE AND EXTRACT:
+1. documentTitle: What IS this document? Be as specific as possible.
+   - TAX DOCUMENTS: Look for IRS form numbers, "Line X", "Form XXXX", "Schedule X"
+     * "Line 19 (2210)" → "Form2210_PenaltyCalculation"
+     * "Underpayment of Estimated Tax" → "EstimatedTaxPenalty"
+     * "Schedule C" → "ScheduleC_BusinessIncome"
+     * Any IRS worksheet → Include form reference in title
+   - FINANCIAL: "BankStatement", "InvestmentSummary", "LoanPayment"
+   - GOVERNMENT: "PropertyTaxBill", "VehicleRegistration", "CourtOrder"
+   - MEDICAL: "InsuranceEOB", "MedicalBill", "LabResults"
+   - LEGAL: "Contract", "Agreement", "CourtFiling"
+
+   BAD (never use): "Document", "Paper", "Form", "Letter", "Image", "Scan", "File"
+
+2. taxYear: What year? Look for:
+   - Tax year references ("Tax Year 2024", "2024", "FY 2024")
+   - Statement periods ("January 2024 - December 2024")
+   - Due dates, payment dates
+   - Default to current year (2025) if truly unclear
+
+3. source: Who issued this?
+   - For IRS forms: "IRS"
+   - Company name (Chase, Wells Fargo, Blue Cross)
+   - Government agency (Texas DMV, Harris County)
+   - Person/entity name on letterhead
+
+4. recipientName: Whose document is this?
+   - Taxpayer name (from header, "Name" field)
+   - Account holder name
+   - Property owner name
+   - Vietnamese names common: NGUYEN, TRAN, LE, PHAM
+
+5. pageInfo: Multi-page document?
+   - Look for "Page X of Y", "Continued", page numbers
+   - Note if this appears to be part of a larger document
+
+EXAMPLES:
+
+Input: Tax form showing "Line 19 (2210) - Penalty Calculation", names "LYNNE DO and NHAT T TRAN"
+Output: {
+  "documentTitle": "Form2210_PenaltyCalculation",
+  "taxYear": 2024,
+  "source": "IRS",
+  "recipientName": "LynneDo_NhatTran",
+  "suggestedFilename": "2024_Form2210_PenaltyCalculation_LynneDo",
+  "confidence": 0.75,
+  "reasoning": "IRS Form 2210 Line 19 penalty calculation worksheet for estimated tax underpayment"
+}
+
+Input: Bank statement from Chase, account holder John Nguyen
+Output: {
+  "documentTitle": "BankStatement",
+  "taxYear": 2024,
+  "source": "Chase",
+  "recipientName": "JohnNguyen",
+  "suggestedFilename": "2024_BankStatement_Chase_JohnNguyen",
+  "confidence": 0.80,
+  "reasoning": "Monthly bank statement from Chase Bank"
+}
+
+RESPONSE FORMAT (JSON):
+{
+  "documentTitle": "DescriptiveTitle",
+  "taxYear": 2024,
+  "source": "SourceName",
+  "recipientName": "PersonName",
+  "pageInfo": {
+    "isMultiPage": false,
+    "currentPage": null,
+    "totalPages": null,
+    "continuationMarker": null,
+    "documentIdentifier": null
+  },
+  "suggestedFilename": "YYYY_DescriptiveTitle_Source_PersonName",
+  "confidence": 0.XX,
+  "reasoning": "Brief description of what you see"
+}
+
+NAMING RULES:
+- Max 60 characters
+- No spaces (use PascalCase or underscores)
+- No special characters except underscores
+- BE SPECIFIC - include form numbers, line references, document type
+- Include year, source, and name when available
+- Format: YYYY_DocumentTitle_Source_RecipientName
+- For tax forms: Include form number in title (Form2210, ScheduleC, etc.)`
+}
+
+/**
+ * Validate SmartRename result structure
+ */
+export function validateSmartRenameResult(result: unknown): result is SmartRenameResult {
+  if (!result || typeof result !== 'object') return false
+  const r = result as Record<string, unknown>
+
+  // Required string fields
+  if (typeof r.documentTitle !== 'string' || r.documentTitle.trim() === '') return false
+  if (typeof r.suggestedFilename !== 'string' || r.suggestedFilename.trim() === '') return false
+  if (typeof r.reasoning !== 'string') return false
+
+  // Required number field
+  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) return false
+
+  // Optional fields (can be null)
+  if ('taxYear' in r && r.taxYear !== null) {
+    if (typeof r.taxYear !== 'number' || r.taxYear < 2000 || r.taxYear > 2100) {
+      return false
+    }
+  }
+
+  if ('source' in r && r.source !== null) {
+    if (typeof r.source !== 'string') return false
+  }
+
+  if ('recipientName' in r && r.recipientName !== null) {
+    if (typeof r.recipientName !== 'string') return false
+  }
+
+  // pageInfo validation (optional but structured if present)
+  if ('pageInfo' in r && r.pageInfo !== null) {
+    const p = r.pageInfo as Record<string, unknown>
+    if (typeof p !== 'object') return false
+    if (typeof p.isMultiPage !== 'boolean') return false
+  }
+
+  return true
+}
+
+// ============================================
+// MULTI-PAGE DOCUMENT GROUPING (Phase 3)
+// ============================================
+
+/**
+ * Multi-page document grouping prompt
+ * Compares new document against candidates to find related pages
+ */
+export function getGroupingAnalysisPrompt(candidateCount: number): string {
+  return `You are comparing a NEW document (first image) against ${candidateCount} existing documents.
+Determine if the NEW document belongs with any of the existing documents as part of the same multi-page document.
+
+METADATA-ENHANCED GROUPING:
+Documents have pre-extracted metadata (taxpayerName, ssn4, pageMarker, continuationMarker).
+Use this to VALIDATE your visual analysis and improve grouping accuracy.
+
+CRITICAL RULE - SAME FORM TYPE REQUIRED:
+- Documents MUST be the same form type/number to be grouped
+- Form 1040 pages can ONLY group with other Form 1040 pages
+- Schedule C pages can ONLY group with other Schedule C pages
+- NEVER group: Form 1040 + Schedule EIC (different forms, same taxpayer)
+- NEVER group: W-2 + 1099-NEC (different income forms, same person)
+- Same taxpayer name is NOT sufficient - form type must match
+
+GROUPING RULES (Enhanced with Metadata Validation):
+
+1. SAME form number/title - THIS IS MANDATORY (e.g., all show "Form 4562")
+
+2. **TAXPAYER NAME VALIDATION (metadata.taxpayerName)**:
+   - If metadata.taxpayerName DIFFERS between documents → DO NOT GROUP (different taxpayer)
+   - If metadata.taxpayerName MATCHES → proceed to visual check
+   - If metadata.taxpayerName is null on one/both → rely on visual name comparison
+
+3. **SSN-4 VALIDATION (metadata.ssn4)**:
+   - If both have ssn4 and they DIFFER → DO NOT GROUP (definitely different taxpayer)
+   - If ssn4 matches → strong confirmation of same taxpayer (+0.10 confidence boost)
+
+4. **PAGE MARKER VALIDATION (metadata.pageMarker)**:
+   - If pageMarker.current exists → use for pageOrder position
+   - If pageMarker.total exists → validate grouped page count matches total
+   - Page markers override visual guessing for order determination
+
+5. **CONTINUATION MARKER (metadata.continuationMarker)**:
+   - If continuationMarker.parentForm exists → document is supplemental page
+   - Group with parent form if parent exists in candidates
+   - continuationMarker.lineNumber helps identify specific attachment point
+
+6. Same letterhead, formatting, visual style (secondary validation)
+7. Sequential content (tables continue, numbers progress)
+8. Same document identifier (case #, account #, policy #)
+
+NEGATIVE EXAMPLES (DO NOT GROUP):
+- Form 1040 page 1 + Schedule C → Different form types
+- metadata.taxpayerName "NGUYEN VAN ANH" vs "TRAN THI HONG" → Different taxpayers
+- metadata.ssn4 "1234" vs "5678" → Different SSN, definitely different people
+- W-2 from Employer A + W-2 from Employer B → Different sources
+
+INDICATORS OF DIFFERENT DOCUMENTS:
+1. Different form types (W-2 vs 1099, Form 1040 vs Schedule C)
+2. Different metadata.taxpayerName values
+3. Different metadata.ssn4 values
+4. Different dates/years
+5. Completely different content/purpose
+
+PAGE ORDER DETERMINATION (Metadata-First):
+
+1. FIRST: Use metadata.pageMarker.current if available
+   - "currentPage: 2" means this is page 2, regardless of upload order
+   - This is the most reliable source
+
+2. SECOND: Look for explicit page numbers in image ("Page X of Y", "1/3")
+3. THIRD: Look for continuation markers ("Continued from page 1")
+4. FOURTH: Look for sequential content (tables continuing, numbered items)
+5. FIFTH: Look for header page vs detail pages (summary page usually first)
+
+METADATA CONFLICT RESOLUTION:
+- If metadata.pageMarker.current = 2 but visual shows "Part I" → Flag conflict in reasoning
+- Trust metadata over visual guess when metadata confidence was high
+- Note any conflicts for human review
+
+CONFIDENCE SCORING (Enhanced):
+
+HIGH (0.85-0.95):
+- Same form type + Same taxpayerName + Same ssn4 + Page markers align + Visual similarity
+- metadataValidation.confidenceBoost: +0.15
+
+MEDIUM (0.70-0.84):
+- Same form type + Same taxpayerName + No ssn4 comparison + Visual similarity
+- OR: Same form type + Missing taxpayerName + Strong visual similarity
+- metadataValidation.confidenceBoost: +0.05 to +0.10
+
+LOW (<0.70) - DO NOT GROUP:
+- Same form type + Different taxpayerName → REJECT
+- Same form type + Different ssn4 → REJECT
+- Different form types → REJECT
+
+RESPONSE FORMAT (JSON):
+{
+  "matchFound": true,
+  "matchedIndices": [0, 2],
+  "confidence": 0.92,
+  "groupName": "Form4562_Depreciation_NguyenVanAnh",
+  "pageOrder": ["existing_doc_0", "new_doc", "existing_doc_2"],
+  "reasoning": "Same form (4562), same taxpayer (NGUYEN VAN ANH), ssn4 match (1234), page markers 1-2-3 align",
+  "metadataValidation": {
+    "taxpayerNameMatch": true,
+    "ssn4Match": true,
+    "pageMarkersAlign": true,
+    "confidenceBoost": 0.15
+  }
+}
+
+If no match found:
+{
+  "matchFound": false,
+  "matchedIndices": [],
+  "confidence": 0,
+  "groupName": null,
+  "pageOrder": [],
+  "reasoning": "New document is Schedule C for TRAN THI HONG, existing docs are Schedule C for NGUYEN VAN ANH - different taxpayers",
+  "metadataValidation": {
+    "taxpayerNameMatch": false,
+    "ssn4Match": null,
+    "pageMarkersAlign": null,
+    "confidenceBoost": 0
+  }
+}
+
+RULES:
+- Only match if confident (>80%) they belong together
+- SAME FORM TYPE IS MANDATORY - never group different form types
+- SAME TAXPAYER IS MANDATORY - use metadata.taxpayerName/ssn4 for validation
+- pageOrder must be based on CONTENT (page numbers, continuation markers), not image index
+- The new document could be ANY page (first, middle, or last)
+- matchedIndices are 0-based indices of existing docs that match (not including new doc)
+- pageOrder uses: "existing_doc_N" for existing docs, "new_doc" for the new document
+- groupName should be descriptive: FormType_Description_PersonName (max 50 chars, no spaces)
+- ALWAYS include metadataValidation in response`
+}
+
+/**
+ * Metadata validation result for grouping confidence
+ */
+export interface MetadataValidation {
+  taxpayerNameMatch: boolean | null  // true=match, false=mismatch, null=not comparable
+  ssn4Match: boolean | null          // true=match, false=mismatch, null=not comparable
+  pageMarkersAlign: boolean | null   // true=valid sequence, false=conflict, null=no markers
+  confidenceBoost: number            // 0.00-0.20 boost from metadata validation
+}
+
+/**
+ * Grouping analysis result from AI
+ */
+export interface GroupingAnalysisResult {
+  matchFound: boolean
+  matchedIndices: number[]
+  confidence: number
+  groupName: string | null
+  pageOrder: string[]
+  reasoning: string
+  metadataValidation?: MetadataValidation  // Optional for backward compatibility
+}
+
+/**
+ * Validate GroupingAnalysisResult structure
+ */
+export function validateGroupingResult(result: unknown): result is GroupingAnalysisResult {
+  if (!result || typeof result !== 'object') return false
+  const r = result as Record<string, unknown>
+
+  if (typeof r.matchFound !== 'boolean') return false
+  if (!Array.isArray(r.matchedIndices)) return false
+  if (typeof r.confidence !== 'number') return false
+  if (!Array.isArray(r.pageOrder)) return false
+  if (typeof r.reasoning !== 'string') return false
+
+  // Validate matchedIndices contains only numbers
+  if (!r.matchedIndices.every((idx) => typeof idx === 'number')) return false
+
+  // Validate pageOrder contains only strings
+  if (!r.pageOrder.every((p) => typeof p === 'string')) return false
+
+  // Validate confidence range
+  if (r.confidence < 0 || r.confidence > 1) return false
+
+  // groupName can be string or null
+  if (r.groupName !== null && typeof r.groupName !== 'string') return false
+
+  // Validate optional metadataValidation if present
+  if ('metadataValidation' in r && r.metadataValidation !== null && r.metadataValidation !== undefined) {
+    const mv = r.metadataValidation as Record<string, unknown>
+    if (typeof mv !== 'object') return false
+
+    // taxpayerNameMatch: boolean or null
+    if ('taxpayerNameMatch' in mv && mv.taxpayerNameMatch !== null) {
+      if (typeof mv.taxpayerNameMatch !== 'boolean') return false
+    }
+
+    // ssn4Match: boolean or null
+    if ('ssn4Match' in mv && mv.ssn4Match !== null) {
+      if (typeof mv.ssn4Match !== 'boolean') return false
+    }
+
+    // pageMarkersAlign: boolean or null
+    if ('pageMarkersAlign' in mv && mv.pageMarkersAlign !== null) {
+      if (typeof mv.pageMarkersAlign !== 'boolean') return false
+    }
+
+    // confidenceBoost: number 0-0.20
+    if ('confidenceBoost' in mv) {
+      if (typeof mv.confidenceBoost !== 'number') return false
+      if (mv.confidenceBoost < 0 || mv.confidenceBoost > 0.20) return false
     }
   }
 

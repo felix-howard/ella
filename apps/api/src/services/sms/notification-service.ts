@@ -11,6 +11,8 @@ import {
   isSmsEnabled,
   type SendMessageResult,
 } from './message-sender'
+import { generateStaffUploadMessage } from './templates'
+import { sendSms, formatPhoneToE164, isValidPhoneNumber } from './twilio-client'
 import type { Language } from '@ella/db'
 
 // Throttle window constants (in milliseconds)
@@ -283,4 +285,65 @@ export async function sendBatchMissingReminders(): Promise<{
   }
 
   return results
+}
+
+/**
+ * Notify staff member of client document upload
+ * Called by notifyStaffOnUploadJob (Inngest batching job)
+ */
+export interface NotifyStaffUploadParams {
+  staffId: string
+  staffName: string
+  staffPhone: string
+  clientName: string
+  uploadCount: number
+  language: 'VI' | 'EN'
+}
+
+export interface NotifyStaffUploadResult {
+  success: boolean
+  error?: string
+  twilioSid?: string
+}
+
+export async function notifyStaffUpload(
+  params: NotifyStaffUploadParams
+): Promise<NotifyStaffUploadResult> {
+  const { staffId, staffPhone, clientName, uploadCount, language } = params
+
+  if (!isSmsEnabled()) {
+    return { success: false, error: 'SMS_NOT_ENABLED' }
+  }
+
+  // Validate phone number
+  if (!staffPhone) {
+    return { success: false, error: 'NO_PHONE_NUMBER' }
+  }
+
+  const formattedPhone = formatPhoneToE164(staffPhone)
+  if (!isValidPhoneNumber(formattedPhone)) {
+    console.warn(`[SMS Notify] Invalid staff phone for ${staffId}: ${staffPhone}`)
+    return { success: false, error: 'INVALID_PHONE' }
+  }
+
+  // Generate message
+  const message = generateStaffUploadMessage({
+    clientName,
+    uploadCount,
+    language,
+  })
+
+  // Send SMS
+  const result = await sendSms({
+    to: formattedPhone,
+    body: message,
+  })
+
+  if (result.success) {
+    console.log(`[SMS Notify] Staff upload notification sent to ${staffId}`)
+    return { success: true, twilioSid: result.sid }
+  }
+
+  console.error(`[SMS Notify] Failed to send staff upload SMS: ${result.error}`)
+  return { success: false, error: result.error }
 }

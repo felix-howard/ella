@@ -154,34 +154,31 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     let mounted = true
 
     async function init() {
-      console.log('[Voice] Init starting...')
       try {
         // Check if voice is available on server
         const status = await api.voice.getStatus()
-        console.log('[Voice] Status response:', status)
         if (!mounted) return
 
         if (!status.available) {
-          console.log('[Voice] Voice not available on server')
           setIsAvailable(false)
           setIsLoading(false)
           return
         }
 
         voiceAvailableRef.current = true
-        console.log('[Voice] Voice available, loading SDK...')
 
         // Preload Twilio SDK from CDN (doesn't create AudioContext)
         await loadTwilioSdk()
         if (!mounted) return
 
-        console.log('[Voice] SDK loaded, setting isAvailable=true')
         // Mark as available - Device will be created on first call (user gesture)
         // This avoids AudioContext being created before user interaction
         setIsAvailable(true)
         setIsLoading(false)
       } catch (e) {
-        console.error('[Voice] Init failed:', e)
+        if (import.meta.env.DEV) {
+          console.error('[Voice] Init failed:', e)
+        }
         if (mounted) {
           setError(getErrorMessage(e, t))
           setIsAvailable(false)
@@ -211,15 +208,12 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
   // Create and setup Twilio Device (called on first user gesture)
   const setupDevice = useCallback(async (): Promise<boolean> => {
-    console.log('[Voice] setupDevice called. deviceRef.current:', !!deviceRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
     if (deviceRef.current) return true // Already setup
     if (!voiceAvailableRef.current) return false
 
     try {
       // Get voice token from server
-      console.log('[Voice] Getting voice token...')
       const tokenResponse = await api.voice.getToken()
-      console.log('[Voice] Token received, creating Device...')
 
       // Create Twilio Device instance (SDK 2.x)
       // This creates AudioContext - MUST be after user gesture
@@ -313,10 +307,8 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       // Note: Don't use mountedRef guard here - React Strict Mode causes false positives
       // The device will be destroyed on actual unmount, which handles cleanup
       device.on('registered', async () => {
-        console.log('[Voice] Device registered! Registering presence...')
         try {
           await api.voice.registerPresence()
-          console.log('[Voice] Presence registered! Setting isRegistered=true')
 
           // Mark as registered
           setIsRegistered(true)
@@ -671,33 +663,23 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   // Auto-register device on first user interaction (browser requires user gesture for AudioContext)
   // Device stays registered until page unload - staff can accept/reject calls via modal
   useEffect(() => {
-    console.log('[Voice] Auto-register effect running. isAvailable:', isAvailable, 'isRegistered:', isRegistered, 'isRegistering:', isRegistering)
-
     // Skip if voice not available or already registered/registering
     if (!isAvailable || isRegistered || isRegistering) {
-      console.log('[Voice] Skipping auto-register effect - conditions not met')
       return
     }
 
-    console.log('[Voice] Adding click/keydown listeners for auto-registration')
-
     const handleUserGesture = async () => {
-      console.log('[Voice] User gesture detected! autoRegisterTriggeredRef:', autoRegisterTriggeredRef.current, 'voiceAvailableRef:', voiceAvailableRef.current)
-
       // Prevent duplicate registration attempts
       if (autoRegisterTriggeredRef.current) {
-        console.log('[Voice] Already triggered, skipping')
         return
       }
 
       // Check voice availability BEFORE setting flag
       if (!voiceAvailableRef.current) {
-        console.log('[Voice] Voice not available yet, skipping')
         return
       }
 
       // Mark as triggered and set registering state immediately (before async work)
-      console.log('[Voice] Starting registration...')
       autoRegisterTriggeredRef.current = true
       setIsRegistering(true)
       setError(null)
@@ -706,9 +688,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       setTimeout(async () => {
         try {
           // Check microphone permission first
-          console.log('[Voice] Checking microphone permission...')
           const hasMicPermission = await checkMicrophonePermission()
-          console.log('[Voice] Microphone permission:', hasMicPermission)
           if (!hasMicPermission) {
             setError(t('voiceError.micPermissionRequired'))
             setIsRegistering(false)
@@ -717,16 +697,16 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           }
 
           // Setup device (creates Twilio Device, registers it)
-          console.log('[Voice] Setting up device...')
           const success = await setupDevice()
-          console.log('[Voice] setupDevice result:', success)
           if (!success) {
             setIsRegistering(false)
             autoRegisterTriggeredRef.current = false // Allow retry on failure
           }
           // isRegistered will be set in 'registered' event handler
         } catch (e) {
-          console.error('[Voice] Registration error:', e)
+          if (import.meta.env.DEV) {
+            console.error('[Voice] Registration error:', e)
+          }
           setIsRegistering(false)
           autoRegisterTriggeredRef.current = false // Allow retry on error
         }

@@ -3,24 +3,33 @@
  * Handles database operations for the document processing pipeline
  */
 import { prisma } from '../../lib/db'
-import type { DocType, RawImageStatus, Prisma } from '@ella/db'
+import type { DocType, DocCategory, RawImageStatus, Prisma } from '@ella/db'
 import type { CreateActionParams } from './pipeline-types'
+import { getCategoryFromDocType } from '@ella/shared'
 
 /**
  * Update raw image status with classification info
+ * Also sets category based on docType to ensure consistency
+ * @param aiMetadata - Optional metadata for hierarchical clustering (Phase 1)
  */
 export async function updateRawImageStatus(
   id: string,
   status: RawImageStatus,
   confidence: number,
-  docType?: DocType
+  docType?: DocType,
+  aiMetadata?: Record<string, unknown>
 ) {
+  // Derive category from docType to ensure they stay in sync
+  const category = docType ? getCategoryFromDocType(docType) : undefined
+
   await prisma.rawImage.update({
     where: { id },
     data: {
       status,
       aiConfidence: confidence,
       ...(docType && { classifiedType: docType }),
+      ...(category && { category: category as DocCategory }),
+      ...(aiMetadata && { aiMetadata: aiMetadata as Prisma.InputJsonValue }),
     },
   })
 }
@@ -193,21 +202,48 @@ export async function markImageUnclassified(rawImageId: string) {
 }
 
 /**
- * Mark image as duplicate and store hash
+ * Mark image as duplicate and copy metadata from original
  * Called when pre-classification duplicate check finds a match
+ * Copies displayName, classifiedType, category from matched original so duplicate shows proper name
  */
 export async function markImageDuplicate(
   rawImageId: string,
   imageHash: string,
   groupId: string | null,
-  _matchedImageId: string | null // Kept for future use (e.g., logging, linking)
+  matchedImageId: string | null
 ): Promise<void> {
+  // Fetch original image data to copy displayName, classifiedType, category
+  let copyData: {
+    displayName: string | null
+    classifiedType: DocType | null
+    category: DocCategory | null
+  } = { displayName: null, classifiedType: null, category: null }
+
+  if (matchedImageId) {
+    const originalImage = await prisma.rawImage.findUnique({
+      where: { id: matchedImageId },
+      select: { displayName: true, classifiedType: true, category: true },
+    })
+    if (originalImage) {
+      copyData = {
+        displayName: originalImage.displayName,
+        classifiedType: originalImage.classifiedType,
+        category: originalImage.category,
+      }
+    }
+  }
+
   await prisma.rawImage.update({
     where: { id: rawImageId },
     data: {
       status: 'DUPLICATE' as RawImageStatus,
       imageHash,
       imageGroupId: groupId,
+      duplicateOfId: matchedImageId,
+      // Copy from original so duplicate shows proper name in UI
+      ...(copyData.displayName && { displayName: `${copyData.displayName} (Duplicate)` }),
+      ...(copyData.classifiedType && { classifiedType: copyData.classifiedType }),
+      ...(copyData.category && { category: copyData.category }),
     },
   })
 }

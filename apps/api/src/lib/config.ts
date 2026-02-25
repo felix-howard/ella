@@ -28,7 +28,7 @@ export const config = {
       'image/heif',
       'application/pdf',
     ],
-    maxFilesPerUpload: parseInt(process.env.UPLOAD_MAX_FILES || '20', 10),
+    maxFilesPerUpload: parseInt(process.env.UPLOAD_MAX_FILES || '50', 10),
   },
 
   // Magic link

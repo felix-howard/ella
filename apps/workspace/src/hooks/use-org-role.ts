@@ -19,5 +19,6 @@ export function useOrgRole() {
     isAdmin: orgRole === 'org:admin' || data?.role === 'ADMIN',
     isLoading,
     staffId: data?.id ?? null,
+    avatarUrl: data?.avatarUrl ?? null,
   }
 }

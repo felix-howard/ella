@@ -5,7 +5,7 @@
  * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
-import { useState, useRef, useEffect, memo, type KeyboardEvent, type DragEvent } from 'react'
+import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
@@ -18,6 +18,8 @@ import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
 import { useMarkDocumentViewed } from '../../hooks'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
+import { groupDocuments } from '../../lib/document-grouping'
+import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
 
 export interface FileCategorySectionProps {
   categoryKey: DocCategoryKey
@@ -27,7 +29,7 @@ export interface FileCategorySectionProps {
   caseId: string
   onVerify: (doc: DigitalDoc) => void
   onViewImage?: (imageId: string) => void
-  onFileDrop?: (imageId: string, targetCategory: DocCategoryKey) => void
+  onFileDrop?: (imageIds: string | string[], targetCategory: DocCategoryKey) => void
 }
 
 /**
@@ -46,6 +48,9 @@ export function FileCategorySection({
   const [isExpanded, setIsExpanded] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
+
+  // Group multi-page documents
+  const { groups, ungrouped } = useMemo(() => groupDocuments(images), [images])
 
   // Count verified documents
   const verifiedCount = images.filter((img) => {
@@ -86,9 +91,16 @@ export function FileCategorySection({
 
     const imageId = e.dataTransfer.getData('application/x-ella-file')
     const sourceCategory = e.dataTransfer.getData('application/x-ella-category')
+    const groupIds = e.dataTransfer.getData('application/x-ella-group-ids')
 
     if (imageId && sourceCategory !== categoryKey && onFileDrop) {
-      onFileDrop(imageId, categoryKey)
+      // If group IDs present, move entire group; otherwise move single file
+      if (groupIds) {
+        const ids = groupIds.split(',').filter(Boolean)
+        onFileDrop(ids, categoryKey)
+      } else {
+        onFileDrop(imageId, categoryKey)
+      }
     }
   }
 
@@ -140,7 +152,33 @@ export function FileCategorySection({
         'border-t border-border divide-y divide-border bg-card',
         !isExpanded && 'hidden'
       )}>
-        {images.map((img) => (
+        {/* Render grouped documents */}
+        {groups.map((group) => (
+          <GroupedFileRow
+            key={group.groupKey}
+            group={group}
+            renderFileRow={(image, options) => (
+              <FileItemRow
+                key={image.id}
+                image={image}
+                doc={docs.find((d) => d.rawImageId === image.id)}
+                caseId={caseId}
+                categoryKey={categoryKey}
+                onVerify={onVerify}
+                onViewImage={onViewImage}
+                isGrouped={options.isGrouped}
+                isFirst={options.isFirst}
+                isLast={options.isLast}
+                pageDisplay={options.pageDisplay}
+                groupKey={group.groupKey}
+                groupImageIds={group.images.map((img) => img.id)}
+              />
+            )}
+          />
+        ))}
+
+        {/* Render ungrouped documents */}
+        {ungrouped.map((img) => (
           <FileItemRow
             key={img.id}
             image={img}
@@ -163,6 +201,13 @@ interface FileItemRowProps {
   categoryKey: DocCategoryKey
   onVerify: (doc: DigitalDoc) => void
   onViewImage?: (imageId: string) => void
+  // Multi-page grouping props
+  isGrouped?: boolean
+  isFirst?: boolean
+  isLast?: boolean
+  pageDisplay?: string | null
+  groupKey?: string
+  groupImageIds?: string[]
 }
 
 /**
@@ -177,11 +222,18 @@ const FileItemRow = memo(function FileItemRow({
   categoryKey,
   onVerify,
   onViewImage,
+  isGrouped,
+  isFirst,
+  isLast,
+  pageDisplay,
+  groupKey,
+  groupImageIds,
 }: FileItemRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const markViewed = useMarkDocumentViewed()
   const [isDragging, setIsDragging] = useState(false)
+  const [isGroupDragging, setIsGroupDragging] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFilename, setNewFilename] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -197,6 +249,32 @@ const FileItemRow = memo(function FileItemRow({
   // Sanitize to prevent XSS (extra safety layer beyond React's default escaping)
   const displayName = sanitizeText(image.displayName || image.filename)
 
+  // Listen for group drag events to highlight all group members
+  useEffect(() => {
+    if (!groupKey) return
+
+    const handleGroupDragStart = (e: Event) => {
+      const customEvent = e as CustomEvent<{ groupKey: string }>
+      if (customEvent.detail.groupKey === groupKey) {
+        setIsGroupDragging(true)
+      }
+    }
+    const handleGroupDragEnd = (e: Event) => {
+      const customEvent = e as CustomEvent<{ groupKey: string }>
+      if (customEvent.detail.groupKey === groupKey) {
+        setIsGroupDragging(false)
+      }
+    }
+
+    window.addEventListener('group-drag-start', handleGroupDragStart)
+    window.addEventListener('group-drag-end', handleGroupDragEnd)
+
+    return () => {
+      window.removeEventListener('group-drag-start', handleGroupDragStart)
+      window.removeEventListener('group-drag-end', handleGroupDragEnd)
+    }
+  }, [groupKey])
+
   // Focus input when entering rename mode
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -210,7 +288,9 @@ const FileItemRow = memo(function FileItemRow({
     mutationFn: (filename: string) => api.images.rename(image.id, filename),
     onSuccess: () => {
       toast.success(t('classify.fileRenamed'))
+      // Invalidate both images and case queries to refresh all views
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['case', caseId] })
       setIsRenaming(false)
     },
     onError: () => {
@@ -248,12 +328,23 @@ const FileItemRow = memo(function FileItemRow({
     }
     e.dataTransfer.setData('application/x-ella-file', image.id)
     e.dataTransfer.setData('application/x-ella-category', categoryKey)
+    // Include group IDs for multi-page document group drag
+    if (groupKey && groupImageIds && groupImageIds.length > 1) {
+      e.dataTransfer.setData('application/x-ella-group-ids', groupImageIds.join(','))
+      e.dataTransfer.setData('application/x-ella-group-key', groupKey)
+      // Emit event for visual feedback on other group members
+      window.dispatchEvent(new CustomEvent('group-drag-start', { detail: { groupKey } }))
+    }
     e.dataTransfer.effectAllowed = 'move'
     setIsDragging(true)
   }
 
   const handleDragEnd = () => {
     setIsDragging(false)
+    // Emit event to clear visual state on other group members
+    if (groupKey) {
+      window.dispatchEvent(new CustomEvent('group-drag-end', { detail: { groupKey } }))
+    }
   }
 
   return (
@@ -265,9 +356,15 @@ const FileItemRow = memo(function FileItemRow({
         'flex items-center gap-4 p-3',
         'hover:bg-muted/30 transition-colors',
         !isRenaming && 'cursor-grab active:cursor-grabbing',
-        isDragging && 'opacity-50'
+        isDragging && 'opacity-50',
+        isGroupDragging && !isDragging && 'opacity-50 ring-2 ring-primary ring-inset'
       )}
     >
+      {/* Group Connector (for multi-page groups) */}
+      {isGrouped && isFirst !== undefined && isLast !== undefined && (
+        <GroupConnector isFirst={isFirst} isLast={isLast} />
+      )}
+
       {/* Drag Handle */}
       <div className={cn(
         'flex-shrink-0 transition-opacity',
@@ -405,6 +502,7 @@ const FileItemRow = memo(function FileItemRow({
               </p>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{docLabel}</span>
+                {pageDisplay && <PageBadge display={pageDisplay} />}
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
               </div>

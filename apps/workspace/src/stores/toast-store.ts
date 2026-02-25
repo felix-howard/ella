@@ -12,6 +12,11 @@ export const toast = {
     hotToast.error(message, { duration: _duration ?? 4000 }),
   info: (message: string, _duration?: number) =>
     hotToast(message, { duration: _duration ?? 3000 }),
+  /** Show persistent loading toast - returns toast ID for dismissal */
+  loading: (message: string) =>
+    hotToast.loading(message, { duration: Infinity }),
+  /** Dismiss a specific toast by ID */
+  dismiss: (toastId: string) => hotToast.dismiss(toastId),
 }
 
 // Re-export the toast instance for advanced usage

@@ -145,8 +145,20 @@ export function stripHtmlTags(text: string): string {
 /**
  * Format relative time from ISO string with locale support
  */
-export function formatRelativeTime(isoString: string, locale: 'en' | 'vi' = 'vi'): string {
-  return getRelativeTime(new Date(isoString), locale)
+export function formatRelativeTime(isoString: string, locale: string = 'vi'): string {
+  const lang = locale.toLowerCase().startsWith('en') ? 'en' : 'vi'
+  return getRelativeTime(new Date(isoString), lang)
+}
+
+/**
+ * Format bytes to human-readable size (e.g., "2.4 MB")
+ */
+export function formatBytes(bytes: number, decimals = 1): string {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`
 }
 
 /**

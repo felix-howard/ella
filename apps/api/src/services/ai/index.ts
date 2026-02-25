@@ -8,6 +8,7 @@ export {
   generateContent,
   generateJsonContent,
   analyzeImage,
+  analyzeMultipleImages,
   parseJsonResponse,
   imageBufferToPart,
   validateImageBuffer,
@@ -23,6 +24,8 @@ export {
   batchClassifyDocuments,
   requiresOcrExtraction,
   getDocTypeLabel,
+  generateSmartFilename,
+  analyzeDocumentGrouping,
   type DocumentClassificationResult,
 } from './document-classifier'
 
@@ -66,6 +69,9 @@ export {
   SUPPORTED_DOC_TYPES,
   type SupportedDocType,
   type ClassificationResult,
+  type SmartRenameResult,
+  type PageInfo,
+  type GroupingAnalysisResult,
 } from './prompts/classify'
 
 // Blur detection types
@@ -115,3 +121,11 @@ export {
   getActionPriority,
   type AIErrorType,
 } from './ai-error-messages'
+
+// Continuation Page Detection (Phase 5)
+export {
+  detectParentForm,
+  generateContinuationDisplayName,
+  isContinuationPage,
+  getContinuationCategory,
+} from './continuation-detection'

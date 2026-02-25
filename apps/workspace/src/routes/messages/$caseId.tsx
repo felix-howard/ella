@@ -273,6 +273,7 @@ function ConversationDetailView() {
           clientName={caseData.client.name}
           clientPhone={caseData.client.phone}
           clientId={caseData.client.id}
+          caseId={caseId}
           defaultChannel="SMS"
         />
       )}

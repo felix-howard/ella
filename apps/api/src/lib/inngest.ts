@@ -16,7 +16,6 @@ export type DocumentUploadedEvent = {
     r2Key: string
     mimeType: string
     uploadedAt: string
-    skipDuplicateCheck?: boolean
   }
 }
 
@@ -37,11 +36,38 @@ export type ClassificationCompleteEvent = {
 }
 
 /**
+ * Event payload for document classified
+ * Triggers multi-page detection job
+ * @phase Phase 03 - Multi-Page Detection
+ */
+export type DocumentClassifiedEvent = {
+  data: {
+    rawImageId: string
+    caseId: string
+  }
+}
+
+/**
+ * Event payload for batch document grouping
+ * Triggered manually via API endpoint
+ * @phase Manual Document Grouping Refactor
+ */
+export type DocumentGroupBatchEvent = {
+  data: {
+    caseId: string
+    forceRegroup?: boolean
+    triggeredBy?: string // staffId who triggered
+  }
+}
+
+/**
  * Event map for type-safe event handling
  */
 export type Events = {
   'document/uploaded': DocumentUploadedEvent
   'document/classification.complete': ClassificationCompleteEvent
+  'document/classified': DocumentClassifiedEvent
+  'document/group-batch': DocumentGroupBatchEvent
 }
 
 /**

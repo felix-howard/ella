@@ -81,6 +81,45 @@ export async function uploadFile(
 }
 
 /**
+ * Generate presigned PUT URL for direct browser uploads
+ * Used for avatar uploads - bypasses server for bandwidth efficiency
+ */
+export async function getSignedUploadUrl(
+  key: string,
+  contentType: string,
+  contentLength: number,
+  expiresIn = 900 // 15 minutes
+): Promise<string | null> {
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, cannot generate upload URL')
+    return null
+  }
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+      ContentLength: contentLength,
+    })
+
+    return await getSignedUrl(s3Client, command, { expiresIn })
+  } catch (error) {
+    console.error('[Storage] Failed to generate upload URL:', key, error)
+    return null
+  }
+}
+
+/**
+ * Generate unique avatar key with timestamp and random suffix
+ */
+export function generateAvatarKey(staffId: string): string {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 8) // 6-char random suffix
+  return `avatars/${staffId}/${timestamp}-${random}.jpg`
+}
+
+/**
  * Get a signed download URL for a file
  */
 export async function getSignedDownloadUrl(
@@ -231,6 +270,69 @@ export interface RenameResult {
 }
 
 /**
+ * Rename a file in R2 storage using a raw filename (no naming convention applied)
+ * Used by multi-page grouping to append _PartXofY suffix to existing names
+ *
+ * @param oldKey - Current R2 key
+ * @param caseId - Case ID for path construction
+ * @param newFilename - New filename (without extension)
+ */
+export async function renameFileRaw(
+  oldKey: string,
+  caseId: string,
+  newFilename: string
+): Promise<RenameResult> {
+  if (!isR2Configured) {
+    console.warn('[Storage] R2 not configured, skipping rename')
+    return { success: false, newKey: oldKey, oldKey, error: 'R2_NOT_CONFIGURED' }
+  }
+
+  // Extract extension from old key
+  const parts = oldKey.split('.')
+  const ext = parts.length > 1 ? parts.pop()! : 'pdf'
+
+  let newKey = `cases/${caseId}/docs/${newFilename}.${ext}`
+
+  // Skip if same key (no rename needed)
+  if (oldKey === newKey) {
+    console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
+    return { success: true, newKey, oldKey }
+  }
+
+  // Check for r2Key collision in DB and append sequence number if needed
+  const MAX_COLLISION_ATTEMPTS = 10
+  for (let seq = 2; seq <= MAX_COLLISION_ATTEMPTS + 1; seq++) {
+    const existing = await prisma.rawImage.findUnique({
+      where: { r2Key: newKey },
+      select: { id: true },
+    })
+    if (!existing) break
+
+    newKey = `cases/${caseId}/docs/${newFilename} (${seq}).${ext}`
+    console.log(`[Storage] Key collision detected, trying: ${newKey}`)
+  }
+
+  try {
+    console.log(`[Storage] Copying: ${oldKey} -> ${newKey}`)
+    await s3Client.send(
+      new CopyObjectCommand({
+        Bucket: BUCKET_NAME,
+        CopySource: `${BUCKET_NAME}/${oldKey}`,
+        Key: newKey,
+      })
+    )
+
+    // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
+    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
+    return { success: true, newKey, oldKey }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[Storage] Rename failed: ${oldKey}`, error)
+    return { success: false, newKey: oldKey, oldKey, error: errorMessage }
+  }
+}
+
+/**
  * Rename a file in R2 storage using copy+delete pattern
  * R2/S3 has no native rename, so we:
  * 1. Copy to new key
@@ -303,21 +405,10 @@ export async function renameFile(
       })
     )
 
-    // Step 2: Delete old file (can fail safely - DB is source of truth)
-    try {
-      await s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: oldKey,
-        })
-      )
-      console.log(`[Storage] Deleted old key: ${oldKey}`)
-    } catch (deleteError) {
-      // Log but don't fail - orphaned old file is acceptable
-      console.warn(`[Storage] Failed to delete old key (orphaned): ${oldKey}`, deleteError)
-    }
-
-    console.log(`[Storage] Rename complete: ${newKey}`)
+    // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
+    // This prevents data loss if job fails between copy and DB update
+    // The caller should call deleteFile(oldKey) after updating the DB
+    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
     return { success: true, newKey, oldKey }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -325,3 +416,4 @@ export async function renameFile(
     return { success: false, newKey: oldKey, oldKey, error: errorMessage }
   }
 }
+

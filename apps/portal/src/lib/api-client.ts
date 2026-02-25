@@ -64,6 +64,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
+// Draft return data type
+export interface DraftReturnData {
+  clientName: string
+  clientLanguage: 'EN' | 'VI'
+  taxYear: number
+  version: number
+  filename: string
+  uploadedAt: string
+  pdfUrl: string
+}
+
 // Portal data types
 export interface PortalClient {
   name: string
@@ -218,5 +229,15 @@ export const portalApi = {
     }
 
     return data as UploadResponse
+  },
+
+  // Get draft return data for portal viewing
+  getDraft: (token: string) => request<DraftReturnData>(`/portal/draft/${token}`),
+
+  // Track when client views the draft
+  trackDraftView: async (token: string): Promise<void> => {
+    await fetch(`${API_BASE_URL}/portal/draft/${token}/viewed`, {
+      method: 'POST',
+    })
   },
 }

@@ -57,6 +57,9 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.uploads')}
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+                {t('clients.lastUpload')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('clients.tasks')}
               </th>
@@ -81,7 +84,7 @@ interface ClientRowProps {
 }
 
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
   // Memoize avatar color to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
@@ -171,16 +174,20 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Uploads column */}
       <td className="px-4 py-3 hidden md:table-cell">
         {uploads && uploads.newCount > 0 ? (
-          <div className="flex flex-col gap-0.5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-              {t('clients.newUploads', { count: uploads.newCount })}
-            </span>
-            {uploads.latestAt && (
-              <span className="text-xs text-muted-foreground">
-                {formatRelativeTime(uploads.latestAt)}
-              </span>
-            )}
-          </div>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            {t('clients.newUploads', { count: uploads.newCount })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+
+      {/* Last Upload column */}
+      <td className="px-4 py-3 hidden md:table-cell">
+        {uploads?.latestAt ? (
+          <span className="text-sm text-muted-foreground">
+            {formatRelativeTime(uploads.latestAt, i18n.language as 'en' | 'vi')}
+          </span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -259,6 +266,9 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
@@ -294,10 +304,10 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                   </td>
                 )}
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="flex flex-col gap-1">
-                    <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
-                    <div className="h-3 w-12 bg-muted rounded animate-pulse" />
-                  </div>
+                  <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell">
+                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">

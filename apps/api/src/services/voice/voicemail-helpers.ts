@@ -119,10 +119,13 @@ export async function createPlaceholderConversation(
 
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
     // RACE CONDITION FIX: Use upsert to handle concurrent requests
+    const displayName = `Khách hàng ${safePhone}` // "Customer {phone}" in Vietnamese (sanitized)
     const client = await tx.client.upsert({
       where: { phone },
       create: {
-        name: `Khách hàng ${safePhone}`, // "Customer {phone}" in Vietnamese (sanitized)
+        firstName: 'Khách hàng',  // "Customer" in Vietnamese
+        lastName: safePhone,      // Phone number as last name for identification
+        name: displayName,        // Computed display name
         phone,
         language: 'VI',
       },

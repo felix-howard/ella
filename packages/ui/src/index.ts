@@ -88,6 +88,11 @@ export {
   type TooltipProps,
   type SimpleTooltipProps,
 } from './components/tooltip'
+export {
+  Switch,
+  switchVariants,
+  type SwitchProps,
+} from './components/switch'
 
 // Icons
 export * from './components/icons'

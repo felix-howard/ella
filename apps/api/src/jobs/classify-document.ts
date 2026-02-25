@@ -16,9 +16,9 @@
 import sharp from 'sharp'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
-import { fetchImageBuffer, renameFile } from '../services/storage'
+import { fetchImageBuffer, renameFile, deleteFile } from '../services/storage'
 import { getCategoryFromDocType, getDisplayNameFromKey } from '@ella/shared'
-import { classifyDocument, requiresOcrExtraction } from '../services/ai'
+import { classifyDocument, requiresOcrExtraction, generateSmartFilename } from '../services/ai'
 // Simple PDF check (pdf-poppler removed)
 const isPdfMimeType = (mimeType: string) => mimeType === 'application/pdf'
 import { extractDocumentData } from '../services/ai/ocr-extractor'
@@ -27,14 +27,19 @@ import {
   linkToChecklistItem,
   createAction,
   processOcrResultAtomic,
-  markImageDuplicate,
 } from '../services/ai/pipeline-helpers'
+import {
+  detectParentForm,
+  generateContinuationDisplayName,
+  isContinuationPage,
+  getContinuationCategory,
+} from '../services/ai/continuation-detection'
+import type { ContinuationMarker } from '../services/ai/prompts/classify'
 import {
   getVietnameseError,
   getActionTitle,
   getActionPriority,
 } from '../services/ai/ai-error-messages'
-import { generateImageHash, findDuplicateInCase } from '../services/ai/duplicate-detector'
 import type { DocType, DocCategory } from '@ella/db'
 
 // Confidence thresholds from plan
@@ -73,6 +78,54 @@ function sanitizeErrorMessage(error: string): string {
     .replace(/(?:\/|\\)[a-zA-Z0-9._-]+(?:\/|\\)[a-zA-Z0-9._/-]+/g, '[PATH_REDACTED]')
     // Truncate long messages
     .substring(0, 500)
+}
+
+/**
+ * Sanitize metadata for logging - redact PII (taxpayerName, ssn4)
+ * Shows presence of fields without exposing actual values
+ */
+function sanitizeMetadataForLogs(metadata: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!metadata) return {}
+  return {
+    hasTaxpayerName: !!metadata.taxpayerName,
+    hasSsn4: !!metadata.ssn4,
+    hasPageMarker: !!metadata.pageMarker,
+    hasContinuationMarker: !!metadata.continuationMarker,
+  }
+}
+
+/**
+ * Sync renamed R2 key to Message attachments (M3: atomic update, M4: DRY)
+ * Uses single atomic updateMany query instead of loop for race condition safety
+ */
+async function syncMessageR2Keys(oldKey: string, newKey: string): Promise<number> {
+  try {
+    // Find messages with old key and update atomically
+    const messagesWithOldKey = await prisma.message.findMany({
+      where: { attachmentR2Keys: { has: oldKey } },
+      select: { id: true, attachmentR2Keys: true },
+    })
+
+    if (messagesWithOldKey.length === 0) return 0
+
+    // Use Promise.all for parallel updates (safe since each message is independent)
+    await Promise.all(
+      messagesWithOldKey.map((msg) =>
+        prisma.message.update({
+          where: { id: msg.id },
+          data: {
+            attachmentR2Keys: msg.attachmentR2Keys.map((k) => (k === oldKey ? newKey : k)),
+          },
+        })
+      )
+    )
+
+    console.log(`[classify-document] Updated ${messagesWithOldKey.length} message(s) with renamed R2 key`)
+    return messagesWithOldKey.length
+  } catch (syncErr) {
+    console.warn(`[classify-document] Failed to sync renamed key to messages:`, syncErr)
+    return 0
+  }
 }
 
 export const classifyDocumentJob = inngest.createFunction(
@@ -123,7 +176,7 @@ export const classifyDocumentJob = inngest.createFunction(
   },
   { event: 'document/uploaded' },
   async ({ event, step }) => {
-    const { rawImageId, caseId, r2Key, mimeType: eventMimeType, skipDuplicateCheck } = event.data
+    const { rawImageId, caseId, r2Key, mimeType: eventMimeType } = event.data
 
     // Step 0: Atomic idempotency check + mark processing (prevents race condition)
     const idempotencyCheck = await step.run('check-idempotency', async () => {
@@ -230,75 +283,6 @@ export const classifyDocumentJob = inngest.createFunction(
       fileBuffer = buffer
     }
 
-    // Step 1.5: Check for duplicates BEFORE AI classification (cost saving)
-    // Skip if: 1) flag set (classify-anyway), 2) PDF (pHash doesn't work well), 3) was resized
-    interface DuplicateCheckStepResult {
-      isDuplicate: boolean
-      skipped: boolean
-      imageHash: string | null
-      matchedImageId: string | null
-      groupId: string | null
-      hammingDistance: number | null
-    }
-
-    const duplicateCheck = await step.run('check-duplicate', async (): Promise<DuplicateCheckStepResult> => {
-      // Skip duplicate check if requested (classify-anyway endpoint)
-      if (skipDuplicateCheck) {
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-
-      // Skip for PDFs - pHash works on images only
-      if (imageData.isPdf) {
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-
-      try {
-        const buffer = fileBuffer!
-        const imageHash = await generateImageHash(buffer)
-
-        // Check for duplicates in this case
-        const result = await findDuplicateInCase(caseId, imageHash, rawImageId)
-
-        if (result.isDuplicate) {
-          // Mark as duplicate and store hash
-          await markImageDuplicate(rawImageId, imageHash, result.groupId, result.matchedImageId)
-
-          return {
-            isDuplicate: true,
-            skipped: false,
-            imageHash,
-            matchedImageId: result.matchedImageId,
-            groupId: result.groupId,
-            hammingDistance: result.hammingDistance,
-          }
-        }
-
-        // Not a duplicate - store hash for future comparisons
-        await prisma.rawImage.update({
-          where: { id: rawImageId },
-          data: { imageHash },
-        })
-
-        return { isDuplicate: false, skipped: false, imageHash, matchedImageId: null, groupId: null, hammingDistance: null }
-      } catch (error) {
-        // Hash generation failed - continue to classification
-        console.warn(`[classify-document] Hash generation failed for ${rawImageId}:`, error)
-        return { isDuplicate: false, skipped: true, imageHash: null, matchedImageId: null, groupId: null, hammingDistance: null }
-      }
-    })
-
-    // Early return if duplicate found - skip AI classification (cost saving)
-    if (duplicateCheck.isDuplicate) {
-      return {
-        rawImageId,
-        duplicateDetected: true,
-        matchedImageId: duplicateCheck.matchedImageId,
-        groupId: duplicateCheck.groupId,
-        hammingDistance: duplicateCheck.hammingDistance,
-        wasResized: imageData.wasResized,
-      }
-    }
-
     // Step 2: Classify with Gemini (with service unavailability handling)
     const classification = await step.run('classify', async () => {
       const buffer = fileBuffer!
@@ -343,6 +327,7 @@ export const classifyDocumentJob = inngest.createFunction(
           taxYear: result.taxYear,
           source: result.source,
           recipientName: result.recipientName,
+          extractedMetadata: result.extractedMetadata,
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -362,20 +347,106 @@ export const classifyDocumentJob = inngest.createFunction(
           taxYear: null,
           source: null,
           recipientName: null,
+          extractedMetadata: undefined,
         }
       }
     })
 
     // Step 3: Route by confidence and update DB
-    const routing = await step.run('route-by-confidence', async () => {
+    // Also handles fallback smart rename for low confidence documents
+    interface RoutingResult {
+      action: string
+      needsOcr: boolean
+      checklistItemId: string | null
+      smartRename?: {
+        suggestedFilename: string
+        documentTitle: string
+        pageInfo: unknown
+        reasoning: string
+      }
+      continuationLinked?: boolean
+      parentDocumentId?: string
+    }
+
+    const routing = await step.run('route-by-confidence', async (): Promise<RoutingResult> => {
       const { confidence, docType, success, error } = classification
 
-      // Failed classification or very low confidence → put in OTHER category (not unclassified)
+      // Failed classification or very low confidence → try smart rename first
       if (!success || confidence < LOW_CONFIDENCE) {
+        // Try fallback smart rename before giving up
+        const buffer = fileBuffer!
+        const smartRename = await generateSmartFilename(buffer, imageData.mimeType)
+
+        if (smartRename && smartRename.confidence >= LOW_CONFIDENCE) {
+          // Smart rename succeeded - use AI-generated name
+          // Cast pageInfo to plain object for Prisma JSON compatibility
+          const aiMetadata = {
+            documentTitle: smartRename.documentTitle,
+            pageInfo: JSON.parse(JSON.stringify(smartRename.pageInfo)),
+            fallbackRename: true,
+            reasoning: smartRename.reasoning,
+            originalClassificationConfidence: confidence,
+          }
+
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              status: 'CLASSIFIED',
+              classifiedType: 'OTHER',
+              category: 'OTHER',
+              displayName: smartRename.suggestedFilename,
+              aiConfidence: smartRename.confidence,
+              aiMetadata,
+            },
+          })
+
+          console.log(`[classify-document] Smart rename succeeded: ${smartRename.suggestedFilename}`)
+
+          return {
+            action: 'fallback-renamed',
+            needsOcr: false,
+            checklistItemId: null,
+            smartRename: {
+              suggestedFilename: smartRename.suggestedFilename,
+              documentTitle: smartRename.documentTitle,
+              pageInfo: smartRename.pageInfo,
+              reasoning: smartRename.reasoning,
+            },
+          }
+        }
+
+        // Smart rename failed or low confidence - fall back to existing behavior
+        // BUT: still use smart rename filename if available (even at very low confidence)
+        // Any descriptive name like "Tax_Penalty_Calculation" beats generic "image.jpg"
         const errorInfo = getVietnameseError(error || classification.reasoning)
 
         // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
         await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
+
+        // Use smart rename displayName even at very low confidence
+        // No minimum threshold - any AI-generated name is better than "image"
+        const useSmartRenameDisplayName = smartRename &&
+          smartRename.suggestedFilename &&
+          smartRename.suggestedFilename.trim() !== ''
+
+        if (useSmartRenameDisplayName) {
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              displayName: smartRename.suggestedFilename,
+              aiMetadata: {
+                documentTitle: smartRename.documentTitle,
+                pageInfo: JSON.parse(JSON.stringify(smartRename.pageInfo)),
+                fallbackRename: true,
+                lowConfidenceRename: true,
+                reasoning: smartRename.reasoning,
+                smartRenameConfidence: smartRename.confidence,
+                originalClassificationConfidence: confidence,
+              },
+            },
+          })
+          console.log(`[classify-document] Low-confidence smart rename used: ${smartRename.suggestedFilename} (${(smartRename.confidence * 100).toFixed(0)}%)`)
+        }
 
         // Still create AI_FAILED action for CPA visibility
         await createAction({
@@ -390,29 +461,136 @@ export const classifyDocumentJob = inngest.createFunction(
             technicalError: sanitizeErrorMessage(error || classification.reasoning),
             r2Key,
             attemptedAt: new Date().toISOString(),
+            smartRenameFailed: !smartRename,
+            smartRenameConfidence: smartRename?.confidence,
+            displayNameUsed: useSmartRenameDisplayName ? smartRename?.suggestedFilename : null,
           },
         })
 
-        return { action: 'ai-failed-to-other', needsOcr: false, checklistItemId: null }
+        // Return smart rename data so rename-file step can rename R2 file
+        return {
+          action: 'ai-failed-to-other',
+          needsOcr: false,
+          checklistItemId: null,
+          smartRename: useSmartRenameDisplayName ? {
+            suggestedFilename: smartRename!.suggestedFilename,
+            documentTitle: smartRename!.documentTitle,
+            pageInfo: smartRename!.pageInfo,
+            reasoning: smartRename!.reasoning,
+          } : undefined,
+        }
       }
 
       // Cast docType to proper enum type
       const validDocType = docType as DocType
 
+      // Prepare aiMetadata from extractedMetadata (Phase 1: hierarchical clustering)
+      const aiMetadata = classification.extractedMetadata
+        ? (classification.extractedMetadata as Record<string, unknown>)
+        : undefined
+
+      // Log metadata extraction stats (PII sanitized)
+      if (aiMetadata) {
+        console.log(`[classify-document] Metadata extracted:`, sanitizeMetadataForLogs(aiMetadata))
+      }
+
+      // PHASE 5: Continuation page detection and linking
+      // Check if document has continuation marker and try to link to parent
+      let continuationLinked = false
+      let updatedDisplayName: string | null = null
+      let updatedCategory: string | null = null
+
+      const continuationMarker = aiMetadata?.continuationMarker as ContinuationMarker | null
+      if (isContinuationPage(continuationMarker)) {
+        const parentForm = detectParentForm(continuationMarker)
+
+        if (parentForm) {
+          console.log(
+            `[classify-document] Continuation detected: parent=${parentForm}, line=${continuationMarker?.lineNumber}`
+          )
+
+          // Lookup parent form in same case
+          const parentDoc = await prisma.rawImage.findFirst({
+            where: {
+              caseId,
+              classifiedType: parentForm as DocType,
+              status: { in: ['CLASSIFIED', 'LINKED'] },
+            },
+            orderBy: { createdAt: 'desc' }, // Most recent parent
+          })
+
+          if (parentDoc) {
+            console.log(`[classify-document] Found parent document: ${parentDoc.id}`)
+
+            // Generate descriptive display name
+            updatedDisplayName = generateContinuationDisplayName(
+              parentForm,
+              continuationMarker?.lineNumber || null,
+              aiMetadata?.taxpayerName as string | null,
+              classification.taxYear
+            )
+
+            // Upgrade category to TAX_FORM for tax form continuations
+            updatedCategory = getContinuationCategory(parentForm)
+
+            // Store parent reference in aiMetadata
+            if (aiMetadata) {
+              aiMetadata.parentDocumentId = parentDoc.id
+              aiMetadata.parentFormType = parentForm
+            }
+
+            continuationLinked = true
+          } else {
+            console.warn(
+              `[classify-document] Parent form ${parentForm} not found in case ${caseId}`
+            )
+            // Keep as original classification, but log for manual review
+          }
+        }
+      }
+
       // High confidence (>= 85%) → auto-link without action
       if (confidence >= HIGH_CONFIDENCE) {
-        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType)
+        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
+
+        // PHASE 5: Apply continuation-specific updates (displayName, category)
+        if (continuationLinked && (updatedDisplayName || updatedCategory)) {
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              ...(updatedDisplayName && { displayName: updatedDisplayName }),
+              ...(updatedCategory && { category: updatedCategory as DocCategory }),
+            },
+          })
+          console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
+        }
+
         const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
         return {
-          action: 'auto-linked',
+          action: continuationLinked ? 'auto-linked-continuation' : 'auto-linked',
           needsOcr: requiresOcrExtraction(validDocType),
           checklistItemId,
+          continuationLinked,
+          parentDocumentId: continuationLinked ? (aiMetadata?.parentDocumentId as string) : undefined,
         }
       }
 
       // Medium confidence (60-85%) → link but create review action
-      await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType)
+      await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
+
+      // PHASE 5: Apply continuation-specific updates (displayName, category)
+      if (continuationLinked && (updatedDisplayName || updatedCategory)) {
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: {
+            ...(updatedDisplayName && { displayName: updatedDisplayName }),
+            ...(updatedCategory && { category: updatedCategory as DocCategory }),
+          },
+        })
+        console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
+      }
+
       const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
       await createAction({
@@ -425,9 +603,11 @@ export const classifyDocumentJob = inngest.createFunction(
       })
 
       return {
-        action: 'needs-review',
+        action: continuationLinked ? 'needs-review-continuation' : 'needs-review',
         needsOcr: requiresOcrExtraction(validDocType),
         checklistItemId,
+        continuationLinked,
+        parentDocumentId: continuationLinked ? (aiMetadata?.parentDocumentId as string) : undefined,
       }
     })
 
@@ -441,8 +621,81 @@ export const classifyDocumentJob = inngest.createFunction(
     }
 
     const renameResult = await step.run('rename-file', async (): Promise<RenameStepResult> => {
-      // For AI-failed docs, skip rename but set category to OTHER
+      // For AI-failed docs with smart rename data, rename the R2 file
       if (routing.action === 'ai-failed-to-other') {
+        // If we have smart rename data, rename the R2 file too
+        if (routing.smartRename) {
+          // Defense-in-depth: Validate caseId format (CUID)
+          if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
+            console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+            await prisma.rawImage.update({
+              where: { id: rawImageId },
+              data: { category: 'OTHER' },
+            })
+            return {
+              renamed: false,
+              newKey: null,
+              displayName: routing.smartRename.suggestedFilename,
+              category: 'OTHER',
+              error: 'INVALID_CASE_ID',
+            }
+          }
+
+          // Rename R2 file using smart rename documentTitle
+          const result = await renameFile(r2Key, caseId, {
+            taxYear: null,
+            docType: routing.smartRename.documentTitle,
+            source: null,
+            recipientName: null,
+          })
+
+          if (!result.success) {
+            console.error(`[classify-document] Smart rename (ai-failed-to-other) failed`, {
+              rawImageId,
+              r2Key,
+              suggestedFilename: routing.smartRename.suggestedFilename,
+              error: result.error,
+            })
+            // displayName already set in route-by-confidence, just set category
+            await prisma.rawImage.update({
+              where: { id: rawImageId },
+              data: { category: 'OTHER' },
+            })
+            return {
+              renamed: false,
+              newKey: null,
+              displayName: routing.smartRename.suggestedFilename,
+              category: 'OTHER',
+              error: result.error,
+            }
+          }
+
+          // Update DB with new R2 key (displayName already set in route-by-confidence)
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              r2Key: result.newKey,
+              category: 'OTHER',
+            },
+          })
+
+          // Sync renamed key to Message attachments
+          await syncMessageR2Keys(r2Key, result.newKey)
+
+          // Delete old file AFTER DB update succeeds
+          await deleteFile(r2Key)
+
+          console.log(`[classify-document] Smart renamed (ai-failed-to-other): ${r2Key} -> ${result.newKey}`)
+
+          return {
+            renamed: true,
+            newKey: result.newKey,
+            displayName: routing.smartRename.suggestedFilename,
+            category: 'OTHER',
+          }
+        }
+
+        // No smart rename data - just set category to OTHER
         await prisma.rawImage.update({
           where: { id: rawImageId },
           data: { category: 'OTHER' },
@@ -451,6 +704,67 @@ export const classifyDocumentJob = inngest.createFunction(
           renamed: false,
           newKey: null,
           displayName: null,
+          category: 'OTHER',
+        }
+      }
+
+      // For fallback-renamed docs, rename using smart rename data
+      if (routing.action === 'fallback-renamed' && routing.smartRename) {
+        // Defense-in-depth: Validate caseId format (CUID)
+        if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
+          console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+          return {
+            renamed: false,
+            newKey: null,
+            displayName: routing.smartRename.suggestedFilename,
+            category: 'OTHER',
+            error: 'INVALID_CASE_ID',
+          }
+        }
+
+        // Rename using smart rename documentTitle as docType
+        const result = await renameFile(r2Key, caseId, {
+          taxYear: null, // Smart rename includes year in suggestedFilename
+          docType: routing.smartRename.documentTitle,
+          source: null,
+          recipientName: null,
+        })
+
+        if (!result.success) {
+          console.error(`[classify-document] Smart rename file failed`, {
+            rawImageId,
+            r2Key,
+            suggestedFilename: routing.smartRename.suggestedFilename,
+            error: result.error,
+          })
+          // displayName already set in route-by-confidence, just return
+          return {
+            renamed: false,
+            newKey: null,
+            displayName: routing.smartRename.suggestedFilename,
+            category: 'OTHER',
+            error: result.error,
+          }
+        }
+
+        // Update DB with new key (displayName already set in route-by-confidence)
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: { r2Key: result.newKey },
+        })
+
+        // Sync renamed key to Message attachments (M3/M4: use shared helper)
+        await syncMessageR2Keys(r2Key, result.newKey)
+
+        // Delete old file AFTER DB update succeeds
+        await deleteFile(r2Key)
+
+        console.log(`[classify-document] Smart renamed: ${r2Key} -> ${result.newKey}`)
+
+        return {
+          renamed: true,
+          newKey: result.newKey,
+          displayName: routing.smartRename.suggestedFilename,
           category: 'OTHER',
         }
       }
@@ -466,7 +780,7 @@ export const classifyDocumentJob = inngest.createFunction(
       }
 
       // Defense-in-depth: Validate caseId format (CUID)
-      if (!caseId || !/^c[a-z0-9]{24,}$/i.test(caseId)) {
+      if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
         console.error(`[classify-document] Invalid caseId format: ${caseId}`)
         return {
           renamed: false,
@@ -527,24 +841,11 @@ export const classifyDocumentJob = inngest.createFunction(
 
       // Sync renamed key to any Message that references the old key
       // This prevents the media proxy from returning 500 for renamed files
-      try {
-        const messagesWithOldKey = await prisma.message.findMany({
-          where: { attachmentR2Keys: { has: r2Key } },
-          select: { id: true, attachmentR2Keys: true },
-        })
-        for (const msg of messagesWithOldKey) {
-          const updatedKeys = msg.attachmentR2Keys.map(k => k === r2Key ? result.newKey : k)
-          await prisma.message.update({
-            where: { id: msg.id },
-            data: { attachmentR2Keys: updatedKeys },
-          })
-        }
-        if (messagesWithOldKey.length > 0) {
-          console.log(`[classify-document] Updated ${messagesWithOldKey.length} message(s) with renamed R2 key`)
-        }
-      } catch (syncErr) {
-        console.warn(`[classify-document] Failed to sync renamed key to messages:`, syncErr)
-      }
+      // Sync renamed key to Message attachments (M3/M4: use shared helper)
+      await syncMessageR2Keys(r2Key, result.newKey)
+
+      // Delete old file AFTER DB update succeeds (safe - orphan is acceptable)
+      await deleteFile(r2Key)
 
       console.log(`[classify-document] Renamed: ${r2Key} -> ${result.newKey}`)
 
@@ -590,6 +891,10 @@ export const classifyDocumentJob = inngest.createFunction(
       })
     }
 
+    // NOTE: Multi-page detection moved to manual trigger via POST /cases/:caseId/group-documents
+    // Auto-trigger removed to prevent race conditions during bulk uploads
+    // See: plans/260224-2044-manual-document-grouping/phase-01-remove-auto-trigger.md
+
     // Return final result
     return {
       rawImageId,
@@ -603,10 +908,6 @@ export const classifyDocumentJob = inngest.createFunction(
         newKey: renameResult.newKey,
         displayName: renameResult.displayName,
         category: renameResult.category,
-      },
-      duplicateCheck: {
-        checked: !duplicateCheck.skipped,
-        imageHash: duplicateCheck.imageHash,
       },
       digitalDocId,
       wasResized: imageData.wasResized,

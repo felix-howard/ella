@@ -43,7 +43,21 @@ const renameSchema = z.object({
 
 // Schema for changing category
 const changeCategorySchema = z.object({
-  category: z.enum(['IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+})
+
+// Schema for batch category change
+const batchCategorySchema = z.object({
+  imageIds: z.array(z.string()).min(1, 'At least one image ID required').max(20, 'Maximum 20 images per batch'),
+  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+})
+
+// Schema for updating rotation
+const updateRotationSchema = z.object({
+  rotation: z.number().int().refine(
+    (val) => [0, 90, 180, 270].includes(val),
+    { message: 'Rotation must be 0, 90, 180, or 270' }
+  ),
 })
 
 /**
@@ -545,17 +559,19 @@ imagesRoute.patch(
       )
     }
 
-    // Update filename
+    // Update displayName (user-visible name shown in UI)
+    // Note: `filename` is the original upload name, `displayName` is what's shown in UI
     const updated = await prisma.rawImage.update({
       where: { id },
-      data: { filename: sanitizedFilename },
-      select: { id: true, filename: true },
+      data: { displayName: sanitizedFilename },
+      select: { id: true, filename: true, displayName: true },
     })
 
     return c.json({
       success: true,
       id: updated.id,
-      filename: updated.filename,
+      filename: updated.displayName || updated.filename,
+      displayName: updated.displayName,
     })
   }
 )
@@ -601,6 +617,46 @@ imagesRoute.patch(
 )
 
 /**
+ * PATCH /images/batch-category - Change category for multiple images
+ * Used for group drag-and-drop in Files tab (multi-page documents)
+ */
+imagesRoute.patch(
+  '/batch-category',
+  zValidator('json', batchCategorySchema),
+  async (c) => {
+    const { imageIds, category } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify all images exist and user has access (org-scoped)
+    const images = await prisma.rawImage.findMany({
+      where: {
+        id: { in: imageIds },
+        taxCase: { client: buildClientScopeFilter(user) },
+      },
+      select: { id: true },
+    })
+
+    if (images.length !== imageIds.length) {
+      return c.json(
+        { error: 'FORBIDDEN', message: 'Some images not found or not accessible' },
+        403
+      )
+    }
+
+    // Batch update category for all images
+    const result = await prisma.rawImage.updateMany({
+      where: { id: { in: imageIds } },
+      data: { category: category as DocCategory },
+    })
+
+    return c.json({
+      success: true,
+      updated: result.count,
+    })
+  }
+)
+
+/**
  * DELETE /images/:id - Delete a raw image (for duplicates)
  * Removes from R2 storage and database
  */
@@ -627,9 +683,8 @@ imagesRoute.delete('/:id', async (c) => {
 })
 
 /**
- * POST /images/:id/classify-anyway - Force classification on duplicate
+ * POST /images/:id/classify-anyway - Force re-classification
  * Resets status to UPLOADED and triggers classification pipeline
- * with skipDuplicateCheck flag to avoid re-detecting as duplicate
  */
 imagesRoute.post('/:id/classify-anyway', async (c) => {
   const id = c.req.param('id')
@@ -644,23 +699,16 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
     return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
 
-  if (image.status !== 'DUPLICATE') {
-    return c.json(
-      { error: 'INVALID_STATUS', message: 'Image is not a duplicate' },
-      400
-    )
-  }
-
   // Reset to UPLOADED so pipeline will process it
   await prisma.rawImage.update({
     where: { id },
     data: {
       status: 'UPLOADED' as RawImageStatus,
-      imageGroupId: null, // Remove from duplicate group
+      imageGroupId: null,
     },
   })
 
-  // Trigger classification via Inngest with skipDuplicateCheck flag
+  // Trigger classification via Inngest
   await inngest.send({
     name: 'document/uploaded',
     data: {
@@ -668,7 +716,6 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
       caseId: image.caseId,
       r2Key: image.r2Key,
       mimeType: image.mimeType || 'application/octet-stream',
-      skipDuplicateCheck: true, // Skip duplicate check on re-classification
     },
   })
 
@@ -776,5 +823,45 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
 
   return c.json({ success: true })
 })
+
+/**
+ * PATCH /images/:id/rotation - Update image rotation
+ * Persists rotation (0, 90, 180, 270) so documents display correctly on re-open
+ */
+imagesRoute.patch(
+  '/:id/rotation',
+  zValidator('json', updateRotationSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { rotation } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Find and update the raw image (org-scoped)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+      select: { id: true },
+    })
+
+    if (!rawImage) {
+      return c.json(
+        { error: 'NOT_FOUND', message: 'Image not found' },
+        404
+      )
+    }
+
+    // Update rotation
+    const updated = await prisma.rawImage.update({
+      where: { id },
+      data: { rotation },
+      select: { id: true, rotation: true },
+    })
+
+    return c.json({
+      success: true,
+      id: updated.id,
+      rotation: updated.rotation,
+    })
+  }
+)
 
 export { imagesRoute }

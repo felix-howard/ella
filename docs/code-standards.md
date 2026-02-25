@@ -252,7 +252,7 @@ const clients = await prisma.client.findMany({ where: filter })
 
 ## Testing Patterns
 
-**Unit Tests (Jest):**
+**Unit Tests (Vitest):**
 ```typescript
 // Test file naming: feature.test.ts
 describe('Feature', () => {
@@ -262,15 +262,25 @@ describe('Feature', () => {
 })
 ```
 
+**Testable Utility Functions (Phase 6 Pattern):**
+- Extract business logic from job/service files into pure functions
+- Create `grouping-utils.ts` or similar utilities module with testable functions
+- Place test file in `__tests__/` directory adjacent to source
+- Use type-safe fixtures (helper functions like `createMockDocument()`) for test setup
+- Test both happy paths and edge cases (nulls, empty inputs, boundary conditions)
+- Example: `UnionFind`, `normalizeTaxpayerName()`, `bucketDocumentsByMetadata()` extracted from batch jobs for isolated testing
+
 **Integration Tests:**
 - Mock Prisma with in-memory database
 - Mock Clerk Backend SDK for org operations
 - Type-safe endpoint testing
+- Integration-level tests validating end-to-end flows (e.g., metadata bucketing → grouping → sorting → validation)
 
 **Type Coverage:**
 - 100% TypeScript strict mode
 - Zero implicit any
 - Exhaustive enums
+- Type-safe test fixtures with full interface compliance
 
 ## Code Quality Metrics
 

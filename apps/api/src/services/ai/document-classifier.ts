@@ -16,6 +16,7 @@ import type {
   SupportedDocType,
   SmartRenameResult,
   GroupingAnalysisResult,
+  ExtractedMetadata,
 } from './prompts/classify'
 import { config } from '../../lib/config'
 import { getCategoryFromDocType } from '@ella/shared'
@@ -38,6 +39,8 @@ export interface DocumentClassificationResult {
   taxYear: number | null
   source: string | null
   recipientName: string | null // Person's name extracted from document
+  // Metadata for hierarchical clustering (Phase 1 grouping redesign)
+  extractedMetadata?: ExtractedMetadata
   error?: string
   processingTimeMs?: number
 }
@@ -66,6 +69,7 @@ export async function classifyDocument(
       taxYear: null,
       source: null,
       recipientName: null,
+      extractedMetadata: undefined,
       error: 'Gemini API key not configured',
       processingTimeMs: Date.now() - startTime,
     }
@@ -90,6 +94,7 @@ export async function classifyDocument(
       taxYear: null,
       source: null,
       recipientName: null,
+      extractedMetadata: undefined,
       error: `Unsupported MIME type: ${mimeType}`,
       processingTimeMs: Date.now() - startTime,
     }
@@ -109,6 +114,7 @@ export async function classifyDocument(
         taxYear: null,
         source: null,
         recipientName: null,
+        extractedMetadata: undefined,
         error: result.error || 'Unknown error during classification',
         processingTimeMs: Date.now() - startTime,
       }
@@ -125,6 +131,7 @@ export async function classifyDocument(
         taxYear: null,
         source: null,
         recipientName: null,
+        extractedMetadata: undefined,
         error: 'AI returned invalid classification format',
         processingTimeMs: Date.now() - startTime,
       }
@@ -140,6 +147,7 @@ export async function classifyDocument(
       taxYear: result.data.taxYear ?? null,
       source: result.data.source ?? null,
       recipientName: result.data.recipientName ?? null,
+      extractedMetadata: result.data.extractedMetadata,
       processingTimeMs: Date.now() - startTime,
     }
   } catch (error) {
@@ -153,6 +161,7 @@ export async function classifyDocument(
       taxYear: null,
       source: null,
       recipientName: null,
+      extractedMetadata: undefined,
       error: errorMessage,
       processingTimeMs: Date.now() - startTime,
     }

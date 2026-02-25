@@ -8,12 +8,14 @@ import type { CreateActionParams } from './pipeline-types'
 
 /**
  * Update raw image status with classification info
+ * @param aiMetadata - Optional metadata for hierarchical clustering (Phase 1)
  */
 export async function updateRawImageStatus(
   id: string,
   status: RawImageStatus,
   confidence: number,
-  docType?: DocType
+  docType?: DocType,
+  aiMetadata?: Record<string, unknown>
 ) {
   await prisma.rawImage.update({
     where: { id },
@@ -21,6 +23,7 @@ export async function updateRawImageStatus(
       status,
       aiConfidence: confidence,
       ...(docType && { classifiedType: docType }),
+      ...(aiMetadata && { aiMetadata: aiMetadata as Prisma.InputJsonValue }),
     },
   })
 }

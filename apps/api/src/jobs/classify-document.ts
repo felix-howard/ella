@@ -74,6 +74,20 @@ function sanitizeErrorMessage(error: string): string {
 }
 
 /**
+ * Sanitize metadata for logging - redact PII (taxpayerName, ssn4)
+ * Shows presence of fields without exposing actual values
+ */
+function sanitizeMetadataForLogs(metadata: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!metadata) return {}
+  return {
+    hasTaxpayerName: !!metadata.taxpayerName,
+    hasSsn4: !!metadata.ssn4,
+    hasPageMarker: !!metadata.pageMarker,
+    hasContinuationMarker: !!metadata.continuationMarker,
+  }
+}
+
+/**
  * Sync renamed R2 key to Message attachments (M3: atomic update, M4: DRY)
  * Uses single atomic updateMany query instead of loop for race condition safety
  */
@@ -306,6 +320,7 @@ export const classifyDocumentJob = inngest.createFunction(
           taxYear: result.taxYear,
           source: result.source,
           recipientName: result.recipientName,
+          extractedMetadata: result.extractedMetadata,
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -325,6 +340,7 @@ export const classifyDocumentJob = inngest.createFunction(
           taxYear: null,
           source: null,
           recipientName: null,
+          extractedMetadata: undefined,
         }
       }
     })
@@ -420,9 +436,19 @@ export const classifyDocumentJob = inngest.createFunction(
       // Cast docType to proper enum type
       const validDocType = docType as DocType
 
+      // Prepare aiMetadata from extractedMetadata (Phase 1: hierarchical clustering)
+      const aiMetadata = classification.extractedMetadata
+        ? (classification.extractedMetadata as Record<string, unknown>)
+        : undefined
+
+      // Log metadata extraction stats (PII sanitized)
+      if (aiMetadata) {
+        console.log(`[classify-document] Metadata extracted:`, sanitizeMetadataForLogs(aiMetadata))
+      }
+
       // High confidence (>= 85%) → auto-link without action
       if (confidence >= HIGH_CONFIDENCE) {
-        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType)
+        await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
         const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
         return {
@@ -433,7 +459,7 @@ export const classifyDocumentJob = inngest.createFunction(
       }
 
       // Medium confidence (60-85%) → link but create review action
-      await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType)
+      await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
       const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
       await createAction({

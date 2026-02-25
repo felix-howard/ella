@@ -246,6 +246,35 @@ export const SUPPORTED_DOC_TYPES = [
 export type SupportedDocType = (typeof SUPPORTED_DOC_TYPES)[number]
 
 /**
+ * Page marker extracted from document (e.g., "Page 2 of 3", "Part IV")
+ */
+export interface PageMarker {
+  current: number | null  // "Page 2 of 3" → 2
+  total: number | null    // "Page 2 of 3" → 3
+  partNumber: string | null  // "Part IV" → "IV"
+}
+
+/**
+ * Continuation marker for supplemental pages (e.g., "Line 19 (2210)")
+ */
+export interface ContinuationMarker {
+  type: 'line-reference' | 'attachment' | 'see-attached' | null
+  parentForm: string | null  // "Line 19 (2210)" → "FORM_2210"
+  lineNumber: string | null  // "Line 19 (2210)" → "19"
+}
+
+/**
+ * Extracted metadata for hierarchical clustering
+ * Used by Phase 2 grouping algorithm to bucket documents
+ */
+export interface ExtractedMetadata {
+  taxpayerName: string | null      // Primary person's name on document
+  ssn4: string | null              // Last 4 digits of SSN (e.g., "1234")
+  pageMarker: PageMarker | null    // Page/Part indicators
+  continuationMarker: ContinuationMarker | null  // Attachment/continuation indicators
+}
+
+/**
  * Expected classification result structure
  */
 export interface ClassificationResult {
@@ -260,6 +289,8 @@ export interface ClassificationResult {
   taxYear: number | null // e.g., 2025 - extracted from document period
   source: string | null // Employer/bank/issuer name - extracted from document
   recipientName: string | null // Person's name from document (employee, recipient, account holder)
+  // Metadata for hierarchical clustering (Phase 1 grouping redesign)
+  extractedMetadata?: ExtractedMetadata
 }
 
 /**
@@ -328,6 +359,18 @@ Response: {"docType":"FORM_8949","confidence":0.91,"reasoning":"Form 8949 with i
 EXAMPLE 15 - Schedule A (Itemized Deductions):
 Image shows: "SCHEDULE A (Form 1040)" header, "Itemized Deductions" subtitle, sections for medical expenses, state/local taxes, mortgage interest, charitable contributions, casualty losses
 Response: {"docType":"SCHEDULE_A","confidence":0.92,"reasoning":"Schedule A with itemized deduction categories, medical expense threshold calculation, SALT limitation reference","taxYear":2024}
+
+EXAMPLE 16 - W-2 with extractedMetadata:
+Image shows: Form W-2, Employee name "NGUYEN VAN ANH", SSN "XXX-XX-1234", employer "ABC NAIL SALON LLC"
+Response: {"docType":"W2","confidence":0.93,"reasoning":"W-2 with visible employee name and SSN-4","taxYear":2024,"source":"ABC Nail Salon","recipientName":"NGUYEN VAN ANH","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":null,"continuationMarker":null}}
+
+EXAMPLE 17 - Schedule C continuation page:
+Image shows: "SCHEDULE C" header, "Page 2 of 2", "See attached" text at line 30, expenses listing continues from page 1
+Response: {"docType":"SCHEDULE_C","confidence":0.90,"reasoning":"Schedule C page 2 with continuation marker","taxYear":2024,"extractedMetadata":{"taxpayerName":"JOHN DOE","ssn4":"5678","pageMarker":{"current":2,"total":2,"partNumber":null},"continuationMarker":{"type":"see-attached","parentForm":null,"lineNumber":"30"}}}
+
+EXAMPLE 18 - Form 2210 underpayment penalty supplement:
+Image shows: "Underpayment of Estimated Tax", "Line 19 (2210)" reference, supporting calculation worksheet
+Response: {"docType":"FORM_2210","confidence":0.88,"reasoning":"Form 2210 supplement with line reference","taxYear":2024,"extractedMetadata":{"taxpayerName":"MARY SMITH","ssn4":null,"pageMarker":null,"continuationMarker":{"type":"line-reference","parentForm":"FORM_2210","lineNumber":"19"}}}
 `
 
 /**
@@ -554,7 +597,38 @@ ${VIETNAMESE_NAME_HANDLING}
 ${CONFIDENCE_CALIBRATION}
 
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name"}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":{"current":2,"total":3,"partNumber":null},"continuationMarker":null}}
+
+METADATA EXTRACTION (for hierarchical grouping):
+
+Extract the following for document clustering:
+
+1. taxpayerName: Primary person's name on document
+   - W2: Employee name (Box e/f)
+   - 1099: Recipient's name
+   - Tax returns: "Your first name and middle initial" + "Last name"
+   - Schedule C: "Proprietor name"
+   - Use null if unclear or business entity name only
+
+2. ssn4: Last 4 digits of SSN/EIN
+   - Extract from "XXX-XX-1234" format
+   - Only last 4 digits as string (e.g., "1234")
+   - Use null if not visible or fully redacted
+
+3. pageMarker: Page/Part indicators
+   - Extract from "Page X of Y", "X/Y", "Part N" patterns
+   - current: page number or null
+   - total: total pages or null
+   - partNumber: Roman numeral (e.g., "IV") or null
+
+4. continuationMarker: Attachment/continuation indicators
+   - type: "line-reference" if "Line X (FormNum)"
+   - type: "attachment" if "Attachment Sheet X"
+   - type: "see-attached" if "See attached", "See continuation"
+   - parentForm: referenced form type (e.g., "FORM_2210")
+   - lineNumber: referenced line (e.g., "19")
+
+extractedMetadata is REQUIRED for tax documents with >80% confidence.
 
 EXTRACTION RULES FOR NAMING:
 - taxYear: Extract from Box period, statement date, form header "Tax Year 20XX", or document date. Use null if unclear.
@@ -621,6 +695,44 @@ export function validateClassificationResult(
   if ('recipientName' in r && r.recipientName !== null) {
     if (typeof r.recipientName !== 'string' || r.recipientName.trim() === '') {
       return false
+    }
+  }
+
+  // Validate extractedMetadata (optional but structured if present)
+  if ('extractedMetadata' in r && r.extractedMetadata !== null && r.extractedMetadata !== undefined) {
+    const meta = r.extractedMetadata as Record<string, unknown>
+
+    // taxpayerName: optional string or null
+    if ('taxpayerName' in meta && meta.taxpayerName !== null) {
+      if (typeof meta.taxpayerName !== 'string') return false
+    }
+
+    // ssn4: optional 4-digit string or null
+    // Reject placeholder patterns like "0000", "XXXX"
+    if ('ssn4' in meta && meta.ssn4 !== null) {
+      if (typeof meta.ssn4 !== 'string' || !/^\d{4}$/.test(meta.ssn4)) return false
+      // Reject placeholder values (fully masked or zeros)
+      if (meta.ssn4 === '0000' || /^(\d)\1{3}$/.test(meta.ssn4)) return false
+    }
+
+    // pageMarker: optional object or null
+    if ('pageMarker' in meta && meta.pageMarker !== null) {
+      const pm = meta.pageMarker as Record<string, unknown>
+      if (typeof pm !== 'object') return false
+      if ('current' in pm && pm.current !== null && typeof pm.current !== 'number') return false
+      if ('total' in pm && pm.total !== null && typeof pm.total !== 'number') return false
+      if ('partNumber' in pm && pm.partNumber !== null && typeof pm.partNumber !== 'string') return false
+    }
+
+    // continuationMarker: optional object or null
+    if ('continuationMarker' in meta && meta.continuationMarker !== null) {
+      const cm = meta.continuationMarker as Record<string, unknown>
+      if (typeof cm !== 'object') return false
+      if ('type' in cm && cm.type !== null) {
+        if (!['line-reference', 'attachment', 'see-attached'].includes(cm.type as string)) return false
+      }
+      if ('parentForm' in cm && cm.parentForm !== null && typeof cm.parentForm !== 'string') return false
+      if ('lineNumber' in cm && cm.lineNumber !== null && typeof cm.lineNumber !== 'string') return false
     }
   }
 

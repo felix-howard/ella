@@ -29,6 +29,13 @@ import {
   processOcrResultAtomic,
 } from '../services/ai/pipeline-helpers'
 import {
+  detectParentForm,
+  generateContinuationDisplayName,
+  isContinuationPage,
+  getContinuationCategory,
+} from '../services/ai/continuation-detection'
+import type { ContinuationMarker } from '../services/ai/prompts/classify'
+import {
   getVietnameseError,
   getActionTitle,
   getActionPriority,
@@ -357,6 +364,8 @@ export const classifyDocumentJob = inngest.createFunction(
         pageInfo: unknown
         reasoning: string
       }
+      continuationLinked?: boolean
+      parentDocumentId?: string
     }
 
     const routing = await step.run('route-by-confidence', async (): Promise<RoutingResult> => {
@@ -446,20 +455,103 @@ export const classifyDocumentJob = inngest.createFunction(
         console.log(`[classify-document] Metadata extracted:`, sanitizeMetadataForLogs(aiMetadata))
       }
 
+      // PHASE 5: Continuation page detection and linking
+      // Check if document has continuation marker and try to link to parent
+      let continuationLinked = false
+      let updatedDisplayName: string | null = null
+      let updatedCategory: string | null = null
+
+      const continuationMarker = aiMetadata?.continuationMarker as ContinuationMarker | null
+      if (isContinuationPage(continuationMarker)) {
+        const parentForm = detectParentForm(continuationMarker)
+
+        if (parentForm) {
+          console.log(
+            `[classify-document] Continuation detected: parent=${parentForm}, line=${continuationMarker?.lineNumber}`
+          )
+
+          // Lookup parent form in same case
+          const parentDoc = await prisma.rawImage.findFirst({
+            where: {
+              caseId,
+              classifiedType: parentForm as DocType,
+              status: { in: ['CLASSIFIED', 'LINKED'] },
+            },
+            orderBy: { createdAt: 'desc' }, // Most recent parent
+          })
+
+          if (parentDoc) {
+            console.log(`[classify-document] Found parent document: ${parentDoc.id}`)
+
+            // Generate descriptive display name
+            updatedDisplayName = generateContinuationDisplayName(
+              parentForm,
+              continuationMarker?.lineNumber || null,
+              aiMetadata?.taxpayerName as string | null,
+              classification.taxYear
+            )
+
+            // Upgrade category to TAX_FORM for tax form continuations
+            updatedCategory = getContinuationCategory(parentForm)
+
+            // Store parent reference in aiMetadata
+            if (aiMetadata) {
+              aiMetadata.parentDocumentId = parentDoc.id
+              aiMetadata.parentFormType = parentForm
+            }
+
+            continuationLinked = true
+          } else {
+            console.warn(
+              `[classify-document] Parent form ${parentForm} not found in case ${caseId}`
+            )
+            // Keep as original classification, but log for manual review
+          }
+        }
+      }
+
       // High confidence (>= 85%) → auto-link without action
       if (confidence >= HIGH_CONFIDENCE) {
         await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
+
+        // PHASE 5: Apply continuation-specific updates (displayName, category)
+        if (continuationLinked && (updatedDisplayName || updatedCategory)) {
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              ...(updatedDisplayName && { displayName: updatedDisplayName }),
+              ...(updatedCategory && { category: updatedCategory as DocCategory }),
+            },
+          })
+          console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
+        }
+
         const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
         return {
-          action: 'auto-linked',
+          action: continuationLinked ? 'auto-linked-continuation' : 'auto-linked',
           needsOcr: requiresOcrExtraction(validDocType),
           checklistItemId,
+          continuationLinked,
+          parentDocumentId: continuationLinked ? (aiMetadata?.parentDocumentId as string) : undefined,
         }
       }
 
       // Medium confidence (60-85%) → link but create review action
       await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, validDocType, aiMetadata)
+
+      // PHASE 5: Apply continuation-specific updates (displayName, category)
+      if (continuationLinked && (updatedDisplayName || updatedCategory)) {
+        await prisma.rawImage.update({
+          where: { id: rawImageId },
+          data: {
+            ...(updatedDisplayName && { displayName: updatedDisplayName }),
+            ...(updatedCategory && { category: updatedCategory as DocCategory }),
+          },
+        })
+        console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
+      }
+
       const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
 
       await createAction({
@@ -472,9 +564,11 @@ export const classifyDocumentJob = inngest.createFunction(
       })
 
       return {
-        action: 'needs-review',
+        action: continuationLinked ? 'needs-review-continuation' : 'needs-review',
         needsOcr: requiresOcrExtraction(validDocType),
         checklistItemId,
+        continuationLinked,
+        parentDocumentId: continuationLinked ? (aiMetadata?.parentDocumentId as string) : undefined,
       }
     })
 

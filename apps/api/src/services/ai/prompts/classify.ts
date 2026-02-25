@@ -246,6 +246,38 @@ export const SUPPORTED_DOC_TYPES = [
 export type SupportedDocType = (typeof SUPPORTED_DOC_TYPES)[number]
 
 /**
+ * Parent-child form relationships for continuation detection (Phase 5)
+ * Maps parent form types to their possible child/continuation forms
+ */
+export const FORM_RELATIONSHIPS: Record<string, string[]> = {
+  FORM_1040: [
+    'SCHEDULE_A', 'SCHEDULE_B', 'SCHEDULE_C', 'SCHEDULE_D',
+    'SCHEDULE_E', 'SCHEDULE_F', 'SCHEDULE_SE',
+    'SCHEDULE_1', 'SCHEDULE_2', 'SCHEDULE_3', 'SCHEDULE_8812',
+    'FORM_2210', 'FORM_2441', 'FORM_8812', 'FORM_8889',
+  ],
+  SCHEDULE_C: ['FORM_4562', 'FORM_8829'],
+  SCHEDULE_E: ['CONTINUATION_SHEET'],
+  FORM_2210: ['CONTINUATION_SHEET'],
+  FORM_8949: ['CONTINUATION_SHEET'],
+  SCHEDULE_D: ['FORM_8949'],
+}
+
+/**
+ * Regex patterns for detecting parent form references in continuation pages (Phase 5)
+ * Used when classifiedType is OTHER/UNKNOWN but continuation marker detected
+ */
+export const PARENT_FORM_PATTERNS: Record<string, RegExp> = {
+  FORM_2210: /Line\s+19\s*\(2210\)/i,
+  SCHEDULE_E: /Schedule\s+E.*(?:continuation|attachment|additional\s+propert)/i,
+  FORM_8949: /Form\s+8949.*(?:continuation|attachment)/i,
+  SCHEDULE_D: /Schedule\s+D.*(?:continuation|capital\s+gain)/i,
+  FORM_4562: /Form\s+4562|depreciation.*(?:continuation|attachment)/i,
+  FORM_8829: /Form\s+8829|home\s+office.*(?:continuation|expenses)/i,
+  SCHEDULE_1: /Schedule\s+1.*Line\s+\d+[a-z]?/i,
+}
+
+/**
  * Page marker extracted from document (e.g., "Page 2 of 3", "Part IV")
  */
 export interface PageMarker {

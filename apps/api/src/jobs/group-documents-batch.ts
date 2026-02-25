@@ -48,6 +48,14 @@ interface DocumentForGrouping {
       totalPages?: number
       pageMarkers?: string[]
     }
+    // Phase 5: Continuation page linking
+    parentDocumentId?: string | null
+    parentFormType?: string | null
+    continuationMarker?: {
+      type: string | null
+      parentForm: string | null
+      lineNumber: string | null
+    } | null
   } | null
 }
 
@@ -768,12 +776,151 @@ export const groupDocumentsBatchJob = inngest.createFunction(
       totalProcessed += result.docsProcessed
     }
 
+    // Step 4: Link continuation sheets to parent DocumentGroups (Phase 5)
+    // After regular grouping, find any docs with parentDocumentId and attach to parent's group
+    // Optimized: Pre-fetch all data to avoid N+1 queries, use atomic increment for race safety
+    let continuationsLinked = 0
+    const linkResult = await step.run('link-continuation-sheets', async () => {
+      // Find all documents with continuation markers that have parentDocumentId
+      const continuationDocs = await prisma.rawImage.findMany({
+        where: {
+          caseId,
+          status: { in: ['CLASSIFIED', 'LINKED'] },
+          documentGroupId: null, // Not yet grouped
+        },
+        select: {
+          id: true,
+          aiMetadata: true,
+          displayName: true,
+        },
+      })
+
+      // Filter to only docs with parentDocumentId and extract parent IDs
+      const docsWithParent: Array<{
+        id: string
+        parentDocId: string
+        displayName: string | null
+      }> = []
+
+      for (const doc of continuationDocs) {
+        const metadata = doc.aiMetadata as DocumentForGrouping['aiMetadata']
+        const parentDocId = metadata?.parentDocumentId
+        if (parentDocId) {
+          docsWithParent.push({
+            id: doc.id,
+            parentDocId,
+            displayName: doc.displayName,
+          })
+        }
+      }
+
+      if (docsWithParent.length === 0) return 0
+
+      // FIX #1: Pre-fetch all parent documents in single query (avoid N+1)
+      const parentDocIds = [...new Set(docsWithParent.map((d) => d.parentDocId))]
+      const parentDocs = await prisma.rawImage.findMany({
+        where: { id: { in: parentDocIds } },
+        select: { id: true, documentGroupId: true },
+      })
+      const parentDocMap = new Map(parentDocs.map((p) => [p.id, p.documentGroupId]))
+
+      // Pre-fetch all document groups in single query
+      const groupIds = [...new Set(parentDocs.map((p) => p.documentGroupId).filter(Boolean))] as string[]
+      const groups = await prisma.documentGroup.findMany({
+        where: { id: { in: groupIds } },
+        select: { id: true, pageCount: true, baseName: true },
+      })
+      const groupMap = new Map(groups.map((g) => [g.id, g]))
+
+      let linked = 0
+
+      // Process each continuation doc
+      for (const doc of docsWithParent) {
+        const parentGroupId = parentDocMap.get(doc.parentDocId)
+
+        if (!parentGroupId) {
+          console.log(
+            `[batch-grouping] Continuation ${doc.id} parent ${doc.parentDocId} has no group, skipping`
+          )
+          continue
+        }
+
+        // FIX #3: Check if doc already linked to a different group (prevent duplicate linking)
+        const currentDoc = await prisma.rawImage.findUnique({
+          where: { id: doc.id },
+          select: { documentGroupId: true },
+        })
+        if (currentDoc?.documentGroupId && currentDoc.documentGroupId !== parentGroupId) {
+          console.warn(
+            `[batch-grouping] Continuation ${doc.id} already linked to different group ${currentDoc.documentGroupId}, skipping`
+          )
+          continue
+        }
+
+        // FIX #2: Use atomic transaction with increment for race-safe page numbering
+        // Interactive transaction ensures pageCount is read and incremented atomically
+        try {
+          await prisma.$transaction(async (tx) => {
+            // Read current pageCount inside transaction (locked read)
+            const currentGroup = await tx.documentGroup.findUnique({
+              where: { id: parentGroupId },
+              select: { pageCount: true },
+            })
+
+            if (!currentGroup) {
+              throw new Error(`Group ${parentGroupId} not found`)
+            }
+
+            const newPageNumber = currentGroup.pageCount + 1
+
+            // Update continuation document
+            await tx.rawImage.update({
+              where: { id: doc.id },
+              data: {
+                documentGroupId: parentGroupId,
+                pageNumber: newPageNumber,
+                totalPages: newPageNumber, // Will be updated below
+              },
+            })
+
+            // Atomically increment group page count
+            await tx.documentGroup.update({
+              where: { id: parentGroupId },
+              data: { pageCount: { increment: 1 } },
+            })
+
+            // Update all docs in group with new total
+            await tx.rawImage.updateMany({
+              where: { documentGroupId: parentGroupId },
+              data: { totalPages: newPageNumber },
+            })
+          })
+
+          console.log(
+            `[batch-grouping] Linked continuation ${doc.displayName} to parent group ${parentGroupId}`
+          )
+          linked++
+        } catch (txError) {
+          console.error(
+            `[batch-grouping] Failed to link continuation ${doc.id}:`,
+            txError
+          )
+          // Continue with other docs
+        }
+      }
+
+      return linked
+    })
+
+    continuationsLinked = linkResult
+
     return {
       success: true,
       documentsProcessed: documents.length,
       bucketsProcessed: buckets.length,
       groupsCreated: totalCreated,
       groupsUpdated: totalUpdated,
+      continuationsLinked,
       triggeredBy,
     }
   }

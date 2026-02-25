@@ -121,3 +121,11 @@ export {
   getActionPriority,
   type AIErrorType,
 } from './ai-error-messages'
+
+// Continuation Page Detection (Phase 5)
+export {
+  detectParentForm,
+  generateContinuationDisplayName,
+  isContinuationPage,
+  getContinuationCategory,
+} from './continuation-detection'

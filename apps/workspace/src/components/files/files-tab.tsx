@@ -381,7 +381,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
   })
 
-  // Handle download all files as ZIP
+  // Handle download all files as ZIP (parallel downloads for speed)
   const handleDownloadAll = useCallback(async () => {
     if (images.length === 0) return
 
@@ -391,30 +391,39 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       const zip = new JSZip()
       const usedFilenames = new Map<string, number>()
 
-      // Fetch all files and add to ZIP
-      for (const img of images) {
+      // Fetch all files in parallel (much faster than sequential)
+      const fetchFile = async (img: RawImage) => {
         try {
-          // Use fetchMediaBlobUrl which includes Bearer auth token
           const blobUrl = await fetchMediaBlobUrl(`/cases/images/${img.id}/file`)
           const response = await fetch(blobUrl)
           const blob = await response.blob()
           URL.revokeObjectURL(blobUrl)
-
-          // Handle duplicate filenames by adding suffix
-          let filename = img.displayName || img.filename
-          const count = usedFilenames.get(filename) || 0
-          if (count > 0) {
-            const ext = filename.lastIndexOf('.')
-            filename = ext > 0
-              ? `${filename.slice(0, ext)} (${count})${filename.slice(ext)}`
-              : `${filename} (${count})`
-          }
-          usedFilenames.set(img.displayName || img.filename, count + 1)
-
-          zip.file(filename, blob)
+          return { img, blob, success: true as const }
         } catch {
           console.warn(`Failed to fetch: ${img.filename}`)
+          return { img, blob: null, success: false as const }
         }
+      }
+
+      // Download all files in parallel
+      const results = await Promise.all(images.map(fetchFile))
+
+      // Add successful downloads to ZIP
+      for (const result of results) {
+        if (!result.success || !result.blob) continue
+
+        // Handle duplicate filenames by adding suffix
+        let filename = result.img.displayName || result.img.filename
+        const count = usedFilenames.get(filename) || 0
+        if (count > 0) {
+          const ext = filename.lastIndexOf('.')
+          filename = ext > 0
+            ? `${filename.slice(0, ext)} (${count})${filename.slice(ext)}`
+            : `${filename} (${count})`
+        }
+        usedFilenames.set(result.img.displayName || result.img.filename, count + 1)
+
+        zip.file(filename, result.blob)
       }
 
       // Generate ZIP and trigger download

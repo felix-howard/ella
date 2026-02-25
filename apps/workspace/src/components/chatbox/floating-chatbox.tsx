@@ -151,6 +151,7 @@ export function FloatingChatbox({
             clientName={clientName}
             clientPhone={clientPhone}
             clientId={clientId}
+            caseId={caseId}
             autoFocus
           />
         </div>

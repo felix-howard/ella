@@ -3,7 +3,7 @@
  * Handles database operations for the document processing pipeline
  */
 import { prisma } from '../../lib/db'
-import type { DocType, RawImageStatus, Prisma } from '@ella/db'
+import type { DocType, DocCategory, RawImageStatus, Prisma } from '@ella/db'
 import type { CreateActionParams } from './pipeline-types'
 
 /**
@@ -210,7 +210,7 @@ export async function markImageDuplicate(
   let copyData: {
     displayName: string | null
     classifiedType: DocType | null
-    category: string | null
+    category: DocCategory | null
   } = { displayName: null, classifiedType: null, category: null }
 
   if (matchedImageId) {

@@ -104,17 +104,17 @@ export function isContinuationPage(
 
 /**
  * Get continuation page category upgrade
- * Continuation pages of tax forms should be categorized as TAX_FORM, not OTHER
+ * Continuation pages of tax forms should be categorized as TAX_RETURNS, not OTHER
  */
 export function getContinuationCategory(parentForm: string | null): string {
   if (!parentForm) return 'OTHER'
 
-  // Tax forms and schedules
+  // Tax forms and schedules → TAX_RETURNS category (matches DocCategory enum)
   if (
     parentForm.startsWith('FORM_') ||
     parentForm.startsWith('SCHEDULE_')
   ) {
-    return 'TAX_FORM'
+    return 'TAX_RETURNS'
   }
 
   return 'OTHER'

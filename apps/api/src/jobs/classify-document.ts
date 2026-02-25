@@ -416,19 +416,18 @@ export const classifyDocumentJob = inngest.createFunction(
         }
 
         // Smart rename failed or low confidence - fall back to existing behavior
-        // BUT: still use smart rename filename if available (even at low confidence)
-        // Better to have "Tax_Penalty_Calculation" than "image"
+        // BUT: still use smart rename filename if available (even at very low confidence)
+        // Any descriptive name like "Tax_Penalty_Calculation" beats generic "image.jpg"
         const errorInfo = getVietnameseError(error || classification.reasoning)
 
         // Set to CLASSIFIED with OTHER docType - goes directly to "Khác" category
         await updateRawImageStatus(rawImageId, 'CLASSIFIED', confidence, 'OTHER' as DocType)
 
-        // Use smart rename displayName even at low confidence - any descriptive name beats "image"
-        // Threshold: 30% confidence to have any meaningful name generated
-        const MINIMUM_RENAME_CONFIDENCE = 0.30
+        // Use smart rename displayName even at very low confidence
+        // No minimum threshold - any AI-generated name is better than "image"
         const useSmartRenameDisplayName = smartRename &&
           smartRename.suggestedFilename &&
-          smartRename.confidence >= MINIMUM_RENAME_CONFIDENCE
+          smartRename.suggestedFilename.trim() !== ''
 
         if (useSmartRenameDisplayName) {
           await prisma.rawImage.update({
@@ -468,7 +467,18 @@ export const classifyDocumentJob = inngest.createFunction(
           },
         })
 
-        return { action: 'ai-failed-to-other', needsOcr: false, checklistItemId: null }
+        // Return smart rename data so rename-file step can rename R2 file
+        return {
+          action: 'ai-failed-to-other',
+          needsOcr: false,
+          checklistItemId: null,
+          smartRename: useSmartRenameDisplayName ? {
+            suggestedFilename: smartRename!.suggestedFilename,
+            documentTitle: smartRename!.documentTitle,
+            pageInfo: smartRename!.pageInfo,
+            reasoning: smartRename!.reasoning,
+          } : undefined,
+        }
       }
 
       // Cast docType to proper enum type
@@ -611,8 +621,78 @@ export const classifyDocumentJob = inngest.createFunction(
     }
 
     const renameResult = await step.run('rename-file', async (): Promise<RenameStepResult> => {
-      // For AI-failed docs, skip rename but set category to OTHER
+      // For AI-failed docs with smart rename data, rename the R2 file
       if (routing.action === 'ai-failed-to-other') {
+        // If we have smart rename data, rename the R2 file too
+        if (routing.smartRename) {
+          // Defense-in-depth: Validate caseId format (CUID)
+          if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
+            console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+            await prisma.rawImage.update({
+              where: { id: rawImageId },
+              data: { category: 'OTHER' },
+            })
+            return {
+              renamed: false,
+              newKey: null,
+              displayName: routing.smartRename.suggestedFilename,
+              category: 'OTHER',
+              error: 'INVALID_CASE_ID',
+            }
+          }
+
+          // Rename R2 file using smart rename documentTitle
+          const result = await renameFile(r2Key, caseId, {
+            taxYear: null,
+            docType: routing.smartRename.documentTitle,
+            source: null,
+            recipientName: null,
+          })
+
+          if (!result.success) {
+            console.error(`[classify-document] Smart rename (ai-failed-to-other) failed`, {
+              rawImageId,
+              r2Key,
+              suggestedFilename: routing.smartRename.suggestedFilename,
+              error: result.error,
+            })
+            // displayName already set in route-by-confidence, just set category
+            await prisma.rawImage.update({
+              where: { id: rawImageId },
+              data: { category: 'OTHER' },
+            })
+            return {
+              renamed: false,
+              newKey: null,
+              displayName: routing.smartRename.suggestedFilename,
+              category: 'OTHER',
+              error: result.error,
+            }
+          }
+
+          // Update DB with new R2 key (displayName already set in route-by-confidence)
+          await prisma.rawImage.update({
+            where: { id: rawImageId },
+            data: {
+              r2Key: result.newKey,
+              category: 'OTHER',
+            },
+          })
+
+          // Sync renamed key to Message attachments
+          await syncMessageR2Keys(r2Key, result.newKey)
+
+          console.log(`[classify-document] Smart renamed (ai-failed-to-other): ${r2Key} -> ${result.newKey}`)
+
+          return {
+            renamed: true,
+            newKey: result.newKey,
+            displayName: routing.smartRename.suggestedFilename,
+            category: 'OTHER',
+          }
+        }
+
+        // No smart rename data - just set category to OTHER
         await prisma.rawImage.update({
           where: { id: rawImageId },
           data: { category: 'OTHER' },

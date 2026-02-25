@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
-import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
+import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles, ChevronDown } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
 import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast, hotToast } from '../../stores/toast-store'
@@ -52,6 +52,8 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isGroupingActive, setIsGroupingActive] = useState(false)
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false)
+  const groupDropdownRef = useRef<HTMLDivElement>(null)
   const groupingPollRef = useRef<NodeJS.Timeout | null>(null)
   const markViewed = useMarkDocumentViewed()
 
@@ -462,7 +464,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
 
   // Mutation for batch document grouping with persistent AI notification
   const groupDocumentsMutation = useMutation({
-    mutationFn: () => api.cases.groupDocuments(caseId),
+    mutationFn: (forceRegroup?: boolean) => api.cases.groupDocuments(caseId, { forceRegroup }),
     onMutate: () => {
       // Show persistent AI grouping toast with sparkle icon
       setIsGroupingActive(true)
@@ -584,6 +586,18 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     }
   }, [])
 
+  // Click-outside handler for group dropdown
+  useEffect(() => {
+    if (!showGroupDropdown) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) {
+        setShowGroupDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside as unknown as EventListener)
+    return () => document.removeEventListener('mousedown', handleClickOutside as unknown as EventListener)
+  }, [showGroupDropdown])
+
   // Loading state - show skeleton only when actually loading
   if (showLoading) {
     return <FilesTabSkeleton />
@@ -619,35 +633,66 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Group Files button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => groupDocumentsMutation.mutate()}
-            disabled={isGroupingActive || ungroupedCount === 0}
-            className={cn(
-              'gap-1.5',
-              ungroupedCount === 0 && 'opacity-50',
-              isGroupingActive && 'cursor-not-allowed'
+          {/* Group Files button with dropdown */}
+          <div className="relative" ref={groupDropdownRef}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowGroupDropdown(!showGroupDropdown)}
+              disabled={isGroupingActive}
+              className={cn(
+                'gap-1.5',
+                isGroupingActive && 'cursor-not-allowed'
+              )}
+            >
+              {isGroupingActive ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="hidden sm:inline">{t('filesTab.groupingButton')}</span>
+                </>
+              ) : (
+                <>
+                  <FolderSync className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
+                  {ungroupedCount > 0 && (
+                    <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                      {ungroupedCount}
+                    </span>
+                  )}
+                  <ChevronDown className="w-3 h-3 ml-0.5" />
+                </>
+              )}
+            </Button>
+            {showGroupDropdown && !isGroupingActive && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-popover border rounded-md shadow-lg z-50 py-1">
+                <button
+                  onClick={() => {
+                    setShowGroupDropdown(false)
+                    groupDocumentsMutation.mutate(false)
+                  }}
+                  disabled={ungroupedCount === 0}
+                  className={cn(
+                    'w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center justify-between',
+                    ungroupedCount === 0 && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <span>{t('filesTab.groupNewFiles')}</span>
+                  {ungroupedCount > 0 && (
+                    <span className="text-xs text-muted-foreground">{ungroupedCount}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowGroupDropdown(false)
+                    groupDocumentsMutation.mutate(true)
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  {t('filesTab.regroupAll')}
+                </button>
+              </div>
             )}
-          >
-            {isGroupingActive ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span className="hidden sm:inline">{t('filesTab.groupingButton')}</span>
-              </>
-            ) : (
-              <>
-                <FolderSync className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
-                {ungroupedCount > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
-                    {ungroupedCount}
-                  </span>
-                )}
-              </>
-            )}
-          </Button>
+          </div>
 
           {/* Mark all as read button */}
           <Button

@@ -138,10 +138,10 @@ export function SidebarContent({
             <img
               src={avatarUrl}
               alt={userName}
-              className="w-8 h-8 rounded-full object-cover"
+              className="w-8 h-8 min-w-8 min-h-8 rounded-full object-cover flex-shrink-0"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+            <div className="w-8 h-8 min-w-8 min-h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
               <span className="text-white text-sm font-medium">{userInitials}</span>
             </div>
           )}

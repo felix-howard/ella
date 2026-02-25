@@ -1,0 +1,265 @@
+/**
+ * Grouping Utilities
+ * Pure functions extracted from group-documents-batch for testability
+ * Phase 6: Testing & Validation
+ */
+
+// Configuration constants (exported for testing)
+export const GROUP_CONFIDENCE_THRESHOLD = 0.80
+export const METADATA_BUCKETING_THRESHOLD = 0.80
+
+/**
+ * Document data for grouping operations
+ * Extended with aiMetadata for hierarchical clustering
+ */
+export interface DocumentForGrouping {
+  id: string
+  r2Key: string
+  displayName: string | null
+  classifiedType: string | null
+  documentGroupId: string | null
+  pageNumber: number | null
+  mimeType: string | null
+  aiConfidence: number | null
+  aiMetadata: {
+    taxpayerName?: string | null
+    ssn4?: string | null
+    pageInfo?: {
+      currentPage?: number
+      totalPages?: number
+      pageMarkers?: string[]
+    }
+    parentDocumentId?: string | null
+    parentFormType?: string | null
+    continuationMarker?: {
+      type: string | null
+      parentForm: string | null
+      lineNumber: string | null
+    } | null
+  } | null
+}
+
+/**
+ * Metadata bucket for hierarchical clustering
+ */
+export interface MetadataBucket {
+  key: string
+  formType: string
+  taxpayerName: string | null
+  documents: DocumentForGrouping[]
+}
+
+/**
+ * Union-Find (Disjoint Set Union) for transitive document grouping
+ * Supports path compression and union by rank for O(α(n)) ≈ O(1) amortized operations
+ */
+export class UnionFind {
+  private parent: Map<string, string>
+  private rank: Map<string, number>
+
+  constructor(docIds: string[]) {
+    this.parent = new Map()
+    this.rank = new Map()
+    for (const id of docIds) {
+      this.parent.set(id, id) // Each doc starts in own set
+      this.rank.set(id, 0)
+    }
+  }
+
+  /**
+   * Find root of set containing docId with path compression
+   */
+  find(docId: string): string {
+    const parent = this.parent.get(docId)
+    if (!parent || parent === docId) {
+      return docId
+    }
+    // Path compression: point directly to root
+    const root = this.find(parent)
+    this.parent.set(docId, root)
+    return root
+  }
+
+  /**
+   * Union two sets by rank (merge smaller tree into larger)
+   * Returns true if union performed, false if already in same set
+   */
+  union(docId1: string, docId2: string): boolean {
+    const root1 = this.find(docId1)
+    const root2 = this.find(docId2)
+
+    if (root1 === root2) return false // Already in same set
+
+    const rank1 = this.rank.get(root1) || 0
+    const rank2 = this.rank.get(root2) || 0
+
+    // Attach smaller tree under larger tree
+    if (rank1 < rank2) {
+      this.parent.set(root1, root2)
+    } else if (rank1 > rank2) {
+      this.parent.set(root2, root1)
+    } else {
+      this.parent.set(root2, root1)
+      this.rank.set(root1, rank1 + 1)
+    }
+
+    return true
+  }
+
+  /**
+   * Extract all groups as Map<rootId, docIds[]>
+   */
+  getGroups(): Map<string, string[]> {
+    const groups = new Map<string, string[]>()
+    const docIds = Array.from(this.parent.keys())
+    for (const docId of docIds) {
+      const root = this.find(docId)
+      if (!groups.has(root)) {
+        groups.set(root, [])
+      }
+      groups.get(root)!.push(docId)
+    }
+    return groups
+  }
+}
+
+/**
+ * Normalize taxpayer name for bucketing
+ * Case-insensitive, whitespace-normalized, handles joint returns and suffixes
+ */
+export function normalizeTaxpayerName(name: string | null | undefined): string | null {
+  if (!name) return null
+
+  let normalized = name.trim().toUpperCase()
+
+  // Return null if name is only whitespace
+  if (!normalized) return null
+
+  // Remove punctuation (periods, commas) but keep hyphens in names
+  normalized = normalized.replace(/[.,]/g, '')
+
+  // Normalize conjunctions for joint returns: "John & Jane" → "JOHN_AND_JANE"
+  normalized = normalized.replace(/\s+(&|AND)\s+/g, '_AND_')
+
+  // Collapse multiple whitespace to single underscore
+  normalized = normalized.replace(/\s+/g, '_')
+
+  // Remove common suffixes that may vary in documents
+  normalized = normalized.replace(/_(JR|SR|II|III|IV)$/g, '')
+
+  return normalized
+}
+
+/**
+ * Bucket documents by (formType, taxpayerName) for metadata-first clustering
+ * High-confidence metadata (>0.8) → separate buckets per taxpayer
+ * Low-confidence or missing → "_unassigned" bucket (form-type only)
+ */
+export function bucketDocumentsByMetadata(
+  documents: DocumentForGrouping[]
+): Map<string, MetadataBucket> {
+  const buckets = new Map<string, MetadataBucket>()
+
+  for (const doc of documents) {
+    const metadata = doc.aiMetadata
+    const taxpayerName = metadata?.taxpayerName
+    const formType = doc.classifiedType || 'UNKNOWN'
+    const confidence = doc.aiConfidence || 0
+
+    let bucketKey: string
+    let normalizedName: string | null = null
+
+    // High-confidence metadata with taxpayer name: bucket by (formType, taxpayerName)
+    if (taxpayerName && confidence >= METADATA_BUCKETING_THRESHOLD) {
+      normalizedName = normalizeTaxpayerName(taxpayerName)
+      bucketKey = `${formType}|${normalizedName}`
+    } else {
+      // Low confidence or missing metadata: bucket by form type only
+      bucketKey = `${formType}|_unassigned`
+    }
+
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, {
+        key: bucketKey,
+        formType,
+        taxpayerName: normalizedName,
+        documents: [],
+      })
+    }
+    buckets.get(bucketKey)!.documents.push(doc)
+  }
+
+  return buckets
+}
+
+/**
+ * Sort documents by page markers extracted from AI metadata
+ * Falls back to original index (upload order) if no page markers available
+ * Phase 3: Page Order Detection
+ */
+export function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; originalIndex: number }>(
+  documents: T[]
+): Array<T & { pageNum: number }> {
+  const docsWithPages = documents.map((d) => {
+    const metadata = d.doc.aiMetadata
+    const pageMarker = metadata?.pageInfo
+
+    // Use extracted page marker if available and valid
+    // pageInfo.currentPage from Phase 1 metadata extraction
+    const pageNum = pageMarker?.currentPage && pageMarker.currentPage > 0
+      ? pageMarker.currentPage
+      : d.originalIndex + 1  // Fallback to upload order (1-indexed)
+
+    return { ...d, pageNum }
+  })
+
+  // Sort by page number (ascending)
+  docsWithPages.sort((a, b) => a.pageNum - b.pageNum)
+
+  return docsWithPages
+}
+
+/**
+ * Validate page sequence for completeness (no gaps, no duplicates)
+ * Phase 3: Page Order Detection
+ */
+export function validatePageSequence(
+  documents: Array<{ pageNum: number }>
+): { valid: boolean; reason: string } {
+  // Handle empty array edge case
+  if (documents.length === 0) {
+    return { valid: false, reason: 'No documents in sequence' }
+  }
+
+  const pageNums = documents.map((d) => d.pageNum)
+  const uniquePages = new Set(pageNums)
+
+  // Check for duplicates
+  if (uniquePages.size !== pageNums.length) {
+    return {
+      valid: false,
+      reason: `Duplicate page numbers: ${pageNums.join(', ')}`,
+    }
+  }
+
+  // Check for gaps (e.g., 1, 3, 4 missing 2)
+  const sorted = [...pageNums].sort((a, b) => a - b)
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i + 1] !== sorted[i] + 1) {
+      return {
+        valid: false,
+        reason: `Gap in sequence: page ${sorted[i]} → ${sorted[i + 1]}`,
+      }
+    }
+  }
+
+  // Check if sequence starts at 1
+  if (sorted[0] !== 1) {
+    return {
+      valid: false,
+      reason: `Sequence should start at page 1, got ${sorted[0]}`,
+    }
+  }
+
+  return { valid: true, reason: 'Valid sequence' }
+}

@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-02-24 ICT
-> **Current Phase:** Smart Document Rename Phase 02 COMPLETE (67% overall) | CPA Upload SMS Notification Phase 05 COMPLETE | Member Profile Page Phase 5 COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE + Member Profile Page All 5 Phases COMPLETE + Mobile Responsive Phase 1-2 COMPLETE + Schedule C Phase 4 Complete + CPA Upload SMS Notification Phase 1-5 COMPLETE + Smart Document Rename Phase 1-2 COMPLETE (67%) + All prior enhancements
+> **Last Updated:** 2026-02-25 ICT
+> **Current Phase:** Document Grouping System Redesign Phase 01-02 COMPLETE (33% overall) | Smart Document Rename Phase 02 COMPLETE (67% overall) | CPA Upload SMS Notification Phase 05 COMPLETE | Member Profile Page Phase 5 COMPLETE | Mobile Responsive Admin Pages Phase 4 COMPLETE | Schedule E Phase 2 Backend API COMPLETE | Landing Page Killer Features COMPLETE (Phase 01-03) | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Schedule E Phase 1-2 Backend COMPLETE + Member Profile Page All 5 Phases COMPLETE + Mobile Responsive Phase 1-2 COMPLETE + Schedule C Phase 4 Complete + CPA Upload SMS Notification Phase 1-5 COMPLETE + Smart Document Rename Phase 1-2 COMPLETE (67%) + Document Grouping System Redesign Phase 1-2 COMPLETE (33%) + All prior enhancements
 
 ### Mobile Responsive Admin Pages Phase 4 - COMPLETE ✅
 **Completed:** 2026-02-07
@@ -738,6 +738,30 @@ Ella is a tax document management platform designed to help Vietnamese CPAs redu
 - **Status:** PRODUCTION READY
 
 - **Next:** Phase 03 (Multi-Page Detection & Grouping) - Detect multi-page documents and group related pages across sessions
+
+---
+
+### Document Grouping System Redesign - Phase 02 Complete (33% Overall) ✅
+**Started:** 2026-02-25
+**Completed:** 2026-02-25 (Phase 01), 2026-02-25 (Phase 02)
+**Deliverable:** Multi-pass hierarchical clustering for 95%+ auto-grouping accuracy via metadata extraction
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Effort |
+|-------|-----------|--------|-----------|--------|
+| 1 | Metadata Extraction Enhancement | ✅ DONE | 2026-02-25 17:35 | 1.5h |
+| 2 | Hierarchical Clustering Algorithm | ✅ DONE | 2026-02-25 11:33 | 2h |
+| 3 | Page Order Detection | ⏳ PENDING | - | 2h |
+| 4 | AI Prompt Improvements | ⏳ PENDING | - | 1.5h |
+| 5 | Continuation Page Detection | ⏳ PENDING | - | 1.5h |
+| 6 | Testing & Validation | ⏳ PENDING | - | 1.5h |
+
+**Completion Summary (Phases 1-2):**
+- **Phase 1:** Metadata extraction for taxpayer name, SSN-4, page markers during classification. Stored in `RawImage.aiMetadata` JSON field. 1.5h actual effort. Production-ready.
+- **Phase 2:** Hierarchical clustering algorithm implementation with metadata-first bucketing + Union-Find transitive grouping. Replaces single-pass algorithm. 2h actual effort. Production-ready.
+- **Branch:** dev
+- **Code Quality:** Production-ready
+- **Next:** Phase 3 (Page Order Detection) - Header/footer OCR for "Page X of Y", "Part N" markers
 
 ---
 

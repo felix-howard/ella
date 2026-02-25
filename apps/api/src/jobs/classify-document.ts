@@ -16,7 +16,7 @@
 import sharp from 'sharp'
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
-import { fetchImageBuffer, renameFile } from '../services/storage'
+import { fetchImageBuffer, renameFile, deleteFile } from '../services/storage'
 import { getCategoryFromDocType, getDisplayNameFromKey } from '@ella/shared'
 import { classifyDocument, requiresOcrExtraction, generateSmartFilename } from '../services/ai'
 // Simple PDF check (pdf-poppler removed)
@@ -682,6 +682,9 @@ export const classifyDocumentJob = inngest.createFunction(
           // Sync renamed key to Message attachments
           await syncMessageR2Keys(r2Key, result.newKey)
 
+          // Delete old file AFTER DB update succeeds
+          await deleteFile(r2Key)
+
           console.log(`[classify-document] Smart renamed (ai-failed-to-other): ${r2Key} -> ${result.newKey}`)
 
           return {
@@ -752,6 +755,9 @@ export const classifyDocumentJob = inngest.createFunction(
 
         // Sync renamed key to Message attachments (M3/M4: use shared helper)
         await syncMessageR2Keys(r2Key, result.newKey)
+
+        // Delete old file AFTER DB update succeeds
+        await deleteFile(r2Key)
 
         console.log(`[classify-document] Smart renamed: ${r2Key} -> ${result.newKey}`)
 
@@ -837,6 +843,9 @@ export const classifyDocumentJob = inngest.createFunction(
       // This prevents the media proxy from returning 500 for renamed files
       // Sync renamed key to Message attachments (M3/M4: use shared helper)
       await syncMessageR2Keys(r2Key, result.newKey)
+
+      // Delete old file AFTER DB update succeeds (safe - orphan is acceptable)
+      await deleteFile(r2Key)
 
       console.log(`[classify-document] Renamed: ${r2Key} -> ${result.newKey}`)
 

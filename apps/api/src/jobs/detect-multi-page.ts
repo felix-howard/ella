@@ -11,7 +11,7 @@
 
 import { inngest } from '../lib/inngest'
 import { prisma } from '../lib/db'
-import { fetchImageBuffer, renameFileRaw } from '../services/storage'
+import { fetchImageBuffer, renameFileRaw, deleteFile } from '../services/storage'
 import { analyzeDocumentGrouping } from '../services/ai'
 
 // Confidence threshold for accepting AI grouping
@@ -374,6 +374,8 @@ export const detectMultiPageJob = inngest.createFunction(
             where: { id: docId },
             data: { r2Key: renameResult.newKey },
           })
+          // Delete old file AFTER DB update succeeds
+          await deleteFile(doc.r2Key)
         }
 
         renameResults.push({

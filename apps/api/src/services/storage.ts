@@ -322,20 +322,8 @@ export async function renameFileRaw(
       })
     )
 
-    // Delete old file (can fail safely)
-    try {
-      await s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: oldKey,
-        })
-      )
-      console.log(`[Storage] Deleted old key: ${oldKey}`)
-    } catch (deleteError) {
-      console.warn(`[Storage] Failed to delete old key (orphaned): ${oldKey}`, deleteError)
-    }
-
-    console.log(`[Storage] Rename complete: ${newKey}`)
+    // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
+    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
     return { success: true, newKey, oldKey }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -417,21 +405,10 @@ export async function renameFile(
       })
     )
 
-    // Step 2: Delete old file (can fail safely - DB is source of truth)
-    try {
-      await s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: oldKey,
-        })
-      )
-      console.log(`[Storage] Deleted old key: ${oldKey}`)
-    } catch (deleteError) {
-      // Log but don't fail - orphaned old file is acceptable
-      console.warn(`[Storage] Failed to delete old key (orphaned): ${oldKey}`, deleteError)
-    }
-
-    console.log(`[Storage] Rename complete: ${newKey}`)
+    // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
+    // This prevents data loss if job fails between copy and DB update
+    // The caller should call deleteFile(oldKey) after updating the DB
+    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
     return { success: true, newKey, oldKey }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -439,3 +416,4 @@ export async function renameFile(
     return { success: false, newKey: oldKey, oldKey, error: errorMessage }
   }
 }
+

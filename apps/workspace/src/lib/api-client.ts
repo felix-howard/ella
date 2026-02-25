@@ -125,14 +125,14 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
 }
 
 /**
- * Fetch a media file with auth headers and return a blob URL for <img> rendering.
- * Used for attachment proxy endpoints that require authentication.
- * Includes a 15s timeout to prevent hanging requests from blocking the UI.
+ * Fetch a media file with auth headers and return a Blob directly.
+ * Used for bulk downloads where we need the raw blob data.
+ * Includes a 30s timeout for larger files.
  */
-export async function fetchMediaBlobUrl(relativePath: string): Promise<string> {
+export async function fetchMediaBlob(relativePath: string): Promise<Blob> {
   const url = `${API_BASE_URL}${relativePath}`
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 15000)
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s for larger files
 
   try {
     let authHeaders: Record<string, string> = {}
@@ -151,11 +151,20 @@ export async function fetchMediaBlobUrl(relativePath: string): Promise<string> {
       throw new Error(`Failed to fetch media: ${response.status}`)
     }
 
-    const blob = await response.blob()
-    return URL.createObjectURL(blob)
+    return await response.blob()
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+/**
+ * Fetch a media file with auth headers and return a blob URL for <img> rendering.
+ * Used for attachment proxy endpoints that require authentication.
+ * Includes a 15s timeout to prevent hanging requests from blocking the UI.
+ */
+export async function fetchMediaBlobUrl(relativePath: string): Promise<string> {
+  const blob = await fetchMediaBlob(relativePath)
+  return URL.createObjectURL(blob)
 }
 
 // Core fetch wrapper with error handling, timeout, and retry logic

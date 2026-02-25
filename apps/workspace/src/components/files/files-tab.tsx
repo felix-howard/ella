@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
 import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, fetchMediaBlobUrl, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
+import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
 import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
@@ -396,10 +396,8 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       // Fetch all files in parallel (much faster than sequential)
       const fetchFile = async (img: RawImage) => {
         try {
-          const blobUrl = await fetchMediaBlobUrl(`/cases/images/${img.id}/file`)
-          const response = await fetch(blobUrl)
-          const blob = await response.blob()
-          URL.revokeObjectURL(blobUrl)
+          // Use fetchMediaBlob directly to get blob (avoids double-fetch through blob URL)
+          const blob = await fetchMediaBlob(`/cases/images/${img.id}/file`)
           return { img, blob, success: true as const }
         } catch {
           console.warn(`Failed to fetch: ${img.filename}`)

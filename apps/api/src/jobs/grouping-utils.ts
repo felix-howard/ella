@@ -7,6 +7,8 @@
 // Configuration constants (exported for testing)
 export const GROUP_CONFIDENCE_THRESHOLD = 0.80
 export const METADATA_BUCKETING_THRESHOLD = 0.80
+// Lower threshold when metadata (taxpayerName) already matches - reduces AI variance impact
+export const SAME_TAXPAYER_CONFIDENCE_THRESHOLD = 0.65
 
 /**
  * Document data for grouping operations
@@ -150,6 +152,24 @@ export function normalizeTaxpayerName(name: string | null | undefined): string |
   normalized = normalized.replace(/_(JR|SR|II|III|IV)$/g, '')
 
   return normalized
+}
+
+/**
+ * Check if two documents have matching taxpayer metadata
+ * Used to apply lower confidence threshold during grouping
+ * Returns true if both have taxpayerName and they match after normalization
+ */
+export function doTaxpayerNamesMatch(
+  doc1Metadata: DocumentForGrouping['aiMetadata'],
+  doc2Metadata: DocumentForGrouping['aiMetadata']
+): boolean {
+  const name1 = normalizeTaxpayerName(doc1Metadata?.taxpayerName)
+  const name2 = normalizeTaxpayerName(doc2Metadata?.taxpayerName)
+
+  // Both must have taxpayer names to match
+  if (!name1 || !name2) return false
+
+  return name1 === name2
 }
 
 /**

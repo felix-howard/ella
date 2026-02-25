@@ -4,7 +4,7 @@
  *
  * Key behaviors:
  * - Batches by caseId (each client case batched independently)
- * - 5-minute timeout OR 100 events (whichever first)
+ * - 10-minute timeout OR 100 events (whichever first)
  * - Queries assigned staff + admins with notification prefs
  * - Skips staff without phone number (silent)
  * - Sends SMS via notifyStaffUpload()
@@ -35,7 +35,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     id: 'notify-staff-upload',
     batchEvents: {
       maxSize: 100,
-      timeout: '300s', // 5 minutes
+      timeout: '600s', // 10 minutes
       key: 'event.data.caseId',
     },
   },

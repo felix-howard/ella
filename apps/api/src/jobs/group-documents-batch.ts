@@ -27,7 +27,9 @@ import {
   bucketDocumentsByMetadata,
   sortDocumentsByPageMarker,
   validatePageSequence,
+  doTaxpayerNamesMatch,
   GROUP_CONFIDENCE_THRESHOLD,
+  SAME_TAXPAYER_CONFIDENCE_THRESHOLD,
   METADATA_BUCKETING_THRESHOLD,
   type DocumentForGrouping,
   type MetadataBucket,
@@ -145,6 +147,12 @@ async function processBucket(
       }
 
       try {
+        // Check if taxpayer names match (use lower threshold if they do)
+        const taxpayerMatch = doTaxpayerNamesMatch(doc1.doc.aiMetadata, doc2.doc.aiMetadata)
+        const threshold = taxpayerMatch
+          ? SAME_TAXPAYER_CONFIDENCE_THRESHOLD
+          : GROUP_CONFIDENCE_THRESHOLD
+
         // AI visual comparison (doc1 as "new", doc2 as "existing")
         const result = await analyzeDocumentGrouping(
           doc1.buffer,
@@ -152,12 +160,13 @@ async function processBucket(
           [{ id: doc2.doc.id, displayName: doc2.doc.displayName }]
         )
 
-        // If match found with high confidence, union the sets
-        if (result.matchFound && result.confidence >= GROUP_CONFIDENCE_THRESHOLD) {
+        // If match found with sufficient confidence, union the sets
+        if (result.matchFound && result.confidence >= threshold) {
           const unioned = uf.union(doc1.doc.id, doc2.doc.id)
           if (unioned) {
+            const thresholdNote = taxpayerMatch ? ' [same-taxpayer]' : ''
             console.log(
-              `[batch-grouping] Matched: ${doc1.doc.displayName} + ${doc2.doc.displayName} (conf: ${result.confidence.toFixed(2)})`
+              `[batch-grouping] Matched: ${doc1.doc.displayName} + ${doc2.doc.displayName} (conf: ${result.confidence.toFixed(2)}, thresh: ${threshold.toFixed(2)})${thresholdNote}`
             )
           }
         }

@@ -491,30 +491,48 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     },
   })
 
-  // Poll images to detect when grouping job completes
-  // Backend handles multi-pass looping, frontend just waits for stabilization
-  const startGroupingPoll = useCallback(() => {
-    let stableCount = 0
-    let pollCount = 0
-    let lastUngroupedCount = ungroupedCount
-    const initialCount = ungroupedCount // Track total progress
+  // Track initial ungrouped count when grouping starts (for success message)
+  const initialUngroupedCountRef = useRef<number>(0)
 
-    // Inngest needs time to start processing (fetch docs, run AI comparisons)
-    // Wait at least 15 seconds (7 polls) before checking stability
-    const MIN_POLLS_BEFORE_STABILITY_CHECK = 7
-    // Require 5 consecutive stable polls (10 seconds) to confirm completion
-    const STABLE_POLLS_REQUIRED = 5
+  // Poll grouping job status via dedicated endpoint
+  // This is reliable because Inngest job clears groupingJobId when complete
+  const startGroupingPoll = useCallback((captureInitialCount = true) => {
+    // Capture initial count for success message (only on fresh start, not resume)
+    if (captureInitialCount) {
+      initialUngroupedCountRef.current = ungroupedCount
+    }
 
-    const finishGrouping = (finalCount: number, startCount: number) => {
+    // Clear any existing poll
+    if (groupingPollRef.current) {
+      clearInterval(groupingPollRef.current)
+      groupingPollRef.current = null
+    }
+
+    const finishGrouping = async () => {
       setIsGroupingActive(false)
       hotToast.dismiss('ai-grouping')
-      const grouped = startCount - finalCount
+
+      // Refetch images to get final state
+      const result = await queryClient.fetchQuery({
+        queryKey: ['images', caseId],
+        queryFn: () => api.cases.getImages(caseId),
+        staleTime: 0,
+      })
+
+      const finalUngrouped = result.images.filter(
+        (img: RawImage) =>
+          (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
+      ).length
+
+      const grouped = initialUngroupedCountRef.current - finalUngrouped
       if (grouped > 0) {
         toast.success(t('filesTab.groupingSuccess', { count: grouped }))
       } else {
         toast.info(t('filesTab.groupingNoMatches'))
       }
+
       queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+
       if (groupingPollRef.current) {
         clearInterval(groupingPollRef.current)
         groupingPollRef.current = null
@@ -522,58 +540,63 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     }
 
     const poll = async () => {
-      pollCount++
-
       try {
-        // Refetch images to get latest grouping status
-        const result = await queryClient.fetchQuery({
-          queryKey: ['images', caseId],
-          queryFn: () => api.cases.getImages(caseId),
-          staleTime: 0, // Force fresh fetch
-        })
+        // Check actual job status from backend
+        const status = await api.cases.getGroupingStatus(caseId)
 
-        // Count current ungrouped documents
-        const currentUngrouped = result.images.filter(
-          (img: RawImage) =>
-            (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
-        ).length
-
-        // All ungrouped docs processed - can finish immediately
-        if (currentUngrouped === 0) {
-          finishGrouping(currentUngrouped, initialCount)
-          return
-        }
-
-        // Only check stability after minimum wait period (Inngest needs time to start)
-        if (pollCount < MIN_POLLS_BEFORE_STABILITY_CHECK) {
-          // Still in warmup period, just track changes
-          if (currentUngrouped !== lastUngroupedCount) {
-            lastUngroupedCount = currentUngrouped
-          }
-          return
-        }
-
-        // Check if grouping is complete (count stabilized for N consecutive polls)
-        if (currentUngrouped === lastUngroupedCount) {
-          stableCount++
-          if (stableCount >= STABLE_POLLS_REQUIRED) {
-            finishGrouping(currentUngrouped, initialCount)
-            return
-          }
-        } else {
-          stableCount = 0
-          lastUngroupedCount = currentUngrouped
+        // Job completed when groupingJobId is null (cleared by Inngest)
+        if (!status.isRunning) {
+          await finishGrouping()
         }
       } catch (error) {
-        console.error('[GroupingPoll] Error:', error)
+        console.error('[GroupingPoll] Error checking status:', error)
+        // On error, don't stop polling - job might still be running
       }
     }
 
-    // Poll every 2 seconds
-    groupingPollRef.current = setInterval(poll, 2000)
-    // Also run immediately
-    poll()
+    // Poll every 3 seconds (job status check is cheap)
+    groupingPollRef.current = setInterval(poll, 3000)
+    // Run first poll after a short delay to let Inngest start
+    setTimeout(poll, 2000)
   }, [caseId, queryClient, t, ungroupedCount])
+
+  // Check if a grouping job is already running on mount
+  // (e.g., user navigated away and came back)
+  useEffect(() => {
+    let mounted = true
+
+    const checkExistingJob = async () => {
+      try {
+        const status = await api.cases.getGroupingStatus(caseId)
+        if (status.isRunning && mounted) {
+          // Resume showing the grouping UI
+          setIsGroupingActive(true)
+          hotToast.custom(
+            (toastState) => (
+              <div
+                className={`${toastState.visible ? 'animate-enter' : 'animate-leave'} flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-full shadow-lg`}
+              >
+                <Sparkles className="w-4 h-4 animate-pulse" />
+                <span className="font-medium text-sm">{t('filesTab.groupingInProgress')}</span>
+              </div>
+            ),
+            { duration: Infinity, id: 'ai-grouping' }
+          )
+          // Start polling for completion (don't capture initial count - we're resuming)
+          startGroupingPoll(false)
+        }
+      } catch {
+        // Ignore errors on initial check
+      }
+    }
+
+    checkExistingJob()
+
+    return () => {
+      mounted = false
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId]) // Only run on mount/caseId change, not on startGroupingPoll change
 
   // Cleanup polling on unmount
   useEffect(() => {

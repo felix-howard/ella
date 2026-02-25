@@ -594,6 +594,11 @@ model TaxCase {
   // Activity tracking for sorting & stale detection
   lastActivityAt DateTime  @default(now())
 
+  // Batch document grouping job tracking
+  // When non-null, indicates a grouping job is in progress
+  groupingJobId    String?
+  groupingStartedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -608,6 +613,7 @@ model TaxCase {
   @@index([engagementId])
   @@index([engagementId, status])         // Filter engagement's cases by status
   @@index([engagementId, lastActivityAt]) // Sort engagement's cases by activity
+  @@index([groupingJobId])                // Query cases with active grouping jobs
 }
 
 model RawImage {

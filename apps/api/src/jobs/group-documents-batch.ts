@@ -756,6 +756,18 @@ export const groupDocumentsBatchJob = inngest.createFunction(
 
     continuationsLinked = linkResult
 
+    // Clear grouping job tracking to signal completion to frontend
+    await step.run('clear-grouping-job-id', async () => {
+      await prisma.taxCase.update({
+        where: { id: caseId },
+        data: {
+          groupingJobId: null,
+          groupingStartedAt: null,
+        },
+      })
+      console.log(`[batch-grouping] Cleared groupingJobId for case ${caseId}`)
+    })
+
     return {
       success: true,
       passesCompleted: passCount,

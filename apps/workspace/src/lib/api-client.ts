@@ -337,6 +337,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data ?? {}),
       }),
+
+    // Check batch document grouping job status
+    getGroupingStatus: (id: string) =>
+      request<GroupingStatusResponse>(`/cases/${id}/grouping-status`),
   },
 
   // Actions
@@ -2063,4 +2067,11 @@ export interface GroupDocumentsResponse {
   jobId: string
   documentCount: number
   message: string
+}
+
+// Grouping status response (check if batch grouping job is running)
+export interface GroupingStatusResponse {
+  isRunning: boolean
+  jobId: string | null
+  startedAt: string | null
 }

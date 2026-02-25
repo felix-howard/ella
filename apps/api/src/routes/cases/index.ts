@@ -880,11 +880,53 @@ casesRoute.post(
       },
     })
 
+    const jobId = ids[0]
+
+    // Store job ID in case for reliable tracking (frontend polls this)
+    await prisma.taxCase.update({
+      where: { id },
+      data: {
+        groupingJobId: jobId,
+        groupingStartedAt: new Date(),
+      },
+    })
+
     return c.json({
       success: true,
-      jobId: ids[0],
+      jobId,
       documentCount: classifiedCount,
       message: `Grouping started for ${classifiedCount} documents`,
+    })
+  }
+)
+
+// GET /cases/:id/grouping-status - Check batch document grouping job status
+casesRoute.get(
+  '/:id/grouping-status',
+  zValidator('param', caseIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const user = c.get('user')
+
+    const taxCase = await prisma.taxCase.findFirst({
+      where: { id, ...buildNestedClientScope(user) },
+      select: {
+        groupingJobId: true,
+        groupingStartedAt: true,
+      },
+    })
+
+    if (!taxCase) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    // If groupingJobId is null, no job is running (or it completed)
+    const isRunning = taxCase.groupingJobId !== null
+
+    return c.json({
+      isRunning,
+      jobId: taxCase.groupingJobId,
+      startedAt: taxCase.groupingStartedAt?.toISOString() ?? null,
     })
   }
 )

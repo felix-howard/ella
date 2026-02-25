@@ -574,6 +574,12 @@ export async function analyzeDocumentGrouping(
       groupName: null,
       pageOrder: [],
       reasoning: 'No candidates or AI not configured',
+      metadataValidation: {
+        taxpayerNameMatch: null,
+        ssn4Match: null,
+        pageMarkersAlign: null,
+        confidenceBoost: 0,
+      },
     }
   }
 
@@ -598,6 +604,12 @@ export async function analyzeDocumentGrouping(
         groupName: null,
         pageOrder: [],
         reasoning: result.error || 'AI analysis failed',
+        metadataValidation: {
+          taxpayerNameMatch: null,
+          ssn4Match: null,
+          pageMarkersAlign: null,
+          confidenceBoost: 0,
+        },
       }
     }
 
@@ -611,6 +623,12 @@ export async function analyzeDocumentGrouping(
         groupName: null,
         pageOrder: [],
         reasoning: 'Invalid AI response structure',
+        metadataValidation: {
+          taxpayerNameMatch: null,
+          ssn4Match: null,
+          pageMarkersAlign: null,
+          confidenceBoost: 0,
+        },
       }
     }
 
@@ -634,6 +652,12 @@ export async function analyzeDocumentGrouping(
       groupName: null,
       pageOrder: [],
       reasoning: 'Analysis error',
+      metadataValidation: {
+        taxpayerNameMatch: null,
+        ssn4Match: null,
+        pageMarkersAlign: null,
+        confidenceBoost: 0,
+      },
     }
   }
 }

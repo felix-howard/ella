@@ -415,6 +415,40 @@ LOW CONFIDENCE (< 0.60):
 `
 
 /**
+ * Metadata extraction confidence calibration
+ * Guides AI on when to extract vs return null for metadata fields
+ */
+const METADATA_CONFIDENCE_GUIDE = `
+METADATA EXTRACTION CONFIDENCE:
+
+taxpayerName:
+- HIGH (extract): Name clearly printed in header, "Taxpayer's name" field, employee box (W2 Box e/f)
+- HIGH (extract): Name visible in designated recipient/account holder area
+- LOW (use null): Business entity names only, unclear/blurry text, multiple names without designation
+- LOW (use null): Name partially visible or cut off, illegible handwriting
+
+ssn4:
+- HIGH (extract): Last 4 digits visible in XXX-XX-1234 format, clearly readable
+- HIGH (extract): SSN field shows partial masking with readable last 4
+- LOW (use null): Fully redacted (XXX-XX-XXXX), checksum fails (repeated digits like 0000)
+- LOW (use null): Only 2-3 digits visible, blurry/unreadable digits
+
+pageMarker:
+- HIGH (extract all fields): "Page 2 of 3" clearly visible in header/footer
+- HIGH (extract all fields): "1/3" notation visible, unambiguous
+- MEDIUM (extract partial): Only "Page 2" visible (current yes, total null)
+- MEDIUM (extract partial): "Part IV" visible without page numbers (partNumber only)
+- LOW (use null): No page indicators, single-page document, ambiguous marks
+
+continuationMarker:
+- HIGH (extract full): "Line X (FormNum)" pattern visible with clear form reference
+- HIGH (extract full): "Attachment Sheet" with explicit form reference
+- MEDIUM (extract type only): "See attached" without form reference (type="see-attached", parentForm=null)
+- MEDIUM (extract type only): "Continued" without line number
+- LOW (use null): No continuation indicators, standalone document
+`
+
+/**
  * Generate the classification prompt with enhanced accuracy features
  */
 export function getClassificationPrompt(): string {
@@ -595,6 +629,8 @@ OTHER DOCUMENTS:
 ${VIETNAMESE_NAME_HANDLING}
 
 ${CONFIDENCE_CALIBRATION}
+
+${METADATA_CONFIDENCE_GUIDE}
 
 Respond in JSON format:
 {"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":{"current":2,"total":3,"partNumber":null},"continuationMarker":null}}
@@ -900,6 +936,10 @@ export function getGroupingAnalysisPrompt(candidateCount: number): string {
   return `You are comparing a NEW document (first image) against ${candidateCount} existing documents.
 Determine if the NEW document belongs with any of the existing documents as part of the same multi-page document.
 
+METADATA-ENHANCED GROUPING:
+Documents have pre-extracted metadata (taxpayerName, ssn4, pageMarker, continuationMarker).
+Use this to VALIDATE your visual analysis and improve grouping accuracy.
+
 CRITICAL RULE - SAME FORM TYPE REQUIRED:
 - Documents MUST be the same form type/number to be grouped
 - Form 1040 pages can ONLY group with other Form 1040 pages
@@ -908,60 +948,92 @@ CRITICAL RULE - SAME FORM TYPE REQUIRED:
 - NEVER group: W-2 + 1099-NEC (different income forms, same person)
 - Same taxpayer name is NOT sufficient - form type must match
 
-REQUIRED FOR GROUPING (ALL must be true):
+GROUPING RULES (Enhanced with Metadata Validation):
+
 1. SAME form number/title - THIS IS MANDATORY (e.g., all show "Form 4562")
-2. Same person's name and identifying info (SSN, address, account #)
-3. Page numbers indicating continuation (Page 2 of 3)
-4. "Continued" markers or references to other pages
-5. Same letterhead, formatting, visual style
-6. Sequential content (tables continue, numbers progress)
-7. Same document identifier (case #, account #, policy #)
+
+2. **TAXPAYER NAME VALIDATION (metadata.taxpayerName)**:
+   - If metadata.taxpayerName DIFFERS between documents → DO NOT GROUP (different taxpayer)
+   - If metadata.taxpayerName MATCHES → proceed to visual check
+   - If metadata.taxpayerName is null on one/both → rely on visual name comparison
+
+3. **SSN-4 VALIDATION (metadata.ssn4)**:
+   - If both have ssn4 and they DIFFER → DO NOT GROUP (definitely different taxpayer)
+   - If ssn4 matches → strong confirmation of same taxpayer (+0.10 confidence boost)
+
+4. **PAGE MARKER VALIDATION (metadata.pageMarker)**:
+   - If pageMarker.current exists → use for pageOrder position
+   - If pageMarker.total exists → validate grouped page count matches total
+   - Page markers override visual guessing for order determination
+
+5. **CONTINUATION MARKER (metadata.continuationMarker)**:
+   - If continuationMarker.parentForm exists → document is supplemental page
+   - Group with parent form if parent exists in candidates
+   - continuationMarker.lineNumber helps identify specific attachment point
+
+6. Same letterhead, formatting, visual style (secondary validation)
+7. Sequential content (tables continue, numbers progress)
+8. Same document identifier (case #, account #, policy #)
 
 NEGATIVE EXAMPLES (DO NOT GROUP):
-- Form 1040 page 1 + Schedule C → Different form types, do not group
-- Form 4562 + Schedule E → Different form types, do not group
-- W-2 from Employer A + W-2 from Employer B → Different sources, do not group
-- Form 1040 + Schedule EIC → Different forms for same taxpayer, do not group
+- Form 1040 page 1 + Schedule C → Different form types
+- metadata.taxpayerName "NGUYEN VAN ANH" vs "TRAN THI HONG" → Different taxpayers
+- metadata.ssn4 "1234" vs "5678" → Different SSN, definitely different people
+- W-2 from Employer A + W-2 from Employer B → Different sources
 
-INDICATORS OF DIFFERENT DOCUMENTS (any of these = do NOT group):
+INDICATORS OF DIFFERENT DOCUMENTS:
 1. Different form types (W-2 vs 1099, Form 1040 vs Schedule C)
-2. Different dates/years
-3. Different names/entities
-4. Completely different content/purpose
-5. Different visual style/format
+2. Different metadata.taxpayerName values
+3. Different metadata.ssn4 values
+4. Different dates/years
+5. Completely different content/purpose
 
-PAGE ORDER DETERMINATION (Enhanced with Metadata):
+PAGE ORDER DETERMINATION (Metadata-First):
 
-1. FIRST: Check aiMetadata.pageInfo.currentPage from classification
-   - If documents have pre-extracted page markers, USE them for ordering
+1. FIRST: Use metadata.pageMarker.current if available
    - "currentPage: 2" means this is page 2, regardless of upload order
+   - This is the most reliable source
 
 2. SECOND: Look for explicit page numbers in image ("Page X of Y", "1/3")
 3. THIRD: Look for continuation markers ("Continued from page 1")
 4. FOURTH: Look for sequential content (tables continuing, numbered items)
 5. FIFTH: Look for header page vs detail pages (summary page usually first)
 
-NOTE: Pre-classification has extracted page markers where visible.
-Your job is to VALIDATE the order, not guess it.
-If metadata says "Page 2 of 3", confirm this matches visual content.
+METADATA CONFLICT RESOLUTION:
+- If metadata.pageMarker.current = 2 but visual shows "Part I" → Flag conflict in reasoning
+- Trust metadata over visual guess when metadata confidence was high
+- Note any conflicts for human review
 
-ORDERING EXAMPLES:
-- Document with "Page 2 of 3" in footer → This is page 2
-- Document with "Continued" at top → This is NOT page 1
-- Document with totals/summary → Usually the LAST page
-- Document with headers only, no data → Usually the FIRST page
+CONFIDENCE SCORING (Enhanced):
 
-pageOrder MUST reflect actual content order, NOT upload order or image index.
-The "existing_doc_0" label is just an identifier - determine its TRUE page position from content.
+HIGH (0.85-0.95):
+- Same form type + Same taxpayerName + Same ssn4 + Page markers align + Visual similarity
+- metadataValidation.confidenceBoost: +0.15
+
+MEDIUM (0.70-0.84):
+- Same form type + Same taxpayerName + No ssn4 comparison + Visual similarity
+- OR: Same form type + Missing taxpayerName + Strong visual similarity
+- metadataValidation.confidenceBoost: +0.05 to +0.10
+
+LOW (<0.70) - DO NOT GROUP:
+- Same form type + Different taxpayerName → REJECT
+- Same form type + Different ssn4 → REJECT
+- Different form types → REJECT
 
 RESPONSE FORMAT (JSON):
 {
   "matchFound": true,
   "matchedIndices": [0, 2],
   "confidence": 0.92,
-  "groupName": "Form4562_Depreciation_JohnDoe",
+  "groupName": "Form4562_Depreciation_NguyenVanAnh",
   "pageOrder": ["existing_doc_0", "new_doc", "existing_doc_2"],
-  "reasoning": "All three documents show Form 4562 header with same taxpayer John Doe, pages 1-3"
+  "reasoning": "Same form (4562), same taxpayer (NGUYEN VAN ANH), ssn4 match (1234), page markers 1-2-3 align",
+  "metadataValidation": {
+    "taxpayerNameMatch": true,
+    "ssn4Match": true,
+    "pageMarkersAlign": true,
+    "confidenceBoost": 0.15
+  }
 }
 
 If no match found:
@@ -971,17 +1043,35 @@ If no match found:
   "confidence": 0,
   "groupName": null,
   "pageOrder": [],
-  "reasoning": "New document is Schedule C, existing docs are W-2 and 1099-NEC - different form types cannot be grouped"
+  "reasoning": "New document is Schedule C for TRAN THI HONG, existing docs are Schedule C for NGUYEN VAN ANH - different taxpayers",
+  "metadataValidation": {
+    "taxpayerNameMatch": false,
+    "ssn4Match": null,
+    "pageMarkersAlign": null,
+    "confidenceBoost": 0
+  }
 }
 
 RULES:
 - Only match if confident (>80%) they belong together
 - SAME FORM TYPE IS MANDATORY - never group different form types
+- SAME TAXPAYER IS MANDATORY - use metadata.taxpayerName/ssn4 for validation
 - pageOrder must be based on CONTENT (page numbers, continuation markers), not image index
 - The new document could be ANY page (first, middle, or last)
 - matchedIndices are 0-based indices of existing docs that match (not including new doc)
 - pageOrder uses: "existing_doc_N" for existing docs, "new_doc" for the new document
-- groupName should be descriptive: FormType_Description_PersonName (max 50 chars, no spaces)`
+- groupName should be descriptive: FormType_Description_PersonName (max 50 chars, no spaces)
+- ALWAYS include metadataValidation in response`
+}
+
+/**
+ * Metadata validation result for grouping confidence
+ */
+export interface MetadataValidation {
+  taxpayerNameMatch: boolean | null  // true=match, false=mismatch, null=not comparable
+  ssn4Match: boolean | null          // true=match, false=mismatch, null=not comparable
+  pageMarkersAlign: boolean | null   // true=valid sequence, false=conflict, null=no markers
+  confidenceBoost: number            // 0.00-0.20 boost from metadata validation
 }
 
 /**
@@ -994,6 +1084,7 @@ export interface GroupingAnalysisResult {
   groupName: string | null
   pageOrder: string[]
   reasoning: string
+  metadataValidation?: MetadataValidation  // Optional for backward compatibility
 }
 
 /**
@@ -1020,6 +1111,33 @@ export function validateGroupingResult(result: unknown): result is GroupingAnaly
 
   // groupName can be string or null
   if (r.groupName !== null && typeof r.groupName !== 'string') return false
+
+  // Validate optional metadataValidation if present
+  if ('metadataValidation' in r && r.metadataValidation !== null && r.metadataValidation !== undefined) {
+    const mv = r.metadataValidation as Record<string, unknown>
+    if (typeof mv !== 'object') return false
+
+    // taxpayerNameMatch: boolean or null
+    if ('taxpayerNameMatch' in mv && mv.taxpayerNameMatch !== null) {
+      if (typeof mv.taxpayerNameMatch !== 'boolean') return false
+    }
+
+    // ssn4Match: boolean or null
+    if ('ssn4Match' in mv && mv.ssn4Match !== null) {
+      if (typeof mv.ssn4Match !== 'boolean') return false
+    }
+
+    // pageMarkersAlign: boolean or null
+    if ('pageMarkersAlign' in mv && mv.pageMarkersAlign !== null) {
+      if (typeof mv.pageMarkersAlign !== 'boolean') return false
+    }
+
+    // confidenceBoost: number 0-0.20
+    if ('confidenceBoost' in mv) {
+      if (typeof mv.confidenceBoost !== 'number') return false
+      if (mv.confidenceBoost < 0 || mv.confidenceBoost > 0.20) return false
+    }
+  }
 
   return true
 }

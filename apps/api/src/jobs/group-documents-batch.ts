@@ -502,14 +502,20 @@ export const groupDocumentsBatchJob = inngest.createFunction(
           })
 
           // Filter representatives by taxpayerName match
+          // For _unassigned buckets (null taxpayerName), include ALL reps since we don't know the taxpayer
           const matchingReps: DocumentForGrouping[] = []
+          const isUnassignedBucket = bucket.taxpayerName === null
+
           for (const doc of existingGroupedDocs) {
             const metadata = doc.aiMetadata as DocumentForGrouping['aiMetadata']
             const docTaxpayer = normalizeTaxpayerName(metadata?.taxpayerName)
 
-            // Match if both null/undefined OR both equal
+            // For unassigned buckets: include all reps (AI will determine match)
+            // For named buckets: match if both null/undefined OR both equal
             const bucketTaxpayer = bucket.taxpayerName // Already normalized
-            if (docTaxpayer === bucketTaxpayer) {
+            const shouldInclude = isUnassignedBucket || docTaxpayer === bucketTaxpayer
+
+            if (shouldInclude) {
               matchingReps.push({
                 id: doc.id,
                 r2Key: doc.r2Key,
@@ -531,7 +537,9 @@ export const groupDocumentsBatchJob = inngest.createFunction(
           }
 
           // Combine: new ungrouped docs + representatives from existing groups
-          const combinedDocs = [...bucket.documents, ...matchingReps]
+          // Cast bucket.documents to proper type (Inngest serializes step results)
+          const bucketDocs = bucket.documents as unknown as DocumentForGrouping[]
+          const combinedDocs: DocumentForGrouping[] = [...bucketDocs, ...matchingReps]
 
           // Only include bucket if there's potential for grouping:
           // - 2+ new docs (can group together), OR
@@ -546,6 +554,65 @@ export const groupDocumentsBatchJob = inngest.createFunction(
               taxpayerName: bucket.taxpayerName,
               documents: combinedDocs,
             })
+          }
+        }
+
+        // Step 2c: Merge small buckets of the same formType
+        // This handles cases where docs of the same form type end up in different buckets
+        // (e.g., one high confidence with taxpayer, one low confidence -> _unassigned)
+        // By merging them, they can be compared via AI
+        const formTypeToBuckets: Record<string, MetadataBucket[]> = {}
+        for (const bucket of augmentedBuckets) {
+          if (!formTypeToBuckets[bucket.formType]) {
+            formTypeToBuckets[bucket.formType] = []
+          }
+          formTypeToBuckets[bucket.formType].push(bucket)
+        }
+
+        // Also collect small buckets that were dropped (not in augmentedBuckets)
+        const droppedSmallBuckets: MetadataBucket[] = []
+        for (const bucket of buckets) {
+          // Cast bucket to typed version (Inngest serializes step results)
+          const typedBucket = bucket as unknown as MetadataBucket
+          // Check if bucket was added to augmentedBuckets
+          const wasIncluded = augmentedBuckets.some(ab => ab.key === typedBucket.key)
+          if (!wasIncluded && typedBucket.documents && typedBucket.documents.length >= 1) {
+            droppedSmallBuckets.push(typedBucket)
+          }
+        }
+
+        // Group dropped buckets by formType
+        const droppedByFormType: Record<string, DocumentForGrouping[]> = {}
+        for (const bucket of droppedSmallBuckets) {
+          if (!droppedByFormType[bucket.formType]) {
+            droppedByFormType[bucket.formType] = []
+          }
+          droppedByFormType[bucket.formType].push(...bucket.documents)
+        }
+
+        // Merge dropped docs into existing buckets of same formType, or create new merged bucket
+        for (const formType of Object.keys(droppedByFormType)) {
+          const droppedDocs = droppedByFormType[formType]
+          const existingBuckets = formTypeToBuckets[formType] || []
+
+          if (existingBuckets.length > 0) {
+            // Add dropped docs to the first existing bucket of this formType
+            existingBuckets[0].documents.push(...droppedDocs)
+            console.log(
+              `[batch-grouping] Merged ${droppedDocs.length} dropped docs into bucket ${existingBuckets[0].key}`
+            )
+          } else if (droppedDocs.length >= 2) {
+            // No existing bucket for this formType, but 2+ dropped docs can form a new bucket
+            const mergedBucket: MetadataBucket = {
+              key: `${formType}|_merged`,
+              formType,
+              taxpayerName: null,
+              documents: droppedDocs,
+            }
+            augmentedBuckets.push(mergedBucket)
+            console.log(
+              `[batch-grouping] Created merged bucket ${formType}|_merged with ${droppedDocs.length} docs`
+            )
           }
         }
 

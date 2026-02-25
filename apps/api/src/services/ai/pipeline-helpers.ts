@@ -5,9 +5,11 @@
 import { prisma } from '../../lib/db'
 import type { DocType, DocCategory, RawImageStatus, Prisma } from '@ella/db'
 import type { CreateActionParams } from './pipeline-types'
+import { getCategoryFromDocType } from '@ella/shared'
 
 /**
  * Update raw image status with classification info
+ * Also sets category based on docType to ensure consistency
  * @param aiMetadata - Optional metadata for hierarchical clustering (Phase 1)
  */
 export async function updateRawImageStatus(
@@ -17,12 +19,16 @@ export async function updateRawImageStatus(
   docType?: DocType,
   aiMetadata?: Record<string, unknown>
 ) {
+  // Derive category from docType to ensure they stay in sync
+  const category = docType ? getCategoryFromDocType(docType) : undefined
+
   await prisma.rawImage.update({
     where: { id },
     data: {
       status,
       aiConfidence: confidence,
       ...(docType && { classifiedType: docType }),
+      ...(category && { category: category as DocCategory }),
       ...(aiMetadata && { aiMetadata: aiMetadata as Prisma.InputJsonValue }),
     },
   })

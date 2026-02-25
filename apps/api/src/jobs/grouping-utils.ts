@@ -28,6 +28,8 @@ export interface DocumentForGrouping {
       currentPage?: number
       totalPages?: number
       pageMarkers?: string[]
+      partNumber?: string | null  // Roman numeral (I, II, III) - NOT page number
+      isWorksheet?: boolean | null  // True for software-generated supplements
     }
     parentDocumentId?: string | null
     parentFormType?: string | null
@@ -194,29 +196,114 @@ export function bucketDocumentsByMetadata(
 
 /**
  * Sort documents by page markers extracted from AI metadata
- * Falls back to original index (upload order) if no page markers available
- * Phase 3: Page Order Detection
+ *
+ * Sorting priority (highest to lowest):
+ * 1. Explicit page number (pageInfo.currentPage) - from "Page X" in header/footer
+ * 2. Continuation markers - documents with "(continued)" come after non-continued
+ * 3. Worksheets/supplements - always come LAST (after all official form pages)
+ * 4. Upload order fallback - only when no other indicators available
+ *
+ * Phase 3: Page Order Detection (Enhanced)
  */
 export function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; originalIndex: number }>(
   documents: T[]
 ): Array<T & { pageNum: number }> {
-  const docsWithPages = documents.map((d) => {
+  // First pass: assign sort keys to each document
+  const docsWithSortInfo = documents.map((d) => {
     const metadata = d.doc.aiMetadata
-    const pageMarker = metadata?.pageInfo
+    const pageInfo = metadata?.pageInfo
+    const continuationMarker = metadata?.continuationMarker
 
-    // Use extracted page marker if available and valid
-    // pageInfo.currentPage from Phase 1 metadata extraction
-    const pageNum = pageMarker?.currentPage && pageMarker.currentPage > 0
-      ? pageMarker.currentPage
-      : d.originalIndex + 1  // Fallback to upload order (1-indexed)
+    // Determine if this is a worksheet/supplement (should come last)
+    const isWorksheet = pageInfo?.isWorksheet === true
+    const displayName = d.doc.displayName?.toLowerCase() || ''
+    const isLikelyWorksheet = isWorksheet ||
+      displayName.includes('universaltax') ||
+      displayName.includes('calculation') ||
+      displayName.includes('worksheet') ||
+      displayName.includes('statement') && !displayName.includes('form')
+
+    // Determine if this has a continuation marker (usually page 2+)
+    const hasContinuationMarker = continuationMarker?.type != null
+
+    // Get explicit page number if available
+    const explicitPageNum = pageInfo?.currentPage && pageInfo.currentPage > 0
+      ? pageInfo.currentPage
+      : null
+
+    // Check if this looks like page 1 (Part I without explicit page number)
+    const partNumber = pageInfo?.partNumber?.toUpperCase()
+    const isLikelyPage1 = partNumber === 'I' && explicitPageNum === null && !hasContinuationMarker && !isLikelyWorksheet
+
+    return {
+      ...d,
+      explicitPageNum,
+      isWorksheet: isLikelyWorksheet,
+      hasContinuationMarker,
+      isLikelyPage1,
+    }
+  })
+
+  // Count documents with explicit page numbers
+  const docsWithExplicitPages = docsWithSortInfo.filter(d => d.explicitPageNum !== null)
+  const maxExplicitPage = docsWithExplicitPages.length > 0
+    ? Math.max(...docsWithExplicitPages.map(d => d.explicitPageNum!))
+    : 0
+
+  // Second pass: assign final page numbers for sorting
+  const docsWithPages = docsWithSortInfo.map((d, idx) => {
+    let pageNum: number
+
+    if (d.explicitPageNum !== null) {
+      // Has explicit page number from "Page X" header - use directly
+      pageNum = d.explicitPageNum
+    } else if (d.isWorksheet) {
+      // Worksheets go to the end (after all explicit pages + continuation docs)
+      // Use 900 + original index to maintain relative order among worksheets
+      pageNum = 900 + d.originalIndex
+    } else if (d.hasContinuationMarker) {
+      // Has continuation marker but no explicit page - likely page 2+
+      // Put after page 1 documents but before worksheets
+      // Use 100 + original index for relative ordering
+      pageNum = 100 + d.originalIndex
+    } else if (d.isLikelyPage1) {
+      // Has Part I indicator without explicit page number - very likely page 1
+      pageNum = 1
+    } else {
+      // No page info at all - use heuristics
+      // If all other docs have page numbers, this might be page 1 (main form page)
+      // Otherwise, maintain upload order but after docs with continuation markers
+      if (maxExplicitPage > 0 && docsWithExplicitPages.length < documents.length) {
+        // Some docs have explicit pages - this one might fill a gap
+        // Check if page 1 is missing from explicit pages
+        const hasPage1 = docsWithExplicitPages.some(d => d.explicitPageNum === 1)
+        const hasLikelyPage1 = docsWithSortInfo.some(d => d.isLikelyPage1)
+        if (!hasPage1 && !hasLikelyPage1 && !d.hasContinuationMarker) {
+          // Likely the main form page (page 1) - only one doc should get this
+          pageNum = 1
+        } else {
+          // Fill in after continuation docs
+          pageNum = 100 + d.originalIndex
+        }
+      } else {
+        // No explicit pages at all - use upload order
+        pageNum = d.originalIndex + 1
+      }
+    }
 
     return { ...d, pageNum }
   })
 
   // Sort by page number (ascending)
+  // Worksheets (900+) will naturally sort to the end
   docsWithPages.sort((a, b) => a.pageNum - b.pageNum)
 
-  return docsWithPages
+  // Final pass: re-number sequentially for clean output (1, 2, 3...)
+  // But keep the sorted order
+  return docsWithPages.map((d, idx) => ({
+    ...d,
+    pageNum: idx + 1,  // Sequential 1-based numbering
+  }))
 }
 
 /**

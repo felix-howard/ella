@@ -279,11 +279,13 @@ export const PARENT_FORM_PATTERNS: Record<string, RegExp> = {
 
 /**
  * Page marker extracted from document (e.g., "Page 2 of 3", "Part IV")
+ * Note: partNumber is for section indicators only, NOT used for page ordering
  */
 export interface PageMarker {
-  current: number | null  // "Page 2 of 3" → 2
+  current: number | null  // "Page 2 of 3" → 2 (PHYSICAL page number from header)
   total: number | null    // "Page 2 of 3" → 3
-  partNumber: string | null  // "Part IV" → "IV"
+  partNumber: string | null  // "Part IV" → "IV" (section only, NOT page number)
+  isWorksheet: boolean | null  // True for software-generated supplements (e.g., Universal Tax Systems)
 }
 
 /**
@@ -398,11 +400,19 @@ Response: {"docType":"W2","confidence":0.93,"reasoning":"W-2 with visible employ
 
 EXAMPLE 17 - Schedule C continuation page:
 Image shows: "SCHEDULE C" header, "Page 2 of 2", "See attached" text at line 30, expenses listing continues from page 1
-Response: {"docType":"SCHEDULE_C","confidence":0.90,"reasoning":"Schedule C page 2 with continuation marker","taxYear":2024,"extractedMetadata":{"taxpayerName":"JOHN DOE","ssn4":"5678","pageMarker":{"current":2,"total":2,"partNumber":null},"continuationMarker":{"type":"see-attached","parentForm":null,"lineNumber":"30"}}}
+Response: {"docType":"SCHEDULE_C","confidence":0.90,"reasoning":"Schedule C page 2 with continuation marker","taxYear":2024,"extractedMetadata":{"taxpayerName":"JOHN DOE","ssn4":"5678","pageMarker":{"current":2,"total":2,"partNumber":null,"isWorksheet":false},"continuationMarker":{"type":"see-attached","parentForm":null,"lineNumber":"30"}}}
 
-EXAMPLE 18 - Form 2210 underpayment penalty supplement:
-Image shows: "Underpayment of Estimated Tax", "Line 19 (2210)" reference, supporting calculation worksheet
-Response: {"docType":"FORM_2210","confidence":0.88,"reasoning":"Form 2210 supplement with line reference","taxYear":2024,"extractedMetadata":{"taxpayerName":"MARY SMITH","ssn4":null,"pageMarker":null,"continuationMarker":{"type":"line-reference","parentForm":"FORM_2210","lineNumber":"19"}}}
+EXAMPLE 18 - Form 2210 Page 2 with Part III (PHYSICAL page number vs Part number):
+Image shows: "Form 2210 (2024)" in header, "Page 2" visible in top-right corner, "Part III - Penalty Computation" section
+Response: {"docType":"FORM_2210","confidence":0.92,"reasoning":"Form 2210 page 2 showing Part III section - Page 2 from header, Part III is section indicator only","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNE DO","ssn4":"6618","pageMarker":{"current":2,"total":null,"partNumber":"III","isWorksheet":false},"continuationMarker":null}}
+
+EXAMPLE 19 - Universal Tax Systems calculation worksheet (software-generated supplement):
+Image shows: "Universal Tax Systems" logo, "Line 19 (2210) - Penalty Calculation" title, calculation grid
+Response: {"docType":"FORM_2210","confidence":0.85,"reasoning":"Software-generated penalty calculation worksheet for Form 2210 Line 19","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNE DO AND NHAT T TRAN","ssn4":"6618","pageMarker":{"current":null,"total":null,"partNumber":null,"isWorksheet":true},"continuationMarker":{"type":"line-reference","parentForm":"FORM_2210","lineNumber":"19"}}}
+
+EXAMPLE 20 - Form 5695 Page 1 with Part I (first page of multi-page form):
+Image shows: "Form 5695 (2024)" in header, "Part I - Residential Clean Energy Credit" section, NO "Page 2" indicator
+Response: {"docType":"FORM_5695","confidence":0.91,"reasoning":"Form 5695 page 1 showing Part I - main form page with no page indicator means page 1","taxYear":2024,"extractedMetadata":{"taxpayerName":"LYNNIE DO AND NHAT T TRAN","ssn4":"6618","pageMarker":{"current":1,"total":null,"partNumber":"I","isWorksheet":false},"continuationMarker":null}}
 `
 
 /**
@@ -665,7 +675,20 @@ ${CONFIDENCE_CALIBRATION}
 ${METADATA_CONFIDENCE_GUIDE}
 
 Respond in JSON format:
-{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":{"current":2,"total":3,"partNumber":null},"continuationMarker":null}}
+{"docType":"DOC_TYPE","confidence":0.XX,"reasoning":"Brief explanation referencing key identifiers","alternativeTypes":[],"taxYear":2025,"source":"Company Name","recipientName":"Person Name","extractedMetadata":{"taxpayerName":"NGUYEN VAN ANH","ssn4":"1234","pageMarker":{"current":2,"total":3,"partNumber":null,"isWorksheet":false},"continuationMarker":null}}
+
+**PAGE MARKER EXAMPLES:**
+- Form 2210 showing "Form 2210 (2024)" with "Page 2" in top-right, Part III section:
+  {"current":2,"total":null,"partNumber":"III","isWorksheet":false}
+  NOTE: current=2 from "Page 2" header, NOT from Part III!
+
+- Form 5695 showing "Form 5695 (2024)" with Part I content, no page indicator:
+  {"current":1,"total":null,"partNumber":"I","isWorksheet":false}
+  NOTE: current=1 because this is the first page of the form (no "Page 2" indicator)
+
+- Universal Tax Systems calculation sheet (software-generated):
+  {"current":null,"total":null,"partNumber":null,"isWorksheet":true}
+  NOTE: isWorksheet=true, these come AFTER all official IRS form pages
 
 METADATA EXTRACTION (for hierarchical grouping):
 
@@ -685,29 +708,52 @@ Extract the following for document clustering:
 
 3. pageMarker: Page/Part indicators (LOOK IN HEADER/FOOTER ZONES - top 15%, bottom 10%)
 
-   PATTERNS TO FIND (in order of priority):
-   a. "Page X of Y" format:
-      - "Form 1040 (2025) Page 2 of 2" → current: 2, total: 2
-      - "Page 3" alone → current: 3, total: null
+   **CRITICAL: LOOK FOR PHYSICAL PAGE NUMBER, NOT PART/SECTION NUMBER!**
 
-   b. "X/Y" slash notation:
+   On IRS forms, the PHYSICAL page number appears in the top-right corner of each page:
+   - "Form 2210 (2024)" followed by "Page 2" in top-right → current: 2
+   - "Form 5695 (2024)" with "Page 2" in corner → current: 2
+   - "Form 4562 (2024)" with page indicator → use that number
+
+   **WARNING: Part numbers are NOT page numbers!**
+   - Form 2210: Part I is on Page 1, Part II is on Page 1, Part III is on Page 2
+   - Form 5695: Part I is on Page 1, Part II is on Page 2
+   - DO NOT convert Part numbers to page numbers!
+
+   PATTERNS TO FIND (in strict priority order):
+
+   a. PHYSICAL PAGE NUMBER (HIGHEST PRIORITY):
+      - Look in TOP-RIGHT corner for "Page 2", "Page 2 of 2"
+      - Look in BOTTOM footer for page indicators
+      - "Form 1040 (2025) Page 2 of 2" → current: 2, total: 2
+      - Just "Page 2" alone → current: 2, total: null
+
+   b. "X/Y" slash notation (in header/footer only):
       - "1/3", "2/3", "3/3" → current: X, total: Y
 
-   c. Part-based markers (Roman numerals):
-      - "Part IV - Other Taxes" → partNumber: "IV"
-      - "Part II" → partNumber: "II"
-      - Convert to: I=1, II=2, III=3, IV=4, V=5, VI=6
+   c. Part-based markers (ONLY for partNumber field, NOT current):
+      - "Part IV - Other Taxes" → partNumber: "IV", current: null
+      - "Part II" → partNumber: "II", current: null
+      - NEVER use Part numbers to set current page number!
 
-   d. Continuation indicators (affects page ordering):
-      - "Continued" or "Cont." in header → NOT page 1
-      - "(continued from page 1)" → current page is 2+
+   d. Continuation indicators:
+      - "Continued" or "Cont." in header → likely NOT page 1
+      - "(continued)" in section header → NOT page 1
+      - Text like "Section B—Residential Energy Property Expenditures (continued)" → Page 2+
+
+   e. SUPPLEMENTARY WORKSHEETS (software-generated):
+      - "Universal Tax Systems" logo → isWorksheet: true
+      - Tax software calculation sheets → isWorksheet: true
+      - These should come AFTER official IRS form pages
 
    OUTPUT FORMAT:
-   - current: page number (integer) or null
+   - current: PHYSICAL page number (integer) or null - FROM HEADER/FOOTER ONLY
    - total: total pages (integer) or null
-   - partNumber: Roman numeral string (e.g., "IV") or null
+   - partNumber: Roman numeral string (e.g., "IV") or null - section indicator only
+   - isWorksheet: true if software-generated supplement, false/null otherwise
 
-   If multiple patterns found, prioritize "Page X of Y" > slash notation > Part markers.
+   PRIORITIZATION: "Page X" header > slash notation > continuation clues > upload order
+   NEVER use Part numbers (I, II, III, IV) to determine current page number!
 
 4. continuationMarker: Attachment/continuation indicators
    - type: "line-reference" if "Line X (FormNum)"
@@ -810,6 +856,7 @@ export function validateClassificationResult(
       if ('current' in pm && pm.current !== null && typeof pm.current !== 'number') return false
       if ('total' in pm && pm.total !== null && typeof pm.total !== 'number') return false
       if ('partNumber' in pm && pm.partNumber !== null && typeof pm.partNumber !== 'string') return false
+      if ('isWorksheet' in pm && pm.isWorksheet !== null && typeof pm.isWorksheet !== 'boolean') return false
     }
 
     // continuationMarker: optional object or null

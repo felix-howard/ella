@@ -35,6 +35,7 @@ import {
 // Configuration (non-exported)
 const MAX_DOCS_PER_CLUSTER = 20 // Limit for AI comparison (cost/performance)
 const MAX_BUCKET_PROCESS_TIME_MS = 90_000 // 90 seconds max per bucket (N² AI calls)
+const MAX_GROUPING_PASSES = 10 // Safety limit for multi-pass grouping loop
 
 /**
  * Result from processing a single bucket
@@ -378,6 +379,11 @@ async function processBucket(
 /**
  * Batch Document Grouping Inngest Job
  * Triggered by 'document/group-batch' event
+ *
+ * Multi-pass algorithm:
+ * - Continues processing until no more documents can be grouped
+ * - Handles large document sets by processing in batches (MAX_DOCS_PER_CLUSTER)
+ * - Stops when: no changes made, no ungrouped docs remain, or max passes reached
  */
 export const groupDocumentsBatchJob = inngest.createFunction(
   {
@@ -388,127 +394,148 @@ export const groupDocumentsBatchJob = inngest.createFunction(
   async ({ event, step }) => {
     const { caseId, forceRegroup, triggeredBy } = event.data
 
-    // Step 1: Fetch all classified documents in case (including metadata for bucketing)
-    const documents = await step.run('fetch-documents', async () => {
-      const where: Record<string, unknown> = {
-        caseId,
-        status: { in: ['CLASSIFIED', 'LINKED'] },
-      }
+    // Track totals across all passes
+    let grandTotalCreated = 0
+    let grandTotalUpdated = 0
+    let grandTotalProcessed = 0
+    let passCount = 0
 
-      // If not forceRegroup, only process ungrouped documents
-      if (!forceRegroup) {
-        where.documentGroupId = null
-      }
+    // Multi-pass loop: continue until no more progress or max passes reached
+    while (passCount < MAX_GROUPING_PASSES) {
+      passCount++
+      console.log(`[batch-grouping] Starting pass ${passCount}/${MAX_GROUPING_PASSES}`)
 
-      return prisma.rawImage.findMany({
-        where,
-        select: {
-          id: true,
-          r2Key: true,
-          displayName: true,
-          classifiedType: true,
-          documentGroupId: true,
-          pageNumber: true,
-          mimeType: true,
-          aiConfidence: true,
-          aiMetadata: true, // Phase 1 metadata: taxpayerName, ssn4, pageInfo
-        },
-        orderBy: { createdAt: 'asc' },
-      })
-    })
-
-    if (documents.length === 0) {
-      return {
-        success: true,
-        message: 'No documents to process',
-        documentsProcessed: 0,
-        groupsCreated: 0,
-        groupsUpdated: 0,
-        triggeredBy,
-      }
-    }
-
-    // Step 2: Bucket documents by metadata (formType + taxpayerName)
-    // Phase 2 improvement: Taxpayer-separated buckets prevent cross-person grouping
-    const buckets = await step.run('bucket-by-metadata', async () => {
-      // Cast Prisma return types to our interface (Prisma returns Json, we know structure)
-      const docsWithMetadata: DocumentForGrouping[] = documents.map((doc) => ({
-        id: doc.id,
-        r2Key: doc.r2Key,
-        displayName: doc.displayName,
-        classifiedType: doc.classifiedType,
-        documentGroupId: doc.documentGroupId,
-        pageNumber: doc.pageNumber,
-        mimeType: doc.mimeType,
-        aiConfidence: doc.aiConfidence,
-        aiMetadata: doc.aiMetadata as DocumentForGrouping['aiMetadata'],
-      }))
-
-      const metadataBuckets = bucketDocumentsByMetadata(docsWithMetadata)
-
-      // Log bucket formation for explainability
-      const entries = Array.from(metadataBuckets.entries())
-      for (const [key, bucket] of entries) {
-        console.log(
-          `[batch-grouping] Bucket: ${key} → ${bucket.documents.length} docs`
-        )
-      }
-
-      // Convert to array and filter to buckets with 2+ docs
-      return Array.from(metadataBuckets.values()).filter(
-        (bucket) => bucket.documents.length >= 2
-      )
-    })
-
-    if (buckets.length === 0) {
-      return {
-        success: true,
-        message: 'No buckets with multiple documents',
-        documentsProcessed: documents.length,
-        groupsCreated: 0,
-        groupsUpdated: 0,
-        bucketsFound: 0,
-        triggeredBy,
-      }
-    }
-
-    // Step 3: Process each bucket sequentially (serialized AI calls)
-    let totalCreated = 0
-    let totalUpdated = 0
-    let totalProcessed = 0
-
-    for (const bucket of buckets) {
-      // Reconstruct bucket with proper types after Inngest serialization
-      const typedBucket: MetadataBucket = {
-        key: bucket.key as string,
-        formType: bucket.formType as string,
-        taxpayerName: bucket.taxpayerName as string | null,
-        documents: (bucket.documents as unknown[]).map((doc: unknown) => {
-          const d = doc as Record<string, unknown>
-          return {
-            id: d.id as string,
-            r2Key: d.r2Key as string,
-            displayName: d.displayName as string | null,
-            classifiedType: d.classifiedType as string | null,
-            documentGroupId: d.documentGroupId as string | null,
-            pageNumber: d.pageNumber as number | null,
-            mimeType: d.mimeType as string | null,
-            aiConfidence: d.aiConfidence as number | null,
-            aiMetadata: d.aiMetadata as DocumentForGrouping['aiMetadata'],
-          }
-        }),
-      }
-
-      const result = await step.run(
-        `process-bucket-${bucket.key.replace(/\|/g, '-')}`,
-        async () => {
-          return processBucket(caseId, typedBucket)
+      // Step 1: Fetch ungrouped classified documents
+      const documents = await step.run(`fetch-documents-pass-${passCount}`, async () => {
+        const where: Record<string, unknown> = {
+          caseId,
+          status: { in: ['CLASSIFIED', 'LINKED'] },
         }
+
+        // If not forceRegroup, only process ungrouped documents
+        // On subsequent passes, always fetch only ungrouped
+        if (!forceRegroup || passCount > 1) {
+          where.documentGroupId = null
+        }
+
+        return prisma.rawImage.findMany({
+          where,
+          select: {
+            id: true,
+            r2Key: true,
+            displayName: true,
+            classifiedType: true,
+            documentGroupId: true,
+            pageNumber: true,
+            mimeType: true,
+            aiConfidence: true,
+            aiMetadata: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      })
+
+      // Exit conditions: no documents or only 1 (can't group a single doc)
+      if (documents.length === 0) {
+        console.log(`[batch-grouping] Pass ${passCount}: No documents to process`)
+        break
+      }
+      if (documents.length === 1) {
+        console.log(`[batch-grouping] Pass ${passCount}: Only 1 ungrouped doc remains, stopping`)
+        break
+      }
+
+      // Step 2: Bucket documents by metadata
+      const buckets = await step.run(`bucket-by-metadata-pass-${passCount}`, async () => {
+        const docsWithMetadata: DocumentForGrouping[] = documents.map((doc) => ({
+          id: doc.id,
+          r2Key: doc.r2Key,
+          displayName: doc.displayName,
+          classifiedType: doc.classifiedType,
+          documentGroupId: doc.documentGroupId,
+          pageNumber: doc.pageNumber,
+          mimeType: doc.mimeType,
+          aiConfidence: doc.aiConfidence,
+          aiMetadata: doc.aiMetadata as DocumentForGrouping['aiMetadata'],
+        }))
+
+        const metadataBuckets = bucketDocumentsByMetadata(docsWithMetadata)
+
+        // Log bucket formation
+        const entries = Array.from(metadataBuckets.entries())
+        for (const [key, bucket] of entries) {
+          console.log(`[batch-grouping] Pass ${passCount} Bucket: ${key} → ${bucket.documents.length} docs`)
+        }
+
+        return Array.from(metadataBuckets.values()).filter(
+          (bucket) => bucket.documents.length >= 2
+        )
+      })
+
+      // No buckets with 2+ docs means no grouping possible
+      if (buckets.length === 0) {
+        console.log(`[batch-grouping] Pass ${passCount}: No buckets with multiple documents`)
+        break
+      }
+
+      // Step 3: Process each bucket
+      let passCreated = 0
+      let passUpdated = 0
+      let passProcessed = 0
+
+      for (const bucket of buckets) {
+        const typedBucket: MetadataBucket = {
+          key: bucket.key as string,
+          formType: bucket.formType as string,
+          taxpayerName: bucket.taxpayerName as string | null,
+          documents: (bucket.documents as unknown[]).map((doc: unknown) => {
+            const d = doc as Record<string, unknown>
+            return {
+              id: d.id as string,
+              r2Key: d.r2Key as string,
+              displayName: d.displayName as string | null,
+              classifiedType: d.classifiedType as string | null,
+              documentGroupId: d.documentGroupId as string | null,
+              pageNumber: d.pageNumber as number | null,
+              mimeType: d.mimeType as string | null,
+              aiConfidence: d.aiConfidence as number | null,
+              aiMetadata: d.aiMetadata as DocumentForGrouping['aiMetadata'],
+            }
+          }),
+        }
+
+        const result = await step.run(
+          `process-bucket-pass-${passCount}-${bucket.key.replace(/\|/g, '-')}`,
+          async () => {
+            return processBucket(caseId, typedBucket)
+          }
+        )
+
+        passCreated += result.created
+        passUpdated += result.updated
+        passProcessed += result.docsProcessed
+      }
+
+      grandTotalCreated += passCreated
+      grandTotalUpdated += passUpdated
+      grandTotalProcessed += passProcessed
+
+      console.log(
+        `[batch-grouping] Pass ${passCount} complete: created=${passCreated}, updated=${passUpdated}, processed=${passProcessed}`
       )
 
-      totalCreated += result.created
-      totalUpdated += result.updated
-      totalProcessed += result.docsProcessed
+      // If no groups were created or updated this pass, no point continuing
+      if (passCreated === 0 && passUpdated === 0) {
+        console.log(`[batch-grouping] No progress made in pass ${passCount}, stopping`)
+        break
+      }
+
+      // Otherwise, continue to next pass to process remaining ungrouped docs
+      console.log(`[batch-grouping] Progress made, will check for more ungrouped docs...`)
+    }
+
+    if (passCount >= MAX_GROUPING_PASSES) {
+      console.warn(`[batch-grouping] Reached max passes limit (${MAX_GROUPING_PASSES})`)
     }
 
     // Step 4: Link continuation sheets to parent DocumentGroups (Phase 5)
@@ -651,10 +678,10 @@ export const groupDocumentsBatchJob = inngest.createFunction(
 
     return {
       success: true,
-      documentsProcessed: documents.length,
-      bucketsProcessed: buckets.length,
-      groupsCreated: totalCreated,
-      groupsUpdated: totalUpdated,
+      passesCompleted: passCount,
+      documentsProcessed: grandTotalProcessed,
+      groupsCreated: grandTotalCreated,
+      groupsUpdated: grandTotalUpdated,
       continuationsLinked,
       triggeredBy,
     }

@@ -454,9 +454,27 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   })
 
   // Poll images to detect when grouping job completes
+  // Backend handles multi-pass looping, frontend just waits for stabilization
   const startGroupingPoll = useCallback(() => {
     let stableCount = 0
     let lastUngroupedCount = ungroupedCount
+    const initialCount = ungroupedCount // Track total progress
+
+    const finishGrouping = (finalCount: number, startCount: number) => {
+      setIsGroupingActive(false)
+      hotToast.dismiss('ai-grouping')
+      const grouped = startCount - finalCount
+      if (grouped > 0) {
+        toast.success(t('filesTab.groupingSuccess', { count: grouped }))
+      } else {
+        toast.info(t('filesTab.groupingNoMatches'))
+      }
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+      if (groupingPollRef.current) {
+        clearInterval(groupingPollRef.current)
+        groupingPollRef.current = null
+      }
+    }
 
     const poll = async () => {
       try {
@@ -473,23 +491,20 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             (img.status === 'CLASSIFIED' || img.status === 'LINKED') && !img.documentGroupId
         ).length
 
-        // Check if grouping is complete (no more ungrouped docs OR count stabilized)
-        if (currentUngrouped === 0 || (currentUngrouped === lastUngroupedCount && stableCount >= 2)) {
-          // Grouping complete!
-          setIsGroupingActive(false)
-          hotToast.dismiss('ai-grouping')
-          toast.success(t('filesTab.groupingSuccess', { count: lastUngroupedCount - currentUngrouped }))
-          queryClient.invalidateQueries({ queryKey: ['images', caseId] })
-          if (groupingPollRef.current) {
-            clearInterval(groupingPollRef.current)
-            groupingPollRef.current = null
-          }
+        // All ungrouped docs processed
+        if (currentUngrouped === 0) {
+          finishGrouping(currentUngrouped, initialCount)
           return
         }
 
-        // Track stability
+        // Check if grouping is complete (count stabilized for 3 polls)
+        // Use 3 polls since backend does multiple passes which may cause temporary stability
         if (currentUngrouped === lastUngroupedCount) {
           stableCount++
+          if (stableCount >= 3) {
+            finishGrouping(currentUngrouped, initialCount)
+            return
+          }
         } else {
           stableCount = 0
           lastUngroupedCount = currentUngrouped

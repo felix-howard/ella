@@ -285,6 +285,7 @@
   "filesTab.groupingInProgress": "AI đang nhóm tài liệu...",
   "filesTab.groupingStarted": "Đang bắt đầu nhóm tài liệu...",
   "filesTab.groupingSuccess": "Đã nhóm thành công {{count}} tài liệu",
+  "filesTab.groupingNoMatches": "Không tìm thấy tài liệu nào khớp để nhóm",
   "filesTab.groupingError": "Không thể bắt đầu nhóm tài liệu",
   "filesTab.filesCount": "{{count}} tệp",
   "filesTab.newCount": "{{count}} mới",

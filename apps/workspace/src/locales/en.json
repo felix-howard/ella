@@ -285,6 +285,7 @@
   "filesTab.groupingInProgress": "AI is grouping documents...",
   "filesTab.groupingStarted": "Document grouping started...",
   "filesTab.groupingSuccess": "Successfully grouped {{count}} documents",
+  "filesTab.groupingNoMatches": "No matching documents found to group",
   "filesTab.groupingError": "Failed to start document grouping",
   "filesTab.filesCount": "{{count}} files",
   "filesTab.newCount": "{{count}} new",

@@ -33,16 +33,14 @@ export function GroupedFileRow({
         aria-hidden="true"
       />
 
-      {/* Group header badge (optional - shows base name + count for large groups) */}
-      {group.pageCount > 2 && (
-        <div className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground bg-muted/30 border-b border-border">
-          <span className="ml-8" aria-hidden="true">📑</span>
-          <span>{group.baseName}</span>
-          <span className="text-muted-foreground/60">
-            ({group.pageCount} trang)
-          </span>
-        </div>
-      )}
+      {/* Group header badge - shows base name + count for all groups */}
+      <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary/10 border-b border-primary/20">
+        <span className="ml-8 text-primary" aria-hidden="true">📑</span>
+        <span className="text-primary">{group.baseName}</span>
+        <span className="text-primary/70">
+          ({group.pageCount} trang)
+        </span>
+      </div>
 
       {/* Grouped rows */}
       {group.images.map((image, idx) => {

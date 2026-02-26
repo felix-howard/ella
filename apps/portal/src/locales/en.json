@@ -252,5 +252,6 @@
   "draft.viewerFallback": "Your browser cannot display PDFs directly. Please use the buttons below.",
   "draft.openInNewTab": "Open in New Tab",
   "draft.download": "Download PDF",
-  "draft.loadingPdf": "Loading PDF..."
+  "draft.loadingPdf": "Loading PDF...",
+  "draft.scrollHint": "Scroll down for more pages"
 }

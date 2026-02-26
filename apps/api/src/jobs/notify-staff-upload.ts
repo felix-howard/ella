@@ -34,7 +34,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
   {
     id: 'notify-staff-upload',
     batchEvents: {
-      maxSize: 100,
+      maxSize: 5, // Inngest limit is 5 max
       timeout: '60s', // 1 minute (reduced for testing)
       key: 'event.data.caseId',
     },

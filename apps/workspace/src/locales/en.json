@@ -1133,5 +1133,21 @@
   "draftReturn.openLink": "Open",
   "draftReturn.copyLink": "Copy link",
   "draftReturn.loadingPreview": "Loading...",
-  "draftReturn.versionLoadError": "Could not load version"
+  "draftReturn.versionLoadError": "Could not load version",
+  "draftReturn.extendModalTitle": "Extend Link Expiry",
+  "draftReturn.extendModalDesc": "Extend the shareable link so clients can continue accessing the draft return.",
+  "draftReturn.currentExpiry": "Current Expiry Date",
+  "draftReturn.newExpiry": "New Expiry Date",
+  "draftReturn.days": "days",
+  "draftReturn.extending": "Extending...",
+  "draftReturn.extendConfirmBtn": "Extend Link",
+  "draftReturn.revokeModalTitle": "Revoke Link",
+  "draftReturn.revokeModalDesc": "This action will immediately disable the shareable link.",
+  "draftReturn.revokeWarning": "This action cannot be undone",
+  "draftReturn.revokeWarningDetail": "Once revoked, the client will no longer be able to access this draft return via the shared link. You can upload a new version to create a new link.",
+  "draftReturn.linkInfo": "Current Link Information",
+  "draftReturn.totalViews": "Total views",
+  "draftReturn.expiryDate": "Expires",
+  "draftReturn.revoking": "Revoking...",
+  "draftReturn.revokeConfirmBtn": "Revoke Link"
 }

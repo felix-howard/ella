@@ -23,6 +23,8 @@ import { toast } from '../../stores/toast-store'
 import { api } from '../../lib/api-client'
 import { formatRelativeTime, formatBytes } from '../../lib/formatters'
 import { useDraftReturnSignedUrl } from '../../hooks/use-draft-return-signed-url'
+import { ExtendLinkModal } from './extend-link-modal'
+import { RevokeLinkModal } from './revoke-link-modal'
 import type { DraftReturnData, DraftMagicLinkData, DraftVersionData } from '../../lib/api-client'
 
 // Lazy load PDF thumbnail for code splitting
@@ -50,6 +52,8 @@ export function DraftReturnSummary({
   const [isUploading, setIsUploading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [loadingVersion, setLoadingVersion] = useState<number | null>(null)
+  const [showExtendModal, setShowExtendModal] = useState(false)
+  const [showRevokeModal, setShowRevokeModal] = useState(false)
 
   // Get signed URL for PDF thumbnail preview
   const { data: signedUrlData, isLoading: isLoadingUrl } = useDraftReturnSignedUrl(draftReturn.id)
@@ -69,13 +73,13 @@ export function DraftReturnSummary({
     window.open(magicLink.url, '_blank', 'noopener,noreferrer')
   }, [magicLink?.url])
 
-  // Revoke link
-  const handleRevoke = useCallback(async () => {
-    if (!confirm(t('draftReturn.revokeConfirm'))) return
+  // Revoke link - confirm via modal
+  const handleRevokeConfirm = useCallback(async () => {
     setIsRevoking(true)
     try {
       await api.draftReturns.revoke(draftReturn.id)
       toast.success(t('draftReturn.revokeSuccess'))
+      setShowRevokeModal(false)
       onActionComplete()
     } catch {
       toast.error(t('draftReturn.revokeError'))
@@ -84,12 +88,13 @@ export function DraftReturnSummary({
     }
   }, [draftReturn.id, t, onActionComplete])
 
-  // Extend expiry
-  const handleExtend = useCallback(async () => {
+  // Extend expiry - confirm via modal
+  const handleExtendConfirm = useCallback(async () => {
     setIsExtending(true)
     try {
       await api.draftReturns.extend(draftReturn.id)
       toast.success(t('draftReturn.extendSuccess'))
+      setShowExtendModal(false)
       onActionComplete()
     } catch {
       toast.error(t('draftReturn.extendError'))
@@ -259,29 +264,19 @@ export function DraftReturnSummary({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleExtend}
-                      disabled={isExtending}
+                      onClick={() => setShowExtendModal(true)}
                       className="gap-1.5"
                     >
-                      {isExtending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Clock className="w-4 h-4" />
-                      )}
+                      <Clock className="w-4 h-4" />
                       {t('draftReturn.extend')}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleRevoke}
-                      disabled={isRevoking}
+                      onClick={() => setShowRevokeModal(true)}
                       className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      {isRevoking ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Link2Off className="w-4 h-4" />
-                      )}
+                      <Link2Off className="w-4 h-4" />
                       {t('draftReturn.revoke')}
                     </Button>
                   </div>
@@ -387,6 +382,25 @@ export function DraftReturnSummary({
           )}
         </div>
       )}
+
+      {/* Extend Link Modal */}
+      <ExtendLinkModal
+        isOpen={showExtendModal}
+        onClose={() => setShowExtendModal(false)}
+        onConfirm={handleExtendConfirm}
+        currentExpiryDate={expiresAt}
+        isLoading={isExtending}
+      />
+
+      {/* Revoke Link Modal */}
+      <RevokeLinkModal
+        isOpen={showRevokeModal}
+        onClose={() => setShowRevokeModal(false)}
+        onConfirm={handleRevokeConfirm}
+        currentExpiryDate={expiresAt}
+        viewCount={draftReturn.viewCount}
+        isLoading={isRevoking}
+      />
     </div>
   )
 }

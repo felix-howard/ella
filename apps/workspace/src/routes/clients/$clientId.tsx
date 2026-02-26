@@ -45,9 +45,9 @@ import {
   DataEntryTab,
 } from '../../components/documents'
 import {
-  ClientOverviewSections,
   YearSwitcher,
   CreateEngagementModal,
+  ClientOverviewTab,
 } from '../../components/clients'
 import { FilesTab } from '../../components/files'
 import { FloatingChatbox } from '../../components/chatbox'
@@ -72,7 +72,7 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>('files')
+  const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
@@ -404,8 +404,7 @@ function ClientDetailPage() {
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
-    // TODO: Temporarily hidden - re-enable when needed
-    // { id: 'overview', label: clientsText.tabs.overview, icon: User },
+    { id: 'overview', label: t('clientOverview.title'), icon: User },
     { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
     // TODO: Temporarily hidden - re-enable when needed
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
@@ -596,10 +595,7 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          {/* Client Profile Overview */}
-          <ClientOverviewSections client={client} />
-        </div>
+        <ClientOverviewTab client={client} />
       )}
 
       {/* Files Tab - Primary document explorer view */}

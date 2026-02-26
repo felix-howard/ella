@@ -6,7 +6,7 @@
  * Supports negation patterns (!) for allowlisting.
  */
 
-const Ignore = require('./vendor/ignore');
+const Ignore = require('./vendor/ignore.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -128,6 +128,21 @@ function matchPath(matcher, testPath) {
   // Remove leading ./ if present
   if (normalized.startsWith('./')) {
     normalized = normalized.slice(2);
+  }
+
+  // Strip leading / for absolute paths (ignore lib requires relative paths)
+  while (normalized.startsWith('/')) {
+    normalized = normalized.slice(1);
+  }
+
+  // Strip leading ../ segments (resolve parent references)
+  while (normalized.startsWith('../')) {
+    normalized = normalized.slice(3);
+  }
+
+  // Empty after normalization = not a blockable path
+  if (!normalized) {
+    return { blocked: false };
   }
 
   // Check if path is ignored (blocked)

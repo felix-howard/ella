@@ -1,33 +1,36 @@
 /**
- * PDF Document - Core react-pdf wrapper with fit-to-width and DPI scaling
- * Renders single page at a time for mobile UX
- * Uses ResizeObserver for responsive fit-to-width calculation
+ * PDF Document - Vertical scroll PDF viewer with all pages rendered
+ * Features: fit-to-width, DPI scaling, scroll-based page tracking, smooth zoom
+ * Optimized for mobile UX with natural scrolling
  */
 import { Document, Page } from 'react-pdf'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { buttonVariants, cn } from '@ella/ui'
 
 export interface PdfDocumentProps {
   url: string
-  currentPage: number
   zoom?: number
-  gestureBindings?: ReturnType<() => Record<string, unknown>>
+  numPages: number
   onLoadSuccess: (numPages: number) => void
   onLoadError: () => void
+  onPageChange?: (page: number) => void
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>
 }
 
 export function PdfDocument({
   url,
-  currentPage,
   zoom = 1,
-  gestureBindings,
+  numPages,
   onLoadSuccess,
   onLoadError,
+  onPageChange,
+  scrollContainerRef,
 }: PdfDocumentProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const containerWidthRef = useRef<number>(0)
 
   const [fitScale, setFitScale] = useState<number>(1)
@@ -51,18 +54,46 @@ export function PdfDocument({
     return () => observer.disconnect()
   }, [])
 
-  // Calculate fit-to-width scale after page renders
+  // Track visible page during scroll
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef?.current
+    if (!scrollContainer || numPages === 0) return
+
+    const handleScroll = () => {
+      const containerRect = scrollContainer.getBoundingClientRect()
+      const containerCenter = containerRect.top + containerRect.height / 2
+
+      let closestPage = 1
+      let closestDistance = Infinity
+
+      pageRefs.current.forEach((pageEl, pageNum) => {
+        const pageRect = pageEl.getBoundingClientRect()
+        const pageCenter = pageRect.top + pageRect.height / 2
+        const distance = Math.abs(pageCenter - containerCenter)
+
+        if (distance < closestDistance) {
+          closestDistance = distance
+          closestPage = pageNum
+        }
+      })
+
+      onPageChange?.(closestPage)
+    }
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+    return () => scrollContainer.removeEventListener('scroll', handleScroll)
+  }, [scrollContainerRef, numPages, onPageChange])
+
+  // Calculate fit-to-width scale after first page renders
   const handlePageRenderSuccess = useCallback(() => {
     if (hasCalculatedFit.current) return
 
     const width = containerWidthRef.current
     if (width <= 0) return
 
-    // Get the rendered canvas to calculate natural dimensions
     const canvas = containerRef.current?.querySelector('canvas')
     if (canvas) {
       const dpi = window.devicePixelRatio || 1
-      // Natural width at scale 1 (current scale is applied)
       const naturalWidth = canvas.width / (1 * dpi)
       const calculatedScale = width / naturalWidth
       setFitScale(calculatedScale)
@@ -71,15 +102,13 @@ export function PdfDocument({
     }
   }, [])
 
-  // Handle document load success
   const handleLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
-      onLoadSuccess(numPages)
+    ({ numPages: pages }: { numPages: number }) => {
+      onLoadSuccess(pages)
     },
     [onLoadSuccess]
   )
 
-  // Handle document load error
   const handleLoadError = useCallback(
     (error: Error) => {
       console.error('PDF load error:', error.message)
@@ -89,14 +118,28 @@ export function PdfDocument({
     [onLoadError]
   )
 
-  // DPI multiplier for crisp rendering on retina displays
+  // DPI multiplier for crisp rendering
   const dpiMultiplier =
     typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
   // Effective scale: fitScale * zoom * DPI
   const renderScale = fitScale * zoom * dpiMultiplier
 
-  // Error state - show fallback UI
+  // Generate page numbers array for rendering
+  const pageNumbers = useMemo(
+    () => Array.from({ length: numPages }, (_, i) => i + 1),
+    [numPages]
+  )
+
+  // Store page ref for scroll tracking
+  const setPageRef = useCallback((pageNum: number, el: HTMLDivElement | null) => {
+    if (el) {
+      pageRefs.current.set(pageNum, el)
+    } else {
+      pageRefs.current.delete(pageNum)
+    }
+  }, [])
+
   if (hasError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 bg-muted/30 h-full">
@@ -121,12 +164,7 @@ export function PdfDocument({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full relative overflow-hidden"
-      style={{ touchAction: 'none' }}
-      {...(gestureBindings || {})}
-    >
+    <div ref={containerRef} className="w-full relative">
       <Document
         file={url}
         onLoadSuccess={handleLoadSuccess}
@@ -139,33 +177,40 @@ export function PdfDocument({
             </div>
           </div>
         }
-        className="flex justify-center"
+        className="flex flex-col items-center gap-4 py-4"
       >
-        <div className="relative">
-          <Page
-            pageNumber={currentPage}
-            scale={renderScale}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-            className="shadow-md"
-            onRenderSuccess={handlePageRenderSuccess}
-            loading={
-              <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
-            }
-          />
-          {/* Watermark overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-            <span
-              className="text-[120px] font-bold text-gray-400/20 select-none whitespace-nowrap"
-              style={{ transform: 'rotate(-30deg)' }}
-            >
-              Ella
-            </span>
+        {pageNumbers.map((pageNum) => (
+          <div
+            key={pageNum}
+            ref={(el) => setPageRef(pageNum, el)}
+            data-page={pageNum}
+            className="relative"
+          >
+            <Page
+              pageNumber={pageNum}
+              scale={renderScale}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              className="shadow-md"
+              onRenderSuccess={pageNum === 1 ? handlePageRenderSuccess : undefined}
+              loading={
+                <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
+              }
+            />
+            {/* Watermark overlay per page */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+              <span
+                className="text-[120px] font-bold text-gray-400/20 select-none whitespace-nowrap"
+                style={{ transform: 'rotate(-30deg)' }}
+              >
+                Ella
+              </span>
+            </div>
           </div>
-        </div>
+        ))}
       </Document>
 
-      {/* Show loading overlay while calculating fit scale */}
+      {/* Loading overlay while calculating fit scale */}
       {isCalculatingFit && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
           <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />

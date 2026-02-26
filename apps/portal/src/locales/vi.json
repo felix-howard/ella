@@ -252,5 +252,6 @@
   "draft.viewerFallback": "Trình duyệt không hỗ trợ hiển thị PDF. Vui lòng sử dụng các nút bên dưới.",
   "draft.openInNewTab": "Mở trong tab mới",
   "draft.download": "Tải PDF",
-  "draft.loadingPdf": "Đang tải PDF..."
+  "draft.loadingPdf": "Đang tải PDF...",
+  "draft.scrollHint": "Cuộn xuống để xem thêm trang"
 }

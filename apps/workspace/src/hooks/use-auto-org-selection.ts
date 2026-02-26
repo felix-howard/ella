@@ -14,7 +14,10 @@ export function useAutoOrgSelection() {
   const [isSelecting, setIsSelecting] = useState(false)
 
   const membershipData = userMemberships?.data
+  const isFetching = userMemberships?.isLoading ?? false
   const hasOrg = (membershipData?.length ?? 0) > 0
+  // Only consider fully loaded when hook is loaded AND not fetching data
+  const isFullyLoaded = isLoaded && !isFetching
 
   useEffect(() => {
     if (!isSignedIn || orgId || !setActive || !isLoaded) return
@@ -30,7 +33,7 @@ export function useAutoOrgSelection() {
   }, [isSignedIn, orgId, setActive, isLoaded, membershipData])
 
   return {
-    isLoaded,
+    isLoaded: isFullyLoaded,
     hasOrg,
     orgId,
     isSelecting,

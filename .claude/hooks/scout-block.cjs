@@ -18,134 +18,130 @@
  * Exit Codes:
  * - 0: Command allowed
  * - 2: Command blocked
- */
-
-const fs = require('fs');
-const path = require('path');
-
-// Import modules
-const { loadPatterns, createMatcher, matchPath } = require('./scout-block/pattern-matcher.cjs');
-const { extractFromToolInput } = require('./scout-block/path-extractor.cjs');
-const { formatBlockedError } = require('./scout-block/error-formatter.cjs');
-const { detectBroadPatternIssue, formatBroadPatternError } = require('./scout-block/broad-pattern-detector.cjs');
-
-// Build command allowlist - these are allowed even if they contain blocked paths
-// Handles flags and filters: npm build, pnpm --filter web run build, yarn workspace app build
-// Also allows: go, cargo, make, mvn/mvnw, gradle/gradlew, dotnet, docker, bazel, cmake, sbt, flutter, swift, ant, ninja, meson
-const BUILD_COMMAND_PATTERN = /^(npm|pnpm|yarn|bun)\s+([^\s]+\s+)*(run\s+)?(build|test|lint|dev|start|install|ci|add|remove|update|publish|pack|init|create|exec)/;
-const TOOL_COMMAND_PATTERN = /^(\.\/)?(npx|pnpx|bunx|tsc|esbuild|vite|webpack|rollup|turbo|nx|jest|vitest|mocha|eslint|prettier|go|cargo|make|mvn|mvnw|gradle|gradlew|dotnet|docker|podman|kubectl|helm|terraform|ansible|bazel|cmake|sbt|flutter|swift|ant|ninja|meson)/;
-
-// Allow execution from .venv/bin/ or venv/bin/ (Unix) and .venv/Scripts/ or venv/Scripts/ (Windows)
-// Blocks exploration (cat, ls, grep) but allows running venv executables
-const VENV_EXECUTABLE_PATTERN = /(^|[\/\\])\.?venv[\/\\](bin|Scripts)[\/\\]/;
-
-/**
- * Check if a command is a build/tooling command (should be allowed)
  *
- * @param {string} command - The command to check
- * @returns {boolean}
+ * Core logic extracted to lib/scout-checker.cjs for OpenCode plugin reuse.
  */
-function isBuildCommand(command) {
-  if (!command || typeof command !== 'string') return false;
-  const trimmed = command.trim();
-  return BUILD_COMMAND_PATTERN.test(trimmed) || TOOL_COMMAND_PATTERN.test(trimmed);
-}
 
-/**
- * Check if command executes from a .venv bin directory
- * Allows: ~/.claude/skills/.venv/bin/python3 script.py
- * Allows: .venv/Scripts/python.exe script.py
- *
- * @param {string} command - The command to check
- * @returns {boolean}
- */
-function isVenvExecutable(command) {
-  if (!command || typeof command !== 'string') return false;
-  return VENV_EXECUTABLE_PATTERN.test(command);
-}
-
+// Crash wrapper — catches require() failures and logs them
 try {
-  // Read stdin synchronously
-  const hookInput = fs.readFileSync(0, 'utf-8');
+  const fs = require('fs');
+  const path = require('path');
 
-  // Validate input not empty
-  if (!hookInput || hookInput.trim().length === 0) {
-    console.error('ERROR: Empty input');
-    process.exit(2);
+  // Import shared scout checking logic
+  const {
+    checkScoutBlock,
+    isBuildCommand,
+    isVenvExecutable,
+    isAllowedCommand
+  } = require('./lib/scout-checker.cjs');
+  const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
+
+  // Early exit if hook disabled in config
+  if (!isHookEnabled('scout-block')) {
+    process.exit(0);
   }
 
-  // Parse JSON
-  let data;
+  // Import formatters (kept local as they're Claude-specific output)
+  const { formatBlockedError } = require('./scout-block/error-formatter.cjs');
+  const { formatBroadPatternError } = require('./scout-block/broad-pattern-detector.cjs');
+
+  const { createHookTimer } = require('./lib/hook-logger.cjs');
+
   try {
-    data = JSON.parse(hookInput);
-  } catch (parseError) {
-    // Fail-open for unparseable input
-    console.error('WARN: JSON parse failed, allowing operation');
-    process.exit(0);
-  }
+    const timer = createHookTimer('scout-block');
+    // Read stdin synchronously
+    const hookInput = fs.readFileSync(0, 'utf-8');
 
-  // Validate structure
-  if (!data.tool_input || typeof data.tool_input !== 'object') {
-    // Fail-open for invalid structure
-    console.error('WARN: Invalid JSON structure, allowing operation');
-    process.exit(0);
-  }
-
-  const toolInput = data.tool_input;
-  const toolName = data.tool_name || 'unknown';
-
-  // Check if it's a build command or venv executable (allowed regardless of paths)
-  if (toolInput.command && (isBuildCommand(toolInput.command) || isVenvExecutable(toolInput.command))) {
-    process.exit(0);
-  }
-
-  // Check for overly broad glob patterns (Glob tool)
-  // This prevents LLMs from filling context with **/*.ts at project root
-  if (toolName === 'Glob' || toolInput.pattern) {
-    const broadResult = detectBroadPatternIssue(toolInput);
-    if (broadResult.blocked) {
-      const errorMsg = formatBroadPatternError(broadResult, path.dirname(__dirname));
-      console.error(errorMsg);
+    // Validate input not empty
+    if (!hookInput || hookInput.trim().length === 0) {
+      console.error('ERROR: Empty input');
+      timer.end({ status: 'error', exit: 2 });
       process.exit(2);
     }
-  }
 
-  // Load patterns from .ckignore
-  const scriptDir = __dirname;
-  const claudeDir = path.dirname(scriptDir); // Go up from hooks/ to .claude/
-  const ckignorePath = path.join(claudeDir, '.ckignore');
-  const patterns = loadPatterns(ckignorePath);
-  const matcher = createMatcher(patterns);
+    // Parse JSON
+    let data;
+    try {
+      data = JSON.parse(hookInput);
+    } catch (parseError) {
+      // Fail-open for unparseable input
+      console.error('WARN: JSON parse failed, allowing operation');
+      timer.end({ status: 'ok', exit: 0 });
+      process.exit(0);
+    }
 
-  // Extract paths from tool input
-  const extractedPaths = extractFromToolInput(toolInput);
+    // Validate structure
+    if (!data.tool_input || typeof data.tool_input !== 'object') {
+      // Fail-open for invalid structure
+      console.error('WARN: Invalid JSON structure, allowing operation');
+      timer.end({ status: 'ok', exit: 0 });
+      process.exit(0);
+    }
 
-  // If no paths extracted, allow operation
-  if (extractedPaths.length === 0) {
-    process.exit(0);
-  }
+    const toolInput = data.tool_input;
+    const toolName = data.tool_name || 'unknown';
+    const claudeDir = path.dirname(__dirname); // Go up from hooks/ to .claude/
 
-  // Check each path against patterns
-  for (const extractedPath of extractedPaths) {
-    const result = matchPath(matcher, extractedPath);
+    // Use shared scout checker
+    const result = checkScoutBlock({
+      toolName,
+      toolInput,
+      options: {
+        claudeDir,
+        ckignorePath: path.join(claudeDir, '.ckignore'),
+        checkBroadPatterns: true
+      }
+    });
+
+    // Handle allowed commands
+    if (result.isAllowedCommand) {
+      timer.end({ tool: toolName, status: 'ok', exit: 0 });
+      process.exit(0);
+    }
+
+    // Handle broad pattern blocks
+    if (result.blocked && result.isBroadPattern) {
+      const errorMsg = formatBroadPatternError({
+        blocked: true,
+        reason: result.reason,
+        suggestions: result.suggestions
+      }, claudeDir);
+      console.error(errorMsg);
+      timer.end({ tool: toolName, status: 'block', exit: 2 });
+      process.exit(2);
+    }
+
+    // Handle pattern blocks
     if (result.blocked) {
-      // Output rich error message
       const errorMsg = formatBlockedError({
-        path: extractedPath,
+        path: result.path,
         pattern: result.pattern,
         tool: toolName,
         claudeDir: claudeDir
       });
       console.error(errorMsg);
+      timer.end({ tool: toolName, status: 'block', exit: 2 });
       process.exit(2);
     }
+
+    // All paths allowed
+    timer.end({ tool: toolName, status: 'ok', exit: 0 });
+    process.exit(0);
+
+  } catch (error) {
+    // Fail-open for unexpected errors
+    console.error('WARN: Hook error, allowing operation -', error.message);
+    process.exit(0);
   }
-
-  // All paths allowed
-  process.exit(0);
-
-} catch (error) {
-  // Fail-open for unexpected errors
-  console.error('WARN: Hook error, allowing operation -', error.message);
-  process.exit(0);
+} catch (e) {
+  // Minimal crash logging (zero deps — only Node builtins)
+  try {
+    const fs = require('fs');
+    const p = require('path');
+    const logDir = p.join(__dirname, '.logs');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(p.join(logDir, 'hook-log.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), hook: p.basename(__filename, '.cjs'), status: 'crash', error: e.message }) + '\n');
+  } catch (_) {}
+  process.exit(0); // fail-open
 }

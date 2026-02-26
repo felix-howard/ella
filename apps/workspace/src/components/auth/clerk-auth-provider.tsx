@@ -93,12 +93,16 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
   // Don't render children until Clerk is fully loaded AND token is verified
   // This prevents API calls from firing before auth token is available
   if (!isLoaded || !isTokenReady) {
-    return null
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    )
   }
 
-  // Wait for auto-org selection to complete before rendering the app
-  // This prevents redirect loops where session is pending org selection
-  if (isSignedIn && isOrgLoaded && hasOrg && !orgId) {
+  // Wait for org data to load and auto-selection to complete
+  // This prevents flash of "No Organization" during initial load
+  if (isSignedIn && (!isOrgLoaded || isSelecting || (hasOrg && !orgId))) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />

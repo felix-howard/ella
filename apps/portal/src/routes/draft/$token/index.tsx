@@ -144,7 +144,7 @@ function DraftViewerPage() {
       {/* PDF Viewer - lazy loaded with Suspense */}
       <div className="flex-1 min-h-0 overflow-hidden h-[calc(100dvh-120px)]">
         <Suspense fallback={<PdfLoadingSkeleton />}>
-          <PdfViewer url={data.pdfUrl} filename={data.filename} />
+          <PdfViewer url={data.pdfUrl} />
         </Suspense>
       </div>
 

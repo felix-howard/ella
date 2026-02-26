@@ -22,6 +22,12 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
 
+      {/* Notes Editor - Rich text notes with auto-save */}
+      <ClientNotesEditor
+        clientId={client.id}
+        initialContent={client.notes ?? null}
+      />
+
       {/* Two column layout on desktop: Activity + Assigned Staff */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Activity Timeline */}
@@ -30,12 +36,6 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
         {/* Assigned Staff */}
         <ClientAssignedStaff clientId={client.id} />
       </div>
-
-      {/* Notes Editor - Rich text notes with auto-save */}
-      <ClientNotesEditor
-        clientId={client.id}
-        initialContent={client.notes ?? null}
-      />
     </div>
   )
 }

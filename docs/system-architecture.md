@@ -157,19 +157,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PUT /client-assignments/transfer` - Transfer client
 - Similar for invitations & staff assignments
 
-**Clients (14+):**
+**Clients (8+):**
 - `GET /clients` - List with org scoping + sort (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client)
 - `POST /clients` - Create with organization
 - `GET /clients/:id` - Detail with org verification
 - `PATCH /clients/:id` - Update profile/intakeAnswers
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
-- `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
-- `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
-- `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
-- `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
-- `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
-- `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking
 
 **Cases & Engagements (14+):**
@@ -243,7 +237,7 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt (Phase 02 Backend)
+- **Client** - organizationId FK, profile data, intakeAnswers Json
 - **ClientAssignment** - Unique (clientId, staffId), organizationId FK
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
@@ -592,23 +586,10 @@ Mobile-optimized UI:
 
 ---
 
-## Phase 05: Client Overview Tab - Integration & Cleanup (COMPLETE)
+## Phase 05: Avatar Upload - Client-Side Compression & Presigned R2 Upload
 
 **Overview:**
-Integration of Client Overview Tab as default tab on client detail page. Avatar upload with client-side Canvas compression, rich text notes with Tiptap editor, quick stats cards, activity timeline, and assigned staff badges.
-
-**Phase 05 Completion:**
-- `apps/workspace/src/routes/clients/$clientId.tsx` - Default tab set to `overview` (line 75)
-- `apps/workspace/src/components/clients/index.ts` - Removed old ClientOverviewSections export (line 16, comment added)
-- Old components fully replaced by ClientOverviewTab modular structure
-
-**ClientOverviewTab Features:**
-- **Avatar Section:** Client avatar display with hover state, fallback initials badge
-- **Profile Card:** Client name, phone, email with quick-edit icons
-- **Quick Stats:** totalFiles, taxYears (pills), verifiedPercent (progress), lastMessageAt
-- **Activity Timeline:** Recent uploads, messages, case updates (10 items max, chronological)
-- **Assigned Staff:** Staff badges with avatar/name, hover card for details
-- **Rich Notes Editor:** Tiptap integration with HTML sanitization, auto-save (30s debounce)
+Self-service avatar upload with client-side Canvas compression, presigned R2 workflow, keyboard accessibility, and real-time preview.
 
 **Image Compression Utility (`image-utils.ts`):**
 ```typescript
@@ -627,17 +608,18 @@ formatFileSize(bytes): string
 - Display helper: "123 KB", "1.5 MB"
 ```
 
-**AvatarUploader Component (`client-avatar-uploader.tsx`):**
+**AvatarUploader Component (`avatar-uploader.tsx`):**
 ```typescript
 Props:
-- clientId: string
+- staffId: string (user being edited)
 - currentAvatarUrl: string | null (existing avatar)
-- clientName: string (for initials fallback)
+- name: string (for initials fallback)
+- canEdit: boolean (self-only enforced)
 
 States: idle | compressing | uploading | confirming | success | error
 
 Upload Flow:
-1. User clicks avatar
+1. User clicks avatar (if canEdit=true)
 2. File input → validation (type + size ≤10MB)
 3. Compress via Canvas (progress: "Compressing...")
 4. GET presigned URL from backend
@@ -647,11 +629,12 @@ Upload Flow:
 
 Accessibility:
 - Enter/Space triggers upload (keyboard)
-- aria-label: "Change client avatar" (EN/VI)
+- Disabled when uploading or !canEdit
+- aria-label: "Change avatar" (EN/VI)
 - Focus ring: focus:ring-2 focus:ring-primary
 
 Visual Feedback:
-- Idle: Camera icon on hover
+- Idle: Camera icon on hover (canEdit only)
 - Uploading: Spinner overlay
 - Success: Green check overlay (1.5s fade)
 - Error: AlertCircle icon + error message + dismiss button
@@ -659,66 +642,42 @@ Visual Feedback:
 
 **API Integration:**
 ```typescript
-POST /clients/:id/avatar/presigned-url
+POST /team/members/:staffId/avatar/presigned-url
   Request: { contentType: 'image/jpeg', fileSize: number }
-  Response: { uploadUrl, expiresIn, r2Key }
+  Response: { presignedUrl, expiresIn, key }
   Notes: Expires 15min, R2 PUT requires Content-Type header
 
-PATCH /clients/:id/avatar
+PATCH /team/members/:staffId/avatar
   Request: { r2Key: string }
-  Response: { id, avatarUrl, updatedAt } (signed download URL, 7-day TTL)
+  Response: { avatarUrl: string } (signed download URL, 7-day TTL)
   Notes: Validates avatars/ prefix, creates signed URL immediately
-
-DELETE /clients/:id/avatar
-  Response: { id, avatarUrl: null, updatedAt }
-
-PATCH /clients/:id/notes
-  Request: { notes: string } (HTML, max 50KB)
-  Response: { id, notes, notesUpdatedAt, updatedAt }
-
-GET /clients/:id/activity
-  Response: ActivityItem[] (10 items max, desc by timestamp)
-  Types: upload | message | case_updated
-
-GET /clients/:id/stats
-  Response: { totalFiles, taxYears[], verifiedPercent, lastMessageAt }
 ```
 
 **Cache Invalidation:**
 ```typescript
 confirmMutation.onSuccess:
-  - queryClient.invalidateQueries(['client', clientId])
+  - queryClient.invalidateQueries(['team-member-profile', staffId])
+  - queryClient.invalidateQueries(['staff-me']) ← Sidebar update
   - Success toast + preview reset (1.5s delay)
 ```
 
 **Localization Keys:**
 ```
-profile.clientAvatar - Section heading
-profile.changeClientAvatar - Button aria-label
+profile.changeAvatar - Button aria-label
 profile.compressing - Upload state text
 profile.uploading - Upload state text
 profile.saving - Confirmation state text
-profile.avatarUpdated - Success toast
+profile.avatarUpdated - Success toast (EN: "Profile picture updated")
 profile.avatarUploadFailed - Error toast
-profile.invalidImageType - Validation error
-profile.imageTooLarge - Validation error
-overview.quickStats - Stats card heading
-overview.totalFiles - File count label
-overview.taxYears - Tax years label
-overview.verified - Verification % label
-overview.lastMessage - Last message label
-overview.activity - Activity timeline heading
-overview.assignedStaff - Staff badges heading
-overview.notes - Rich notes editor label
-overview.notesPlaceholder - Editor placeholder text
+profile.invalidImageType - Validation error (EN: "Image must be JPEG, PNG, WebP, or GIF")
+profile.imageTooLarge - Validation error (EN: "Image cannot exceed 10MB")
 ```
 
 **Security:**
-- Org-level access control: buildClientScopeFilter applied to all endpoints
+- Self-only enforcement: Backend validates JWT staffId matches request
 - Presigned URLs expire: 15min (upload), 7 days (download)
-- R2 key validation: client-avatars/{clientId}/{timestamp}-{random}.jpg (directory traversal safe)
+- R2 key validation: avatars/{staffId}/{timestamp}-{random}.jpg (directory traversal safe)
 - File size limits: 10MB pre-compression, 200KB post-compression target
-- HTML sanitization: Notes stored as HTML, frontend auto-escapes React rendering (no XSS)
 - HTTPS only: Presigned URLs include X-Amz-* signatures
 
 ---
@@ -1090,109 +1049,6 @@ Success toast: "Profile updated"
 - Full i18n coverage (EN/VI)
 - Self-only enforcement via backend
 - Clean component composition with ProfileForm
-
----
-
-## Phase 02: Backend Client Overview - Avatar, Notes & Activity
-
-**Overview:**
-Client profile enhancement API enabling staff to manage client avatars, internal notes, and view activity timeline. Presigned R2 workflow for efficient avatar uploads, rich HTML notes support, and aggregated activity from documents/messages/case updates.
-
-**New Client Fields:**
-```typescript
-Client {
-  avatarUrl?: string | null         // Signed R2 URL (7-day TTL) or null
-  notes?: string | null             // HTML content up to 50KB (Tiptap editor format)
-  notesUpdatedAt?: Date | null      // Timestamp of last notes edit
-}
-```
-
-**Avatar Upload Workflow (`POST` then `PATCH`):**
-1. `POST /clients/:id/avatar/presigned-url` - Request presigned PUT URL
-   - Input: `{ contentType, fileSize }` (JPEG/PNG/WebP/GIF, max 10MB)
-   - Output: `{ uploadUrl, r2Key }` (15min expiry)
-   - Security: Generates key as `client-avatars/{clientId}/{timestamp}-{random}.{ext}`
-2. Browser PUT to presigned URL directly (bypasses server)
-3. `PATCH /clients/:id/avatar` - Confirm upload
-   - Input: `{ r2Key }` (from presigned response)
-   - Validates key belongs to client (prevents path traversal)
-   - Generates signed download URL (7-day TTL)
-   - Output: `{ id, avatarUrl, updatedAt }`
-
-**Avatar Security:**
-- Presigned URLs expire 15 min (upload), 7 days (download)
-- R2 key validation: Must start with `client-avatars/{clientId}/`
-- Client-level access control via org-scoped queries
-- File size limits: 10MB pre-upload validation
-
-**Notes API (`PATCH /clients/:id/notes`):**
-- Input: `{ notes }` (HTML string, max 50KB)
-- Stores as-is from Tiptap editor (frontend responsible for sanitization on render)
-- Truncates to 50KB if exceeded
-- Updates notesUpdatedAt timestamp
-- Output: `{ id, notes, notesUpdatedAt, updatedAt }`
-- XSS prevention: Frontend auto-escapes React rendering (notes aren't treated as raw HTML)
-
-**Activity Timeline (`GET /clients/:id/activity`):**
-Aggregates recent events across client's tax cases in single endpoint:
-```typescript
-ActivityItem {
-  type: 'upload' | 'message' | 'case_updated'
-  id: string
-  timestamp: string (ISO8601)
-  description: string
-}
-```
-- **uploads:** RawImage entries (displayName or filename)
-- **messages:** SMS/PORTAL messages (direction + first 50 chars of content)
-- **case_updated:** TaxCase status changes (year + current status)
-- Returns top 10 most recent (sorted desc by timestamp)
-
-**Quick Stats (`GET /clients/:id/stats`):**
-Single query endpoint for client overview cards:
-```typescript
-{
-  totalFiles: number          // Count of RawImage uploads
-  taxYears: number[]          // Unique tax years (sorted desc)
-  verifiedPercent: number     // % of DigitalDoc with status=VERIFIED (0-100)
-  lastMessageAt: string | null // Most recent Message.createdAt (ISO8601)
-}
-```
-
-**API Integration:**
-```typescript
-// In api-client.ts
-api.clients.getActivity(clientId)       // GET /clients/:id/activity
-api.clients.getStats(clientId)          // GET /clients/:id/stats
-api.clients.avatarPresignedUrl(clientId, { contentType, fileSize })
-api.clients.confirmAvatar(clientId, { r2Key })
-api.clients.deleteAvatar(clientId)      // DELETE /clients/:id/avatar
-api.clients.updateNotes(clientId, { notes })
-```
-
-**Validation Schemas (New):**
-- `avatarPresignedUrlSchema` - contentType enum (JPEG/PNG/WebP/GIF), fileSize 100B-10MB
-- `avatarConfirmSchema` - r2Key must start with `client-avatars/`
-- `updateNotesSchema` - notes max 50KB
-
-**Access Control:**
-- All endpoints org-scoped via buildClientScopeFilter
-- Admin: See all client avatars/notes
-- Staff: See only assigned client avatars/notes
-- Activity/stats: Scoped to client's own cases + messages
-
-**Performance Notes:**
-- Activity endpoint: Parallel queries (rawImages, messages, taxCases), returns top 10
-- Stats endpoint: Single aggregation query with COUNT, no N+1
-- Avatar presigned: Single R2 API call (cached 15min)
-- Notes: Single update, no indexing overhead
-
-**Localization:**
-All avatar/notes UI will need i18n keys in workspace:
-- `profile.changeClientAvatar` - Button label
-- `profile.avatarUpdated` - Success toast
-- `profile.notesPlaceholder` - Editor hint text
-- Error keys for validation failures
 
 ---
 

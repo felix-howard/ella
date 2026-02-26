@@ -111,29 +111,12 @@ export async function getSignedUploadUrl(
 }
 
 /**
- * Generate unique avatar key with timestamp and random suffix (Staff)
+ * Generate unique avatar key with timestamp and random suffix
  */
 export function generateAvatarKey(staffId: string): string {
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(2, 8) // 6-char random suffix
   return `avatars/${staffId}/${timestamp}-${random}.jpg`
-}
-
-/**
- * Generate unique avatar key for client with timestamp and random suffix
- * @param contentType - Optional MIME type to determine extension (default: image/jpeg)
- */
-export function generateClientAvatarKey(clientId: string, contentType?: string): string {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8) // 6-char random suffix
-  const extMap: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-  }
-  const ext = contentType ? extMap[contentType] || 'jpg' : 'jpg'
-  return `client-avatars/${clientId}/${timestamp}-${random}.${ext}`
 }
 
 /**

@@ -466,11 +466,6 @@ model Client {
   email     String?
   language  Language @default(VI)
 
-  // Client overview profile fields
-  avatarUrl      String?   // R2 storage URL for profile picture
-  notes          String?   @db.Text  // Rich text notes (HTML from Tiptap)
-  notesUpdatedAt DateTime? // Track when notes last edited
-
   profile      ClientProfile?
   engagements  TaxEngagement[]
   taxCases     TaxCase[]

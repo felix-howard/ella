@@ -200,28 +200,9 @@ export const updateProfileSchema = z.object({
     ),
 })
 
-// Avatar presigned URL request
-export const avatarPresignedUrlSchema = z.object({
-  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
-  fileSize: z.number().min(100).max(10 * 1024 * 1024), // 100B min, 10MB max
-})
-
-// Avatar confirm schema
-export const avatarConfirmSchema = z.object({
-  r2Key: z.string().startsWith('client-avatars/'),
-})
-
-// Notes update schema
-export const updateNotesSchema = z.object({
-  notes: z.string().max(50000), // ~50KB HTML limit
-})
-
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>
 export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>
-export type AvatarPresignedUrlInput = z.infer<typeof avatarPresignedUrlSchema>
-export type AvatarConfirmInput = z.infer<typeof avatarConfirmSchema>
-export type UpdateNotesInput = z.infer<typeof updateNotesSchema>

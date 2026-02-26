@@ -177,7 +177,7 @@ export function PdfDocument({
             </div>
           </div>
         }
-        className="flex flex-col items-center gap-4 py-4 min-w-fit"
+        className="flex flex-col items-center gap-4 py-4"
       >
         {pageNumbers.map((pageNum) => (
           <div

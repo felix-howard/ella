@@ -328,7 +328,6 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       avatarUrl: true,
       phoneNumber: true,
       notifyOnUpload: true,
-      notifyAllClients: true,
       _count: { select: { clientAssignments: true } },
     },
   })
@@ -397,7 +396,7 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { name, phoneNumber, notifyOnUpload, notifyAllClients } = c.req.valid('json')
+    const { name, phoneNumber, notifyOnUpload } = c.req.valid('json')
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -419,7 +418,6 @@ teamRoute.patch(
         ...(name !== undefined && { name }),
         ...(phoneNumber !== undefined && { phoneNumber }),
         ...(notifyOnUpload !== undefined && { notifyOnUpload }),
-        ...(notifyAllClients !== undefined && { notifyAllClients }),
       },
       select: {
         id: true,
@@ -428,7 +426,6 @@ teamRoute.patch(
         phoneNumber: true,
         avatarUrl: true,
         notifyOnUpload: true,
-        notifyAllClients: true,
       },
     })
 

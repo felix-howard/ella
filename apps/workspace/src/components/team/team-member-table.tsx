@@ -134,9 +134,17 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
         {/* Name */}
         <td className="px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', avatarColor.bg, avatarColor.text)}>
-              <span className="font-semibold text-sm">{getInitials(member.name)}</span>
-            </div>
+            {member.avatarUrl ? (
+              <img
+                src={member.avatarUrl}
+                alt={member.name}
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', avatarColor.bg, avatarColor.text)}>
+                <span className="font-semibold text-sm">{getInitials(member.name)}</span>
+              </div>
+            )}
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-foreground">{member.name}</p>

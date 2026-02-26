@@ -94,35 +94,20 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     const { clientId, clientName, organizationId, hasAssignments } = caseInfo
 
     // Step 2: Query recipients
+    // New simplified logic: Admin gets ALL client uploads, Staff gets assigned only
     const recipients = await step.run('get-recipients', async () => {
-
-      // Build OR conditions for recipient query
-      const orConditions: object[] = [
-        // Assigned staff
-        { clientAssignments: { some: { clientId } } },
-      ]
-
-      // Admins with notifyAllClients=true
-      orConditions.push({
-        role: 'ADMIN',
-        notifyAllClients: true,
-      })
-
-      // Admins when client has no assignments (catch unassigned)
-      if (!hasAssignments) {
-        orConditions.push({
-          role: 'ADMIN',
-          notifyAllClients: false,
-        })
-      }
-
       const staff = await prisma.staff.findMany({
         where: {
           organizationId,
           phoneNumber: { not: null },
           notifyOnUpload: true,
           isActive: true,
-          OR: orConditions,
+          OR: [
+            // Admins get notified for ALL client uploads
+            { role: 'ADMIN' },
+            // Staff get notified only for assigned clients
+            { clientAssignments: { some: { clientId } } },
+          ],
         },
         select: {
           id: true,

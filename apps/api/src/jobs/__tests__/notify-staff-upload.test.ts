@@ -207,7 +207,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
       expect(staff[0].phoneNumber).toBe('+15555551234')
     })
 
-    it('queries admins with notifyAllClients=true', async () => {
+    it('queries all admins (admins get ALL client uploads)', async () => {
       mockPrismaClientAssignment.count.mockResolvedValue(1)
       const mockStaff = [
         {
@@ -219,33 +219,22 @@ describe('notifyStaffOnUploadJob workflow', () => {
       ]
       mockPrismaStaff.findMany.mockResolvedValue(mockStaff as never)
 
+      // New logic: Admins get notified for ALL client uploads
       const staff = await prisma.staff.findMany({
         where: {
           organizationId: testOrgId,
           phoneNumber: { not: null },
           notifyOnUpload: true,
           isActive: true,
+          OR: [
+            { role: 'ADMIN' },
+            { clientAssignments: { some: { clientId: testClientId } } },
+          ],
         },
         select: { id: true, name: true, phoneNumber: true, language: true },
       })
 
       expect(staff).toHaveLength(1)
-    })
-
-    it('queries all admins when client has no assignments', async () => {
-      mockPrismaClientAssignment.count.mockResolvedValue(0) // No assignments
-      mockPrismaStaff.findMany.mockResolvedValue([
-        {
-          id: 'admin-catch',
-          name: 'Admin C',
-          phoneNumber: '+15555559999',
-          language: 'EN',
-        },
-      ] as never)
-
-      // Simulate the logic: when no assignments, include admins with notifyAllClients=false
-      const hasAssignments = (await prisma.clientAssignment.count({ where: { clientId: testClientId } })) > 0
-      expect(hasAssignments).toBe(false)
     })
 
     it('skips staff without phone number', async () => {

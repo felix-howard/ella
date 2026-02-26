@@ -1997,7 +1997,6 @@ export interface StaffProfile {
   avatarUrl: string | null
   phoneNumber: string | null
   notifyOnUpload: boolean
-  notifyAllClients: boolean
 }
 
 export interface ProfileResponse {
@@ -2011,7 +2010,6 @@ export interface UpdateStaffProfileInput {
   name?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean
-  notifyAllClients?: boolean
 }
 
 export interface AvatarPresignedUrlInput {

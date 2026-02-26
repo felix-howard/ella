@@ -17,10 +17,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
 
 export interface PdfViewerProps {
   url: string
-  filename: string
 }
 
-export function PdfViewer({ url, filename }: PdfViewerProps) {
+export function PdfViewer({ url }: PdfViewerProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
   const [hasError, setHasError] = useState(false)
@@ -67,7 +66,6 @@ export function PdfViewer({ url, filename }: PdfViewerProps) {
       <div className="w-full h-full overflow-auto">
         <PdfDocument
           url={url}
-          filename={filename}
           currentPage={currentPage}
           zoom={zoom}
           gestureBindings={bind()}
@@ -81,8 +79,6 @@ export function PdfViewer({ url, filename }: PdfViewerProps) {
         <PdfControls
           currentPage={currentPage}
           totalPages={numPages}
-          url={url}
-          filename={filename}
           visible={visible}
         />
       )}

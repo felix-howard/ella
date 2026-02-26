@@ -1094,8 +1094,6 @@
   "profile.notifications": "Notification Preferences",
   "profile.notifyOnUpload": "Document upload notifications",
   "profile.notifyOnUploadDesc": "Receive SMS when clients upload documents",
-  "profile.notifyAllClients": "Notify for all clients",
-  "profile.notifyAllClientsDesc": "Receive notifications for all clients, not just assigned ones",
   "profile.phoneRequiredForSms": "Phone number required for SMS notifications",
   "clientDetail.tabDraftReturn": "Draft Return",
   "clientDetail.draftReturnError": "Could not load draft return",

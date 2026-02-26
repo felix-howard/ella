@@ -6,12 +6,11 @@
 import { Document, Page } from 'react-pdf'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, AlertTriangle, ExternalLink, FileDown } from 'lucide-react'
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { buttonVariants, cn } from '@ella/ui'
 
 export interface PdfDocumentProps {
   url: string
-  filename: string
   currentPage: number
   zoom?: number
   gestureBindings?: ReturnType<() => Record<string, unknown>>
@@ -21,7 +20,6 @@ export interface PdfDocumentProps {
 
 export function PdfDocument({
   url,
-  filename,
   currentPage,
   zoom = 1,
   gestureBindings,
@@ -109,25 +107,15 @@ export function PdfDocument({
         <p className="text-sm text-muted-foreground mb-4 text-center">
           {t('draft.viewerFallback')}
         </p>
-        <div className="flex gap-3">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(buttonVariants({ variant: 'outline' }), 'gap-2')}
-          >
-            <ExternalLink className="w-4 h-4" />
-            {t('draft.openInNewTab')}
-          </a>
-          <a
-            href={url}
-            download={filename}
-            className={cn(buttonVariants({ variant: 'default' }), 'gap-2')}
-          >
-            <FileDown className="w-4 h-4" />
-            {t('draft.download')}
-          </a>
-        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(buttonVariants({ variant: 'default' }), 'gap-2')}
+        >
+          <ExternalLink className="w-4 h-4" />
+          {t('draft.openInNewTab')}
+        </a>
       </div>
     )
   }
@@ -153,17 +141,28 @@ export function PdfDocument({
         }
         className="flex justify-center"
       >
-        <Page
-          pageNumber={currentPage}
-          scale={renderScale}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          className="shadow-md"
-          onRenderSuccess={handlePageRenderSuccess}
-          loading={
-            <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
-          }
-        />
+        <div className="relative">
+          <Page
+            pageNumber={currentPage}
+            scale={renderScale}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            className="shadow-md"
+            onRenderSuccess={handlePageRenderSuccess}
+            loading={
+              <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
+            }
+          />
+          {/* Watermark overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+            <span
+              className="text-[120px] font-bold text-gray-400/20 select-none whitespace-nowrap"
+              style={{ transform: 'rotate(-30deg)' }}
+            >
+              Ella
+            </span>
+          </div>
+        </div>
       </Document>
 
       {/* Show loading overlay while calculating fit scale */}

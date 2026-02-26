@@ -12,3 +12,4 @@ At C:\Users\Admin\Desktop\ella\.claude\skills\install.ps1:669 char:15
  
 [notice] A new release of pip is available: 24.0 -> 25.3
 [notice] To update, run: python.exe -m pip install --upgrade pip
+Requirement already satisfied: pyyaml>=6.0 in .\.venv\Lib\site-packages (6.0.3)

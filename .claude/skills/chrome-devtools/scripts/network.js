@@ -16,7 +16,7 @@ async function monitorNetwork() {
 
   try {
     const browser = await getBrowser({
-      headless: args.headless !== 'false'
+      headless: args.headless
     });
 
     const page = await getPage(browser);
@@ -101,6 +101,7 @@ async function monitorNetwork() {
     process.exit(0);
   } catch (error) {
     outputError(error);
+    process.exit(1);
   }
 }
 

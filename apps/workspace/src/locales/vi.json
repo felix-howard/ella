@@ -1093,8 +1093,6 @@
   "profile.notifications": "Cài đặt thông báo",
   "profile.notifyOnUpload": "Thông báo tài liệu mới",
   "profile.notifyOnUploadDesc": "Nhận SMS khi khách hàng tải tài liệu lên",
-  "profile.notifyAllClients": "Thông báo cho tất cả khách hàng",
-  "profile.notifyAllClientsDesc": "Nhận thông báo cho tất cả khách hàng, không chỉ khách hàng được gán",
   "profile.phoneRequiredForSms": "Cần số điện thoại để nhận SMS",
   "clientDetail.tabDraftReturn": "Bản nháp",
   "clientDetail.draftReturnError": "Không thể tải bản nháp",

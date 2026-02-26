@@ -32,7 +32,6 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
     staff.phoneNumber as E164Number | undefined
   )
   const [editNotifyOnUpload, setEditNotifyOnUpload] = useState(staff.notifyOnUpload)
-  const [editNotifyAllClients, setEditNotifyAllClients] = useState(staff.notifyAllClients)
 
   // Validation errors
   const [nameError, setNameError] = useState<string | null>(null)
@@ -44,7 +43,6 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
         name: editName.trim(),
         phoneNumber: editPhoneNumber || null,
         notifyOnUpload: editNotifyOnUpload,
-        notifyAllClients: editNotifyAllClients,
       }),
     onSuccess: () => {
       toast.success(t('profile.updateSuccess'))
@@ -86,7 +84,6 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
     setEditName(staff.name)
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
-    setEditNotifyAllClients(staff.notifyAllClients)
     setNameError(null)
     setPhoneError(null)
     setIsEditing(false)
@@ -95,8 +92,7 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
   const isDirty =
     editName !== staff.name ||
     editPhoneNumber !== staff.phoneNumber ||
-    editNotifyOnUpload !== staff.notifyOnUpload ||
-    editNotifyAllClients !== staff.notifyAllClients
+    editNotifyOnUpload !== staff.notifyOnUpload
 
   return (
     <div className="bg-card rounded-xl border border-border p-6">
@@ -198,26 +194,6 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
               disabled={!isEditing}
             />
           </div>
-
-          {/* Notify All Clients Toggle (Admin only) */}
-          {staff.role === 'ADMIN' && (
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex-1 pr-4">
-                <label htmlFor="notifyAllClients" className="text-sm font-medium text-foreground">
-                  {t('profile.notifyAllClients')}
-                </label>
-                <p className="text-sm text-muted-foreground">
-                  {t('profile.notifyAllClientsDesc')}
-                </p>
-              </div>
-              <Switch
-                id="notifyAllClients"
-                checked={isEditing ? editNotifyAllClients : staff.notifyAllClients}
-                onCheckedChange={setEditNotifyAllClients}
-                disabled={!isEditing}
-              />
-            </div>
-          )}
 
           {/* Phone required hint */}
           {!staff.phoneNumber && (

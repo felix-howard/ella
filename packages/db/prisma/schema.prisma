@@ -382,7 +382,6 @@ model Staff {
 
   // Upload notification preferences
   notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
-  notifyAllClients  Boolean @default(false)  // Admin: notify for ALL clients (not just assigned)
 
   // Audit fields
   deactivatedAt DateTime?

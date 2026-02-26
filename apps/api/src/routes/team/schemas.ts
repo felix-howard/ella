@@ -31,7 +31,6 @@ export const updateProfileSchema = z.object({
     .nullable(),
   // Notification preferences
   notifyOnUpload: z.boolean().optional(),
-  notifyAllClients: z.boolean().optional(),
 })
 
 // Avatar presigned URL request

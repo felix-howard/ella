@@ -111,10 +111,8 @@ export function DraftReturnSummary({
 
     setIsUploading(true)
     try {
-      const result = await api.draftReturns.upload(caseId, file)
+      await api.draftReturns.upload(caseId, file)
       toast.success(t('draftReturn.uploadSuccess'))
-      await navigator.clipboard.writeText(result.portalUrl)
-      toast.success(t('draftReturn.linkCopied'))
       onActionComplete()
     } catch {
       toast.error(t('draftReturn.uploadError'))

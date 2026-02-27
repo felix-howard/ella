@@ -1813,6 +1813,7 @@ export interface VersionHistoryEntry {
 export interface ScheduleCMagicLink {
   id: string
   token: string
+  url: string
   isActive: boolean
   expiresAt: string | null
   lastUsedAt: string | null
@@ -1874,6 +1875,7 @@ export type ScheduleEStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED'
 export interface ScheduleEMagicLink {
   id: string
   token: string
+  url: string
   isActive: boolean
   expiresAt: string | null
   lastUsedAt: string | null

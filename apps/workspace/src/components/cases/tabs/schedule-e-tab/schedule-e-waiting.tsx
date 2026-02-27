@@ -89,7 +89,7 @@ export function ScheduleEWaiting({ expense, magicLink, caseId }: ScheduleEWaitin
       </div>
 
       {/* Actions */}
-      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkToken={magicLink?.token} />
+      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

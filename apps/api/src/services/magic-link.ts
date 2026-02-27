@@ -21,7 +21,7 @@ const MAGIC_LINK_TTL_DAYS = 365
 /**
  * Generate URL based on magic link type
  */
-function getMagicLinkUrl(token: string, type: MagicLinkType): string {
+export function getMagicLinkUrl(token: string, type: MagicLinkType): string {
   switch (type) {
     case 'SCHEDULE_C':
       return `${PORTAL_URL}/expense/${token}`

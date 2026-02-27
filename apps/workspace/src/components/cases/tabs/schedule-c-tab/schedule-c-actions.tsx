@@ -12,13 +12,10 @@ import { toast } from '../../../../stores/toast-store'
 interface ScheduleCActionsProps {
   caseId: string
   status: ScheduleCStatus
-  magicLinkToken?: string | null
+  magicLinkUrl?: string | null
 }
 
-// Build form URL from token
-const PORTAL_URL = import.meta.env.VITE_PORTAL_URL || 'http://localhost:5173'
-
-export function ScheduleCActions({ caseId, status, magicLinkToken }: ScheduleCActionsProps) {
+export function ScheduleCActions({ caseId, status, magicLinkUrl }: ScheduleCActionsProps) {
   const { t } = useTranslation()
   const { lock, unlock, isLoading } = useScheduleCActions({ caseId })
   const [showLockConfirm, setShowLockConfirm] = useState(false)
@@ -26,7 +23,7 @@ export function ScheduleCActions({ caseId, status, magicLinkToken }: ScheduleCAc
 
   const isLocked = status === 'LOCKED'
   const isDraft = status === 'DRAFT'
-  const formLink = magicLinkToken ? `${PORTAL_URL}/expense/${magicLinkToken}` : null
+  const formLink = magicLinkUrl ?? null
 
   const handleCopyLink = async () => {
     if (!formLink) return

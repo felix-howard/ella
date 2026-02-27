@@ -9,6 +9,7 @@ import {
   createMagicLinkWithDeactivation,
   getScheduleEMagicLink,
   extendMagicLinkExpiry,
+  getMagicLinkUrl,
 } from '../../services/magic-link'
 import { sendScheduleEFormMessage, getOrgSmsLanguage } from '../../services/sms/message-sender'
 import { calculateScheduleETotals } from '../../services/schedule-e/expense-calculator'
@@ -144,6 +145,7 @@ scheduleERoute.get('/:caseId', async (c) => {
       ? {
           id: magicLink.id,
           token: magicLink.token,
+          url: getMagicLinkUrl(magicLink.token, 'SCHEDULE_E'),
           isActive: magicLink.isActive,
           expiresAt: magicLink.expiresAt?.toISOString() ?? null,
           lastUsedAt: magicLink.lastUsedAt?.toISOString() ?? null,
@@ -248,7 +250,7 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
   if (magicLink) {
     // Extend existing link TTL
     const newExpiry = await extendMagicLinkExpiry(magicLink.id)
-    magicLinkUrl = `${process.env.PORTAL_URL || 'http://localhost:5173'}/rental/${magicLink.token}`
+    magicLinkUrl = getMagicLinkUrl(magicLink.token, 'SCHEDULE_E')
 
     // Send SMS
     const smsResult = await sendScheduleEFormMessage(

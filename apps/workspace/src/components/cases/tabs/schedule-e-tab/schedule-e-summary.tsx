@@ -88,7 +88,7 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
       )}
 
       {/* Actions */}
-      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkToken={magicLink?.token} />
+      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

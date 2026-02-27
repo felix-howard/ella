@@ -15,8 +15,6 @@ import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { useDraftReturn } from '../../hooks/use-draft-return'
 
-// Build form URL from token
-const PORTAL_URL = import.meta.env.VITE_PORTAL_URL || 'http://localhost:5173'
 
 export interface QuickActionsBarProps {
   onSend: (message: string, channel: 'SMS' | 'PORTAL') => void
@@ -55,9 +53,9 @@ export function QuickActionsBar({
   const { magicLink: scheduleCLink } = useScheduleC({ caseId, enabled: !!caseId })
   const { magicLink: draftReturnLink } = useDraftReturn({ caseId, enabled: !!caseId })
 
-  // Build URLs from tokens
-  const scheduleEUrl = scheduleELink?.token ? `${PORTAL_URL}/rental/${scheduleELink.token}` : null
-  const scheduleCUrl = scheduleCLink?.token ? `${PORTAL_URL}/expense/${scheduleCLink.token}` : null
+  // Get URLs from API responses (URL is built server-side with correct PORTAL_URL)
+  const scheduleEUrl = scheduleELink?.url && scheduleELink?.isActive ? scheduleELink.url : null
+  const scheduleCUrl = scheduleCLink?.url && scheduleCLink?.isActive ? scheduleCLink.url : null
   const draftReturnUrl = draftReturnLink?.url && draftReturnLink?.isActive ? draftReturnLink.url : null
 
   // Auto-resize textarea

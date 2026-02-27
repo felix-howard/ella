@@ -524,17 +524,17 @@ function ClientDetailPage() {
               </Button>
             )}
 
-            {/* Portal Link - scoped to selected engagement's tax case */}
+            {/* Upload Link - scoped to selected engagement's tax case */}
             {(selectedCase?.portalUrl || client.portalUrl) && (
               <a
                 href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
-                title={t('clientDetail.openPortal')}
+                title={t('clientDetail.openUpload')}
               >
                 <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Portal</span>
+                <span className="hidden sm:inline">Upload</span>
               </a>
             )}
 

@@ -198,7 +198,7 @@ export function QuickActionsBar({
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50"
       >
         <User className="w-4 h-4 text-muted-foreground" />
-        {t('messages.linkPortal')}
+        {t('messages.linkUpload')}
         {isLoadingPortalLink && (
           <div className="ml-auto w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
         )}

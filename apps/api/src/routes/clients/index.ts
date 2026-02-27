@@ -1038,12 +1038,12 @@ clientsRoute.get(
 
     // Query multiple sources in parallel
     const [rawImages, messages, taxCaseChanges] = await Promise.all([
-      // RawImage uploads
+      // RawImage uploads - fetch more for batching
       prisma.rawImage.findMany({
         where: { caseId: { in: caseIds } },
         orderBy: { createdAt: 'desc' },
-        take: 10,
-        select: { id: true, filename: true, displayName: true, createdAt: true },
+        take: 50,
+        select: { id: true, createdAt: true },
       }),
       // Messages
       prisma.message.findMany({
@@ -1061,21 +1061,44 @@ clientsRoute.get(
       }),
     ])
 
+    // Batch uploads by time bucket (same hour = same batch)
+    const getTimeBucket = (date: Date) => {
+      const d = new Date(date)
+      d.setMinutes(0, 0, 0)
+      return d.toISOString()
+    }
+
+    const uploadBatches = new Map<string, { count: number; latestAt: Date }>()
+    for (const img of rawImages) {
+      const bucket = getTimeBucket(img.createdAt)
+      const existing = uploadBatches.get(bucket)
+      if (existing) {
+        existing.count++
+        if (img.createdAt > existing.latestAt) existing.latestAt = img.createdAt
+      } else {
+        uploadBatches.set(bucket, { count: 1, latestAt: img.createdAt })
+      }
+    }
+
     // Combine, sort by date desc, limit 10
     type ActivityItem = {
       type: 'upload' | 'message' | 'case_updated'
       id: string
       timestamp: string
       description: string
+      count?: number
     }
 
     const activities: ActivityItem[] = [
-      ...rawImages.map((img) => ({
+      // Batched uploads
+      ...Array.from(uploadBatches.entries()).map(([bucket, data]) => ({
         type: 'upload' as const,
-        id: img.id,
-        timestamp: img.createdAt.toISOString(),
-        description: `Uploaded ${img.displayName || img.filename || 'document'}`,
+        id: `upload-batch-${bucket}`,
+        timestamp: data.latestAt.toISOString(),
+        description: data.count === 1 ? 'Uploaded 1 document' : `Uploaded ${data.count} documents`,
+        count: data.count,
       })),
+      // Individual messages
       ...messages.map((msg) => ({
         type: 'message' as const,
         id: msg.id,
@@ -1085,6 +1108,7 @@ clientsRoute.get(
             ? `Client sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`
             : `Staff sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`,
       })),
+      // Case updates
       ...taxCaseChanges.map((tc) => ({
         type: 'case_updated' as const,
         id: tc.id,

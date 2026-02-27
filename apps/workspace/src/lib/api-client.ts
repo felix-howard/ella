@@ -1132,6 +1132,7 @@ export interface ClientActivity {
   id: string
   timestamp: string
   description: string
+  count?: number // For batched uploads
 }
 
 export interface TaxCaseSummary {

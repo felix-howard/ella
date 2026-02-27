@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Phone, Mail, Globe, Pencil, Check, X, Loader2 } from 'lucide-react'
+import { Phone, Mail, Pencil, Check, X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type ClientDetail } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
@@ -58,8 +58,6 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
     setIsEditing(false)
   }
 
-  const languageLabel = client.language === 'VI' ? 'Tiếng Việt' : 'English'
-
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <div className="flex flex-col sm:flex-row gap-6">
@@ -87,7 +85,6 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
           ) : (
             <DisplayInfo
               client={client}
-              languageLabel={languageLabel}
               onEdit={() => setIsEditing(true)}
             />
           )}
@@ -99,11 +96,9 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
 
 function DisplayInfo({
   client,
-  languageLabel,
   onEdit,
 }: {
   client: ClientDetail
-  languageLabel: string
   onEdit: () => void
 }) {
   const { t } = useTranslation()
@@ -134,10 +129,6 @@ function DisplayInfo({
             {client.email}
           </span>
         )}
-        <span className="flex items-center gap-1.5">
-          <Globe className="w-4 h-4" />
-          {languageLabel}
-        </span>
       </div>
     </div>
   )

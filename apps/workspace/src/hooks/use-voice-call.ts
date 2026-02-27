@@ -218,7 +218,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       // Create Twilio Device instance (SDK 2.x)
       // This creates AudioContext - MUST be after user gesture
       const device = new window.Twilio!.Device(tokenResponse.token, {
-        logLevel: import.meta.env.DEV ? 3 : 1,
+        logLevel: import.meta.env.DEV ? 1 : 0, // 0=silent, 1=error only
         codecPreferences: ['opus', 'pcmu'],
         edge: 'roaming',
       })

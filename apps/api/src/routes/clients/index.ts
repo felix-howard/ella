@@ -17,6 +17,9 @@ import {
   listClientsQuerySchema,
   clientIdParamSchema,
   cascadeCleanupSchema,
+  avatarPresignedUrlSchema,
+  avatarConfirmSchema,
+  updateNotesSchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -25,6 +28,7 @@ import {
   computeProfileFieldDiff,
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
+import { getSignedUploadUrl, generateClientAvatarKey, getSignedDownloadUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
@@ -853,6 +857,329 @@ clientsRoute.post(
         500
       )
     }
+  }
+)
+
+// POST /clients/:id/avatar/presigned-url - Get presigned R2 upload URL for avatar
+clientsRoute.post(
+  '/:id/avatar/presigned-url',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', avatarPresignedUrlSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { contentType, fileSize } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Generate R2 key for client avatar (with correct extension)
+    const r2Key = generateClientAvatarKey(id, contentType)
+
+    // Get presigned URL (15 min expiry)
+    const uploadUrl = await getSignedUploadUrl(r2Key, contentType, fileSize)
+    if (!uploadUrl) {
+      return c.json({ error: 'STORAGE_ERROR', message: 'Failed to generate upload URL' }, 500)
+    }
+
+    return c.json({ uploadUrl, r2Key })
+  }
+)
+
+// PATCH /clients/:id/avatar - Confirm avatar upload
+clientsRoute.patch(
+  '/:id/avatar',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', avatarConfirmSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { r2Key } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Validate r2Key belongs to this client (prevent path traversal)
+    if (!r2Key.startsWith(`client-avatars/${id}/`)) {
+      return c.json({ error: 'INVALID_KEY', message: 'Avatar key does not belong to this client' }, 400)
+    }
+
+    // Generate signed download URL (7-day TTL)
+    // Note: This also verifies the file exists in R2 - getSignedDownloadUrl returns null if not found
+    const avatarUrl = await getSignedDownloadUrl(r2Key, 7 * 24 * 3600)
+    if (!avatarUrl) {
+      return c.json({ error: 'STORAGE_ERROR', message: 'Failed to generate download URL' }, 500)
+    }
+
+    // Update Client.avatarUrl
+    const updated = await prisma.client.update({
+      where: { id },
+      data: { avatarUrl },
+      select: { id: true, avatarUrl: true, updatedAt: true },
+    })
+
+    return c.json({
+      ...updated,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
+  }
+)
+
+// DELETE /clients/:id/avatar - Remove avatar
+clientsRoute.delete(
+  '/:id/avatar',
+  zValidator('param', clientIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Set avatarUrl to null (optionally could delete from R2, but leaving orphaned is acceptable)
+    const updated = await prisma.client.update({
+      where: { id },
+      data: { avatarUrl: null },
+      select: { id: true, avatarUrl: true, updatedAt: true },
+    })
+
+    return c.json({
+      ...updated,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
+  }
+)
+
+// PATCH /clients/:id/notes - Update notes content
+clientsRoute.patch(
+  '/:id/notes',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', updateNotesSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { notes } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Notes are stored as HTML from Tiptap editor
+    // XSS prevention is handled on frontend display (React auto-escapes)
+    // We only validate length here - HTML is preserved for rich text formatting
+    // Update notes and notesUpdatedAt
+    const updated = await prisma.client.update({
+      where: { id },
+      data: {
+        notes: notes.substring(0, 50000), // Truncate to max length
+        notesUpdatedAt: new Date(),
+      },
+      select: { id: true, notes: true, notesUpdatedAt: true, updatedAt: true },
+    })
+
+    return c.json({
+      ...updated,
+      notesUpdatedAt: updated.notesUpdatedAt?.toISOString() ?? null,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
+  }
+)
+
+// GET /clients/:id/activity - Get recent activity timeline
+clientsRoute.get(
+  '/:id/activity',
+  zValidator('param', clientIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Get all tax case IDs for this client
+    const taxCases = await prisma.taxCase.findMany({
+      where: { clientId: id },
+      select: { id: true },
+    })
+    const caseIds = taxCases.map((tc) => tc.id)
+
+    if (caseIds.length === 0) {
+      return c.json({ data: [] })
+    }
+
+    // Query multiple sources in parallel
+    const [rawImages, messages, taxCaseChanges] = await Promise.all([
+      // RawImage uploads - fetch more for batching
+      prisma.rawImage.findMany({
+        where: { caseId: { in: caseIds } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { id: true, createdAt: true },
+      }),
+      // Messages
+      prisma.message.findMany({
+        where: { conversation: { caseId: { in: caseIds } } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: { id: true, direction: true, content: true, createdAt: true },
+      }),
+      // TaxCase status changes (use updatedAt as proxy)
+      prisma.taxCase.findMany({
+        where: { clientId: id },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: { id: true, taxYear: true, status: true, updatedAt: true },
+      }),
+    ])
+
+    // Batch uploads by time bucket (same hour = same batch)
+    const getTimeBucket = (date: Date) => {
+      const d = new Date(date)
+      d.setMinutes(0, 0, 0)
+      return d.toISOString()
+    }
+
+    const uploadBatches = new Map<string, { count: number; latestAt: Date }>()
+    for (const img of rawImages) {
+      const bucket = getTimeBucket(img.createdAt)
+      const existing = uploadBatches.get(bucket)
+      if (existing) {
+        existing.count++
+        if (img.createdAt > existing.latestAt) existing.latestAt = img.createdAt
+      } else {
+        uploadBatches.set(bucket, { count: 1, latestAt: img.createdAt })
+      }
+    }
+
+    // Combine, sort by date desc, limit 10
+    type ActivityItem = {
+      type: 'upload' | 'message' | 'case_updated'
+      id: string
+      timestamp: string
+      description: string
+      count?: number
+    }
+
+    const activities: ActivityItem[] = [
+      // Batched uploads
+      ...Array.from(uploadBatches.entries()).map(([bucket, data]) => ({
+        type: 'upload' as const,
+        id: `upload-batch-${bucket}`,
+        timestamp: data.latestAt.toISOString(),
+        description: data.count === 1 ? 'Uploaded 1 document' : `Uploaded ${data.count} documents`,
+        count: data.count,
+      })),
+      // Individual messages
+      ...messages.map((msg) => ({
+        type: 'message' as const,
+        id: msg.id,
+        timestamp: msg.createdAt.toISOString(),
+        description:
+          msg.direction === 'INBOUND'
+            ? `Client sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`
+            : `Staff sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`,
+      })),
+      // Case updates
+      ...taxCaseChanges.map((tc) => ({
+        type: 'case_updated' as const,
+        id: tc.id,
+        timestamp: tc.updatedAt.toISOString(),
+        description: `Tax year ${tc.taxYear} updated (status: ${tc.status})`,
+      })),
+    ]
+
+    // Sort by timestamp desc and take top 10
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    const top10 = activities.slice(0, 10)
+
+    return c.json({ data: top10 })
+  }
+)
+
+// GET /clients/:id/stats - Get quick stats
+clientsRoute.get(
+  '/:id/stats',
+  zValidator('param', clientIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const user = c.get('user')
+
+    // Verify access (org + assignment scope)
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // Get tax case IDs
+    const taxCases = await prisma.taxCase.findMany({
+      where: { clientId: id },
+      select: { id: true, taxYear: true },
+    })
+    const caseIds = taxCases.map((tc) => tc.id)
+    const taxYears = [...new Set(taxCases.map((tc) => tc.taxYear))].sort((a, b) => b - a)
+
+    // Aggregate queries in parallel
+    const [totalFiles, verifiedDocs, totalDocs, lastMessage] = await Promise.all([
+      // Count of RawImage
+      prisma.rawImage.count({
+        where: { caseId: { in: caseIds } },
+      }),
+      // Verified docs count
+      prisma.digitalDoc.count({
+        where: { caseId: { in: caseIds }, status: 'VERIFIED' },
+      }),
+      // Total docs count
+      prisma.digitalDoc.count({
+        where: { caseId: { in: caseIds } },
+      }),
+      // Most recent message
+      prisma.message.findFirst({
+        where: { conversation: { caseId: { in: caseIds } } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ])
+
+    const verifiedPercent = totalDocs > 0 ? Math.round((verifiedDocs / totalDocs) * 100) : 0
+
+    return c.json({
+      totalFiles,
+      taxYears,
+      verifiedPercent,
+      lastMessageAt: lastMessage?.createdAt?.toISOString() ?? null,
+    })
   }
 )
 

@@ -13,7 +13,7 @@ import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ReturningClientSection, ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../../components/clients'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone } from '../../lib/formatters'
+import { formatPhone, formatPhoneInput } from '../../lib/formatters'
 import { api, type Language, type ClientWithActions } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/new')({
@@ -402,9 +402,9 @@ interface BasicInfoFormProps {
 function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }: BasicInfoFormProps) {
   const { t } = useTranslation()
   const handlePhoneChange = (value: string) => {
-    // Allow only digits and common phone characters
-    const cleaned = value.replace(/[^\d\s\-()]/g, '')
-    onChange({ phone: cleaned })
+    // Format as US phone number while typing: (123) 456-7890
+    const formatted = formatPhoneInput(value)
+    onChange({ phone: formatted })
   }
 
   return (
@@ -489,11 +489,6 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             </div>
           )}
         </div>
-        {data.phone && !errors?.phone && (
-          <p className="text-xs text-muted-foreground">
-            {t('newClient.phoneDisplay')}: {formatPhone(data.phone)}
-          </p>
-        )}
         {errors?.phone && <p id="phone-error" className="text-sm text-error" role="alert">{errors.phone}</p>}
       </div>
 

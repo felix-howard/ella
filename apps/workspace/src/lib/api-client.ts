@@ -265,6 +265,39 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+
+    // Get client stats for overview tab
+    getStats: (id: string) =>
+      request<ClientStats>(`/clients/${id}/stats`),
+
+    // Get client activity timeline
+    getActivity: (id: string) =>
+      request<{ data: ClientActivity[] }>(`/clients/${id}/activity`),
+
+    // Update client notes
+    updateNotes: (id: string, notes: string) =>
+      request<{ notes: string; notesUpdatedAt: string | null }>(`/clients/${id}/notes`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notes }),
+      }),
+
+    // Avatar management
+    getAvatarPresignedUrl: (id: string, data: { contentType: string; fileSize: number }) =>
+      request<{ uploadUrl: string; r2Key: string }>(`/clients/${id}/avatar/presigned-url`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    confirmAvatarUpload: (id: string, r2Key: string) =>
+      request<{ id: string; avatarUrl: string }>(`/clients/${id}/avatar`, {
+        method: 'PATCH',
+        body: JSON.stringify({ r2Key }),
+      }),
+
+    deleteAvatar: (id: string) =>
+      request<{ id: string; avatarUrl: null }>(`/clients/${id}/avatar`, {
+        method: 'DELETE',
+      }),
   },
 
   // Tax Cases
@@ -1083,6 +1116,23 @@ export interface ClientDetail extends Client {
   taxCases: TaxCaseSummary[]
   portalUrl: string | null
   smsEnabled: boolean
+  notes: string | null
+  avatarUrl: string | null
+}
+
+export interface ClientStats {
+  totalFiles: number
+  taxYears: number[]
+  verifiedPercent: number
+  lastMessageAt: string | null
+}
+
+export interface ClientActivity {
+  type: 'upload' | 'message' | 'case_updated'
+  id: string
+  timestamp: string
+  description: string
+  count?: number // For batched uploads
 }
 
 export interface TaxCaseSummary {

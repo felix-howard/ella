@@ -20,6 +20,24 @@ export function formatPhone(phone: string): string {
 }
 
 /**
+ * Format phone number as user types: (123) 456-7890
+ * Handles partial input and formats progressively
+ * Returns formatted string for display in input field
+ */
+export function formatPhoneInput(value: string): string {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, '')
+
+  // Limit to 10 digits (US phone without country code)
+  const limited = digits.slice(0, 10)
+
+  if (limited.length === 0) return ''
+  if (limited.length <= 3) return `(${limited}`
+  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`
+  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`
+}
+
+/**
  * Get initials from a full name
  * Returns first letter of first name + first letter of last name
  * Example: "Nguyễn Văn An" → "NA"

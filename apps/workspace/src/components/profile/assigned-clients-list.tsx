@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Users, ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@ella/ui'
+import { formatPhone } from '../../lib/formatters'
 
 interface AssignedClientsListProps {
   clients: Array<{ id: string; name: string; phone: string }>
@@ -51,7 +52,7 @@ export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedCl
                 className="flex items-center justify-between p-2 -mx-2 rounded-lg hover:bg-muted transition-colors"
               >
                 <span className="text-sm font-medium text-foreground">{client.name}</span>
-                <span className="text-xs text-muted-foreground">{client.phone}</span>
+                <span className="text-xs text-muted-foreground">{formatPhone(client.phone)}</span>
               </Link>
             </li>
           ))}

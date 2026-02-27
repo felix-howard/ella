@@ -8,7 +8,7 @@ import { Phone, Mail, Pencil, Check, X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type ClientDetail } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
-import { formatPhone } from '../../../lib/formatters'
+import { formatPhone, formatPhoneInput } from '../../../lib/formatters'
 import { ClientAvatarUploader } from './client-avatar-uploader'
 
 interface ClientProfileCardProps {
@@ -22,7 +22,7 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
   const [editData, setEditData] = useState({
     firstName: client.firstName,
     lastName: client.lastName || '',
-    phone: client.phone,
+    phone: formatPhone(client.phone),
     email: client.email || '',
   })
 
@@ -40,10 +40,14 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
   })
 
   const handleSave = () => {
+    // Convert formatted phone (XXX) XXX-XXXX back to E.164 format +1XXXXXXXXXX
+    const cleanedPhone = editData.phone.replace(/\D/g, '')
+    const formattedPhone = cleanedPhone.length === 10 ? `+1${cleanedPhone}` : `+1${cleanedPhone.slice(-10)}`
+
     updateMutation.mutate({
       firstName: editData.firstName,
       lastName: editData.lastName || null,
-      phone: editData.phone,
+      phone: formattedPhone,
       email: editData.email || null,
     })
   }
@@ -52,7 +56,7 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
     setEditData({
       firstName: client.firstName,
       lastName: client.lastName || '',
-      phone: client.phone,
+      phone: formatPhone(client.phone),
       email: client.email || '',
     })
     setIsEditing(false)
@@ -187,7 +191,7 @@ function EditForm({
           <input
             type="tel"
             value={data.phone}
-            onChange={(e) => onChange({ ...data, phone: e.target.value })}
+            onChange={(e) => onChange({ ...data, phone: formatPhoneInput(e.target.value) })}
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             disabled={isSaving}
           />

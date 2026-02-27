@@ -72,7 +72,7 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [activeTab, setActiveTab] = useState<TabType>('files')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)

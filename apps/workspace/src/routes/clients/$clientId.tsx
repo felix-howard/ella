@@ -257,6 +257,29 @@ function ClientDetailPage() {
     enabled: !!activeCaseId,
   })
 
+  // Handler for year change from YearSwitcher
+  // IMPORTANT: Must be before early returns to maintain consistent hook order
+  const handleYearChange = useCallback((year: number, engagementId: string) => {
+    setSelectedEngagementId(engagementId)
+    // Invalidate queries for the new case to ensure fresh data
+    const newCase = client?.taxCases?.find((tc) => tc.taxYear === year)
+    if (newCase?.id) {
+      queryClient.invalidateQueries({ queryKey: ['checklist', newCase.id] })
+      queryClient.invalidateQueries({ queryKey: ['images', newCase.id] })
+      queryClient.invalidateQueries({ queryKey: ['docs', newCase.id] })
+    }
+  }, [client?.taxCases, queryClient])
+
+  // Handler for new engagement created
+  // IMPORTANT: Must be before early returns to maintain consistent hook order
+  const handleEngagementCreated = useCallback((newYear: number, engagementId: string) => {
+    // Select the newly created engagement
+    setSelectedEngagementId(engagementId)
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+  }, [clientId, queryClient])
+
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
     return (
@@ -355,27 +378,6 @@ function ClientDetailPage() {
         isFiled,
       })
     : null
-
-  // Handler for year change from YearSwitcher
-  const handleYearChange = useCallback((year: number, engagementId: string) => {
-    setSelectedEngagementId(engagementId)
-    // Invalidate queries for the new case to ensure fresh data
-    const newCase = client?.taxCases?.find((tc) => tc.taxYear === year)
-    if (newCase?.id) {
-      queryClient.invalidateQueries({ queryKey: ['checklist', newCase.id] })
-      queryClient.invalidateQueries({ queryKey: ['images', newCase.id] })
-      queryClient.invalidateQueries({ queryKey: ['docs', newCase.id] })
-    }
-  }, [client?.taxCases, queryClient])
-
-  // Handler for new engagement created
-  const handleEngagementCreated = useCallback((newYear: number, engagementId: string) => {
-    // Select the newly created engagement
-    setSelectedEngagementId(engagementId)
-    // Refresh data
-    queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
-    queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-  }, [clientId, queryClient])
 
   // Handler for opening manual classification modal
   const handleManualClassify = (image: RawImage) => {

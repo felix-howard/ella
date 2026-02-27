@@ -22,20 +22,22 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
 
-      {/* Notes Editor - Rich text notes with auto-save */}
-      <ClientNotesEditor
-        clientId={client.id}
-        initialContent={client.notes ?? null}
-      />
+      {/* Two column layout: Notes (wider) + Assigned Staff (narrower) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Notes Editor - Rich text notes with auto-save (2/3 width) */}
+        <div className="lg:col-span-2">
+          <ClientNotesEditor
+            clientId={client.id}
+            initialContent={client.notes ?? null}
+          />
+        </div>
 
-      {/* Two column layout on desktop: Activity + Assigned Staff */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Timeline */}
-        <ClientActivityTimeline clientId={client.id} />
-
-        {/* Assigned Staff */}
+        {/* Assigned Staff (1/3 width) */}
         <ClientAssignedStaff clientId={client.id} />
       </div>
+
+      {/* Activity Timeline - Full width */}
+      <ClientActivityTimeline clientId={client.id} />
     </div>
   )
 }

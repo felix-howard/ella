@@ -1132,5 +1132,21 @@
   "draftReturn.openLink": "Mở",
   "draftReturn.copyLink": "Sao chép link",
   "draftReturn.loadingPreview": "Đang tải...",
-  "draftReturn.versionLoadError": "Không thể tải phiên bản"
+  "draftReturn.versionLoadError": "Không thể tải phiên bản",
+  "draftReturn.extendModalTitle": "Gia hạn link",
+  "draftReturn.extendModalDesc": "Gia hạn link chia sẻ để khách hàng tiếp tục truy cập bản nháp.",
+  "draftReturn.currentExpiry": "Ngày hết hạn hiện tại",
+  "draftReturn.newExpiry": "Ngày hết hạn mới",
+  "draftReturn.days": "ngày",
+  "draftReturn.extending": "Đang gia hạn...",
+  "draftReturn.extendConfirmBtn": "Gia hạn",
+  "draftReturn.revokeModalTitle": "Thu hồi link",
+  "draftReturn.revokeModalDesc": "Hành động này sẽ vô hiệu hóa link chia sẻ ngay lập tức.",
+  "draftReturn.revokeWarning": "Không thể hoàn tác",
+  "draftReturn.revokeWarningDetail": "Sau khi thu hồi, khách hàng sẽ không thể truy cập bản nháp qua link đã chia sẻ. Bạn có thể tải lên phiên bản mới để tạo link mới.",
+  "draftReturn.linkInfo": "Thông tin link hiện tại",
+  "draftReturn.totalViews": "Tổng lượt xem",
+  "draftReturn.expiryDate": "Hết hạn",
+  "draftReturn.revoking": "Đang thu hồi...",
+  "draftReturn.revokeConfirmBtn": "Thu hồi link"
 }

@@ -271,6 +271,71 @@ body {
 [data-stagger] > [data-animate].animate:nth-child(11) { transition-delay: 0.44s; }
 [data-stagger] > [data-animate].animate:nth-child(12) { transition-delay: 0.48s; }
 
+/* ─── Showcase mockup animations ─── */
+
+/* Keyframes for showcase section animations */
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes check-pop {
+  0% { opacity: 0; transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes badge-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes highlight-field {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes message-arrive {
+  0% { opacity: 0; transform: translateY(16px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes doc-sharpen {
+  0% { filter: blur(6px); opacity: 0.5; }
+  100% { filter: blur(0); opacity: 1; }
+}
+
+@keyframes value-count {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Showcase mockup container — animations paused until parent gets .animate */
+.showcase-mockup [data-anim] {
+  opacity: 0;
+  animation-play-state: paused;
+  animation-fill-mode: both;
+}
+
+.showcase-mockup.animate [data-anim] {
+  animation-play-state: running;
+}
+
+/* Showcase glass frame */
+.showcase-frame {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+}
+
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

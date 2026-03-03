@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Ella landing page design tokens — emerald green brand */
+/* Ella landing page design tokens — emerald green brand + aurora accents */
 @theme {
   /* Primary: Emerald Green */
   --color-primary-50: #ECFDF5;
@@ -14,6 +14,14 @@
   --color-primary-800: #065F46;
   --color-primary-900: #064E3B;
   --color-primary-950: #022C22;
+
+  /* Aurora accent colors */
+  --color-aurora-blue: #3B82F6;
+  --color-aurora-purple: #8B5CF6;
+  --color-aurora-cyan: #06B6D4;
+
+  /* Dark surface */
+  --color-surface-dark: #0A0F1C;
 
   /* Accent: Coral Orange */
   --color-accent-50: #FFF7ED;
@@ -42,8 +50,8 @@
   --color-neutral-text-muted: #94A3B8;
 
   /* Typography */
-  --font-heading: "Inter", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-heading: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
 
   /* Animation durations */
   --duration-enter: 0.6s;
@@ -82,10 +90,60 @@
     }
   }
 
+  @keyframes aurora-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes line-grow {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+
   /* Animation utilities */
   --animate-fade-up: fade-up var(--duration-enter) ease-out both;
   --animate-slide-in-left: slide-in-left var(--duration-enter) ease-out both;
   --animate-counter: counter var(--duration-fast) ease-out both;
+  --animate-aurora-shift: aurora-shift 12s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
 }
 
 /* Base styles */
@@ -98,6 +156,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Font utility classes */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
 /* Touch-friendly button tap states */
 .btn-tap {
   @apply transition-transform active:scale-[0.98];
@@ -107,6 +174,54 @@ body {
   .btn-tap {
     transform: none !important;
   }
+}
+
+/* ─── Glass card styles ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+}
+
+.glass-card-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+}
+
+/* ─── Aurora / gradient utilities ─── */
+.aurora-bg {
+  background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6, #06B6D4, #059669);
+  background-size: 300% 300%;
+  animation: aurora-shift 12s ease-in-out infinite;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ─── Glow effects ─── */
+.glow-emerald {
+  box-shadow: 0 0 30px rgba(5, 150, 105, 0.3), 0 0 60px rgba(5, 150, 105, 0.1);
+}
+
+.glow-aurora {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.2), 0 0 60px rgba(139, 92, 246, 0.15), 0 0 90px rgba(6, 182, 212, 0.1);
+}
+
+/* ─── Grid pattern overlay ─── */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
 
 /* Scroll animation: elements start hidden, animate when .animate is added */
@@ -125,9 +240,21 @@ body {
   transform: translateX(-20px);
 }
 
+[data-animate="scale-in"] {
+  transform: scale(0.9);
+}
+
+[data-animate="fade-in"] {
+  /* no transform, just opacity */
+}
+
+[data-animate="slide-up-lg"] {
+  transform: translateY(40px);
+}
+
 [data-animate].animate {
   opacity: 1;
-  transform: translate(0);
+  transform: translate(0) scale(1);
 }
 
 /* Stagger effect for sequential card animations (up to 12 children) */

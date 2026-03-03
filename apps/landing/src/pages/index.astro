@@ -2,7 +2,7 @@
 /**
  * Landing page — introduces Ella to visitors.
  * Sections: Hero, Stats, Features, How It Works, Testimonials, CTA + Contact Form.
- * Phase 03 redesign: outcome-focused hero, emerald brand, conversion-optimized.
+ * Aurora UI redesign: glassmorphism, aurora gradients, premium typography.
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
@@ -86,103 +86,99 @@ const testimonials = [
   />
 
   <main>
-    <!-- Hero Section -->
+    <!-- ═══ Hero Section ═══ -->
     <section
       class="relative flex min-h-[80vh] items-center justify-center overflow-hidden pt-16 sm:min-h-[90vh]"
     >
-      <!-- Subtle background gradient -->
+      <!-- Layer 1: Aurora mesh gradient background -->
       <div
-        class="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary-50/50 to-white"
+        class="pointer-events-none absolute inset-0 aurora-bg opacity-90"
         aria-hidden="true"
-      >
-      </div>
+      ></div>
+
+      <!-- Layer 2: Dot grid pattern overlay -->
+      <div
+        class="pointer-events-none absolute inset-0 grid-pattern"
+        aria-hidden="true"
+      ></div>
+
+      <!-- Layer 3: Bottom fade to white -->
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-transparent"
+        aria-hidden="true"
+      ></div>
 
       <div class="relative mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 text-center">
         <p
-          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-600"
+          class="mb-4 inline-block rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-semibold uppercase tracking-widest text-white backdrop-blur-sm"
           data-animate="fade-up"
         >
           SMS-First Document Collection
         </p>
         <h1
-          class="mx-auto max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
+          class="mx-auto max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-heading"
           data-animate="fade-up"
+          data-delay="0.1s"
         >
           Automate tax document collection and classification
-          <span class="text-primary-600">in seconds</span>
+          <span class="gradient-text" style="background: linear-gradient(135deg, #A7F3D0, #6EE7B7, #34D399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">in seconds</span>
         </h1>
         <p
-          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/80 md:text-xl"
           data-animate="fade-up"
+          data-delay="0.2s"
         >
           Ella transforms messy phone photos into organized, named files
           automatically. AI classification + auto-rename included.
         </p>
 
-        <!-- Dual CTAs -->
+        <!-- Dual CTAs with glow -->
         <div
           class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           data-animate="fade-up"
+          data-delay="0.3s"
         >
           <a
             href="https://www.facebook.com/andy.hayven"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-full bg-primary-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="rounded-full bg-white px-8 py-3.5 text-base font-semibold text-primary-700 shadow-lg transition-all hover:shadow-xl hover:shadow-white/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             Request a Demo
           </a>
           <a
             href="#how-it-works"
-            class="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-all hover:border-gray-400 hover:bg-gray-50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="rounded-full border border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             See How It Works
           </a>
         </div>
 
-        <!-- Product visual -->
+        <!-- Product visual with glass frame + glow -->
         <div
-          class="mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl border border-gray-200 shadow-lg"
-          data-animate="fade-up"
+          class="mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl border border-white/20 bg-white/5 p-2 shadow-2xl backdrop-blur-sm glow-aurora"
+          data-animate="scale-in"
+          data-delay="0.4s"
         >
           <img
             src="/assets/Screenshot_369.png"
             alt="Ella client dashboard showing organized tax documents by category"
-            class="w-full"
+            class="w-full rounded-lg"
             loading="eager"
           />
         </div>
       </div>
-
-      <!-- Scroll indicator - hidden on xs screens -->
-      <div
-        class="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:block"
-        aria-hidden="true"
-      >
-        <svg
-          class="h-6 w-6 animate-bounce text-gray-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="1.5"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-        </svg>
-      </div>
     </section>
 
-    <!-- Problem / Solution Highlight Section -->
+    <!-- ═══ Features / Problem-Solution Section ═══ -->
     <section class="py-16 sm:py-24">
       <div class="mx-auto max-w-7xl px-4 sm:px-6">
         <!-- Section intro -->
         <div class="mx-auto max-w-3xl text-center" data-animate="fade-up">
-          <p class="text-sm font-semibold uppercase tracking-widest text-primary-600">
+          <p class="text-sm font-semibold uppercase tracking-widest gradient-text">
             Why CPAs Choose Ella
           </p>
-          <h2 class="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h2 class="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl font-heading">
             Your time is too valuable for document chaos
           </h2>
           <p class="mt-4 text-lg text-gray-600">
@@ -191,11 +187,11 @@ const testimonials = [
           </p>
         </div>
 
-        <!-- 3 Highlight Cards -->
-        <div class="mt-12 grid gap-8 sm:mt-20 sm:gap-12 lg:grid-cols-3">
+        <!-- 3 Feature Cards with glass effect -->
+        <div class="mt-12 grid gap-8 sm:mt-20 sm:gap-12 lg:grid-cols-3" data-stagger>
           <!-- Card 1: Easy Collection -->
           <div class="group" data-animate="fade-up">
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+            <div class="glass-card-light overflow-hidden shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div class="aspect-[4/3] overflow-hidden">
                 <img
                   src="/assets/Screenshot_379.png"
@@ -205,12 +201,12 @@ const testimonials = [
                 />
               </div>
               <div class="p-6">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #059669, #3B82F6);">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                   </svg>
                 </div>
-                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                <h3 class="mt-4 text-xl font-semibold text-gray-900 font-heading">
                   Clients Send Docs in Seconds
                 </h3>
                 <p class="mt-2 text-gray-600">
@@ -223,7 +219,7 @@ const testimonials = [
 
           <!-- Card 2: Organized Documents -->
           <div class="group" data-animate="fade-up">
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+            <div class="glass-card-light overflow-hidden shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div class="aspect-[4/3] overflow-hidden">
                 <img
                   src="/assets/Screenshot_369.png"
@@ -233,12 +229,12 @@ const testimonials = [
                 />
               </div>
               <div class="p-6">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #3B82F6, #8B5CF6);">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
                   </svg>
                 </div>
-                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                <h3 class="mt-4 text-xl font-semibold text-gray-900 font-heading">
                   Chaos → Organized Instantly
                 </h3>
                 <p class="mt-2 text-gray-600">
@@ -251,7 +247,7 @@ const testimonials = [
 
           <!-- Card 3: AI Data Extraction -->
           <div class="group" data-animate="fade-up">
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+            <div class="glass-card-light overflow-hidden shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <div class="aspect-[4/3] overflow-hidden">
                 <img
                   src="/assets/Screenshot_370.png"
@@ -261,12 +257,12 @@ const testimonials = [
                 />
               </div>
               <div class="p-6">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg text-white" style="background: linear-gradient(135deg, #8B5CF6, #06B6D4);">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
                   </svg>
                 </div>
-                <h3 class="mt-4 text-xl font-semibold text-gray-900">
+                <h3 class="mt-4 text-xl font-semibold text-gray-900 font-heading">
                   Data Extracted, Ready for Entry
                 </h3>
                 <p class="mt-2 text-gray-600">
@@ -290,7 +286,7 @@ const testimonials = [
             href="https://www.facebook.com/andy.hayven"
             target="_blank"
             rel="noopener noreferrer"
-            class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-lg hover:shadow-primary-600/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             See Ella in Action
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -301,14 +297,16 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- Stats / Trust Bar -->
-    <section class="border-y border-gray-100 bg-white py-12 sm:py-16" data-animate="fade-up">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- ═══ Stats / Trust Bar — Dark aurora theme ═══ -->
+    <section class="relative overflow-hidden bg-surface-dark py-12 sm:py-16" data-animate="fade-up">
+      <!-- Faint aurora overlay -->
+      <div class="pointer-events-none absolute inset-0 aurora-bg opacity-20" aria-hidden="true"></div>
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
         <StatsBar stats={stats} />
       </div>
     </section>
 
-    <!-- How It Works -->
+    <!-- ═══ How It Works — Timeline with gradient lines ═══ -->
     <section id="how-it-works" class="py-16 sm:py-24">
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <div data-animate="fade-up">
@@ -320,17 +318,30 @@ const testimonials = [
 
         <div class="mt-10 grid gap-8 sm:mt-16 sm:gap-12 md:grid-cols-3" data-stagger>
           {
-            steps.map((item) => (
-              <div class="text-center" data-animate="fade-up">
-                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-xl font-bold text-white shadow-sm">
+            steps.map((item, index) => (
+              <div class="relative text-center" data-animate="fade-up">
+                {/* Gradient connecting line (hidden on mobile, hidden on last item) */}
+                {index < steps.length - 1 && (
+                  <div
+                    class="pointer-events-none absolute top-7 left-[calc(50%+2rem)] hidden h-0.5 w-[calc(100%-4rem)] md:block"
+                    style="background: linear-gradient(90deg, #059669, #3B82F6, #8B5CF6);"
+                    aria-hidden="true"
+                  />
+                )}
+                <div
+                  class="glow-emerald mx-auto flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white shadow-lg font-heading"
+                  style="background: linear-gradient(135deg, #059669, #3B82F6);"
+                >
                   {item.step}
                 </div>
-                <h3 class="mt-6 text-xl font-semibold text-gray-900">
-                  {item.title}
-                </h3>
-                <p class="mt-3 leading-relaxed text-gray-600">
-                  {item.description}
-                </p>
+                <div class="glass-card-light mx-auto mt-6 max-w-xs p-6">
+                  <h3 class="text-xl font-semibold text-gray-900 font-heading">
+                    {item.title}
+                  </h3>
+                  <p class="mt-3 leading-relaxed text-gray-600">
+                    {item.description}
+                  </p>
+                </div>
               </div>
             ))
           }
@@ -338,9 +349,15 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- Testimonials -->
-    <section class="bg-gray-50 py-16 sm:py-24">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- ═══ Testimonials — gradient background ═══ -->
+    <section class="relative overflow-hidden py-16 sm:py-24" style="background: linear-gradient(135deg, #f0fdf4, #eff6ff, #f5f3ff);">
+      <!-- Blurred aurora blob -->
+      <div
+        class="pointer-events-none absolute -top-32 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full opacity-30 blur-3xl"
+        style="background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6);"
+        aria-hidden="true"
+      ></div>
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
         <div data-animate="fade-up">
           <SectionHeading
             eyebrow="Testimonials"
@@ -364,11 +381,13 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- CTA + Contact Form -->
-    <section id="contact" class="bg-primary-600 py-16 sm:py-24">
-      <div class="mx-auto max-w-4xl px-4 sm:px-6">
+    <!-- ═══ CTA + Contact Form — Full aurora gradient ═══ -->
+    <section id="contact" class="relative overflow-hidden aurora-bg py-16 sm:py-24">
+      <!-- Grid pattern overlay -->
+      <div class="pointer-events-none absolute inset-0 grid-pattern" aria-hidden="true"></div>
+      <div class="relative mx-auto max-w-4xl px-4 sm:px-6">
         <div class="text-center" data-animate="fade-up">
-          <h2 class="text-3xl font-bold text-white md:text-4xl">
+          <h2 class="text-3xl font-bold text-white md:text-4xl font-heading">
             Ready to transform your tax workflow?
           </h2>
           <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80">
@@ -376,7 +395,7 @@ const testimonials = [
           </p>
         </div>
 
-        <div class="mt-8 rounded-2xl bg-white p-6 shadow-xl sm:mt-12 sm:p-8" data-animate="fade-up">
+        <div class="glass-card mt-8 p-6 sm:mt-12 sm:p-8" data-animate="fade-up">
           <ContactForm />
         </div>
       </div>

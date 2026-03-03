@@ -149,11 +149,10 @@
 /* Base styles */
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Font utility classes */
@@ -337,12 +336,14 @@ body {
 
 /* Showcase glass frame */
 .showcase-frame {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Showcase folder container ─── */
@@ -364,36 +365,49 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1.5rem;
-  background: #f1f5f0;
+  padding: 0.625rem 1.75rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,253,244,0.9));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 0.75rem 0.75rem 0 0;
-  border: 1px solid #d4ddd0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-bottom: none;
   margin-left: 2rem;
   position: relative;
   z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.03);
 }
 
 /* Sticky stacking cards inside folder */
 .showcase-card {
   position: sticky;
-  top: 4rem; /* below navbar */
-  background: #f7faf6;
-  border: 1px solid #d4ddd0;
-  border-radius: 1rem;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  margin-bottom: 0;
+  background: #fafcfa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+  /* min-height creates scroll room so sticky stacking actually triggers */
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  transition: box-shadow 0.3s ease;
 }
 
-/* Stacking z-index: each card overlaps the previous */
-.showcase-card-1 { z-index: 1; }
-.showcase-card-2 { z-index: 2; }
-.showcase-card-3 { z-index: 3; }
+/* Inner content takes full width */
+.showcase-card > div {
+  width: 100%;
+}
 
-/* Subtle background variation per card */
-.showcase-card-1 { background: #f7faf6; }
-.showcase-card-2 { background: linear-gradient(135deg, #f0fdf4, #eff6ff); }
-.showcase-card-3 { background: #f7faf6; }
+/* Stacking: each card has higher z-index AND offset top so it slides over the previous */
+.showcase-card-1 { z-index: 1; top: 4rem; }
+.showcase-card-2 { z-index: 2; top: 4rem; }
+.showcase-card-3 { z-index: 3; top: 4rem; }
+
+/* Background variation per card */
+.showcase-card-1 { background: linear-gradient(180deg, #ffffff, #f8faf8); }
+.showcase-card-2 { background: linear-gradient(180deg, #ffffff, #f0fdf4); }
+.showcase-card-3 { background: linear-gradient(180deg, #ffffff, #f5f3ff); }
 
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {

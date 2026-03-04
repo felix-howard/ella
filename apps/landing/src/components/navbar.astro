@@ -12,6 +12,8 @@ interface Props {
 }
 
 const { currentPath = "/" } = Astro.props;
+// Normalize path: strip trailing slash for consistent comparison (production serves /about/ vs /about)
+const normalizedPath = currentPath === "/" ? "/" : currentPath.replace(/\/$/, "");
 ---
 
 <!-- Backdrop overlay for mobile menu -->
@@ -41,11 +43,11 @@ const { currentPath = "/" } = Astro.props;
             href={link.href}
             class:list={[
               "text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
-              currentPath === link.href
+              normalizedPath === link.href
                 ? "text-primary-600"
                 : "text-gray-600 hover:text-gray-900",
             ]}
-            aria-current={currentPath === link.href ? "page" : undefined}
+            aria-current={normalizedPath === link.href ? "page" : undefined}
           >
             {link.label}
           </a>
@@ -121,11 +123,11 @@ const { currentPath = "/" } = Astro.props;
           href={link.href}
           class:list={[
             "rounded-lg px-4 py-3 text-base font-medium transition-colors border-b border-gray-50 last:border-b-0 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
-            currentPath === link.href
+            normalizedPath === link.href
               ? "bg-primary-50 text-primary-600"
               : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
           ]}
-          aria-current={currentPath === link.href ? "page" : undefined}
+          aria-current={normalizedPath === link.href ? "page" : undefined}
         >
           {link.label}
         </a>

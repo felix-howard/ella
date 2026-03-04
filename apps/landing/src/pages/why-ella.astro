@@ -2,14 +2,13 @@
 /**
  * Why Ella page — pain point narrative with problem/solution mapping,
  * before/after comparison, and key differentiators.
- * Empathetic tone targeting tax professionals mid-funnel.
+ * Aurora UI redesign: glassmorphism, aurora gradients, premium typography.
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
 import SectionHeading from "@/components/section-heading.astro";
 import StatsBar from "@/components/stats-bar.astro";
 import CTASection from "@/components/cta-section.astro";
-import IconCard from "@/components/icon-card.astro";
 import { breadcrumbSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
 import { checkPath, xPath } from "@/lib/icons";
@@ -28,6 +27,33 @@ const structuredData = [
     { name: "Why Ella", url: `${siteConfig.url}/why-ella` },
   ]),
 ];
+
+const problemGradients = [
+  "linear-gradient(135deg, #EF4444, #F97316)",
+  "linear-gradient(135deg, #F97316, #EF4444)",
+  "linear-gradient(135deg, #DC2626, #F59E0B)",
+  "linear-gradient(135deg, #F59E0B, #EF4444)",
+  "linear-gradient(135deg, #EF4444, #DC2626)",
+  "linear-gradient(135deg, #DC2626, #F97316)",
+];
+
+const solutionGradients = [
+  "linear-gradient(135deg, #059669, #3B82F6)",
+  "linear-gradient(135deg, #3B82F6, #8B5CF6)",
+  "linear-gradient(135deg, #8B5CF6, #06B6D4)",
+  "linear-gradient(135deg, #06B6D4, #059669)",
+  "linear-gradient(135deg, #059669, #8B5CF6)",
+  "linear-gradient(135deg, #3B82F6, #06B6D4)",
+];
+
+const diffGradients = [
+  "linear-gradient(135deg, #059669, #3B82F6)",
+  "linear-gradient(135deg, #3B82F6, #8B5CF6)",
+  "linear-gradient(135deg, #8B5CF6, #06B6D4)",
+  "linear-gradient(135deg, #06B6D4, #059669)",
+  "linear-gradient(135deg, #059669, #8B5CF6)",
+  "linear-gradient(135deg, #3B82F6, #06B6D4)",
+];
 ---
 
 <BaseLayout>
@@ -39,25 +65,49 @@ const structuredData = [
   />
 
   <main>
-    <!-- Hero Section -->
-    <section class="pt-24 pb-16 sm:pt-32 sm:pb-20">
-      <div class="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+    <!-- ═══ Hero Section: Aurora background ═══ -->
+    <section
+      class="relative flex min-h-[60vh] items-center justify-center overflow-hidden pt-16 sm:min-h-[70vh]"
+    >
+      <!-- Layer 1: Aurora mesh gradient background -->
+      <div
+        class="pointer-events-none absolute inset-0 aurora-bg opacity-90"
+        aria-hidden="true"
+      ></div>
+
+      <!-- Layer 2: Grid pattern overlay -->
+      <div
+        class="pointer-events-none absolute inset-0 grid-pattern"
+        aria-hidden="true"
+      ></div>
+
+      <!-- Layer 3: Bottom fade to white -->
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent"
+        aria-hidden="true"
+      ></div>
+
+      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 py-16 sm:py-24 text-center">
         <p
-          class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-800"
+          class="mb-4 inline-block rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-semibold uppercase tracking-widest text-white backdrop-blur-sm"
           data-animate="fade-up"
         >
           Why Ella
         </p>
         <h1
-          class="text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl"
+          class="mx-auto max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl font-heading"
           data-animate="fade-up"
+          data-delay="0.1s"
         >
           Tax season doesn't have to be
-          <span class="text-primary-600">chaos</span>
+          <span style="background: linear-gradient(135deg, #A7F3D0, #6EE7B7, #34D399); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            chaos
+          </span>
         </h1>
         <p
-          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl"
+          class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/80 md:text-xl"
           data-animate="fade-up"
+          data-delay="0.2s"
         >
           Every tax season, firms waste hundreds of hours chasing documents,
           manually sorting files, and coordinating with clients. There's a better way.
@@ -65,121 +115,203 @@ const structuredData = [
       </div>
     </section>
 
-    <!-- Problem Section -->
-    <section class="bg-gray-50 py-16 sm:py-24" aria-label="The challenge">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- ═══ Problem Section ═══ -->
+    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="The challenge">
+      <!-- Subtle red-tinted background -->
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-red-50/30 to-white" aria-hidden="true"></div>
+
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="The Challenge" title="Why tax document management is broken" />
-        <div class="mt-8 sm:mt-12 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
-          {problems.map((p) => (
+        <div class="mt-10 sm:mt-14 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {problems.map((p, i) => (
             <div data-animate="fade-up">
-              <IconCard icon={p.icon} title={p.title} description={p.description} variant="error" />
+              <div class="glass-card-light h-full p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+                <div
+                  class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-white"
+                  style={`background: ${problemGradients[i]};`}
+                >
+                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={p.icon} />
+                  </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 font-heading">{p.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-gray-600">{p.description}</p>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </section>
 
-    <!-- Solution Section -->
-    <section class="py-16 sm:py-24" aria-label="The solution">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- ═══ Solution Section ═══ -->
+    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="The solution">
+      <!-- Subtle aurora background -->
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-primary-50/40 to-white" aria-hidden="true"></div>
+
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="The Solution" title="How Ella transforms your workflow" />
-        <div class="mt-8 sm:mt-12 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
-          {solutions.map((s) => (
+        <div class="mt-10 sm:mt-14 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {solutions.map((s, i) => (
             <div data-animate="fade-up">
-              <IconCard icon={s.icon} title={s.title} description={s.description} />
+              <div class="glass-card-light h-full p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+                <div
+                  class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-white"
+                  style={`background: ${solutionGradients[i]};`}
+                >
+                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={s.icon} />
+                  </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 font-heading">{s.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-gray-600">{s.description}</p>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </section>
 
-    <!-- Before / After Comparison -->
-    <section class="bg-gray-50 py-16 sm:py-24" aria-label="Before and after comparison">
-      <div class="mx-auto max-w-5xl px-4 sm:px-6">
+    <!-- ═══ Before / After Comparison ═══ -->
+    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="Before and after comparison">
+      <!-- Aurora gradient background -->
+      <div class="pointer-events-none absolute inset-0" style="background: linear-gradient(135deg, #fef2f2, #fff7ed, #f0fdf4, #eff6ff);" aria-hidden="true"></div>
+
+      <div class="relative mx-auto max-w-5xl px-4 sm:px-6">
         <SectionHeading title="A typical tax season: Before vs After" />
-        <div class="mt-8 sm:mt-12 grid gap-6 sm:gap-8 md:grid-cols-2" data-animate="fade-up">
+        <div class="mt-10 sm:mt-14 grid gap-8 md:grid-cols-2" data-animate="fade-up">
           <!-- Before column -->
-          <div class="rounded-xl border border-error-100 bg-white p-5 sm:p-8">
+          <div class="glass-card-light p-6 sm:p-8 shadow-sm border-2 border-red-100/60">
             <div class="mb-6 flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-error-100">
-                <svg class="h-5 w-5 text-error-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl text-white" style="background: linear-gradient(135deg, #EF4444, #F97316);">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
                 </svg>
               </div>
-              <h3 class="text-lg font-bold text-gray-900">Before Ella</h3>
+              <div>
+                <h3 class="text-lg font-bold text-gray-900 font-heading">Before Ella</h3>
+                <p class="text-sm text-gray-500">Manual Process</p>
+              </div>
             </div>
-            <p class="mb-4 text-sm font-medium text-gray-500">Manual Process</p>
             <ul class="space-y-3">
               {beforeItems.map((item) => (
                 <li class="flex items-start gap-3">
-                  <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-error-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d={xPath} />
                   </svg>
                   <span class="text-sm text-gray-700">{item}</span>
                 </li>
               ))}
             </ul>
-            <div class="mt-6 rounded-lg bg-error-100 px-4 py-3">
-              <p class="text-sm font-bold text-error-500">Total: 50+ hours wasted on admin tasks</p>
+            <div class="mt-6 rounded-xl px-4 py-3" style="background: linear-gradient(135deg, #FEE2E2, #FFEDD5);">
+              <p class="text-sm font-bold text-red-600">Total: 50+ hours wasted on admin tasks</p>
             </div>
           </div>
 
           <!-- After column -->
-          <div class="rounded-xl border border-primary-200 bg-white p-5 sm:p-8 ring-2 ring-primary-100">
-            <div class="mb-6 flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-                <svg class="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
-                </svg>
-              </div>
-              <h3 class="text-lg font-bold text-gray-900">After Ella</h3>
-            </div>
-            <p class="mb-4 text-sm font-medium text-gray-500">Automated</p>
-            <ul class="space-y-3">
-              {afterItems.map((item) => (
-                <li class="flex items-start gap-3">
-                  <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <div class="glass-card-light p-6 sm:p-8 shadow-lg ring-2 ring-primary-200/60 relative">
+            <!-- Subtle glow behind the card -->
+            <div class="pointer-events-none absolute -inset-1 rounded-2xl opacity-20 blur-xl" style="background: linear-gradient(135deg, #059669, #3B82F6);" aria-hidden="true"></div>
+            <div class="relative">
+              <div class="mb-6 flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl text-white" style="background: linear-gradient(135deg, #059669, #3B82F6);">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
                   </svg>
-                  <span class="text-sm text-gray-700">{item}</span>
-                </li>
-              ))}
-            </ul>
-            <div class="mt-6 rounded-lg bg-primary-100 px-4 py-3">
-              <p class="text-sm font-bold text-primary-600">Total: 10 hours (80% time saved)</p>
+                </div>
+                <div>
+                  <h3 class="text-lg font-bold text-gray-900 font-heading">After Ella</h3>
+                  <p class="text-sm text-gray-500">Automated</p>
+                </div>
+              </div>
+              <ul class="space-y-3">
+                {afterItems.map((item) => (
+                  <li class="flex items-start gap-3">
+                    <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d={checkPath} />
+                    </svg>
+                    <span class="text-sm text-gray-700">{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <div class="mt-6 rounded-xl px-4 py-3" style="background: linear-gradient(135deg, #D1FAE5, #DBEAFE);">
+                <p class="text-sm font-bold text-primary-700">Total: 10 hours (80% time saved)</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Why Ella vs Others Section -->
-    <section class="py-16 sm:py-24" aria-label="What makes Ella different">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+    <!-- ═══ Stats / Social Proof — Dark aurora theme ═══ -->
+    <section class="relative overflow-hidden bg-surface-dark py-12 sm:py-16" aria-label="Social proof statistics" data-animate="fade-up">
+      <!-- Faint aurora overlay -->
+      <div class="pointer-events-none absolute inset-0 aurora-bg opacity-20" aria-hidden="true"></div>
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <StatsBar stats={whyEllaStats} />
+      </div>
+    </section>
+
+    <!-- ═══ Differentiators Section ═══ -->
+    <section class="relative py-16 sm:py-24 overflow-hidden" aria-label="What makes Ella different">
+      <!-- Subtle gradient background -->
+      <div class="pointer-events-none absolute inset-0" style="background: linear-gradient(135deg, #f0fdf4, #eff6ff, #f5f3ff);" aria-hidden="true"></div>
+      <!-- Blurred aurora blob -->
+      <div
+        class="pointer-events-none absolute -top-32 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full opacity-20 blur-3xl"
+        style="background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6);"
+        aria-hidden="true"
+      ></div>
+
+      <div class="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Why Ella" title="What makes Ella different" />
-        <div class="mt-8 sm:mt-12 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
-          {differentiators.map((d) => (
+        <div class="mt-10 sm:mt-14 grid gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3" data-stagger>
+          {differentiators.map((d, i) => (
             <div data-animate="fade-up">
-              <IconCard icon={d.icon} title={d.title} description={d.description} />
+              <div class="glass-card-light h-full p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+                <div
+                  class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-white"
+                  style={`background: ${diffGradients[i]};`}
+                >
+                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d={d.icon} />
+                  </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 font-heading">{d.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-gray-600">{d.description}</p>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </section>
 
-    <!-- Stats / Social Proof -->
-    <section class="border-y border-gray-200 bg-white py-16 sm:py-20" aria-label="Social proof statistics">
-      <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <StatsBar stats={whyEllaStats} />
+    <!-- ═══ Bottom CTA — Aurora gradient ═══ -->
+    <section class="relative overflow-hidden aurora-bg py-16 sm:py-24">
+      <!-- Grid pattern overlay -->
+      <div class="pointer-events-none absolute inset-0 grid-pattern" aria-hidden="true"></div>
+      <div class="relative mx-auto max-w-4xl px-4 sm:px-6 text-center">
+        <h2
+          class="text-2xl font-bold text-white sm:text-3xl md:text-4xl font-heading"
+          data-animate="fade-up"
+        >
+          Ready to eliminate tax season chaos?
+        </h2>
+        <p
+          class="mx-auto mt-4 max-w-2xl text-lg text-white/80"
+          data-animate="fade-up"
+        >
+          See how Ella can transform your firm's workflow. Request a personalized demo today.
+        </p>
+        <a
+          href="https://www.facebook.com/andy.hayven"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-8 inline-block rounded-full bg-white px-8 py-3.5 text-base font-semibold text-primary-700 shadow-lg transition-all hover:shadow-xl hover:shadow-white/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          data-animate="fade-up"
+        >
+          Request a Demo
+        </a>
       </div>
     </section>
-
-    <!-- Bottom CTA -->
-    <CTASection
-      title="Ready to eliminate tax season chaos?"
-      description="See how Ella can transform your firm's workflow. Request a personalized demo today."
-      buttonText="Request a Demo"
-      buttonHref="/#contact"
-    />
   </main>
 </BaseLayout>

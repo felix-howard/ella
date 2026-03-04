@@ -55,8 +55,13 @@ export function initScrollAnimations(): void {
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          entry.target.classList.add("animate");
-          animateObserver.unobserve(entry.target);
+          const el = entry.target as HTMLElement;
+          const delay = el.dataset.delay;
+          if (delay) {
+            el.style.transitionDelay = delay;
+          }
+          el.classList.add("animate");
+          animateObserver.unobserve(el);
         }
       });
     },

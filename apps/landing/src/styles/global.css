@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Ella landing page design tokens — emerald green brand */
+/* Ella landing page design tokens — emerald green brand + aurora accents */
 @theme {
   /* Primary: Emerald Green */
   --color-primary-50: #ECFDF5;
@@ -14,6 +14,14 @@
   --color-primary-800: #065F46;
   --color-primary-900: #064E3B;
   --color-primary-950: #022C22;
+
+  /* Aurora accent colors */
+  --color-aurora-blue: #3B82F6;
+  --color-aurora-purple: #8B5CF6;
+  --color-aurora-cyan: #06B6D4;
+
+  /* Dark surface */
+  --color-surface-dark: #0A0F1C;
 
   /* Accent: Coral Orange */
   --color-accent-50: #FFF7ED;
@@ -42,8 +50,8 @@
   --color-neutral-text-muted: #94A3B8;
 
   /* Typography */
-  --font-heading: "Inter", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-heading: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
 
   /* Animation durations */
   --duration-enter: 0.6s;
@@ -82,20 +90,78 @@
     }
   }
 
+  @keyframes aurora-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes line-grow {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+
   /* Animation utilities */
   --animate-fade-up: fade-up var(--duration-enter) ease-out both;
   --animate-slide-in-left: slide-in-left var(--duration-enter) ease-out both;
   --animate-counter: counter var(--duration-fast) ease-out both;
+  --animate-aurora-shift: aurora-shift 12s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
 }
 
 /* Base styles */
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* Font utility classes */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
 }
 
 /* Touch-friendly button tap states */
@@ -107,6 +173,54 @@ body {
   .btn-tap {
     transform: none !important;
   }
+}
+
+/* ─── Glass card styles ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+}
+
+.glass-card-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+}
+
+/* ─── Aurora / gradient utilities ─── */
+.aurora-bg {
+  background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6, #06B6D4, #059669);
+  background-size: 300% 300%;
+  animation: aurora-shift 12s ease-in-out infinite;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #059669, #3B82F6, #8B5CF6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ─── Glow effects ─── */
+.glow-emerald {
+  box-shadow: 0 0 30px rgba(5, 150, 105, 0.3), 0 0 60px rgba(5, 150, 105, 0.1);
+}
+
+.glow-aurora {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.2), 0 0 60px rgba(139, 92, 246, 0.15), 0 0 90px rgba(6, 182, 212, 0.1);
+}
+
+/* ─── Grid pattern overlay ─── */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
 
 /* Scroll animation: elements start hidden, animate when .animate is added */
@@ -125,9 +239,21 @@ body {
   transform: translateX(-20px);
 }
 
+[data-animate="scale-in"] {
+  transform: scale(0.9);
+}
+
+[data-animate="fade-in"] {
+  /* no transform, just opacity */
+}
+
+[data-animate="slide-up-lg"] {
+  transform: translateY(40px);
+}
+
 [data-animate].animate {
   opacity: 1;
-  transform: translate(0);
+  transform: translate(0) scale(1);
 }
 
 /* Stagger effect for sequential card animations (up to 12 children) */
@@ -143,6 +269,145 @@ body {
 [data-stagger] > [data-animate].animate:nth-child(10) { transition-delay: 0.4s; }
 [data-stagger] > [data-animate].animate:nth-child(11) { transition-delay: 0.44s; }
 [data-stagger] > [data-animate].animate:nth-child(12) { transition-delay: 0.48s; }
+
+/* ─── Showcase mockup animations ─── */
+
+/* Keyframes for showcase section animations */
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes check-pop {
+  0% { opacity: 0; transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes badge-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes highlight-field {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes message-arrive {
+  0% { opacity: 0; transform: translateY(16px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes doc-sharpen {
+  0% { filter: blur(6px); opacity: 0.5; }
+  100% { filter: blur(0); opacity: 1; }
+}
+
+@keyframes value-count {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Showcase loop: elements hidden by default, visible when .playing */
+.showcase-mockup [data-anim] {
+  opacity: 0;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* When .playing is added, each element runs its animation */
+.showcase-mockup.playing [data-anim] {
+  animation-fill-mode: both;
+}
+
+/* Fade-out transition before loop restarts */
+.showcase-mockup.fading [data-anim] {
+  opacity: 0 !important;
+  transform: translateY(8px) !important;
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out !important;
+  animation: none !important;
+}
+
+/* Showcase glass frame */
+.showcase-frame {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* ─── Showcase folder container ─── */
+.showcase-folder {
+  position: relative;
+  margin: 2rem auto;
+  max-width: 80rem;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .showcase-folder {
+    padding: 0 1.5rem;
+  }
+}
+
+/* Folder tab */
+.showcase-folder-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.75rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,253,244,0.9));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0.75rem 0.75rem 0 0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: none;
+  margin-left: 2rem;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.03);
+}
+
+/* Sticky stacking cards inside folder */
+.showcase-card {
+  position: sticky;
+  background: #fafcfa;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+  /* min-height creates scroll room so sticky stacking actually triggers */
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Inner content takes full width */
+.showcase-card > div {
+  width: 100%;
+}
+
+/* Stacking: each card has higher z-index AND offset top so it slides over the previous */
+.showcase-card-1 { z-index: 1; top: 4rem; }
+.showcase-card-2 { z-index: 2; top: 4rem; }
+.showcase-card-3 { z-index: 3; top: 4rem; }
+
+/* Background variation per card */
+.showcase-card-1 { background: linear-gradient(180deg, #ffffff, #f8faf8); }
+.showcase-card-2 { background: linear-gradient(180deg, #ffffff, #f0fdf4); }
+.showcase-card-3 { background: linear-gradient(180deg, #ffffff, #f5f3ff); }
 
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {

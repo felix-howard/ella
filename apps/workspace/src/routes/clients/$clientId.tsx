@@ -583,7 +583,7 @@ function ClientDetailPage() {
                 className={cn(
                   'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0',
                   isActive
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
               >

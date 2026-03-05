@@ -6,6 +6,21 @@
 @source "../src/**/*.{ts,tsx}";
 @source "../../packages/ui/src/**/*.{ts,tsx}";
 
+/* Remove focus outline/ring globally on all form elements */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+button:focus-visible,
+[role="combobox"]:focus,
+[role="combobox"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: none !important;
+}
+
 /* Phone Input Styling */
 .phone-input-wrapper {
   @apply flex h-10 w-full rounded-md border border-input bg-background text-sm;
@@ -32,7 +47,7 @@
 }
 
 .phone-input-wrapper:focus-within {
-  @apply ring-2 ring-ring ring-offset-2;
+  /* No focus ring - matches global style */
 }
 
 /* Tiptap Editor Styling */

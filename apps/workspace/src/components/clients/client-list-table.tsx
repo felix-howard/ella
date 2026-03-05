@@ -123,7 +123,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Phone column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 whitespace-nowrap">
         <span className="text-muted-foreground">{formatPhone(client.phone)}</span>
       </td>
 

@@ -134,7 +134,7 @@ export const ExpenseField = memo(function ExpenseField({
   return (
     <div className="relative">
       {/* Label with tooltip */}
-      <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="flex items-center gap-1.5 mb-2">
         <label
           htmlFor={`expense-${category.field}`}
           className="text-sm font-medium text-foreground"
@@ -146,17 +146,17 @@ export const ExpenseField = memo(function ExpenseField({
           onClick={toggleTooltip}
           onMouseEnter={showTooltipWithDelay}
           onMouseLeave={hideTooltip}
-          className="text-muted-foreground hover:text-primary transition-colors focus:outline-none focus:text-primary"
+          className="text-muted-foreground/60 hover:text-primary transition-colors focus:outline-none focus:text-primary"
           aria-label={category.label}
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="w-3.5 h-3.5" />
         </button>
 
         {/* Tooltip - z-[60] to overlay above form inputs (z-10) and sticky submit button (z-40) */}
         {showTooltip && (
           <div
             role="tooltip"
-            className="absolute left-0 top-full mt-1 z-[60] w-64 p-3 bg-foreground text-background text-xs rounded-lg shadow-lg"
+            className="absolute left-0 top-full mt-1 z-[60] w-64 p-3 bg-foreground text-background text-xs rounded-xl shadow-lg"
           >
             {category.tooltip}
             <div className="absolute -top-1 left-4 w-2 h-2 bg-foreground rotate-45" />
@@ -166,7 +166,7 @@ export const ExpenseField = memo(function ExpenseField({
 
       {/* Description text */}
       {category.description && (
-        <p className="text-xs text-muted-foreground mb-1.5 -mt-0.5">
+        <p className="text-xs text-muted-foreground mb-2 -mt-0.5">
           {category.description}
         </p>
       )}
@@ -174,7 +174,7 @@ export const ExpenseField = memo(function ExpenseField({
       {/* Input field */}
       <div className="relative">
         {category.type === 'currency' && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-sm font-medium">
             $
           </span>
         )}
@@ -188,10 +188,12 @@ export const ExpenseField = memo(function ExpenseField({
             onChange={handleChange}
             disabled={readOnly}
             className={cn(
-              'w-full h-10 px-3 bg-card border rounded-lg text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'w-full h-11 px-3.5 bg-card rounded-xl text-sm shadow-sm',
+              'border border-border/60',
+              'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md',
               'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted',
-              error ? 'border-error' : 'border-border'
+              'transition-all duration-200',
+              error ? 'border-error/60 shadow-error/5' : ''
             )}
           />
         ) : (
@@ -207,19 +209,22 @@ export const ExpenseField = memo(function ExpenseField({
             disabled={readOnly}
             min={0}
             className={cn(
-              'w-full h-10 bg-card border rounded-lg text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'w-full h-11 bg-card rounded-xl text-sm shadow-sm',
+              'border border-border/60',
+              'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md',
               'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted',
-              category.type === 'currency' ? 'pl-7 pr-3' : 'px-3',
-              category.unit ? 'pr-12' : '',
-              error ? 'border-error' : 'border-border'
+              'transition-all duration-200',
+              'placeholder:text-muted-foreground/50',
+              category.type === 'currency' ? 'pl-8 pr-3.5' : 'px-3.5',
+              category.unit ? 'pr-14' : '',
+              error ? 'border-error/60 shadow-error/5' : ''
             )}
           />
         )}
 
         {/* Unit suffix */}
         {category.unit && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60 font-medium">
             {category.unit}
           </span>
         )}
@@ -227,7 +232,7 @@ export const ExpenseField = memo(function ExpenseField({
 
       {/* Error message */}
       {error && (
-        <p className="mt-1 text-xs text-error" role="alert">
+        <p className="mt-1.5 text-xs text-error" role="alert">
           {error}
         </p>
       )}

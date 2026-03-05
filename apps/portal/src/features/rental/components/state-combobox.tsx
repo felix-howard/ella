@@ -130,12 +130,14 @@ export function StateCombobox({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          'w-full h-10 px-3 bg-card border rounded-lg text-sm text-left',
+          'w-full h-11 px-3.5 bg-card rounded-xl text-sm text-left shadow-sm',
           'flex items-center justify-between gap-2',
-          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+          'border border-border/60',
+          'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          !value && 'text-muted-foreground',
-          error ? 'border-destructive focus:ring-destructive/20 focus:border-destructive' : 'border-border'
+          'transition-all duration-200',
+          !value && 'text-muted-foreground/50',
+          error ? 'border-destructive/60 focus:ring-destructive/15 focus:border-destructive/40' : ''
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -144,18 +146,18 @@ export function StateCombobox({
           {displayValue || placeholder}
         </span>
         <ChevronDown className={cn(
-          'w-4 h-4 text-muted-foreground transition-transform',
+          'w-4 h-4 text-muted-foreground/50 transition-transform duration-200',
           isOpen && 'rotate-180'
         )} />
       </button>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-card border border-border/40 rounded-xl shadow-lg overflow-hidden">
           {/* Search input */}
-          <div className="p-2 border-b border-border">
+          <div className="p-2.5 border-b border-border/30">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
               <input
                 ref={inputRef}
                 type="text"
@@ -164,8 +166,9 @@ export function StateCombobox({
                 onKeyDown={handleKeyDown}
                 placeholder="Search state..."
                 className={cn(
-                  'w-full h-9 pl-8 pr-3 bg-background border border-border rounded-md text-sm',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                  'w-full h-9 pl-8 pr-3 bg-background border border-border/60 rounded-lg text-sm',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40',
+                  'transition-all duration-200 placeholder:text-muted-foreground/40'
                 )}
               />
             </div>
@@ -178,7 +181,7 @@ export function StateCombobox({
             className="max-h-60 overflow-y-auto py-1"
           >
             {filteredStates.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground text-center">
+              <li className="px-3 py-2 text-sm text-muted-foreground/60 text-center">
                 No states found
               </li>
             ) : (
@@ -189,14 +192,14 @@ export function StateCombobox({
                   aria-selected={state.value === value}
                   onClick={() => handleSelect(state.value)}
                   className={cn(
-                    'px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2',
-                    'hover:bg-muted/50',
-                    index === highlightIndex && 'bg-muted/50',
+                    'px-3.5 py-2.5 text-sm cursor-pointer flex items-center justify-between gap-2',
+                    'hover:bg-primary/5 transition-colors duration-150',
+                    index === highlightIndex && 'bg-primary/5',
                     state.value === value && 'text-primary font-medium'
                   )}
                 >
                   <span>
-                    {state.label} <span className="text-muted-foreground">({state.value})</span>
+                    {state.label} <span className="text-muted-foreground/60">({state.value})</span>
                   </span>
                   {state.value === value && (
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />

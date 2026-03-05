@@ -165,24 +165,34 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   const otherExpensesTotal = otherExpenses.reduce((sum, e) => sum + (e.amount || 0), 0)
   const totalExpenses = standardExpensesTotal + otherExpensesTotal
 
+  // Shared input classes
+  const inputClasses = cn(
+    'w-full h-11 bg-card rounded-xl text-sm shadow-sm',
+    'border border-border/60',
+    'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md',
+    'disabled:opacity-50 disabled:cursor-not-allowed',
+    'transition-all duration-200',
+    'placeholder:text-muted-foreground/50'
+  )
+
   return (
-    <div className="flex-1 flex flex-col px-6 py-4 overflow-y-auto">
+    <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground mb-1">
+        <h2 className="text-xl font-semibold text-foreground mb-1">
           {t('rental.propertyExpenses', { id: property.id })}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/80">
           {t('rental.propertyExpensesDescription')}
         </p>
       </div>
 
       {/* Expense fields */}
-      <div className="space-y-4 mb-6">
+      <div className="space-y-5 mb-6">
         {RENTAL_EXPENSE_FIELDS.map((field) => (
-          <div key={field.field}>
+          <div key={field.field} className="relative">
             {/* Label with tooltip */}
-            <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
               <label
                 htmlFor={`expense-${field.field}`}
                 className="text-sm font-medium text-foreground"
@@ -192,17 +202,17 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
               <button
                 type="button"
                 onClick={() => setShowTooltip(showTooltip === field.field ? null : field.field)}
-                className="text-muted-foreground hover:text-primary transition-colors"
+                className="text-muted-foreground/60 hover:text-primary transition-colors"
                 aria-label={t('rental.showTooltip')}
               >
-                <HelpCircle className="w-4 h-4" />
+                <HelpCircle className="w-3.5 h-3.5" />
               </button>
 
               {/* Tooltip */}
               {showTooltip === field.field && (
                 <div
                   role="tooltip"
-                  className="absolute left-6 right-6 mt-8 z-[60] p-3 bg-foreground text-background text-xs rounded-lg shadow-lg"
+                  className="absolute left-0 right-0 mt-8 z-[60] p-3 bg-foreground text-background text-xs rounded-xl shadow-lg"
                 >
                   {field.tooltip}
                 </div>
@@ -211,7 +221,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
 
             {/* Input */}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-sm font-medium">$</span>
               <input
                 id={`expense-${field.field}`}
                 type="text"
@@ -221,11 +231,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                 onBlur={() => handleBlur(field.field)}
                 disabled={readOnly}
                 placeholder={field.placeholder}
-                className={cn(
-                  'w-full h-10 pl-7 pr-3 bg-card border border-border rounded-lg text-sm',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
-                )}
+                className={cn(inputClasses, 'pl-8 pr-3.5')}
               />
             </div>
           </div>
@@ -234,8 +240,8 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
 
       {/* Other expenses */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('rental.otherExpenses')}</h3>
-        <p className="text-xs text-muted-foreground mb-3">
+        <h3 className="text-sm font-semibold text-foreground mb-2">{t('rental.otherExpenses')}</h3>
+        <p className="text-xs text-muted-foreground/70 mb-3">
           {t('rental.otherExpensesDescription')}
         </p>
 
@@ -249,14 +255,10 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                 onChange={(e) => handleOtherExpenseNameChange(index, e.target.value)}
                 disabled={readOnly}
                 placeholder={t('rental.expenseName')}
-                className={cn(
-                  'flex-1 h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
-                )}
+                className={cn(inputClasses, 'flex-1 px-3.5')}
               />
               <div className="relative w-28">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-sm font-medium">$</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -264,18 +266,14 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                   onChange={(e) => handleOtherExpenseAmountChange(index, e.target.value)}
                   disabled={readOnly}
                   placeholder="0.00"
-                  className={cn(
-                    'w-full h-10 pl-7 pr-3 bg-card border border-border rounded-lg text-sm',
-                    'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
+                  className={cn(inputClasses, 'pl-8 pr-3.5')}
                 />
               </div>
               {!readOnly && (
                 <button
                   type="button"
                   onClick={() => handleRemoveOtherExpense(index)}
-                  className="p-2 text-muted-foreground hover:text-error transition-colors"
+                  className="p-2 text-muted-foreground/50 hover:text-error transition-colors duration-200 cursor-pointer"
                   aria-label={t('rental.deleteExpense')}
                 >
                   <X className="w-5 h-5" />
@@ -290,7 +288,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
           <button
             type="button"
             onClick={handleAddOtherExpense}
-            className="mt-3 flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
+            className="mt-3 flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {t('rental.addExpense')}
@@ -299,12 +297,12 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
       </div>
 
       {/* Running total */}
-      <div className="bg-muted/50 rounded-lg p-4 mb-6">
+      <div className="bg-card shadow-sm rounded-xl p-4 mb-6 border border-border/30">
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium text-foreground">
             {t('rental.totalExpenses')}
           </span>
-          <span className="text-lg font-semibold text-foreground">
+          <span className="text-xl font-bold text-foreground tracking-tight">
             ${totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
@@ -315,7 +313,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
         <Button
           variant="outline"
           onClick={onBack}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl"
           size="lg"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -324,7 +322,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
         <Button
           onClick={onNext}
           disabled={readOnly}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl shadow-md"
           size="lg"
         >
           {t('rental.next')}

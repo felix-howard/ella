@@ -20,7 +20,7 @@ export function ProgressIndicator({
   const percentage = total > 0 ? Math.round((filled / total) * 100) : 0
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2.5', className)}>
       {/* Text indicator */}
       <div className="flex justify-between items-center text-sm">
         <span className="text-muted-foreground">
@@ -28,20 +28,20 @@ export function ProgressIndicator({
             i18nKey="expense.progress.filled"
             values={{ filled, total }}
             components={{
-              1: <span className="font-medium text-foreground" />
+              1: <span className="font-semibold text-foreground" />
             }}
           />
         </span>
-        <span className="text-muted-foreground">
+        <span className="text-muted-foreground/70 font-medium">
           {percentage}%
         </span>
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
+      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
         <div
           className={cn(
-            'h-full rounded-full transition-all duration-300 ease-out',
+            'h-full rounded-full transition-all duration-500 ease-out',
             percentage === 100 ? 'bg-success' : 'bg-primary'
           )}
           style={{ width: `${percentage}%` }}

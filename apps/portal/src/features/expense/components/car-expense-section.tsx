@@ -62,13 +62,15 @@ export function CarExpenseSection({
   }, [onChange])
 
   return (
-    <Card>
+    <Card variant="elevated">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-          <Car className="w-5 h-5 text-primary" aria-hidden="true" />
+        <CardTitle className="flex items-center gap-2.5 text-base font-semibold text-foreground">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Car className="w-4 h-4 text-primary" aria-hidden="true" />
+          </div>
           {t('expense.carAndMileage')}
         </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground/70 mt-1">
           {t('expense.carMethodNote')}
         </p>
       </CardHeader>
@@ -81,22 +83,27 @@ export function CarExpenseSection({
             type="button"
             onClick={() => handleMethodChange('mileage')}
             className={cn(
-              'p-4 rounded-lg border-2 text-left transition-all',
+              'p-4 rounded-xl text-left transition-all duration-200 cursor-pointer',
               selectedMethod === 'mileage'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
+                ? 'bg-primary/5 shadow-md ring-2 ring-primary/20'
+                : 'bg-card shadow-sm hover:shadow-md border border-border/40'
             )}
           >
             <div className="flex items-center gap-2 mb-2">
-              <Calculator className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">{t('expense.mileageRate')}</span>
+              <div className={cn(
+                'w-7 h-7 rounded-lg flex items-center justify-center',
+                selectedMethod === 'mileage' ? 'bg-primary/15' : 'bg-muted'
+              )}>
+                <Calculator className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span className="font-medium text-sm text-foreground">{t('expense.mileageRate')}</span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
               {t('expense.mileageRateDescription', { rate: MILEAGE_RATE_2025 })}
             </p>
             {selectedMethod === 'mileage' && (
-              <div className="mt-2 pt-2 border-t border-primary/20">
-                <span className="text-sm font-semibold text-primary">
+              <div className="mt-2.5 pt-2 border-t border-primary/10">
+                <span className="text-xs font-semibold text-primary">
                   {t('expense.mileageRecommended')}
                 </span>
               </div>
@@ -108,17 +115,22 @@ export function CarExpenseSection({
             type="button"
             onClick={() => handleMethodChange('actual')}
             className={cn(
-              'p-4 rounded-lg border-2 text-left transition-all',
+              'p-4 rounded-xl text-left transition-all duration-200 cursor-pointer',
               selectedMethod === 'actual'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
+                ? 'bg-primary/5 shadow-md ring-2 ring-primary/20'
+                : 'bg-card shadow-sm hover:shadow-md border border-border/40'
             )}
           >
             <div className="flex items-center gap-2 mb-2">
-              <Car className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">{t('expense.actualExpense')}</span>
+              <div className={cn(
+                'w-7 h-7 rounded-lg flex items-center justify-center',
+                selectedMethod === 'actual' ? 'bg-primary/15' : 'bg-muted'
+              )}>
+                <Car className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span className="font-medium text-sm text-foreground">{t('expense.actualExpense')}</span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
               {t('expense.actualExpenseDescription')}
             </p>
           </button>
@@ -127,7 +139,7 @@ export function CarExpenseSection({
         {/* Mileage fields */}
         {selectedMethod === 'mileage' && (
           <div className="space-y-4 pt-2">
-            <div className="p-3 bg-muted rounded-lg">
+            <div className="p-4 bg-muted/50 rounded-xl">
               <label
                 htmlFor="expense-vehicleMiles"
                 className="block text-sm font-medium text-foreground mb-2"
@@ -154,27 +166,27 @@ export function CarExpenseSection({
                     }
                   }}
                   placeholder={t('expense.businessMilesPlaceholder')}
-                  className="w-full h-10 px-3 pr-12 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full h-11 px-3.5 pr-14 bg-card border border-border/60 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md transition-all duration-200 placeholder:text-muted-foreground/50"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60 font-medium">
                   {t('expense.miles')}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1.5">
+              <p className="text-xs text-muted-foreground/70 mt-2">
                 {t('expense.businessMilesNote')}
               </p>
             </div>
 
             {/* Mileage calculation result */}
             {businessMiles > 0 && (
-              <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+              <div className="p-4 bg-primary/5 rounded-xl">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-foreground">{t('expense.mileageDeduction')}</span>
-                  <span className="text-lg font-semibold text-primary">
+                  <span className="text-xl font-bold text-primary tracking-tight">
                     ${mileageDeduction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground/70 mt-1.5">
                   {t('expense.mileageCalculation', { miles: businessMiles.toLocaleString(), rate: MILEAGE_RATE_2025 })}
                 </p>
               </div>
@@ -190,7 +202,7 @@ export function CarExpenseSection({
               value={formData.carExpense as number | null}
               onChange={(value) => onChange('carExpense', value)}
             />
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground/70 mt-2">
               {t('expense.actualCarIncludes')}
             </p>
           </div>

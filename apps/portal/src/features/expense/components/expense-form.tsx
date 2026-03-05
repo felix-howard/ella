@@ -79,14 +79,16 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
   return (
     <div className="pb-32">
       {/* Form sections */}
-      <div className="space-y-4 px-4">
+      <div className="space-y-5 px-4">
         {/* Locked warning */}
         {isLocked && (
-          <div className="p-4 bg-error/10 border border-error/20 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
+          <div className="p-4 bg-error/5 rounded-xl shadow-sm flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-4 h-4 text-error" />
+            </div>
             <div>
-              <p className="font-medium text-error">{t('expense.formLocked')}</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-semibold text-error text-sm">{t('expense.formLocked')}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 {t('expense.formLockedMessage')}
               </p>
             </div>
@@ -100,14 +102,16 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
         />
 
         {/* Simplified expense fields (travel, meals, supplies) */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Receipt className="w-5 h-5 text-primary" />
+        <Card variant="elevated">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2.5 text-base font-semibold">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Receipt className="w-4 h-4 text-primary" />
+              </div>
               {t('expense.businessExpenses')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             {SIMPLIFIED_EXPENSE_FIELDS.map((category) => (
               <ExpenseField
                 key={category.field}
@@ -134,14 +138,14 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
 
         {/* Error message */}
         {errorMessage && (
-          <div className="p-4 bg-error/10 border border-error/20 rounded-lg">
+          <div className="p-4 bg-error/5 rounded-xl shadow-sm">
             <p className="text-sm text-error">{errorMessage}</p>
           </div>
         )}
       </div>
 
       {/* Sticky submit button */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border p-4 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-md border-t border-border/40 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         <div className="max-w-lg mx-auto">
           {/* Auto-save indicator */}
           <div className="mb-2 flex justify-center">
@@ -157,7 +161,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isLocked || status === 'submitting'}
-            className="w-full h-12 text-base font-medium"
+            className="w-full h-12 text-base font-medium rounded-xl shadow-md"
           >
             <span className="inline-flex items-center justify-center gap-2">
               {status === 'submitting' ? (

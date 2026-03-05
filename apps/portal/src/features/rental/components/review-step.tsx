@@ -53,13 +53,13 @@ export const ReviewStep = memo(function ReviewStep({
   const isProfit = totals.totalNet >= 0
 
   return (
-    <div className="flex-1 flex flex-col px-6 py-4 overflow-y-auto">
+    <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground mb-1">
+        <h2 className="text-xl font-semibold text-foreground mb-1">
           {t('rental.review')}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/80">
           {t('rental.reviewDescription')}
         </p>
       </div>
@@ -77,12 +77,12 @@ export const ReviewStep = memo(function ReviewStep({
       </div>
 
       {/* Overall totals */}
-      <div className="bg-muted rounded-xl p-4 mb-6">
+      <div className="bg-card shadow-md rounded-2xl p-5 mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-3">
           {t('rental.overallSummary')}
         </h3>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{t('rental.totalRentAllProperties')}</span>
             <span className="font-medium text-foreground">
@@ -95,10 +95,10 @@ export const ReviewStep = memo(function ReviewStep({
               {formatCurrency(totals.totalExpenses)}
             </span>
           </div>
-          <div className="flex justify-between text-sm pt-2 border-t border-border/50">
+          <div className="flex justify-between text-sm pt-3 border-t border-border/30">
             <span className="font-semibold text-foreground">{t('rental.totalNetIncome')}</span>
             <span className={cn(
-              'font-bold text-lg',
+              'font-bold text-xl tracking-tight',
               isProfit ? 'text-success' : 'text-error'
             )}>
               {isProfit ? '' : '-'}{formatCurrency(Math.abs(totals.totalNet))}
@@ -109,7 +109,7 @@ export const ReviewStep = memo(function ReviewStep({
 
       {/* Locked notice */}
       {isLocked && (
-        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-6">
+        <div className="bg-warning/5 rounded-xl shadow-sm p-4 mb-6">
           <p className="text-sm text-warning">
             {t('rental.formLockedMessage')}
           </p>
@@ -122,7 +122,7 @@ export const ReviewStep = memo(function ReviewStep({
           variant="outline"
           onClick={onBack}
           disabled={isSubmitting}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl"
           size="lg"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -131,7 +131,7 @@ export const ReviewStep = memo(function ReviewStep({
         <Button
           onClick={onSubmit}
           disabled={isSubmitting || isLocked}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl shadow-md"
           size="lg"
         >
           {isSubmitting ? (

@@ -72,13 +72,15 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
   }, [items, onChange])
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <Package className="w-5 h-5 text-primary" />
+    <Card variant="elevated">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2.5 text-base font-semibold">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Package className="w-4 h-4 text-primary" />
+          </div>
           {t('expense.otherExpenses')}
         </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground/70 mt-1">
           {t('expense.otherExpensesDescription')}
         </p>
       </CardHeader>
@@ -94,11 +96,11 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
               placeholder={t('expense.expenseName')}
               maxLength={100}
               disabled={disabled}
-              className="flex-1 min-w-0 px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 px-3.5 h-11 bg-card border border-border/60 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
             />
             {/* Amount input with $ prefix */}
             <div className="relative w-32 flex-shrink-0">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">$</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -106,7 +108,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
                 onChange={(e) => handleAmountChange(index, e.target.value)}
                 placeholder="0.00"
                 disabled={disabled}
-                className="w-full pl-7 pr-3 py-2 bg-card border border-border rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full pl-8 pr-3.5 h-11 bg-card border border-border/60 rounded-xl text-sm text-right shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
               />
             </div>
             {/* Delete button */}
@@ -114,7 +116,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
               type="button"
               onClick={() => handleRemoveRow(index)}
               disabled={disabled}
-              className="p-2 text-muted-foreground hover:text-error transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 text-muted-foreground/50 hover:text-error transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               aria-label={t('expense.deleteExpense')}
             >
               <Trash2 className="w-4 h-4" />
@@ -130,7 +132,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
             size="sm"
             onClick={handleAddRow}
             disabled={disabled}
-            className="w-full mt-2"
+            className="w-full mt-2 rounded-xl border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
           >
             <Plus className="w-4 h-4 mr-1.5" />
             {t('expense.addExpense')}

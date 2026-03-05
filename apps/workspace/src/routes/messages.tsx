@@ -77,12 +77,14 @@ function MessagesLayout() {
   const conversationPanel = (
     <>
       {/* Header */}
-      <div className="h-14 px-4 flex items-center justify-between border-b border-border">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-semibold text-foreground">{t('messages.title')}</h1>
+      <div className="h-14 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <MessageSquare className="w-4 h-4 text-primary" />
+          </div>
+          <h1 className="text-base font-semibold text-foreground tracking-tight">{t('messages.title')}</h1>
           {totalUnread > 0 && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-error text-white rounded-full">
+            <span className="min-w-[20px] h-5 px-1.5 text-[11px] font-semibold bg-error text-white rounded-full inline-flex items-center justify-center">
               {totalUnread}
             </span>
           )}
@@ -92,8 +94,8 @@ function MessagesLayout() {
             onClick={handleRefresh}
             disabled={isRefreshing}
             className={cn(
-              'p-2 rounded-lg transition-colors',
-              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              'p-2 rounded-lg transition-all duration-200',
+              'text-muted-foreground hover:text-foreground hover:bg-muted/60',
               isRefreshing && 'animate-spin'
             )}
             title={t('messages.refresh')}
@@ -103,6 +105,7 @@ function MessagesLayout() {
           </button>
         </div>
       </div>
+      <div className="mx-4 h-px bg-border/60" />
 
       {/* Conversation List */}
       <ConversationList
@@ -139,12 +142,12 @@ function MessagesLayout() {
       )}
     >
       {/* Left Panel - Conversation List */}
-      <div className="w-80 flex-shrink-0 border-r border-border bg-card flex flex-col">
+      <div className="w-80 flex-shrink-0 bg-card flex flex-col shadow-[1px_0_8px_-2px_rgba(0,0,0,0.08)]">
         {conversationPanel}
       </div>
 
       {/* Right Panel - Child Route Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-background">
         <Outlet />
       </div>
     </div>

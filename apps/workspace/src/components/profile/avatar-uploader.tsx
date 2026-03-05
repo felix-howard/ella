@@ -147,8 +147,8 @@ export function AvatarUploader({ staffId, currentAvatarUrl, name, canEdit }: Ava
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          'relative w-20 h-20 rounded-full overflow-hidden',
-          canEdit && uploadState === 'idle' && 'cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+          'relative w-20 h-20 rounded-full overflow-hidden ring-4 ring-background shadow-md',
+          canEdit && uploadState === 'idle' && 'cursor-pointer group focus:outline-none focus:ring-4 focus:ring-primary/30'
         )}
       >
         {displayUrl ? (

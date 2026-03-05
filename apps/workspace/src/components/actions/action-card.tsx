@@ -25,6 +25,7 @@ import {
   UI_TEXT,
 } from '../../lib/constants'
 import type { Action, ActionType } from '../../lib/api-client'
+import { formatRelativeTime } from '../../lib/formatters'
 
 interface ActionCardProps {
   action: Action
@@ -48,9 +49,8 @@ export function ActionCard({ action, onComplete }: ActionCardProps) {
   const Icon = ACTION_TYPE_ICONS[action.type] || CheckCircle
   const { actions: actionsText } = UI_TEXT
 
-  // Format relative time
-  const createdAt = new Date(action.createdAt)
-  const relativeTime = getRelativeTime(createdAt)
+  // Format relative time using shared locale-aware formatter
+  const relativeTime = formatRelativeTime(action.createdAt)
 
   // Generate link based on action type
   const isClientReplied = action.type === 'CLIENT_REPLIED'
@@ -213,24 +213,3 @@ export function ActionCardCompact({ action, onComplete }: ActionCardProps) {
   )
 }
 
-// Helper function to get relative time in Vietnamese
-// Note: This is a pure function outside components, so we can't use t() here
-// For full i18n support, this would need to be moved inside the component
-// or use a global i18n instance. Keeping as-is for now.
-function getRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMinutes = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMinutes / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMinutes < 1) return 'Vừa xong'
-  if (diffMinutes < 60) return `${diffMinutes} phút trước`
-  if (diffHours < 24) return `${diffHours} giờ trước`
-  if (diffDays < 7) return `${diffDays} ngày trước`
-
-  return date.toLocaleDateString('vi-VN', {
-    day: 'numeric',
-    month: 'short',
-  })
-}

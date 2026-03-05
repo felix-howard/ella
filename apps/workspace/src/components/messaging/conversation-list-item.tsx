@@ -48,12 +48,12 @@ export const ConversationListItem = memo(function ConversationListItem({
       to="/messages/$caseId"
       params={{ caseId: conversation.caseId }}
       className={cn(
-        'flex items-start gap-3 px-4 py-3 border-b border-border transition-colors',
-        // Active state: green background, no hover effect
-        isActive && 'bg-primary/20 border-l-2 border-l-primary',
-        // Unread state: subtle green with darker hover
-        hasUnread && !isActive && 'bg-primary/10 hover:bg-primary/20',
-        // Default state: muted hover
+        'flex items-start gap-3 px-3 py-3 mx-2 my-0.5 rounded-xl transition-all duration-200 cursor-pointer',
+        // Active state: primary tint with left accent
+        isActive && 'bg-primary/10 shadow-sm ring-1 ring-primary/20',
+        // Unread state: subtle highlight
+        hasUnread && !isActive && 'bg-primary/5 hover:bg-primary/10',
+        // Default state: clean hover
         !isActive && !hasUnread && 'hover:bg-muted/50'
       )}
     >
@@ -61,7 +61,7 @@ export const ConversationListItem = memo(function ConversationListItem({
       <div className="relative flex-shrink-0">
         <div
           className={cn(
-            'w-12 h-12 rounded-full flex items-center justify-center',
+            'w-11 h-11 rounded-full flex items-center justify-center shadow-sm',
             avatarColor.bg,
             avatarColor.text
           )}
@@ -70,8 +70,8 @@ export const ConversationListItem = memo(function ConversationListItem({
         </div>
         {/* Unread indicator dot */}
         {hasUnread && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-error rounded-full flex items-center justify-center">
-            <span className="text-[10px] font-bold text-white">
+          <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-error rounded-full flex items-center justify-center ring-2 ring-card shadow-sm">
+            <span className="text-[10px] font-bold text-white leading-none">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           </span>
@@ -130,19 +130,20 @@ export const ConversationListItem = memo(function ConversationListItem({
         </div>
 
         {/* Status badge */}
-        <div className="flex items-center gap-2 mt-1.5">
-          <span
-            className={cn(
-              'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
-              statusColors?.bg,
-              statusColors?.text
-            )}
-          >
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <span className={cn(
+            'inline-flex items-center gap-1 text-[10px] font-medium',
+            isActive ? 'text-foreground/70' : 'text-muted-foreground'
+          )}>
+            <span className={cn(
+              'w-1.5 h-1.5 rounded-full flex-shrink-0',
+              statusColors?.bg ? statusColors.bg.replace('bg-', 'bg-') : 'bg-muted-foreground/40'
+            )} />
             {CASE_STATUS_LABELS[taxCase.status as TaxCaseStatus]}
           </span>
           <span className={cn(
             'text-[10px]',
-            isActive ? 'text-foreground/70' : 'text-muted-foreground'
+            isActive ? 'text-foreground/50' : 'text-muted-foreground/60'
           )}>
             {taxCase.taxYear}
           </span>

@@ -133,25 +133,35 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
     handleAddressChange('state', value)
   }, [handleAddressChange])
 
+  // Shared input classes for premium styling
+  const inputClasses = cn(
+    'w-full h-11 px-3.5 bg-card rounded-xl text-sm shadow-sm',
+    'border border-border/60',
+    'focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 focus:shadow-md',
+    'disabled:opacity-50 disabled:cursor-not-allowed',
+    'transition-all duration-200',
+    'placeholder:text-muted-foreground/50'
+  )
+
   return (
-    <div className="flex-1 flex flex-col px-6 py-4 overflow-y-auto">
+    <div className="flex-1 flex flex-col px-6 py-6 overflow-y-auto">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-foreground mb-1">
+        <h2 className="text-xl font-semibold text-foreground mb-1">
           {t('rental.propertyDetails', { id: property.id })}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/80">
           {t('rental.propertyDetailsDescription')}
         </p>
       </div>
 
       {/* Address section */}
       <div className="space-y-4 mb-6">
-        <h3 className="text-sm font-medium text-foreground">{t('rental.address')}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t('rental.address')}</h3>
 
         {/* Street */}
         <div>
-          <label htmlFor="street" className="text-sm text-muted-foreground mb-1 block">
+          <label htmlFor="street" className="text-xs font-medium text-muted-foreground mb-1.5 block">
             {t('rental.street')}
           </label>
           <input
@@ -161,18 +171,14 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
             onChange={(e) => handleAddressChange('street', e.target.value)}
             disabled={readOnly}
             placeholder={t('rental.streetPlaceholder')}
-            className={cn(
-              'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
+            className={inputClasses}
           />
         </div>
 
         {/* City, State, ZIP */}
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-5">
-            <label htmlFor="city" className="text-sm text-muted-foreground mb-1 block">
+            <label htmlFor="city" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               {t('rental.city')}
             </label>
             <input
@@ -182,16 +188,12 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               onChange={(e) => handleAddressChange('city', e.target.value)}
               disabled={readOnly}
               placeholder={t('rental.cityPlaceholder')}
-              className={cn(
-                'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              className={inputClasses}
             />
           </div>
 
           <div className="col-span-4">
-            <label htmlFor="state" className="text-sm text-muted-foreground mb-1 block">
+            <label htmlFor="state" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               {t('rental.state')}
             </label>
             <StateCombobox
@@ -210,7 +212,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
           </div>
 
           <div className="col-span-3">
-            <label htmlFor="zip" className="text-sm text-muted-foreground mb-1 block">
+            <label htmlFor="zip" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               {t('rental.zip')}
             </label>
             <input
@@ -221,11 +223,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               disabled={readOnly}
               placeholder="12345"
               maxLength={10}
-              className={cn(
-                'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              className={inputClasses}
             />
           </div>
         </div>
@@ -233,8 +231,8 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
       {/* Property Type section */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('rental.propertyType')}</h3>
-        <div className="grid grid-cols-2 gap-2">
+        <h3 className="text-sm font-semibold text-foreground mb-3">{t('rental.propertyType')}</h3>
+        <div className="grid grid-cols-2 gap-2.5">
           {PROPERTY_TYPES.map((type) => (
             <button
               key={type.value}
@@ -242,12 +240,12 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               onClick={() => !readOnly && handlePropertyTypeChange(type.value)}
               disabled={readOnly}
               className={cn(
-                'p-3 text-left rounded-lg border transition-all text-sm',
-                'hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20',
+                'p-3 text-left rounded-xl transition-all duration-200 text-sm cursor-pointer',
+                'focus:outline-none focus:ring-2 focus:ring-primary/20',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 propertyType === type.value
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-card'
+                  ? 'bg-primary/5 shadow-md ring-2 ring-primary/20 font-medium text-primary'
+                  : 'bg-card shadow-sm border border-border/40 hover:shadow-md hover:border-primary/30'
               )}
               aria-pressed={propertyType === type.value}
             >
@@ -265,11 +263,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               onChange={(e) => handlePropertyTypeOtherChange(e.target.value)}
               disabled={readOnly}
               placeholder={t('rental.propertyTypeOtherPlaceholder')}
-              className={cn(
-                'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              className={inputClasses}
             />
           </div>
         )}
@@ -277,12 +271,12 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
       {/* Rental Period section */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-3">{t('rental.rentalPeriod')}</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">{t('rental.rentalPeriod')}</h3>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Months rented */}
           <div>
-            <label htmlFor="monthsRented" className="text-sm text-muted-foreground mb-1 block">
+            <label htmlFor="monthsRented" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               {t('rental.monthsRented')}
             </label>
             <div className="relative">
@@ -295,15 +289,11 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
                 disabled={readOnly}
                 placeholder="0-12"
                 maxLength={2}
-                className={cn(
-                  'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
-                )}
+                className={inputClasses}
               />
             </div>
             {fairRentalDays > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1.5">
                 {t('rental.fairRentalDays', { days: fairRentalDays })}
               </p>
             )}
@@ -311,7 +301,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
           {/* Personal use days */}
           <div>
-            <label htmlFor="personalUseDays" className="text-sm text-muted-foreground mb-1 block">
+            <label htmlFor="personalUseDays" className="text-xs font-medium text-muted-foreground mb-1.5 block">
               {t('rental.personalUseDays')}
             </label>
             <input
@@ -322,11 +312,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               onChange={(e) => handlePersonalDaysChange(e.target.value)}
               disabled={readOnly}
               placeholder="0"
-              className={cn(
-                'w-full h-10 px-3 bg-card border border-border rounded-lg text-sm',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
-              )}
+              className={inputClasses}
             />
           </div>
         </div>
@@ -334,14 +320,14 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
       {/* Rent Received section */}
       <div className="mb-6">
-        <label htmlFor="rentsReceived" className="text-sm font-medium text-foreground mb-1 block">
+        <label htmlFor="rentsReceived" className="text-sm font-semibold text-foreground mb-1 block">
           {t('rental.rentsReceived')}
         </label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="text-xs text-muted-foreground/70 mb-2">
           {t('rental.rentsReceivedDescription')}
         </p>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 text-sm font-medium">$</span>
           <input
             id="rentsReceived"
             type="text"
@@ -350,11 +336,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
             onChange={(e) => handleRentsChange(e.target.value)}
             disabled={readOnly}
             placeholder="0.00"
-            className={cn(
-              'w-full h-10 pl-7 pr-3 bg-card border border-border rounded-lg text-sm',
-              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
+            className={cn(inputClasses, 'pl-8')}
           />
         </div>
       </div>
@@ -364,7 +346,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
         <Button
           variant="outline"
           onClick={onBack}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl"
           size="lg"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -373,7 +355,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
         <Button
           onClick={handleNext}
           disabled={readOnly}
-          className="flex-1 gap-2 h-12"
+          className="flex-1 gap-2 h-12 rounded-xl shadow-md"
           size="lg"
         >
           {t('rental.next')}

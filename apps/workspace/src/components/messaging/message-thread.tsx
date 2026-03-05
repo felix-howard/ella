@@ -101,8 +101,8 @@ export function MessageThread({
     return (
       <div className={cn('flex-1 flex items-center justify-center', className)}>
         <div className="text-center text-muted-foreground">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-          <p className="text-sm">{t('messages.loading')}</p>
+          <div className="animate-spin w-7 h-7 border-2 border-primary/30 border-t-primary rounded-full mx-auto mb-3" />
+          <p className="text-xs text-muted-foreground/70">{t('messages.loading')}</p>
         </div>
       </div>
     )
@@ -112,10 +112,12 @@ export function MessageThread({
   if (messages.length === 0) {
     return (
       <div className={cn('flex-1 flex items-center justify-center', className)}>
-        <div className="text-center text-muted-foreground">
-          <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm font-medium">{t('messages.noMessages')}</p>
-          <p className="text-xs mt-1">{t('messages.startConversation')}</p>
+        <div className="text-center">
+          <div className="w-14 h-14 rounded-2xl bg-muted/40 mx-auto mb-4 flex items-center justify-center">
+            <MessageSquare className="w-7 h-7 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm font-medium text-foreground/80">{t('messages.noMessages')}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('messages.startConversation')}</p>
         </div>
       </div>
     )
@@ -132,12 +134,12 @@ export function MessageThread({
       {groupedMessages.map((group) => (
         <div key={group.date}>
           {/* Date separator */}
-          <div className="flex items-center justify-center my-4">
-            <div className="h-px bg-border flex-1" />
-            <span className="px-3 text-xs text-muted-foreground font-medium">
+          <div className="flex items-center justify-center my-5">
+            <div className="h-px bg-border/40 flex-1" />
+            <span className="px-3 py-0.5 text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wider">
               {formatDateLabel(group.date, t('messages.today'), t('messages.yesterday'))}
             </span>
-            <div className="h-px bg-border flex-1" />
+            <div className="h-px bg-border/40 flex-1" />
           </div>
 
           {/* Messages for this date */}

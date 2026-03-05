@@ -175,9 +175,11 @@ export const RentalForm = memo(function RentalForm({
     <div className="flex-1 flex flex-col relative">
       {/* Locked banner */}
       {isLocked && (
-        <div className="bg-warning/10 border-b border-warning/30 px-6 py-2 flex items-center gap-2">
-          <Lock className="w-4 h-4 text-warning" />
-          <span className="text-sm text-warning">{t('rental.formLocked')}</span>
+        <div className="bg-warning/5 border-b border-warning/15 px-6 py-2.5 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-warning/10 flex items-center justify-center">
+            <Lock className="w-3 h-3 text-warning" />
+          </div>
+          <span className="text-sm text-warning font-medium">{t('rental.formLocked')}</span>
         </div>
       )}
 
@@ -192,7 +194,7 @@ export const RentalForm = memo(function RentalForm({
 
       {/* Auto-save indicator (fixed at bottom when not on review step) */}
       {currentStep !== totalSteps - 1 && !isLocked && (
-        <div className="sticky bottom-0 px-6 py-3 bg-background/80 backdrop-blur-sm border-t border-border">
+        <div className="sticky bottom-0 px-6 py-3 bg-background/90 backdrop-blur-md border-t border-border/30">
           <RentalAutoSaveIndicator
             status={autoSave.status}
             lastSaved={autoSave.lastSaved}

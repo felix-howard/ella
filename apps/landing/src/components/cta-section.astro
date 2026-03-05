@@ -1,41 +1,38 @@
 ---
 /**
- * Full-width call-to-action block with emerald background, heading, description, and button.
- * Inverted colors: white bg button on emerald background.
+ * Full-width CTA section with aurora gradient, glass card, and demo request form.
+ * Used across pages for consistent bottom CTA.
  */
+import ContactForm from "@/components/contact-form.astro";
+
 interface Props {
   title: string;
   description?: string;
+  /** Legacy props kept for backward compatibility but no longer used */
   buttonText?: string;
   buttonHref?: string;
 }
 
-const {
-  title,
-  description,
-  buttonText = "Book a Demo",
-  buttonHref = "https://www.facebook.com/andy.hayven",
-} = Astro.props;
+const { title, description } = Astro.props;
 ---
 
-<section class="bg-primary-600 py-16 sm:py-20">
-  <div class="mx-auto max-w-4xl px-4 sm:px-6 text-center">
-    <h2 class="text-2xl font-bold text-white sm:text-3xl md:text-4xl" data-animate="fade-up">
-      {title}
-    </h2>
-    {description && (
-      <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80" data-animate="fade-up">
-        {description}
-      </p>
-    )}
-    <a
-      href={buttonHref}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="mt-8 inline-block rounded-full bg-white px-8 py-3 text-base font-semibold text-primary-600 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-primary-50 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      data-animate="fade-up"
-    >
-      {buttonText}
-    </a>
+<section class="relative overflow-hidden aurora-bg py-16 sm:py-24">
+  <!-- Grid pattern overlay -->
+  <div class="pointer-events-none absolute inset-0 grid-pattern" aria-hidden="true"></div>
+  <div class="relative mx-auto max-w-4xl px-4 sm:px-6">
+    <div class="text-center" data-animate="fade-up">
+      <h2 class="text-2xl font-bold text-white sm:text-3xl md:text-4xl font-heading">
+        {title}
+      </h2>
+      {description && (
+        <p class="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+          {description}
+        </p>
+      )}
+    </div>
+
+    <div class="glass-card mt-8 p-6 sm:mt-12 sm:p-8" data-animate="fade-up">
+      <ContactForm />
+    </div>
   </div>
 </section>

@@ -58,20 +58,20 @@ export const ExpenseSection = memo(function ExpenseSection({
   }, [categories, formData])
 
   return (
-    <Card>
+    <Card variant="elevated">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-base font-semibold text-foreground">
+          <span className="flex items-center gap-2.5 text-base font-semibold text-foreground">
             <span aria-hidden="true">{GROUP_ICONS[group]}</span>
             {GROUP_LABELS[group]}
             {filledCount > 0 && (
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground/60">
                 ({filledCount}/{categories.length})
               </span>
             )}
           </span>
           {sectionTotal > 0 && (
-            <span className="text-sm font-medium text-primary">
+            <span className="text-sm font-semibold text-primary tracking-tight">
               ${sectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           )}
@@ -79,7 +79,7 @@ export const ExpenseSection = memo(function ExpenseSection({
       </CardHeader>
 
       <CardContent className="pt-0">
-        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
+        <div className="grid gap-5 sm:grid-cols-2 sm:items-end">
           {categories.map((category) => (
             <ExpenseField
               key={category.field}

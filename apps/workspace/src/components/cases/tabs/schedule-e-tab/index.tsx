@@ -33,7 +33,7 @@ export function ScheduleETab({ caseId, clientName }: ScheduleETabProps) {
   // Error state
   if (error) {
     return (
-      <div className="bg-card rounded-xl border border-destructive/30 p-6">
+      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-destructive/30 p-6">
         <div className="flex flex-col items-center text-center py-6">
           <AlertCircle className="w-10 h-10 text-destructive mb-3" />
           <h3 className="text-base font-medium text-foreground mb-1">Lỗi tải dữ liệu</h3>

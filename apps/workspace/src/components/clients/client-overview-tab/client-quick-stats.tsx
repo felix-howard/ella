@@ -25,9 +25,9 @@ export function ClientQuickStats({ clientId }: ClientQuickStatsProps) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-card rounded-xl border border-border p-4 animate-pulse">
-            <div className="w-8 h-8 bg-muted rounded-lg mb-3" />
-            <div className="h-6 w-12 bg-muted rounded mb-1" />
+          <div key={i} className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5 animate-pulse">
+            <div className="w-11 h-11 bg-muted rounded-xl mb-3" />
+            <div className="h-7 w-12 bg-muted rounded mb-1" />
             <div className="h-4 w-20 bg-muted rounded" />
           </div>
         ))}
@@ -44,25 +44,29 @@ export function ClientQuickStats({ clientId }: ClientQuickStatsProps) {
       icon: FolderOpen,
       value: stats.totalFiles,
       label: t('clientOverview.totalFiles'),
-      color: 'text-blue-500 bg-blue-500/10',
+      iconColor: 'text-blue-500',
+      gradientBg: 'bg-gradient-to-br from-blue-500/15 to-blue-500/5',
     },
     {
       icon: Calendar,
       value: stats.taxYears.length,
       label: t('clientOverview.taxYears'),
-      color: 'text-purple-500 bg-purple-500/10',
+      iconColor: 'text-purple-500',
+      gradientBg: 'bg-gradient-to-br from-purple-500/15 to-purple-500/5',
     },
     {
       icon: CheckCircle,
       value: `${stats.verifiedPercent}%`,
       label: t('clientOverview.verified'),
-      color: 'text-emerald-500 bg-emerald-500/10',
+      iconColor: 'text-emerald-500',
+      gradientBg: 'bg-gradient-to-br from-emerald-500/15 to-emerald-500/5',
     },
     {
       icon: MessageSquare,
       value: stats.lastMessageAt ? formatRelativeTime(stats.lastMessageAt) : '-',
       label: t('clientOverview.lastMessage'),
-      color: 'text-amber-500 bg-amber-500/10',
+      iconColor: 'text-amber-500',
+      gradientBg: 'bg-gradient-to-br from-amber-500/15 to-amber-500/5',
       isSmallText: !!stats.lastMessageAt,
     },
   ]
@@ -72,17 +76,17 @@ export function ClientQuickStats({ clientId }: ClientQuickStatsProps) {
       {statCards.map((stat, index) => {
         const Icon = stat.icon
         return (
-          <div key={index} className="bg-card rounded-xl border border-border p-4">
-            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center mb-3', stat.color)}>
-              <Icon className="w-5 h-5" />
+          <div key={index} className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5 group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default">
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-3', stat.gradientBg)}>
+              <Icon className={cn('w-5 h-5', stat.iconColor)} />
             </div>
             <div className={cn(
-              'font-semibold text-foreground',
-              stat.isSmallText ? 'text-base' : 'text-2xl'
+              'font-bold text-foreground',
+              stat.isSmallText ? 'text-base' : 'text-3xl'
             )}>
               {stat.value}
             </div>
-            <div className="text-sm text-muted-foreground">{stat.label}</div>
+            <div className="text-sm text-muted-foreground mt-0.5">{stat.label}</div>
           </div>
         )
       })}

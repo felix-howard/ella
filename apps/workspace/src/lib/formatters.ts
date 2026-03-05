@@ -2,6 +2,7 @@
  * Formatting utilities for Ella Workspace
  * Centralized formatters for phone numbers, initials, dates, etc.
  */
+import i18n from './i18n'
 
 /**
  * Format phone number to US format: (xxx) xxx-xxxx
@@ -163,8 +164,9 @@ export function stripHtmlTags(text: string): string {
 /**
  * Format relative time from ISO string with locale support
  */
-export function formatRelativeTime(isoString: string, locale: string = 'vi'): string {
-  const lang = locale.toLowerCase().startsWith('en') ? 'en' : 'vi'
+export function formatRelativeTime(isoString: string, locale?: string): string {
+  const resolved = locale ?? i18n.language ?? 'vi'
+  const lang = resolved.toLowerCase().startsWith('en') ? 'en' : 'vi'
   return getRelativeTime(new Date(isoString), lang)
 }
 

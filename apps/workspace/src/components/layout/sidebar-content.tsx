@@ -64,7 +64,7 @@ export function SidebarContent({
   return (
     <>
       {/* Logo Section */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-border/30">
         {showLabels ? (
           <Link to="/">
             <img src={logo} alt="ella.tax" className="h-8 object-contain" />
@@ -123,7 +123,7 @@ export function SidebarContent({
       </nav>
 
       {/* Bottom Section */}
-      <div className="border-t border-border p-3 space-y-2">
+      <div className="border-t border-border/30 p-3 space-y-2">
         <Link
           to="/team/profile/$staffId"
           params={{ staffId: 'me' }}

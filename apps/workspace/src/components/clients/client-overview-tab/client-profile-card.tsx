@@ -63,7 +63,7 @@ export function ClientProfileCard({ client }: ClientProfileCardProps) {
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
+    <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-8">
       <div className="flex flex-col sm:flex-row gap-6">
         {/* Avatar */}
         <div className="flex-shrink-0 flex justify-center sm:justify-start">
@@ -164,7 +164,7 @@ function EditForm({
             type="text"
             value={data.firstName}
             onChange={(e) => onChange({ ...data, firstName: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             disabled={isSaving}
           />
         </div>
@@ -176,7 +176,7 @@ function EditForm({
             type="text"
             value={data.lastName}
             onChange={(e) => onChange({ ...data, lastName: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder={t('clientOverview.lastNameOptional')}
             disabled={isSaving}
           />
@@ -192,7 +192,7 @@ function EditForm({
             type="tel"
             value={data.phone}
             onChange={(e) => onChange({ ...data, phone: formatPhoneInput(e.target.value) })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             disabled={isSaving}
           />
         </div>
@@ -204,7 +204,7 @@ function EditForm({
             type="email"
             value={data.email}
             onChange={(e) => onChange({ ...data, email: e.target.value })}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder={t('clientOverview.emailOptional')}
             disabled={isSaving}
           />

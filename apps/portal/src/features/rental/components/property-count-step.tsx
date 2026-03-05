@@ -50,13 +50,13 @@ export const PropertyCountStep = memo(function PropertyCountStep({
   }, [])
 
   return (
-    <div className="flex-1 flex flex-col px-6 py-4">
+    <div className="flex-1 flex flex-col px-6 py-6">
       {/* Question */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-semibold text-foreground mb-2">
           {t('rental.propertyCount')}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/80">
           {t('rental.propertyCountDescription')}
         </p>
       </div>
@@ -70,27 +70,31 @@ export const PropertyCountStep = memo(function PropertyCountStep({
             onClick={() => !readOnly && handleSelect(count)}
             disabled={readOnly}
             className={cn(
-              'flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all',
-              'hover:border-primary/50 hover:bg-primary/5',
+              'flex flex-col items-center justify-center p-6 rounded-2xl transition-all duration-200 cursor-pointer',
               'focus:outline-none focus:ring-2 focus:ring-primary/20',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               value === count
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border bg-card'
+                ? 'bg-primary/5 shadow-lg ring-2 ring-primary/25'
+                : 'bg-card shadow-sm border border-border/40 hover:shadow-md hover:border-primary/30'
             )}
             aria-pressed={value === count}
             aria-label={t('rental.propertyCountLabel', { count })}
           >
             {/* Icon row */}
-            <div className="flex items-center gap-1 mb-3">
+            <div className="flex items-center gap-1.5 mb-3">
               {Array.from({ length: count }).map((_, i) => (
-                <Building2
+                <div
                   key={i}
                   className={cn(
-                    'w-6 h-6',
-                    value === count ? 'text-primary' : 'text-muted-foreground'
+                    'w-8 h-8 rounded-lg flex items-center justify-center',
+                    value === count ? 'bg-primary/15' : 'bg-muted'
                   )}
-                />
+                >
+                  <Building2 className={cn(
+                    'w-4 h-4',
+                    value === count ? 'text-primary' : 'text-muted-foreground'
+                  )} />
+                </div>
               ))}
             </div>
 
@@ -108,7 +112,7 @@ export const PropertyCountStep = memo(function PropertyCountStep({
             <span
               className={cn(
                 'text-sm mt-1',
-                value === count ? 'text-primary' : 'text-muted-foreground'
+                value === count ? 'text-primary font-medium' : 'text-muted-foreground'
               )}
             >
               {count === 1
@@ -124,7 +128,7 @@ export const PropertyCountStep = memo(function PropertyCountStep({
         <Button
           onClick={onNext}
           disabled={readOnly}
-          className="w-full gap-2 h-14 text-base"
+          className="w-full gap-2 h-14 text-base rounded-xl shadow-md"
           size="lg"
         >
           {t('rental.next')}
@@ -134,11 +138,11 @@ export const PropertyCountStep = memo(function PropertyCountStep({
 
       {/* Confirmation modal when reducing property count */}
       {pendingCount !== null && initialPropertyCount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-card rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             {/* Warning icon + title */}
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
@@ -159,14 +163,14 @@ export const PropertyCountStep = memo(function PropertyCountStep({
               <Button
                 variant="outline"
                 onClick={cancelReduce}
-                className="w-full h-12"
+                className="w-full h-12 rounded-xl"
               >
                 {t('rental.reducePropertyCancel', { count: initialPropertyCount })}
               </Button>
               <Button
                 variant="destructive"
                 onClick={confirmReduce}
-                className="w-full h-12"
+                className="w-full h-12 rounded-xl shadow-md"
               >
                 {t('rental.reducePropertyConfirm', { count: pendingCount })}
               </Button>

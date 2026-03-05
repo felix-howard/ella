@@ -189,7 +189,7 @@ export function QuickActionsBar({
         transform: 'translateY(-100%)',
         zIndex: 9999,
       }}
-      className="w-56 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
+      className="w-56 bg-card border border-border/50 rounded-xl shadow-lg overflow-hidden"
     >
       {/* Portal Link - always available */}
       <button
@@ -241,7 +241,7 @@ export function QuickActionsBar({
   )
 
   return (
-    <div className="border-t border-border bg-card px-3 py-2">
+    <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
           {/* Link dropdown button */}
@@ -299,11 +299,12 @@ export function QuickActionsBar({
               disabled={disabled}
               rows={1}
               className={cn(
-                'w-full px-3 py-2 rounded-lg border border-border bg-muted',
+                'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',
                 'resize-none overflow-hidden',
-                'focus:outline-none focus:border-border',
-                'text-sm text-foreground placeholder:text-muted-foreground',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
+                'focus:outline-none focus:bg-muted/70 focus:border-border/40',
+                'text-sm text-foreground placeholder:text-muted-foreground/60',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'transition-all duration-200'
               )}
             />
           </div>
@@ -313,10 +314,10 @@ export function QuickActionsBar({
             onClick={handleSend}
             disabled={!canSend}
             className={cn(
-              'p-2 rounded-lg transition-colors',
+              'p-2 rounded-xl transition-all duration-200',
               canSend
-                ? 'bg-primary text-white hover:bg-primary-dark'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'
+                ? 'bg-primary text-white hover:bg-primary-dark shadow-sm hover:shadow-md'
+                : 'bg-muted/50 text-muted-foreground/40 cursor-not-allowed'
             )}
             aria-label={t('messages.sendMessage')}
           >

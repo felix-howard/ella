@@ -26,12 +26,12 @@ export function ConversationList({
     return (
       <div className={cn('flex-1 overflow-y-auto', className)}>
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-start gap-3 px-4 py-3 border-b border-border animate-pulse">
-            <div className="w-12 h-12 rounded-full bg-muted" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-32 bg-muted rounded" />
-              <div className="h-3 w-48 bg-muted rounded" />
-              <div className="h-3 w-16 bg-muted rounded" />
+          <div key={i} className="flex items-start gap-3 px-3 py-3 mx-2 my-0.5 animate-pulse">
+            <div className="w-11 h-11 rounded-full bg-muted/60" />
+            <div className="flex-1 space-y-2.5 pt-0.5">
+              <div className="h-3.5 w-28 bg-muted/60 rounded-md" />
+              <div className="h-3 w-44 bg-muted/40 rounded-md" />
+              <div className="h-2.5 w-14 bg-muted/30 rounded-md" />
             </div>
           </div>
         ))}
@@ -44,13 +44,13 @@ export function ConversationList({
     return (
       <div className={cn('flex-1 flex items-center justify-center', className)}>
         <div className="text-center px-6">
-          <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-            <Inbox className="w-8 h-8 text-muted-foreground" />
+          <div className="w-14 h-14 rounded-2xl bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+            <Inbox className="w-7 h-7 text-muted-foreground/60" />
           </div>
-          <h3 className="text-base font-medium text-foreground mb-1">
+          <h3 className="text-sm font-medium text-foreground mb-1">
             Chưa có cuộc hội thoại
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Tin nhắn với khách hàng sẽ xuất hiện ở đây
           </p>
         </div>

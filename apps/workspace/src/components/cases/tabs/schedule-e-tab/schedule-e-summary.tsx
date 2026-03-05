@@ -29,7 +29,7 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
   const isLocked = expense.status === 'LOCKED'
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+    <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

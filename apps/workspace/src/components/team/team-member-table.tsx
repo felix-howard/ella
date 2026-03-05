@@ -28,7 +28,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
 
   if (isError) {
     return (
-      <div className="bg-card rounded-xl border border-border p-8 text-center">
+      <div className="bg-card rounded-xl shadow-sm border border-border/50 p-8 text-center">
         <p className="text-sm text-destructive">{t('team.errorLoad')}</p>
       </div>
     )
@@ -36,7 +36,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
 
   if (members.length === 0) {
     return (
-      <div className="bg-card rounded-xl border border-border p-12 text-center">
+      <div className="bg-card rounded-xl shadow-sm border border-border/50 p-12 text-center">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
           <Users className="w-8 h-8 text-muted-foreground" />
         </div>
@@ -47,10 +47,10 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border">
+    <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <table className="w-full text-sm" aria-label={t('team.title')}>
         <thead>
-          <tr className="border-b border-border bg-muted/30">
+          <tr className="border-b border-border/50 bg-muted/50">
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.name')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">{t('team.email')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.role')}</th>
@@ -127,8 +127,8 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
       <tr
         onClick={handleRowClick}
         className={cn(
-          !isLast && !isExpanded && 'border-b border-border',
-          'hover:bg-muted/50 transition-colors cursor-pointer group'
+          !isLast && !isExpanded && 'border-b border-border/40',
+          'hover:bg-muted/40 transition-colors duration-150 cursor-pointer group'
         )}
       >
         {/* Name */}
@@ -138,10 +138,10 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
               <img
                 src={member.avatarUrl}
                 alt={member.name}
-                className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-2 ring-background shadow-sm"
               />
             ) : (
-              <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0', avatarColor.bg, avatarColor.text)}>
+              <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm', avatarColor.bg, avatarColor.text)}>
                 <span className="font-semibold text-sm">{getInitials(member.name)}</span>
               </div>
             )}
@@ -198,7 +198,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
             <>
               {/* Backdrop to close menu */}
               <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-              <div className="absolute right-4 top-12 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]" role="menu">
+              <div className="absolute right-4 top-12 z-20 bg-card border border-border/50 rounded-xl shadow-lg py-1 min-w-[160px]" role="menu">
                 <button
                   onClick={() => {
                     const newRole = isAdmin ? 'org:member' : 'org:admin'
@@ -237,7 +237,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
 
       {/* Expanded assignments panel */}
       {isExpanded && (
-        <tr className={cn(!isLast && 'border-b border-border')}>
+        <tr className={cn(!isLast && 'border-b border-border/40')}>
           <td colSpan={5} className="px-4 py-3 bg-muted/20">
             <MemberAssignmentsPanel staffId={member.id} staffName={member.name} isAdmin={isAdmin} />
           </td>

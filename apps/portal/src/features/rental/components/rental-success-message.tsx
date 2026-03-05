@@ -22,7 +22,7 @@ export const RentalSuccessMessage = memo(function RentalSuccessMessage({
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="text-center max-w-sm">
         {/* Success icon */}
-        <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
+        <div className="w-20 h-20 rounded-2xl bg-success/10 flex items-center justify-center mx-auto mb-6 shadow-sm">
           <CheckCircle2 className="w-10 h-10 text-success" />
         </div>
 
@@ -32,18 +32,18 @@ export const RentalSuccessMessage = memo(function RentalSuccessMessage({
         </h2>
 
         {/* Message */}
-        <p className="text-muted-foreground mb-4">
+        <p className="text-muted-foreground/80 mb-4">
           {t('rental.successMessage')}
         </p>
 
         {/* Version */}
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-muted-foreground/60 mb-6">
           {t('rental.version', { version })}
         </p>
 
         {/* CPA review note */}
-        <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left">
-          <p className="text-sm text-muted-foreground">
+        <div className="bg-primary/5 rounded-xl p-4 mb-6 text-left shadow-sm">
+          <p className="text-sm text-foreground">
             {t('rental.cpaReview')}
           </p>
         </div>
@@ -52,14 +52,14 @@ export const RentalSuccessMessage = memo(function RentalSuccessMessage({
         <Button
           variant="outline"
           onClick={onEditAgain}
-          className="gap-2"
+          className="gap-2 rounded-xl"
         >
           <Edit2 className="w-4 h-4" />
           {t('rental.editAgain')}
         </Button>
 
         {/* Can edit note */}
-        <p className="text-xs text-muted-foreground mt-4">
+        <p className="text-xs text-muted-foreground/60 mt-4">
           {t('rental.canEditAnytime')}
         </p>
       </div>

@@ -95,7 +95,7 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
     editNotifyOnUpload !== staff.notifyOnUpload
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
+    <div className="bg-card rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-foreground">{t('profile.info')}</h2>
         {canEdit && !isEditing && (

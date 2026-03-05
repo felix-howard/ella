@@ -17,7 +17,7 @@ export function TotalsCard({ totals }: TotalsCardProps) {
   const netIsPositive = totals.totalNet >= 0
 
   return (
-    <div className="bg-muted/50 rounded-xl border border-border p-4">
+    <div className="bg-muted/30 rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5">
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
         {t('scheduleE.aggregateTotals')}
       </h3>

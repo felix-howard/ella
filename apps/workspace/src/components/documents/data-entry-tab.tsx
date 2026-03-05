@@ -160,10 +160,10 @@ function DocCard({ doc, onView }: DocCardProps) {
       onClick={onView}
       className={cn(
         'group relative w-full text-left',
-        'bg-card border border-border rounded-xl p-4',
-        'hover:border-primary/50 hover:shadow-sm',
-        'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-        'transition-all duration-150'
+        'bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-4',
+        'hover:shadow-md hover:-translate-y-0.5',
+        'focus:outline-none focus:ring-2 focus:ring-primary/20',
+        'transition-all duration-200'
       )}
     >
       {/* Verified badge */}

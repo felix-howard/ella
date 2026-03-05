@@ -175,14 +175,14 @@ function ConversationDetailView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="flex-shrink-0 border-b border-border bg-card">
+      <header className="flex-shrink-0 bg-card shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Back button (mobile) - hidden on md+ desktop */}
               <Link
                 to="/messages"
-                className="md:hidden flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Link>
@@ -191,7 +191,7 @@ function ConversationDetailView() {
               {caseData && avatarColor ? (
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    'w-10 h-10 rounded-full flex items-center justify-center shadow-sm ring-2 ring-background',
                     avatarColor.bg,
                     avatarColor.text
                   )}>
@@ -201,20 +201,18 @@ function ConversationDetailView() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 min-w-0">
-                      <h1 className="text-base font-semibold text-foreground truncate">
+                      <h1 className="text-sm font-semibold text-foreground truncate tracking-tight">
                         {caseData.client.name}
                       </h1>
-                      <span
-                        className={cn(
-                          'text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0',
-                          statusColors?.bg,
-                          statusColors?.text
-                        )}
-                      >
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                        <span className={cn(
+                          'w-1.5 h-1.5 rounded-full',
+                          statusColors?.bg || 'bg-muted-foreground/40'
+                        )} />
                         {CASE_STATUS_LABELS[caseData.taxCase.status]}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
                       <span className="flex items-center gap-1">
                         <Phone className="w-3 h-3" />
                         {formatPhone(caseData.client.phone)}
@@ -224,17 +222,17 @@ function ConversationDetailView() {
                 </div>
               ) : (
                 <div className="animate-pulse flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted" />
+                  <div className="w-10 h-10 rounded-full bg-muted/60" />
                   <div className="space-y-2">
-                    <div className="h-4 w-32 bg-muted rounded" />
-                    <div className="h-3 w-48 bg-muted rounded" />
+                    <div className="h-3.5 w-28 bg-muted/60 rounded-md" />
+                    <div className="h-3 w-36 bg-muted/40 rounded-md" />
                   </div>
                 </div>
               )}
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               {/* Voice Call Button */}
               <CallButton
                 isAvailable={voiceState.isAvailable}
@@ -246,9 +244,9 @@ function ConversationDetailView() {
                 <Link
                   to="/clients/$clientId"
                   params={{ clientId: caseData.client.id }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
                 >
-                  <User className="w-4 h-4" />
+                  <User className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{t('messages.viewProfile')}</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>

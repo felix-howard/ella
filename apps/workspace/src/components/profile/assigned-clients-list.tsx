@@ -27,7 +27,7 @@ export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedCl
   const title = isAdmin ? t('profile.allClients') : t('profile.assignedClients')
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
+    <div className="bg-card rounded-xl shadow-sm p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">

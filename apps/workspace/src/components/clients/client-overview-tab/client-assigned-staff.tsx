@@ -63,7 +63,7 @@ export function ClientAssignedStaff({ clientId }: ClientAssignedStaffProps) {
   if (!isAdmin) {
     // Non-admin: show read-only list
     return (
-      <div className="bg-card rounded-xl border border-border p-4">
+      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5">
         <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
           <Users className="w-4 h-4" />
           {t('clientOverview.assignedStaff')}
@@ -147,7 +147,7 @@ function StaffBadge({
   const avatarColor = getAvatarColor(name)
 
   return (
-    <span className="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-muted text-sm">
+    <span className="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-muted text-sm shadow-sm">
       <span className={cn(
         'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
         avatarColor.bg,

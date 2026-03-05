@@ -32,11 +32,11 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/30">
+            <tr className="border-b border-border/50 bg-muted/50">
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.clientName}
               </th>
@@ -94,15 +94,15 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       to="/clients/$clientId"
       params={{ clientId: client.id }}
       className={cn(
-        'table-row hover:bg-muted/50 transition-colors cursor-pointer',
-        !isLast && 'border-b border-border'
+        'table-row hover:bg-muted/40 transition-colors duration-150 cursor-pointer',
+        !isLast && 'border-b border-border/40'
       )}
     >
       {/* Name column */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <div className={cn(
-            'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+            'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
             avatarColor.bg,
             avatarColor.text
           )}>
@@ -159,7 +159,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
               {client.assignedStaff.map((staff) => (
                 <span
                   key={staff.id}
-                  className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full"
+                  className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
                 >
                   {staff.name}
                 </span>
@@ -174,7 +174,8 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Uploads column */}
       <td className="px-4 py-3 hidden md:table-cell">
         {uploads && uploads.newCount > 0 ? (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
             {t('clients.newUploads', { count: uploads.newCount })}
           </span>
         ) : (
@@ -224,7 +225,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
 
 function EmptyState() {
   return (
-    <div className="bg-card rounded-xl border border-border p-12 text-center">
+    <div className="bg-card rounded-xl shadow-sm p-12 text-center">
       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
         <Users className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
       </div>
@@ -241,11 +242,11 @@ function EmptyState() {
  */
 export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/30">
+            <tr className="border-b border-border/50 bg-muted/50">
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
@@ -277,7 +278,7 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
           </thead>
           <tbody>
             {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i} className="border-b border-border">
+              <tr key={i} className="border-b border-border/40">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />

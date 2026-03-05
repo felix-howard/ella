@@ -33,12 +33,12 @@ export function GroupedFileRow({
     <div className="relative">
       {/* Left connector line */}
       <div
-        className="absolute left-3 top-3 bottom-3 w-0.5 bg-primary/30"
+        className="absolute left-3 top-3 bottom-3 w-0.5 bg-gradient-to-b from-primary/40 via-primary/30 to-primary/10"
         aria-hidden="true"
       />
 
       {/* Group header badge - shows base name + count for all groups */}
-      <div className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary/10 border-b border-primary/20">
+      <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gradient-to-r from-primary/10 to-primary/5 border-b border-primary/15">
         <Files className="ml-8 h-4 w-4 text-primary" aria-hidden="true" />
         <span className="text-primary">{group.baseName}</span>
         <span className="text-primary/70">

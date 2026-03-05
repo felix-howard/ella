@@ -107,8 +107,7 @@ export function FileCategorySection({
   return (
     <div
       className={cn(
-        'rounded-xl border overflow-hidden transition-all',
-        config.borderColor,
+        'rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] overflow-hidden transition-all',
         isDragOver && 'ring-2 ring-primary ring-offset-2'
       )}
       onDragOver={handleDragOver}
@@ -149,7 +148,7 @@ export function FileCategorySection({
 
       {/* File list - Use hidden instead of unmounting to prevent thumbnail reload flash */}
       <div className={cn(
-        'border-t border-border divide-y divide-border bg-card',
+        'border-t border-border/50 divide-y divide-border/50 bg-card',
         !isExpanded && 'hidden'
       )}>
         {/* Render grouped documents */}
@@ -354,7 +353,7 @@ const FileItemRow = memo(function FileItemRow({
       onDragEnd={handleDragEnd}
       className={cn(
         'flex items-center gap-4 p-3',
-        'hover:bg-muted/30 transition-colors',
+        'hover:bg-muted/30 transition-all duration-200',
         !isRenaming && 'cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-50',
         isGroupDragging && !isDragging && 'opacity-50 ring-2 ring-primary ring-inset'

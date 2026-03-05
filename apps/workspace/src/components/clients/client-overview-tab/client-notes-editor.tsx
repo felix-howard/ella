@@ -96,9 +96,9 @@ export function ClientNotesEditor({
   }, [debouncedSave])
 
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div className="rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <h3 className="text-sm font-medium text-foreground">
           {t('clientNotes.title')}
         </h3>
@@ -187,7 +187,7 @@ function NotesToolbar({ editor }: { editor: Editor | null }) {
   }
 
   return (
-    <div className="flex items-center gap-1 px-2 py-2 border-b border-border">
+    <div className="flex items-center gap-1 px-2 py-2 border-b border-border/50 bg-muted/30">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive('bold')}
@@ -264,7 +264,7 @@ function ToolbarButton({
       aria-label={title}
       aria-pressed={isActive}
       className={cn(
-        'p-1.5 rounded hover:bg-muted transition-colors',
+        'p-1.5 rounded-lg hover:bg-muted transition-all duration-200',
         isActive && 'bg-muted text-foreground'
       )}
     >

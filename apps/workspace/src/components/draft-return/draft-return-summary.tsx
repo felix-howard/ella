@@ -149,10 +149,10 @@ export function DraftReturnSummary({
   return (
     <div className="space-y-4">
       {/* Main card */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] overflow-hidden">
         <div className="flex flex-col lg:flex-row">
           {/* Left: PDF Thumbnail Preview */}
-          <div className="lg:w-48 flex-shrink-0 bg-muted/30 border-b lg:border-b-0 lg:border-r border-border">
+          <div className="lg:w-48 flex-shrink-0 bg-gradient-to-br from-muted/40 to-muted/20 border-b lg:border-b-0 lg:border-r border-border/50">
             <div className="aspect-[3/4] max-h-[200px] lg:max-h-none mx-auto lg:mx-0 w-auto lg:w-full relative flex items-center justify-center p-4">
               {isLoadingUrl ? (
                 <div className="flex flex-col items-center justify-center gap-2">
@@ -230,7 +230,7 @@ export function DraftReturnSummary({
 
                   {/* Link input with actions */}
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <div className="flex-1 flex items-center gap-2 bg-muted/50 dark:bg-muted/30 rounded-xl px-3 py-2 border border-border/30">
                       <code className="flex-1 text-sm truncate text-foreground/80">
                         {magicLink.url}
                       </code>
@@ -296,7 +296,7 @@ export function DraftReturnSummary({
         </div>
 
         {/* Upload new version - Footer */}
-        <div className="px-6 py-4 bg-muted/30 border-t border-border">
+        <div className="px-6 py-4 bg-muted/20 border-t border-border/50">
           <label className={cn(
             'inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
             isUploading && 'opacity-50 pointer-events-none'
@@ -320,10 +320,10 @@ export function DraftReturnSummary({
 
       {/* Version history - Collapsible card */}
       {versions.length > 1 && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] overflow-hidden">
           <button
             onClick={() => setShowVersions(!showVersions)}
-            className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+            className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-foreground hover:bg-muted/30 transition-all duration-200"
           >
             <span className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />

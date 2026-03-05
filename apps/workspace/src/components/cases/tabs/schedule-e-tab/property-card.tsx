@@ -35,8 +35,8 @@ export function PropertyCard({ property, isLocked }: PropertyCardProps) {
 
   return (
     <div className={cn(
-      'border rounded-lg overflow-hidden transition-colors',
-      isLocked ? 'border-gray-200 dark:border-gray-700' : 'border-border'
+      'rounded-xl overflow-hidden transition-colors shadow-sm dark:shadow-none dark:border dark:border-white/[0.06]',
+      isLocked ? 'border border-gray-200 dark:border-gray-700' : ''
     )}>
       {/* Collapsed Header - Always visible */}
       <button

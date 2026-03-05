@@ -660,7 +660,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
         <div className="text-sm text-muted-foreground">
           {t('filesTab.filesCount', { count: images.length })}
           {newFilesCount > 0 && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded">
+            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-primary text-primary-foreground rounded-full">
               {t('filesTab.newCount', { count: newFilesCount })}
             </span>
           )}
@@ -688,7 +688,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
                 <FolderSync className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t('filesTab.groupFiles')}</span>
                 {ungroupedCount > 0 && (
-                  <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                  <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
                     {ungroupedCount}
                   </span>
                 )}

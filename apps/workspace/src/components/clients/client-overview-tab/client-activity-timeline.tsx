@@ -37,7 +37,7 @@ export function ClientActivityTimeline({ clientId }: ClientActivityTimelineProps
 
   if (isLoading) {
     return (
-      <div className="bg-card rounded-xl border border-border p-4">
+      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5">
         <h3 className="text-base font-semibold text-foreground mb-4">
           {t('clientOverview.recentActivity')}
         </h3>
@@ -61,7 +61,7 @@ export function ClientActivityTimeline({ clientId }: ClientActivityTimelineProps
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4">
+    <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-5">
       <h3 className="text-base font-semibold text-foreground mb-4">
         {t('clientOverview.recentActivity')}
       </h3>
@@ -73,8 +73,8 @@ export function ClientActivityTimeline({ clientId }: ClientActivityTimelineProps
         </div>
       ) : (
         <div className="relative">
-          {/* Timeline line */}
-          <div className="absolute left-4 top-4 bottom-4 w-px bg-border" />
+          {/* Timeline line with gradient fade */}
+          <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-border via-border to-transparent" />
 
           {/* Activity items */}
           <div className="space-y-4">
@@ -96,7 +96,7 @@ function ActivityItem({ activity }: { activity: ClientActivity }) {
     <div className="flex gap-3 relative">
       {/* Icon */}
       <div className={cn(
-        'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border z-10',
+        'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 border shadow-sm z-10',
         colorClass
       )}>
         <Icon className="w-4 h-4" />

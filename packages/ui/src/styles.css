@@ -74,8 +74,8 @@
   --color-popover-foreground: #F1F5F9;
   --color-muted: #1E293B;
   --color-muted-foreground: #94A3B8;
-  --color-border: #1E293B;
-  --color-input: #1E293B;
+  --color-border: #334155;
+  --color-input: #334155;
   --color-primary-light: #065F46;
   /* Enable dark mode for native form controls (select dropdowns, etc.) */
   color-scheme: dark;

@@ -327,10 +327,10 @@ function ClientDetailPage() {
             </div>
           </div>
         </div>
-        <div className="border-b border-border mb-6">
-          <div className="flex gap-1">
+        <div className="mb-6">
+          <div className="flex gap-1 p-1 bg-muted/40 rounded-xl">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 w-24 bg-muted rounded" />
+              <div key={i} className="h-10 w-24 bg-muted rounded-lg" />
             ))}
           </div>
         </div>
@@ -435,17 +435,17 @@ function ClientDetailPage() {
           <div className="flex items-start gap-4">
             {/* Avatar */}
             <div className={cn(
-              'w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0',
+              'w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
               avatarColor.bg,
               avatarColor.text
             )}>
-              <span className="font-bold text-xl">
+              <span className="font-bold text-lg">
                 {getInitials(client.name)}
               </span>
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">{client.name}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Phone className="w-4 h-4" aria-hidden="true" />
@@ -530,7 +530,7 @@ function ClientDetailPage() {
                 href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-muted/60 text-foreground hover:bg-muted transition-all duration-200"
                 title={t('clientDetail.openUpload')}
               >
                 <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -543,7 +543,7 @@ function ClientDetailPage() {
               <Link
                 to="/messages/$caseId"
                 params={{ caseId: activeCaseId }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-foreground"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/60 hover:bg-muted transition-all duration-200 text-xs font-medium text-foreground"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t('clientDetail.messages')}</span>
@@ -558,7 +558,7 @@ function ClientDetailPage() {
             )}
             <button
               onClick={() => setIsDeleteModalOpen(true)}
-              className="p-1.5 rounded-lg border border-destructive/30 hover:bg-destructive/10 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-200"
               aria-label={t('clientDetail.deleteClient')}
               title={t('clientDetail.deleteClient')}
             >
@@ -568,9 +568,9 @@ function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-border mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <nav className="flex gap-1 overflow-x-auto scrollbar-none" role="tablist">
+      {/* Tabs - Pill style */}
+      <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <nav className="flex gap-1 p-1 bg-muted/40 rounded-xl overflow-x-auto scrollbar-none" role="tablist">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -581,10 +581,10 @@ function ClientDetailPage() {
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0',
+                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0',
                   isActive
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
               >
                 <Icon className="w-4 h-4" aria-hidden="true" />

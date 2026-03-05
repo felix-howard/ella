@@ -7,7 +7,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, User } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { cn, Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
@@ -70,23 +70,34 @@ function ProfilePage() {
         {t('profile.backToTeam')}
       </Link>
 
-      {/* Header */}
-      <div className="flex items-start gap-6 mb-8">
-        {/* Avatar with uploader */}
-        <AvatarUploader
-          staffId={staffId}
-          currentAvatarUrl={staff.avatarUrl}
-          name={staff.name}
-          canEdit={canEdit}
-        />
+      {/* Header Card */}
+      <div className="bg-card rounded-xl shadow-sm p-6 mb-6">
+        <div className="flex items-center gap-5">
+          {/* Avatar with uploader */}
+          <AvatarUploader
+            staffId={staffId}
+            currentAvatarUrl={staff.avatarUrl}
+            name={staff.name}
+            canEdit={canEdit}
+          />
 
-        {/* Name & Email */}
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-foreground">{staff.name}</h1>
-          <p className="text-muted-foreground">{staff.email}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
-          </p>
+          {/* Name & Meta */}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold text-foreground">{staff.name}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{staff.email}</p>
+            <span className={cn(
+              'inline-flex items-center gap-1.5 mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full',
+              staff.role === 'ADMIN'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-muted text-muted-foreground'
+            )}>
+              <span className={cn(
+                'w-1.5 h-1.5 rounded-full',
+                staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
+              )} />
+              {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+            </span>
+          </div>
         </div>
       </div>
 

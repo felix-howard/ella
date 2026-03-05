@@ -42,13 +42,13 @@ function MessagesIndex() {
   return (
     <div className="flex-1 flex items-center justify-center bg-background">
       <div className="text-center">
-        <div className="w-20 h-20 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-          <MessageSquare className="w-10 h-10 text-muted-foreground" />
+        <div className="w-16 h-16 rounded-2xl bg-muted/40 mx-auto mb-5 flex items-center justify-center">
+          <MessageSquare className="w-8 h-8 text-muted-foreground/50" />
         </div>
-        <h2 className="text-lg font-medium text-foreground mb-2">
+        <h2 className="text-base font-medium text-foreground/80 mb-1.5">
           {t('messages.selectConversation')}
         </h2>
-        <p className="text-sm text-muted-foreground max-w-xs">
+        <p className="text-sm text-muted-foreground/60 max-w-xs">
           {t('messages.selectConversationDesc')}
         </p>
       </div>

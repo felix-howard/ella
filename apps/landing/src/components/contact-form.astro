@@ -1,20 +1,87 @@
 ---
 /**
- * Contact/demo request CTA that links to Facebook.
- * Inverted button style (white bg, emerald text) for dark aurora backgrounds.
+ * Demo request form with name, email, and company fields.
+ * Styled for dark aurora backgrounds with glassmorphism inputs.
+ * On submit, opens Facebook contact page.
  */
 ---
 
-<div class="mx-auto max-w-lg text-center">
-  <a
-    href="https://www.facebook.com/andy.hayven"
-    target="_blank"
-    rel="noopener noreferrer"
-    class="inline-block w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-600 shadow-sm transition-all hover:bg-gray-50 hover:shadow-lg active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+<form id="demo-form" class="space-y-5">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="demo-name" class="mb-1.5 block text-sm font-medium text-white/90">
+        Full Name
+      </label>
+      <input
+        type="text"
+        id="demo-name"
+        name="name"
+        placeholder="John Smith"
+        required
+        class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+      />
+    </div>
+    <div>
+      <label for="demo-email" class="mb-1.5 block text-sm font-medium text-white/90">
+        Work Email
+      </label>
+      <input
+        type="email"
+        id="demo-email"
+        name="email"
+        placeholder="john@yourfirm.com"
+        required
+        class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+      />
+    </div>
+  </div>
+
+  <div>
+    <label for="demo-company" class="mb-1.5 block text-sm font-medium text-white/90">
+      Company / Firm Name
+    </label>
+    <input
+      type="text"
+      id="demo-company"
+      name="company"
+      placeholder="Smith & Associates CPA"
+      class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+    />
+  </div>
+
+  <div>
+    <label for="demo-message" class="mb-1.5 block text-sm font-medium text-white/90">
+      Message <span class="text-white/40">(optional)</span>
+    </label>
+    <textarea
+      id="demo-message"
+      name="message"
+      rows="3"
+      placeholder="Tell us about your firm and what you're looking for..."
+      class="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+    ></textarea>
+  </div>
+
+  <button
+    type="submit"
+    class="group relative w-full overflow-hidden rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-primary-700 shadow-lg transition-all duration-300 hover:shadow-xl hover:shadow-white/25 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-base"
   >
-    Request a Demo
-  </a>
-  <p class="mt-4 text-sm text-white/70">
-    Click to connect with us on Facebook
+    <span class="relative z-10 flex items-center justify-center gap-2">
+      Request a Demo
+      <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+      </svg>
+    </span>
+  </button>
+
+  <p class="text-center text-xs text-white/50">
+    We'll reach out within 24 hours to schedule your personalized demo.
   </p>
-</div>
+</form>
+
+<script>
+  document.getElementById('demo-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    window.open('https://www.facebook.com/andy.hayven', '_blank', 'noopener,noreferrer');
+  });
+</script>

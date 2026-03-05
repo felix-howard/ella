@@ -7,7 +7,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Users, UserPlus, Mail, Loader2, ShieldAlert } from 'lucide-react'
-import { cn, Button, Badge } from '@ella/ui'
+import { Button, Badge } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TeamMemberTable } from '../../components/team/team-member-table'
 import { InviteMemberDialog } from '../../components/team/invite-member-dialog'
@@ -76,22 +76,25 @@ function TeamPage() {
   return (
     <PageContainer>
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t('team.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t('team.members')} ({members.length})
           </p>
         </div>
-        <Button onClick={() => setIsInviteOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-2" />
+        <button
+          onClick={() => setIsInviteOpen(true)}
+          className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-full font-medium hover:bg-primary-dark transition-colors shadow-sm"
+        >
+          <UserPlus className="w-4 h-4" />
           {t('team.inviteMember')}
-        </Button>
+        </button>
       </div>
 
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-4 mb-6">
+        <div className="bg-card rounded-xl shadow-sm border border-border/50 p-4 mb-6">
           <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <Mail className="w-4 h-4 text-muted-foreground" />
             {t('team.invitations')} ({pendingInvitations.length})

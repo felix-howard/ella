@@ -72,10 +72,10 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   if (isSystem) {
     return (
       <div className="flex justify-center my-2">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/30 text-[11px] text-muted-foreground/70">
           <Bot className="w-3 h-3" />
           <span>{safeContent}</span>
-          {showTime && <span className="ml-1">• {time}</span>}
+          {showTime && <span className="ml-1 opacity-60">• {time}</span>}
         </div>
       </div>
     )
@@ -96,7 +96,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             'max-w-[320px] w-full overflow-hidden',
             'rounded-[20px]',
             isOutbound ? 'rounded-br-[6px]' : 'rounded-bl-[6px]',
-            isOutbound ? 'bg-primary/10' : 'bg-card border border-border'
+            isOutbound ? 'bg-primary/10' : 'bg-card shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
           )}
         >
           <div className="px-4 py-3">
@@ -181,10 +181,10 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           isOutbound
             ? 'rounded-[20px] rounded-br-[6px]'
             : 'rounded-[20px] rounded-bl-[6px]',
-          // Colors - card style for text messages
+          // Colors - card style with subtle shadow
           isOutbound
-            ? 'bg-primary text-white'
-            : 'bg-card border border-border text-foreground'
+            ? 'bg-primary text-white shadow-sm'
+            : 'bg-card text-foreground shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
         )}
       >
         {/* Images at top, edge-to-edge within bubble */}
@@ -204,7 +204,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         {/* Text content with padding */}
         <div className="px-3.5 py-2">
           {hasText && (
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
               {safeContent}
             </p>
           )}
@@ -213,7 +213,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <div
             className={cn(
               'flex items-center gap-1.5 mt-1 text-[10px]',
-              isOutbound ? 'text-white/60 justify-end' : 'text-muted-foreground'
+              isOutbound ? 'text-white/50 justify-end' : 'text-muted-foreground/60'
             )}
           >
             <ChannelIcon className="w-2.5 h-2.5" />

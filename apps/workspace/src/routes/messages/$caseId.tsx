@@ -12,7 +12,6 @@ import { ArrowLeft, User, Phone, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
 import { api } from '../../lib/api-client'
 import type { Message, TaxCaseStatus, Language } from '../../lib/api-client'
 
@@ -166,10 +165,6 @@ function ConversationDetailView() {
     }
   }, [voiceState.callState, showCallModal])
 
-  const statusColors = caseData?.taxCase
-    ? CASE_STATUS_COLORS[caseData.taxCase.status]
-    : undefined
-
   const avatarColor = caseData ? getAvatarColor(caseData.client.name) : null
 
   return (
@@ -204,13 +199,6 @@ function ConversationDetailView() {
                       <h1 className="text-sm font-semibold text-foreground truncate tracking-tight">
                         {caseData.client.name}
                       </h1>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-                        <span className={cn(
-                          'w-1.5 h-1.5 rounded-full',
-                          statusColors?.bg || 'bg-muted-foreground/40'
-                        )} />
-                        {CASE_STATUS_LABELS[caseData.taxCase.status]}
-                      </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
                       <span className="flex items-center gap-1">

@@ -9,8 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
-import { CASE_STATUS_LABELS, CASE_STATUS_COLORS } from '../../lib/constants'
-import type { Conversation, TaxCaseStatus } from '../../lib/api-client'
+import type { Conversation } from '../../lib/api-client'
 
 export interface ConversationListItemProps {
   conversation: Conversation
@@ -33,8 +32,6 @@ export const ConversationListItem = memo(function ConversationListItem({
   const locale = i18n.language === 'vi' ? 'vi' : 'en'
   const hasUnread = unreadCount > 0
 
-  // Status styling
-  const statusColors = CASE_STATUS_COLORS[taxCase.status as TaxCaseStatus]
   const ChannelIcon = lastMessage ? CHANNEL_ICONS[lastMessage.channel] : null
   const avatarColor = getAvatarColor(client.name)
 
@@ -129,25 +126,6 @@ export const ConversationListItem = memo(function ConversationListItem({
           </p>
         </div>
 
-        {/* Status badge */}
-        <div className="flex items-center gap-1.5 mt-1.5">
-          <span className={cn(
-            'inline-flex items-center gap-1 text-[10px] font-medium',
-            isActive ? 'text-foreground/70' : 'text-muted-foreground'
-          )}>
-            <span className={cn(
-              'w-1.5 h-1.5 rounded-full flex-shrink-0',
-              statusColors?.bg ? statusColors.bg.replace('bg-', 'bg-') : 'bg-muted-foreground/40'
-            )} />
-            {CASE_STATUS_LABELS[taxCase.status as TaxCaseStatus]}
-          </span>
-          <span className={cn(
-            'text-[10px]',
-            isActive ? 'text-foreground/50' : 'text-muted-foreground/60'
-          )}>
-            {taxCase.taxYear}
-          </span>
-        </div>
       </div>
     </Link>
   )

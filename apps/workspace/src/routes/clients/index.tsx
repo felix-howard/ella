@@ -93,7 +93,7 @@ function ClientListPage() {
             placeholder={clientsText.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-full border-none bg-muted/60 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-full border-none bg-card shadow-sm text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
           />
         </div>
 
@@ -104,7 +104,7 @@ function ClientListPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as ClientSortOption)}
-              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-muted/60 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-card shadow-sm text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
               aria-label={t('clients.sortBy')}
             >
               {CLIENT_SORT_OPTIONS.map((option) => (
@@ -121,7 +121,7 @@ function ClientListPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as TaxCaseStatus | 'ALL')}
-              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-muted/60 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-card shadow-sm text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
               aria-label={t('clients.filterByStatus')}
             >
               <option value="ALL">{UI_TEXT.actions.all}</option>
@@ -138,7 +138,7 @@ function ClientListPage() {
           <button
             onClick={handleRefresh}
             disabled={isRefetching}
-            className="p-2.5 rounded-lg border-none bg-muted/60 hover:bg-muted transition-colors disabled:opacity-50"
+            className="p-2.5 rounded-lg border-none bg-card shadow-sm hover:bg-muted transition-colors disabled:opacity-50"
             aria-label={UI_TEXT.actions.refresh}
           >
             <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefetching && 'animate-spin')} />

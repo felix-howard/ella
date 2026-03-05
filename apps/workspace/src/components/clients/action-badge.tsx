@@ -16,20 +16,20 @@ interface ActionBadgeProps {
   days?: number
 }
 
-// Color config for badge styling (semantic colors + dark mode)
-const BADGE_COLORS: Record<BadgeType, string> = {
-  missing: 'bg-error/10 text-error border-error/20',
-  verify: 'bg-warning/10 text-warning border-warning/20',
-  entry: 'bg-primary/10 text-primary border-primary/20',
-  stale: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800',
-  ready: 'bg-success/10 text-success border-success/20',
-  'new-activity': 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
+// Dot color per badge type
+const BADGE_DOT_COLORS: Record<BadgeType, string> = {
+  missing: 'bg-red-500',
+  verify: 'bg-amber-500',
+  entry: 'bg-blue-500',
+  stale: 'bg-slate-400 dark:bg-slate-500',
+  ready: 'bg-emerald-500',
+  'new-activity': 'bg-purple-500',
 } as const
 
 export const ActionBadge = memo(function ActionBadge({ type, count, days }: ActionBadgeProps) {
   const baseLabel = ACTION_BADGE_LABELS[type]
   const ariaBase = ACTION_BADGE_ARIA_LABELS[type]
-  const color = BADGE_COLORS[type]
+  const dotColor = BADGE_DOT_COLORS[type]
 
   // Build label and aria-label based on type
   let label: string
@@ -49,11 +49,9 @@ export const ActionBadge = memo(function ActionBadge({ type, count, days }: Acti
     <span
       role="status"
       aria-label={ariaLabel}
-      className={cn(
-        'inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border',
-        color
-      )}
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground"
     >
+      <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', dotColor)} />
       {label}
     </span>
   )

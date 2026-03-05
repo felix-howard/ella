@@ -158,7 +158,7 @@ export function Sidebar() {
           aria-modal="true"
           aria-label="Navigation menu"
           className={cn(
-            'fixed left-0 top-0 z-50 h-screen w-60 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out motion-reduce:transition-none',
+            'fixed left-0 top-0 z-50 h-screen w-60 bg-card shadow-md flex flex-col transition-transform duration-300 ease-in-out motion-reduce:transition-none',
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
@@ -172,7 +172,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-card border-r border-border transition-all duration-300 motion-reduce:transition-none flex flex-col',
+        'fixed left-0 top-0 z-40 h-screen bg-card shadow-sm transition-all duration-300 motion-reduce:transition-none flex flex-col',
         sidebarCollapsed ? 'w-16' : 'w-60'
       )}
     >
@@ -181,7 +181,7 @@ export function Sidebar() {
       {/* Collapse Toggle Button (desktop only) */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-20 w-6 h-6 bg-card border border-border rounded-full flex items-center justify-center shadow-sm hover:bg-muted transition-colors"
+        className="absolute -right-3 top-20 w-6 h-6 bg-card rounded-full flex items-center justify-center shadow-md hover:bg-muted transition-colors"
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {sidebarCollapsed ? (

@@ -21,13 +21,13 @@
   --color-warning-light: #FEF3C7;
 
   /* Neutral Colors */
-  --color-background: #EFF3F8;
+  --color-background: #F8FAFC;
   --color-foreground: #1E293B;
   --color-card: #ffffff;
   --color-card-foreground: #1E293B;
   --color-popover: #ffffff;
   --color-popover-foreground: #1E293B;
-  --color-muted: #E8F5EE;
+  --color-muted: #F1F5F9;
   --color-muted-foreground: #64748B;
   --color-secondary: #64748B;
   --color-secondary-foreground: #ffffff;
@@ -35,8 +35,8 @@
   --color-destructive-foreground: #ffffff;
 
   /* Borders & Inputs */
-  --color-border: #CBD5E1;
-  --color-input: #CBD5E1;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
   --color-ring: #10B981;
 
   /* Typography - Quicksand Bold */
@@ -50,10 +50,11 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(16, 185, 129, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(16, 185, 129, 0.05);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(16, 185, 129, 0.03);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 1px rgba(0, 0, 0, 0.02);
 
   /* Sidebar */
   --sidebar-width: 240px;
@@ -73,8 +74,8 @@
   --color-popover-foreground: #F1F5F9;
   --color-muted: #1E293B;
   --color-muted-foreground: #94A3B8;
-  --color-border: #334155;
-  --color-input: #334155;
+  --color-border: #1E293B;
+  --color-input: #1E293B;
   --color-primary-light: #065F46;
   /* Enable dark mode for native form controls (select dropdowns, etc.) */
   color-scheme: dark;

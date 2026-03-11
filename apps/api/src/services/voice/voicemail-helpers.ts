@@ -136,15 +136,21 @@ export async function createPlaceholderConversation(
   // SECURITY: Sanitize phone for display in client name (prevents XSS)
   const safePhone = sanitizePhone(phone)
 
+  // Format phone for display: +18136442540 → (813) 644-2540
+  const digits = safePhone.replace(/\D/g, '')
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits
+  const displayPhone = last10.length === 10
+    ? `(${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6)}`
+    : safePhone
+
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
     // RACE CONDITION FIX: Use upsert to handle concurrent requests
-    const displayName = `Khách hàng ${safePhone}` // "Customer {phone}" in Vietnamese (sanitized)
     const client = await tx.client.upsert({
       where: { phone },
       create: {
-        firstName: 'Khách hàng',  // "Customer" in Vietnamese
-        lastName: safePhone,      // Phone number as last name for identification
-        name: displayName,        // Computed display name
+        firstName: displayPhone,  // Formatted phone as first name
+        lastName: ' ',            // Empty (space placeholder)
+        name: displayPhone,       // Display name is just the formatted phone
         phone,
         language: 'VI',
         ...(organizationId ? { organizationId } : {}),
@@ -165,8 +171,8 @@ export async function createPlaceholderConversation(
       return client.taxCases[0].conversation
     }
 
-    // Create tax case for current year
-    const currentYear = new Date().getFullYear()
+    // Create tax case for previous year (e.g., texting in 2026 → tax year 2025)
+    const currentYear = new Date().getFullYear() - 1
 
     // Find or create engagement for this client + year
     const { engagementId } = await findOrCreateEngagement(

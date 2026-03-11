@@ -29,8 +29,8 @@ export interface ScheduleEOtherExpense {
  */
 export type ScheduleEPropertyType = 1 | 2 | 3 | 4 | 5 | 7 | 8;
 
-/** Property identifier (A, B, or C - max 3 properties) */
-export type ScheduleEPropertyId = 'A' | 'B' | 'C';
+/** Property identifier (A, B, C, D, ... - one letter per property) */
+export type ScheduleEPropertyId = string;
 
 /**
  * Single rental property data for Schedule E

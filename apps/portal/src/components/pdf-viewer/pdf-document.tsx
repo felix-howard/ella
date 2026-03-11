@@ -197,14 +197,21 @@ export function PdfDocument({
                 <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
               }
             />
-            {/* Watermark overlay per page */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-              <span
-                className="text-[120px] font-bold text-gray-400/20 select-none whitespace-nowrap"
-                style={{ transform: 'rotate(-30deg)' }}
+            {/* Watermark overlay per page - repeating grid */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div
+                className="absolute inset-0 flex flex-wrap items-center justify-center content-center gap-y-24"
+                style={{ transform: 'rotate(-30deg)', scale: '1.5' }}
               >
-                Ella
-              </span>
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="text-[80px] font-bold text-gray-400/15 select-none whitespace-nowrap mx-12"
+                  >
+                    Ella
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         ))}

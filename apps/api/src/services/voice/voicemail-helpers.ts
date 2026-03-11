@@ -10,6 +10,23 @@ import { findOrCreateEngagement } from '../engagement-helpers'
 type TransactionClient = Prisma.TransactionClient
 
 // ============================================
+// ORGANIZATION HELPERS
+// ============================================
+
+/**
+ * Find the default organization for associating unknown callers
+ * Returns the first active organization (single-org setup)
+ */
+export async function findDefaultOrganizationId(): Promise<string | null> {
+  const org = await prisma.organization.findFirst({
+    where: { isActive: true },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  return org?.id ?? null
+}
+
+// ============================================
 // VALIDATION HELPERS
 // ============================================
 
@@ -109,10 +126,12 @@ export async function findConversationByPhone(
  * Used when voicemail is received from a number not in the system
  * Uses upsert pattern to handle race conditions (concurrent calls from same number)
  * @param phone - E.164 formatted caller phone (must be pre-validated)
+ * @param organizationId - Optional org ID to associate the placeholder client with
  * @returns Created or existing conversation
  */
 export async function createPlaceholderConversation(
-  phone: string
+  phone: string,
+  organizationId?: string | null
 ): Promise<{ id: string }> {
   // SECURITY: Sanitize phone for display in client name (prevents XSS)
   const safePhone = sanitizePhone(phone)
@@ -128,8 +147,10 @@ export async function createPlaceholderConversation(
         name: displayName,        // Computed display name
         phone,
         language: 'VI',
+        ...(organizationId ? { organizationId } : {}),
       },
-      update: {}, // No update needed - just return existing
+      // If client exists without org, associate with org now
+      update: organizationId ? { organizationId } : {},
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },

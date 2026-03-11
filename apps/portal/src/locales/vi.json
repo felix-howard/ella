@@ -152,7 +152,7 @@
   "rental.formLocked": "Form đã bị khóa",
   "rental.formLockedMessage": "CPA đã khóa form này. Vui lòng liên hệ văn phòng nếu cần chỉnh sửa.",
   "rental.propertyCount": "Bạn có bao nhiêu bất động sản cho thuê?",
-  "rental.propertyCountDescription": "Chọn số lượng bất động sản bạn muốn khai báo (tối đa 3)",
+  "rental.propertyCountDescription": "Dùng nút +/- để chọn số lượng bất động sản bạn muốn khai báo",
   "rental.propertyCountLabel": "{{count}} bất động sản",
   "rental.property": "bất động sản",
   "rental.properties": "bất động sản",

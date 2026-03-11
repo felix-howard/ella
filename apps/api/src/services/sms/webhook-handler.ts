@@ -12,6 +12,7 @@ import { updateLastActivity } from '../activity-tracker'
 import {
   isValidE164Phone,
   createPlaceholderConversation,
+  findDefaultOrganizationId,
   sanitizePhone,
 } from '../voice/voicemail-helpers'
 
@@ -195,7 +196,8 @@ export async function processIncomingMessage(
     isUnknownCaller = true
 
     // Create placeholder client + tax case + conversation (atomic transaction)
-    const placeholderConversation = await createPlaceholderConversation(fromPhone)
+    const defaultOrgId = await findDefaultOrganizationId()
+    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId)
     conversationId = placeholderConversation.id
 
     // Get the case ID from the conversation

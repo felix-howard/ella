@@ -19,6 +19,7 @@ import {
   generateVoicemailCompleteTwiml,
   findConversationByPhone,
   createPlaceholderConversation,
+  findDefaultOrganizationId,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizeRecordingDuration,
@@ -158,8 +159,9 @@ twilioWebhookRoute.post('/sms', async (c) => {
 })
 
 /**
- * POST /webhooks/twilio/status - Handle message status updates
- * Optional: track delivery status of outbound messages
+ * POST /webhooks/twilio/status - Handle SMS delivery status updates
+ * Twilio sends: queued, sent, delivered, undelivered, failed
+ * Also includes ErrorCode and ErrorMessage for failed/undelivered messages
  */
 twilioWebhookRoute.post('/status', async (c) => {
   // Rate limiting
@@ -168,16 +170,58 @@ twilioWebhookRoute.post('/status', async (c) => {
     return c.json({ error: 'Rate limit exceeded' }, 429)
   }
 
+  // Signature validation
+  const twilioSignature = c.req.header('X-Twilio-Signature') || ''
+  const forwardedProto = c.req.header('x-forwarded-proto') || 'http'
+  const forwardedHost = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost:3002'
+  const urlPath = new URL(c.req.url).pathname
+  const requestUrl = `${forwardedProto}://${forwardedHost}${urlPath}`
+
   const formData = await c.req.parseBody()
+
+  const validationResult = validateTwilioSignature(
+    requestUrl,
+    formData as Record<string, string>,
+    twilioSignature
+  )
+
+  if (!validationResult.valid) {
+    console.warn(`[Twilio Status] Signature validation failed: ${validationResult.error}`)
+    return c.text('Forbidden', 403)
+  }
 
   const messageSid = formData.MessageSid as string
   const messageStatus = formData.MessageStatus as string
+  const errorCode = formData.ErrorCode as string | undefined
+  const errorMessage = formData.ErrorMessage as string | undefined
 
-  console.log(`[Twilio Status] Message ${messageSid}: ${messageStatus}`)
+  console.log(`[Twilio Status] Message ${messageSid}: ${messageStatus}${errorCode ? ` (Error ${errorCode}: ${errorMessage})` : ''}`)
 
-  // Could update message record with delivery status here
-  // For now, just acknowledge
-  return c.json({ received: true })
+  if (!messageSid) {
+    return c.json({ received: true, processed: false })
+  }
+
+  try {
+    // Build status string - include error details for failed/undelivered
+    let statusValue = messageStatus
+    if ((messageStatus === 'failed' || messageStatus === 'undelivered') && errorCode) {
+      statusValue = `${messageStatus}:${errorCode}:${errorMessage || 'Unknown error'}`
+    }
+
+    const updateResult = await prisma.message.updateMany({
+      where: { twilioSid: messageSid },
+      data: { twilioStatus: statusValue },
+    })
+
+    if (updateResult.count === 0) {
+      console.warn(`[Twilio Status] No message found for SID: ${messageSid}`)
+    }
+
+    return c.json({ received: true, processed: updateResult.count > 0 })
+  } catch (error) {
+    console.error('[Twilio Status] Update error:', error)
+    return c.json({ error: 'Processing failed' }, 500)
+  }
 })
 
 // ============================================
@@ -530,7 +574,8 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
 
     console.log(`[Incoming Webhook] Routing to ${staffIdentities.length} staff:`, staffIdentities)
 
-    // 4. Create inbound call message record (atomic transaction)
+    // 4. Create inbound call message record
+    // For known clients with existing conversation
     if (client?.taxCases[0]?.conversation) {
       const conversation = client.taxCases[0].conversation
       await prisma.$transaction(async (tx) => {
@@ -549,6 +594,30 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
         // Update conversation timestamp
         await tx.conversation.update({
           where: { id: conversation.id },
+          data: { lastMessageAt: new Date() },
+        })
+      })
+    } else if (isValidE164Phone(from)) {
+      // Unknown caller or known client without conversation — create placeholder
+      console.log(`[Incoming Webhook] Creating placeholder conversation for unknown caller ${from}`)
+      const defaultOrgId = clientOrgId || await findDefaultOrganizationId()
+      const placeholderConv = await createPlaceholderConversation(from, defaultOrgId)
+
+      await prisma.$transaction(async (tx) => {
+        await tx.message.create({
+          data: {
+            conversationId: placeholderConv.id,
+            channel: 'CALL',
+            direction: 'INBOUND',
+            content: `Cuộc gọi đến từ ${from}`,
+            isSystem: false,
+            callSid,
+            callStatus: 'ringing',
+          },
+        })
+
+        await tx.conversation.update({
+          where: { id: placeholderConv.id },
           data: { lastMessageAt: new Date() },
         })
       })
@@ -876,7 +945,8 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
 
     if (!conversation) {
       console.log(`[Voicemail Recording] Unknown caller ${callerPhone}, creating placeholder conversation`)
-      conversation = await createPlaceholderConversation(callerPhone)
+      const defaultOrgId = await findDefaultOrganizationId()
+      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId)
     }
 
     // Create new voicemail message

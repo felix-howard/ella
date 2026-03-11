@@ -19,6 +19,7 @@ import {
   generateVoicemailCompleteTwiml,
   findConversationByPhone,
   createPlaceholderConversation,
+  findDefaultOrganizationId,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizeRecordingDuration,
@@ -530,7 +531,8 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
 
     console.log(`[Incoming Webhook] Routing to ${staffIdentities.length} staff:`, staffIdentities)
 
-    // 4. Create inbound call message record (atomic transaction)
+    // 4. Create inbound call message record
+    // For known clients with existing conversation
     if (client?.taxCases[0]?.conversation) {
       const conversation = client.taxCases[0].conversation
       await prisma.$transaction(async (tx) => {
@@ -549,6 +551,30 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
         // Update conversation timestamp
         await tx.conversation.update({
           where: { id: conversation.id },
+          data: { lastMessageAt: new Date() },
+        })
+      })
+    } else if (isValidE164Phone(from)) {
+      // Unknown caller or known client without conversation — create placeholder
+      console.log(`[Incoming Webhook] Creating placeholder conversation for unknown caller ${from}`)
+      const defaultOrgId = clientOrgId || await findDefaultOrganizationId()
+      const placeholderConv = await createPlaceholderConversation(from, defaultOrgId)
+
+      await prisma.$transaction(async (tx) => {
+        await tx.message.create({
+          data: {
+            conversationId: placeholderConv.id,
+            channel: 'CALL',
+            direction: 'INBOUND',
+            content: `Cuộc gọi đến từ ${from}`,
+            isSystem: false,
+            callSid,
+            callStatus: 'ringing',
+          },
+        })
+
+        await tx.conversation.update({
+          where: { id: placeholderConv.id },
           data: { lastMessageAt: new Date() },
         })
       })
@@ -876,7 +902,8 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
 
     if (!conversation) {
       console.log(`[Voicemail Recording] Unknown caller ${callerPhone}, creating placeholder conversation`)
-      conversation = await createPlaceholderConversation(callerPhone)
+      const defaultOrgId = await findDefaultOrganizationId()
+      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId)
     }
 
     // Create new voicemail message

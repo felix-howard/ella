@@ -32,6 +32,7 @@ export {
 export {
   findConversationByPhone,
   createPlaceholderConversation,
+  findDefaultOrganizationId,
   formatVoicemailDuration,
   isValidE164Phone,
   sanitizePhone,

@@ -287,7 +287,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
                 isError
                   ? (isOutbound ? 'text-red-300' : 'text-destructive')
                   : (smsStatus?.status === 'delivered'
-                    ? (isOutbound ? 'text-blue-300' : 'text-blue-500')
+                    ? (isOutbound ? 'text-white/70' : 'text-blue-500')
                     : '')
               )}>
                 {smsStatusConfig.icon}

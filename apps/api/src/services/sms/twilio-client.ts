@@ -59,11 +59,15 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      // Auto-set statusCallback if webhook base URL is configured
+      const statusCallback = options.statusCallback ||
+        (config.twilio.webhookBaseUrl ? `${config.twilio.webhookBaseUrl}/webhooks/twilio/status` : undefined)
+
       const message = await client.messages.create({
         to: options.to,
         from: config.twilio.phoneNumber,
         body: options.body,
-        statusCallback: options.statusCallback,
+        statusCallback,
       })
 
       return {
@@ -76,14 +80,18 @@ export async function sendSms(options: SendSmsOptions): Promise<SendSmsResult> {
       const errorCode = (error as { code?: number })?.code
 
       // Don't retry on certain error codes (invalid number, etc.)
+      const twilioMessage = (error as { message?: string })?.message
       if (
         errorCode === 21211 || // Invalid 'To' phone number
         errorCode === 21614 || // 'To' number not verified
+        errorCode === 21408 || // Permission to send SMS not enabled
+        errorCode === 21610 || // Attempt to send to unsubscribed recipient
+        errorCode === 21612 || // 'To' phone number not a valid mobile number (landline)
         errorCode === 21408    // Permission to send SMS not enabled
       ) {
         return {
           success: false,
-          error: `TWILIO_ERROR_${errorCode}`,
+          error: `TWILIO_ERROR_${errorCode}:${twilioMessage || 'Unknown error'}`,
         }
       }
 

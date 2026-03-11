@@ -405,6 +405,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
   // Send SMS if channel is SMS and Twilio is configured
   let smsSent = false
   let smsError: string | undefined
+  let twilioStatus: string | null = null
 
   if (channel === 'SMS' && isSmsEnabled()) {
     // Use sendSmsOnly to avoid creating duplicate message record
@@ -414,19 +415,21 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
 
     // Update message with Twilio response
     if (result.success && result.sid) {
+      twilioStatus = result.status || 'queued'
       await prisma.message.update({
         where: { id: message.id },
         data: {
           twilioSid: result.sid,
-          twilioStatus: result.status,
+          twilioStatus,
         },
       })
     } else if (!result.success) {
+      twilioStatus = `ERROR: ${smsError}`
       await prisma.message.update({
         where: { id: message.id },
         data: {
           twilioSid: null,
-          twilioStatus: `ERROR: ${smsError}`,
+          twilioStatus,
         },
       })
     }
@@ -439,6 +442,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     {
       message: {
         ...message,
+        twilioStatus,
         createdAt: message.createdAt.toISOString(),
         updatedAt: message.updatedAt.toISOString(),
       },

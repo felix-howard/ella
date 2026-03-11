@@ -6,7 +6,7 @@
 import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed } from 'lucide-react'
+import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
 import { sanitizeText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
@@ -47,6 +47,46 @@ function formatCallDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+/**
+ * Parse twilioStatus string which may contain error details
+ * Format: "status" or "status:errorCode:errorMessage"
+ */
+function parseTwilioStatus(twilioStatus: string | null | undefined): {
+  status: string
+  errorCode?: string
+  errorMessage?: string
+} {
+  if (!twilioStatus) return { status: '' }
+
+  // Check for ERROR: prefix (set by send route on immediate failure)
+  if (twilioStatus.startsWith('ERROR: ')) {
+    const errorPart = twilioStatus.substring(7)
+    // Parse TWILIO_ERROR_21612:message format
+    const match = errorPart.match(/^TWILIO_ERROR_(\d+):(.+)$/)
+    if (match) {
+      return { status: 'failed', errorCode: match[1], errorMessage: match[2] }
+    }
+    return { status: 'failed', errorCode: undefined, errorMessage: errorPart }
+  }
+
+  // Parse "status:errorCode:errorMessage" format from webhook
+  const parts = twilioStatus.split(':')
+  if (parts.length >= 3) {
+    return { status: parts[0], errorCode: parts[1], errorMessage: parts.slice(2).join(':') }
+  }
+
+  return { status: twilioStatus }
+}
+
+/** SMS delivery status config */
+const SMS_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: string; color: string }> = {
+  queued: { icon: <Clock className="w-3 h-3" />, labelKey: 'messages.smsStatus.queued', color: 'text-muted-foreground/60' },
+  sent: { icon: <Check className="w-3 h-3" />, labelKey: 'messages.smsStatus.sent', color: 'text-muted-foreground/60' },
+  delivered: { icon: <CheckCheck className="w-3 h-3" />, labelKey: 'messages.smsStatus.delivered', color: 'text-blue-500' },
+  undelivered: { icon: <AlertCircle className="w-3 h-3" />, labelKey: 'messages.smsStatus.undelivered', color: 'text-orange-500' },
+  failed: { icon: <XCircle className="w-3 h-3" />, labelKey: 'messages.smsStatus.failed', color: 'text-destructive' },
+}
+
 export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {
   const { t } = useTranslation()
   const isOutbound = message.direction === 'OUTBOUND'
@@ -67,6 +107,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const safeContent = sanitizeText(message.content)
   const hasText = safeContent && safeContent.trim().length > 0
   const isImageOnly = hasAttachments && !hasText
+
+  // Parse SMS delivery status for outbound SMS messages
+  const smsStatus = isOutbound && message.channel === 'SMS'
+    ? parseTwilioStatus(message.twilioStatus)
+    : null
+  const smsStatusConfig = smsStatus?.status ? SMS_STATUS_CONFIG[smsStatus.status] : null
+  const isError = smsStatus?.status === 'failed' || smsStatus?.status === 'undelivered'
 
   // System messages have centered, muted style
   if (isSystem) {
@@ -161,7 +208,22 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <ChannelIcon className="w-3 h-3" />
           <span>{channelLabel}</span>
           {showTime && <span>{time}</span>}
+          {smsStatusConfig && (
+            <span className={cn('flex items-center gap-0.5', smsStatusConfig.color)}>
+              {smsStatusConfig.icon}
+              <span>{t(smsStatusConfig.labelKey)}</span>
+            </span>
+          )}
         </div>
+        {/* Error details for failed SMS */}
+        {isError && smsStatus?.errorMessage && (
+          <div className={cn(
+            'text-[10px] text-destructive/80 px-1 max-w-[280px]',
+            isOutbound && 'text-right'
+          )}>
+            {smsStatus.errorMessage}
+          </div>
+        )}
       </div>
     )
   }
@@ -219,7 +281,29 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             <ChannelIcon className="w-2.5 h-2.5" />
             <span>{channelLabel}</span>
             {showTime && <span>{time}</span>}
+            {smsStatusConfig && (
+              <span className={cn(
+                'flex items-center gap-0.5',
+                isError
+                  ? (isOutbound ? 'text-red-300' : 'text-destructive')
+                  : (smsStatus?.status === 'delivered'
+                    ? (isOutbound ? 'text-blue-300' : 'text-blue-500')
+                    : '')
+              )}>
+                {smsStatusConfig.icon}
+                <span>{t(smsStatusConfig.labelKey)}</span>
+              </span>
+            )}
           </div>
+          {/* Error details for failed SMS */}
+          {isError && smsStatus?.errorMessage && (
+            <div className={cn(
+              'mt-0.5 text-[10px] leading-tight',
+              isOutbound ? 'text-red-300/80 text-right' : 'text-destructive/80'
+            )}>
+              {smsStatus.errorMessage}
+            </div>
+          )}
         </div>
       </div>
     </div>

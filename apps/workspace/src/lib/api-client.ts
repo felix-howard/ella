@@ -1358,6 +1358,9 @@ export interface Message {
   content: string
   attachmentUrls?: string[]
   createdAt: string
+  // SMS delivery status from Twilio (queued, sent, delivered, undelivered, failed)
+  // For errors: "failed:21612:Landline number" or "undelivered:30006:..."
+  twilioStatus?: string | null
   // Call-specific fields (only for CALL channel)
   callSid?: string
   recordingUrl?: string

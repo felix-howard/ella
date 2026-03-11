@@ -18,17 +18,17 @@ const STATUS_CONFIG: Record<ScheduleEStatus, {
   DRAFT: {
     i18nKey: 'scheduleE.statusDraft',
     icon: Clock,
-    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20',
   },
   SUBMITTED: {
     i18nKey: 'scheduleE.statusSubmitted',
     icon: CheckCircle2,
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+    className: 'bg-green-500/10 text-green-600 dark:text-green-400 ring-1 ring-green-500/20',
   },
   LOCKED: {
     i18nKey: 'scheduleE.statusLocked',
     icon: Lock,
-    className: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    className: 'bg-muted text-muted-foreground ring-1 ring-border',
   },
 }
 
@@ -39,7 +39,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
       config.className
     )}>
       <Icon className="w-3.5 h-3.5" />

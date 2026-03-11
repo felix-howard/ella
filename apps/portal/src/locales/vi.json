@@ -168,6 +168,7 @@
   "rental.state": "Tiểu bang",
   "rental.selectState": "Chọn",
   "rental.stateRequired": "Vui lòng chọn tiểu bang",
+  "rental.zipRequired": "Vui lòng nhập mã ZIP",
   "rental.zip": "Mã ZIP",
   "rental.propertyType": "Loại bất động sản",
   "rental.propertyTypeOtherPlaceholder": "Mô tả loại bất động sản khác",

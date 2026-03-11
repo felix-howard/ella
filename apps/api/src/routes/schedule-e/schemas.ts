@@ -30,8 +30,8 @@ const propertyTypeSchema = z.union([
   z.literal(8), // Other
 ])
 
-// Property ID
-const propertyIdSchema = z.enum(['A', 'B', 'C'])
+// Property ID (A-Z, supports unlimited properties)
+const propertyIdSchema = z.string().regex(/^[A-Z]+$/, 'Property ID must be uppercase letters')
 
 // Single property schema
 export const scheduleEPropertySchema = z.object({
@@ -77,9 +77,9 @@ export const scheduleEPropertySchema = z.object({
   }
 )
 
-// Full form schema for submit (1-3 properties)
+// Full form schema for submit
 export const scheduleEFormSchema = z.object({
-  properties: z.array(scheduleEPropertySchema).min(1).max(3),
+  properties: z.array(scheduleEPropertySchema).min(1),
 })
 
 // Draft schema - all fields optional for partial saves
@@ -110,7 +110,7 @@ export const scheduleEDraftSchema = z.object({
       totalExpenses: z.number().min(0).optional(),
       netIncome: z.number().optional(),
     })
-  ).max(3).optional(),
+  ).optional(),
 })
 
 // Type exports

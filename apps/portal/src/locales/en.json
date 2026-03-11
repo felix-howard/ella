@@ -168,6 +168,7 @@
   "rental.state": "State",
   "rental.selectState": "Select",
   "rental.stateRequired": "Please select a state",
+  "rental.zipRequired": "Please enter a ZIP code",
   "rental.zip": "ZIP Code",
   "rental.propertyType": "Property Type",
   "rental.propertyTypeOtherPlaceholder": "Describe other property type",

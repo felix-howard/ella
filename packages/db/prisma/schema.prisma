@@ -1166,7 +1166,7 @@ model ScheduleEExpense {
 
   status      ScheduleEStatus @default(DRAFT)
 
-  // === Properties (up to 3) stored as JSON array ===
+  // === Properties stored as JSON array (A, B, C, D, ... unlimited) ===
   // Each property: { id, address, propertyType, monthsRented, fairRentalDays,
   //   personalUseDays, rentsReceived, expenses (7 fields), otherExpenses[], totals }
   properties  Json            @default("[]")

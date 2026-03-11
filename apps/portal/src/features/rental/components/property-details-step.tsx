@@ -30,6 +30,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   // Local state for form values
   const [address, setAddress] = useState<ScheduleEPropertyAddress>(property.address)
   const [showStateError, setShowStateError] = useState(false)
+  const [showZipError, setShowZipError] = useState(false)
   const [propertyType, setPropertyType] = useState<ScheduleEPropertyType>(property.propertyType)
   const [propertyTypeOther, setPropertyTypeOther] = useState(property.propertyTypeOther || '')
   const [monthsRented, setMonthsRented] = useState(String(property.monthsRented || ''))
@@ -116,14 +117,27 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
 
   // Handle next with validation
   const handleNext = useCallback(() => {
+    let hasError = false
+
     // Validate state is selected (must be 2 characters)
     if (!address.state || address.state.length !== 2) {
       setShowStateError(true)
-      return
+      hasError = true
+    } else {
+      setShowStateError(false)
     }
-    setShowStateError(false)
+
+    // Validate zip code is not empty
+    if (!address.zip || address.zip.trim() === '') {
+      setShowZipError(true)
+      hasError = true
+    } else {
+      setShowZipError(false)
+    }
+
+    if (hasError) return
     onNext()
-  }, [address.state, onNext])
+  }, [address.state, address.zip, onNext])
 
   // Clear state error when state is selected
   const handleStateChange = useCallback((value: string) => {
@@ -219,12 +233,20 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
               id="zip"
               type="text"
               value={address.zip}
-              onChange={(e) => handleAddressChange('zip', e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.trim()) setShowZipError(false)
+                handleAddressChange('zip', e.target.value)
+              }}
               disabled={readOnly}
               placeholder="12345"
               maxLength={10}
-              className={inputClasses}
+              className={cn(inputClasses, showZipError && 'border-destructive ring-destructive/20')}
             />
+            {showZipError && (
+              <p className="text-xs text-destructive mt-1">
+                {t('rental.zipRequired')}
+              </p>
+            )}
           </div>
         </div>
       </div>

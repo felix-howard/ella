@@ -127,7 +127,9 @@ function CreateClientPage() {
     if (!basicInfo.firstName.trim()) {
       newErrors.firstName = t('newClient.errorFirstNameRequired')
     }
-    // lastName is optional, no validation needed
+    if (!basicInfo.lastName.trim()) {
+      newErrors.lastName = t('newClient.errorLastNameRequired')
+    }
 
     const cleanedPhone = basicInfo.phone.replace(/\D/g, '')
     if (!cleanedPhone) {
@@ -193,7 +195,7 @@ function CreateClientPage() {
         // Create new client with minimal profile
         const response = await api.clients.create({
           firstName: basicInfo.firstName.trim().slice(0, 50),
-          lastName: basicInfo.lastName.trim().slice(0, 50) || undefined,
+          lastName: basicInfo.lastName.trim().slice(0, 50),
           phone: formattedPhone,
           email: sanitizedEmail || undefined,
           language: basicInfo.language,
@@ -442,7 +444,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
         <div className="space-y-1.5">
           <label htmlFor="client-last-name" className="block text-sm font-medium text-foreground">
             {UI_TEXT.form.lastName}
-            <span className="text-muted-foreground ml-1">({t('newClient.optional')})</span>
+            <span className="text-error ml-1" aria-hidden="true">*</span>
           </label>
           <input
             id="client-last-name"
@@ -450,19 +452,24 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             value={data.lastName}
             onChange={(e) => onChange({ lastName: e.target.value })}
             placeholder={t('newClient.lastNamePlaceholder')}
+            aria-required="true"
+            aria-invalid={!!errors?.lastName}
+            aria-describedby={errors?.lastName ? 'last-name-error' : undefined}
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'placeholder:text-muted-foreground border-border'
+              'placeholder:text-muted-foreground',
+              errors?.lastName ? 'border-error' : 'border-border'
             )}
           />
+          {errors?.lastName && <p id="last-name-error" className="text-sm text-error" role="alert">{errors.lastName}</p>}
         </div>
       </div>
 
       {/* Phone */}
       <div className="space-y-1.5">
         <label htmlFor="client-phone" className="block text-sm font-medium text-foreground">
-          {UI_TEXT.form.phone}
+          {t('newClient.phoneLabel')}
           <span className="text-error ml-1" aria-hidden="true">*</span>
         </label>
         <div className="relative">
@@ -496,7 +503,6 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
       <div className="space-y-1.5">
         <label htmlFor="client-email" className="block text-sm font-medium text-foreground">
           {UI_TEXT.form.email}
-          <span className="text-muted-foreground ml-1">({t('newClient.optional')})</span>
         </label>
         <input
           id="client-email"

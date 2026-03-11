@@ -1,23 +1,21 @@
 /**
  * PropertyCountStep Component
- * Step 1: Select number of rental properties (1-3)
+ * Step 1: Select number of rental properties using +/- counter
  * Shows confirmation modal when reducing count from a previously submitted value
  */
 import { memo, useState, useCallback } from 'react'
-import { Building2, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Building2, ChevronRight, AlertTriangle, Plus, Minus } from 'lucide-react'
 import { Button, cn } from '@ella/ui'
 import { useTranslation } from 'react-i18next'
 
 interface PropertyCountStepProps {
-  value: 1 | 2 | 3
-  onChange: (count: 1 | 2 | 3) => void
+  value: number
+  onChange: (count: number) => void
   onNext: () => void
   readOnly?: boolean
   /** Previously submitted property count — used to detect reductions */
-  initialPropertyCount?: 1 | 2 | 3
+  initialPropertyCount?: number
 }
-
-const PROPERTY_COUNTS: (1 | 2 | 3)[] = [1, 2, 3]
 
 export const PropertyCountStep = memo(function PropertyCountStep({
   value,
@@ -27,9 +25,9 @@ export const PropertyCountStep = memo(function PropertyCountStep({
   initialPropertyCount,
 }: PropertyCountStepProps) {
   const { t } = useTranslation()
-  const [pendingCount, setPendingCount] = useState<1 | 2 | 3 | null>(null)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
 
-  const handleSelect = useCallback((count: 1 | 2 | 3) => {
+  const handleSelect = useCallback((count: number) => {
     // Show confirmation if reducing below the previously submitted count
     if (initialPropertyCount && count < initialPropertyCount) {
       setPendingCount(count)
@@ -49,6 +47,16 @@ export const PropertyCountStep = memo(function PropertyCountStep({
     setPendingCount(null)
   }, [])
 
+  const increment = useCallback(() => {
+    handleSelect(value + 1)
+  }, [value, handleSelect])
+
+  const decrement = useCallback(() => {
+    if (value > 1) {
+      handleSelect(value - 1)
+    }
+  }, [value, handleSelect])
+
   return (
     <div className="flex-1 flex flex-col px-6 py-6">
       {/* Question */}
@@ -61,66 +69,64 @@ export const PropertyCountStep = memo(function PropertyCountStep({
         </p>
       </div>
 
-      {/* Property count buttons */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        {PROPERTY_COUNTS.map((count) => (
+      {/* Property count selector */}
+      <div className="flex flex-col items-center gap-6 mb-8">
+        {/* Counter */}
+        <div className="flex items-center gap-4">
           <button
-            key={count}
             type="button"
-            onClick={() => !readOnly && handleSelect(count)}
-            disabled={readOnly}
+            onClick={decrement}
+            disabled={readOnly || value <= 1}
             className={cn(
-              'flex flex-col items-center justify-center p-6 rounded-2xl transition-all duration-200 cursor-pointer',
+              'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200',
               'focus:outline-none focus:ring-2 focus:ring-primary/20',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              value === count
-                ? 'bg-primary/5 shadow-lg ring-2 ring-primary/25'
-                : 'bg-card shadow-sm border border-border/40 hover:shadow-md hover:border-primary/30'
+              'disabled:opacity-30 disabled:cursor-not-allowed',
+              value > 1
+                ? 'bg-card shadow-sm border border-border/40 hover:shadow-md hover:border-primary/30 cursor-pointer'
+                : 'bg-muted/50'
             )}
-            aria-pressed={value === count}
-            aria-label={t('rental.propertyCountLabel', { count })}
+            aria-label="Decrease property count"
           >
-            {/* Icon row */}
-            <div className="flex items-center gap-1.5 mb-3">
-              {Array.from({ length: count }).map((_, i) => (
+            <Minus className="w-5 h-5 text-foreground" />
+          </button>
+
+          <div className="flex flex-col items-center min-w-[120px]">
+            <div className="flex items-center gap-1.5 mb-2">
+              {Array.from({ length: Math.min(value, 5) }).map((_, i) => (
                 <div
                   key={i}
-                  className={cn(
-                    'w-8 h-8 rounded-lg flex items-center justify-center',
-                    value === count ? 'bg-primary/15' : 'bg-muted'
-                  )}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/15"
                 >
-                  <Building2 className={cn(
-                    'w-4 h-4',
-                    value === count ? 'text-primary' : 'text-muted-foreground'
-                  )} />
+                  <Building2 className="w-4 h-4 text-primary" />
                 </div>
               ))}
+              {value > 5 && (
+                <span className="text-sm text-primary font-medium ml-1">
+                  +{value - 5}
+                </span>
+              )}
             </div>
-
-            {/* Number */}
-            <span
-              className={cn(
-                'text-2xl font-bold',
-                value === count ? 'text-primary' : 'text-foreground'
-              )}
-            >
-              {count}
+            <span className="text-4xl font-bold text-primary">{value}</span>
+            <span className="text-sm text-primary font-medium mt-1">
+              {value === 1 ? t('rental.property') : t('rental.properties')}
             </span>
+          </div>
 
-            {/* Label */}
-            <span
-              className={cn(
-                'text-sm mt-1',
-                value === count ? 'text-primary font-medium' : 'text-muted-foreground'
-              )}
-            >
-              {count === 1
-                ? t('rental.property')
-                : t('rental.properties')}
-            </span>
+          <button
+            type="button"
+            onClick={increment}
+            disabled={readOnly}
+            className={cn(
+              'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20',
+              'disabled:opacity-30 disabled:cursor-not-allowed',
+              'bg-card shadow-sm border border-border/40 hover:shadow-md hover:border-primary/30'
+            )}
+            aria-label="Increase property count"
+          >
+            <Plus className="w-5 h-5 text-foreground" />
           </button>
-        ))}
+        </div>
       </div>
 
       {/* Next button */}

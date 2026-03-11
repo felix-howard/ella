@@ -152,7 +152,7 @@
   "rental.formLocked": "Form Locked",
   "rental.formLockedMessage": "CPA has locked this form. Please contact the office if you need to make changes.",
   "rental.propertyCount": "How many rental properties do you have?",
-  "rental.propertyCountDescription": "Select the number of properties you want to report (max 3)",
+  "rental.propertyCountDescription": "Use the +/- buttons to set the number of properties you want to report",
   "rental.propertyCountLabel": "{{count}} properties",
   "rental.property": "property",
   "rental.properties": "properties",

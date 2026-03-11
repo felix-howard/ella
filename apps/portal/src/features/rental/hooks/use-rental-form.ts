@@ -24,8 +24,8 @@ export interface UseRentalFormReturn {
   goToStep: (step: number) => void
 
   // Property data
-  propertyCount: 1 | 2 | 3
-  setPropertyCount: (count: 1 | 2 | 3) => void
+  propertyCount: number
+  setPropertyCount: (count: number) => void
   properties: ScheduleEProperty[]
   updateProperty: (index: number, data: Partial<ScheduleEProperty>) => void
 
@@ -36,7 +36,7 @@ export interface UseRentalFormReturn {
   isLocked: boolean
   version: number
   /** Property count from previously submitted data (used for reduce-count confirmation) */
-  initialPropertyCount: 1 | 2 | 3
+  initialPropertyCount: number
 
   // Actions
   submit: () => Promise<boolean>
@@ -50,17 +50,19 @@ export interface UseRentalFormReturn {
   getPropertyForStep: (step: number) => ScheduleEProperty | null
 }
 
-// Property IDs in order
-const PROPERTY_IDS: ScheduleEPropertyId[] = ['A', 'B', 'C']
+// Generate property ID letter from index (0=A, 1=B, ..., 25=Z, 26=AA, etc.)
+function getPropertyId(index: number): ScheduleEPropertyId {
+  return String.fromCharCode(65 + (index % 26))
+}
 
 // Calculate step layout
 // Step 0: Property count selection
 // Steps 1,2: Property A (details, expenses)
 // Steps 3,4: Property B (details, expenses) - if propertyCount >= 2
-// Steps 5,6: Property C (details, expenses) - if propertyCount >= 3
+// etc.
 // Last step: Review
 
-function calculateTotalSteps(propertyCount: 1 | 2 | 3): number {
+function calculateTotalSteps(propertyCount: number): number {
   // 1 (count) + propertyCount * 2 (details + expenses) + 1 (review)
   return 1 + propertyCount * 2 + 1
 }
@@ -74,7 +76,7 @@ export function useRentalForm(
   // Initialize property count from existing data or default to 1
   const loadedPropertyCount = useMemo(() => {
     if (expense?.properties?.length) {
-      return Math.min(3, Math.max(1, expense.properties.length)) as 1 | 2 | 3
+      return Math.max(1, expense.properties.length)
     }
     return 1
   }, [expense])
@@ -85,7 +87,7 @@ export function useRentalForm(
       // Ensure we have the right IDs
       return expense.properties.map((p, i) => ({
         ...p,
-        id: PROPERTY_IDS[i] || p.id,
+        id: getPropertyId(i),
       }))
     }
     return [createEmptyProperty('A')]
@@ -93,13 +95,13 @@ export function useRentalForm(
 
   // State
   const [currentStep, setCurrentStep] = useState(0)
-  const [propertyCount, setPropertyCountState] = useState<1 | 2 | 3>(loadedPropertyCount)
+  const [propertyCount, setPropertyCountState] = useState<number>(loadedPropertyCount)
   const [properties, setProperties] = useState<ScheduleEProperty[]>(initialProperties)
   const [isDirty, setIsDirty] = useState(false)
   const [status, setStatus] = useState<FormStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   // Track submitted count - used to show confirmation when reducing property count
-  const [submittedPropertyCount, setSubmittedPropertyCount] = useState<1 | 2 | 3>(loadedPropertyCount)
+  const [submittedPropertyCount, setSubmittedPropertyCount] = useState<number>(loadedPropertyCount)
 
   // Refs for tracking
   const propertiesRef = useRef(properties)
@@ -111,17 +113,18 @@ export function useRentalForm(
   const version = expense?.version ?? 0
 
   // Set property count and adjust properties array
-  const setPropertyCount = useCallback((count: 1 | 2 | 3) => {
-    setPropertyCountState(count)
+  const setPropertyCount = useCallback((count: number) => {
+    const clampedCount = Math.max(1, count)
+    setPropertyCountState(clampedCount)
     setProperties((prev) => {
       const newProperties = [...prev]
       // Add missing properties
-      while (newProperties.length < count) {
-        const id = PROPERTY_IDS[newProperties.length]
+      while (newProperties.length < clampedCount) {
+        const id = getPropertyId(newProperties.length)
         newProperties.push(createEmptyProperty(id))
       }
       // Remove excess properties (keep only up to count)
-      return newProperties.slice(0, count)
+      return newProperties.slice(0, clampedCount)
     })
     setIsDirty(true)
   }, [])
@@ -215,7 +218,7 @@ export function useRentalForm(
       setStatus('submitted')
       setIsDirty(false)
       // Update submitted count so confirmation shows if user reduces later
-      setSubmittedPropertyCount(propertiesRef.current.length as 1 | 2 | 3)
+      setSubmittedPropertyCount(propertiesRef.current.length)
       return true
     } catch (err) {
       setStatus('error')

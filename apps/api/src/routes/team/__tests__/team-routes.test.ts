@@ -10,12 +10,30 @@ vi.mock('../../../lib/db', () => ({
     staff: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       count: vi.fn(),
+      update: vi.fn(),
+    },
+    client: {
+      count: vi.fn(),
+      findMany: vi.fn(),
     },
     clientAssignment: {
       findMany: vi.fn(),
     },
   },
+}))
+
+// Mock storage service
+vi.mock('../../../services/storage', () => ({
+  getSignedUploadUrl: vi.fn(),
+  generateAvatarKey: vi.fn(),
+  getSignedDownloadUrl: vi.fn(),
+}))
+
+// Mock config
+vi.mock('../../../lib/config', () => ({
+  config: { workspaceUrl: 'http://localhost:5174' },
 }))
 
 // Mock clerk client
@@ -51,6 +69,8 @@ import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import { clerkClient } from '../../../lib/clerk-client'
 import { deactivateStaff } from '../../../services/auth'
+import { logTeamAction } from '../../../services/audit-logger'
+import { getSignedUploadUrl, generateAvatarKey, getSignedDownloadUrl } from '../../../services/storage'
 import type { AuthVariables } from '../../../middleware/auth'
 import { teamRoute } from '../index'
 
@@ -78,6 +98,19 @@ function defaultUser() {
   }
 }
 
+function memberUser() {
+  return {
+    id: 'clerk_user_2',
+    staffId: 'staff_2',
+    email: 'member@test.com',
+    name: 'Member',
+    role: 'STAFF',
+    organizationId: 'org_db_1',
+    clerkOrgId: 'org_clerk_1',
+    orgRole: 'org:member',
+  }
+}
+
 describe('Team Routes', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -90,6 +123,7 @@ describe('Team Routes', () => {
         { id: 's1', clerkId: 'c1', email: 'a@t.com', name: 'A', role: 'ADMIN', avatarUrl: null, lastLoginAt: null, _count: { clientAssignments: 3 } },
         { id: 's2', clerkId: 'c2', email: 'b@t.com', name: 'B', role: 'STAFF', avatarUrl: null, lastLoginAt: null, _count: { clientAssignments: 1 } },
       ]
+      vi.mocked(prisma.client.count).mockResolvedValueOnce(5)
       vi.mocked(prisma.staff.findMany).mockResolvedValueOnce(mockMembers as never)
 
       const app = createApp()
@@ -305,6 +339,132 @@ describe('Team Routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
+    })
+  })
+
+  // ============================================
+  // Admin Edit Other Member Profiles
+  // ============================================
+  describe('Admin edit other member profiles', () => {
+    const targetStaff = {
+      id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
+      avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
+      organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
+      _count: { clientAssignments: 2 },
+    }
+
+    it('GET profile returns canEdit=true for admin viewing another member', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      vi.mocked(prisma.clientAssignment.findMany).mockResolvedValueOnce([] as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile')
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.canEdit).toBe(true)
+    })
+
+    it('GET profile returns canEdit=false for non-admin viewing another member', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      vi.mocked(prisma.clientAssignment.findMany).mockResolvedValueOnce([] as never)
+
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/staff_1/profile')
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.canEdit).toBe(false)
+    })
+
+    it('PATCH profile allows admin to edit another member', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({
+        id: 'staff_2', name: 'New Name', email: 'b@t.com',
+        phoneNumber: '+84123456789', avatarUrl: null, notifyOnUpload: false,
+      } as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New Name' }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.success).toBe(true)
+      expect(vi.mocked(logTeamAction)).toHaveBeenCalledWith(
+        'PROFILE_EDITED', 'staff_2', 'staff_1', expect.any(Object)
+      )
+    })
+
+    it('PATCH profile returns 403 for non-admin editing another member', async () => {
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/staff_1/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Hacked' }),
+      })
+
+      expect(res.status).toBe(403)
+    })
+
+    it('POST avatar presigned-url allows admin for another member', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      vi.mocked(generateAvatarKey).mockReturnValueOnce('avatars/staff_2/abc.jpg')
+      vi.mocked(getSignedUploadUrl).mockResolvedValueOnce('https://r2.example.com/upload' as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/avatar/presigned-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentType: 'image/jpeg', fileSize: 5000 }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.presignedUrl).toBe('https://r2.example.com/upload')
+    })
+
+    it('POST avatar presigned-url returns 403 for non-admin', async () => {
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/staff_1/avatar/presigned-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentType: 'image/jpeg', fileSize: 5000 }),
+      })
+
+      expect(res.status).toBe(403)
+    })
+
+    it('PATCH avatar confirm allows admin for another member', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
+      vi.mocked(getSignedDownloadUrl).mockResolvedValueOnce('https://r2.example.com/avatar.jpg' as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/staff_2/avatar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ r2Key: 'avatars/staff_2/abc.jpg' }),
+      })
+
+      expect(res.status).toBe(200)
+      expect(vi.mocked(logTeamAction)).toHaveBeenCalledWith(
+        'AVATAR_UPDATED', 'staff_2', 'staff_1', expect.any(Object)
+      )
+    })
+
+    it('PATCH avatar confirm returns 403 for non-admin', async () => {
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/staff_1/avatar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ r2Key: 'avatars/staff_1/abc.jpg' }),
+      })
+
+      expect(res.status).toBe(403)
     })
   })
 })

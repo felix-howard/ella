@@ -27,6 +27,11 @@ import {
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
 
+/** Check if requester can edit target staff (self or org admin) */
+function canEditStaff(user: { staffId: string | null; orgRole: string | null }, targetStaffId: string): boolean {
+  return targetStaffId === user.staffId || user.orgRole === 'org:admin'
+}
+
 // All team routes require active org
 teamRoute.use('*', requireOrg)
 
@@ -368,7 +373,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     assignedCount = staff._count.clientAssignments
   }
 
-  const canEdit = targetStaffId === user.staffId
+  const canEdit = canEditStaff(user, targetStaffId)
 
   return c.json({
     staff,
@@ -378,7 +383,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   })
 })
 
-// PATCH /team/members/:staffId/profile - Update profile (self only)
+// PATCH /team/members/:staffId/profile - Update profile (self or admin)
 teamRoute.patch(
   '/members/:staffId/profile',
   zValidator('json', updateProfileSchema),
@@ -391,8 +396,7 @@ teamRoute.patch(
       return c.json({ error: 'Staff ID required' }, 400)
     }
 
-    // Self-only check
-    if (targetStaffId !== user.staffId) {
+    if (!canEditStaff(user, targetStaffId)) {
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
@@ -429,11 +433,19 @@ teamRoute.patch(
       },
     })
 
+    // Audit log when admin edits another member's profile
+    if (targetStaffId !== user.staffId) {
+      logTeamAction('PROFILE_EDITED', targetStaffId, user.staffId, {
+        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload },
+        newValue: { name, phoneNumber, notifyOnUpload },
+      })
+    }
+
     return c.json({ success: true, staff: updated })
   }
 )
 
-// POST /team/members/:staffId/avatar/presigned-url - Get upload URL (self only)
+// POST /team/members/:staffId/avatar/presigned-url - Get upload URL (self or admin)
 teamRoute.post(
   '/members/:staffId/avatar/presigned-url',
   zValidator('json', avatarPresignedUrlSchema),
@@ -446,8 +458,7 @@ teamRoute.post(
       return c.json({ error: 'Staff ID required' }, 400)
     }
 
-    // Self-only check
-    if (targetStaffId !== user.staffId) {
+    if (!canEditStaff(user, targetStaffId)) {
       return c.json({ error: 'Can only upload your own avatar' }, 403)
     }
 
@@ -482,7 +493,7 @@ teamRoute.post(
   }
 )
 
-// PATCH /team/members/:staffId/avatar - Confirm avatar upload (self only)
+// PATCH /team/members/:staffId/avatar - Confirm avatar upload (self or admin)
 teamRoute.patch(
   '/members/:staffId/avatar',
   zValidator('json', avatarConfirmSchema),
@@ -495,8 +506,7 @@ teamRoute.patch(
       return c.json({ error: 'Staff ID required' }, 400)
     }
 
-    // Self-only check
-    if (targetStaffId !== user.staffId) {
+    if (!canEditStaff(user, targetStaffId)) {
       return c.json({ error: 'Can only update your own avatar' }, 403)
     }
 
@@ -528,6 +538,14 @@ teamRoute.patch(
       where: { id: targetStaffId },
       data: { avatarUrl },
     })
+
+    // Audit log when admin updates another member's avatar
+    if (targetStaffId !== user.staffId) {
+      logTeamAction('AVATAR_UPDATED', targetStaffId, user.staffId, {
+        oldValue: staff.avatarUrl,
+        newValue: avatarUrl,
+      })
+    }
 
     return c.json({ success: true, avatarUrl })
   }

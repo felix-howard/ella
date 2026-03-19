@@ -125,7 +125,7 @@ function MessagesLayout() {
             <Outlet />
           </div>
         ) : (
-          <div className="flex-1 flex flex-col bg-card">
+          <div className="flex-1 flex flex-col bg-card min-h-0">
             {conversationPanel}
           </div>
         )}

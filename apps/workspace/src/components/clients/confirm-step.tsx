@@ -22,9 +22,9 @@ interface ConfirmStepProps {
 }
 
 // Default SMS message templates with placeholders
-export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi các tài liệu cần thiết qua link: {{portal_link}}`
+export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi 1040 của khai thuế năm trước, copy of ID, social, thu nhập W2/1099, bảo hiểm 1095A và các tài liệu cần thiết qua link: {{portal_link}}`
 
-export const DEFAULT_SMS_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax documents, please send the required documents via the link: {{portal_link}}`
+export const DEFAULT_SMS_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax documents, please send your prior year 1040 tax return, copy of ID, social security card, W2/1099 income forms, 1095A insurance form, and other required documents via the link: {{portal_link}}`
 
 // Replace placeholders with actual values for preview
 function renderMessage(template: string, name: string, year: number): string {

@@ -1206,5 +1206,10 @@
   "draftReturn.totalViews": "Tổng lượt xem",
   "draftReturn.expiryDate": "Hết hạn",
   "draftReturn.revoking": "Đang thu hồi...",
-  "draftReturn.revokeConfirmBtn": "Thu hồi link"
+  "draftReturn.revokeConfirmBtn": "Thu hồi link",
+  "autoLogin.signingIn": "Đang đăng nhập...",
+  "autoLogin.invalidLink": "Liên kết không hợp lệ hoặc bị thiếu. Vui lòng thử lại.",
+  "autoLogin.tokenExpired": "Liên kết này đã hết hạn. Vui lòng đăng ký lại.",
+  "autoLogin.signInFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
+  "autoLogin.goToLogin": "Đến trang đăng nhập"
 }

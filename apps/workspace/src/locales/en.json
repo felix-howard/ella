@@ -1207,5 +1207,10 @@
   "draftReturn.totalViews": "Total views",
   "draftReturn.expiryDate": "Expires",
   "draftReturn.revoking": "Revoking...",
-  "draftReturn.revokeConfirmBtn": "Revoke Link"
+  "draftReturn.revokeConfirmBtn": "Revoke Link",
+  "autoLogin.signingIn": "Signing you in...",
+  "autoLogin.invalidLink": "Invalid or missing login link. Please try again.",
+  "autoLogin.tokenExpired": "This link has expired. Please sign up again.",
+  "autoLogin.signInFailed": "Sign-in failed. Please try again.",
+  "autoLogin.goToLogin": "Go to login page"
 }

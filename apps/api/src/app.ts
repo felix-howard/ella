@@ -28,6 +28,7 @@ import { clientAssignmentsRoute } from './routes/client-assignments'
 import { orgSettingsRoute } from './routes/org-settings'
 import { draftReturnsRoute } from './routes/draft-returns'
 import { portalDraftRoute } from './routes/portal/draft'
+import { authSignupRoute } from './routes/auth/signup'
 
 const app = new OpenAPIHono()
 
@@ -56,6 +57,7 @@ app.route('/rental', rentalRoute) // Public Schedule E rental form
 app.route('/portal/draft', portalDraftRoute) // Public draft return viewer
 app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/api/inngest', inngestRoute)
+app.route('/auth', authSignupRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

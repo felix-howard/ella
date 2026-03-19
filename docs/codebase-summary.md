@@ -121,7 +121,10 @@
 **DocType Enum (96 types):** 5 identity + 13 income forms + 4 K-1 variants + 3 health forms + 2 education + 1 mortgage + 45 business/receipts + 2 prior-year + 1 crypto + 8 foreign/fbar + 3 real estate + 2 credits + 2 business-misc + 1 extension + 7 tax returns (1040 family, state, foreign, transcript) + 2 catchall (OTHER, UNKNOWN)
 **OcrDocType (22 types):** Form 1040 + Schedule 1 + Schedule C + Schedule D + Schedule E + Schedule SE (6 supplemental schedules) + W-2 + 1099-NEC + 1099-INT + 1099-DIV + 1099-K + 1099-R + 1099-SSA + 1099-G + 1099-MISC + 1098 + 1098-T + 1095-A + K-1 + Bank Statement + SSN Card + Driver's License (all with full OCR extraction support)
 
-## API Endpoints (16 Organization/Team - Phase 02 Profile API)
+## API Endpoints (17+ Organization/Team/Auth - Self-Service Signup)
+
+**Authentication & Signup:**
+- `POST /auth/signup` - Public self-service signup. Accepts firstName, lastName, email, password, orgName. Creates Clerk user + organization, returns redirect URL with 5-min sign-in token. Rate-limited 5/min per IP.
 
 **Organization & Team Management:**
 - `GET /team/members` - List org staff with role + status

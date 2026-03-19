@@ -478,21 +478,21 @@ export function VerificationModal({
 
       {/* Modal - Near fullscreen */}
       <div
-        className="fixed inset-2 md:inset-4 z-[100] flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden"
+        className="fixed inset-0 md:inset-4 z-[100] flex flex-col bg-card md:rounded-xl border border-border shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="verification-modal-title"
       >
         {/* Header - Enhanced with gradient */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <FileCheck className="w-5 h-5 text-primary" />
+        <div className="flex items-center justify-between px-3 md:px-5 py-3 border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+            <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 flex-shrink-0">
+              <FileCheck className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h2
                 id="verification-modal-title"
-                className="text-lg font-bold text-foreground"
+                className="text-sm md:text-lg font-bold text-foreground truncate"
               >
                 {modalTitle}
               </h2>
@@ -500,7 +500,7 @@ export function VerificationModal({
                 {t('verificationModal.verifyInfo')}
               </p>
             </div>
-            <div className="flex items-center gap-2 ml-2">
+            <div className="hidden md:flex items-center gap-2 ml-2">
               {doc.status === 'VERIFIED' && (
                 <Badge variant="success" className="text-xs">
                   {t('checklistStatus.verified')}
@@ -513,13 +513,13 @@ export function VerificationModal({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => extractMutation.mutate()}
               disabled={extractMutation.isPending}
-              className="gap-1.5 px-4"
+              className="hidden md:inline-flex gap-1.5 px-4"
             >
               {extractMutation.isPending ? (
                 <>
@@ -538,7 +538,7 @@ export function VerificationModal({
               size="sm"
               onClick={handleDownload}
               disabled={!rawImageId}
-              className="gap-1.5 px-4"
+              className="hidden md:inline-flex gap-1.5 px-4"
             >
               <Download className="w-4 h-4" />
               {t('fileActions.download')}

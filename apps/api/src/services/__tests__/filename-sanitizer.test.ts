@@ -151,7 +151,7 @@ describe('Filename Sanitizer', () => {
         source: null,
         recipientName: 'John Smith',
       })
-      expect(result).toBe('2025_SSN_CARD_JohnSmith')
+      expect(result).toBe('SSN_CARD_JohnSmith')
     })
 
     it('should omit source when empty', () => {
@@ -161,7 +161,7 @@ describe('Filename Sanitizer', () => {
         source: '',
         recipientName: 'John',
       })
-      expect(result).toBe('2025_PASSPORT_John')
+      expect(result).toBe('PASSPORT_John')
     })
 
     it('should handle empty client name', () => {

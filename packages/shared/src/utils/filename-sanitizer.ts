@@ -1,6 +1,7 @@
 /**
  * Filename sanitization utilities for document naming convention
  * Format: {TaxYear}_{DocType}_{Source}_{ClientName}
+ * Identity documents skip the year prefix (they don't change year to year)
  *
  * Rules:
  * - No spaces (use underscore)
@@ -8,6 +9,8 @@
  * - No special chars (/\:*?"<>|)
  * - Max 60 chars total, PascalCase for source/name
  */
+
+import { getCategoryFromDocType } from '../types/doc-category'
 
 /**
  * Remove diacritics from text using Unicode normalization
@@ -74,9 +77,12 @@ export interface DocumentNamingComponents {
 export function generateDocumentName(components: DocumentNamingComponents): string {
   const parts: string[] = []
 
-  // Tax year (use current year if null)
-  const year = components.taxYear ?? new Date().getFullYear()
-  parts.push(String(year))
+  // Skip year for identity documents (driver license, SSN, passport, etc.)
+  const category = getCategoryFromDocType(components.docType)
+  if (category !== 'IDENTITY') {
+    const year = components.taxYear ?? new Date().getFullYear()
+    parts.push(String(year))
+  }
 
   // DocType (already uppercase from AI classification)
   parts.push(components.docType)

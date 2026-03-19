@@ -1,5 +1,26 @@
 # Latest Documentation Updates
 
+**Date:** 2026-03-19 | **Feature:** Admin Edit Member Profiles COMPLETE | **Status:** Complete
+
+---
+
+## Admin Edit Member Profiles
+
+**Date:** 2026-03-19 | **Status:** Complete
+
+**In One Sentence:** Admins can now edit other team members' profiles (name, phone, avatar, notification preferences) from the team profile page.
+
+**Key Changes:**
+- Backend permission logic updated to allow org admins to edit any member's profile
+- Four endpoints modified: GET profile, PATCH profile, POST avatar presigned-url, PATCH avatar confirm
+- All permission checks enforced server-side via `user.orgRole === 'org:admin'`
+- Non-admin members cannot edit other members' profiles (unchanged)
+- Frontend already supported capability via existing `canEdit` prop
+
+**Files Modified:** `apps/api/src/routes/team/index.ts`
+
+---
+
 **Date:** 2026-02-25 | **Feature:** Phase 05 Continuation Page Detection COMPLETE | Phase 04 AI Prompt Improvements - Metadata-Enhanced Document Grouping COMPLETE | **Status:** Complete
 
 ---

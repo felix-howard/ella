@@ -18,7 +18,7 @@ function RootLayout() {
   const routerState = useRouterState()
   const navigate = useNavigate()
   const pathname = routerState.location.pathname
-  const isPublicPage = pathname === '/login' || pathname === '/accept-invitation'
+  const isPublicPage = pathname === '/login' || pathname === '/accept-invitation' || pathname === '/auto-login'
   const { theme } = useTheme()
 
   // Sync language preference from DB (runs only when signed in)

@@ -120,10 +120,26 @@ function AutoLoginPage() {
     setIsSigningOut(true)
     try {
       await clerk.signOut()
-      // After sign-out, reload the same URL to retry auto-login
-      window.location.reload()
+      // After sign-out, retry auto-login with the token
+      setSessionExists(false)
+      setIsProcessing(true)
+      const result = await signIn!.create({
+        strategy: 'ticket',
+        ticket: token!,
+      })
+      if (result.status === 'complete') {
+        await setActive!({
+          session: result.createdSessionId,
+          organization: orgId!,
+        })
+        window.location.href = '/'
+      } else {
+        setError(t('autoLogin.signInFailed'))
+        setIsProcessing(false)
+      }
     } catch {
       setIsSigningOut(false)
+      setIsProcessing(false)
       setError(t('autoLogin.signInFailed'))
       setSessionExists(false)
     }

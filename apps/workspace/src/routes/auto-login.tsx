@@ -3,7 +3,7 @@
  * Consumes Clerk sign-in token from URL and activates session with organization
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useSignIn } from '@clerk/clerk-react'
+import { useSignIn, useClerk } from '@clerk/clerk-react'
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
@@ -19,9 +19,12 @@ function AutoLoginPage() {
   const { theme } = useTheme()
   const { t } = useTranslation()
   const { signIn, setActive } = useSignIn()
+  const clerk = useClerk()
 
   const [error, setError] = useState('')
   const [isProcessing, setIsProcessing] = useState(true)
+  const [sessionExists, setSessionExists] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
@@ -64,7 +67,9 @@ function AutoLoginPage() {
         const clerkError = err as { errors?: Array<{ code?: string; message?: string }> }
         const firstErr = clerkError.errors?.[0]
 
-        if (firstErr?.code === 'sign_in_token_expired') {
+        if (firstErr?.code === 'session_exists') {
+          setSessionExists(true)
+        } else if (firstErr?.code === 'sign_in_token_expired') {
           setError(t('autoLogin.tokenExpired'))
         } else {
           setError(firstErr?.message || t('autoLogin.signInFailed'))
@@ -107,6 +112,54 @@ function AutoLoginPage() {
         </div>
         <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
         <p className="text-muted-foreground text-sm">{t('autoLogin.signingIn')}</p>
+      </div>
+    )
+  }
+
+  const handleSignOutAndContinue = async () => {
+    setIsSigningOut(true)
+    try {
+      await clerk.signOut()
+      // After sign-out, reload the same URL to retry auto-login
+      window.location.reload()
+    } catch {
+      setIsSigningOut(false)
+      setError(t('autoLogin.signInFailed'))
+      setSessionExists(false)
+    }
+  }
+
+  if (sessionExists) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+        <div className="mb-6 sm:mb-10">
+          <img src={logo} alt="ella.tax" className="h-10 object-contain" />
+        </div>
+        <div className="w-full max-w-[calc(28rem-40px)] text-center">
+          <p className="mb-6 text-sm text-muted-foreground">
+            {t('autoLogin.sessionExists')}
+          </p>
+          <button
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            onClick={handleSignOutAndContinue}
+            disabled={isSigningOut}
+          >
+            {isSigningOut ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t('autoLogin.signingOut')}
+              </span>
+            ) : (
+              t('autoLogin.signOutAndContinue')
+            )}
+          </button>
+          <button
+            className="mt-3 text-primary hover:text-primary-dark transition-colors text-sm"
+            onClick={() => navigate({ to: '/' })}
+          >
+            {t('autoLogin.goToLogin')}
+          </button>
+        </div>
       </div>
     )
   }

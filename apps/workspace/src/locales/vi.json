@@ -1211,5 +1211,8 @@
   "autoLogin.invalidLink": "Liên kết không hợp lệ hoặc bị thiếu. Vui lòng thử lại.",
   "autoLogin.tokenExpired": "Liên kết này đã hết hạn. Vui lòng đăng ký lại.",
   "autoLogin.signInFailed": "Đăng nhập thất bại. Vui lòng thử lại.",
-  "autoLogin.goToLogin": "Đến trang đăng nhập"
+  "autoLogin.goToLogin": "Đến trang đăng nhập",
+  "autoLogin.sessionExists": "Bạn đang đăng nhập với tài khoản khác.",
+  "autoLogin.signOutAndContinue": "Đăng xuất & tiếp tục với tài khoản mới",
+  "autoLogin.signingOut": "Đang đăng xuất..."
 }

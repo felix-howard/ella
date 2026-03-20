@@ -1212,5 +1212,8 @@
   "autoLogin.invalidLink": "Invalid or missing login link. Please try again.",
   "autoLogin.tokenExpired": "This link has expired. Please sign up again.",
   "autoLogin.signInFailed": "Sign-in failed. Please try again.",
-  "autoLogin.goToLogin": "Go to login page"
+  "autoLogin.goToLogin": "Go to login page",
+  "autoLogin.sessionExists": "You're already logged in with another account.",
+  "autoLogin.signOutAndContinue": "Sign out & continue with new account",
+  "autoLogin.signingOut": "Signing out..."
 }

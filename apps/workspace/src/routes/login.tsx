@@ -288,6 +288,16 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+      {/* Auth Upgrade Notice */}
+      <div className="w-full max-w-lg mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
+        <p className="text-sm text-amber-200 font-medium">
+          We've upgraded our security system. Your previous password will no longer work.
+        </p>
+        <p className="text-sm text-amber-200/80 mt-1.5">
+          To access your account, click <span className="font-semibold text-primary">"Forgot password?"</span> below to create a new password. All your data remains safe and unchanged.
+        </p>
+      </div>
+
       {/* Logo */}
       <div className="mb-6 sm:mb-10">
         <img

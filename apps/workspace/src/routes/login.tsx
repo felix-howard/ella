@@ -37,6 +37,13 @@ function LoginPage() {
   const [needs2FA, setNeeds2FA] = useState(false)
   const [twoFactorCode, setTwoFactorCode] = useState('')
 
+  // Forgot password state
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<'idle' | 'email' | 'code' | 'newPassword'>('idle')
+  const [resetCode, setResetCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+
   // Select logo based on theme
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
@@ -72,6 +79,98 @@ function LoginPage() {
       clerk.signOut()
     })
   }, [isLoaded, isSignedIn, isOrgListLoaded, clerk, userMemberships?.data])
+
+  // Forgot password: Step 1 — send reset code to email
+  const handleForgotPasswordSendCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signIn) return
+
+    setError('')
+    setIsLoading(true)
+
+    try {
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: email,
+      })
+      setForgotPasswordStep('code')
+    } catch (err: unknown) {
+      const clerkError = err as { errors?: Array<{ message?: string }> }
+      setError(clerkError.errors?.[0]?.message || t('login.resetFailed'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Forgot password: Step 2 — verify the code
+  const handleForgotPasswordVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signIn) return
+
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code: resetCode,
+      })
+      if (result.status === 'needs_new_password') {
+        setForgotPasswordStep('newPassword')
+      } else {
+        setError(t('login.verificationFailed'))
+      }
+    } catch (err: unknown) {
+      const clerkError = err as { errors?: Array<{ message?: string }> }
+      setError(clerkError.errors?.[0]?.message || t('login.codeIncorrect'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Forgot password: Step 3 — set new password
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signIn) return
+
+    if (newPassword !== confirmPassword) {
+      setError(t('login.passwordMismatch'))
+      return
+    }
+
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const result = await signIn.resetPassword({ password: newPassword })
+      if (result.status === 'complete') {
+        const firstOrgId = userMemberships?.data?.[0]?.organization.id
+        await setActive({
+          session: result.createdSessionId,
+          organization: firstOrgId,
+        })
+        // Navigation handled by useEffect watching isSignedIn
+        return
+      } else {
+        setError(t('login.resetFailed'))
+      }
+    } catch (err: unknown) {
+      const clerkError = err as { errors?: Array<{ message?: string }> }
+      setError(clerkError.errors?.[0]?.message || t('login.resetFailed'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Reset forgot password state
+  const resetForgotPassword = () => {
+    setForgotPasswordStep('idle')
+    setResetCode('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setShowNewPassword(false)
+    setError('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -200,7 +299,7 @@ function LoginPage() {
 
       {/* Login Form Card */}
       <div className="w-full max-w-[calc(28rem-40px)]">
-        {needs2FA ? (
+        {forgotPasswordStep !== 'idle' ? null : needs2FA ? (
           // 2FA Verification Form
           <form onSubmit={handle2FASubmit} className="space-y-0">
             <div className="text-center mb-6">
@@ -328,15 +427,192 @@ function LoginPage() {
               <button
                 type="button"
                 className="text-primary hover:text-primary-dark transition-colors text-sm"
-                onClick={() => {
-                  // TODO: Implement forgot password flow
-                  alert(t('login.featureInDevelopment'))
-                }}
+                onClick={() => setForgotPasswordStep('email')}
               >
                 {t('login.forgotPassword')}
               </button>
             </div>
           </>
+        )}
+
+        {/* Forgot Password: Enter Email */}
+        {forgotPasswordStep === 'email' && (
+          <form onSubmit={handleForgotPasswordSendCode} className="space-y-0">
+            <div className="text-center mb-6">
+              <p className="text-muted-foreground text-sm">
+                {t('login.resetEnterEmail')}
+              </p>
+            </div>
+
+            <div className="relative">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('login.emailPlaceholder')}
+                required
+                autoFocus
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isLoading}
+              />
+            </div>
+
+            {error && (
+              <div className="mt-3 text-sm text-error text-center">{error}</div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || !email}
+              className="w-full mt-6 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t('login.sending')}
+                </>
+              ) : (
+                t('login.sendResetCode')
+              )}
+            </button>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="text-primary hover:text-primary-dark transition-colors text-sm"
+                onClick={resetForgotPassword}
+              >
+                {t('login.backToLogin')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Forgot Password: Enter Code */}
+        {forgotPasswordStep === 'code' && (
+          <form onSubmit={handleForgotPasswordVerifyCode} className="space-y-0">
+            <div className="text-center mb-6">
+              <p className="text-muted-foreground text-sm">
+                {t('login.resetEnterCode')}
+              </p>
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder={t('login.enterCodePlaceholder')}
+                required
+                autoFocus
+                className="w-full px-4 py-4 bg-card text-foreground placeholder-muted-foreground border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest"
+                disabled={isLoading}
+              />
+            </div>
+
+            {error && (
+              <div className="mt-3 text-sm text-error text-center">{error}</div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || resetCode.length !== 6}
+              className="w-full mt-6 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t('login.verifying')}
+                </>
+              ) : (
+                t('login.confirmButton')
+              )}
+            </button>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="text-primary hover:text-primary-dark transition-colors text-sm"
+                onClick={resetForgotPassword}
+              >
+                {t('login.backToLogin')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Forgot Password: Set New Password */}
+        {forgotPasswordStep === 'newPassword' && (
+          <form onSubmit={handleSetNewPassword} className="space-y-0">
+            <div className="text-center mb-6">
+              <p className="text-muted-foreground text-sm">
+                {t('login.resetSetNewPassword')}
+              </p>
+            </div>
+
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t('login.newPasswordPlaceholder')}
+                required
+                autoFocus
+                minLength={8}
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10 pr-12"
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-20"
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('login.confirmPasswordPlaceholder')}
+                required
+                minLength={8}
+                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-b-lg border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isLoading}
+              />
+            </div>
+
+            {error && (
+              <div className="mt-3 text-sm text-error text-center">{error}</div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || newPassword.length < 8 || !confirmPassword}
+              className="w-full mt-6 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t('login.resetting')}
+                </>
+              ) : (
+                t('login.resetPasswordButton')
+              )}
+            </button>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="text-primary hover:text-primary-dark transition-colors text-sm"
+                onClick={resetForgotPassword}
+              >
+                {t('login.backToLogin')}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

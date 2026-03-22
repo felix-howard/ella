@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "TaxCaseStatus" AS ENUM ('INTAKE', 'WAITING_DOCS', 'IN_PROGRESS', 'READY_FOR_ENTRY', 'ENTRY_COMPLETE', 'REVIEW', 'FILED');
 
@@ -8,7 +5,7 @@ CREATE TYPE "TaxCaseStatus" AS ENUM ('INTAKE', 'WAITING_DOCS', 'IN_PROGRESS', 'R
 CREATE TYPE "TaxType" AS ENUM ('FORM_1040', 'FORM_1120S', 'FORM_1065');
 
 -- CreateEnum
-CREATE TYPE "DocType" AS ENUM ('SSN_CARD', 'DRIVER_LICENSE', 'PASSPORT', 'BIRTH_CERTIFICATE', 'ITIN_LETTER', 'W2', 'W2G', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA', 'FORM_1099_B', 'FORM_1099_S', 'FORM_1099_C', 'FORM_1099_SA', 'FORM_1099_Q', 'SCHEDULE_K1', 'SCHEDULE_K1_1065', 'SCHEDULE_K1_1120S', 'SCHEDULE_K1_1041', 'FORM_1095_A', 'FORM_1095_B', 'FORM_1095_C', 'FORM_5498_SA', 'FORM_1098_T', 'FORM_1098_E', 'FORM_1098', 'FORM_8332', 'BANK_STATEMENT', 'PROFIT_LOSS_STATEMENT', 'BALANCE_SHEET', 'BUSINESS_LICENSE', 'EIN_LETTER', 'ARTICLES_OF_INCORPORATION', 'OPERATING_AGREEMENT', 'PAYROLL_REPORT', 'DEPRECIATION_SCHEDULE', 'VEHICLE_MILEAGE_LOG', 'RECEIPT', 'DAYCARE_RECEIPT', 'CHARITY_RECEIPT', 'MEDICAL_RECEIPT', 'PROPERTY_TAX_STATEMENT', 'ESTIMATED_TAX_PAYMENT', 'PRIOR_YEAR_RETURN', 'IRS_NOTICE', 'CRYPTO_STATEMENT', 'FOREIGN_BANK_STATEMENT', 'FOREIGN_TAX_STATEMENT', 'FBAR_SUPPORT_DOCS', 'FORM_8938', 'CLOSING_DISCLOSURE', 'LEASE_AGREEMENT', 'EV_PURCHASE_AGREEMENT', 'ENERGY_CREDIT_INVOICE', 'FORM_W9_ISSUED', 'MORTGAGE_POINTS_STATEMENT', 'EXTENSION_PAYMENT_PROOF', 'OTHER', 'UNKNOWN');
+CREATE TYPE "DocType" AS ENUM ('SSN_CARD', 'DRIVER_LICENSE', 'PASSPORT', 'BIRTH_CERTIFICATE', 'ITIN_LETTER', 'MARRIAGE_CERTIFICATE', 'DIVORCE_DECREE', 'GREEN_CARD', 'WORK_VISA', 'NATURALIZATION_CERTIFICATE', 'POWER_OF_ATTORNEY', 'W2', 'W2G', 'PAY_STUB', 'EMPLOYMENT_CONTRACT', 'STOCK_OPTION_AGREEMENT', 'RSU_STATEMENT', 'ESPP_STATEMENT', 'FORM_1099_INT', 'FORM_1099_DIV', 'FORM_1099_NEC', 'FORM_1099_MISC', 'FORM_1099_K', 'FORM_1099_R', 'FORM_1099_G', 'FORM_1099_SSA', 'FORM_1099_B', 'FORM_1099_S', 'FORM_1099_C', 'FORM_1099_SA', 'FORM_1099_Q', 'FORM_1099_A', 'FORM_1099_CAP', 'FORM_1099_H', 'FORM_1099_LS', 'FORM_1099_LTC', 'FORM_1099_OID', 'FORM_1099_PATR', 'FORM_1099_QA', 'FORM_1099_SB', 'RRB_1099', 'RRB_1099_R', 'SCHEDULE_K1', 'SCHEDULE_K1_1065', 'SCHEDULE_K1_1120S', 'SCHEDULE_K1_1041', 'FORM_1095_A', 'FORM_1095_B', 'FORM_1095_C', 'FORM_5498_SA', 'FORM_1098_T', 'FORM_1098_E', 'FORM_1098', 'FORM_8332', 'BANK_STATEMENT', 'PROFIT_LOSS_STATEMENT', 'BALANCE_SHEET', 'BUSINESS_LICENSE', 'EIN_LETTER', 'ARTICLES_OF_INCORPORATION', 'OPERATING_AGREEMENT', 'PAYROLL_REPORT', 'DEPRECIATION_SCHEDULE', 'VEHICLE_MILEAGE_LOG', 'PARTNERSHIP_AGREEMENT', 'SHAREHOLDER_AGREEMENT', 'BUSINESS_INVOICE', 'ACCOUNTS_RECEIVABLE', 'ACCOUNTS_PAYABLE', 'INVENTORY_REPORT', 'SALES_TAX_REPORT', 'RECEIPT', 'DAYCARE_RECEIPT', 'CHARITY_RECEIPT', 'MEDICAL_RECEIPT', 'PROPERTY_TAX_STATEMENT', 'ESTIMATED_TAX_PAYMENT', 'RENT_RECEIPT', 'PRIOR_YEAR_RETURN', 'IRS_NOTICE', 'CRYPTO_STATEMENT', 'CRYPTO_TAX_REPORT', 'CRYPTO_TRANSACTION_HISTORY', 'STAKING_REWARDS', 'FOREIGN_BANK_STATEMENT', 'FOREIGN_TAX_STATEMENT', 'FBAR_SUPPORT_DOCS', 'FORM_8938', 'CLOSING_DISCLOSURE', 'LEASE_AGREEMENT', 'HUD_1', 'PROPERTY_DEED', 'HOME_APPRAISAL', 'PMI_STATEMENT', 'EV_PURCHASE_AGREEMENT', 'ENERGY_CREDIT_INVOICE', 'FORM_W9_ISSUED', 'MORTGAGE_POINTS_STATEMENT', 'EXTENSION_PAYMENT_PROOF', 'FORM_1040', 'FORM_1040_SR', 'FORM_1040_NR', 'FORM_1040_X', 'STATE_TAX_RETURN', 'FOREIGN_TAX_RETURN', 'TAX_RETURN_TRANSCRIPT', 'SCHEDULE_C', 'SCHEDULE_SE', 'SCHEDULE_1', 'SCHEDULE_D', 'SCHEDULE_E', 'SCHEDULE_2', 'SCHEDULE_3', 'SCHEDULE_A', 'SCHEDULE_B', 'SCHEDULE_EIC', 'SCHEDULE_F', 'SCHEDULE_H', 'SCHEDULE_J', 'SCHEDULE_R', 'SCHEDULE_8812', 'FORM_2210', 'FORM_2441', 'FORM_2555', 'FORM_3903', 'FORM_4562', 'FORM_4684', 'FORM_4797', 'FORM_4868', 'FORM_5329', 'FORM_5695', 'FORM_6251', 'FORM_8283', 'FORM_8379', 'FORM_8582', 'FORM_8606', 'FORM_8829', 'FORM_8863', 'FORM_8880', 'FORM_8889', 'FORM_8936', 'FORM_8949', 'FORM_8959', 'FORM_8960', 'FORM_8962', 'FORM_8995', 'FORM_8995_A', 'BROKERAGE_STATEMENT', 'TRADE_CONFIRMATION', 'COST_BASIS_STATEMENT', 'MUTUAL_FUND_STATEMENT', 'DIVIDEND_REINVESTMENT', 'PENSION_STATEMENT', 'IRA_STATEMENT', 'STATEMENT_401K', 'ROTH_IRA_STATEMENT', 'RMD_STATEMENT', 'MEDICAL_BILL', 'INSURANCE_EOB', 'HSA_STATEMENT', 'FSA_STATEMENT', 'AUTO_INSURANCE', 'HOME_INSURANCE', 'LIFE_INSURANCE_STATEMENT', 'DISABILITY_INSURANCE', 'COURT_ORDER', 'SETTLEMENT_AGREEMENT', 'ALIMONY_AGREEMENT', 'CHILD_SUPPORT_ORDER', 'BANKRUPTCY_DOCUMENTS', 'DAYCARE_STATEMENT', 'DEPENDENT_CARE_FSA', 'NANNY_DOCUMENTATION', 'GAMBLING_LOSS_STATEMENT', 'BANK_LETTER', 'LOAN_STATEMENT', 'MEMBERSHIP_DUES', 'PROFESSIONAL_LICENSE', 'OTHER', 'UNKNOWN');
 
 -- CreateEnum
 CREATE TYPE "RawImageStatus" AS ENUM ('UPLOADED', 'PROCESSING', 'CLASSIFIED', 'LINKED', 'BLURRY', 'UNCLASSIFIED', 'DUPLICATE');
@@ -41,22 +38,28 @@ CREATE TYPE "Language" AS ENUM ('VI', 'EN');
 CREATE TYPE "FieldType" AS ENUM ('BOOLEAN', 'SELECT', 'NUMBER', 'NUMBER_INPUT', 'CURRENCY', 'TEXT');
 
 -- CreateEnum
-CREATE TYPE "MessageTemplateCategory" AS ENUM ('WELCOME', 'REMINDER', 'MISSING', 'BLURRY', 'COMPLETE', 'GENERAL');
+CREATE TYPE "MessageTemplateCategory" AS ENUM ('PORTAL_LINK', 'SCHEDULE_C', 'SCHEDULE_E');
 
 -- CreateEnum
 CREATE TYPE "EngagementStatus" AS ENUM ('DRAFT', 'ACTIVE', 'COMPLETE', 'ARCHIVED');
 
 -- CreateEnum
-CREATE TYPE "DocCategory" AS ENUM ('IDENTITY', 'INCOME', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER');
+CREATE TYPE "DocCategory" AS ENUM ('IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER');
 
 -- CreateEnum
-CREATE TYPE "AuditEntityType" AS ENUM ('CLIENT', 'CLIENT_PROFILE', 'TAX_CASE', 'TAX_ENGAGEMENT');
+CREATE TYPE "AuditEntityType" AS ENUM ('CLIENT', 'CLIENT_PROFILE', 'TAX_CASE', 'TAX_ENGAGEMENT', 'ORGANIZATION');
 
 -- CreateEnum
-CREATE TYPE "MagicLinkType" AS ENUM ('PORTAL', 'SCHEDULE_C');
+CREATE TYPE "MagicLinkType" AS ENUM ('PORTAL', 'SCHEDULE_C', 'SCHEDULE_E', 'DRAFT_RETURN');
 
 -- CreateEnum
 CREATE TYPE "ScheduleCStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'LOCKED');
+
+-- CreateEnum
+CREATE TYPE "ScheduleEStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'LOCKED');
+
+-- CreateEnum
+CREATE TYPE "DraftReturnStatus" AS ENUM ('ACTIVE', 'REVOKED', 'EXPIRED', 'SUPERSEDED');
 
 -- CreateTable
 CREATE TABLE "Staff" (
@@ -66,9 +69,13 @@ CREATE TABLE "Staff" (
     "name" TEXT NOT NULL,
     "role" "StaffRole" NOT NULL DEFAULT 'STAFF',
     "avatarUrl" TEXT,
+    "phoneNumber" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "notifyOnUpload" BOOLEAN NOT NULL DEFAULT true,
     "deactivatedAt" TIMESTAMP(3),
     "lastLoginAt" TIMESTAMP(3),
+    "language" "Language" NOT NULL DEFAULT 'VI',
+    "organizationId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -89,12 +96,45 @@ CREATE TABLE "StaffPresence" (
 );
 
 -- CreateTable
+CREATE TABLE "Organization" (
+    "id" TEXT NOT NULL,
+    "clerkOrgId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT,
+    "logoUrl" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "smsLanguage" "Language" NOT NULL DEFAULT 'VI',
+    "missedCallTextBack" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ClientAssignment" (
+    "id" TEXT NOT NULL,
+    "clientId" TEXT NOT NULL,
+    "staffId" TEXT NOT NULL,
+    "assignedById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ClientAssignment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Client" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT,
+    "name" TEXT NOT NULL DEFAULT '',
     "phone" TEXT NOT NULL,
     "email" TEXT,
     "language" "Language" NOT NULL DEFAULT 'VI',
+    "avatarUrl" TEXT,
+    "notes" TEXT,
+    "notesUpdatedAt" TIMESTAMP(3),
+    "organizationId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -169,6 +209,8 @@ CREATE TABLE "TaxCase" (
     "isInReview" BOOLEAN NOT NULL DEFAULT false,
     "isFiled" BOOLEAN NOT NULL DEFAULT false,
     "lastActivityAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "groupingJobId" TEXT,
+    "groupingStartedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -192,12 +234,19 @@ CREATE TABLE "RawImage" (
     "blurScore" DOUBLE PRECISION,
     "imageHash" TEXT,
     "imageGroupId" TEXT,
+    "duplicateOfId" TEXT,
+    "aiMetadata" JSONB,
+    "documentGroupId" TEXT,
+    "pageNumber" INTEGER,
+    "totalPages" INTEGER,
+    "groupConfidence" DOUBLE PRECISION,
     "reuploadRequested" BOOLEAN NOT NULL DEFAULT false,
     "reuploadRequestedAt" TIMESTAMP(3),
     "reuploadReason" TEXT,
     "reuploadFields" JSONB,
     "checklistItemId" TEXT,
     "uploadedVia" "MessageChannel" NOT NULL DEFAULT 'PORTAL',
+    "rotation" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -214,6 +263,20 @@ CREATE TABLE "ImageGroup" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ImageGroup_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DocumentGroup" (
+    "id" TEXT NOT NULL,
+    "caseId" TEXT NOT NULL,
+    "baseName" TEXT NOT NULL,
+    "documentType" TEXT,
+    "pageCount" INTEGER NOT NULL DEFAULT 1,
+    "confidence" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DocumentGroup_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -323,6 +386,7 @@ CREATE TABLE "MagicLink" (
     "caseId" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "type" "MagicLinkType" NOT NULL DEFAULT 'PORTAL',
+    "draftReturnId" TEXT,
     "lastUsedAt" TIMESTAMP(3),
     "usageCount" INTEGER NOT NULL DEFAULT 0,
     "expiresAt" TIMESTAMP(3),
@@ -456,6 +520,7 @@ CREATE TABLE "ScheduleCExpense" (
     "wages" DECIMAL(12,2),
     "otherExpenses" DECIMAL(12,2),
     "otherExpensesNotes" VARCHAR(1000),
+    "customExpenses" JSONB DEFAULT '[]',
     "vehicleMiles" INTEGER,
     "vehicleCommuteMiles" INTEGER,
     "vehicleOtherMiles" INTEGER,
@@ -474,6 +539,51 @@ CREATE TABLE "ScheduleCExpense" (
     CONSTRAINT "ScheduleCExpense_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ScheduleEExpense" (
+    "id" TEXT NOT NULL,
+    "taxCaseId" TEXT NOT NULL,
+    "status" "ScheduleEStatus" NOT NULL DEFAULT 'DRAFT',
+    "properties" JSONB NOT NULL DEFAULT '[]',
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "versionHistory" JSONB NOT NULL DEFAULT '[]',
+    "submittedAt" TIMESTAMP(3),
+    "lockedAt" TIMESTAMP(3),
+    "lockedById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ScheduleEExpense_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DraftReturn" (
+    "id" TEXT NOT NULL,
+    "taxCaseId" TEXT NOT NULL,
+    "r2Key" TEXT NOT NULL,
+    "filename" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "uploadedById" TEXT NOT NULL,
+    "status" "DraftReturnStatus" NOT NULL DEFAULT 'ACTIVE',
+    "viewCount" INTEGER NOT NULL DEFAULT 0,
+    "lastViewedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DraftReturn_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DocumentView" (
+    "id" TEXT NOT NULL,
+    "staffId" TEXT NOT NULL,
+    "rawImageId" TEXT NOT NULL,
+    "viewedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DocumentView_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Staff_clerkId_key" ON "Staff"("clerkId");
 
@@ -484,10 +594,34 @@ CREATE UNIQUE INDEX "Staff_email_key" ON "Staff"("email");
 CREATE INDEX "Staff_clerkId_idx" ON "Staff"("clerkId");
 
 -- CreateIndex
+CREATE INDEX "Staff_organizationId_idx" ON "Staff"("organizationId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "StaffPresence_staffId_key" ON "StaffPresence"("staffId");
 
 -- CreateIndex
 CREATE INDEX "StaffPresence_isOnline_idx" ON "StaffPresence"("isOnline");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Organization_clerkOrgId_key" ON "Organization"("clerkOrgId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Organization_slug_key" ON "Organization"("slug");
+
+-- CreateIndex
+CREATE INDEX "Organization_clerkOrgId_idx" ON "Organization"("clerkOrgId");
+
+-- CreateIndex
+CREATE INDEX "ClientAssignment_staffId_idx" ON "ClientAssignment"("staffId");
+
+-- CreateIndex
+CREATE INDEX "ClientAssignment_clientId_idx" ON "ClientAssignment"("clientId");
+
+-- CreateIndex
+CREATE INDEX "ClientAssignment_assignedById_idx" ON "ClientAssignment"("assignedById");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ClientAssignment_clientId_staffId_key" ON "ClientAssignment"("clientId", "staffId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Client_phone_key" ON "Client"("phone");
@@ -497,6 +631,9 @@ CREATE INDEX "Client_phone_idx" ON "Client"("phone");
 
 -- CreateIndex
 CREATE INDEX "Client_name_idx" ON "Client"("name");
+
+-- CreateIndex
+CREATE INDEX "Client_organizationId_idx" ON "Client"("organizationId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ClientProfile_clientId_key" ON "ClientProfile"("clientId");
@@ -547,6 +684,9 @@ CREATE INDEX "TaxCase_engagementId_status_idx" ON "TaxCase"("engagementId", "sta
 CREATE INDEX "TaxCase_engagementId_lastActivityAt_idx" ON "TaxCase"("engagementId", "lastActivityAt");
 
 -- CreateIndex
+CREATE INDEX "TaxCase_groupingJobId_idx" ON "TaxCase"("groupingJobId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "TaxCase_clientId_taxYear_key" ON "TaxCase"("clientId", "taxYear");
 
 -- CreateIndex
@@ -574,10 +714,22 @@ CREATE INDEX "RawImage_reuploadRequested_idx" ON "RawImage"("reuploadRequested")
 CREATE INDEX "RawImage_caseId_reuploadRequested_idx" ON "RawImage"("caseId", "reuploadRequested");
 
 -- CreateIndex
+CREATE INDEX "RawImage_documentGroupId_idx" ON "RawImage"("documentGroupId");
+
+-- CreateIndex
+CREATE INDEX "RawImage_caseId_documentGroupId_idx" ON "RawImage"("caseId", "documentGroupId");
+
+-- CreateIndex
 CREATE INDEX "ImageGroup_caseId_idx" ON "ImageGroup"("caseId");
 
 -- CreateIndex
 CREATE INDEX "ImageGroup_caseId_docType_idx" ON "ImageGroup"("caseId", "docType");
+
+-- CreateIndex
+CREATE INDEX "DocumentGroup_caseId_idx" ON "DocumentGroup"("caseId");
+
+-- CreateIndex
+CREATE INDEX "DocumentGroup_caseId_createdAt_idx" ON "DocumentGroup"("caseId", "createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "DigitalDoc_rawImageId_key" ON "DigitalDoc"("rawImageId");
@@ -655,6 +807,9 @@ CREATE INDEX "MagicLink_type_idx" ON "MagicLink"("type");
 CREATE INDEX "MagicLink_caseId_type_isActive_idx" ON "MagicLink"("caseId", "type", "isActive");
 
 -- CreateIndex
+CREATE INDEX "MagicLink_draftReturnId_idx" ON "MagicLink"("draftReturnId");
+
+-- CreateIndex
 CREATE INDEX "Action_caseId_idx" ON "Action"("caseId");
 
 -- CreateIndex
@@ -714,8 +869,53 @@ CREATE INDEX "ScheduleCExpense_status_idx" ON "ScheduleCExpense"("status");
 -- CreateIndex
 CREATE INDEX "ScheduleCExpense_taxCaseId_status_idx" ON "ScheduleCExpense"("taxCaseId", "status");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ScheduleEExpense_taxCaseId_key" ON "ScheduleEExpense"("taxCaseId");
+
+-- CreateIndex
+CREATE INDEX "ScheduleEExpense_status_idx" ON "ScheduleEExpense"("status");
+
+-- CreateIndex
+CREATE INDEX "ScheduleEExpense_taxCaseId_status_idx" ON "ScheduleEExpense"("taxCaseId", "status");
+
+-- CreateIndex
+CREATE INDEX "ScheduleEExpense_lockedById_idx" ON "ScheduleEExpense"("lockedById");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DraftReturn_r2Key_key" ON "DraftReturn"("r2Key");
+
+-- CreateIndex
+CREATE INDEX "DraftReturn_taxCaseId_idx" ON "DraftReturn"("taxCaseId");
+
+-- CreateIndex
+CREATE INDEX "DraftReturn_taxCaseId_status_idx" ON "DraftReturn"("taxCaseId", "status");
+
+-- CreateIndex
+CREATE INDEX "DraftReturn_status_idx" ON "DraftReturn"("status");
+
+-- CreateIndex
+CREATE INDEX "DocumentView_staffId_idx" ON "DocumentView"("staffId");
+
+-- CreateIndex
+CREATE INDEX "DocumentView_rawImageId_idx" ON "DocumentView"("rawImageId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DocumentView_staffId_rawImageId_key" ON "DocumentView"("staffId", "rawImageId");
+
+-- AddForeignKey
+ALTER TABLE "Staff" ADD CONSTRAINT "Staff_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "StaffPresence" ADD CONSTRAINT "StaffPresence_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "Staff"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClientAssignment" ADD CONSTRAINT "ClientAssignment_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClientAssignment" ADD CONSTRAINT "ClientAssignment_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "Staff"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Client" ADD CONSTRAINT "Client_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ClientProfile" ADD CONSTRAINT "ClientProfile_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -736,10 +936,16 @@ ALTER TABLE "RawImage" ADD CONSTRAINT "RawImage_caseId_fkey" FOREIGN KEY ("caseI
 ALTER TABLE "RawImage" ADD CONSTRAINT "RawImage_imageGroupId_fkey" FOREIGN KEY ("imageGroupId") REFERENCES "ImageGroup"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "RawImage" ADD CONSTRAINT "RawImage_documentGroupId_fkey" FOREIGN KEY ("documentGroupId") REFERENCES "DocumentGroup"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "RawImage" ADD CONSTRAINT "RawImage_checklistItemId_fkey" FOREIGN KEY ("checklistItemId") REFERENCES "ChecklistItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ImageGroup" ADD CONSTRAINT "ImageGroup_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DocumentGroup" ADD CONSTRAINT "DocumentGroup_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DigitalDoc" ADD CONSTRAINT "DigitalDoc_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -775,6 +981,9 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_conversationId_fkey" FOREIGN KEY (
 ALTER TABLE "MagicLink" ADD CONSTRAINT "MagicLink_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "MagicLink" ADD CONSTRAINT "MagicLink_draftReturnId_fkey" FOREIGN KEY ("draftReturnId") REFERENCES "DraftReturn"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Action" ADD CONSTRAINT "Action_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -786,3 +995,17 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_changedById_fkey" FOREIGN KEY ("
 -- AddForeignKey
 ALTER TABLE "ScheduleCExpense" ADD CONSTRAINT "ScheduleCExpense_taxCaseId_fkey" FOREIGN KEY ("taxCaseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "ScheduleEExpense" ADD CONSTRAINT "ScheduleEExpense_taxCaseId_fkey" FOREIGN KEY ("taxCaseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DraftReturn" ADD CONSTRAINT "DraftReturn_taxCaseId_fkey" FOREIGN KEY ("taxCaseId") REFERENCES "TaxCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DraftReturn" ADD CONSTRAINT "DraftReturn_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "Staff"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DocumentView" ADD CONSTRAINT "DocumentView_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "Staff"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DocumentView" ADD CONSTRAINT "DocumentView_rawImageId_fkey" FOREIGN KEY ("rawImageId") REFERENCES "RawImage"("id") ON DELETE CASCADE ON UPDATE CASCADE;

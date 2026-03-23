@@ -36,6 +36,7 @@ interface DocumentChecklistTreeProps {
 }
 
 /** Calculate checklist progress percentage */
+// eslint-disable-next-line react-refresh/only-export-components
 export function calculateChecklistProgress(items: ChecklistItem[]): number {
   const total = items.filter(i => i.status !== 'NOT_REQUIRED').length
   const verified = items.filter(i => i.status === 'VERIFIED').length
@@ -43,6 +44,7 @@ export function calculateChecklistProgress(items: ChecklistItem[]): number {
 }
 
 /** Get status counts for progress dots */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getChecklistStatusCounts(items: ChecklistItem[]) {
   return {
     verified: items.filter(i => i.status === 'VERIFIED').length,

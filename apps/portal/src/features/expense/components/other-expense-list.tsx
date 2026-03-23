@@ -38,6 +38,7 @@ export function OtherExpenseList({ items, onChange, disabled }: OtherExpenseList
         i < prev.length ? prev[i] : (item.amount === null ? '' : String(item.amount))
       )
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length])
 
   const handleAddRow = useCallback(() => {

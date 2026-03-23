@@ -44,7 +44,7 @@ function getBadgeColor(id: string): string {
   return BADGE_COLORS[index % BADGE_COLORS.length]
 }
 
-export function PropertyCard({ property, isLocked }: PropertyCardProps) {
+export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProps) {
   const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 

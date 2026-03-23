@@ -3,7 +3,7 @@
  * Includes expense data, magic link status, and calculated totals
  */
 import { useQuery } from '@tanstack/react-query'
-import { api, type ScheduleEResponse } from '../lib/api-client'
+import { api } from '../lib/api-client'
 
 interface UseScheduleEOptions {
   caseId: string | undefined

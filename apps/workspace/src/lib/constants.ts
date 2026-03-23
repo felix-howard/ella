@@ -32,7 +32,9 @@ function translatedLabels(keyMap: Record<string, string>): Record<string, string
  * Helper to create a nested translated object using Proxy
  * Handles deeply nested objects by recursively creating proxies
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function translatedNestedObject(keyMap: Record<string, any>): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new Proxy({} as any, {
     get(_, prop: string) {
       const value = keyMap[prop]
@@ -298,15 +300,18 @@ const NAV_ITEMS_DATA = [
   { path: '/settings', labelKey: 'nav.settings', icon: 'Settings' },
 ] as const
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const NAV_ITEMS = new Proxy([] as any, {
   get(_, prop: string | symbol) {
     if (prop === 'length') return NAV_ITEMS_DATA.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof prop === 'symbol' || prop === 'constructor') return (NAV_ITEMS_DATA as any)[prop]
     const index = Number(prop)
     if (!isNaN(index) && index >= 0 && index < NAV_ITEMS_DATA.length) {
       const item = NAV_ITEMS_DATA[index]
       return { ...item, label: i18n.t(item.labelKey) }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (NAV_ITEMS_DATA as any)[prop]
   },
   ownKeys() {
@@ -355,15 +360,18 @@ const CLIENT_SORT_OPTIONS_DATA = [
 
 export type ClientSortOption = typeof CLIENT_SORT_OPTIONS_DATA[number]['value']
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CLIENT_SORT_OPTIONS = new Proxy([] as any, {
   get(_, prop: string | symbol) {
     if (prop === 'length') return CLIENT_SORT_OPTIONS_DATA.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof prop === 'symbol' || prop === 'constructor') return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
     const index = Number(prop)
     if (!isNaN(index) && index >= 0 && index < CLIENT_SORT_OPTIONS_DATA.length) {
       const item = CLIENT_SORT_OPTIONS_DATA[index]
       return { value: item.value, label: i18n.t(item.labelKey) }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
   },
   ownKeys() {

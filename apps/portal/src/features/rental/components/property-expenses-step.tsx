@@ -53,6 +53,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   // Sync with property changes - only update if numeric value actually changed
   // This prevents losing intermediate input like "300." when parent re-renders
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setExpenseValues((prev) => {
       const fields = ['insurance', 'mortgageInterest', 'repairs', 'taxes', 'utilities', 'managementFees', 'cleaningMaintenance'] as const
       const updated = { ...prev }
@@ -81,6 +82,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
         return propValue !== localValue ? (propValue ? String(propValue) : '') : localStr
       })
     })
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [property])
 
   // Handle expense field change

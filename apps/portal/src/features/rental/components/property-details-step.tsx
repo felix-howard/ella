@@ -40,6 +40,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   // Sync local state with property changes
   // Only update rentsReceived if numeric value changed (preserves intermediate input like "300.")
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setAddress(property.address)
     setPropertyType(property.propertyType)
     setPropertyTypeOther(property.propertyTypeOther || '')
@@ -51,6 +52,7 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
       // Only update if numeric values differ (preserves "300." while typing)
       return propValue !== localValue ? (propValue ? String(propValue) : '') : prev
     })
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [property])
 
   // Update handlers

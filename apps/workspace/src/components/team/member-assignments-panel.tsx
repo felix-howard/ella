@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Loader2, UserMinus } from 'lucide-react'
+import { X, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type ClientAssignment } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'

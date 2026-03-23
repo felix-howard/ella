@@ -2,6 +2,7 @@
  * Shared test helpers for Schedule C tests
  * Creates minimal ScheduleCExpense-like objects for unit testing
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** Create a minimal ScheduleCExpense-like object with optional field overrides */
 export function createExpense(overrides: Record<string, unknown> = {}) {

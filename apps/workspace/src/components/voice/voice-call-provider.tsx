@@ -136,6 +136,7 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
  * Hook to access voice call context
  * @throws if used outside VoiceCallProvider
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useVoiceCallContext(): VoiceCallContextValue {
   const context = useContext(VoiceCallContext)
   if (!context) {
@@ -147,6 +148,7 @@ export function useVoiceCallContext(): VoiceCallContextValue {
 /**
  * Hook to access just the voice call state (convenience)
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useVoiceCallState(): VoiceCallState {
   return useVoiceCallContext().state
 }
@@ -154,6 +156,7 @@ export function useVoiceCallState(): VoiceCallState {
 /**
  * Hook to access just the voice call actions (convenience)
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useVoiceCallActions(): VoiceCallActions {
   return useVoiceCallContext().actions
 }

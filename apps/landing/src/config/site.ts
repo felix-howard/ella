@@ -12,8 +12,9 @@ export const siteConfig = {
   themeColor: "#10B981",
 
   // Social / contact
-  facebook: "https://www.facebook.com/andy.hayven",
-  linkedIn: "", // Add LinkedIn profile URL when available
+  facebook: "https://www.facebook.com/andy.hayven" as string,
+  linkedIn: "" as string, // Add LinkedIn profile URL when available
+  twitter: "" as string, // Add Twitter/X handle when available
   formspreeId: "YOUR_FORMSPREE_ID", // Replace with real Formspree form ID
 
   // Structured data - Organization

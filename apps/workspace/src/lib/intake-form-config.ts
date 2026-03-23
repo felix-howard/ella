@@ -174,9 +174,11 @@ const RELATIONSHIP_OPTIONS_DATA = [
   { value: 'OTHER', i18nKey: 'relationship.other' },
 ]
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const RELATIONSHIP_OPTIONS = new Proxy([] as any, {
   get(_, prop: string | symbol) {
     if (prop === 'length') return RELATIONSHIP_OPTIONS_DATA.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof prop === 'symbol' || prop === 'constructor') return (RELATIONSHIP_OPTIONS_DATA as any)[prop]
     const index = Number(prop)
     if (!isNaN(index) && index >= 0 && index < RELATIONSHIP_OPTIONS_DATA.length) {
@@ -185,11 +187,14 @@ export const RELATIONSHIP_OPTIONS = new Proxy([] as any, {
     }
     // Support array iteration methods (map, filter, forEach, etc.)
     if (prop === 'map' || prop === 'filter' || prop === 'forEach' || prop === 'find' || prop === 'some' || prop === 'every' || prop === 'reduce' || prop === 'flatMap') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (...args: any[]) => {
         const resolved = RELATIONSHIP_OPTIONS_DATA.map((item: { value: string; i18nKey: string }) => ({ value: item.value, label: i18n.t(item.i18nKey) }))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (resolved as any)[prop](...args)
       }
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (RELATIONSHIP_OPTIONS_DATA as any)[prop]
   },
   ownKeys() {

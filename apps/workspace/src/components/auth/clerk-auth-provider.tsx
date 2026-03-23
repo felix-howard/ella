@@ -42,6 +42,7 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
   // before rendering children. When false, render immediately so login page shows.
   useEffect(() => {
     if (!isLoaded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsTokenReady(false)
       return
     }

@@ -13,8 +13,8 @@ import {
 } from '../prompts/ocr'
 import type {
   Form1040ExtractedData,
-  TaxpayerAddress,
-  DependentInfo,
+  TaxpayerAddress as _TaxpayerAddress,
+  DependentInfo as _DependentInfo,
 } from '../prompts/ocr/form-1040'
 
 describe('Form 1040 OCR Extraction - CPA Enhancement', () => {

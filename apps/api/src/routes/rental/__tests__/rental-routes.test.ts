@@ -2,6 +2,7 @@
  * Public Rental Route Tests
  * Tests GET /:token, POST /:token/submit, PATCH /:token/draft
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock prisma
@@ -38,6 +39,7 @@ import { prisma } from '../../../lib/db'
 import { validateScheduleEToken } from '../../../services/magic-link'
 import { calculateScheduleETotals, recalculateAllTotals } from '../../../services/schedule-e/expense-calculator'
 import { createVersionEntry, appendVersionHistory } from '../../../services/schedule-e/version-history'
+import type { ScheduleEProperty } from '@ella/shared'
 import { rentalRoute } from '../index'
 
 const app = new Hono()
@@ -186,7 +188,7 @@ describe('Public Rental Routes', () => {
   })
 
   describe('POST /rental/:token/submit', () => {
-    const validProperties = [
+    const validProperties: ScheduleEProperty[] = [
       {
         id: 'A',
         address: { street: '123 Main', city: 'City', state: 'GA', zip: '30301' },

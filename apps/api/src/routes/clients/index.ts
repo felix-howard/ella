@@ -33,7 +33,6 @@ import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../servi
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
 import type { ClientUploads } from '@ella/shared'

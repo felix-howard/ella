@@ -31,7 +31,7 @@ interface ErrorState {
 
 function ExpenseFormPage() {
   const { token } = Route.useParams()
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
 
   const [state, setState] = useState<PageState>('loading')
   const [data, setData] = useState<ExpenseFormData | null>(null)
@@ -73,6 +73,7 @@ function ExpenseFormPage() {
     return () => {
       isMountedRef.current = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   // Reload handler
@@ -102,6 +103,7 @@ function ExpenseFormPage() {
           }
         }
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   // Loading state

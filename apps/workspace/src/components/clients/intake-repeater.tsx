@@ -325,6 +325,7 @@ function TextField({
 }
 
 // Export repeater configuration for common use cases
+// eslint-disable-next-line react-refresh/only-export-components
 export const REPEATER_CONFIGS = {
   rental: {
     countKey: 'rentalPropertyCount',

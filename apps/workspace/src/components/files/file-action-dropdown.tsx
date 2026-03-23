@@ -124,6 +124,7 @@ export function FileActionDropdown({
   // Update position on open and scroll
   useLayoutEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       updatePosition()
     }
   }, [isOpen, updatePosition])
@@ -131,6 +132,7 @@ export function FileActionDropdown({
   // Update submenu position when shown
   useLayoutEffect(() => {
     if (showCategorySubmenu) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       updateSubmenuPosition()
     }
   }, [showCategorySubmenu, updateSubmenuPosition])

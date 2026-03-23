@@ -48,6 +48,7 @@ export function StateCombobox({
 
   // Reset highlight when filtered list changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHighlightIndex(0)
   }, [filteredStates.length])
 

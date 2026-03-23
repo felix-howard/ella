@@ -283,7 +283,7 @@ export function sortDocumentsByPageMarker<T extends { doc: DocumentForGrouping; 
     : 0
 
   // Second pass: assign final page numbers for sorting
-  const docsWithPages = docsWithSortInfo.map((d, idx) => {
+  const docsWithPages = docsWithSortInfo.map((d, _idx) => {
     let pageNum: number
 
     if (d.explicitPageNum !== null) {

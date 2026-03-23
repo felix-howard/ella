@@ -381,6 +381,7 @@ function ToggleQuestion({ label, checked, onChange, hint }: ToggleQuestionProps)
 }
 
 // Default form data
+// eslint-disable-next-line react-refresh/only-export-components
 export function getDefaultIntakeFormData(): IntakeFormData {
   return {
     taxYear: 2025,

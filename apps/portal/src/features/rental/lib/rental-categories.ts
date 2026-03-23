@@ -145,10 +145,10 @@ function createReactiveExpenseArray(configs: ExpenseFieldConfig[]): RentalExpens
       if (typeof prop === 'string' && arrayMethods.includes(prop)) {
         return (...args: unknown[]) => {
           const resolved = configs.map(resolveExpenseField)
-          return (resolved as any)[prop](...args)
+          return (resolved as unknown as Record<string, (...a: unknown[]) => unknown>)[prop](...args)
         }
       }
-      return (configs as any)[prop]
+      return (configs as unknown as Record<string | symbol, unknown>)[prop]
     },
   })
 }
@@ -171,10 +171,10 @@ function createReactivePropertyTypeArray(configs: PropertyTypeConfig[]): Propert
       if (typeof prop === 'string' && arrayMethods.includes(prop)) {
         return (...args: unknown[]) => {
           const resolved = configs.map(resolvePropertyType)
-          return (resolved as any)[prop](...args)
+          return (resolved as unknown as Record<string, (...a: unknown[]) => unknown>)[prop](...args)
         }
       }
-      return (configs as any)[prop]
+      return (configs as unknown as Record<string | symbol, unknown>)[prop]
     },
   })
 }

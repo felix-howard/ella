@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/*.gen.ts',
       '.claude/skills/**',
       '**/generated/**',
+      '**/.astro/**',
     ],
   },
   {

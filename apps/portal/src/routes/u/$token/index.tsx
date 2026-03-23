@@ -10,7 +10,6 @@ import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { portalApi, type PortalData, type UploadResponse, ApiError } from '../../../lib/api-client'
 import { WelcomeHeader } from '../../../components/landing/welcome-header'
-import { MissingDocsList } from '../../../components/missing-docs-list'
 import { SimpleUploader } from '../../../components/simple-uploader'
 
 export const Route = createFileRoute('/u/$token/')({
@@ -95,7 +94,7 @@ function PortalPage() {
           }
         }
       })
-  }, [token, i18n, t])
+  }, [token, t])
 
   // Upload complete handler - refresh data to update missing docs list
   const handleUploadComplete = useCallback(

@@ -61,6 +61,7 @@ export function MessageTemplateModal({
 
   // Reset form when template changes or modal opens
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (template) {
       setFormData({
         title: template.title,
@@ -81,6 +82,7 @@ export function MessageTemplateModal({
       })
     }
     setNewPlaceholder('')
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [template, isOpen, category])
 
   const createMutation = useMutation({

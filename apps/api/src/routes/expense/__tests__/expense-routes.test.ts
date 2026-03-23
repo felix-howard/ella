@@ -2,6 +2,7 @@
  * Public Expense Route Tests
  * Tests GET /:token, POST /:token (submit), PATCH /:token/draft (auto-save)
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@ella/db'
 

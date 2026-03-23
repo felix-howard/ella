@@ -65,11 +65,13 @@ jobs:
         run: pnpm --filter @ella/db exec prisma migrate status || true
         env:
           DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
 
       - name: Run migrations
         run: pnpm --filter @ella/db exec prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
 
   verify:
     name: Verify Production Deployment

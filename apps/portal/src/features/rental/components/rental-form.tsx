@@ -6,6 +6,7 @@ import { memo, useCallback, useState, useEffect } from 'react'
 import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../../../lib/toast-store'
+import type { ScheduleEProperty } from '@ella/shared'
 import type { RentalFormData } from '../lib/rental-api'
 import { useRentalForm } from '../hooks/use-rental-form'
 import { useRentalAutoSave } from '../hooks/use-rental-auto-save'
@@ -51,7 +52,6 @@ export const RentalForm = memo(function RentalForm({
     getCurrentPropertyIndex,
     isDetailsStep,
     isExpensesStep,
-    getPropertyForStep,
   } = useRentalForm(token, initialData)
 
   // Auto-save
@@ -96,7 +96,7 @@ export const RentalForm = memo(function RentalForm({
   const currentProperty = currentPropertyIndex !== null ? properties[currentPropertyIndex] : null
 
   // Update current property
-  const handleUpdateProperty = useCallback((data: any) => {
+  const handleUpdateProperty = useCallback((data: Partial<ScheduleEProperty>) => {
     if (currentPropertyIndex !== null) {
       updateProperty(currentPropertyIndex, data)
     }

@@ -91,7 +91,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     }
 
     // TypeScript narrowing - after skip check, caseInfo is CaseInfoSuccess
-    const { clientId, clientName, organizationId, hasAssignments } = caseInfo
+    const { clientId, clientName, organizationId, hasAssignments: _hasAssignments } = caseInfo
 
     // Step 2: Query recipients
     // New simplified logic: Admin gets ALL client uploads, Staff gets assigned only

@@ -23,6 +23,7 @@ function sanitizeFilename(filename: string): string {
     .replace(/[/\\]/g, '_') // Replace path separators
     .replace(/[<>:"|?*]/g, '_') // Remove Windows reserved chars
     .replace(/\.\./g, '_') // Prevent directory traversal
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1f]/g, '') // Remove control characters
     .trim()
     .slice(0, 255) // Limit length

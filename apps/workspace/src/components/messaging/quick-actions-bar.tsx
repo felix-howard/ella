@@ -32,7 +32,7 @@ export function QuickActionsBar({
   onSend,
   isSending,
   disabled,
-  clientName,
+  clientName: _clientName,
   clientPhone: _clientPhone,
   clientId,
   caseId,
@@ -86,7 +86,7 @@ export function QuickActionsBar({
     const viewportWidth = window.innerWidth
 
     // Position directly above the button with small gap
-    let top = rect.top - 4
+    const top = rect.top - 4
     let left = rect.left
 
     // Ensure it doesn't go off-screen to the left

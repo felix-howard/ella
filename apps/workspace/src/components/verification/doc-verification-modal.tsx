@@ -103,6 +103,7 @@ export function DocVerificationModal({
       setStatus('pending')
       setRejectReason('')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [image?.id]) // Only trigger when image ID changes (navigation)
 
   // Keyboard navigation

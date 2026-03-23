@@ -6,9 +6,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, Loader2, Users } from 'lucide-react'
-import { cn, Button } from '@ella/ui'
+import { Button } from '@ella/ui'
 import { CustomSelect } from '../ui/custom-select'
-import { api, type ClientAssignment, type TeamMember } from '../../lib/api-client'
+import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
 interface ClientAssignmentSectionProps {

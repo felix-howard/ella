@@ -50,6 +50,7 @@ export function ExtendLinkModal({
   }
 
   const daysUntilCurrentExpiry = currentExpiryDate
+    // eslint-disable-next-line react-hooks/purity
     ? Math.ceil((currentExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0
 

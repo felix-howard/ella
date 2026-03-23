@@ -3,7 +3,6 @@
  * Visual step indicator for wizard progress
  */
 import { memo } from 'react'
-import { Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 
 interface RentalProgressIndicatorProps {

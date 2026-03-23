@@ -28,7 +28,7 @@ export const ConversationListItem = memo(function ConversationListItem({
   isActive,
 }: ConversationListItemProps) {
   const { t, i18n } = useTranslation()
-  const { client, taxCase, lastMessage, unreadCount } = conversation
+  const { client, taxCase: _taxCase, lastMessage, unreadCount } = conversation
   const locale = i18n.language === 'vi' ? 'vi' : 'en'
   const hasUnread = unreadCount > 0
 

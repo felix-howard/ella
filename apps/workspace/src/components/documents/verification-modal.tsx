@@ -699,7 +699,7 @@ export function VerificationModal({
                         </div>
                         <div className="divide-y divide-border/50">
                           {groupFields.map(([key, value]) => {
-                            const flatIndex = fieldIndexMap.get(key) ?? -1
+                            const _flatIndex = fieldIndexMap.get(key) ?? -1
                             return (
                               <div
                                 key={key}
@@ -737,7 +737,7 @@ export function VerificationModal({
                       </div>
                       <div className="divide-y divide-border/50">
                         {ungroupedFields.map(([key, value]) => {
-                          const flatIndex = fieldIndexMap.get(key) ?? -1
+                          const _flatIndex = fieldIndexMap.get(key) ?? -1
                           return (
                             <div
                               key={key}

@@ -214,6 +214,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
     }
 
     return sections
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, profile, intakeAnswers, latestCase])
 
   // Filter sections that have data

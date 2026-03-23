@@ -561,7 +561,7 @@ export async function generateSmartFilename(
 export async function analyzeDocumentGrouping(
   newDocImage: Buffer,
   candidateImages: Buffer[],
-  candidateDocs: Array<{ id: string; displayName: string | null }>
+  _candidateDocs: Array<{ id: string; displayName: string | null }>
 ): Promise<GroupingAnalysisResult> {
   const startTime = Date.now()
 

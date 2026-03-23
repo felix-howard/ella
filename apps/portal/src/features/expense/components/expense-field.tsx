@@ -35,6 +35,7 @@ export const ExpenseField = memo(function ExpenseField({
   useEffect(() => {
     const newValue = value !== null && value !== undefined ? String(value) : ''
     if (newValue !== inputValue && document.activeElement !== inputRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInputValue(newValue)
     }
   }, [value, inputValue])

@@ -5,7 +5,7 @@
  * Supports returning client detection with copy-from-previous feature
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, User, Check } from 'lucide-react'
@@ -13,7 +13,7 @@ import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ReturningClientSection, ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../../components/clients'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, formatPhoneInput } from '../../lib/formatters'
+import { formatPhoneInput } from '../../lib/formatters'
 import { api, type Language, type ClientWithActions } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/new')({

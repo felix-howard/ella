@@ -23,6 +23,7 @@ export function useAutoOrgSelection() {
     if (!isSignedIn || orgId || !setActive || !isLoaded) return
     const firstOrg = membershipData?.[0]
     if (firstOrg) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsSelecting(true)
       setActive({ organization: firstOrg.organization.id })
         .catch(() => {

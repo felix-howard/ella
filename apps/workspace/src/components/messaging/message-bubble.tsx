@@ -334,6 +334,7 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
   useEffect(() => {
     if (!isRelativePath) {
       // Absolute URL - use directly (e.g. already signed R2 URLs)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBlobUrl(url)
       return
     }

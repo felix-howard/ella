@@ -1,0 +1,52 @@
+name: Migration Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/db/prisma/**'
+
+jobs:
+  migration-check:
+    name: Migration Safety Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @ella/db exec prisma generate
+
+      - name: Check migration status against production
+        run: pnpm --filter @ella/db exec prisma migrate status
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+          DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
+
+      - name: List pending migrations
+        run: |
+          echo "## Pending migrations for production:"
+          ls -la packages/db/prisma/migrations/ | tail -20
+
+      - name: Comment migration status on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const migrations = execSync('ls packages/db/prisma/migrations/').toString();
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Migration Check\n\nMigration status check passed. Review the migration files before merging.\n\n\`\`\`\n${migrations}\n\`\`\``
+            });

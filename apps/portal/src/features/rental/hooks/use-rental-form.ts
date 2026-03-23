@@ -7,7 +7,6 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import type {
   ScheduleEProperty,
   ScheduleEPropertyId,
-  ScheduleEPropertyType,
 } from '@ella/shared'
 import { createEmptyProperty } from '@ella/shared'
 import { rentalApi } from '../lib/rental-api'
@@ -105,6 +104,7 @@ export function useRentalForm(
 
   // Refs for tracking
   const propertiesRef = useRef(properties)
+  // eslint-disable-next-line react-hooks/refs
   propertiesRef.current = properties
 
   // Derived state

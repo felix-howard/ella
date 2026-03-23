@@ -98,6 +98,7 @@ export function ReUploadRequestModal({
       reason: reasonText,
       fields: fieldList
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [image.classifiedType, reason, otherReason, selectedFields])
 
   // Final message (custom or generated)
@@ -146,7 +147,6 @@ export function ReUploadRequestModal({
 
   // Reset form when modal opens
   // Note: setState is intentional here to sync internal state with prop changes
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setReason('blurry')
@@ -157,7 +157,6 @@ export function ReUploadRequestModal({
       setIsEditingMessage(false)
     }
   }, [isOpen, unreadableFields])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Document type label
   const docTypeLabel = image.classifiedType

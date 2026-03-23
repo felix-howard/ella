@@ -189,7 +189,6 @@ export function useClassificationUpdates({
       const activeCount = currentImages.filter(
         (img) => img.status === 'PROCESSING' && !initialProcessingIdsRef.current?.has(img.id)
       ).length
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: initializing state from fetched data
       setActiveProcessingCount(activeCount)
       return
     }
@@ -245,7 +244,6 @@ export function useClassificationUpdates({
       const activeCount = currentDocs.filter(
         (doc) => doc.status === 'PENDING' && !initialPendingDocIdsRef.current?.has(doc.id)
       ).length
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: initializing state from fetched data
       setActiveExtractingCount(activeCount)
       return
     }

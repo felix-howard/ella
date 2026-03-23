@@ -165,6 +165,7 @@ export function MultiSectionIntakeForm({
     enabled: taxTypes.length > 0,
   })
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const questions = data?.data || []
 
   // Handle answer change with UI-side cascade cleanup

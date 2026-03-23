@@ -30,7 +30,7 @@ import {
   doTaxpayerNamesMatch,
   GROUP_CONFIDENCE_THRESHOLD,
   SAME_TAXPAYER_CONFIDENCE_THRESHOLD,
-  METADATA_BUCKETING_THRESHOLD,
+  METADATA_BUCKETING_THRESHOLD as _METADATA_BUCKETING_THRESHOLD,
   type DocumentForGrouping,
   type MetadataBucket,
 } from './grouping-utils'
@@ -191,7 +191,7 @@ async function processBucket(
   console.log(`[batch-grouping] Found ${multiDocGroups.length} groups in bucket`)
 
   // Process each group
-  for (const [rootId, docIds] of multiDocGroups) {
+  for (const [_rootId, docIds] of multiDocGroups) {
     const groupDocsUnsorted = validDocs.filter((v) => docIds.includes(v.doc.id))
 
     // Phase 3: Sort documents by page markers before group creation
@@ -351,7 +351,7 @@ async function processBucket(
       const cleanName = nameWithoutExt.replace(/_Part\d+of\d+$/i, '')
       const newFilenameBase = `${cleanName}${partSuffix}`
 
-      let renameSuccess = false
+      let _renameSuccess = false
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const renameResult = await renameFileRaw(doc.r2Key, caseId, newFilenameBase)
@@ -360,10 +360,10 @@ async function processBucket(
               where: { id: docId },
               data: { r2Key: renameResult.newKey },
             })
-            renameSuccess = true
+            _renameSuccess = true
           } else if (renameResult.success) {
             // Same key, no update needed
-            renameSuccess = true
+            _renameSuccess = true
           }
           break // Success, exit retry loop
         } catch (renameError) {
@@ -748,7 +748,7 @@ export const groupDocumentsBatchJob = inngest.createFunction(
         where: { id: { in: groupIds } },
         select: { id: true, pageCount: true, baseName: true },
       })
-      const groupMap = new Map(groups.map((g) => [g.id, g]))
+      const _groupMap = new Map(groups.map((g) => [g.id, g]))
 
       let linked = 0
 

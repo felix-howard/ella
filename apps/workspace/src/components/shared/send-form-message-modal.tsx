@@ -50,11 +50,13 @@ export function SendFormMessageModal({
   // Reset to defaults when modal opens
   useEffect(() => {
     if (isOpen) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setMessages({
         VI: defaultTemplateVI,
         EN: defaultTemplateEN,
       })
       setLanguage('VI')
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [isOpen, defaultTemplateVI, defaultTemplateEN])
 

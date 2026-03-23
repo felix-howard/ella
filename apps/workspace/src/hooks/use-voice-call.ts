@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, type CallerLookupResponse } from '../lib/api-client'
+import { api } from '../lib/api-client'
 import {
   loadTwilioSdk,
   type TwilioDeviceInstance,
@@ -204,6 +204,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       }
       cleanupRingSound()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanupCallListeners])
 
   // Create and setup Twilio Device (called on first user gesture)
@@ -400,6 +401,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       setError(getErrorMessage(e, t))
       return false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t])
 
   // Start duration timer
@@ -602,6 +604,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         setCallState('error')
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [callState, startTimer, stopTimer, cleanupCallListeners, setupDevice]
   )
 
@@ -721,6 +724,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       document.removeEventListener('click', handleUserGesture)
       document.removeEventListener('keydown', handleUserGesture)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable, isRegistered, isRegistering, setupDevice])
 
   // Cleanup on beforeunload (tab close)

@@ -30,7 +30,7 @@ interface ErrorState {
 
 function RentalFormPage() {
   const { token } = Route.useParams()
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
 
   const [state, setState] = useState<PageState>('loading')
   const [data, setData] = useState<RentalFormData | null>(null)

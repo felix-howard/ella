@@ -2,6 +2,7 @@
  * Schedule C Staff Route Tests
  * Tests POST /send, GET /:caseId, PATCH /lock, PATCH /unlock, POST /resend
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Prisma } from '@ella/db'
 

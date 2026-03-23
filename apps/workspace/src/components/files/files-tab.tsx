@@ -145,6 +145,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   })
 
   // Use parent data if provided, otherwise use fetched data
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const docs = parentDocs ?? docsData?.docs ?? []
 
   // Memoize images array - prefer parent data over fetched
@@ -218,7 +219,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   }, [categorized, docs])
 
   // Handlers
-  const handleClassify = (image: RawImage) => {
+  const _handleClassify = (image: RawImage) => {
     setClassifyImage(image)
     setIsClassifyModalOpen(true)
   }

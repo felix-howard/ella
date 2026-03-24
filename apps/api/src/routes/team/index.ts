@@ -428,33 +428,37 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
 
   // For ADMIN: return all clients in org (implicit access)
   // For STAFF: return only explicitly assigned clients
-  let assignedClients: Array<{ id: string; name: string; phone: string }>
+  let assignedClients: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
   let assignedCount: number
 
   if (staff.role === 'ADMIN') {
     // Admins have access to all clients
     const allClients = await prisma.client.findMany({
       where: { organizationId: user.organizationId },
-      select: { id: true, name: true, phone: true },
+      select: { id: true, name: true, phone: true, avatarUrl: true },
       take: 50,
       orderBy: { name: 'asc' },
     })
     const totalClients = await prisma.client.count({
       where: { organizationId: user.organizationId },
     })
-    assignedClients = allClients
+    assignedClients = await Promise.all(
+      allClients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
+    )
     assignedCount = totalClients
   } else {
     // Staff only see explicitly assigned clients
     const assignments = await prisma.clientAssignment.findMany({
       where: { staffId: targetStaffId },
       include: {
-        client: { select: { id: true, name: true, phone: true } },
+        client: { select: { id: true, name: true, phone: true, avatarUrl: true } },
       },
       take: 50,
       orderBy: { createdAt: 'desc' },
     })
-    assignedClients = assignments.map((a) => a.client)
+    assignedClients = await Promise.all(
+      assignments.map(async (a) => ({ ...a.client, avatarUrl: await resolveAvatarUrl(a.client.avatarUrl) }))
+    )
     assignedCount = staff._count.clientAssignments
   }
 

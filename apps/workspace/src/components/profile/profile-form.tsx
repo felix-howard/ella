@@ -11,6 +11,7 @@ import { Loader2, Check, Edit2 } from 'lucide-react'
 import { Button, Input, Switch } from '@ella/ui'
 import { api, type StaffProfile } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
+import { formatPhone } from '../../lib/formatters'
 
 // Phone input styles
 import 'react-phone-number-input/style.css'
@@ -95,8 +96,9 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
     editNotifyOnUpload !== staff.notifyOnUpload
 
   return (
-    <div className="bg-card rounded-xl shadow-sm p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-card rounded-xl shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-muted/50 border-b border-border">
         <h2 className="text-lg font-semibold text-foreground">{t('profile.info')}</h2>
         {canEdit && !isEditing && (
           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
@@ -106,7 +108,7 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 p-6">
         {/* Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1.5">
@@ -166,7 +168,7 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
             </>
           ) : (
             <p className="text-foreground">
-              {staff.phoneNumber || <span className="text-muted-foreground">{t('profile.notSet')}</span>}
+              {staff.phoneNumber ? formatPhone(staff.phoneNumber) : <span className="text-muted-foreground">{t('profile.notSet')}</span>}
             </p>
           )}
         </div>

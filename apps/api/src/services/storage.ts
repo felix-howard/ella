@@ -137,6 +137,21 @@ export function generateClientAvatarKey(clientId: string, contentType?: string):
 }
 
 /**
+ * Resolve an avatarUrl field from the database to a usable URL.
+ * - If null/undefined → returns null
+ * - If starts with 'http' → returns as-is (Clerk URL or external URL)
+ * - If looks like an R2 key (avatars/ or client-avatars/) → generates fresh presigned URL
+ */
+export async function resolveAvatarUrl(avatarUrl: string | null | undefined): Promise<string | null> {
+  if (!avatarUrl) return null
+  if (avatarUrl.startsWith('http')) return avatarUrl
+  if (avatarUrl.startsWith('avatars/') || avatarUrl.startsWith('client-avatars/')) {
+    return getSignedDownloadUrl(avatarUrl, 3600) // 1-hour TTL
+  }
+  return avatarUrl
+}
+
+/**
  * Get a signed download URL for a file
  */
 export async function getSignedDownloadUrl(

@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import { resolveAvatarUrl } from '../../services/storage'
 import type { AuthVariables } from '../../middleware/auth'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
@@ -30,7 +31,7 @@ staffRoute.get('/me', async (c) => {
     return c.json({ error: 'Staff record not found' }, 404)
   }
 
-  return c.json({ ...staff, orgRole: user.orgRole })
+  return c.json({ ...staff, avatarUrl: await resolveAvatarUrl(staff.avatarUrl), orgRole: user.orgRole })
 })
 
 // PATCH /staff/me/language - Update language preference

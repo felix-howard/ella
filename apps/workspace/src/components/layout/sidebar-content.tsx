@@ -6,9 +6,6 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   LogOut,
-  Phone,
-  PhoneOff,
-  Loader2,
   X,
 } from 'lucide-react'
 import { cn, EllaLogoDark, EllaLogoLight, EllaArrow } from '@ella/ui'
@@ -155,42 +152,6 @@ export function SidebarContent({
           )}
         </Link>
 
-        {/* Voice status */}
-        {voiceState.isAvailable && (
-          <div
-            className={cn(
-              'relative flex items-center gap-3 px-3 py-2 w-full rounded-lg',
-              isCollapsedDesktop && 'justify-center',
-              voiceState.isRegistered
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                : voiceState.isRegistering
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  : 'text-muted-foreground'
-            )}
-            aria-label={voiceState.isRegistered ? t('sidebar.voiceReady') : t('sidebar.voiceConnecting')}
-            title={voiceState.isRegistered ? t('sidebar.voiceReadyFull') : t('sidebar.voiceConnectingFull')}
-          >
-            {voiceState.isRegistering ? (
-              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-            ) : voiceState.isRegistered ? (
-              <Phone className="w-5 h-5" aria-hidden="true" />
-            ) : (
-              <PhoneOff className="w-5 h-5" aria-hidden="true" />
-            )}
-            {showLabels && (
-              <span className="text-sm">
-                {voiceState.isRegistering
-                  ? t('sidebar.voiceConnecting')
-                  : voiceState.isRegistered
-                    ? t('sidebar.voiceReady')
-                    : t('sidebar.voiceWaiting')}
-              </span>
-            )}
-            {voiceState.isRegistered && isCollapsedDesktop && (
-              <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            )}
-          </div>
-        )}
 
         {/* Logout */}
         <button

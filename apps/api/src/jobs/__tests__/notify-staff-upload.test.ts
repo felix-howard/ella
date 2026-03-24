@@ -20,9 +20,6 @@ vi.mock('../../lib/db', () => ({
     taxCase: {
       findUnique: vi.fn(),
     },
-    clientAssignment: {
-      count: vi.fn(),
-    },
     staff: {
       findMany: vi.fn(),
     },
@@ -39,7 +36,6 @@ import { notifyStaffUpload } from '../../services/sms/notification-service'
 
 // Type the mocks
 const mockPrismaTaxCase = vi.mocked(prisma.taxCase)
-const mockPrismaClientAssignment = vi.mocked(prisma.clientAssignment)
 const mockPrismaStaff = vi.mocked(prisma.staff)
 const mockNotifyStaffUpload = vi.mocked(notifyStaffUpload)
 
@@ -182,7 +178,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
     })
 
     it('queries assigned staff with notifyOnUpload=true', async () => {
-      mockPrismaClientAssignment.count.mockResolvedValue(1)
+
       const mockStaff = [
         {
           id: 'staff-1',
@@ -208,7 +204,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
     })
 
     it('queries all admins (admins get ALL client uploads)', async () => {
-      mockPrismaClientAssignment.count.mockResolvedValue(1)
+
       const mockStaff = [
         {
           id: 'admin-1',
@@ -228,7 +224,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
           isActive: true,
           OR: [
             { role: 'ADMIN' },
-            { clientAssignments: { some: { clientId: testClientId } } },
+            { id: testClientId },  // managedById filter
           ],
         },
         select: { id: true, name: true, phoneNumber: true, language: true },
@@ -238,7 +234,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
     })
 
     it('skips staff without phone number', async () => {
-      mockPrismaClientAssignment.count.mockResolvedValue(1)
+
       // Staff without phone are filtered out in the query itself
       mockPrismaStaff.findMany.mockResolvedValue([]) // No staff with phone
 
@@ -288,7 +284,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
           organizationId: testOrgId,
         },
       } as never)
-      mockPrismaClientAssignment.count.mockResolvedValue(1)
+
       mockPrismaStaff.findMany.mockResolvedValue(testRecipients as never)
     })
 
@@ -385,7 +381,7 @@ describe('notifyStaffOnUploadJob workflow', () => {
           organizationId: testOrgId,
         },
       } as never)
-      mockPrismaClientAssignment.count.mockResolvedValue(0)
+
       mockPrismaStaff.findMany.mockResolvedValue([])
 
       const staff = await prisma.staff.findMany({

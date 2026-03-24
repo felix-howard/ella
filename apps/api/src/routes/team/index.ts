@@ -59,18 +59,18 @@ teamRoute.get('/members', async (c) => {
       avatarUrl: true,
       lastLoginAt: true,
       isActive: true,
-      _count: { select: { clientAssignments: true } },
+      _count: { select: { managedClients: true } },
     },
     orderBy: { name: 'asc' },
   })
 
-  // For ADMIN: show total client count, for STAFF: show assignment count
+  // For ADMIN: show total client count, for STAFF: show managed count
   const data = await Promise.all(
     members.map(async (m) => ({
       ...m,
       avatarUrl: await resolveAvatarUrl(m.avatarUrl),
       _count: {
-        clientAssignments: m.role === 'ADMIN' ? totalClientCount : m._count.clientAssignments,
+        managedClients: m.role === 'ADMIN' ? totalClientCount : m._count.managedClients,
       },
     }))
   )
@@ -297,38 +297,6 @@ teamRoute.patch(
   }
 )
 
-// GET /team/members/:staffId/assignments - List client assignments for a staff member (admin only)
-teamRoute.get(
-  '/members/:staffId/assignments',
-  requireOrgAdmin,
-  async (c) => {
-    const user = c.get('user')
-    const staffId = c.req.param('staffId')
-
-    // Verify staff belongs to same org
-    const staff = await prisma.staff.findFirst({
-      where: { id: staffId, organizationId: user.organizationId },
-    })
-
-    if (!staff) {
-      return c.json({ error: 'Staff not found' }, 404)
-    }
-
-    const assignments = await prisma.clientAssignment.findMany({
-      where: {
-        staffId,
-        client: { organizationId: user.organizationId },
-      },
-      include: {
-        client: { select: { id: true, name: true, phone: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    return c.json({ data: assignments })
-  }
-)
-
 // GET /team/invitations - List pending invitations (admin only)
 teamRoute.get(
   '/invitations',
@@ -418,7 +386,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       notifyOnUpload: true,
       isActive: true,
       deactivatedAt: true,
-      _count: { select: { clientAssignments: true } },
+      _count: { select: { managedClients: true } },
     },
   })
 
@@ -432,9 +400,9 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const lastName = nameParts.slice(1).join(' ') || ''
 
   // For ADMIN: return all clients in org (implicit access)
-  // For STAFF: return only explicitly assigned clients
-  let assignedClients: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
-  let assignedCount: number
+  // For STAFF: return only managed clients
+  let managedClientsList: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
+  let managedCount: number
 
   if (staff.role === 'ADMIN') {
     // Admins have access to all clients
@@ -447,32 +415,30 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     const totalClients = await prisma.client.count({
       where: { organizationId: user.organizationId },
     })
-    assignedClients = await Promise.all(
+    managedClientsList = await Promise.all(
       allClients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
     )
-    assignedCount = totalClients
+    managedCount = totalClients
   } else {
-    // Staff only see explicitly assigned clients
-    const assignments = await prisma.clientAssignment.findMany({
-      where: { staffId: targetStaffId },
-      include: {
-        client: { select: { id: true, name: true, phone: true, avatarUrl: true } },
-      },
+    // Staff only see managed clients
+    const clients = await prisma.client.findMany({
+      where: { managedById: targetStaffId },
+      select: { id: true, name: true, phone: true, avatarUrl: true },
       take: 50,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
     })
-    assignedClients = await Promise.all(
-      assignments.map(async (a) => ({ ...a.client, avatarUrl: await resolveAvatarUrl(a.client.avatarUrl) }))
+    managedClientsList = await Promise.all(
+      clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
     )
-    assignedCount = staff._count.clientAssignments
+    managedCount = staff._count.managedClients
   }
 
   const canEdit = canEditStaff(user, targetStaffId)
 
   return c.json({
     staff: { ...staff, firstName, lastName, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
-    assignedClients,
-    assignedCount,
+    assignedClients: managedClientsList,
+    assignedCount: managedCount,
     canEdit,
   })
 })

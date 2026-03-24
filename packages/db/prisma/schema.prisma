@@ -396,7 +396,7 @@ model Staff {
 
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  clientAssignments ClientAssignment[]
+  managedClients    Client[]  @relation("ManagedClients")
   documentViews     DocumentView[]
   uploadedDraftReturns DraftReturn[]
 
@@ -441,22 +441,6 @@ model Organization {
   @@index([clerkOrgId])
 }
 
-model ClientAssignment {
-  id           String   @id @default(cuid())
-  clientId     String
-  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  staffId      String
-  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  assignedById String?
-
-  createdAt    DateTime @default(now())
-
-  @@unique([clientId, staffId])
-  @@index([staffId])
-  @@index([clientId])
-  @@index([assignedById])
-}
-
 model Client {
   id        String   @id @default(cuid())
   firstName String
@@ -477,7 +461,9 @@ model Client {
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  assignments    ClientAssignment[]
+
+  managedById    String?
+  managedBy      Staff?    @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -485,6 +471,7 @@ model Client {
   @@index([phone])
   @@index([name])
   @@index([organizationId])
+  @@index([managedById])
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.

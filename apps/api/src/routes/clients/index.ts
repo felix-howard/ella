@@ -4,6 +4,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import {
   getPaginationParams,
@@ -37,6 +38,7 @@ import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -129,14 +131,10 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         profile: {
           select: { intakeAnswers: true }
         },
-        // Include assigned staff names for admin list view
-        ...(isAdmin ? {
-          assignments: {
-            select: {
-              staff: { select: { id: true, name: true } },
-            },
-          },
-        } : {}),
+        // Include managing staff for list view
+        managedBy: {
+          select: { id: true, name: true },
+        },
         taxCases: {
           take: 1,
           orderBy: { lastActivityAt: 'desc' },
@@ -245,10 +243,10 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       }
     }
 
-    // Map assigned staff for admin view
-    const assignedStaff = isAdmin && 'assignments' in client
-      ? (client.assignments as unknown as { staff: { id: string; name: string } }[]).map((a) => a.staff)
-      : undefined
+    // Map managed by staff
+    const managedBy = client.managedBy
+      ? { id: client.managedBy.id, name: client.managedBy.name }
+      : null
 
     // Get upload stats for this client
     const uploads = uploadStatsMap.get(client.id) ?? { newCount: 0, totalCount: 0, latestAt: null }
@@ -264,7 +262,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
-      ...(assignedStaff ? { assignedStaff } : {}),
+      managedBy,
       actionCounts,
       uploads,
       latestCase: latestCase ? {
@@ -318,7 +316,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Create client with org scope
+    // Create client with org scope and managed-by
     const client = await tx.client.create({
       data: {
         firstName,
@@ -327,6 +325,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         ...clientData,
         language: clientData.language as Language,
         organizationId: user.organizationId,
+        managedById: user.staffId,  // Always set creator as manager
         profile: {
           create: {
             // Legacy fields for backward compatibility
@@ -381,17 +380,6 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         lastMessageAt: new Date(),
       },
     })
-
-    // Auto-assign creator to client if non-admin (so they can see it immediately)
-    const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
-    if (!isAdmin && user.staffId) {
-      await tx.clientAssignment.create({
-        data: {
-          clientId: client.id,
-          staffId: user.staffId,
-        },
-      })
-    }
 
     return { client, taxCase, profile: client.profile! }
   })
@@ -1196,5 +1184,44 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
 
   return c.json({ success: true, message: 'Client deleted successfully' })
 })
+
+// PATCH /clients/:id/managed-by - Change client manager (admin only)
+clientsRoute.patch(
+  '/:id/managed-by',
+  requireOrgAdmin,
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', z.object({ staffId: z.string().nullable() })),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { staffId } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify client belongs to org
+    const client = await prisma.client.findFirst({
+      where: { id, organizationId: user.organizationId },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // If assigning to a staff, verify they belong to org and are active
+    if (staffId) {
+      const staff = await prisma.staff.findFirst({
+        where: { id: staffId, organizationId: user.organizationId, isActive: true },
+      })
+      if (!staff) {
+        return c.json({ error: 'NOT_FOUND', message: 'Staff not found' }, 404)
+      }
+    }
+
+    const updated = await prisma.client.update({
+      where: { id },
+      data: { managedById: staffId },
+      include: { managedBy: { select: { id: true, name: true } } },
+    })
+
+    return c.json({ data: { managedBy: updated.managedBy } })
+  }
+)
 
 export { clientsRoute }

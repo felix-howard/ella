@@ -25,7 +25,7 @@ interface CaseInfoSuccess {
   clientId: string
   clientName: string
   organizationId: string
-  hasAssignments: boolean
+  managedById: string | null
 }
 
 type CaseInfoResult = CaseInfoSkip | CaseInfoSuccess
@@ -57,6 +57,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
               lastName: true,
               name: true,
               organizationId: true,
+              managedById: true,
             },
           },
         },
@@ -70,11 +71,6 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
         return { skip: true as const, reason: 'NO_ORGANIZATION' }
       }
 
-      // Check if client has any assignments
-      const assignmentCount = await prisma.clientAssignment.count({
-        where: { clientId: taxCase.clientId },
-      })
-
       return {
         skip: false as const,
         clientId: taxCase.clientId,
@@ -82,7 +78,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
           taxCase.client.name ||
           `${taxCase.client.firstName} ${taxCase.client.lastName || ''}`.trim(),
         organizationId: taxCase.client.organizationId,
-        hasAssignments: assignmentCount > 0,
+        managedById: taxCase.client.managedById,
       }
     })
 
@@ -91,10 +87,10 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     }
 
     // TypeScript narrowing - after skip check, caseInfo is CaseInfoSuccess
-    const { clientId, clientName, organizationId, hasAssignments: _hasAssignments } = caseInfo
+    const { clientName, organizationId, managedById } = caseInfo
 
     // Step 2: Query recipients
-    // New simplified logic: Admin gets ALL client uploads, Staff gets assigned only
+    // Admins get ALL client uploads, managing staff gets their managed clients
     const recipients = await step.run('get-recipients', async () => {
       const staff = await prisma.staff.findMany({
         where: {
@@ -103,10 +99,8 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
           notifyOnUpload: true,
           isActive: true,
           OR: [
-            // Admins get notified for ALL client uploads
             { role: 'ADMIN' },
-            // Staff get notified only for assigned clients
-            { clientAssignments: { some: { clientId } } },
+            ...(managedById ? [{ id: managedById }] : []),
           ],
         },
         select: {

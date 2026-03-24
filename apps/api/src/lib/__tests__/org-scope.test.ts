@@ -33,40 +33,40 @@ function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
 }
 
 describe('buildClientScopeFilter', () => {
-  it('admin: filters by org only, no assignment filter', () => {
+  it('admin: filters by org only, no managedById filter', () => {
     const user = makeUser({ orgRole: 'org:admin' })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({ organizationId: 'org_1' })
-    expect(where).not.toHaveProperty('assignments')
+    expect(where).not.toHaveProperty('managedById')
   })
 
-  it('member: filters by org + assignment', () => {
+  it('member: filters by org + managedById', () => {
     const user = makeUser({ orgRole: 'org:member' })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
       organizationId: 'org_1',
-      assignments: { some: { staffId: 'staff_1' } },
+      managedById: 'staff_1',
     })
   })
 
-  it('null orgRole (non-admin): filters by org + assignment', () => {
+  it('null orgRole (non-admin): filters by org + managedById', () => {
     const user = makeUser({ orgRole: null })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
       organizationId: 'org_1',
-      assignments: { some: { staffId: 'staff_1' } },
+      managedById: 'staff_1',
     })
   })
 
-  it('no org: still has assignment filter if staffId exists', () => {
+  it('no org: still has managedById filter if staffId exists', () => {
     const user = makeUser({ organizationId: null, orgRole: null })
     const where = buildClientScopeFilter(user)
 
     expect(where).toEqual({
-      assignments: { some: { staffId: 'staff_1' } },
+      managedById: 'staff_1',
     })
   })
 
@@ -85,6 +85,17 @@ describe('buildClientScopeFilter', () => {
     // Admin with no org: failsafe blocks access
     expect(where).toEqual({ id: '__NO_ACCESS__' })
   })
+
+  it('non-admin with org but no staffId: returns impossible filter', () => {
+    const user = makeUser({ orgRole: 'org:member', staffId: null })
+    const where = buildClientScopeFilter(user)
+
+    // Non-admin without staffId: blocked even with org
+    expect(where).toEqual({
+      organizationId: 'org_1',
+      id: '__NO_ACCESS__',
+    })
+  })
 })
 
 describe('buildNestedClientScope', () => {
@@ -97,14 +108,14 @@ describe('buildNestedClientScope', () => {
     })
   })
 
-  it('member: nested filter includes assignment scope', () => {
+  it('member: nested filter includes managedById scope', () => {
     const user = makeUser({ orgRole: 'org:member' })
     const where = buildNestedClientScope(user)
 
     expect(where).toEqual({
       client: {
         organizationId: 'org_1',
-        assignments: { some: { staffId: 'staff_1' } },
+        managedById: 'staff_1',
       },
     })
   })
@@ -134,7 +145,7 @@ describe('verifyClientAccess', () => {
       where: {
         id: 'client_1',
         organizationId: 'org_1',
-        assignments: { some: { staffId: 'staff_1' } },
+        managedById: 'staff_1',
       },
       select: { id: true },
     })

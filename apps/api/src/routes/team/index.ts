@@ -38,6 +38,7 @@ teamRoute.use('*', requireOrg)
 // GET /team/members - List active staff in current org
 teamRoute.get('/members', async (c) => {
   const user = c.get('user')
+  const includeArchived = c.req.query('includeArchived') === 'true'
 
   // Get total client count for admins (they have access to all clients)
   const totalClientCount = await prisma.client.count({
@@ -47,7 +48,7 @@ teamRoute.get('/members', async (c) => {
   const members = await prisma.staff.findMany({
     where: {
       organizationId: user.organizationId,
-      isActive: true,
+      ...(includeArchived ? {} : { isActive: true }),
     },
     select: {
       id: true,
@@ -57,6 +58,7 @@ teamRoute.get('/members', async (c) => {
       role: true,
       avatarUrl: true,
       lastLoginAt: true,
+      isActive: true,
       _count: { select: { clientAssignments: true } },
     },
     orderBy: { name: 'asc' },
@@ -220,6 +222,81 @@ teamRoute.delete(
   }
 )
 
+// PATCH /team/members/:staffId/archive - Archive staff member (admin only)
+// Sets isActive=false, deactivatedAt=now. Does NOT remove from Clerk org.
+teamRoute.patch(
+  '/members/:staffId/archive',
+  requireOrgAdmin,
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+
+    // Cannot archive self
+    if (staffId === user.staffId) {
+      return c.json({ error: 'Cannot archive yourself' }, 400)
+    }
+
+    // Verify staff belongs to same org and is currently active
+    const staff = await prisma.staff.findFirst({
+      where: { id: staffId, organizationId: user.organizationId, isActive: true },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found or already archived' }, 404)
+    }
+
+    await prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        isActive: false,
+        deactivatedAt: new Date(),
+      },
+    })
+
+    logTeamAction('STAFF_ARCHIVED', staffId, user.staffId, {
+      oldValue: { isActive: true },
+      newValue: { isActive: false, deactivatedAt: new Date().toISOString() },
+    })
+
+    return c.json({ success: true })
+  }
+)
+
+// PATCH /team/members/:staffId/unarchive - Unarchive staff member (admin only)
+// Sets isActive=true, clears deactivatedAt
+teamRoute.patch(
+  '/members/:staffId/unarchive',
+  requireOrgAdmin,
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+
+    // Verify staff belongs to same org and is currently archived
+    const staff = await prisma.staff.findFirst({
+      where: { id: staffId, organizationId: user.organizationId, isActive: false },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found or not archived' }, 404)
+    }
+
+    await prisma.staff.update({
+      where: { id: staffId },
+      data: {
+        isActive: true,
+        deactivatedAt: null,
+      },
+    })
+
+    logTeamAction('STAFF_UNARCHIVED', staffId, user.staffId, {
+      oldValue: { isActive: false },
+      newValue: { isActive: true, deactivatedAt: null },
+    })
+
+    return c.json({ success: true })
+  }
+)
+
 // GET /team/members/:staffId/assignments - List client assignments for a staff member (admin only)
 teamRoute.get(
   '/members/:staffId/assignments',
@@ -325,12 +402,11 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     return c.json({ error: 'Staff ID required' }, 400)
   }
 
-  // Verify staff belongs to same org
+  // Verify staff belongs to same org (allow viewing archived profiles)
   const staff = await prisma.staff.findFirst({
     where: {
       id: targetStaffId,
       organizationId: user.organizationId,
-      isActive: true,
     },
     select: {
       id: true,
@@ -340,6 +416,8 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       avatarUrl: true,
       phoneNumber: true,
       notifyOnUpload: true,
+      isActive: true,
+      deactivatedAt: true,
       _count: { select: { clientAssignments: true } },
     },
   })

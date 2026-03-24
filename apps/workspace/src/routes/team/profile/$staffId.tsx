@@ -1,26 +1,95 @@
 /**
  * Member Profile Page
  * Route: /team/profile/:staffId
- * Self = edit mode, Admin viewing others = read-only
+ * Self = edit mode, Admin viewing others = read-only with role selector + archive
  */
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, User } from 'lucide-react'
+import { ArrowLeft, Loader2, User, Shield, ChevronDown, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
 import { AvatarUploader } from '../../../components/profile/avatar-uploader'
 import { api } from '../../../lib/api-client'
+import { toast } from '../../../stores/toast-store'
+import { useOrgRole } from '../../../hooks/use-org-role'
 
 export const Route = createFileRoute('/team/profile/$staffId')({
   component: ProfilePage,
 })
 
+function RoleSelector({
+  currentRole,
+  onRoleChange,
+  isLoading,
+}: {
+  currentRole: string
+  onRoleChange: (role: 'org:admin' | 'org:member') => void
+  isLoading: boolean
+}) {
+  const { t } = useTranslation()
+  const [isOpen, setIsOpen] = useState(false)
+  const isAdmin = currentRole === 'ADMIN'
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={isLoading}
+        className={cn(
+          'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors',
+          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20',
+          isLoading && 'opacity-50 cursor-not-allowed'
+        )}
+      >
+        <Shield className="w-4 h-4" />
+        <span className="text-sm font-medium">
+          {isAdmin ? t('team.admin') : t('team.member')}
+        </span>
+        <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+            <button
+              onClick={() => { onRoleChange('org:admin'); setIsOpen(false) }}
+              className={cn(
+                'w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2',
+                isAdmin && 'bg-primary/5 text-primary'
+              )}
+            >
+              <Shield className="w-4 h-4" />
+              {t('team.admin')}
+              {isAdmin && <span className="ml-auto text-xs">✓</span>}
+            </button>
+            <button
+              onClick={() => { onRoleChange('org:member'); setIsOpen(false) }}
+              className={cn(
+                'w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2',
+                !isAdmin && 'bg-primary/5 text-primary'
+              )}
+            >
+              <User className="w-4 h-4" />
+              {t('team.member')}
+              {!isAdmin && <span className="ml-auto text-xs">✓</span>}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function ProfilePage() {
   const { t } = useTranslation()
   const { staffId } = Route.useParams()
+  const { isAdmin: isCurrentUserAdmin, staffId: currentUserStaffId } = useOrgRole()
+  const queryClient = useQueryClient()
 
   const {
     data,
@@ -29,6 +98,46 @@ function ProfilePage() {
   } = useQuery({
     queryKey: ['team-member-profile', staffId],
     queryFn: () => api.team.getProfile(staffId),
+  })
+
+  // Role change mutation
+  const roleMutation = useMutation({
+    mutationFn: (newRole: 'org:admin' | 'org:member') =>
+      api.team.updateRole(staffId, newRole),
+    onSuccess: () => {
+      toast.success(t('team.roleChangeSuccess'))
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('team.roleChangeFailed'))
+    },
+  })
+
+  // Archive mutation
+  const archiveMutation = useMutation({
+    mutationFn: () => api.team.archive(staffId),
+    onSuccess: () => {
+      toast.success(t('team.archiveSuccess'))
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('team.archiveFailed'))
+    },
+  })
+
+  // Unarchive mutation
+  const unarchiveMutation = useMutation({
+    mutationFn: () => api.team.unarchive(staffId),
+    onSuccess: () => {
+      toast.success(t('team.unarchiveSuccess'))
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('team.unarchiveFailed'))
+    },
   })
 
   if (isLoading) {
@@ -59,6 +168,12 @@ function ProfilePage() {
 
   const { staff, assignedClients, assignedCount, canEdit } = data
 
+  // Show role selector only if: admin, viewing other member, member is active
+  const canChangeRole = isCurrentUserAdmin && staffId !== currentUserStaffId && staff.isActive
+  // Show archive/unarchive only if: admin, viewing other member
+  const canArchive = isCurrentUserAdmin && staffId !== currentUserStaffId
+  const isArchived = !staff.isActive
+
   return (
     <PageContainer>
       {/* Back Link */}
@@ -69,6 +184,37 @@ function ProfilePage() {
         <ArrowLeft className="w-4 h-4" />
         {t('profile.backToTeam')}
       </Link>
+
+      {/* Archived Banner */}
+      {isArchived && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {t('team.archivedMemberBanner')}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              {t('team.archivedMemberBannerDesc')}
+            </p>
+          </div>
+          {canArchive && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => unarchiveMutation.mutate()}
+              disabled={unarchiveMutation.isPending}
+              className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
+            >
+              {unarchiveMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ArchiveRestore className="w-4 h-4 mr-1.5" />
+              )}
+              {t('team.unarchive')}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Header Card */}
       <div className="bg-card rounded-xl shadow-sm p-6 mb-6">
@@ -85,18 +231,28 @@ function ProfilePage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-foreground">{staff.name}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{staff.email}</p>
-            <span className={cn(
-              'inline-flex items-center gap-1.5 mt-2 text-xs font-medium px-2.5 py-0.5 rounded-full',
-              staff.role === 'ADMIN'
-                ? 'bg-primary/10 text-primary'
-                : 'bg-muted text-muted-foreground'
-            )}>
-              <span className={cn(
-                'w-1.5 h-1.5 rounded-full',
-                staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
-              )} />
-              {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
-            </span>
+            <div className="mt-2">
+              {canChangeRole ? (
+                <RoleSelector
+                  currentRole={staff.role}
+                  onRoleChange={(role) => roleMutation.mutate(role)}
+                  isLoading={roleMutation.isPending}
+                />
+              ) : (
+                <span className={cn(
+                  'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full',
+                  staff.role === 'ADMIN'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground'
+                )}>
+                  <span className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
+                  )} />
+                  {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -121,6 +277,37 @@ function ProfilePage() {
           />
         </div>
       </div>
+
+      {/* Archive Section - Admin viewing active other member */}
+      {canArchive && !isArchived && (
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="bg-card rounded-xl shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {t('team.dangerZone')}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('team.archiveDescription')}
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm(t('team.confirmArchive', { name: staff.name }))) {
+                  archiveMutation.mutate()
+                }
+              }}
+              disabled={archiveMutation.isPending}
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              {archiveMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4 mr-2" />
+              )}
+              {t('team.archiveMember')}
+            </Button>
+          </div>
+        </div>
+      )}
     </PageContainer>
   )
 }

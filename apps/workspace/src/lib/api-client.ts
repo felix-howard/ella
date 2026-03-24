@@ -841,8 +841,10 @@ export const api = {
 
   // Team Management
   team: {
-    listMembers: () =>
-      request<{ data: TeamMember[] }>('/team/members'),
+    listMembers: (opts?: { includeArchived?: boolean }) =>
+      request<{ data: TeamMember[] }>('/team/members', {
+        ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
+      }),
 
     invite: (data: { emailAddress: string; role?: string }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
@@ -887,6 +889,12 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ r2Key }),
       }),
+
+    archive: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/archive`, { method: 'PATCH' }),
+
+    unarchive: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/unarchive`, { method: 'PATCH' }),
   },
 
   // Organization Settings
@@ -2022,6 +2030,7 @@ export interface TeamMember {
   role: string
   avatarUrl: string | null
   lastLoginAt: string | null
+  isActive?: boolean
   _count: { clientAssignments: number }
 }
 
@@ -2055,7 +2064,7 @@ export interface StaffProfile {
 }
 
 export interface ProfileResponse {
-  staff: StaffProfile & { _count: { clientAssignments: number } }
+  staff: StaffProfile & { _count: { clientAssignments: number }; isActive: boolean; deactivatedAt: string | null }
   assignedClients: Array<{ id: string; name: string; phone: string }>
   assignedCount: number
   canEdit: boolean

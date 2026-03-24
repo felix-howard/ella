@@ -1089,6 +1089,7 @@
   "invite.firstNamePlaceholder": "First name",
   "invite.goToLogin": "Go to Login",
   "invite.lastNamePlaceholder": "Last name",
+  "invite.nameCannotBeEmail": "Please enter your name, not an email address.",
   "invite.noToken": "Invalid or missing invitation link.",
   "invite.passwordPlaceholder": "Password",
   "invite.processing": "Processing invitation...",

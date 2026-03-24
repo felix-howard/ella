@@ -1088,6 +1088,7 @@
   "invite.firstNamePlaceholder": "Tên",
   "invite.goToLogin": "Về trang đăng nhập",
   "invite.lastNamePlaceholder": "Họ",
+  "invite.nameCannotBeEmail": "Vui lòng nhập tên, không phải địa chỉ email.",
   "invite.noToken": "Link mời không hợp lệ hoặc đã hết hạn.",
   "invite.passwordPlaceholder": "Mật khẩu",
   "invite.processing": "Đang xử lý lời mời...",

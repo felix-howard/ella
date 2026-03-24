@@ -38,6 +38,12 @@ function AcceptInvitationPage() {
 
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
+  // Validate name fields don't contain email patterns
+  const isEmailPattern = (value: string) => /\S+@\S+\.\S+/.test(value)
+
+  // Get the invitation email from the signUp object (pre-filled by ticket)
+  const invitationEmail = signUp?.emailAddress || ''
+
   // Extract ticket and status from URL
   const searchParams = new URLSearchParams(window.location.search)
   const ticket = searchParams.get('__clerk_ticket')
@@ -82,6 +88,12 @@ function AcceptInvitationPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isLoaded || !ticket) return
+
+    // Validate name fields don't contain email
+    if (isEmailPattern(firstName) || isEmailPattern(lastName)) {
+      setError(t('invite.nameCannotBeEmail'))
+      return
+    }
 
     setError('')
     setIsLoading(true)
@@ -162,6 +174,18 @@ function AcceptInvitationPage() {
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-0">
+            {/* Email (read-only, from invitation) */}
+            {invitationEmail && (
+              <div className="relative">
+                <input
+                  type="email"
+                  value={invitationEmail}
+                  readOnly
+                  className="w-full px-4 py-4 bg-muted text-muted-foreground text-base rounded-t-lg border border-input border-b-0 cursor-not-allowed"
+                />
+              </div>
+            )}
+
             {/* First Name */}
             <div className="relative">
               <input
@@ -170,7 +194,7 @@ function AcceptInvitationPage() {
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder={t('invite.firstNamePlaceholder')}
                 required
-                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
+                className={`w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground ${!invitationEmail ? 'rounded-t-lg' : ''} border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10`}
                 disabled={isLoading}
               />
             </div>

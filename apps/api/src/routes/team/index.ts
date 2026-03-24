@@ -426,6 +426,11 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
     return c.json({ error: 'Staff not found' }, 404)
   }
 
+  // Split name into firstName/lastName
+  const nameParts = staff.name.trim().split(/\s+/)
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+
   // For ADMIN: return all clients in org (implicit access)
   // For STAFF: return only explicitly assigned clients
   let assignedClients: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
@@ -465,7 +470,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const canEdit = canEditStaff(user, targetStaffId)
 
   return c.json({
-    staff: { ...staff, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
+    staff: { ...staff, firstName, lastName, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
     assignedClients,
     assignedCount,
     canEdit,
@@ -489,7 +494,7 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { name, phoneNumber, notifyOnUpload } = c.req.valid('json')
+    const { firstName, lastName, phoneNumber, notifyOnUpload } = c.req.valid('json')
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -504,7 +509,12 @@ teamRoute.patch(
       return c.json({ error: 'Staff not found' }, 404)
     }
 
-    // Update profile
+    // Compose full name from firstName + lastName
+    const name = firstName !== undefined || lastName !== undefined
+      ? [firstName ?? staff.name.split(/\s+/)[0], lastName ?? staff.name.split(/\s+/).slice(1).join(' ')].filter(Boolean).join(' ')
+      : undefined
+
+    // Update profile in DB
     const updated = await prisma.staff.update({
       where: { id: targetStaffId },
       data: {
@@ -521,6 +531,19 @@ teamRoute.patch(
         notifyOnUpload: true,
       },
     })
+
+    // Sync firstName/lastName to Clerk
+    if ((firstName !== undefined || lastName !== undefined) && staff.clerkId) {
+      try {
+        await clerkClient.users.updateUser(staff.clerkId, {
+          firstName: firstName ?? staff.name.split(/\s+/)[0],
+          lastName: lastName ?? (staff.name.split(/\s+/).slice(1).join(' ') || undefined),
+        })
+      } catch (error) {
+        console.error('[Team] Clerk name sync failed:', error)
+        // Don't fail the request - DB is already updated
+      }
+    }
 
     // Audit log when admin edits another member's profile
     if (targetStaffId !== user.staffId) {

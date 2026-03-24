@@ -2056,6 +2056,8 @@ export interface ClientAssignment {
 export interface StaffProfile {
   id: string
   name: string
+  firstName: string
+  lastName: string
   email: string
   role: string
   avatarUrl: string | null
@@ -2071,7 +2073,8 @@ export interface ProfileResponse {
 }
 
 export interface UpdateStaffProfileInput {
-  name?: string
+  firstName?: string
+  lastName?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean
 }

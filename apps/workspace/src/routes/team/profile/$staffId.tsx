@@ -3,11 +3,10 @@
  * Route: /team/profile/:staffId
  * Self = edit mode, Admin viewing others = read-only with role selector + archive
  */
-import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, User, Shield, ChevronDown, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Loader2, User, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
@@ -20,70 +19,6 @@ import { useOrgRole } from '../../../hooks/use-org-role'
 export const Route = createFileRoute('/team/profile/$staffId')({
   component: ProfilePage,
 })
-
-function RoleSelector({
-  currentRole,
-  onRoleChange,
-  isLoading,
-}: {
-  currentRole: string
-  onRoleChange: (role: 'org:admin' | 'org:member') => void
-  isLoading: boolean
-}) {
-  const { t } = useTranslation()
-  const [isOpen, setIsOpen] = useState(false)
-  const isAdmin = currentRole === 'ADMIN'
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={isLoading}
-        className={cn(
-          'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors',
-          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20',
-          isLoading && 'opacity-50 cursor-not-allowed'
-        )}
-      >
-        <Shield className="w-4 h-4" />
-        <span className="text-sm font-medium">
-          {isAdmin ? t('team.admin') : t('team.member')}
-        </span>
-        <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
-      </button>
-
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
-            <button
-              onClick={() => { onRoleChange('org:admin'); setIsOpen(false) }}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2',
-                isAdmin && 'bg-primary/5 text-primary'
-              )}
-            >
-              <Shield className="w-4 h-4" />
-              {t('team.admin')}
-              {isAdmin && <span className="ml-auto text-xs">✓</span>}
-            </button>
-            <button
-              onClick={() => { onRoleChange('org:member'); setIsOpen(false) }}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2',
-                !isAdmin && 'bg-primary/5 text-primary'
-              )}
-            >
-              <User className="w-4 h-4" />
-              {t('team.member')}
-              {!isAdmin && <span className="ml-auto text-xs">✓</span>}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
 
 function ProfilePage() {
   const { t } = useTranslation()
@@ -232,26 +167,18 @@ function ProfilePage() {
             <h1 className="text-2xl font-bold text-foreground">{staff.name}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{staff.email}</p>
             <div className="mt-2">
-              {canChangeRole ? (
-                <RoleSelector
-                  currentRole={staff.role}
-                  onRoleChange={(role) => roleMutation.mutate(role)}
-                  isLoading={roleMutation.isPending}
-                />
-              ) : (
+              <span className={cn(
+                'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full',
+                staff.role === 'ADMIN'
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              )}>
                 <span className={cn(
-                  'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full',
-                  staff.role === 'ADMIN'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground'
-                )}>
-                  <span className={cn(
-                    'w-1.5 h-1.5 rounded-full',
-                    staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
-                  )} />
-                  {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
-                </span>
-              )}
+                  'w-1.5 h-1.5 rounded-full',
+                  staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
+                )} />
+                {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+              </span>
             </div>
           </div>
         </div>
@@ -265,6 +192,9 @@ function ProfilePage() {
             staff={staff}
             canEdit={canEdit}
             staffId={staffId}
+            canChangeRole={canChangeRole}
+            onRoleChange={(role) => roleMutation.mutate(role)}
+            isRoleChangePending={roleMutation.isPending}
           />
         </div>
 

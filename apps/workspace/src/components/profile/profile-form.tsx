@@ -1,5 +1,5 @@
 /**
- * Profile Form - Edit name and phone number
+ * Profile Form - Edit first name, last name, role, phone number
  * Uses react-phone-number-input for international phone formatting
  */
 import { useState } from 'react'
@@ -20,32 +20,46 @@ interface ProfileFormProps {
   staff: StaffProfile
   canEdit: boolean
   staffId: string
+  canChangeRole: boolean
+  onRoleChange?: (role: 'org:admin' | 'org:member') => void
+  isRoleChangePending?: boolean
 }
 
-export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
+export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChange, isRoleChangePending }: ProfileFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
 
   // Form state - only used during edit mode
-  const [editName, setEditName] = useState(staff.name)
+  const [editFirstName, setEditFirstName] = useState(staff.firstName)
+  const [editLastName, setEditLastName] = useState(staff.lastName)
   const [editPhoneNumber, setEditPhoneNumber] = useState<E164Number | undefined>(
     staff.phoneNumber as E164Number | undefined
   )
   const [editNotifyOnUpload, setEditNotifyOnUpload] = useState(staff.notifyOnUpload)
+  const [editRole, setEditRole] = useState<'org:admin' | 'org:member'>(
+    staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
+  )
 
   // Validation errors
-  const [nameError, setNameError] = useState<string | null>(null)
+  const [firstNameError, setFirstNameError] = useState<string | null>(null)
+  const [lastNameError, setLastNameError] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
   const updateMutation = useMutation({
     mutationFn: () =>
       api.team.updateProfile(staffId, {
-        name: editName.trim(),
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
         phoneNumber: editPhoneNumber || null,
         notifyOnUpload: editNotifyOnUpload,
       }),
     onSuccess: () => {
+      // If role changed, trigger role update too
+      const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
+      if (editRole !== currentClerkRole && onRoleChange) {
+        onRoleChange(editRole)
+      }
       toast.success(t('profile.updateSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
@@ -62,11 +76,18 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
     // Validate
     let hasError = false
 
-    if (!editName.trim()) {
-      setNameError(t('profile.nameRequired'))
+    if (!editFirstName.trim()) {
+      setFirstNameError(t('profile.firstNameRequired'))
       hasError = true
     } else {
-      setNameError(null)
+      setFirstNameError(null)
+    }
+
+    if (!editLastName.trim()) {
+      setLastNameError(t('profile.lastNameRequired'))
+      hasError = true
+    } else {
+      setLastNameError(null)
     }
 
     if (editPhoneNumber && !isPossiblePhoneNumber(editPhoneNumber)) {
@@ -82,18 +103,24 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
   }
 
   const handleCancel = () => {
-    setEditName(staff.name)
+    setEditFirstName(staff.firstName)
+    setEditLastName(staff.lastName)
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
-    setNameError(null)
+    setEditRole(staff.role === 'ADMIN' ? 'org:admin' : 'org:member')
+    setFirstNameError(null)
+    setLastNameError(null)
     setPhoneError(null)
     setIsEditing(false)
   }
 
+  const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
   const isDirty =
-    editName !== staff.name ||
+    editFirstName !== staff.firstName ||
+    editLastName !== staff.lastName ||
     editPhoneNumber !== staff.phoneNumber ||
-    editNotifyOnUpload !== staff.notifyOnUpload
+    editNotifyOnUpload !== staff.notifyOnUpload ||
+    editRole !== currentClerkRole
 
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -109,28 +136,76 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 p-6">
-        {/* Name */}
+        {/* First Name */}
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1.5">
-            {t('profile.name')}
+          <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1.5">
+            {t('profile.firstName')}
           </label>
           {isEditing ? (
             <>
               <Input
-                id="name"
-                value={editName}
+                id="firstName"
+                value={editFirstName}
                 onChange={(e) => {
-                  setEditName(e.target.value)
-                  if (nameError) setNameError(null)
+                  setEditFirstName(e.target.value)
+                  if (firstNameError) setFirstNameError(null)
                 }}
                 required
               />
-              {nameError && (
-                <p className="text-sm text-destructive mt-1">{nameError}</p>
+              {firstNameError && (
+                <p className="text-sm text-destructive mt-1">{firstNameError}</p>
               )}
             </>
           ) : (
-            <p className="text-foreground">{staff.name}</p>
+            <p className="text-foreground">{staff.firstName}</p>
+          )}
+        </div>
+
+        {/* Last Name */}
+        <div>
+          <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1.5">
+            {t('profile.lastName')}
+          </label>
+          {isEditing ? (
+            <>
+              <Input
+                id="lastName"
+                value={editLastName}
+                onChange={(e) => {
+                  setEditLastName(e.target.value)
+                  if (lastNameError) setLastNameError(null)
+                }}
+                required
+              />
+              {lastNameError && (
+                <p className="text-sm text-destructive mt-1">{lastNameError}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-foreground">{staff.lastName}</p>
+          )}
+        </div>
+
+        {/* Role */}
+        <div>
+          <label htmlFor="role" className="block text-sm font-medium text-foreground mb-1.5">
+            {t('profile.role')}
+          </label>
+          {isEditing && canChangeRole ? (
+            <select
+              id="role"
+              value={editRole}
+              onChange={(e) => setEditRole(e.target.value as 'org:admin' | 'org:member')}
+              disabled={isRoleChangePending}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="org:admin">{t('team.admin')}</option>
+              <option value="org:member">{t('team.member')}</option>
+            </select>
+          ) : (
+            <p className="text-foreground">
+              {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+            </p>
           )}
         </div>
 
@@ -139,9 +214,17 @@ export function ProfileForm({ staff, canEdit, staffId }: ProfileFormProps) {
           <label className="block text-sm font-medium text-foreground mb-1.5">
             {t('profile.email')}
           </label>
-          <p className="text-muted-foreground">{staff.email}</p>
-          {isEditing && (
-            <p className="text-xs text-muted-foreground mt-1">{t('profile.emailReadOnly')}</p>
+          {isEditing ? (
+            <>
+              <Input
+                value={staff.email}
+                disabled
+                className="bg-muted/50 text-muted-foreground cursor-not-allowed"
+              />
+              <p className="text-xs text-muted-foreground mt-1">{t('profile.emailReadOnly')}</p>
+            </>
+          ) : (
+            <p className="text-foreground">{staff.email}</p>
           )}
         </div>
 

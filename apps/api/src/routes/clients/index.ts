@@ -28,7 +28,7 @@ import {
   computeProfileFieldDiff,
 } from '../../services/audit-logger'
 import { createMagicLink } from '../../services/magic-link'
-import { getSignedUploadUrl, generateClientAvatarKey, getSignedDownloadUrl } from '../../services/storage'
+import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
@@ -525,6 +525,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   return c.json({
     ...client,
     name: computeDisplayName(client.firstName, client.lastName),
+    avatarUrl: await resolveAvatarUrl(client.avatarUrl),
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: taxCasesWithPortal,
@@ -915,22 +916,17 @@ clientsRoute.patch(
       return c.json({ error: 'INVALID_KEY', message: 'Avatar key does not belong to this client' }, 400)
     }
 
-    // Generate signed download URL (7-day TTL)
-    // Note: This also verifies the file exists in R2 - getSignedDownloadUrl returns null if not found
-    const avatarUrl = await getSignedDownloadUrl(r2Key, 7 * 24 * 3600)
-    if (!avatarUrl) {
-      return c.json({ error: 'STORAGE_ERROR', message: 'Failed to generate download URL' }, 500)
-    }
-
-    // Update Client.avatarUrl
+    // Store the R2 key directly (not a presigned URL) so it never expires.
+    // Fresh presigned URLs are generated on read via resolveAvatarUrl().
     const updated = await prisma.client.update({
       where: { id },
-      data: { avatarUrl },
+      data: { avatarUrl: r2Key },
       select: { id: true, avatarUrl: true, updatedAt: true },
     })
 
     return c.json({
       ...updated,
+      avatarUrl: await resolveAvatarUrl(updated.avatarUrl),
       updatedAt: updated.updatedAt.toISOString(),
     })
   }

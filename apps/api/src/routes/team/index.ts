@@ -22,7 +22,7 @@ import {
 import {
   getSignedUploadUrl,
   generateAvatarKey,
-  getSignedDownloadUrl,
+  resolveAvatarUrl,
 } from '../../services/storage'
 
 const teamRoute = new Hono<{ Variables: AuthVariables }>()
@@ -63,12 +63,15 @@ teamRoute.get('/members', async (c) => {
   })
 
   // For ADMIN: show total client count, for STAFF: show assignment count
-  const data = members.map((m) => ({
-    ...m,
-    _count: {
-      clientAssignments: m.role === 'ADMIN' ? totalClientCount : m._count.clientAssignments,
-    },
-  }))
+  const data = await Promise.all(
+    members.map(async (m) => ({
+      ...m,
+      avatarUrl: await resolveAvatarUrl(m.avatarUrl),
+      _count: {
+        clientAssignments: m.role === 'ADMIN' ? totalClientCount : m._count.clientAssignments,
+      },
+    }))
+  )
 
   return c.json({ data })
 })
@@ -376,7 +379,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const canEdit = canEditStaff(user, targetStaffId)
 
   return c.json({
-    staff,
+    staff: { ...staff, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
     assignedClients,
     assignedCount,
     canEdit,
@@ -441,7 +444,7 @@ teamRoute.patch(
       })
     }
 
-    return c.json({ success: true, staff: updated })
+    return c.json({ success: true, staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) } })
   }
 )
 
@@ -530,23 +533,23 @@ teamRoute.patch(
       return c.json({ error: 'Staff not found' }, 404)
     }
 
-    // Get signed download URL for the avatar (7-day expiry)
-    const avatarUrl = await getSignedDownloadUrl(r2Key, 86400 * 7)
-
-    // Update staff with new avatar URL
+    // Store the R2 key directly (not a presigned URL) so it never expires.
+    // Fresh presigned URLs are generated on read via resolveAvatarUrl().
     await prisma.staff.update({
       where: { id: targetStaffId },
-      data: { avatarUrl },
+      data: { avatarUrl: r2Key },
     })
 
     // Audit log when admin updates another member's avatar
     if (targetStaffId !== user.staffId) {
       logTeamAction('AVATAR_UPDATED', targetStaffId, user.staffId, {
         oldValue: staff.avatarUrl,
-        newValue: avatarUrl,
+        newValue: r2Key,
       })
     }
 
+    // Return a fresh presigned URL for immediate display
+    const avatarUrl = await resolveAvatarUrl(r2Key)
     return c.json({ success: true, avatarUrl })
   }
 )

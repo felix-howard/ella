@@ -77,10 +77,10 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 
 ## Authentication (Clerk JWT)
 
-**Token Parsing:**
+**Token Parsing (Read-Only):**
 - `userId`, `orgId`, `orgRole` extracted from Clerk JWT
-- `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-- `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN role
+- Middleware looks up Staff by clerkId from DB (no request-time sync)
+- Role mapping via Clerk webhooks (event-driven DB writes)
 
 **Backend Middleware:**
 - `requireOrg` - Verify orgId in JWT, attach to context

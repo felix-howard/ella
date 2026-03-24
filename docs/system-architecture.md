@@ -276,9 +276,9 @@ Organization (root entity)
 1. Frontend logs in via Clerk UI
 2. Receives JWT with: userId, orgId, orgRole (org:admin|org:member)
 3. Frontend sets JWT in Authorization header (Bearer token)
-4. Backend middleware extracts claims
-5. `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-6. `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN
+4. Backend middleware extracts claims (read-only: no DB sync)
+5. Middleware looks up Staff by clerkId for role/org context
+6. DB sync happens via Clerk webhooks (event-driven, not request-sync)
 
 **Org Verification:**
 - All endpoints verify orgId from JWT matches resource org

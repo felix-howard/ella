@@ -272,10 +272,10 @@
 
 ## Auth Flow (Clerk JWT)
 
-**Token Parsing:**
+**Token Parsing (Read-Only):**
 - userId, orgId, orgRole extracted from Clerk JWT
-- `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-- `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN role
+- Middleware looks up Staff by clerkId from DB (no sync performed)
+- Role mapping handled via Clerk webhooks, not token parsing
 
 **Clerk Webhook Sync (Event-Driven):**
 - `POST /webhooks/clerk` (Svix-signed) - 7 handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org, handle out-of-order), organizationMembership.created (link user to org, email-based lookup for pre-Clerk staff), organizationMembership.updated (sync role: org:admin → ADMIN), organizationMembership.deleted (deactivate staff in org)

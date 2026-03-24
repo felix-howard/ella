@@ -29,25 +29,24 @@ clerkWebhookRoute.post('/', async (c) => {
     return c.json({ error: 'Missing svix headers' }, 400)
   }
 
+  // Separate try/catch: verification errors -> 400, handler errors -> 500
+  let event: WebhookEvent
   try {
     const wh = new Webhook(webhookSecret)
-    const event = wh.verify(rawBody, {
+    event = wh.verify(rawBody, {
       'svix-id': svixId,
       'svix-timestamp': svixTimestamp,
       'svix-signature': svixSignature,
     }) as WebhookEvent
+  } catch (err) {
+    console.error('[ClerkWebhook] Verification failed:', err)
+    return c.json({ error: 'Invalid signature' }, 400)
+  }
 
-    // Await handler so Clerk retries on failure (30s timeout)
+  try {
     await handleClerkWebhook(event)
-
     return c.json({ success: true })
   } catch (err) {
-    // Svix verification failure -> 400, handler failure -> 500
-    const isVerificationError = err instanceof Error && err.message?.includes('signature')
-    if (isVerificationError) {
-      console.error('[ClerkWebhook] Verification failed:', err)
-      return c.json({ error: 'Invalid signature' }, 400)
-    }
     console.error('[ClerkWebhook] Handler error:', err)
     return c.json({ error: 'Processing failed' }, 500)
   }

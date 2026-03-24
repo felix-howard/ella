@@ -142,19 +142,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Staff routes authenticated, public routes token-authenticated
 
 **Team & Organization (17 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation):**
-- `GET /team/members` - List org staff
-- `POST /team/invite` - Send Clerk org invitation
-- `PATCH /team/members/:staffId/role` - Update role
-- `DELETE /team/members/:staffId` - Deactivate staff
+- `GET /team/members` - List org staff (reads from DB)
+- `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
+- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
+- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (webhook syncs to DB)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
 - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload (self only, Phase 02)
 - `GET /staff/me` - Get current staff details with avatarUrl field (Phase 04 - navigation)
 - `GET /client-assignments` - List staff-client mappings
-- `POST /client-assignments` - Create assignment
-- `POST /client-assignments/bulk` - Bulk assign
-- `PUT /client-assignments/transfer` - Transfer client
+- `POST /client-assignments` - Create assignment (app-level, not Clerk-synced)
+- `POST /client-assignments/bulk` - Bulk assign (app-level, not Clerk-synced)
+- `PUT /client-assignments/transfer` - Transfer client (app-level, not Clerk-synced)
 - Similar for invitations & staff assignments
 
 **Clients (14+):**
@@ -272,13 +272,18 @@ Organization (root entity)
 
 ## Authentication Flow
 
-**Clerk JWT Parsing:**
+**Request-Time (Read-Only) Pattern:**
 1. Frontend logs in via Clerk UI
 2. Receives JWT with: userId, orgId, orgRole (org:admin|org:member)
 3. Frontend sets JWT in Authorization header (Bearer token)
-4. Backend middleware extracts claims (read-only: no DB sync)
-5. Middleware looks up Staff by clerkId for role/org context
-6. DB sync happens via Clerk webhooks (event-driven, not request-sync)
+4. Backend middleware extracts claims (read-only: no DB writes)
+5. Middleware looks up Staff by clerkId from DB (verify staff exists)
+6. No sync occurs at request time — auth is stateless DB lookup
+
+**Event-Time (Async) Pattern:**
+- Clerk events trigger webhook on state changes (user/org/membership)
+- Webhook handler syncs to DB asynchronously (decoupled from requests)
+- DB becomes eventual-consistent with Clerk state
 
 **Org Verification:**
 - All endpoints verify orgId from JWT matches resource org
@@ -1310,6 +1315,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.6
-**Last Updated:** 2026-02-23
-**Status:** Multi-Tenant architecture with Clerk integration + Phase 02 Draft Return Sharing (6 endpoints: upload, get, revoke, extend, portal view, view tracking) + CPA Upload SMS Notification Phase 04 (notifyOnUpload/notifyAllClients toggles, accessible Switch component) + Phase 05 Avatar Upload (client-side compression, presigned R2 upload, cache invalidation) + Phase 04 Navigation (sidebar + team table profile links) + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)
+**Version:** 2.7
+**Last Updated:** 2026-03-24
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Auth middleware is read-only (no request-time DB writes), all user/org/membership syncs via event-driven webhooks + Clerk Backend API for mutations. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification.

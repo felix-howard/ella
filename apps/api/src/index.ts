@@ -23,6 +23,12 @@ validateGeminiModel().then((status) => {
   }
 })
 
+// Warn if webhook secret missing (webhooks won't work without it)
+if (!process.env.CLERK_WEBHOOK_SECRET) {
+  const level = process.env.NODE_ENV === 'production' ? 'error' : 'warn'
+  console[level]('[Startup] CLERK_WEBHOOK_SECRET not set — Clerk webhooks will return 500')
+}
+
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down...')

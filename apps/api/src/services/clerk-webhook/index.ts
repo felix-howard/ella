@@ -56,7 +56,43 @@ function buildName(firstName: string | null, lastName: string | null): string {
   return [firstName, lastName].filter(Boolean).join(' ') || 'Unknown'
 }
 
+/** Check if avatar is a custom R2 upload (not from Clerk) */
+function isCustomAvatar(avatarUrl: string | null): boolean {
+  if (!avatarUrl) return false
+  return avatarUrl.startsWith('avatars/')
+}
+
+/** Shared org upsert - DRY for created/updated/membership handlers */
+async function upsertOrganization(d: OrganizationEventData) {
+  return prisma.organization.upsert({
+    where: { clerkOrgId: d.id },
+    update: { name: d.name, slug: d.slug, logoUrl: d.image_url },
+    create: { clerkOrgId: d.id, name: d.name, slug: d.slug, logoUrl: d.image_url },
+  })
+}
+
 // --- User Handlers ---
+
+async function handleUserCreated(data: unknown): Promise<void> {
+  const d = data as UserEventData
+  if (!d?.id || !d?.email_addresses?.length) {
+    console.warn('[ClerkWebhook] user.created: missing required fields')
+    return
+  }
+
+  const email = d.email_addresses[0].email_address
+  if (!email) return
+
+  const name = buildName(d.first_name, d.last_name)
+
+  // Upsert staff - may already exist from membership.created (out-of-order)
+  await prisma.staff.upsert({
+    where: { clerkId: d.id },
+    update: { email, name, avatarUrl: d.image_url },
+    create: { clerkId: d.id, email, name, avatarUrl: d.image_url },
+  })
+  console.log(`[ClerkWebhook] user.created: ${d.id}`)
+}
 
 async function handleUserUpdated(data: unknown): Promise<void> {
   const d = data as UserEventData
@@ -70,9 +106,15 @@ async function handleUserUpdated(data: unknown): Promise<void> {
 
   const name = buildName(d.first_name, d.last_name)
 
+  // Preserve custom R2 avatars - only update if staff has no custom upload
+  const existing = await prisma.staff.findFirst({ where: { clerkId: d.id } })
+  const avatarUpdate = isCustomAvatar(existing?.avatarUrl ?? null)
+    ? {} // Keep custom avatar
+    : { avatarUrl: d.image_url }
+
   await prisma.staff.updateMany({
     where: { clerkId: d.id },
-    data: { email, name, avatarUrl: d.image_url },
+    data: { email, name, ...avatarUpdate },
   })
   console.log(`[ClerkWebhook] user.updated: ${d.id}`)
 }
@@ -100,11 +142,7 @@ async function handleOrgCreated(data: unknown): Promise<void> {
     return
   }
 
-  await prisma.organization.upsert({
-    where: { clerkOrgId: d.id },
-    update: { name: d.name, slug: d.slug, logoUrl: d.image_url },
-    create: { clerkOrgId: d.id, name: d.name, slug: d.slug, logoUrl: d.image_url },
-  })
+  await upsertOrganization(d)
   console.log(`[ClerkWebhook] organization.created: ${d.id}`)
 }
 
@@ -115,12 +153,7 @@ async function handleOrgUpdated(data: unknown): Promise<void> {
     return
   }
 
-  // Use upsert for out-of-order resilience (updated may arrive before created)
-  await prisma.organization.upsert({
-    where: { clerkOrgId: d.id },
-    update: { name: d.name, slug: d.slug, logoUrl: d.image_url },
-    create: { clerkOrgId: d.id, name: d.name, slug: d.slug, logoUrl: d.image_url },
-  })
+  await upsertOrganization(d)
   console.log(`[ClerkWebhook] organization.updated: ${d.id}`)
 }
 
@@ -236,6 +269,7 @@ async function handleMembershipDeleted(data: unknown): Promise<void> {
 type EventHandler = (data: unknown) => Promise<void>
 
 const eventHandlers: Record<string, EventHandler> = {
+  'user.created': handleUserCreated,
   'user.updated': handleUserUpdated,
   'user.deleted': handleUserDeleted,
   'organization.created': handleOrgCreated,

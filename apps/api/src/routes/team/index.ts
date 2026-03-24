@@ -118,6 +118,8 @@ teamRoute.post(
 )
 
 // PATCH /team/members/:staffId/role - Update member role via Clerk (admin only)
+// Note: Clerk role change triggers organizationMembership.updated webhook
+// which syncs Staff.role in DB automatically
 teamRoute.patch(
   '/members/:staffId/role',
   requireOrgAdmin,
@@ -170,6 +172,8 @@ teamRoute.patch(
 )
 
 // DELETE /team/members/:staffId - Deactivate staff member (admin only)
+// Note: Clerk membership deletion triggers organizationMembership.deleted webhook
+// which deactivates Staff in DB. We also call deactivateStaff() as backup.
 teamRoute.delete(
   '/members/:staffId',
   requireOrgAdmin,

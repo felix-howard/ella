@@ -295,6 +295,7 @@ describe('Feature', () => {
 **Required (.env):**
 - `DATABASE_URL` - PostgreSQL connection
 - `CLERK_SECRET_KEY` - Clerk Backend SDK
+- `CLERK_WEBHOOK_SECRET` - Svix webhook signing secret (webhook sync migration)
 - `GEMINI_API_KEY` - Google Gemini API
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 - `PORTAL_URL` - Client portal base URL
@@ -323,6 +324,6 @@ describe('Feature', () => {
 
 ---
 
-**Version:** 2.2
-**Last Updated:** 2026-02-04
-**Status:** Multi-Tenancy & Clerk Auth integrated
+**Version:** 2.3
+**Last Updated:** 2026-03-24
+**Status:** Multi-Tenancy & Clerk Webhook Sync Migration complete (event-driven DB sync, read-only auth middleware)

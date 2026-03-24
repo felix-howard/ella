@@ -121,7 +121,7 @@ function MessagesLayout() {
     return (
       <div className="fixed inset-0 flex flex-col bg-background pt-14">
         {activeCaseId ? (
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
             <Outlet />
           </div>
         ) : (

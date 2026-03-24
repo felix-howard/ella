@@ -168,7 +168,7 @@ function ConversationDetailView() {
   const avatarColor = caseData ? getAvatarColor(caseData.client.name) : null
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       {/* Header */}
       <header className="flex-shrink-0 bg-card shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="px-4 py-3">

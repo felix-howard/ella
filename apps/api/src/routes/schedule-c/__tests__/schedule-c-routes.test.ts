@@ -97,7 +97,7 @@ function mockCase(overrides: Record<string, unknown> = {}) {
 describe('Schedule C Staff Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetOrgSmsLanguage.mockResolvedValue('en')
+    mockGetOrgSmsLanguage.mockResolvedValue('EN')
   })
 
   afterEach(() => {

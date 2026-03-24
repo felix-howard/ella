@@ -14,7 +14,7 @@ vi.mock('../../../lib/config', () => ({
 // Mock svix
 vi.mock('svix', () => {
   return {
-    Webhook: vi.fn(function(this: any) {
+    Webhook: vi.fn(function(this: Record<string, unknown>) {
       this.verify = vi.fn()
     }),
   }
@@ -52,9 +52,9 @@ describe('Clerk Webhook Route', () => {
       type: 'user.updated',
       data: { id: 'user_1' },
     })
-    vi.mocked(Webhook).mockImplementation(function(this: any) {
+    vi.mocked(Webhook).mockImplementation(function(this: Record<string, unknown>) {
       this.verify = mockVerify
-    } as any)
+    } as unknown as typeof Webhook)
     vi.mocked(handleClerkWebhook).mockResolvedValue(undefined)
   })
 
@@ -114,11 +114,11 @@ describe('Clerk Webhook Route', () => {
   })
 
   it('returns 400 on signature verification failure', async () => {
-    vi.mocked(Webhook).mockImplementation(function(this: any) {
+    vi.mocked(Webhook).mockImplementation(function(this: Record<string, unknown>) {
       this.verify = vi.fn().mockImplementation(() => {
         throw new Error('Invalid signature: verification failed')
       })
-    } as any)
+    } as unknown as typeof Webhook)
 
     const app = createApp()
     const res = await app.request('/webhooks/clerk', {

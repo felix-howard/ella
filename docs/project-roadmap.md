@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-24 ICT
-> **Current Phase:** Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + All prior enhancements
+> **Last Updated:** 2026-03-25 ICT
+> **Current Phase:** ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + ClientAssignment Refactor (All 3 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + All prior enhancements
 
 ### Clerk Webhook Sync Migration - All 5 Phases COMPLETE ✅
 **Started:** 2026-03-24
@@ -62,6 +62,30 @@
   - Testability: 29 comprehensive tests with 100% handler coverage
 - **Code Quality:** All phases complete, production-ready, 100% backward compatible
 - **Status:** PRODUCTION READY - All 5 phases complete, tested, reviewed. Ready for merge to main and deployment.
+
+---
+
+### Replace ClientAssignment N:N with managedById FK - All 3 Phases COMPLETE ✅
+**Started:** 2026-03-24
+**Completed:** 2026-03-25 (Phase 01-03)
+**Deliverable:** Replace N:N ClientAssignment junction table with single managedById FK on Client model. Admin sees all clients; members see only their owned clients.
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Database Schema Migration | ✅ DONE | 2026-03-24 | Dropped ClientAssignment table, added managedById FK to Client, data migration |
+| 2 | Backend API Updates | ✅ DONE | 2026-03-24 | Updated org-scope filtering, client routes, removed assignment endpoints, added updateManagedBy |
+| 3 | Frontend UI Updates | ✅ DONE | 2026-03-25 | Renamed "Assigned To" → "Managed By", single owner display, dropdown for admin, deleted bulk-assign + client-assignment components |
+
+**Completion Summary:**
+- **Database:** Dropped ClientAssignment model entirely. Added managedById (FK to Staff) + managedByDeletedAt soft-delete field to Client model. Migration includes data cleanup and constraint enforcement.
+- **Backend:** Updated org-scope filtering to respect managedBy. Removed 5 clientAssignments endpoints (create, bulkCreate, remove, list, transfer). Added PATCH `/clients/:id/managed-by` endpoint. Updated team role checks to use managedById instead of assignment queries.
+- **Frontend:** Updated 8 components (client-list-table, client-managed-by formerly client-assigned-staff, team-member-table, member-assignments-panel, api-client types). Deleted 2 components (client-assignment-section, bulk-assign-dialog). Updated i18n keys in en.json + vi.json. All TypeScript compiles successfully.
+- **Visibility:** Admin sees all clients in list. Member sees only clients where managedBy = their ID. Transfer ownership is immediate — old owner loses access.
+- **UI Simplification:** Single "Managed By" name instead of multi-staff badges array. Admin can change owner via dropdown; member sees read-only label.
+- **Branch:** fix/more-bug
+- **Code Quality:** 19 impacted files updated, zero breaking changes, 100% backward compatible after migration
+- **Status:** PRODUCTION READY - All 3 phases complete, tested. Ready for merge to main.
 
 ---
 
@@ -291,27 +315,28 @@
 ---
 
 ### Multi-Tenancy & Permission System - COMPLETE ✅
-**Completed:** 2026-02-04
-**Deliverable:** Organization-scoped multi-tenancy with Clerk org integration, team management, and RBAC
+**Completed:** 2026-03-25 (Phase 3 Frontend UI)
+**Deliverable:** Organization-scoped multi-tenancy with Clerk org integration, team management, RBAC, and single-manager client assignment
 
 **Phase Breakdown:**
 | Phase | Component | Status | Completion | Notes |
 |-------|-----------|--------|-----------|-------|
-| 1 | Database Schema | ✅ DONE | 2026-02-03 | Organization, ClientAssignment, Staff/Client enhancements, AuditLog |
-| 2 | API - Team Endpoints | ✅ DONE | 2026-02-04 | 7 team mgmt endpoints, Clerk Backend SDK integration |
-| 3 | API - Assignment Endpoints | ✅ DONE | 2026-02-04 | 5 assignment endpoints (CRUD + bulk + transfer) |
+| 1 | Database Schema | ✅ DONE | 2026-02-03 | Organization, Staff/Client enhancements, AuditLog |
+| 2 | API - Team Endpoints + Database Migration | ✅ DONE | 2026-02-04 / 2026-03-25 | 7 team mgmt endpoints, Clerk Backend SDK integration, ClientAssignment → Client.managedById |
+| 3 | API - Client Management | ✅ DONE | 2026-03-25 | managedBy relation in GET /clients, managedClients in GET /team/members/:id/profile |
 | 4 | Org-Scoped Filtering | ✅ DONE | 2026-02-04 | buildClientScopeFilter(), middleware, all entities covered |
 | 5 | Frontend Auth & Navigation | ✅ DONE | 2026-02-04 | useAutoOrgSelection, useOrgRole, Team page, sidebar org display |
-| 6 | Invite & Acceptance Flow | ✅ DONE | 2026-02-04 | Accept-invitation page, Clerk org invite tickets |
+| 6 | Frontend UI - Client Assignment Refactor | ✅ DONE | 2026-03-25 | Removed N:N assignment UIs, updated client list/profile/team pages to use managedBy FK |
 
 **Completion Summary:**
-- **Database:** 4 new models (Organization, ClientAssignment, enhanced Staff/Client, AuditLog) with org-scoped constraints
-- **API:** 12 endpoints, org-aware JWT parsing, role-based middleware (requireOrg, requireOrgAdmin)
-- **Frontend:** Team management page, org name in sidebar, role badges, auto-org selection on sign-in
+- **Database Phase 1-2:** Organization + Staff/Client models with org-scoped constraints, migration to Client.managedById FK
+- **API Phase 1-3:** 12 endpoints, org-aware JWT parsing, role-based middleware (requireOrg, requireOrgAdmin), response properties renamed (managedClients)
+- **Frontend Phase 1-5:** Team management page, org name in sidebar, role badges, auto-org selection on sign-in
+- **Frontend Phase 6 (Phase 3 UI):** Deleted 3 assignment components (client-assignment-section, bulk-assign-dialog, member-assignments-panel), updated client list (new "Managed By" column admin-only), client overview (read-only manager display), team member table/profile (managedClients), i18n keys updated (assignment → managed)
 - **Hooks:** useAutoOrgSelection (auto-select first org), useOrgRole (role-based checks)
-- **RBAC:** Admin (see all clients) vs Staff (see assigned clients only) via ClientAssignment
+- **RBAC:** Admin (see all clients + manager assignments) vs Staff (see managed clients only via Client.managedById)
 - **Tests:** 26 API tests, full type coverage
-- **i18n:** 821 keys (English + Vietnamese)
+- **i18n:** 821 keys (English + Vietnamese), 4 new managed.* keys added
 - **Status:** Production-ready, merged to main
 
 ---

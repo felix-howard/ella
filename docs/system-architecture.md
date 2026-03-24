@@ -29,7 +29,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 ┌─────────────────────────────────────────────────┐
 │     Data Layer (Org-Scoped)                      │
 │  - Organizations, Staff, Clients, Cases         │
-│  - ClientAssignments (staff-client mappings)    │
+│  - Client.managedById (single manager FK)       │
 │  - Documents, Messages, Audit logs              │
 └──────────────────────────────────────────────────┘
 
@@ -215,15 +215,14 @@ Organization (root entity)
 ├── name, slug, logoUrl, isActive
 └── Relations:
     ├── Staff[] (organization members)
-    ├── Client[] (org clients)
-    ├── ClientAssignment[] (staff-client mappings)
+    ├── Client[] (org clients, each with managedById FK)
     └── Audit[] (all changes)
 ```
 
 **Data Scoping:**
 - `buildClientScopeFilter(user)` - Core scoping function
 - **Admin:** See all org clients
-- **Staff:** See only assigned clients via ClientAssignment
+- **Staff:** See only managed clients (Client.managedById = staffId)
 - Applied to: Clients, Cases, Engagements, Messages, Documents, Images, Actions
 
 **Permission Model:**
@@ -244,8 +243,7 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt (Phase 02 Backend)
-- **ClientAssignment** - Unique (clientId, staffId), organizationId FK
+- **Client** - organizationId FK, managedById FK (Staff, single manager), profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt (Phase 02 Backend)
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
@@ -265,8 +263,7 @@ Organization (root entity)
 **Indexes:**
 - Organization: clerkOrgId (unique), name
 - Staff: organizationId + clerkId (compound unique)
-- ClientAssignment: organizationId + (clientId, staffId)
-- Client: organizationId + status
+- Client: organizationId + status, managedById (FK index)
 - DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
 - Messages: conversationId + createdAt (ordering)
 
@@ -287,7 +284,7 @@ Organization (root entity)
 
 **Org Verification:**
 - All endpoints verify orgId from JWT matches resource org
-- Staff see only assigned clients via ClientAssignment query
+- Staff see only managed clients (Client.managedById = staffId)
 - Admins see all org clients
 
 ## Clerk Webhook Sync (Event-Driven User/Org Sync)
@@ -1299,7 +1296,7 @@ All avatar/notes UI will need i18n keys in workspace:
 
 **Data Isolation:**
 - Org-scoped queries at middleware & service layer
-- ClientAssignment enforces staff-client relationships
+- Client.managedById FK enforces single-manager relationship
 - Audit logging for all changes
 
 **Authentication:**

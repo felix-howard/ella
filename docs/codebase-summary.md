@@ -73,7 +73,7 @@
 | **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
 | **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
 | **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
-| **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org/ClientAssignment models), 12 API endpoints, org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys** | **2026-02-04** |
+| **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org models), org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys. Phase 3 UI: Client.managedById FK (1-to-1 manager), removed N:N ClientAssignment, updated team/client UIs** | **2026-03-25** |
 | **Phase 6: Frontend Auth & Navigation** | **useAutoOrgSelection hook, ClerkAuthProvider, sidebar org name, useOrgRole RBAC, Team nav conditional, accept-invitation page, full i18n (EN/VI)** | **2026-02-04** |
 | **Schedule C Phase 4: 1099-NEC Breakdown** | **Per-payer NEC breakdown display, nec-breakdown-list component, getGrossReceiptsBreakdown() backend, auto-update DRAFT forms, 6 tests, income table dynamic labeling** | **2026-01-29** |
 | **Schedule C Phase 3: Portal Expense Form** | **18 files, 2,400 LOC, 10 UI components, 28 IRS categories, auto-save, accessibility, version history. Tests: 578/578 passing** | **2026-01-28** |
@@ -102,9 +102,8 @@
 
 **Core Models:**
 - **Organization**: clerkOrgId (unique), name, slug, logoUrl, isActive. Org-scoped root.
-- **Client**: organizationId FK, name, phone, email, language, intakeAnswers Json, status tracking
+- **Client**: organizationId FK, managedById FK (Staff, single manager), name, phone, email, language, intakeAnswers Json, status tracking
 - **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive
-- **ClientAssignment**: clientId + staffId (unique composite), organizationId FK. 1-to-1 staff-client mapping.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
 - **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC
@@ -138,13 +137,10 @@
 - `GET /team/invitations` - List pending Clerk org invites
 - `DELETE /team/invitations/:invitationId` - Revoke invitation
 
-**Client Assignments:**
-- `GET /client-assignments` - List org's staff-client mappings
-- `POST /client-assignments` - Create 1-to-1 assignment
-- `DELETE /client-assignments/:assignmentId` - Unassign staff from client
-- `POST /client-assignments/bulk` - Bulk create assignments
-- `PUT /client-assignments/transfer` - Transfer client between staff
-- `GET /team/members/:staffId/assignments` - Staff's assigned clients
+**Client Management (Manager Assignment via Client model):**
+- `GET /clients` - List org clients with `managedBy` relation
+- `PATCH /clients/:clientId` - Update client, including manager assignment (managedById)
+- `GET /team/members/:staffId/profile` - Get staff profile with `managedClients` list
 
 ## Frontend Architecture
 
@@ -243,7 +239,7 @@
 **Org-Scoped Queries:**
 - `buildClientScopeFilter(user)` - Core scoping function
 - Admins: See all org clients
-- Staff: See only assigned clients via ClientAssignment
+- Staff: See only managed clients (Client.managedById = staffId)
 - Applied to all entity queries (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
 
 ## API Client & Endpoints (Frontend)
@@ -292,7 +288,7 @@
 **Data Isolation:**
 - All queries scoped by organizationId
 - `buildClientScopeFilter()` applies Admin vs Staff filtering
-- ClientAssignment enforces staff-client relationships
+- Client.managedById FK enforces single-manager relationship
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**

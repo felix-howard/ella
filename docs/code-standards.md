@@ -220,12 +220,12 @@ const clients = await prisma.client.findMany({ where: filter })
 **Data Isolation:**
 - All queries scoped by `organizationId`
 - `buildClientScopeFilter(user)` applies Admin vs Staff filtering
-- ClientAssignment enforces staff-client relationships
+- Client.managedById FK enforces single-manager relationship
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**
-- **ADMIN:** Full org access, manage team + client assignments
-- **STAFF:** Assigned clients only, no team management
+- **ADMIN:** Full org access, manage team + assign clients
+- **STAFF:** Managed clients only (Client.managedById = staffId), no team management
 - **CPA:** Future role for CPA firm integrations
 
 **Role-Based Middleware:**

@@ -142,19 +142,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Staff routes authenticated, public routes token-authenticated
 
 **Team & Organization (17 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation):**
-- `GET /team/members` - List org staff
-- `POST /team/invite` - Send Clerk org invitation
-- `PATCH /team/members/:staffId/role` - Update role
-- `DELETE /team/members/:staffId` - Deactivate staff
+- `GET /team/members` - List org staff (reads from DB)
+- `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
+- `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
+- `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (webhook syncs to DB)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
 - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload (self only, Phase 02)
 - `GET /staff/me` - Get current staff details with avatarUrl field (Phase 04 - navigation)
 - `GET /client-assignments` - List staff-client mappings
-- `POST /client-assignments` - Create assignment
-- `POST /client-assignments/bulk` - Bulk assign
-- `PUT /client-assignments/transfer` - Transfer client
+- `POST /client-assignments` - Create assignment (app-level, not Clerk-synced)
+- `POST /client-assignments/bulk` - Bulk assign (app-level, not Clerk-synced)
+- `PUT /client-assignments/transfer` - Transfer client (app-level, not Clerk-synced)
 - Similar for invitations & staff assignments
 
 **Clients (14+):**
@@ -201,6 +201,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Recording endpoints with auth
 
 **Webhooks:**
+- `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
 - `POST /webhooks/incoming-call` - Twilio incoming call routing
 - `POST /webhooks/voicemail-recording` - Voicemail callback
 - `POST /webhooks/sms-received` - Incoming SMS
@@ -271,18 +272,53 @@ Organization (root entity)
 
 ## Authentication Flow
 
-**Clerk JWT Parsing:**
+**Request-Time (Read-Only) Pattern:**
 1. Frontend logs in via Clerk UI
 2. Receives JWT with: userId, orgId, orgRole (org:admin|org:member)
 3. Frontend sets JWT in Authorization header (Bearer token)
-4. Backend middleware extracts claims
-5. `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-6. `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN
+4. Backend middleware extracts claims (read-only: no DB writes)
+5. Middleware looks up Staff by clerkId from DB (verify staff exists)
+6. No sync occurs at request time — auth is stateless DB lookup
+
+**Event-Time (Async) Pattern:**
+- Clerk events trigger webhook on state changes (user/org/membership)
+- Webhook handler syncs to DB asynchronously (decoupled from requests)
+- DB becomes eventual-consistent with Clerk state
 
 **Org Verification:**
 - All endpoints verify orgId from JWT matches resource org
 - Staff see only assigned clients via ClientAssignment query
 - Admins see all org clients
+
+## Clerk Webhook Sync (Event-Driven User/Org Sync)
+
+**Overview:**
+Webhooks from Clerk sync user, organization, and membership changes to DB in real-time. Single source of truth: Clerk state flows to DB via webhooks + JWT token parsing. Handlers use Prisma upserts for idempotency (safe on event retries).
+
+**Event Handlers:**
+- **user.updated** - Sync email, name, avatar to Staff (updateMany by clerkId)
+- **user.deleted** - Deactivate staff (isActive=false, set deactivatedAt)
+- **organization.created/updated** - Upsert Organization (handles out-of-order events)
+- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, role (ADMIN|STAFF), org assignment
+- **organizationMembership.updated** - Update staff role (maps org:admin → ADMIN, org:member → STAFF)
+- **organizationMembership.deleted** - Deactivate staff for that org (scope by organizationId + clerkId)
+
+**Route Handler (POST /webhooks/clerk):**
+- Svix signature verification (svix-id, svix-timestamp, svix-signature headers)
+- Awaits handler so Clerk retries on failure (500 = retry, 400 = permanent failure)
+- Svix verification error → 400, handler error → 500
+
+**Error Handling & Idempotency:**
+- Each handler validates required fields before DB operations
+- Missing fields → log warning, return gracefully (no error thrown)
+- Upsert pattern prevents duplicates on re-delivery
+- Out-of-order events: membership.updated may arrive before .created; org.updated upserts to handle created arriving late
+
+**Key Insights:**
+- Membership created handler checks if staff exists by email (legacy pre-Clerk staff may have email but no clerkId yet)
+- Deactivation uses isActive flag + deactivatedAt timestamp (soft delete pattern)
+- Organization slug optional (null allowed)
+- Field mapping: Clerk identifier field (email) → Staff.email
 
 ## Phase 02: Portal PDF Viewer - Core React PDF Rendering
 
@@ -1279,6 +1315,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.6
-**Last Updated:** 2026-02-23
-**Status:** Multi-Tenant architecture with Clerk integration + Phase 02 Draft Return Sharing (6 endpoints: upload, get, revoke, extend, portal view, view tracking) + CPA Upload SMS Notification Phase 04 (notifyOnUpload/notifyAllClients toggles, accessible Switch component) + Phase 05 Avatar Upload (client-side compression, presigned R2 upload, cache invalidation) + Phase 04 Navigation (sidebar + team table profile links) + Phase 02 Profile API (member profiles, presigned avatar uploads) + Phase 2 Document Upload Notification (client upload stats, mark-viewed tracking, per-staff new image badges)
+**Version:** 2.7
+**Last Updated:** 2026-03-24
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Auth middleware is read-only (no request-time DB writes), all user/org/membership syncs via event-driven webhooks + Clerk Backend API for mutations. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification.

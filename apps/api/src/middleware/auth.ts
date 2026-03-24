@@ -1,12 +1,12 @@
 /**
  * Auth Middleware - Clerk authentication and role-based access control
- * Phase 3: Authentication System with Clerk
  * Uses @hono/clerk-auth official middleware
+ * Read-only: webhook handles DB sync (see services/clerk-webhook)
  */
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
-import { syncStaffFromClerk, getStaffByClerkId, syncOrganization, type AuthUser } from '../services/auth'
+import { type AuthUser } from '../services/auth'
 import { prisma } from '../lib/db'
 
 export type { AuthUser }
@@ -21,8 +21,8 @@ export interface AuthVariables {
 export { clerkMiddleware }
 
 /**
- * Auth middleware that requires authentication and syncs with Staff table
- * Extracts user from Clerk session and gets role from Staff table
+ * Auth middleware that requires authentication
+ * Looks up Staff by clerkId (no sync - webhook handles DB writes)
  */
 export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
   const auth = getAuth(c)
@@ -31,74 +31,35 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
     throw new HTTPException(401, { message: 'Yêu cầu xác thực' })
   }
 
-  // Extract org context from Clerk JWT
-  const clerkOrgId = auth.orgId || null
-  const orgRole = auth.orgRole || null
+  // Look up staff by Clerk ID (no sync - webhook handles it)
+  const staff = await prisma.staff.findUnique({
+    where: { clerkId: auth.userId },
+    include: { organization: true },
+  })
 
-  // Sync organization if present
-  let organizationId: string | null = null
-  if (clerkOrgId) {
-    try {
-      const org = await syncOrganization(clerkOrgId)
-      organizationId = org.id
-    } catch (error) {
-      console.error('[Auth] Organization sync failed:', error)
-      // Continue without org context rather than blocking auth entirely
-    }
-  }
-
-  // Get staff record to check role
-  let staff = await getStaffByClerkId(auth.userId)
-
-  // If no staff record exists, sync from Clerk session claims
+  // Staff record should exist (created by webhook on membership.created)
+  // If not found, webhook may be pending
   if (!staff) {
-    const sessionClaims = auth.sessionClaims as {
-      email?: string
-      name?: string
-      picture?: string
-    } | undefined
-
-    if (sessionClaims?.email) {
-      await syncStaffFromClerk(
-        auth.userId,
-        sessionClaims.email,
-        sessionClaims.name || 'Unknown',
-        sessionClaims.picture,
-        organizationId || undefined,
-        orgRole
-      )
-      staff = await getStaffByClerkId(auth.userId)
-    }
-  } else {
-    // Sync org and role for existing staff on each request
-    const expectedRole = orgRole === 'org:admin' ? 'ADMIN' : 'STAFF'
-    const needsUpdate = (organizationId && staff.organizationId !== organizationId) || staff.role !== expectedRole
-
-    if (needsUpdate) {
-      staff = await prisma.staff.update({
-        where: { id: staff.id },
-        data: {
-          organizationId: organizationId || staff.organizationId,
-          role: expectedRole,
-        },
-      })
-    }
+    console.warn(`[Auth] Staff not found for clerkId: ${auth.userId}`)
+    throw new HTTPException(401, { message: 'Tài khoản chưa sẵn sàng. Vui lòng thử lại.' })
   }
 
-  // Check if staff is active
-  if (staff && !staff.isActive) {
+  if (!staff.isActive) {
     throw new HTTPException(403, { message: 'Tài khoản đã bị vô hiệu hóa' })
   }
 
-  // Set user in context
+  // Extract org context from JWT (for validation)
+  const clerkOrgId = auth.orgId || null
+  const orgRole = auth.orgRole || null
+
   c.set('user', {
     id: auth.userId,
-    staffId: staff?.id || null,
-    email: staff?.email || '',
-    name: staff?.name || 'Unknown',
-    role: staff?.role || 'STAFF',
-    imageUrl: staff?.avatarUrl || undefined,
-    organizationId,
+    staffId: staff.id,
+    email: staff.email,
+    name: staff.name,
+    role: staff.role,
+    imageUrl: staff.avatarUrl || undefined,
+    organizationId: staff.organizationId,
     clerkOrgId,
     orgRole,
   })
@@ -114,9 +75,11 @@ export const optionalAuthMiddleware = createMiddleware<{ Variables: Partial<Auth
   const auth = getAuth(c)
 
   if (auth?.userId) {
-    const staff = await getStaffByClerkId(auth.userId)
+    const staff = await prisma.staff.findUnique({
+      where: { clerkId: auth.userId },
+    })
 
-    if (staff && staff.isActive) {
+    if (staff?.isActive) {
       c.set('user', {
         id: auth.userId,
         staffId: staff.id,
@@ -124,7 +87,7 @@ export const optionalAuthMiddleware = createMiddleware<{ Variables: Partial<Auth
         name: staff.name,
         role: staff.role,
         imageUrl: staff.avatarUrl || undefined,
-        organizationId: staff.organizationId || null,
+        organizationId: staff.organizationId,
         clerkOrgId: auth.orgId || null,
         orgRole: auth.orgRole || null,
       })

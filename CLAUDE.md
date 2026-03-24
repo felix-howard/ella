@@ -37,4 +37,10 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 
 **IMPORTANT:** _MUST READ_ and _MUST COMPLY_ all _INSTRUCTIONS_ in project `./CLAUDE.md`, especially _WORKFLOWS_ section is _CRITICALLY IMPORTANT_, this rule is _MANDATORY. NON-NEGOTIABLE. NO EXCEPTIONS. MUST REMEMBER AT ALL TIMES!!!_
 
-always create migration file instead of using db:push to push database directly
+## Database & Prisma Rules (CRITICAL)
+
+- **NEVER use `prisma db push`** — it causes schema drift and data loss
+- **ALWAYS use `prisma migrate dev --name <description>`** when changing `schema.prisma`
+- Every schema change MUST produce a migration file in `packages/db/prisma/migrations/`
+- After creating a migration, verify with `prisma migrate status` that the DB is in sync
+- Migration SQL should use `IF NOT EXISTS` / `DO $$ ... END $$` patterns for idempotency when writing raw SQL

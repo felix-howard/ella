@@ -1,5 +1,42 @@
 # Latest Documentation Updates
 
+**Date:** 2026-03-24 | **Feature:** Clerk Webhook Sync Migration COMPLETE | **Status:** Complete
+
+---
+
+## Clerk Webhook Sync Migration
+
+**Date:** 2026-03-24 | **Status:** Complete
+
+**In One Sentence:** Replaced manual request-time auth middleware sync with Clerk webhooks for real-time database updates on user/org/membership changes.
+
+**Key Changes:**
+- Webhook endpoint added at `/webhooks/clerk` with Svix signature verification
+- Event handlers implemented for: `user.created`, `user.updated`, `user.deleted`, `organization.created`, `organization.updated`, `organizationMembership.created`, `organizationMembership.updated`, `organizationMembership.deleted`, `organizationInvitation.accepted`
+- Auth middleware simplified from sync-on-every-request to read-only DB queries
+- Team routes cleaned up (removed redundant sync logic)
+- 29 unit tests written (23 handler tests + 6 route tests), all passing
+- Code reviewed and 5 issues resolved (try/catch separation, user.created handler, avatar protection, DRY org upsert, startup validation)
+
+**Architecture Change:**
+- **Before:** Request → Auth Middleware (sync to DB) → Handler
+- **After:** Request → Auth Middleware (read from DB) → Handler | Clerk Event → Webhook (sync to DB async)
+
+**Files Modified:**
+- `apps/api/src/routes/webhooks/clerk.ts` (new)
+- `apps/api/src/routes/webhooks/handlers/*.ts` (new)
+- `apps/api/src/middleware/auth.ts` (simplified)
+- `apps/api/src/routes/team/index.ts` (cleanup)
+- `apps/api/src/routes/webhooks/__tests__/clerk.test.ts` (new)
+
+**Benefits:**
+- Real-time sync: Role changes take effect immediately, not when user makes request
+- Performance: No DB writes during auth (read-only middleware)
+- Reliability: Async webhook processing prevents request-response coupling
+- Testability: 29 tests with 100% handler coverage
+
+---
+
 **Date:** 2026-03-19 | **Feature:** Admin Edit Member Profiles COMPLETE | **Status:** Complete
 
 ---

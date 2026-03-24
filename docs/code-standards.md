@@ -77,10 +77,10 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 
 ## Authentication (Clerk JWT)
 
-**Token Parsing:**
+**Token Parsing (Read-Only):**
 - `userId`, `orgId`, `orgRole` extracted from Clerk JWT
-- `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-- `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN role
+- Middleware looks up Staff by clerkId from DB (no request-time sync)
+- Role mapping via Clerk webhooks (event-driven DB writes)
 
 **Backend Middleware:**
 - `requireOrg` - Verify orgId in JWT, attach to context
@@ -295,6 +295,7 @@ describe('Feature', () => {
 **Required (.env):**
 - `DATABASE_URL` - PostgreSQL connection
 - `CLERK_SECRET_KEY` - Clerk Backend SDK
+- `CLERK_WEBHOOK_SECRET` - Svix webhook signing secret (webhook sync migration)
 - `GEMINI_API_KEY` - Google Gemini API
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 - `PORTAL_URL` - Client portal base URL
@@ -323,6 +324,6 @@ describe('Feature', () => {
 
 ---
 
-**Version:** 2.2
-**Last Updated:** 2026-02-04
-**Status:** Multi-Tenancy & Clerk Auth integrated
+**Version:** 2.3
+**Last Updated:** 2026-03-24
+**Status:** Multi-Tenancy & Clerk Webhook Sync Migration complete (event-driven DB sync, read-only auth middleware)

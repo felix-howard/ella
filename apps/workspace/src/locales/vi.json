@@ -1083,6 +1083,7 @@
   "voiceError.securityError": "Lỗi bảo mật khi truy cập microphone",
   "voiceError.timeout": "Hết thời gian chờ",
   "invite.createAccount": "Tạo tài khoản để tham gia nhóm",
+  "invite.createAccountForOrg": "Tạo tài khoản để tham gia {{orgName}}",
   "invite.createButton": "Tạo tài khoản",
   "invite.creatingAccount": "Đang tạo tài khoản...",
   "invite.firstNamePlaceholder": "Tên",

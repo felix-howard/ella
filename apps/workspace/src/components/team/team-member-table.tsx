@@ -183,7 +183,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
         </td>
 
         {/* Actions */}
-        <td className="px-4 py-3 relative">
+        <td className="px-4 py-3 relative" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setShowActions(!showActions)}
             className="p-2.5 rounded-lg hover:bg-muted transition-colors"

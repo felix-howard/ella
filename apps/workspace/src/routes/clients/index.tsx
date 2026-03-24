@@ -12,6 +12,7 @@ import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ClientListTable } from '../../components/clients'
 import { useDebouncedValue } from '../../hooks'
+import { useOrgRole } from '../../hooks/use-org-role'
 import { CASE_STATUS_LABELS, UI_TEXT, CLIENT_SORT_OPTIONS, type ClientSortOption } from '../../lib/constants'
 import { api, type TaxCaseStatus } from '../../lib/api-client'
 
@@ -21,6 +22,7 @@ export const Route = createFileRoute('/clients/')({
 
 function ClientListPage() {
   const { t } = useTranslation()
+  const { isAdmin } = useOrgRole()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<ClientSortOption>('activity')
@@ -148,7 +150,7 @@ function ClientListPage() {
 
       {/* Content */}
       {isLoading ? (
-        <ClientListTable clients={[]} isLoading />
+        <ClientListTable clients={[]} isLoading isAdmin={isAdmin} />
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
@@ -165,7 +167,7 @@ function ClientListPage() {
           </button>
         </div>
       ) : (
-        <ClientListTable clients={clients} />
+        <ClientListTable clients={clients} isAdmin={isAdmin} />
       )}
     </PageContainer>
   )

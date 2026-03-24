@@ -24,7 +24,7 @@ export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedCl
   const hasMore = totalCount > COLLAPSED_LIMIT
 
   // Admin sees "All Clients", staff sees "Assigned Clients"
-  const title = isAdmin ? t('profile.allClients') : t('profile.assignedClients')
+  const title = isAdmin ? t('profile.allClients') : t('profile.managedClients')
 
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -41,7 +41,7 @@ export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedCl
       <div className="p-6">
         {clients.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? t('profile.noClientsInOrg') : t('profile.noAssignedClients')}
+            {isAdmin ? t('profile.noClientsInOrg') : t('profile.noManagedClients')}
           </p>
         ) : (
           <ul className="space-y-1">

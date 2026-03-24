@@ -246,6 +246,12 @@ export const api = {
         method: 'DELETE',
       }),
 
+    updateManagedBy: (clientId: string, staffId: string | null) =>
+      request<{ data: { managedBy: { id: string; name: string } | null } }>(
+        `/clients/${clientId}/managed-by`,
+        { method: 'PATCH', body: JSON.stringify({ staffId }) }
+      ),
+
     resendSms: (id: string) =>
       request<{ success: boolean; error: string | null; smsEnabled: boolean }>(
         `/clients/${id}/resend-sms`,
@@ -859,9 +865,6 @@ export const api = {
     deactivate: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
 
-    getMemberAssignments: (staffId: string) =>
-      request<{ data: ClientAssignment[] }>(`/team/members/${staffId}/assignments`),
-
     listInvitations: () =>
       request<{ data: TeamInvitation[] }>('/team/invitations'),
 
@@ -906,35 +909,6 @@ export const api = {
       request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
-      }),
-  },
-
-  // Client Assignments
-  clientAssignments: {
-    create: (data: { clientId: string; staffId: string }) =>
-      request<{ data: ClientAssignment }>('/client-assignments', {
-        method: 'POST', body: JSON.stringify(data),
-      }),
-
-    bulkCreate: (data: { clientIds: string[]; staffId: string }) =>
-      request<{ data: { created: number; skipped: number } }>('/client-assignments/bulk', {
-        method: 'POST', body: JSON.stringify(data),
-      }),
-
-    remove: (id: string) =>
-      request<{ success: boolean }>(`/client-assignments/${id}`, { method: 'DELETE' }),
-
-    list: (params?: { staffId?: string; clientId?: string }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.staffId) searchParams.set('staffId', params.staffId)
-      if (params?.clientId) searchParams.set('clientId', params.clientId)
-      const qs = searchParams.toString()
-      return request<{ data: ClientAssignment[] }>(`/client-assignments${qs ? `?${qs}` : ''}`)
-    },
-
-    transfer: (data: { clientId: string; fromStaffId: string; toStaffId: string }) =>
-      request<{ success: boolean }>('/client-assignments/transfer', {
-        method: 'PUT', body: JSON.stringify(data),
       }),
   },
 
@@ -1083,8 +1057,8 @@ export interface ClientWithActions {
   updatedAt: string
   computedStatus: TaxCaseStatus | null
   actionCounts: ActionCounts | null
-  /** Staff assigned to this client (admin-only) */
-  assignedStaff?: { id: string; name: string }[]
+  /** Staff managing this client */
+  managedBy?: { id: string; name: string } | null
   /** Upload counts per CPA (new uploads they haven't viewed) */
   uploads?: ClientUploads
   latestCase: {
@@ -1126,6 +1100,7 @@ export interface ClientDetail extends Client {
   smsEnabled: boolean
   notes: string | null
   avatarUrl: string | null
+  managedBy?: { id: string; name: string } | null
 }
 
 export interface ClientStats {
@@ -2031,7 +2006,7 @@ export interface TeamMember {
   avatarUrl: string | null
   lastLoginAt: string | null
   isActive?: boolean
-  _count: { clientAssignments: number }
+  _count: { managedClients: number }
 }
 
 export interface TeamInvitation {
@@ -2040,16 +2015,6 @@ export interface TeamInvitation {
   role: OrgRole
   status: string
   createdAt: number
-}
-
-export interface ClientAssignment {
-  id: string
-  clientId: string
-  staffId: string
-  assignedById: string | null
-  createdAt: string
-  client?: { id: string; name: string; phone: string }
-  staff?: { id: string; name: string; email: string }
 }
 
 // Staff Profile types
@@ -2066,9 +2031,9 @@ export interface StaffProfile {
 }
 
 export interface ProfileResponse {
-  staff: StaffProfile & { _count: { clientAssignments: number }; isActive: boolean; deactivatedAt: string | null }
-  assignedClients: Array<{ id: string; name: string; phone: string }>
-  assignedCount: number
+  staff: StaffProfile & { _count: { managedClients: number }; isActive: boolean; deactivatedAt: string | null }
+  managedClients: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
+  managedCount: number
   canEdit: boolean
 }
 

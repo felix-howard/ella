@@ -10,18 +10,17 @@ import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
-import { useOrgRole } from '../../hooks/use-org-role'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
 interface ClientListTableProps {
   clients: ClientWithActions[]
   isLoading?: boolean
+  isAdmin?: boolean
 }
 
-export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
+export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTableProps) {
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
 
   if (isLoading) {
     return <ClientListTableSkeleton isAdmin={isAdmin} />
@@ -51,7 +50,7 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
               </th>
               {isAdmin && (
                 <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                  {t('team.assignedTo')}
+                  {t('team.managedBy')}
                 </th>
               )}
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
@@ -80,7 +79,7 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
 interface ClientRowProps {
   client: ClientWithActions
   isLast: boolean
-  isAdmin: boolean
+  isAdmin?: boolean
 }
 
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
@@ -151,20 +150,11 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         )}
       </td>
 
-      {/* Assigned to column - admin only */}
+      {/* Managed by column (admin only) */}
       {isAdmin && (
         <td className="px-4 py-3 hidden lg:table-cell">
-          {client.assignedStaff && client.assignedStaff.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {client.assignedStaff.map((staff) => (
-                <span
-                  key={staff.id}
-                  className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
-                >
-                  {staff.name}
-                </span>
-              ))}
-            </div>
+          {client.managedBy ? (
+            <span className="text-sm">{client.managedBy.name}</span>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
@@ -240,7 +230,7 @@ function EmptyState() {
 /**
  * Skeleton loader for table - accepts isAdmin to match live table column layout
  */
-export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean }) {
+export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -299,9 +289,7 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                 </td>
                 {isAdmin && (
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    <div className="flex gap-1">
-                      <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
-                    </div>
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                   </td>
                 )}
                 <td className="px-4 py-3 hidden md:table-cell">

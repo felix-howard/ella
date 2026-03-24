@@ -437,8 +437,8 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
 
   return c.json({
     staff: { ...staff, firstName, lastName, avatarUrl: await resolveAvatarUrl(staff.avatarUrl) },
-    assignedClients: managedClientsList,
-    assignedCount: managedCount,
+    managedClients: managedClientsList,
+    managedCount: managedCount,
     canEdit,
   })
 })

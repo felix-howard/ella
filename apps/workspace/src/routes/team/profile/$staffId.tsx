@@ -101,7 +101,7 @@ function ProfilePage() {
     )
   }
 
-  const { staff, assignedClients, assignedCount, canEdit } = data
+  const { staff, managedClients, managedCount, canEdit } = data
 
   // Show role selector only if: admin, viewing other member, member is active
   const canChangeRole = isCurrentUserAdmin && staffId !== currentUserStaffId && staff.isActive
@@ -201,8 +201,8 @@ function ProfilePage() {
         {/* Assigned Clients - 1/3 width on desktop */}
         <div className="lg:col-span-1">
           <AssignedClientsList
-            clients={assignedClients}
-            totalCount={assignedCount}
+            clients={managedClients}
+            totalCount={managedCount}
             isAdmin={staff.role === 'ADMIN'}
           />
         </div>

@@ -32,8 +32,8 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
           />
         </div>
 
-        {/* Assigned Staff (1/3 width) */}
-        <ClientAssignedStaff clientId={client.id} />
+        {/* Managed By (1/3 width) */}
+        <ClientAssignedStaff clientId={client.id} managedBy={client.managedBy} />
       </div>
 
       {/* Activity Timeline - Full width */}

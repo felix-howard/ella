@@ -51,7 +51,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.name')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">{t('team.email')}</th>
             <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.role')}</th>
-            <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('team.assignedClients')}</th>
+            <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3">{t('profile.managedClients')}</th>
           </tr>
         </thead>
         <tbody>
@@ -140,7 +140,7 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
       <td className="px-4 py-3">
         <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
           <Users className="w-3.5 h-3.5" />
-          {member._count.clientAssignments}
+          {member._count.managedClients}
         </span>
       </td>
     </tr>

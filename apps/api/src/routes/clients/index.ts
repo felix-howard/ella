@@ -463,6 +463,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     where: { id, ...buildClientScopeFilter(user) },
     include: {
       profile: true,
+      managedBy: { select: { id: true, name: true } },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {

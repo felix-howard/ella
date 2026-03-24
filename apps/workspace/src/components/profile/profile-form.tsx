@@ -136,54 +136,55 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 p-6">
-        {/* First Name */}
-        <div>
-          <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1.5">
-            {t('profile.firstName')}
-          </label>
-          {isEditing ? (
-            <>
-              <Input
-                id="firstName"
-                value={editFirstName}
-                onChange={(e) => {
-                  setEditFirstName(e.target.value)
-                  if (firstNameError) setFirstNameError(null)
-                }}
-                required
-              />
-              {firstNameError && (
-                <p className="text-sm text-destructive mt-1">{firstNameError}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-foreground">{staff.firstName}</p>
-          )}
-        </div>
+        {/* First Name + Last Name (side by side) */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1.5">
+              {t('profile.firstName')}
+            </label>
+            {isEditing ? (
+              <>
+                <Input
+                  id="firstName"
+                  value={editFirstName}
+                  onChange={(e) => {
+                    setEditFirstName(e.target.value)
+                    if (firstNameError) setFirstNameError(null)
+                  }}
+                  required
+                />
+                {firstNameError && (
+                  <p className="text-sm text-destructive mt-1">{firstNameError}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-foreground">{staff.firstName}</p>
+            )}
+          </div>
 
-        {/* Last Name */}
-        <div>
-          <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1.5">
-            {t('profile.lastName')}
-          </label>
-          {isEditing ? (
-            <>
-              <Input
-                id="lastName"
-                value={editLastName}
-                onChange={(e) => {
-                  setEditLastName(e.target.value)
-                  if (lastNameError) setLastNameError(null)
-                }}
-                required
-              />
-              {lastNameError && (
-                <p className="text-sm text-destructive mt-1">{lastNameError}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-foreground">{staff.lastName}</p>
-          )}
+          <div>
+            <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1.5">
+              {t('profile.lastName')}
+            </label>
+            {isEditing ? (
+              <>
+                <Input
+                  id="lastName"
+                  value={editLastName}
+                  onChange={(e) => {
+                    setEditLastName(e.target.value)
+                    if (lastNameError) setLastNameError(null)
+                  }}
+                  required
+                />
+                {lastNameError && (
+                  <p className="text-sm text-destructive mt-1">{lastNameError}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-foreground">{staff.lastName}</p>
+            )}
+          </div>
         </div>
 
         {/* Role */}

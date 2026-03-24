@@ -47,7 +47,7 @@ export function TeamMemberTable({ members, isLoading, isError }: TeamMemberTable
   }
 
   return (
-    <div className="bg-card rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm overflow-visible">
       <table className="w-full text-sm" aria-label={t('team.title')}>
         <thead>
           <tr className="border-b border-border/50 bg-muted/50">
@@ -186,12 +186,12 @@ const MemberRow = memo(function MemberRow({ member, isLast, isExpanded, onToggle
         <td className="px-4 py-3 relative">
           <button
             onClick={() => setShowActions(!showActions)}
-            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="p-2.5 rounded-lg hover:bg-muted transition-colors"
             aria-label={t('common.actions')}
             aria-expanded={showActions}
             aria-haspopup="menu"
           >
-            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+            <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
           </button>
 
           {showActions && (

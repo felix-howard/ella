@@ -215,14 +215,11 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
             {t('profile.email')}
           </label>
           {isEditing ? (
-            <>
-              <Input
-                value={staff.email}
-                disabled
-                className="bg-muted/50 text-muted-foreground cursor-not-allowed"
-              />
-              <p className="text-xs text-muted-foreground mt-1">{t('profile.emailReadOnly')}</p>
-            </>
+            <Input
+              value={staff.email}
+              readOnly
+              className="cursor-not-allowed"
+            />
           ) : (
             <p className="text-foreground">{staff.email}</p>
           )}

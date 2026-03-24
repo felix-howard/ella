@@ -14,7 +14,7 @@ import { docsRoute } from './routes/docs'
 import { imagesRoute } from './routes/images'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
-import { twilioWebhookRoute } from './routes/webhooks'
+import { twilioWebhookRoute, clerkWebhookRoute } from './routes/webhooks'
 import { inngestRoute } from './routes/inngest'
 import { adminRoute } from './routes/admin'
 import { voiceRoutes } from './routes/voice'
@@ -56,6 +56,7 @@ app.route('/expense', expenseRoute) // Public Schedule C expense form
 app.route('/rental', rentalRoute) // Public Schedule E rental form
 app.route('/portal/draft', portalDraftRoute) // Public draft return viewer
 app.route('/webhooks/twilio', twilioWebhookRoute)
+app.route('/webhooks/clerk', clerkWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 

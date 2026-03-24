@@ -201,6 +201,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Recording endpoints with auth
 
 **Webhooks:**
+- `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
 - `POST /webhooks/incoming-call` - Twilio incoming call routing
 - `POST /webhooks/voicemail-recording` - Voicemail callback
 - `POST /webhooks/sms-received` - Incoming SMS
@@ -283,6 +284,36 @@ Organization (root entity)
 - All endpoints verify orgId from JWT matches resource org
 - Staff see only assigned clients via ClientAssignment query
 - Admins see all org clients
+
+## Clerk Webhook Sync (Event-Driven User/Org Sync)
+
+**Overview:**
+Webhooks from Clerk sync user, organization, and membership changes to DB in real-time. Single source of truth: Clerk state flows to DB via webhooks + JWT token parsing. Handlers use Prisma upserts for idempotency (safe on event retries).
+
+**Event Handlers:**
+- **user.updated** - Sync email, name, avatar to Staff (updateMany by clerkId)
+- **user.deleted** - Deactivate staff (isActive=false, set deactivatedAt)
+- **organization.created/updated** - Upsert Organization (handles out-of-order events)
+- **organizationMembership.created** - Link user to org: (1) ensure org exists (upsert), (2) check if staff exists by email (pre-existing), (3) upsert/update staff with clerkId, role (ADMIN|STAFF), org assignment
+- **organizationMembership.updated** - Update staff role (maps org:admin → ADMIN, org:member → STAFF)
+- **organizationMembership.deleted** - Deactivate staff for that org (scope by organizationId + clerkId)
+
+**Route Handler (POST /webhooks/clerk):**
+- Svix signature verification (svix-id, svix-timestamp, svix-signature headers)
+- Awaits handler so Clerk retries on failure (500 = retry, 400 = permanent failure)
+- Svix verification error → 400, handler error → 500
+
+**Error Handling & Idempotency:**
+- Each handler validates required fields before DB operations
+- Missing fields → log warning, return gracefully (no error thrown)
+- Upsert pattern prevents duplicates on re-delivery
+- Out-of-order events: membership.updated may arrive before .created; org.updated upserts to handle created arriving late
+
+**Key Insights:**
+- Membership created handler checks if staff exists by email (legacy pre-Clerk staff may have email but no clerkId yet)
+- Deactivation uses isActive flag + deactivatedAt timestamp (soft delete pattern)
+- Organization slug optional (null allowed)
+- Field mapping: Clerk identifier field (email) → Staff.email
 
 ## Phase 02: Portal PDF Viewer - Core React PDF Rendering
 

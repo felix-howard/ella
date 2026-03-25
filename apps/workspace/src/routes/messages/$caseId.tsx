@@ -227,15 +227,16 @@ function ConversationDetailView() {
                 isLoading={voiceState.isLoading}
                 callState={voiceState.callState}
                 onClick={handleCallClick}
+                label={t('messages.call')}
               />
               {caseData && (
                 <Link
                   to="/clients/$clientId"
                   params={{ clientId: caseData.client.id }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground border border-border/60 hover:text-foreground hover:bg-muted/60 hover:border-border transition-all duration-200"
                 >
                   <User className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t('messages.viewProfile')}</span>
+                  <span>{t('messages.viewProfile')}</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>
               )}

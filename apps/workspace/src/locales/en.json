@@ -699,6 +699,7 @@
   "messages.selectConversationDesc": "Select a conversation from the list to start messaging",
   "messages.title": "Messages",
   "messages.viewProfile": "Profile",
+  "messages.call": "Call",
   "messages.noMessages": "No messages yet",
   "messages.loading": "Loading messages...",
   "messages.startConversation": "Start a conversation with the client",

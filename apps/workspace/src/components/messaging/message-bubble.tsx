@@ -13,8 +13,9 @@ import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
 
 export interface MessageBubbleProps {
-  message: Message
+  message: Message & { _optimistic?: 'sending' | 'failed' }
   showTime?: boolean
+  onRetry?: (message: Message) => void
 }
 
 // Channel icons (labels are i18n keys)
@@ -87,10 +88,12 @@ const SMS_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: strin
   failed: { icon: <XCircle className="w-3 h-3" />, labelKey: 'messages.smsStatus.failed', color: 'text-destructive' },
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, showTime = true, onRetry }: MessageBubbleProps) {
   const { t } = useTranslation()
   const isOutbound = message.direction === 'OUTBOUND'
   const isSystem = message.channel === 'SYSTEM'
+  const isSending = message._optimistic === 'sending'
+  const isFailed = message._optimistic === 'failed'
   const channelConfig = CHANNEL_ICONS[message.channel]
   const ChannelIcon = channelConfig.icon
   const channelLabel = t(channelConfig.labelKey)
@@ -222,7 +225,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   if (isOutbound) {
     return (
       <div className="flex flex-col w-full items-end">
-        <div className="flex items-end gap-2 max-w-[75%]">
+        <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
           {/* Message bubble - light green, only text */}
           <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 overflow-hidden">
             {hasAttachments && (
@@ -244,8 +247,32 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <StaffAvatar sentBy={message.sentBy} />
         </div>
 
-        {/* Time + status below bubble */}
-        <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
+        {/* Optimistic status: sending / failed */}
+        {isSending && (
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground pr-9">
+            <Clock className="w-3 h-3" />
+            <span>{t('messages.sending', 'Sending...')}</span>
+          </div>
+        )}
+        {isFailed && (
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-destructive pr-9">
+            <AlertCircle className="w-3 h-3" />
+            <span>{t('messages.sendFailed', 'Failed to send')}</span>
+            {onRetry && (
+              <button
+                onClick={() => onRetry(message)}
+                className="underline text-[11px] text-destructive hover:text-destructive/80 ml-1"
+              >
+                {t('messages.retry', 'Retry')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Time + status below bubble (only for confirmed messages) */}
+        {!isSending && !isFailed && (
+          <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
+        )}
       </div>
     )
   }

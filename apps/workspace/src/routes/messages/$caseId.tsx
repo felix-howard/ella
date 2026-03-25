@@ -27,7 +27,6 @@ function ConversationDetailView() {
   const { caseId } = Route.useParams()
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSending, setIsSending] = useState(false)
   const [caseData, setCaseData] = useState<{
     client: { id: string; name: string; phone: string; language: Language }
     taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
@@ -47,11 +46,13 @@ function ConversationDetailView() {
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
 
-      // Merge with existing messages to prevent duplicates from optimistic updates
-      // Use a Map to dedupe by ID, preferring fetched messages (they have complete data)
+      // Merge fetched messages with existing, keeping optimistic (temp-*) messages
       setMessages((prev) => {
-        const messageMap = new Map(prev.map((m) => [m.id, m]))
-        fetchedMessages.forEach((m) => messageMap.set(m.id, m))
+        // Keep optimistic messages that are still pending
+        const optimisticMessages = prev.filter((m) => m.id.startsWith('temp-'))
+        const messageMap = new Map(fetchedMessages.map((m) => [m.id, m]))
+        // Add back optimistic messages (they'll be replaced when API responds)
+        optimisticMessages.forEach((m) => messageMap.set(m.id, m))
         return Array.from(messageMap.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
@@ -111,41 +112,58 @@ function ConversationDetailView() {
     return () => clearInterval(interval)
   }, [fetchMessages])
 
-  // Handle message send
+  // Handle message send with true optimistic update
   const handleSend = useCallback(
     async (content: string, channel: 'SMS' | 'PORTAL') => {
-      setIsSending(true)
+      // Generate a temporary ID and show the message immediately
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const optimisticMessage: Message & { _optimistic?: 'sending' | 'failed' } = {
+        id: tempId,
+        conversationId: caseId,
+        channel,
+        direction: 'OUTBOUND',
+        content,
+        createdAt: new Date().toISOString(),
+        _optimistic: 'sending',
+      }
+
+      // Show message in UI instantly
+      setMessages((prev) => [...prev, optimisticMessage])
+
       try {
         const response = await api.messages.send({ caseId, content, channel })
 
-        // Add new message to list (optimistic update)
-        const newMessage: Message = {
-          id: response.message.id,
-          conversationId: response.message.conversationId,
-          channel,
-          direction: 'OUTBOUND',
-          content,
-          createdAt: new Date().toISOString(),
-        }
-
-        // Use functional update with deduplication to prevent race condition
-        // with polling that may have already fetched this message
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) {
-            return prev // Already exists, skip adding
-          }
-          return [...prev, newMessage]
-        })
+        // Replace temp message with real server data
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? { ...response.message, channel, direction: 'OUTBOUND' as const, content, createdAt: response.message.createdAt || optimisticMessage.createdAt }
+              : m
+          )
+        )
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Failed to send message:', error)
         }
-        // TODO: Show error toast
-      } finally {
-        setIsSending(false)
+        // Mark as failed so user can retry
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, _optimistic: 'failed' } : m
+          )
+        )
       }
     },
     [caseId]
+  )
+
+  // Retry a failed optimistic message
+  const handleRetry = useCallback(
+    (failedMessage: Message & { _optimistic?: string }) => {
+      // Remove the failed message and re-send
+      setMessages((prev) => prev.filter((m) => m.id !== failedMessage.id))
+      handleSend(failedMessage.content, failedMessage.channel as 'SMS' | 'PORTAL')
+    },
+    [handleSend]
   )
 
   // Handle call button click
@@ -247,13 +265,13 @@ function ConversationDetailView() {
         messages={messages}
         isLoading={isLoading}
         className="flex-1 bg-background"
+        onRetry={handleRetry}
       />
 
       {/* Quick Actions Bar */}
       {caseData && (
         <QuickActionsBar
           onSend={handleSend}
-          isSending={isSending}
           clientName={caseData.client.name}
           clientPhone={caseData.client.phone}
           clientId={caseData.client.id}

@@ -162,6 +162,13 @@ teamRoute.patch(
         role,
       })
 
+      // Sync role to DB immediately (don't wait for webhook)
+      const dbRole = role === 'org:admin' ? 'ADMIN' : 'STAFF'
+      await prisma.staff.update({
+        where: { id: staffId },
+        data: { role: dbRole },
+      })
+
       // Audit log (async, non-blocking)
       logTeamAction('ROLE_CHANGED', staffId, user.staffId, { oldValue: oldRole, newValue: role })
 

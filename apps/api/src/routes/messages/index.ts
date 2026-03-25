@@ -20,7 +20,7 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
-import { getSignedDownloadUrl } from '../../services/storage'
+import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
@@ -291,6 +291,11 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       skip,
       take: safeLimit,
       orderBy: { createdAt: 'desc' },
+      include: {
+        sentBy: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+      },
     }),
     prisma.message.count({
       where: { conversationId: conversation.id },
@@ -303,6 +308,14 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
       where: { id: conversation.id },
       data: { unreadCount: 0 },
     })
+  }
+
+  // Pre-resolve avatar URLs, deduplicated by staffId
+  const avatarCache = new Map<string, string | null>()
+  for (const m of messages) {
+    if (m.sentBy && !avatarCache.has(m.sentBy.id)) {
+      avatarCache.set(m.sentBy.id, await resolveAvatarUrl(m.sentBy.avatarUrl))
+    }
   }
 
   // Build proxy URLs for messages with attachments
@@ -338,6 +351,9 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
     return {
       ...m,
       attachmentUrls: proxyUrls,
+      sentBy: m.sentBy
+        ? { id: m.sentBy.id, name: m.sentBy.name, avatarUrl: avatarCache.get(m.sentBy.id) ?? null }
+        : null,
       createdAt: m.createdAt.toISOString(),
       updatedAt: m.updatedAt.toISOString(),
     }
@@ -379,7 +395,7 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
     },
   })
 
-  // Create message record
+  // Create message record with sender info
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -387,6 +403,12 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
       direction: 'OUTBOUND' as MessageDirection,
       content,
       templateUsed: templateName,
+      sentById: user.staffId,
+    },
+    include: {
+      sentBy: {
+        select: { id: true, name: true, avatarUrl: true },
+      },
     },
   })
 
@@ -443,6 +465,9 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
       message: {
         ...message,
         twilioStatus,
+        sentBy: message.sentBy
+          ? { id: message.sentBy.id, name: message.sentBy.name, avatarUrl: await resolveAvatarUrl(message.sentBy.avatarUrl) }
+          : null,
         createdAt: message.createdAt.toISOString(),
         updatedAt: message.updatedAt.toISOString(),
       },

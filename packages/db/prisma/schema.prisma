@@ -401,6 +401,7 @@ model Staff {
   updatedClients    Client[]  @relation("UpdatedClients")
   documentViews     DocumentView[]
   uploadedDraftReturns DraftReturn[]
+  sentMessages  Message[] @relation("SentMessages")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -859,6 +860,10 @@ model Message {
   isSystem       Boolean          @default(false)
   templateUsed   String?
 
+  // Staff who sent this message (null for inbound/system messages)
+  sentById      String?
+  sentBy        Staff?    @relation("SentMessages", fields: [sentById], references: [id], onDelete: SetNull)
+
   // Voice call specific fields (null for non-CALL messages)
   callSid           String?       // Twilio Call SID
   recordingUrl      String?       // Twilio recording URL (.mp3)
@@ -871,6 +876,7 @@ model Message {
   @@index([conversationId])
   @@index([createdAt])
   @@index([callSid])
+  @@index([sentById])
 }
 
 model MagicLink {

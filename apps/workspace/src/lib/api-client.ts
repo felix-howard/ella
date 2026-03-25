@@ -1348,6 +1348,12 @@ export interface Message {
   // SMS delivery status from Twilio (queued, sent, delivered, undelivered, failed)
   // For errors: "failed:21612:Landline number" or "undelivered:30006:..."
   twilioStatus?: string | null
+  // Staff who sent this message (null for inbound/system)
+  sentBy?: {
+    id: string
+    name: string
+    avatarUrl: string | null
+  } | null
   // Call-specific fields (only for CALL channel)
   callSid?: string
   recordingUrl?: string

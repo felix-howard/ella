@@ -203,7 +203,6 @@ function ProfilePage() {
           <AssignedClientsList
             clients={managedClients}
             totalCount={managedCount}
-            isAdmin={staff.role === 'ADMIN'}
           />
         </div>
       </div>

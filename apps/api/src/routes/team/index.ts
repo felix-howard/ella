@@ -40,11 +40,6 @@ teamRoute.get('/members', async (c) => {
   const user = c.get('user')
   const includeArchived = c.req.query('includeArchived') === 'true'
 
-  // Get total client count for admins (they have access to all clients)
-  const totalClientCount = await prisma.client.count({
-    where: { organizationId: user.organizationId },
-  })
-
   const members = await prisma.staff.findMany({
     where: {
       organizationId: user.organizationId,
@@ -64,14 +59,11 @@ teamRoute.get('/members', async (c) => {
     orderBy: { name: 'asc' },
   })
 
-  // For ADMIN: show total client count, for STAFF: show managed count
+  // Always show actual managed client count (based on managedById relationship)
   const data = await Promise.all(
     members.map(async (m) => ({
       ...m,
       avatarUrl: await resolveAvatarUrl(m.avatarUrl),
-      _count: {
-        managedClients: m.role === 'ADMIN' ? totalClientCount : m._count.managedClients,
-      },
     }))
   )
 
@@ -406,39 +398,17 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
   const firstName = nameParts[0] || ''
   const lastName = nameParts.slice(1).join(' ') || ''
 
-  // For ADMIN: return all clients in org (implicit access)
-  // For STAFF: return only managed clients
-  let managedClientsList: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
-  let managedCount: number
-
-  if (staff.role === 'ADMIN') {
-    // Admins have access to all clients
-    const allClients = await prisma.client.findMany({
-      where: { organizationId: user.organizationId },
-      select: { id: true, name: true, phone: true, avatarUrl: true },
-      take: 50,
-      orderBy: { name: 'asc' },
-    })
-    const totalClients = await prisma.client.count({
-      where: { organizationId: user.organizationId },
-    })
-    managedClientsList = await Promise.all(
-      allClients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
-    )
-    managedCount = totalClients
-  } else {
-    // Staff only see managed clients
-    const clients = await prisma.client.findMany({
-      where: { managedById: targetStaffId },
-      select: { id: true, name: true, phone: true, avatarUrl: true },
-      take: 50,
-      orderBy: { name: 'asc' },
-    })
-    managedClientsList = await Promise.all(
-      clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
-    )
-    managedCount = staff._count.managedClients
-  }
+  // Always show only clients managed by this staff member (based on managedById)
+  const clients = await prisma.client.findMany({
+    where: { managedById: targetStaffId },
+    select: { id: true, name: true, phone: true, avatarUrl: true },
+    take: 50,
+    orderBy: { name: 'asc' },
+  })
+  const managedClientsList = await Promise.all(
+    clients.map(async (c) => ({ ...c, avatarUrl: await resolveAvatarUrl(c.avatarUrl) }))
+  )
+  const managedCount = staff._count.managedClients
 
   const canEdit = canEditStaff(user, targetStaffId)
 

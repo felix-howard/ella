@@ -11,20 +11,18 @@ import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 interface AssignedClientsListProps {
   clients: Array<{ id: string; name: string; phone: string; avatarUrl?: string | null }>
   totalCount: number
-  isAdmin?: boolean
 }
 
 const COLLAPSED_LIMIT = 5
 
-export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedClientsListProps) {
+export function AssignedClientsList({ clients, totalCount }: AssignedClientsListProps) {
   const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 
   const displayClients = isExpanded ? clients : clients.slice(0, COLLAPSED_LIMIT)
   const hasMore = totalCount > COLLAPSED_LIMIT
 
-  // Admin sees "All Clients", staff sees "Assigned Clients"
-  const title = isAdmin ? t('profile.allClients') : t('profile.managedClients')
+  const title = t('profile.managedClients')
 
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -41,7 +39,7 @@ export function AssignedClientsList({ clients, totalCount, isAdmin }: AssignedCl
       <div className="p-6">
         {clients.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? t('profile.noClientsInOrg') : t('profile.noManagedClients')}
+            {t('profile.noManagedClients')}
           </p>
         ) : (
           <ul className="space-y-1">

@@ -122,8 +122,8 @@ export function SidebarContent({
       {/* Bottom Section */}
       <div className="border-t border-border/30 p-3 space-y-2">
         <Link
-          to="/team/profile/$staffId"
-          params={{ staffId: 'me' }}
+          to="/settings"
+          search={{ tab: 'profile' }}
           className={cn(
             'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
             'hover:bg-muted cursor-pointer',

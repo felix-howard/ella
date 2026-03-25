@@ -24,9 +24,10 @@ interface ProfileFormProps {
   canChangeRole: boolean
   onRoleChange?: (role: 'org:admin' | 'org:member') => void
   isRoleChangePending?: boolean
+  hideNotifications?: boolean
 }
 
-export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChange, isRoleChangePending }: ProfileFormProps) {
+export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChange, isRoleChangePending, hideNotifications }: ProfileFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -255,42 +256,44 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
           )}
         </div>
 
-        {/* Notification Preferences */}
-        <div className="border-t border-border pt-6 mt-6">
-          <h3 className="text-sm font-medium text-foreground mb-4">
-            {t('profile.notifications')}
-          </h3>
+        {/* Notification Preferences - hidden when shown in separate settings tab */}
+        {!hideNotifications && (
+          <div className="border-t border-border pt-6 mt-6">
+            <h3 className="text-sm font-medium text-foreground mb-4">
+              {t('profile.notifications')}
+            </h3>
 
-          {/* Notify on Upload Toggle */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1 pr-4">
-              <label htmlFor="notifyOnUpload" className="text-sm font-medium text-foreground">
-                {t('profile.notifyOnUpload')}
-              </label>
-              <p className="text-sm text-muted-foreground">
-                {t('profile.notifyOnUploadDesc')}
-              </p>
+            {/* Notify on Upload Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1 pr-4">
+                <label htmlFor="notifyOnUpload" className="text-sm font-medium text-foreground">
+                  {t('profile.notifyOnUpload')}
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  {t('profile.notifyOnUploadDesc')}
+                </p>
+              </div>
+              <Switch
+                id="notifyOnUpload"
+                checked={isEditing ? editNotifyOnUpload : staff.notifyOnUpload}
+                onCheckedChange={setEditNotifyOnUpload}
+                disabled={!isEditing}
+              />
             </div>
-            <Switch
-              id="notifyOnUpload"
-              checked={isEditing ? editNotifyOnUpload : staff.notifyOnUpload}
-              onCheckedChange={setEditNotifyOnUpload}
-              disabled={!isEditing}
-            />
+
+            {/* Phone required hint */}
+            {!staff.phoneNumber && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t('profile.phoneRequiredForSms')}
+              </p>
+            )}
+
+            {/* Admin: subscribe to other members' client notifications */}
+            {staff.role === 'ADMIN' && (
+              <NotificationSubscriptions staffId={staffId} isEditing={isEditing} />
+            )}
           </div>
-
-          {/* Phone required hint */}
-          {!staff.phoneNumber && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              {t('profile.phoneRequiredForSms')}
-            </p>
-          )}
-
-          {/* Admin: subscribe to other members' client notifications */}
-          {staff.role === 'ADMIN' && (
-            <NotificationSubscriptions staffId={staffId} isEditing={isEditing} />
-          )}
-        </div>
+        )}
 
         {/* Actions */}
         {isEditing && (

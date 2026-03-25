@@ -49,7 +49,7 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
                 {t('clients.documents')}
               </th>
               {isAdmin && (
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                <th className="text-left font-medium text-muted-foreground px-4 py-3">
                   {t('team.managedBy')}
                 </th>
               )}
@@ -59,7 +59,7 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.lastUpload')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.tasks')}
               </th>
               <th className="w-10"></th>
@@ -152,7 +152,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
 
       {/* Managed by column (admin only) */}
       {isAdmin && (
-        <td className="px-4 py-3 hidden lg:table-cell">
+        <td className="px-4 py-3">
           {client.managedBy ? (
             <span className="text-sm">{client.managedBy.name}</span>
           ) : (
@@ -185,7 +185,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Action badges column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
           {actionCounts?.hasNewActivity && (
             <ActionBadge type="new-activity" />
@@ -250,7 +250,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
               {isAdmin && (
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                <th className="text-left font-medium text-muted-foreground px-4 py-3">
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </th>
               )}
@@ -260,7 +260,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
               <th className="w-10"></th>
@@ -288,7 +288,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
                 </td>
                 {isAdmin && (
-                  <td className="px-4 py-3 hidden lg:table-cell">
+                  <td className="px-4 py-3">
                     <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                   </td>
                 )}
@@ -298,7 +298,7 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex gap-1">
                     <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
                     <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />

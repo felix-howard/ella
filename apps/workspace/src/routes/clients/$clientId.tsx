@@ -532,7 +532,7 @@ function ClientDetailPage() {
                 href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-muted/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
                 title={t('clientDetail.openUpload')}
               >
                 <Upload className="w-3.5 h-3.5" aria-hidden="true" />
@@ -545,7 +545,7 @@ function ClientDetailPage() {
               <Link
                 to="/messages/$caseId"
                 params={{ caseId: activeCaseId }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-muted/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{t('clientDetail.messages')}</span>
@@ -560,7 +560,7 @@ function ClientDetailPage() {
             )}
             <button
               onClick={() => setIsDeleteModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-destructive/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-destructive/10 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               aria-label={t('clientDetail.deleteClient')}
               title={t('clientDetail.deleteClient')}
             >

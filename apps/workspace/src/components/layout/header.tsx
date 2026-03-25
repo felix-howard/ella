@@ -4,13 +4,15 @@
  * Mobile: fixed top bar with hamburger menu, logo, unread badge
  */
 import { Menu } from 'lucide-react'
-import { EllaArrow } from '@ella/ui'
-import { useMobileMenu } from '../../stores/ui-store'
+import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
+import { useMobileMenu, useTheme } from '../../stores/ui-store'
 import { useIsMobile } from '../../hooks'
 
 export function Header() {
   const { toggle } = useMobileMenu()
   const isMobile = useIsMobile()
+  const { theme } = useTheme()
+  const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
 
   // Desktop: no header needed
   if (!isMobile) return null
@@ -25,7 +27,7 @@ export function Header() {
         <Menu className="w-5 h-5 text-foreground" />
       </button>
 
-      <img src={EllaArrow} alt="Ella" className="h-6" />
+      <img src={logo} alt="Ella" className="h-7 object-contain" />
 
       {/* Spacer for symmetry */}
       <div className="w-9" />

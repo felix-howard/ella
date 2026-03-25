@@ -70,7 +70,7 @@ export function CustomSelect({
         className={cn(
           'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground text-left',
           'flex items-center justify-between',
-          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+          'focus:outline-none',
           'transition-colors',
           error ? 'border-error' : 'border-border',
           disabled && 'opacity-50 cursor-not-allowed'

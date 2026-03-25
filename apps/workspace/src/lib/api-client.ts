@@ -881,6 +881,15 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    getNotificationSubscriptions: (staffId: string) =>
+      request<NotificationSubscriptionsResponse>(`/team/members/${staffId}/notification-subscriptions`),
+
+    updateNotificationSubscriptions: (staffId: string, targetStaffIds: string[]) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/notification-subscriptions`, {
+        method: 'PUT',
+        body: JSON.stringify({ targetStaffIds }),
+      }),
+
     getAvatarPresignedUrl: (staffId: string, data: AvatarPresignedUrlInput) =>
       request<AvatarPresignedUrlResponse>(`/team/members/${staffId}/avatar/presigned-url`, {
         method: 'POST',
@@ -2052,6 +2061,17 @@ export interface UpdateStaffProfileInput {
   lastName?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean
+}
+
+export interface NotificationSubscriptionsResponse {
+  subscriptions: string[]
+  members: Array<{
+    id: string
+    name: string
+    avatarUrl: string | null
+    role: string
+    _count: { managedClients: number }
+  }>
 }
 
 export interface AvatarPresignedUrlInput {

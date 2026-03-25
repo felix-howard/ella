@@ -12,6 +12,7 @@ import { Button, Input, Switch } from '@ella/ui'
 import { api, type StaffProfile } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { formatPhone } from '../../lib/formatters'
+import { NotificationSubscriptions } from './notification-subscriptions'
 
 // Phone input styles
 import 'react-phone-number-input/style.css'
@@ -283,6 +284,11 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
             <p className="text-xs text-amber-600 dark:text-amber-400">
               {t('profile.phoneRequiredForSms')}
             </p>
+          )}
+
+          {/* Admin: subscribe to other members' client notifications */}
+          {staff.role === 'ADMIN' && (
+            <NotificationSubscriptions staffId={staffId} isEditing={isEditing} />
           )}
         </div>
 

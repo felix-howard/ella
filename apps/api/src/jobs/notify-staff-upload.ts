@@ -90,7 +90,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
     const { clientName, organizationId, managedById } = caseInfo
 
     // Step 2: Query recipients
-    // Admins get ALL client uploads, managing staff gets their managed clients
+    // Managing staff gets own clients, subscribers get via NotificationSubscription table
     const recipients = await step.run('get-recipients', async () => {
       const staff = await prisma.staff.findMany({
         where: {
@@ -99,8 +99,14 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
           notifyOnUpload: true,
           isActive: true,
           OR: [
-            { role: 'ADMIN' },
+            // Direct manager of the client
             ...(managedById ? [{ id: managedById }] : []),
+            // Staff who subscribed to the managing staff's client uploads
+            ...(managedById ? [{
+              notificationSubscriptions: {
+                some: { targetStaffId: managedById },
+              },
+            }] : []),
           ],
         },
         select: {

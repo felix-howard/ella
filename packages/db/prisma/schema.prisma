@@ -403,6 +403,10 @@ model Staff {
   uploadedDraftReturns DraftReturn[]
   sentMessages  Message[] @relation("SentMessages")
 
+  // Notification subscriptions (admin subscribes to other staff's client uploads)
+  notificationSubscriptions   NotificationSubscription[] @relation("NotificationSubscriber")
+  notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -422,6 +426,22 @@ model StaffPresence {
   updatedAt DateTime @updatedAt
 
   @@index([isOnline])
+}
+
+// Tracks which staff's client uploads an admin subscribes to for SMS notifications
+model NotificationSubscription {
+  id              String   @id @default(cuid())
+  subscriberId    String   // The staff who wants to receive notifications
+  targetStaffId   String   // The staff whose clients trigger notifications
+
+  subscriber      Staff    @relation("NotificationSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  targetStaff     Staff    @relation("NotificationTarget", fields: [targetStaffId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@unique([subscriberId, targetStaffId])
+  @@index([subscriberId])
+  @@index([targetStaffId])
 }
 
 model Organization {

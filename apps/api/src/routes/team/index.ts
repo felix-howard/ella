@@ -16,6 +16,7 @@ import {
   inviteMemberSchema,
   updateMemberRoleSchema,
   updateProfileSchema,
+  updateNotificationSubscriptionsSchema,
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
 } from './schemas'
@@ -497,6 +498,116 @@ teamRoute.patch(
     }
 
     return c.json({ success: true, staff: { ...updated, avatarUrl: await resolveAvatarUrl(updated.avatarUrl) } })
+  }
+)
+
+// GET /team/members/:staffId/notification-subscriptions - Get subscriptions
+teamRoute.get('/members/:staffId/notification-subscriptions', async (c) => {
+  const user = c.get('user')
+  const staffId = c.req.param('staffId')
+  const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+  if (!targetStaffId) {
+    return c.json({ error: 'Staff ID required' }, 400)
+  }
+
+  if (!canEditStaff(user, targetStaffId)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  // Get current subscriptions
+  const subscriptions = await prisma.notificationSubscription.findMany({
+    where: { subscriberId: targetStaffId },
+    select: { targetStaffId: true },
+  })
+
+  // Get all org members except self (for checkbox list)
+  const members = await prisma.staff.findMany({
+    where: {
+      organizationId: user.organizationId,
+      isActive: true,
+      id: { not: targetStaffId },
+    },
+    select: {
+      id: true,
+      name: true,
+      avatarUrl: true,
+      role: true,
+      _count: { select: { managedClients: true } },
+    },
+    orderBy: { name: 'asc' },
+  })
+
+  const membersWithAvatars = await Promise.all(
+    members.map(async (m) => ({
+      ...m,
+      avatarUrl: await resolveAvatarUrl(m.avatarUrl),
+    }))
+  )
+
+  return c.json({
+    subscriptions: subscriptions.map((s) => s.targetStaffId),
+    members: membersWithAvatars,
+  })
+})
+
+// PUT /team/members/:staffId/notification-subscriptions - Replace subscriptions
+teamRoute.put(
+  '/members/:staffId/notification-subscriptions',
+  zValidator('json', updateNotificationSubscriptionsSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const targetStaffId = staffId === 'me' ? user.staffId : staffId
+
+    if (!targetStaffId) {
+      return c.json({ error: 'Staff ID required' }, 400)
+    }
+
+    if (!canEditStaff(user, targetStaffId)) {
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    const { targetStaffIds } = c.req.valid('json')
+
+    // Verify all target staff belong to same org
+    if (targetStaffIds.length > 0) {
+      const validCount = await prisma.staff.count({
+        where: {
+          id: { in: targetStaffIds },
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+      })
+
+      if (validCount !== targetStaffIds.length) {
+        return c.json({ error: 'Some target staff IDs are invalid' }, 400)
+      }
+    }
+
+    // Replace all subscriptions in a transaction
+    await prisma.$transaction([
+      prisma.notificationSubscription.deleteMany({
+        where: { subscriberId: targetStaffId },
+      }),
+      ...(targetStaffIds.length > 0
+        ? [
+            prisma.notificationSubscription.createMany({
+              data: targetStaffIds.map((tid) => ({
+                subscriberId: targetStaffId,
+                targetStaffId: tid,
+              })),
+            }),
+          ]
+        : []),
+    ])
+
+    // Audit log
+    logTeamAction('NOTIFICATION_SUBSCRIPTIONS_UPDATED', targetStaffId, user.staffId, {
+      newValue: { targetStaffIds },
+    })
+
+    return c.json({ success: true })
   }
 )
 

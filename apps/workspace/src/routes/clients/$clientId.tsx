@@ -22,6 +22,7 @@ import {
   Loader2,
   Link2,
   Trash2,
+  Upload,
   ClipboardList,
   FolderOpen,
   Calculator,
@@ -531,11 +532,11 @@ function ClientDetailPage() {
                 href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-muted/60 text-foreground hover:bg-muted transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-muted/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
                 title={t('clientDetail.openUpload')}
               >
-                <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Upload</span>
+                <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Upload</span>
               </a>
             )}
 
@@ -544,10 +545,10 @@ function ClientDetailPage() {
               <Link
                 to="/messages/$caseId"
                 params={{ caseId: activeCaseId }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/60 hover:bg-muted transition-all duration-200 text-xs font-medium text-foreground"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-muted/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('clientDetail.messages')}</span>
+                <span>{t('clientDetail.messages')}</span>
                 {isUnreadLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                 ) : !isUnreadError && unreadCount > 0 && (
@@ -559,11 +560,12 @@ function ClientDetailPage() {
             )}
             <button
               onClick={() => setIsDeleteModalOpen(true)}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-destructive/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.16)] transition-all duration-200"
               aria-label={t('clientDetail.deleteClient')}
               title={t('clientDetail.deleteClient')}
             >
-              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
             </button>
           </div>
         </div>

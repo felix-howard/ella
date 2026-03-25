@@ -5,9 +5,9 @@
 
 import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@ella/ui'
+import { cn, Tooltip } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
-import { sanitizeText, linkifyText, formatRelativeTime, getInitials, getAvatarColor } from '../../lib/formatters'
+import { sanitizeText, linkifyText, formatRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
@@ -122,7 +122,11 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/30 text-[11px] text-muted-foreground/70">
           <Bot className="w-3 h-3" />
           <span>{safeContent}</span>
-          {showTime && <span className="ml-1 opacity-60">• {time}</span>}
+          {showTime && (
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+              <span className="ml-1 opacity-60 cursor-default">• {time}</span>
+            </Tooltip>
+          )}
         </div>
       </div>
     )
@@ -205,7 +209,11 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 mt-1">
           <ChannelIcon className="w-3 h-3" />
           <span>{channelLabel}</span>
-          {showTime && <span>{time}</span>}
+          {showTime && (
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+              <span className="cursor-default">{time}</span>
+            </Tooltip>
+          )}
         </div>
       </div>
     )
@@ -272,7 +280,11 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/60">
             <ChannelIcon className="w-2.5 h-2.5" />
             <span>{channelLabel}</span>
-            {showTime && <span>{time}</span>}
+            {showTime && (
+              <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+                <span className="cursor-default">{time}</span>
+              </Tooltip>
+            )}
           </div>
         </div>
       </div>
@@ -304,9 +316,13 @@ function StaffAvatar({ sentBy }: { sentBy?: Message['sentBy'] }) {
 function SenderMeta({ sentBy, showTime, createdAt }: { sentBy?: Message['sentBy']; showTime: boolean; createdAt: string }) {
   if (!sentBy && !showTime) return null
   return (
-    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9">
+    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9 cursor-default">
       {sentBy && <span className="font-medium text-foreground/70">{sentBy.name}</span>}
-      {showTime && <span>{formatRelativeTime(createdAt)}</span>}
+      {showTime && (
+        <Tooltip content={formatFullDateTime(createdAt)} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+          <span>{formatRelativeTime(createdAt)}</span>
+        </Tooltip>
+      )}
     </div>
   )
 }

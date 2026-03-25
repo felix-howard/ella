@@ -195,6 +195,7 @@ function ProfilePage() {
             canChangeRole={canChangeRole}
             onRoleChange={(role) => roleMutation.mutate(role)}
             isRoleChangePending={roleMutation.isPending}
+            hideNotifications
           />
         </div>
 

@@ -42,6 +42,8 @@ export interface ClientWithActions {
   actionCounts: ActionCounts | null
   /** Upload stats for notification badge (per-CPA tracking) */
   uploads?: ClientUploads
+  /** Staff who created this client */
+  createdBy?: { id: string; name: string } | null
   /** Staff assigned to this client (admin-only, for list view) */
   assignedStaff?: { id: string; name: string }[]
   latestCase: {

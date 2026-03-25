@@ -1,19 +1,20 @@
 /**
- * Client List Page - View all clients in Kanban or List view
- * Features: view toggle, search, status filter, activity sort
+ * Client List Page - View all clients with search, managed-by filter, and attention chips
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, RefreshCw, Filter, AlertCircle, Loader2, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ClientListTable } from '../../components/clients'
+import { CustomSelect } from '../../components/ui/custom-select'
 import { useDebouncedValue } from '../../hooks'
-import { CASE_STATUS_LABELS, UI_TEXT, CLIENT_SORT_OPTIONS, type ClientSortOption } from '../../lib/constants'
-import { api, type TaxCaseStatus } from '../../lib/api-client'
+import { useOrgRole } from '../../hooks/use-org-role'
+import { UI_TEXT } from '../../lib/constants'
+import { api } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/')({
   component: ClientListPage,
@@ -21,43 +22,66 @@ export const Route = createFileRoute('/clients/')({
 
 function ClientListPage() {
   const { t } = useTranslation()
+  const { isAdmin, staffId } = useOrgRole()
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<TaxCaseStatus | 'ALL'>('ALL')
-  const [sortBy, setSortBy] = useState<ClientSortOption>('activity')
+  const [managedById, setManagedById] = useState<string | undefined>(undefined)
+  const [attention, setAttention] = useState<string | undefined>(undefined)
 
   // Debounce search query for server-side search (300ms delay)
   const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)
 
-  // Fetch clients from API with server-side search, filter, and sort
+  // Fetch team members for "Managed By" dropdown (admin only)
+  const { data: teamData } = useQuery({
+    queryKey: ['team-members'],
+    queryFn: () => api.team.listMembers(),
+    enabled: isAdmin,
+    staleTime: 60000,
+  })
+  const teamMembers = teamData?.data ?? []
+
+  // Fetch clients from API
   const {
     data: clientsResponse,
     isLoading,
     isError,
     error,
     refetch,
-    isRefetching,
   } = useQuery({
     queryKey: ['clients', {
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
-      sort: sortBy,
+      managedById,
+      attention,
     }],
     queryFn: () => api.clients.list({
       limit: 100,
       search: debouncedSearch || undefined,
-      status: statusFilter === 'ALL' ? undefined : statusFilter,
-      sort: sortBy,
+      managedById,
+      attention: attention as 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' | undefined,
     }),
+    placeholderData: keepPreviousData,
   })
 
   const clients = clientsResponse?.data ?? []
-
-  const handleRefresh = () => {
-    refetch()
-  }
+  const attentionSummary = clientsResponse?.attentionSummary
 
   const { clients: clientsText } = UI_TEXT
-  const statusOptions: (TaxCaseStatus | 'ALL')[] = ['ALL', 'INTAKE', 'WAITING_DOCS', 'IN_PROGRESS', 'READY_FOR_ENTRY', 'ENTRY_COMPLETE', 'REVIEW', 'FILED']
+
+  const attentionChips = [
+    { key: 'newUploads', label: t('clients.newUploads'), count: attentionSummary?.newUploads ?? 0 },
+    { key: 'needsVerification', label: t('clients.needsVerification'), count: attentionSummary?.needsVerification ?? 0 },
+    { key: 'stale', label: t('clients.stale'), count: attentionSummary?.stale ?? 0 },
+    { key: 'readyForEntry', label: t('clients.readyForEntry'), count: attentionSummary?.readyForEntry ?? 0 },
+  ]
+
+  // Build managed-by dropdown options
+  const managedByOptions = useMemo(() => {
+    const opts = []
+    if (staffId) opts.push({ value: staffId, label: t('clients.me') })
+    for (const m of teamMembers.filter(m => m.id !== staffId && m.isActive)) {
+      opts.push({ value: m.id, label: m.name })
+    }
+    return opts
+  }, [teamMembers, staffId, t])
 
   return (
     <PageContainer>
@@ -79,10 +103,10 @@ function ClientListPage() {
         </Link>
       </div>
 
-      {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+      {/* Controls Bar - single row: Search + Managed By + Attention Chips */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           {isSearchPending ? (
             <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" aria-hidden="true" />
           ) : (
@@ -97,58 +121,48 @@ function ClientListPage() {
           />
         </div>
 
-        {/* Filter and View Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Sort Selector */}
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as ClientSortOption)}
-              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-card shadow-sm text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              aria-label={t('clients.sortBy')}
-            >
-              {CLIENT_SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
-          </div>
+        {/* Managed By dropdown (admin only) */}
+        {isAdmin && (
+          <CustomSelect
+            value={managedById ?? ''}
+            onChange={(val) => setManagedById(val || undefined)}
+            options={managedByOptions}
+            placeholder={t('clients.allMembers')}
+            className="w-[160px]"
+          />
+        )}
 
-          {/* Status Filter */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as TaxCaseStatus | 'ALL')}
-              className="appearance-none pl-9 pr-8 py-2.5 rounded-lg border-none bg-card shadow-sm text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              aria-label={t('clients.filterByStatus')}
+        {/* Attention chips */}
+        {attentionChips
+          .filter(chip => chip.count > 0)
+          .map(chip => (
+            <button
+              key={chip.key}
+              onClick={() => setAttention(attention === chip.key ? undefined : chip.key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                attention === chip.key
+                  ? 'bg-primary text-white'
+                  : 'bg-card text-muted-foreground hover:bg-muted shadow-sm'
+              )}
             >
-              <option value="ALL">{UI_TEXT.actions.all}</option>
-              {statusOptions.slice(1).map((status) => (
-                <option key={status} value={status}>
-                  {CASE_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
-          </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={handleRefresh}
-            disabled={isRefetching}
-            className="p-2.5 rounded-lg border-none bg-card shadow-sm hover:bg-muted transition-colors disabled:opacity-50"
-            aria-label={UI_TEXT.actions.refresh}
-          >
-            <RefreshCw className={cn('w-4 h-4 text-muted-foreground', isRefetching && 'animate-spin')} />
-          </button>
-        </div>
+              {chip.label}
+              <span className={cn(
+                'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold',
+                attention === chip.key
+                  ? 'bg-white/20 text-white'
+                  : 'bg-muted text-muted-foreground'
+              )}>
+                {chip.count}
+              </span>
+            </button>
+          ))
+        }
       </div>
 
       {/* Content */}
       {isLoading ? (
-        <ClientListTable clients={[]} isLoading />
+        <ClientListTable clients={[]} isLoading isAdmin={isAdmin} />
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
@@ -165,7 +179,7 @@ function ClientListPage() {
           </button>
         </div>
       ) : (
-        <ClientListTable clients={clients} />
+        <ClientListTable clients={clients} isAdmin={isAdmin} />
       )}
     </PageContainer>
   )

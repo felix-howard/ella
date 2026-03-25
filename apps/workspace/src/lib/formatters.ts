@@ -154,11 +154,58 @@ export function sanitizeText(text: string): string {
 }
 
 /**
+ * Split text into segments of plain text and URLs
+ * Returns an array of { type, value } for rendering
+ */
+export function linkifyText(text: string): Array<{ type: 'text' | 'link'; value: string }> {
+  if (!text) return []
+  const urlRegex = /(https?:\/\/[^\s<>'"]+)/g
+  const parts: Array<{ type: 'text' | 'link'; value: string }> = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+    }
+    parts.push({ type: 'link', value: match[1] })
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+
+  return parts.length > 0 ? parts : [{ type: 'text', value: text }]
+}
+
+/**
  * Strip HTML tags from input - for cleaning user input before sending
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return ''
   return text.replace(/<[^>]*>/g, '')
+}
+
+/**
+ * Format concise relative time: "25 min", "2 hrs", "3 days", "2 months"
+ */
+export function formatShortRelativeTime(isoString: string): string {
+  const now = new Date()
+  const date = new Date(isoString)
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffHrs = Math.floor(diffMin / 60)
+  const diffDays = Math.floor(diffHrs / 24)
+  const diffMonths = Math.floor(diffDays / 30)
+  const diffYears = Math.floor(diffDays / 365)
+
+  if (diffMin < 1) return 'now'
+  if (diffMin < 60) return `${diffMin} min`
+  if (diffHrs < 24) return `${diffHrs} hr${diffHrs > 1 ? 's' : ''}`
+  if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''}`
+  if (diffMonths < 12) return `${diffMonths} month${diffMonths > 1 ? 's' : ''}`
+  return `${diffYears} yr${diffYears > 1 ? 's' : ''}`
 }
 
 /**
@@ -168,6 +215,22 @@ export function formatRelativeTime(isoString: string, locale?: string): string {
   const resolved = locale ?? i18n.language ?? 'vi'
   const lang = resolved.toLowerCase().startsWith('en') ? 'en' : 'vi'
   return getRelativeTime(new Date(isoString), lang)
+}
+
+/**
+ * Format full date-time for tooltip display
+ * Example: "Wed, Mar 25, 9:06 AM"
+ */
+export function formatFullDateTime(isoString: string): string {
+  const date = new Date(isoString)
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
 }
 
 /**

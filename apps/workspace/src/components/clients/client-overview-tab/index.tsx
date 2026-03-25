@@ -4,6 +4,7 @@
  */
 import { type ClientDetail } from '../../../lib/api-client'
 import { ClientProfileCard } from './client-profile-card'
+import { ClientMetaInfo } from './client-meta-info'
 import { ClientQuickStats } from './client-quick-stats'
 import { ClientActivityTimeline } from './client-activity-timeline'
 import { ClientAssignedStaff } from './client-assigned-staff'
@@ -19,6 +20,14 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
       {/* Profile Card - Full width */}
       <ClientProfileCard client={client} />
 
+      {/* Audit metadata: created/updated dates and staff */}
+      <ClientMetaInfo
+        createdAt={client.createdAt}
+        updatedAt={client.updatedAt}
+        createdBy={client.createdBy}
+        updatedBy={client.updatedBy}
+      />
+
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
 
@@ -32,8 +41,8 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
           />
         </div>
 
-        {/* Assigned Staff (1/3 width) */}
-        <ClientAssignedStaff clientId={client.id} />
+        {/* Managed By (1/3 width) */}
+        <ClientAssignedStaff clientId={client.id} managedBy={client.managedBy} />
       </div>
 
       {/* Activity Timeline - Full width */}

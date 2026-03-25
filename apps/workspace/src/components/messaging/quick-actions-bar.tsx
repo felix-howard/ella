@@ -302,7 +302,7 @@ export function QuickActionsBar({
                 'w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-transparent',
                 'resize-none overflow-hidden',
                 'focus:outline-none focus:bg-muted/70 focus:border-border/40',
-                'text-sm text-foreground placeholder:text-muted-foreground/60',
+                'text-base md:text-sm text-foreground placeholder:text-muted-foreground/60',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 'transition-all duration-200'
               )}

@@ -18,9 +18,6 @@ vi.mock('../../../lib/db', () => ({
       count: vi.fn(),
       findMany: vi.fn(),
     },
-    clientAssignment: {
-      findMany: vi.fn(),
-    },
   },
 }))
 
@@ -29,6 +26,7 @@ vi.mock('../../../services/storage', () => ({
   getSignedUploadUrl: vi.fn(),
   generateAvatarKey: vi.fn(),
   getSignedDownloadUrl: vi.fn(),
+  resolveAvatarUrl: vi.fn().mockImplementation((url: string | null) => Promise.resolve(url)),
 }))
 
 // Mock config
@@ -120,8 +118,8 @@ describe('Team Routes', () => {
   describe('GET /team/members', () => {
     it('returns active staff in org', async () => {
       const mockMembers = [
-        { id: 's1', clerkId: 'c1', email: 'a@t.com', name: 'A', role: 'ADMIN', avatarUrl: null, lastLoginAt: null, _count: { clientAssignments: 3 } },
-        { id: 's2', clerkId: 'c2', email: 'b@t.com', name: 'B', role: 'STAFF', avatarUrl: null, lastLoginAt: null, _count: { clientAssignments: 1 } },
+        { id: 's1', clerkId: 'c1', email: 'a@t.com', name: 'A', role: 'ADMIN', avatarUrl: null, lastLoginAt: null, _count: { managedClients: 3 } },
+        { id: 's2', clerkId: 'c2', email: 'b@t.com', name: 'B', role: 'STAFF', avatarUrl: null, lastLoginAt: null, _count: { managedClients: 1 } },
       ]
       vi.mocked(prisma.client.count).mockResolvedValueOnce(5)
       vi.mocked(prisma.staff.findMany).mockResolvedValueOnce(mockMembers as never)
@@ -288,25 +286,6 @@ describe('Team Routes', () => {
   })
 
   // ============================================
-  // GET /team/members/:staffId/assignments
-  // ============================================
-  describe('GET /team/members/:staffId/assignments', () => {
-    it('returns assignments for staff in org', async () => {
-      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({ id: 's2', organizationId: 'org_db_1' } as never)
-      vi.mocked(prisma.clientAssignment.findMany).mockResolvedValueOnce([
-        { id: 'a1', staffId: 's2', clientId: 'c1', client: { id: 'c1', name: 'Client A', phone: '123' } },
-      ] as never)
-
-      const app = createApp()
-      const res = await app.request('/team/members/s2/assignments')
-
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data).toHaveLength(1)
-    })
-  })
-
-  // ============================================
   // GET /team/invitations
   // ============================================
   describe('GET /team/invitations', () => {
@@ -350,12 +329,12 @@ describe('Team Routes', () => {
       id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
       avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
       organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
-      _count: { clientAssignments: 2 },
+      _count: { managedClients: 2 },
     }
 
     it('GET profile returns canEdit=true for admin viewing another member', async () => {
       vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
-      vi.mocked(prisma.clientAssignment.findMany).mockResolvedValueOnce([] as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
 
       const app = createApp()
       const res = await app.request('/team/members/staff_2/profile')
@@ -367,7 +346,7 @@ describe('Team Routes', () => {
 
     it('GET profile returns canEdit=false for non-admin viewing another member', async () => {
       vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(targetStaff as never)
-      vi.mocked(prisma.clientAssignment.findMany).mockResolvedValueOnce([] as never)
+      vi.mocked(prisma.client.findMany).mockResolvedValueOnce([] as never)
 
       const app = createApp(memberUser())
       const res = await app.request('/team/members/staff_1/profile')

@@ -4,6 +4,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import {
   getPaginationParams,
@@ -37,6 +38,7 @@ import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -87,7 +89,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, status, sort } = c.req.valid('query')
+  const { page, limit, search, managedById, attention } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -98,26 +100,25 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   if (search) {
     const sanitizedSearch = sanitizeSearchInput(search)
     if (sanitizedSearch) {
+      // Normalize phone: strip non-digits, use if >= 3 digits to match E.164 stored format
+      const digitsOnly = sanitizedSearch.replace(/\D/g, '')
+      const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitizedSearch
+
       where.OR = [
         { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
         { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },  // Keep for backward compat
-        { phone: { contains: sanitizedSearch } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { phone: { contains: phoneSearch } },
       ]
     }
   }
 
-  if (status) {
-    where.taxCases = { some: { status } }
+  // Managed By filter (admin only — non-admins already scoped by buildClientScopeFilter)
+  if (managedById && isAdmin) {
+    where.managedById = managedById
   }
 
-  // Determine sort order based on sort parameter
-  type OrderByType = { firstName: 'asc' } | { createdAt: 'desc' }
-  let orderBy: OrderByType = { createdAt: 'desc' }
-  if (sort === 'name') {
-    orderBy = { firstName: 'asc' }
-  }
-  // For activity and stale sorting, we sort in JS after fetching due to relation complexity
+  const orderBy = { createdAt: 'desc' as const }
 
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
@@ -129,14 +130,13 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         profile: {
           select: { intakeAnswers: true }
         },
-        // Include assigned staff names for admin list view
-        ...(isAdmin ? {
-          assignments: {
-            select: {
-              staff: { select: { id: true, name: true } },
-            },
-          },
-        } : {}),
+        // Include managing staff for list view
+        managedBy: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+        createdBy: {
+          select: { id: true, name: true },
+        },
         taxCases: {
           take: 1,
           orderBy: { lastActivityAt: 'desc' },
@@ -205,7 +205,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   }
 
   // Transform to ClientWithActions
-  const data: ClientWithActions[] = clients.map((client) => {
+  const data: ClientWithActions[] = await Promise.all(clients.map(async (client) => {
     const latestCase = client.taxCases[0]
     const intakeAnswers = (client.profile?.intakeAnswers as Record<string, unknown>) || {}
     const hasIntakeAnswers = Object.keys(intakeAnswers).length > 0
@@ -245,10 +245,15 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       }
     }
 
-    // Map assigned staff for admin view
-    const assignedStaff = isAdmin && 'assignments' in client
-      ? (client.assignments as unknown as { staff: { id: string; name: string } }[]).map((a) => a.staff)
-      : undefined
+    // Map managed by staff
+    const managedBy = client.managedBy
+      ? { id: client.managedBy.id, name: client.managedBy.name, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
+      : null
+
+    // Map created by staff
+    const createdBy = client.createdBy
+      ? { id: client.createdBy.id, name: client.createdBy.name }
+      : null
 
     // Get upload stats for this client
     const uploads = uploadStatsMap.get(client.id) ?? { newCount: 0, totalCount: 0, latestAt: null }
@@ -264,7 +269,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
-      ...(assignedStaff ? { assignedStaff } : {}),
+      managedBy,
+      createdBy,
       actionCounts,
       uploads,
       latestCase: latestCase ? {
@@ -276,33 +282,41 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         lastActivityAt: latestCase.lastActivityAt.toISOString(),
       } : null,
     }
-  })
+  }))
 
-  // Apply activity-based sorting in JS (Prisma doesn't support nested relation sorting well)
-  let sortedData = data
-  if (sort === 'activity') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : 0
-      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : 0
-      return bTime - aTime // Most recent first
-    })
-  } else if (sort === 'stale') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : Infinity
-      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : Infinity
-      return aTime - bTime // Oldest first (most stale)
-    })
-  } else if (sort === 'recentUploads') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.uploads?.latestAt ? new Date(a.uploads.latestAt).getTime() : 0
-      const bTime = b.uploads?.latestAt ? new Date(b.uploads.latestAt).getTime() : 0
-      return bTime - aTime // Most recent uploads first
+  // Compute attention summary from fetched page (max 100 records).
+  // Counts reflect current page only — accurate for orgs with <200 clients.
+  const STALE_THRESHOLD_DAYS = 7
+  const attentionSummary = {
+    newUploads: data.filter(c => (c.uploads?.newCount ?? 0) > 0).length,
+    needsVerification: data.filter(c => (c.actionCounts?.toVerify ?? 0) > 0).length,
+    stale: data.filter(c => (c.actionCounts?.staleDays ?? 0) >= STALE_THRESHOLD_DAYS).length,
+    readyForEntry: data.filter(c => c.computedStatus === 'READY_FOR_ENTRY').length,
+  }
+
+  // Apply attention filter (post-filter since these are computed fields)
+  let filteredData = data
+  if (attention) {
+    filteredData = data.filter((client) => {
+      switch (attention) {
+        case 'newUploads':
+          return (client.uploads?.newCount ?? 0) > 0
+        case 'needsVerification':
+          return (client.actionCounts?.toVerify ?? 0) > 0
+        case 'stale':
+          return (client.actionCounts?.staleDays ?? 0) >= STALE_THRESHOLD_DAYS
+        case 'readyForEntry':
+          return client.computedStatus === 'READY_FOR_ENTRY'
+        default:
+          return true
+      }
     })
   }
 
   return c.json({
-    data: sortedData,
-    pagination: buildPaginationResponse(safePage, safeLimit, total),
+    data: filteredData,
+    pagination: buildPaginationResponse(safePage, safeLimit, attention ? filteredData.length : total),
+    attentionSummary,
   })
 })
 
@@ -318,7 +332,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Create client with org scope
+    // Create client with org scope and managed-by
     const client = await tx.client.create({
       data: {
         firstName,
@@ -327,6 +341,8 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         ...clientData,
         language: clientData.language as Language,
         organizationId: user.organizationId,
+        managedById: user.staffId,  // Always set creator as manager
+        createdById: user.staffId,  // Track who created this client
         profile: {
           create: {
             // Legacy fields for backward compatibility
@@ -381,17 +397,6 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         lastMessageAt: new Date(),
       },
     })
-
-    // Auto-assign creator to client if non-admin (so they can see it immediately)
-    const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
-    if (!isAdmin && user.staffId) {
-      await tx.clientAssignment.create({
-        data: {
-          clientId: client.id,
-          staffId: user.staffId,
-        },
-      })
-    }
 
     return { client, taxCase, profile: client.profile! }
   })
@@ -475,6 +480,9 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     where: { id, ...buildClientScopeFilter(user) },
     include: {
       profile: true,
+      managedBy: { select: { id: true, name: true, avatarUrl: true } },
+      createdBy: { select: { id: true, name: true } },
+      updatedBy: { select: { id: true, name: true } },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
@@ -526,6 +534,9 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     ...client,
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
+    managedBy: client.managedBy
+      ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
+      : null,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: taxCasesWithPortal,
@@ -666,7 +677,7 @@ clientsRoute.patch(
 
     const client = await prisma.client.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, updatedById: user.staffId },
     })
 
     return c.json({
@@ -763,11 +774,17 @@ clientsRoute.patch(
         })
       }
 
-      // Update profile
-      const updatedProfile = await prisma.clientProfile.update({
-        where: { clientId: id },
-        data: updateData,
-      })
+      // Update profile + track who updated the client
+      const [updatedProfile] = await Promise.all([
+        prisma.clientProfile.update({
+          where: { clientId: id },
+          data: updateData,
+        }),
+        prisma.client.update({
+          where: { id },
+          data: { updatedById: user.staffId },
+        }),
+      ])
 
       // Detect boolean fields that changed to false (for cascade cleanup)
       const changedToFalse: string[] = []
@@ -1196,5 +1213,47 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
 
   return c.json({ success: true, message: 'Client deleted successfully' })
 })
+
+// PATCH /clients/:id/managed-by - Change client manager (admin only)
+clientsRoute.patch(
+  '/:id/managed-by',
+  requireOrgAdmin,
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', z.object({ staffId: z.string().nullable() })),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { staffId } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Verify client belongs to org
+    const client = await prisma.client.findFirst({
+      where: { id, organizationId: user.organizationId },
+    })
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    // If assigning to a staff, verify they belong to org and are active
+    if (staffId) {
+      const staff = await prisma.staff.findFirst({
+        where: { id: staffId, organizationId: user.organizationId, isActive: true },
+      })
+      if (!staff) {
+        return c.json({ error: 'NOT_FOUND', message: 'Staff not found' }, 404)
+      }
+    }
+
+    const updated = await prisma.client.update({
+      where: { id },
+      data: { managedById: staffId },
+      include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+    })
+
+    const managedBy = updated.managedBy
+      ? { ...updated.managedBy, avatarUrl: await resolveAvatarUrl(updated.managedBy.avatarUrl) }
+      : null
+    return c.json({ data: { managedBy } })
+  }
+)
 
 export { clientsRoute }

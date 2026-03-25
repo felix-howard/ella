@@ -11,10 +11,11 @@ import { MessageBubble, TypingIndicator } from './message-bubble'
 import type { Message } from '../../lib/api-client'
 
 export interface MessageThreadProps {
-  messages: Message[]
+  messages: (Message & { _optimistic?: 'sending' | 'failed' })[]
   isLoading?: boolean
   isTyping?: boolean
   className?: string
+  onRetry?: (message: Message) => void
 }
 
 export function MessageThread({
@@ -22,6 +23,7 @@ export function MessageThread({
   isLoading,
   isTyping,
   className,
+  onRetry,
 }: MessageThreadProps) {
   const { t, i18n } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -145,7 +147,7 @@ export function MessageThread({
           {/* Messages for this date */}
           <div className="space-y-2">
             {group.messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} onRetry={onRetry} />
             ))}
           </div>
         </div>

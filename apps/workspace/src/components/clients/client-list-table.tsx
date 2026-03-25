@@ -10,18 +10,17 @@ import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
-import { useOrgRole } from '../../hooks/use-org-role'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
 interface ClientListTableProps {
   clients: ClientWithActions[]
   isLoading?: boolean
+  isAdmin?: boolean
 }
 
-export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
+export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTableProps) {
   const { t } = useTranslation()
-  const { isAdmin } = useOrgRole()
 
   if (isLoading) {
     return <ClientListTableSkeleton isAdmin={isAdmin} />
@@ -50,17 +49,20 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
                 {t('clients.documents')}
               </th>
               {isAdmin && (
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                  {t('team.assignedTo')}
+                <th className="text-left font-medium text-muted-foreground px-4 py-3">
+                  {t('team.managedBy')}
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                {t('clients.created')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.uploads')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.lastUpload')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.tasks')}
               </th>
               <th className="w-10"></th>
@@ -80,14 +82,18 @@ export function ClientListTable({ clients, isLoading }: ClientListTableProps) {
 interface ClientRowProps {
   client: ClientWithActions
   isLast: boolean
-  isAdmin: boolean
+  isAdmin?: boolean
 }
 
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
   const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
-  // Memoize avatar color to prevent recalculation on every render
+  // Memoize avatar colors to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
+  const managedByAvatarColor = useMemo(
+    () => client.managedBy ? getAvatarColor(client.managedBy.name) : null,
+    [client.managedBy]
+  )
 
   return (
     <Link
@@ -151,25 +157,42 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         )}
       </td>
 
-      {/* Assigned to column - admin only */}
+      {/* Managed by column (admin only) */}
       {isAdmin && (
-        <td className="px-4 py-3 hidden lg:table-cell">
-          {client.assignedStaff && client.assignedStaff.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {client.assignedStaff.map((staff) => (
-                <span
-                  key={staff.id}
-                  className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
-                >
-                  {staff.name}
-                </span>
-              ))}
+        <td className="px-4 py-3">
+          {client.managedBy ? (
+            <div className="flex items-center gap-2">
+              {client.managedBy.avatarUrl ? (
+                <img
+                  src={client.managedBy.avatarUrl}
+                  alt={client.managedBy.name}
+                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className={cn(
+                  'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
+                  managedByAvatarColor?.bg,
+                  managedByAvatarColor?.text
+                )}>
+                  <span className="font-semibold text-[10px]">
+                    {getInitials(client.managedBy.name)}
+                  </span>
+                </div>
+              )}
+              <span className="text-sm">{client.managedBy.name}</span>
             </div>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
         </td>
       )}
+
+      {/* Created column */}
+      <td className="px-4 py-3 hidden lg:table-cell">
+        <span className="text-sm text-muted-foreground">
+          {formatRelativeTime(client.createdAt, i18n.language as 'en' | 'vi')}
+        </span>
+      </td>
 
       {/* Uploads column */}
       <td className="px-4 py-3 hidden md:table-cell">
@@ -195,7 +218,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Action badges column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
           {actionCounts?.hasNewActivity && (
             <ActionBadge type="new-activity" />
@@ -240,7 +263,7 @@ function EmptyState() {
 /**
  * Skeleton loader for table - accepts isAdmin to match live table column layout
  */
-export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean }) {
+export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -260,17 +283,20 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
               {isAdmin && (
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                <th className="text-left font-medium text-muted-foreground px-4 py-3">
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
               </th>
               <th className="w-10"></th>
@@ -298,19 +324,20 @@ export function ClientListTableSkeleton({ isAdmin = false }: { isAdmin?: boolean
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
                 </td>
                 {isAdmin && (
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    <div className="flex gap-1">
-                      <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
-                    </div>
+                  <td className="px-4 py-3">
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                   </td>
                 )}
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex gap-1">
                     <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
                     <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />

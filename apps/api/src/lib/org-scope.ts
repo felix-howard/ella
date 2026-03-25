@@ -1,16 +1,16 @@
 /**
  * Organization scope utilities for multi-tenancy client filtering
- * Builds Prisma where clauses that scope queries by org + assignment
+ * Builds Prisma where clauses that scope queries by org + managedBy
  * - Admin: sees all clients in their org
- * - Member/Staff: sees only assigned clients
+ * - Member/Staff: sees only their managed clients
  */
 import type { AuthUser } from '../services/auth'
 import { prisma } from './db'
 
 /**
- * Build Prisma where clause that scopes Client queries by org + assignment.
+ * Build Prisma where clause that scopes Client queries by org + managedBy.
  * Admin: sees all clients in org.
- * Member: sees only assigned clients.
+ * Member: sees only their managed clients.
  * No org + no staffId: returns impossible filter to prevent data leak.
  */
 export function buildClientScopeFilter(user: AuthUser): Record<string, unknown> {
@@ -20,14 +20,20 @@ export function buildClientScopeFilter(user: AuthUser): Record<string, unknown> 
     where.organizationId = user.organizationId
   }
 
-  // Assignment scope for non-admin
-  if (user.orgRole !== 'org:admin' && user.staffId) {
-    where.assignments = { some: { staffId: user.staffId } }
+  // Scope for non-admin: only see managed clients
+  const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+  if (!isAdmin) {
+    if (user.staffId) {
+      where.managedById = user.staffId
+    } else {
+      // Non-admin without staffId: block all access
+      where.id = '__NO_ACCESS__'
+    }
   }
 
-  // Failsafe: if no org AND no assignment filter, return impossible match
-  // to prevent leaking all clients during migration period
-  if (!user.organizationId && !where.assignments) {
+  // Failsafe: if no org AND no managedBy filter, return impossible match
+  // to prevent leaking all clients (covers admin with no org edge case)
+  if (!user.organizationId && !where.managedById) {
     where.id = '__NO_ACCESS__'
   }
 

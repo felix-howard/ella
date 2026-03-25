@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useCallback, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -20,14 +20,12 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
-  Link2,
   Trash2,
+  Upload,
   ClipboardList,
   FolderOpen,
   Calculator,
   Home,
-  X,
-  Plus,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
@@ -79,7 +77,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const { isAdmin } = useOrgRole()
+  const _orgRole = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -472,9 +470,12 @@ function ClientDetailPage() {
                     {UI_TEXT.form.taxYear} {activeCase.taxYear}
                   </span>
                 )}
-                {/* Inline assignment display - admin only */}
-                {isAdmin && (
-                  <InlineAssignment clientId={clientId} />
+                {/* Managed by display */}
+                {client.managedBy && (
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-4 h-4" aria-hidden="true" />
+                    {client.managedBy.name}
+                  </span>
                 )}
               </div>
             </div>
@@ -530,11 +531,11 @@ function ClientDetailPage() {
                 href={selectedCase?.portalUrl || client.portalUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-muted/60 text-foreground hover:bg-muted transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
                 title={t('clientDetail.openUpload')}
               >
-                <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Upload</span>
+                <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Upload</span>
               </a>
             )}
 
@@ -543,10 +544,10 @@ function ClientDetailPage() {
               <Link
                 to="/messages/$caseId"
                 params={{ caseId: activeCaseId }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/60 hover:bg-muted transition-all duration-200 text-xs font-medium text-foreground"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('clientDetail.messages')}</span>
+                <span>{t('clientDetail.messages')}</span>
                 {isUnreadLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                 ) : !isUnreadError && unreadCount > 0 && (
@@ -558,11 +559,12 @@ function ClientDetailPage() {
             )}
             <button
               onClick={() => setIsDeleteModalOpen(true)}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-all duration-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-destructive/10 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               aria-label={t('clientDetail.deleteClient')}
               title={t('clientDetail.deleteClient')}
             >
-              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
             </button>
           </div>
         </div>
@@ -779,146 +781,3 @@ function ClientDetailPage() {
   )
 }
 
-/**
- * Compact inline assignment display for client header.
- * Shows assigned staff names as pills with a + button to assign via CustomSelect dropdown.
- */
-function InlineAssignment({ clientId }: { clientId: string }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [isOpen, setIsOpen] = useState(false)
-
-  const { data: assignmentsData, isLoading } = useQuery({
-    queryKey: ['client-assignments', clientId],
-    queryFn: () => api.clientAssignments.list({ clientId }),
-  })
-
-  const { data: membersData } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
-    enabled: isOpen,
-  })
-
-  const assignments = assignmentsData?.data ?? []
-  const members = membersData?.data ?? []
-  const assignedStaffIds = new Set(assignments.map((a) => a.staffId))
-  const availableMembers = members.filter((m) => !assignedStaffIds.has(m.id) && m.role !== 'ADMIN')
-
-  const assignMutation = useMutation({
-    mutationFn: (staffId: string) => api.clientAssignments.create({ clientId, staffId }),
-    onSuccess: () => {
-      setIsOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['client-assignments', clientId] })
-    },
-  })
-
-  const unassignMutation = useMutation({
-    mutationFn: (assignmentId: string) => api.clientAssignments.remove(assignmentId),
-    onSuccess: () => {
-      toast.success(t('team.unassign'))
-      queryClient.invalidateQueries({ queryKey: ['client-assignments', clientId] })
-    },
-  })
-
-  if (isLoading) {
-    return (
-      <span className="flex items-center gap-1.5">
-        <Users className="w-4 h-4" aria-hidden="true" />
-        <Loader2 className="w-3 h-3 animate-spin" />
-      </span>
-    )
-  }
-
-  return (
-    <span className="flex items-center gap-1.5 relative">
-      <Users className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-      {assignments.length > 0 ? (
-        <span className="flex flex-wrap items-center gap-1">
-          {assignments.map((a) => (
-            <span key={a.id} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-muted text-xs text-foreground">
-              {a.staff?.name ?? 'Unknown'}
-              <button
-                onClick={() => unassignMutation.mutate(a.id)}
-                disabled={unassignMutation.isPending}
-                className="p-0.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                aria-label={t('team.unassign')}
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">{t('team.assignedTo')}</span>
-      )}
-      {/* Plus button to open assign dropdown */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-        aria-label={t('team.assignClients')}
-      >
-        <Plus className="w-3.5 h-3.5" />
-      </button>
-      {/* Assign dropdown popover */}
-      {isOpen && (
-        <AssignDropdown
-          members={availableMembers}
-          onSelect={(staffId) => assignMutation.mutate(staffId)}
-          onClose={() => setIsOpen(false)}
-          placeholder={t('team.assignClients') + '...'}
-        />
-      )}
-    </span>
-  )
-}
-
-/**
- * Dropdown popover for assigning staff to a client.
- * Renders as an absolute-positioned panel with click-outside-to-close.
- */
-function AssignDropdown({ members, onSelect, onClose, placeholder }: {
-  members: { id: string; name: string }[]
-  onSelect: (staffId: string) => void
-  onClose: () => void
-  placeholder: string
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscape)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [onClose])
-
-  return (
-    <div
-      ref={ref}
-      className="absolute top-full left-0 mt-1 w-56 py-1 rounded-lg border border-border bg-card shadow-lg z-[9999] max-h-60 overflow-auto"
-    >
-      <div className="px-3 py-1.5 text-xs text-muted-foreground">{placeholder}</div>
-      {members.length === 0 ? (
-        <div className="px-3 py-2 text-sm text-muted-foreground">No available staff</div>
-      ) : (
-        members.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => onSelect(m.id)}
-            className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors"
-          >
-            {m.name}
-          </button>
-        ))
-      )}
-    </div>
-  )
-}

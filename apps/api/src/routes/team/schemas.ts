@@ -23,7 +23,8 @@ export const invitationIdParamSchema = z.object({
 
 // Profile update schema - self-edit only
 export const updateProfileSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
   phoneNumber: z
     .string()
     .regex(/^\+[1-9]\d{6,14}$/, 'Invalid E.164 format')
@@ -31,6 +32,11 @@ export const updateProfileSchema = z.object({
     .nullable(),
   // Notification preferences
   notifyOnUpload: z.boolean().optional(),
+})
+
+// Notification subscriptions update
+export const updateNotificationSubscriptionsSchema = z.object({
+  targetStaffIds: z.array(z.string()).max(50),
 })
 
 // Avatar presigned URL request

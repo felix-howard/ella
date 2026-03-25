@@ -213,8 +213,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' | 'recentUploads' }) =>
-      request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
+    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' }) =>
+      request<PaginatedResponse<ClientWithActions> & { attentionSummary: { newUploads: number; needsVerification: number; stale: number; readyForEntry: number } }>('/clients', { params }),
 
     // Search for existing client by phone (for returning client detection)
     searchByPhone: async (phone: string) => {

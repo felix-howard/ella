@@ -350,35 +350,6 @@ export const TIME_FORMATS = {
 /** Stale threshold for activity tracking (days without activity) */
 export const STALE_THRESHOLD_DAYS = 7 as const
 
-// Sort options for client list
-const CLIENT_SORT_OPTIONS_DATA = [
-  { value: 'activity' as const, labelKey: 'clientSort.activity' },
-  { value: 'recentUploads' as const, labelKey: 'clientSort.recentUploads' },
-  { value: 'stale' as const, labelKey: 'clientSort.stale' },
-  { value: 'name' as const, labelKey: 'clientSort.name' },
-] as const
-
-export type ClientSortOption = typeof CLIENT_SORT_OPTIONS_DATA[number]['value']
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const CLIENT_SORT_OPTIONS = new Proxy([] as any, {
-  get(_, prop: string | symbol) {
-    if (prop === 'length') return CLIENT_SORT_OPTIONS_DATA.length
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (typeof prop === 'symbol' || prop === 'constructor') return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
-    const index = Number(prop)
-    if (!isNaN(index) && index >= 0 && index < CLIENT_SORT_OPTIONS_DATA.length) {
-      const item = CLIENT_SORT_OPTIONS_DATA[index]
-      return { value: item.value, label: i18n.t(item.labelKey) }
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (CLIENT_SORT_OPTIONS_DATA as any)[prop]
-  },
-  ownKeys() {
-    return Object.keys(CLIENT_SORT_OPTIONS_DATA)
-  },
-}) as readonly { value: ClientSortOption; label: string }[]
-
 // Common UI text - i18n powered
 const UI_TEXT_KEYS = {
   // General

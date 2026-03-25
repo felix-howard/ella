@@ -89,7 +89,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, status, sort } = c.req.valid('query')
+  const { page, limit, search, managedById, attention } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -100,26 +100,25 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   if (search) {
     const sanitizedSearch = sanitizeSearchInput(search)
     if (sanitizedSearch) {
+      // Normalize phone: strip non-digits, use if >= 3 digits to match E.164 stored format
+      const digitsOnly = sanitizedSearch.replace(/\D/g, '')
+      const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitizedSearch
+
       where.OR = [
         { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
         { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },  // Keep for backward compat
-        { phone: { contains: sanitizedSearch } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { phone: { contains: phoneSearch } },
       ]
     }
   }
 
-  if (status) {
-    where.taxCases = { some: { status } }
+  // Managed By filter (admin only — non-admins already scoped by buildClientScopeFilter)
+  if (managedById && isAdmin) {
+    where.managedById = managedById
   }
 
-  // Determine sort order based on sort parameter
-  type OrderByType = { firstName: 'asc' } | { createdAt: 'desc' }
-  let orderBy: OrderByType = { createdAt: 'desc' }
-  if (sort === 'name') {
-    orderBy = { firstName: 'asc' }
-  }
-  // For activity and stale sorting, we sort in JS after fetching due to relation complexity
+  const orderBy = { createdAt: 'desc' as const }
 
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
@@ -276,31 +275,39 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     }
   })
 
-  // Apply activity-based sorting in JS (Prisma doesn't support nested relation sorting well)
-  let sortedData = data
-  if (sort === 'activity') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : 0
-      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : 0
-      return bTime - aTime // Most recent first
-    })
-  } else if (sort === 'stale') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.latestCase?.lastActivityAt ? new Date(a.latestCase.lastActivityAt).getTime() : Infinity
-      const bTime = b.latestCase?.lastActivityAt ? new Date(b.latestCase.lastActivityAt).getTime() : Infinity
-      return aTime - bTime // Oldest first (most stale)
-    })
-  } else if (sort === 'recentUploads') {
-    sortedData = [...data].sort((a, b) => {
-      const aTime = a.uploads?.latestAt ? new Date(a.uploads.latestAt).getTime() : 0
-      const bTime = b.uploads?.latestAt ? new Date(b.uploads.latestAt).getTime() : 0
-      return bTime - aTime // Most recent uploads first
+  // Compute attention summary from fetched page (max 100 records).
+  // Counts reflect current page only — accurate for orgs with <200 clients.
+  const STALE_THRESHOLD_DAYS = 7
+  const attentionSummary = {
+    newUploads: data.filter(c => (c.uploads?.newCount ?? 0) > 0).length,
+    needsVerification: data.filter(c => (c.actionCounts?.toVerify ?? 0) > 0).length,
+    stale: data.filter(c => (c.actionCounts?.staleDays ?? 0) >= STALE_THRESHOLD_DAYS).length,
+    readyForEntry: data.filter(c => c.computedStatus === 'READY_FOR_ENTRY').length,
+  }
+
+  // Apply attention filter (post-filter since these are computed fields)
+  let filteredData = data
+  if (attention) {
+    filteredData = data.filter((client) => {
+      switch (attention) {
+        case 'newUploads':
+          return (client.uploads?.newCount ?? 0) > 0
+        case 'needsVerification':
+          return (client.actionCounts?.toVerify ?? 0) > 0
+        case 'stale':
+          return (client.actionCounts?.staleDays ?? 0) >= STALE_THRESHOLD_DAYS
+        case 'readyForEntry':
+          return client.computedStatus === 'READY_FOR_ENTRY'
+        default:
+          return true
+      }
     })
   }
 
   return c.json({
-    data: sortedData,
-    pagination: buildPaginationResponse(safePage, safeLimit, total),
+    data: filteredData,
+    pagination: buildPaginationResponse(safePage, safeLimit, attention ? filteredData.length : total),
+    attentionSummary,
   })
 })
 

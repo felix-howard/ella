@@ -88,8 +88,12 @@ interface ClientRowProps {
 const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
   const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
-  // Memoize avatar color to prevent recalculation on every render
+  // Memoize avatar colors to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
+  const managedByAvatarColor = useMemo(
+    () => client.managedBy ? getAvatarColor(client.managedBy.name) : null,
+    [client.managedBy?.name]
+  )
 
   return (
     <Link
@@ -157,7 +161,26 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {isAdmin && (
         <td className="px-4 py-3">
           {client.managedBy ? (
-            <span className="text-sm">{client.managedBy.name}</span>
+            <div className="flex items-center gap-2">
+              {client.managedBy.avatarUrl ? (
+                <img
+                  src={client.managedBy.avatarUrl}
+                  alt={client.managedBy.name}
+                  className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className={cn(
+                  'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
+                  managedByAvatarColor?.bg,
+                  managedByAvatarColor?.text
+                )}>
+                  <span className="font-semibold text-[10px]">
+                    {getInitials(client.managedBy.name)}
+                  </span>
+                </div>
+              )}
+              <span className="text-sm">{client.managedBy.name}</span>
+            </div>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}

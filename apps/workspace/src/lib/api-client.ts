@@ -247,7 +247,7 @@ export const api = {
       }),
 
     updateManagedBy: (clientId: string, staffId: string | null) =>
-      request<{ data: { managedBy: { id: string; name: string } | null } }>(
+      request<{ data: { managedBy: { id: string; name: string; avatarUrl?: string | null } | null } }>(
         `/clients/${clientId}/managed-by`,
         { method: 'PATCH', body: JSON.stringify({ staffId }) }
       ),
@@ -1058,7 +1058,7 @@ export interface ClientWithActions {
   computedStatus: TaxCaseStatus | null
   actionCounts: ActionCounts | null
   /** Staff managing this client */
-  managedBy?: { id: string; name: string } | null
+  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
   /** Staff who created this client */
   createdBy?: { id: string; name: string } | null
   /** Upload counts per CPA (new uploads they haven't viewed) */
@@ -1102,7 +1102,7 @@ export interface ClientDetail extends Client {
   smsEnabled: boolean
   notes: string | null
   avatarUrl: string | null
-  managedBy?: { id: string; name: string } | null
+  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
   createdBy?: { id: string; name: string } | null
   updatedBy?: { id: string; name: string } | null
 }

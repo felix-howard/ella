@@ -132,7 +132,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         },
         // Include managing staff for list view
         managedBy: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, avatarUrl: true },
         },
         createdBy: {
           select: { id: true, name: true },
@@ -247,7 +247,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
     // Map managed by staff
     const managedBy = client.managedBy
-      ? { id: client.managedBy.id, name: client.managedBy.name }
+      ? { id: client.managedBy.id, name: client.managedBy.name, avatarUrl: client.managedBy.avatarUrl }
       : null
 
     // Map created by staff
@@ -480,7 +480,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     where: { id, ...buildClientScopeFilter(user) },
     include: {
       profile: true,
-      managedBy: { select: { id: true, name: true } },
+      managedBy: { select: { id: true, name: true, avatarUrl: true } },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
       taxCases: {
@@ -1243,7 +1243,7 @@ clientsRoute.patch(
     const updated = await prisma.client.update({
       where: { id },
       data: { managedById: staffId },
-      include: { managedBy: { select: { id: true, name: true } } },
+      include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
     })
 
     return c.json({ data: { managedBy: updated.managedBy } })

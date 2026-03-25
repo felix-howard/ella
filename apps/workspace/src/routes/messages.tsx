@@ -123,7 +123,7 @@ function MessagesLayout() {
       )}
     >
       {/* Left Panel - Conversation List */}
-      <div className="w-80 flex-shrink-0 bg-[#f0faf6] flex flex-col shadow-[1px_0_8px_-2px_rgba(0,0,0,0.08)]">
+      <div className="w-80 flex-shrink-0 bg-[#f7f7f8] flex flex-col shadow-[1px_0_8px_-2px_rgba(0,0,0,0.08)]">
         {conversationPanel}
       </div>
 

@@ -205,7 +205,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   }
 
   // Transform to ClientWithActions
-  const data: ClientWithActions[] = clients.map((client) => {
+  const data: ClientWithActions[] = await Promise.all(clients.map(async (client) => {
     const latestCase = client.taxCases[0]
     const intakeAnswers = (client.profile?.intakeAnswers as Record<string, unknown>) || {}
     const hasIntakeAnswers = Object.keys(intakeAnswers).length > 0
@@ -247,7 +247,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
     // Map managed by staff
     const managedBy = client.managedBy
-      ? { id: client.managedBy.id, name: client.managedBy.name, avatarUrl: client.managedBy.avatarUrl }
+      ? { id: client.managedBy.id, name: client.managedBy.name, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
       : null
 
     // Map created by staff
@@ -282,7 +282,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         lastActivityAt: latestCase.lastActivityAt.toISOString(),
       } : null,
     }
-  })
+  }))
 
   // Compute attention summary from fetched page (max 100 records).
   // Counts reflect current page only — accurate for orgs with <200 clients.
@@ -534,6 +534,9 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     ...client,
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
+    managedBy: client.managedBy
+      ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
+      : null,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
     taxCases: taxCasesWithPortal,
@@ -1246,7 +1249,10 @@ clientsRoute.patch(
       include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
     })
 
-    return c.json({ data: { managedBy: updated.managedBy } })
+    const managedBy = updated.managedBy
+      ? { ...updated.managedBy, avatarUrl: await resolveAvatarUrl(updated.managedBy.avatarUrl) }
+      : null
+    return c.json({ data: { managedBy } })
   }
 )
 

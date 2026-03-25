@@ -26,7 +26,7 @@ function MessagesLayout() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [totalUnread, setTotalUnread] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [_isRefreshing, setIsRefreshing] = useState(false)
 
   const { sidebarCollapsed } = useUIStore()
   const isMobile = useIsMobile()

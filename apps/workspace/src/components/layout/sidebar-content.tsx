@@ -50,7 +50,7 @@ export function SidebarContent({
   userName,
   organizationName,
   avatarUrl,
-  voiceState,
+  voiceState: _voiceState,
   onClose,
   onLogout,
 }: SidebarContentProps) {

@@ -26,9 +26,10 @@ export function NotificationSubscriptions({ staffId, isEditing }: NotificationSu
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // Sync state when data loads or editing starts
+  // Sync state when data loads
   useEffect(() => {
     if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial sync from server data is intentional
       setSelectedIds(new Set(data.subscriptions))
     }
   }, [data])

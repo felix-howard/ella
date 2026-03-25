@@ -92,7 +92,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
   const managedByAvatarColor = useMemo(
     () => client.managedBy ? getAvatarColor(client.managedBy.name) : null,
-    [client.managedBy?.name]
+    [client.managedBy]
   )
 
   return (

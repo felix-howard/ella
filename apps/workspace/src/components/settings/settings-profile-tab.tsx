@@ -12,7 +12,7 @@ import { useOrgRole } from '../../hooks/use-org-role'
 
 export function SettingsProfileTab() {
   const { t } = useTranslation()
-  const { isAdmin: isCurrentUserAdmin, staffId: currentUserStaffId } = useOrgRole()
+  const _orgRole = useOrgRole()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['team-member-profile', 'me'],

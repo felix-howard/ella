@@ -7,7 +7,7 @@ import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn, Tooltip } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
-import { sanitizeText, linkifyText, formatRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
+import { sanitizeText, linkifyText, formatShortRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
@@ -194,8 +194,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             </div>
             <StaffAvatar sentBy={message.sentBy} />
           </div>
-          <SenderMeta sentBy={message.sentBy} showTime={showTime} createdAt={message.createdAt} />
-          <SmsStatus smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
+          <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
         </div>
       )
     }
@@ -245,11 +244,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
           <StaffAvatar sentBy={message.sentBy} />
         </div>
 
-        {/* Metadata below bubble */}
-        <SenderMeta sentBy={message.sentBy} showTime={showTime} createdAt={message.createdAt} />
-
-        {/* SMS delivery status */}
-        <SmsStatus smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
+        {/* Time + status below bubble */}
+        <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
       </div>
     )
   }
@@ -312,45 +308,43 @@ function StaffAvatar({ sentBy }: { sentBy?: Message['sentBy'] }) {
   )
 }
 
-/** Sender name + relative time below outbound bubble */
-function SenderMeta({ sentBy, showTime, createdAt }: { sentBy?: Message['sentBy']; showTime: boolean; createdAt: string }) {
-  if (!sentBy && !showTime) return null
+/** Relative time + SMS status below outbound bubble */
+function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, t }: {
+  showTime: boolean
+  createdAt: string
+  smsStatusConfig?: (typeof SMS_STATUS_CONFIG)[string] | null
+  smsStatus?: { status: string; errorCode?: string; errorMessage?: string } | null
+  isError?: boolean
+  t: (key: string) => string
+}) {
+  if (!showTime && !smsStatusConfig) return null
   return (
-    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9 cursor-default">
-      {sentBy && <span className="font-medium text-foreground/70">{sentBy.name}</span>}
+    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9 cursor-default flex-wrap">
       {showTime && (
         <Tooltip content={formatFullDateTime(createdAt)} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
-          <span>{formatRelativeTime(createdAt)}</span>
+          <span>{formatShortRelativeTime(createdAt)}</span>
         </Tooltip>
+      )}
+      {smsStatusConfig && (
+        <>
+          {showTime && <span>-</span>}
+          {isError ? (
+            <>
+              <span className="text-destructive">Sending failed</span>
+              {smsStatus?.errorMessage && <ErrorDetails errorMessage={smsStatus.errorMessage} />}
+            </>
+          ) : (
+            <span className="flex items-center gap-1">
+              {smsStatusConfig.icon}
+              {t(smsStatusConfig.labelKey)}
+            </span>
+          )}
+        </>
       )}
     </div>
   )
 }
 
-/** SMS delivery status below metadata */
-function SmsStatus({ smsStatusConfig, smsStatus, isError, t }: {
-  smsStatusConfig: (typeof SMS_STATUS_CONFIG)[string] | null
-  smsStatus: { status: string; errorCode?: string; errorMessage?: string } | null
-  isError: boolean
-  t: (key: string) => string
-}) {
-  if (!smsStatusConfig) return null
-  return (
-    <div className={cn('flex items-center gap-1 text-[11px] pr-9 flex-wrap', isError ? 'text-destructive' : smsStatusConfig.color)}>
-      {isError ? (
-        <>
-          <span>Sending failed</span>
-          {smsStatus?.errorMessage && <ErrorDetails errorMessage={smsStatus.errorMessage} />}
-        </>
-      ) : (
-        <>
-          {smsStatusConfig.icon}
-          <span>{t(smsStatusConfig.labelKey)}</span>
-        </>
-      )}
-    </div>
-  )
-}
 
 /** Expandable error details for failed messages */
 function ErrorDetails({ errorMessage }: { errorMessage: string }) {

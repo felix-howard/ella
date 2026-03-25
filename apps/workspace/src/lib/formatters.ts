@@ -188,12 +188,49 @@ export function stripHtmlTags(text: string): string {
 }
 
 /**
+ * Format concise relative time: "25 min", "2 hrs", "3 days", "2 months"
+ */
+export function formatShortRelativeTime(isoString: string): string {
+  const now = new Date()
+  const date = new Date(isoString)
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffHrs = Math.floor(diffMin / 60)
+  const diffDays = Math.floor(diffHrs / 24)
+  const diffMonths = Math.floor(diffDays / 30)
+  const diffYears = Math.floor(diffDays / 365)
+
+  if (diffMin < 1) return 'now'
+  if (diffMin < 60) return `${diffMin} min`
+  if (diffHrs < 24) return `${diffHrs} hr${diffHrs > 1 ? 's' : ''}`
+  if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''}`
+  if (diffMonths < 12) return `${diffMonths} month${diffMonths > 1 ? 's' : ''}`
+  return `${diffYears} yr${diffYears > 1 ? 's' : ''}`
+}
+
+/**
  * Format relative time from ISO string with locale support
  */
 export function formatRelativeTime(isoString: string, locale?: string): string {
   const resolved = locale ?? i18n.language ?? 'vi'
   const lang = resolved.toLowerCase().startsWith('en') ? 'en' : 'vi'
   return getRelativeTime(new Date(isoString), lang)
+}
+
+/**
+ * Format full date-time for tooltip display
+ * Example: "Wed, Mar 25, 9:06 AM"
+ */
+export function formatFullDateTime(isoString: string): string {
+  const date = new Date(isoString)
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
 }
 
 /**

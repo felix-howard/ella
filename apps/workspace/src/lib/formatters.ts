@@ -154,6 +154,32 @@ export function sanitizeText(text: string): string {
 }
 
 /**
+ * Split text into segments of plain text and URLs
+ * Returns an array of { type, value } for rendering
+ */
+export function linkifyText(text: string): Array<{ type: 'text' | 'link'; value: string }> {
+  if (!text) return []
+  const urlRegex = /(https?:\/\/[^\s<>'"]+)/g
+  const parts: Array<{ type: 'text' | 'link'; value: string }> = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+    }
+    parts.push({ type: 'link', value: match[1] })
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+
+  return parts.length > 0 ? parts : [{ type: 'text', value: text }]
+}
+
+/**
  * Strip HTML tags from input - for cleaning user input before sending
  */
 export function stripHtmlTags(text: string): string {

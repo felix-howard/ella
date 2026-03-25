@@ -7,7 +7,7 @@ import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
-import { sanitizeText } from '../../lib/formatters'
+import { sanitizeText, linkifyText } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
@@ -267,7 +267,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         <div className="px-3.5 py-2">
           {hasText && (
             <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-              {safeContent}
+              <LinkifiedText text={safeContent} isOutbound={isOutbound} />
             </p>
           )}
 
@@ -414,6 +414,39 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Renders text with clickable links that open in new tab
+ */
+function LinkifiedText({ text, isOutbound }: { text: string; isOutbound: boolean }) {
+  const parts = linkifyText(text)
+  const hasLinks = parts.some(p => p.type === 'link')
+
+  if (!hasLinks) return <>{text}</>
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'link' ? (
+          <a
+            key={i}
+            href={part.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'underline break-all',
+              isOutbound ? 'text-white/90 hover:text-white' : 'text-primary hover:text-primary/80'
+            )}
+          >
+            {part.value}
+          </a>
+        ) : (
+          <span key={i}>{part.value}</span>
+        )
+      )}
+    </>
   )
 }
 

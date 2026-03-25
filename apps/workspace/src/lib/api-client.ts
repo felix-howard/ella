@@ -1059,6 +1059,8 @@ export interface ClientWithActions {
   actionCounts: ActionCounts | null
   /** Staff managing this client */
   managedBy?: { id: string; name: string } | null
+  /** Staff who created this client */
+  createdBy?: { id: string; name: string } | null
   /** Upload counts per CPA (new uploads they haven't viewed) */
   uploads?: ClientUploads
   latestCase: {
@@ -1101,6 +1103,8 @@ export interface ClientDetail extends Client {
   notes: string | null
   avatarUrl: string | null
   managedBy?: { id: string; name: string } | null
+  createdBy?: { id: string; name: string } | null
+  updatedBy?: { id: string; name: string } | null
 }
 
 export interface ClientStats {

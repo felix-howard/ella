@@ -397,6 +397,8 @@ model Staff {
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   managedClients    Client[]  @relation("ManagedClients")
+  createdClients    Client[]  @relation("CreatedClients")
+  updatedClients    Client[]  @relation("UpdatedClients")
   documentViews     DocumentView[]
   uploadedDraftReturns DraftReturn[]
 
@@ -465,6 +467,11 @@ model Client {
   managedById    String?
   managedBy      Staff?    @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
 
+  createdById    String?
+  createdBy      Staff?    @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById    String?
+  updatedBy      Staff?    @relation("UpdatedClients", fields: [updatedById], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -472,6 +479,8 @@ model Client {
   @@index([name])
   @@index([organizationId])
   @@index([managedById])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.

@@ -53,6 +53,9 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
                   {t('team.managedBy')}
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                {t('clients.created')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.uploads')}
               </th>
@@ -161,6 +164,13 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         </td>
       )}
 
+      {/* Created column */}
+      <td className="px-4 py-3 hidden lg:table-cell">
+        <span className="text-sm text-muted-foreground">
+          {formatRelativeTime(client.createdAt, i18n.language as 'en' | 'vi')}
+        </span>
+      </td>
+
       {/* Uploads column */}
       <td className="px-4 py-3 hidden md:table-cell">
         {uploads && uploads.newCount > 0 ? (
@@ -254,6 +264,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                   <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </th>
               )}
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
+                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
@@ -292,6 +305,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                     <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                   </td>
                 )}
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
                 </td>

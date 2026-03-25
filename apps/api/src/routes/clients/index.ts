@@ -134,6 +134,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
         managedBy: {
           select: { id: true, name: true },
         },
+        createdBy: {
+          select: { id: true, name: true },
+        },
         taxCases: {
           take: 1,
           orderBy: { lastActivityAt: 'desc' },
@@ -247,6 +250,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       ? { id: client.managedBy.id, name: client.managedBy.name }
       : null
 
+    // Map created by staff
+    const createdBy = client.createdBy
+      ? { id: client.createdBy.id, name: client.createdBy.name }
+      : null
+
     // Get upload stats for this client
     const uploads = uploadStatsMap.get(client.id) ?? { newCount: 0, totalCount: 0, latestAt: null }
 
@@ -262,6 +270,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
       managedBy,
+      createdBy,
       actionCounts,
       uploads,
       latestCase: latestCase ? {
@@ -333,6 +342,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         language: clientData.language as Language,
         organizationId: user.organizationId,
         managedById: user.staffId,  // Always set creator as manager
+        createdById: user.staffId,  // Track who created this client
         profile: {
           create: {
             // Legacy fields for backward compatibility
@@ -471,6 +481,8 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
     include: {
       profile: true,
       managedBy: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true } },
+      updatedBy: { select: { id: true, name: true } },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
@@ -662,7 +674,7 @@ clientsRoute.patch(
 
     const client = await prisma.client.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, updatedById: user.staffId },
     })
 
     return c.json({
@@ -759,11 +771,17 @@ clientsRoute.patch(
         })
       }
 
-      // Update profile
-      const updatedProfile = await prisma.clientProfile.update({
-        where: { clientId: id },
-        data: updateData,
-      })
+      // Update profile + track who updated the client
+      const [updatedProfile] = await Promise.all([
+        prisma.clientProfile.update({
+          where: { clientId: id },
+          data: updateData,
+        }),
+        prisma.client.update({
+          where: { id },
+          data: { updatedById: user.staffId },
+        }),
+      ])
 
       // Detect boolean fields that changed to false (for cascade cleanup)
       const changedToFalse: string[] = []

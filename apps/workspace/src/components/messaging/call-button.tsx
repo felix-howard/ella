@@ -51,7 +51,7 @@ export function CallButton({
         'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border',
         isDisabled
           ? 'text-muted-foreground bg-muted/40 border-transparent cursor-not-allowed opacity-50'
-          : 'text-muted-foreground bg-muted/50 border-border/60 hover:text-foreground hover:bg-muted hover:border-border',
+          : 'text-muted-foreground bg-muted/50 border-border/60 shadow-sm hover:text-foreground hover:bg-muted hover:border-border hover:shadow-md',
         isInCall && 'text-green-500 border-green-300 animate-pulse',
         className
       )}

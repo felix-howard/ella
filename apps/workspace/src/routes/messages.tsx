@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { MessageSquare, RefreshCw } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
 import { useUIStore } from '../stores/ui-store'
 import { useIsMobile } from '../hooks/use-mobile-breakpoint'
@@ -68,11 +68,6 @@ function MessagesLayout() {
     return () => clearInterval(interval)
   }, [fetchConversations])
 
-  // Handle manual refresh
-  const handleRefresh = () => {
-    fetchConversations(true)
-  }
-
   // Shared conversation list header + list
   const conversationPanel = (
     <>
@@ -89,21 +84,7 @@ function MessagesLayout() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className={cn(
-              'p-2 rounded-lg transition-all duration-200',
-              'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-              isRefreshing && 'animate-spin'
-            )}
-            title={t('messages.refresh')}
-            aria-label={t('messages.refreshAriaLabel')}
-          >
-            <RefreshCw className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
+        <div className="flex items-center gap-1" />
       </div>
       <div className="mx-4 h-px bg-border/60" />
 

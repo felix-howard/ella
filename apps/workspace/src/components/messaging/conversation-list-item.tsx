@@ -7,7 +7,6 @@ import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { Phone, Globe, Bot } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
 import type { Conversation } from '../../lib/api-client'
 
@@ -16,12 +15,6 @@ export interface ConversationListItemProps {
   isActive?: boolean
 }
 
-// Channel icons
-const CHANNEL_ICONS = {
-  SMS: Phone,
-  PORTAL: Globe,
-  SYSTEM: Bot,
-} as const
 
 export const ConversationListItem = memo(function ConversationListItem({
   conversation,
@@ -32,7 +25,6 @@ export const ConversationListItem = memo(function ConversationListItem({
   const locale = i18n.language === 'vi' ? 'vi' : 'en'
   const hasUnread = unreadCount > 0
 
-  const ChannelIcon = lastMessage ? CHANNEL_ICONS[lastMessage.channel] : null
   const avatarColor = getAvatarColor(client.name)
 
   // Truncate and sanitize last message
@@ -103,12 +95,6 @@ export const ConversationListItem = memo(function ConversationListItem({
 
         {/* Message preview */}
         <div className="flex items-center gap-1.5">
-          {ChannelIcon && (
-            <ChannelIcon className={cn(
-              'w-3 h-3 flex-shrink-0',
-              isActive ? 'text-foreground/70' : 'text-muted-foreground'
-            )} />
-          )}
           <p
             className={cn(
               'text-xs truncate',

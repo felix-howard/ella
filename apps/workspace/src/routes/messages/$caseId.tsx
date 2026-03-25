@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { ArrowLeft, User, Phone, ExternalLink } from 'lucide-react'
+import { ArrowLeft, User, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -201,10 +201,7 @@ function ConversationDetailView() {
                       </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {formatPhone(caseData.client.phone)}
-                      </span>
+                      <span>{formatPhone(caseData.client.phone)}</span>
                     </div>
                   </div>
                 </div>

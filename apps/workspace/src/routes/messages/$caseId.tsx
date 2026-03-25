@@ -233,7 +233,7 @@ function ConversationDetailView() {
                 <Link
                   to="/clients/$clientId"
                   params={{ clientId: caseData.client.id }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground border border-border/60 hover:text-foreground hover:bg-muted/60 hover:border-border transition-all duration-200"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground bg-muted/50 border border-border/60 hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200"
                 >
                   <User className="w-3.5 h-3.5" />
                   <span>{t('messages.viewProfile')}</span>

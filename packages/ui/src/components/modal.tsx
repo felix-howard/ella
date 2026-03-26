@@ -99,6 +99,8 @@ const Modal = React.forwardRef<HTMLDivElement, ModalProps>(
       }
     }
 
+    if (!open) return null
+
     return (
       <div
         className={cn(modalOverlayVariants({ open }))}

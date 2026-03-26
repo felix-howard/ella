@@ -60,8 +60,8 @@ export interface VoiceCallActions {
 function getErrorMessage(error: unknown, t: (key: string) => string): string {
   if (!error) return t('voiceError.default')
 
-  const errObj = error as { name?: string; message?: string; code?: string }
-  const errorKey = errObj.name || errObj.code || ''
+  const errObj = error as Record<string, unknown>
+  const errorKey = String(errObj.name || errObj.code || '')
 
   // Map error names to translation keys
   const keyMap: Record<string, string> = {
@@ -96,6 +96,46 @@ async function checkMicrophonePermission(): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+// Select proper microphone input device (avoid "Stereo Mix" which captures system audio)
+// Called only when user initiates/accepts a call, not on registration
+async function selectMicrophoneInput(device: TwilioDeviceInstance): Promise<void> {
+  try {
+    const inputDevices = device.audio?.availableInputDevices
+    if (!inputDevices || inputDevices.size === 0) return
+
+    let selectedDevice: MediaDeviceInfo | null = null
+
+    for (const [deviceId, deviceInfo] of inputDevices) {
+      const label = deviceInfo.label.toLowerCase()
+      if (import.meta.env.DEV) {
+        console.log(`[Voice] Input device: ${deviceInfo.label} (${deviceId})`)
+      }
+
+      if (label.includes('stereo mix')) continue
+
+      if (label.includes('microphone') || label.includes('default')) {
+        selectedDevice = deviceInfo
+        break
+      }
+
+      if (!selectedDevice) {
+        selectedDevice = deviceInfo
+      }
+    }
+
+    if (selectedDevice) {
+      await device.audio.setInputDevice(selectedDevice.deviceId)
+      if (import.meta.env.DEV) {
+        console.log(`[Voice] Selected input device: ${selectedDevice.label}`)
+      }
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('[Voice] Could not set input device:', e)
+    }
   }
 }
 
@@ -357,51 +397,8 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         }
       })
 
-      // Register device (establishes signaling connection)
+      // Register device (establishes signaling connection — no mic access needed)
       await device.register()
-
-      // Select proper microphone input (avoid "Stereo Mix" which captures system audio)
-      try {
-        const inputDevices = device.audio?.availableInputDevices
-        if (inputDevices && inputDevices.size > 0) {
-          // Find a real microphone (not Stereo Mix)
-          let selectedDevice: MediaDeviceInfo | null = null
-
-          for (const [deviceId, deviceInfo] of inputDevices) {
-            const label = deviceInfo.label.toLowerCase()
-            if (import.meta.env.DEV) {
-              console.log(`[Voice] Input device: ${deviceInfo.label} (${deviceId})`)
-            }
-
-            // Skip Stereo Mix - it captures system audio, not microphone
-            if (label.includes('stereo mix')) {
-              continue
-            }
-
-            // Prefer actual microphone or default
-            if (label.includes('microphone') || label.includes('default')) {
-              selectedDevice = deviceInfo
-              break
-            }
-
-            // Use any non-Stereo Mix device as fallback
-            if (!selectedDevice) {
-              selectedDevice = deviceInfo
-            }
-          }
-
-          if (selectedDevice) {
-            await device.audio.setInputDevice(selectedDevice.deviceId)
-            if (import.meta.env.DEV) {
-              console.log(`[Voice] Selected input device: ${selectedDevice.label}`)
-            }
-          }
-        }
-      } catch (e) {
-        if (import.meta.env.DEV) {
-          console.warn('[Voice] Could not set input device:', e)
-        }
-      }
 
       return true
     } catch (e) {
@@ -495,6 +492,10 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
         }
 
         // Initiate call via Twilio SDK (SDK 2.x returns Promise<Call>)
+        // Select proper mic input before connecting (deferred from registration to avoid
+        // prompting mic permission on page load)
+        await selectMicrophoneInput(deviceRef.current)
+
         // Note: SDK handles getUserMedia internally
         const call = await deviceRef.current.connect({
           params: {
@@ -636,10 +637,16 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   }, [])
 
   // Accept incoming call
-  const acceptIncoming = useCallback(() => {
+  const acceptIncoming = useCallback(async () => {
     if (!incomingCall) return
 
     stopRingSound()
+
+    // Select mic input before accepting (deferred from registration)
+    if (deviceRef.current) {
+      await selectMicrophoneInput(deviceRef.current)
+    }
+
     incomingCall.accept()
 
     // Transfer to active call ref
@@ -698,14 +705,11 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       setError(null)
 
       try {
-        // Check microphone permission first
-        const hasMicPermission = await checkMicrophonePermission()
-        if (!hasMicPermission) {
-          setError(t('voiceError.micPermissionRequired'))
-          setIsRegistering(false)
-          autoRegisterTriggeredRef.current = false // Allow retry
-          return
-        }
+        // Don't check microphone permission here — registration is just a signaling
+        // connection and doesn't need mic access. Checking here triggers the browser
+        // permission prompt on every page load (especially on iOS Safari where the
+        // Permission API doesn't support 'microphone' queries).
+        // Mic permission is checked when the user actually initiates or accepts a call.
 
         // Setup device (creates Twilio Device, registers it)
         const success = await setupDevice()
@@ -746,7 +750,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     return () => {
       gestureCleanupRef.current?.()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable, isRegistered, isRegistering, setupDevice])
 
   // Re-register when tab becomes visible again (device already exists, no gesture needed)

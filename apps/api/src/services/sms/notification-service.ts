@@ -11,7 +11,7 @@ import {
   isSmsEnabled,
   type SendMessageResult,
 } from './message-sender'
-import { generateStaffUploadMessage } from './templates'
+import { generateStaffUploadMessage, generateStaffChatMonitorMessage } from './templates'
 import { sendSms, formatPhoneToE164, isValidPhoneNumber } from './twilio-client'
 import type { Language } from '@ella/db'
 
@@ -345,5 +345,96 @@ export async function notifyStaffUpload(
   }
 
   console.error(`[SMS Notify] Failed to send staff upload SMS: ${result.error}`)
+  return { success: false, error: result.error }
+}
+
+/**
+ * Notify subscriber (admin) when a monitored staff member sends messages to a client.
+ * SMS is sent to the subscriber's phone (recipientPhone), NOT the monitored staff's phone.
+ * Called by notifyStaffChatMonitorJob (Inngest batching job)
+ */
+export interface NotifyStaffChatParams {
+  /** ID of the admin/subscriber receiving the SMS */
+  recipientId: string
+  /** Phone number of the admin/subscriber receiving the SMS */
+  recipientPhone: string
+  /** ID of the monitored staff member (used for throttle key) */
+  staffId: string
+  /** Name of the monitored staff member */
+  staffName: string
+  /** Name of the client the staff messaged */
+  clientName: string
+  /** Number of messages sent in this batch */
+  messageCount: number
+  language: 'VI' | 'EN'
+}
+
+export interface NotifyStaffChatResult {
+  success: boolean
+  error?: string
+  twilioSid?: string
+}
+
+const CHAT_MONITOR_THROTTLE_MS = 5 * 60 * 1000 // 5 minutes
+const chatMonitorThrottleMap = new Map<string, number>()
+
+export async function notifyStaffChat(
+  params: NotifyStaffChatParams
+): Promise<NotifyStaffChatResult> {
+  const { recipientId, recipientPhone, staffId, staffName, clientName, messageCount, language } = params
+
+  if (!isSmsEnabled()) {
+    return { success: false, error: 'SMS_NOT_ENABLED' }
+  }
+
+  if (messageCount <= 0) {
+    return { success: false, error: 'INVALID_COUNT' }
+  }
+
+  if (!recipientPhone) {
+    return { success: false, error: 'NO_PHONE_NUMBER' }
+  }
+
+  const formattedPhone = formatPhoneToE164(recipientPhone)
+  if (!isValidPhoneNumber(formattedPhone)) {
+    console.warn(`[SMS Notify] Invalid recipient phone for ${recipientId}: ${recipientPhone}`)
+    return { success: false, error: 'INVALID_PHONE' }
+  }
+
+  // Prune expired entries to prevent memory leak in long-running processes
+  if (chatMonitorThrottleMap.size > 500) {
+    const now = Date.now()
+    for (const [key, ts] of chatMonitorThrottleMap) {
+      if (now - ts > CHAT_MONITOR_THROTTLE_MS) chatMonitorThrottleMap.delete(key)
+    }
+  }
+
+  // In-memory throttle: prevent duplicate sends within 5 minutes per recipient+staff pair
+  const throttleKey = `${recipientId}:${staffId}`
+  const lastSent = chatMonitorThrottleMap.get(throttleKey)
+  if (lastSent && Date.now() - lastSent < CHAT_MONITOR_THROTTLE_MS) {
+    console.log(`[SMS Notify] Skipping chat monitor SMS for ${recipientId} - sent within last 5min`)
+    return { success: false, error: 'THROTTLED' }
+  }
+
+  const message = generateStaffChatMonitorMessage({
+    staffName,
+    clientName,
+    messageCount,
+    language,
+  })
+
+  const result = await sendSms({
+    to: formattedPhone,
+    body: message,
+  })
+
+  if (result.success) {
+    chatMonitorThrottleMap.set(throttleKey, Date.now())
+    console.log(`[SMS Notify] Staff chat monitor notification sent to ${recipientId}`)
+    return { success: true, twilioSid: result.sid }
+  }
+
+  console.error(`[SMS Notify] Failed to send staff chat monitor SMS: ${result.error}`)
   return { success: false, error: result.error }
 }

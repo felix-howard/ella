@@ -6,7 +6,8 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { X, Phone } from 'lucide-react'
-import { getInitials, getAvatarColor, formatPhone } from '../../lib/formatters'
+import { getInitials, getAvatarColor, formatPhone, maskPhone } from '../../lib/formatters'
+import { useOrgRole } from '../../hooks/use-org-role'
 
 export interface ChatboxHeaderProps {
   clientName: string
@@ -24,6 +25,7 @@ export function ChatboxHeader({
   className,
 }: ChatboxHeaderProps) {
   const { t } = useTranslation()
+  const { isAdmin } = useOrgRole()
   const avatarColor = getAvatarColor(clientName)
 
   return (
@@ -48,7 +50,7 @@ export function ChatboxHeader({
           </h3>
           {clientPhone && (
             <p className="text-slate-400 text-xs truncate">
-              {formatPhone(clientPhone)}
+              {isAdmin ? formatPhone(clientPhone) : maskPhone(clientPhone)}
             </p>
           )}
         </div>

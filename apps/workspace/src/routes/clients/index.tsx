@@ -37,8 +37,6 @@ function ClientListPage() {
     enabled: isAdmin,
     staleTime: 60000,
   })
-  const teamMembers = teamData?.data ?? []
-
   // Fetch clients from API
   const {
     data: clientsResponse,
@@ -75,13 +73,14 @@ function ClientListPage() {
 
   // Build managed-by dropdown options
   const managedByOptions = useMemo(() => {
+    const members = teamData?.data ?? []
     const opts = []
     if (staffId) opts.push({ value: staffId, label: t('clients.me') })
-    for (const m of teamMembers.filter(m => m.id !== staffId && m.isActive)) {
+    for (const m of members.filter(m => m.id !== staffId && m.isActive)) {
       opts.push({ value: m.id, label: m.name })
     }
     return opts
-  }, [teamMembers, staffId, t])
+  }, [teamData?.data, staffId, t])
 
   return (
     <PageContainer>

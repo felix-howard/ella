@@ -50,6 +50,12 @@ import {
   type StaffUploadTemplateParams,
 } from './staff-upload'
 
+import {
+  generateStaffChatMonitorMessage,
+  STAFF_CHAT_MONITOR_TEMPLATE_NAME,
+  type StaffChatMonitorTemplateParams,
+} from './staff-chat-monitor'
+
 // Re-export everything
 export {
   generateWelcomeMessage,
@@ -68,6 +74,8 @@ export {
   MISSED_CALL_TEXTBACK_TEMPLATE_NAME,
   generateStaffUploadMessage,
   STAFF_UPLOAD_TEMPLATE_NAME,
+  generateStaffChatMonitorMessage,
+  STAFF_CHAT_MONITOR_TEMPLATE_NAME,
 }
 
 export type {
@@ -79,6 +87,7 @@ export type {
   ScheduleETemplateParams,
   MissedCallTextbackParams,
   StaffUploadTemplateParams,
+  StaffChatMonitorTemplateParams,
 }
 
 // Template name union type
@@ -91,6 +100,7 @@ export type TemplateName =
   | typeof SCHEDULE_E_TEMPLATE_NAME
   | typeof MISSED_CALL_TEXTBACK_TEMPLATE_NAME
   | typeof STAFF_UPLOAD_TEMPLATE_NAME
+  | typeof STAFF_CHAT_MONITOR_TEMPLATE_NAME
 
 // Language type
 export type SmsLanguage = 'VI' | 'EN'

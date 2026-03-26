@@ -54,7 +54,7 @@ import { useClassificationUpdates } from '../../hooks/use-classification-updates
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 
@@ -77,7 +77,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const _orgRole = useOrgRole()
+  const { isAdmin } = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
@@ -447,7 +447,7 @@ function ClientDetailPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Phone className="w-4 h-4" aria-hidden="true" />
-                  {formatPhone(client.phone)}
+                  {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
                 </span>
                 {client.email && (
                   <span className="flex items-center gap-1.5">

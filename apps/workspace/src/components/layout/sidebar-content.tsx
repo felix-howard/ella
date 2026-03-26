@@ -63,11 +63,11 @@ export function SidebarContent({
       {/* Logo Section */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border/30">
         {showLabels ? (
-          <Link to="/">
+          <Link to="/" tabIndex={-1} className="focus:outline-none">
             <img src={logo} alt="ella.tax" className="h-8 object-contain" />
           </Link>
         ) : (
-          <Link to="/" className="mx-auto">
+          <Link to="/" tabIndex={-1} className="mx-auto focus:outline-none">
             <img src={EllaArrow} alt="Ella" className="w-8 h-8 object-contain" />
           </Link>
         )}

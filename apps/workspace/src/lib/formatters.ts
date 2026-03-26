@@ -5,6 +5,16 @@
 import i18n from './i18n'
 
 /**
+ * Mask phone number showing only last 4 digits: *** ***-XXXX
+ * Used for non-admin users to protect client privacy
+ */
+export function maskPhone(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '')
+  const last4 = cleaned.slice(-4)
+  return `*** *** ${last4}`
+}
+
+/**
  * Format phone number to US format: (xxx) xxx-xxxx
  * Supports 10-digit and 11-digit (with country code) numbers
  */

@@ -22,7 +22,7 @@ export function PageContainer({ children, className }: PageContainerProps) {
       className={cn(
         'min-h-screen transition-all duration-300',
         isMobile
-          ? 'pt-14 px-4 py-4'
+          ? 'pt-18 pb-4 px-4'
           : cn('py-6 px-6', sidebarCollapsed ? 'ml-16' : 'ml-60'),
         className
       )}

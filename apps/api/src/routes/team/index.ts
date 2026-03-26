@@ -385,6 +385,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       phoneNumber: true,
       notifyOnUpload: true,
       notifyOnChat: true,
+      formSlug: true,
       isActive: true,
       deactivatedAt: true,
       _count: { select: { managedClients: true } },

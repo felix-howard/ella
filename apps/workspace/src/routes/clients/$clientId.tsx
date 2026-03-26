@@ -22,6 +22,7 @@ import {
   Loader2,
   Trash2,
   Upload,
+  Send,
   ClipboardList,
   FolderOpen,
   Calculator,
@@ -167,6 +168,17 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error(t('clientDetail.reopenError'))
+    },
+  })
+
+  // Send upload link mutation
+  const sendUploadLinkMutation = useMutation({
+    mutationFn: () => api.clients.sendUploadLink(clientId),
+    onSuccess: () => {
+      toast.success(t('clients.uploadLinkSent'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t('clients.uploadLinkFailed'))
     },
   })
 
@@ -556,6 +568,20 @@ function ClientDetailPage() {
                   </span>
                 )}
               </Link>
+            )}
+            {client.source === 'FORM' && (
+              <button
+                onClick={() => sendUploadLinkMutation.mutate()}
+                disabled={sendUploadLinkMutation.isPending}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 disabled:opacity-50"
+              >
+                {sendUploadLinkMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                <span>{t('clients.sendUploadLink')}</span>
+              </button>
             )}
             <button
               onClick={() => setIsDeleteModalOpen(true)}

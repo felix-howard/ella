@@ -45,6 +45,9 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.taxYear}
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+                {t('clients.source')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {t('clients.documents')}
               </th>
@@ -143,6 +146,11 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
+      </td>
+
+      {/* Source column */}
+      <td className="px-4 py-3 hidden sm:table-cell">
+        <SourceBadge source={client.source} />
       </td>
 
       {/* Documents column */}
@@ -260,6 +268,24 @@ function EmptyState() {
   )
 }
 
+function SourceBadge({ source }: { source?: 'MANUAL' | 'FORM' }) {
+  const { t } = useTranslation()
+
+  if (source === 'FORM') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+        {t('clients.sourceForm')}
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+      {t('clients.sourceManual')}
+    </span>
+  )
+}
+
 /**
  * Skeleton loader for table - accepts isAdmin to match live table column layout
  */
@@ -278,6 +304,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+              </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+                <div className="h-4 w-14 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
@@ -319,6 +348,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />

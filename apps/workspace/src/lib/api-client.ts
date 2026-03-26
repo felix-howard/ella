@@ -258,6 +258,12 @@ export const api = {
         { method: 'POST' }
       ),
 
+    sendUploadLink: (id: string) =>
+      request<{ success: boolean; messageId?: string }>(
+        `/clients/${id}/send-upload-link`,
+        { method: 'POST' }
+      ),
+
     // Cascade cleanup when parent answer changes to false
     cascadeCleanup: (id: string, data: { changedKey: string; caseId?: string }) =>
       request<{ success: boolean; deletedAnswers: string[]; deletedItems: number }>(
@@ -843,6 +849,12 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ language }),
       }),
+
+    updateFormSlug: (formSlug: string | null) =>
+      request<{ id: string; formSlug: string | null }>('/staff/me/form-slug', {
+        method: 'PATCH',
+        body: JSON.stringify({ formSlug }),
+      }),
   },
 
   // Team Management
@@ -912,10 +924,10 @@ export const api = {
   // Organization Settings
   orgSettings: {
     get: () =>
-      request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings'),
+      request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings'),
 
-    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean }) =>
-      request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings', {
+    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean; autoSendFormClientUploadLink?: boolean }) =>
+      request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
@@ -1027,6 +1039,7 @@ export interface Client {
   phone: string
   email: string | null
   language: Language
+  source?: 'MANUAL' | 'FORM'
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
@@ -1062,6 +1075,7 @@ export interface ClientWithActions {
   phone: string
   email: string | null
   language: 'VI' | 'EN'
+  source: 'MANUAL' | 'FORM'
   createdAt: string
   updatedAt: string
   computedStatus: TaxCaseStatus | null
@@ -2048,6 +2062,7 @@ export interface StaffProfile {
   phoneNumber: string | null
   notifyOnUpload: boolean
   notifyOnChat: boolean
+  formSlug: string | null
 }
 
 export interface ProfileResponse {

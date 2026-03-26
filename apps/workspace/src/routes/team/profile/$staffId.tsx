@@ -12,6 +12,7 @@ import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
 import { AvatarUploader } from '../../../components/profile/avatar-uploader'
+import { StaffFormLinkCard } from '../../../components/profile/staff-form-link-card'
 import { api } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
 import { useOrgRole } from '../../../hooks/use-org-role'
@@ -33,6 +34,11 @@ function ProfilePage() {
   } = useQuery({
     queryKey: ['team-member-profile', staffId],
     queryFn: () => api.team.getProfile(staffId),
+  })
+
+  const { data: orgSettings } = useQuery({
+    queryKey: ['org-settings'],
+    queryFn: () => api.orgSettings.get(),
   })
 
   // Role change mutation
@@ -206,6 +212,16 @@ function ProfilePage() {
             totalCount={managedCount}
           />
         </div>
+      </div>
+
+      {/* Staff Form Link */}
+      <div className="mt-6">
+        <StaffFormLinkCard
+          staffId={staffId}
+          formSlug={staff.formSlug}
+          orgSlug={orgSettings?.slug || null}
+          canEdit={canEdit}
+        />
       </div>
 
       {/* Archive Section - Admin viewing active other member */}

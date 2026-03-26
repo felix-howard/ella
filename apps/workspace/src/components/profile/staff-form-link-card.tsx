@@ -1,0 +1,211 @@
+/**
+ * Staff Form Link Card - Shows personal intake form link with editable slug
+ * Used in Staff Profile page
+ */
+import { useState, useEffect } from 'react'
+import { Copy, Check, Link as LinkIcon, AlertTriangle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Card, cn, Button, Input } from '@ella/ui'
+import { api } from '../../lib/api-client'
+import { toast } from '../../stores/toast-store'
+
+const PORTAL_BASE_URL = import.meta.env.VITE_PORTAL_URL || 'https://portal.ellatax.com'
+
+interface StaffFormLinkCardProps {
+  staffId: string
+  formSlug: string | null
+  orgSlug: string | null
+  canEdit: boolean
+}
+
+export function StaffFormLinkCard({
+  staffId,
+  formSlug,
+  orgSlug,
+  canEdit,
+}: StaffFormLinkCardProps) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [slugValue, setSlugValue] = useState(formSlug || '')
+  const [slugError, setSlugError] = useState<string | null>(null)
+
+  // Sync slug value when prop changes (after mutation invalidation)
+  useEffect(() => {
+    if (!isEditing) {
+      setSlugValue(formSlug || '')
+    }
+  }, [formSlug, isEditing])
+
+  const mutation = useMutation({
+    mutationFn: (newSlug: string | null) =>
+      api.staff.updateFormSlug(newSlug),
+    onSuccess: () => {
+      toast.success(t('profile.slugSaved'))
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+      setIsEditing(false)
+    },
+    onError: (err: Error) => {
+      if (err.message.includes('already') || err.message.includes('SLUG_TAKEN')) {
+        setSlugError(t('profile.slugTaken'))
+      } else {
+        toast.error(err.message || t('profile.slugSaveFailed'))
+      }
+    },
+  })
+
+  const formLink = orgSlug && formSlug
+    ? `${PORTAL_BASE_URL}/form/${orgSlug}/${formSlug}`
+    : null
+
+  const handleCopy = async () => {
+    if (!formLink) return
+    try {
+      await navigator.clipboard.writeText(formLink)
+      setCopied(true)
+      toast.success(t('profile.linkCopied'))
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error(t('profile.copyFailed'))
+    }
+  }
+
+  const validateSlug = (value: string): boolean => {
+    if (!value) return true
+    if (!/^[a-z0-9-]+$/.test(value)) {
+      setSlugError(t('profile.slugInvalidFormat'))
+      return false
+    }
+    if (value.length < 2 || value.length > 50) {
+      setSlugError(t('profile.slugInvalidLength'))
+      return false
+    }
+    setSlugError(null)
+    return true
+  }
+
+  const handleSave = () => {
+    const trimmed = slugValue.trim().toLowerCase()
+    if (!validateSlug(trimmed)) return
+    mutation.mutate(trimmed || null)
+  }
+
+  const handleCancel = () => {
+    setSlugValue(formSlug || '')
+    setSlugError(null)
+    setIsEditing(false)
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+            <LinkIcon className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-foreground">
+              {t('profile.formLink')}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {t('profile.formLinkDescription')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Slug Edit */}
+      {canEdit && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+            {t('profile.formSlug')}
+          </label>
+          {isEditing ? (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={slugValue}
+                  onChange={(e) => {
+                    setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+                    setSlugError(null)
+                  }}
+                  placeholder="john-doe"
+                  className="flex-1"
+                  disabled={mutation.isPending}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    t('common.save')
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={mutation.isPending}
+                >
+                  {t('common.cancel')}
+                </Button>
+              </div>
+              {slugError && (
+                <p className="text-xs text-destructive">{slugError}</p>
+              )}
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-3 h-3" />
+                {t('profile.slugChangeWarning')}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <code className="px-2 py-1 bg-muted rounded text-sm">
+                {formSlug || t('profile.noSlug')}
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsEditing(true)}
+              >
+                {t('common.edit')}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Form Link */}
+      {formLink ? (
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground truncate">
+            {formLink}
+          </code>
+          <button
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0"
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-primary" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+            {copied ? t('profile.copied') : t('profile.copy')}
+          </button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">
+          {!orgSlug
+            ? t('profile.noOrgSlug')
+            : t('profile.noFormSlug')}
+        </p>
+      )}
+    </Card>
+  )
+}

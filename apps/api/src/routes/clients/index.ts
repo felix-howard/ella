@@ -38,6 +38,7 @@ import { Prisma } from '@ella/db'
 import type { TaxType, Language } from '@ella/db'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -1253,6 +1254,77 @@ clientsRoute.patch(
       ? { ...updated.managedBy, avatarUrl: await resolveAvatarUrl(updated.managedBy.avatarUrl) }
       : null
     return c.json({ data: { managedBy } })
+  }
+)
+
+// POST /clients/:id/send-upload-link - Send upload link SMS to client
+clientsRoute.post(
+  '/:id/send-upload-link',
+  rateLimiter({ keyPrefix: 'send-upload-link', maxRequests: 5, windowMs: 60000 }),
+  zValidator('param', clientIdParamSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const user = c.get('user')
+
+    if (!user?.organizationId) {
+      return c.json({ error: 'No organization' }, 403)
+    }
+
+    const client = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        language: true,
+        taxCases: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, taxYear: true },
+        },
+      },
+    })
+
+    if (!client) {
+      return c.json({ error: 'Client not found' }, 404)
+    }
+
+    const latestCase = client.taxCases[0]
+    if (!latestCase) {
+      return c.json({ error: 'No tax case found' }, 400)
+    }
+
+    const portalBaseUrl = process.env.PORTAL_URL
+    if (!portalBaseUrl) {
+      return c.json({ error: 'PORTAL_URL not configured' }, 500)
+    }
+
+    if (!isSmsEnabled()) {
+      return c.json({ error: 'SMS not configured' }, 500)
+    }
+
+    const magicLinkUrl = await createMagicLink(latestCase.id)
+    const portalUrl = `${portalBaseUrl}/u/${magicLinkUrl}`
+
+    try {
+      const result = await sendWelcomeMessage(
+        latestCase.id,
+        client.name,
+        client.phone,
+        portalUrl,
+        latestCase.taxYear,
+        client.language as 'VI' | 'EN',
+      )
+
+      if (!result.smsSent) {
+        return c.json({ error: result.error || 'Failed to send SMS' }, 500)
+      }
+
+      return c.json({ success: true, messageId: result.messageId })
+    } catch (error) {
+      console.error('[Send Upload Link] Error:', error)
+      return c.json({ error: 'Failed to send upload link' }, 500)
+    }
   }
 )
 

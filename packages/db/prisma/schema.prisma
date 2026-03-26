@@ -473,7 +473,7 @@ model Organization {
 
 model Client {
   id        String   @id @default(cuid())
-  firstName String
+  firstName String   @default("")
   lastName  String?
   name      String   @default("")  // Computed field for backward compat - will be populated by API
   phone     String   @unique

@@ -35,7 +35,7 @@ export function SettingsNotificationsTab() {
     onMutate: async (notifyOnUpload) => {
       await queryClient.cancelQueries({ queryKey: profileQueryKey })
       const previous = queryClient.getQueryData(profileQueryKey)
-      queryClient.setQueryData(profileQueryKey, (old: any) =>
+      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
         old ? { ...old, staff: { ...old.staff, notifyOnUpload } } : old
       )
       return { previous }
@@ -61,7 +61,7 @@ export function SettingsNotificationsTab() {
     onMutate: async (notifyOnChat) => {
       await queryClient.cancelQueries({ queryKey: profileQueryKey })
       const previous = queryClient.getQueryData(profileQueryKey)
-      queryClient.setQueryData(profileQueryKey, (old: any) =>
+      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
         old ? { ...old, staff: { ...old.staff, notifyOnChat } } : old
       )
       return { previous }

@@ -60,8 +60,8 @@ export interface VoiceCallActions {
 function getErrorMessage(error: unknown, t: (key: string) => string): string {
   if (!error) return t('voiceError.default')
 
-  const errObj = error as { name?: string; message?: string; code?: string }
-  const errorKey = errObj.name || errObj.code || ''
+  const errObj = error as Record<string, unknown>
+  const errorKey = String(errObj.name || errObj.code || '')
 
   // Map error names to translation keys
   const keyMap: Record<string, string> = {
@@ -750,7 +750,6 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
     return () => {
       gestureCleanupRef.current?.()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable, isRegistered, isRegistering, setupDevice])
 
   // Re-register when tab becomes visible again (device already exists, no gesture needed)

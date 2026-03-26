@@ -10,7 +10,6 @@ import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, maskPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
-import { useOrgRole } from '../../hooks/use-org-role'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 

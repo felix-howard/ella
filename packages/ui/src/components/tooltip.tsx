@@ -12,6 +12,7 @@ const tooltipVariants = cva(
       },
       position: {
         top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
+        'top-right': 'bottom-full right-0 mb-1',
         bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
         left: 'right-full top-1/2 -translate-y-1/2 mr-2',
         right: 'left-full top-1/2 -translate-y-1/2 ml-2',
@@ -32,6 +33,7 @@ const arrowVariants = cva('absolute w-2 h-2 rotate-45', {
     },
     position: {
       top: 'top-full left-1/2 -translate-x-1/2 -mt-1',
+      'top-right': 'top-full right-2 -mt-1',
       bottom: 'bottom-full left-1/2 -translate-x-1/2 -mb-1',
       left: 'left-full top-1/2 -translate-y-1/2 -ml-1',
       right: 'right-full top-1/2 -translate-y-1/2 -mr-1',

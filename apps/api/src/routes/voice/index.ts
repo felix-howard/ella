@@ -283,6 +283,7 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
         content: `Cuộc gọi đến ${toPhone}`,
         isSystem: false,
         callStatus: 'initiated',
+        sentById: user.staffId,
       },
     })
 

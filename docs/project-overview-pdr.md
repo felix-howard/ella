@@ -327,33 +327,35 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 ### Phase 3: Multi-Tenancy & Permission System (COMPLETED)
 
-**Status:** Completed 2026-02-04
+**Status:** Completed 2026-03-25 (Phase 3 Frontend UI Update)
 
-**Objective:** Enable organization-scoped multi-tenancy with Clerk org integration, team management, and permission-based data access
+**Objective:** Enable organization-scoped multi-tenancy with Clerk org integration, team management, single-manager client assignment, and permission-based data access
 
 **Requirements Met:**
 
 - [x] Organization model with Clerk integration (clerkOrgId, name, slug, logoUrl, isActive)
-- [x] ClientAssignment model for staff-client mappings (1-to-1 unique constraint, org-scoped)
+- [x] Client.managedById FK for single-manager staff-client relationship (replaces N:N ClientAssignment, org-scoped)
 - [x] Staff enhanced with organizationId FK and clerkId (unique) for Clerk sync
-- [x] Client enhanced with organizationId FK for org-scoped queries
+- [x] Client enhanced with organizationId FK + managedById FK for org-scoped queries and manager assignment
 - [x] AuditLog model for complete field-level change tracking
 - [x] 7 team management API endpoints (members list, invite, role update, deactivate, revoke)
-- [x] 5 client assignment API endpoints (CRUD + bulk + transfer)
+- [x] Client management endpoints with managedBy relation (GET /clients with managedBy, PATCH /clients/:id)
 - [x] Clerk Backend SDK integration with JWT parsing
 - [x] Org-scoped filtering via buildClientScopeFilter() for all entities
 - [x] Admin vs Staff role-based access control (RBAC)
 - [x] Frontend multi-tenancy UI: Team page, org name sidebar, role badges
+- [x] Frontend Phase 3: Client list "Managed By" column (admin-only), client overview single-manager display, team member managedClients
 - [x] useAutoOrgSelection hook for auto-org selection on sign-in
 - [x] useOrgRole hook for RBAC checks
 - [x] Accept invitation flow with Clerk org invite tickets
-- [x] Full i18n support (English + Vietnamese, 821+ keys)
+- [x] Full i18n support (English + Vietnamese, 821+ keys, updated assignment→managed terminology)
+- [x] Removed N:N ClientAssignment model and all assignment UI components
 
 **Functional Features:**
 
 - Organization CRUD with Clerk org sync
 - Team member management (list, invite, role update, deactivate)
-- Client assignment workflows (assign, bulk assign, transfer between staff)
+- Client manager assignment via Client.managedById FK (single manager per client)
 - Invitation lifecycle (send, revoke, accept)
 - Role-based access control (ADMIN vs STAFF)
 - Org-scoped data isolation for all entities (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
@@ -362,12 +364,12 @@ Ella is a modern, tax-focused SaaS application designed to streamline document m
 
 **Deliverables:**
 
-- Database schema: Organization, ClientAssignment, enhanced Staff/Client, AuditLog (migrations complete)
-- API: 12 endpoints, Clerk Backend SDK integration, org-scoped middleware
-- Frontend: Team page, sidebar org display, role badges, accept-invitation page
+- Database schema: Organization with Client.managedById FK (N:1), enhanced Staff/Client, AuditLog (migrations complete)
+- API: Team + client endpoints with managedBy/managedClients relations, Clerk Backend SDK integration, org-scoped middleware
+- Frontend Phase 3: Deleted 3 components (client-assignment-section, bulk-assign-dialog, member-assignments-panel), updated client list/overview/team UIs, i18n keys updated
 - Hooks: useAutoOrgSelection, useOrgRole for React integration
 - Tests: 26 comprehensive API tests, full type coverage
-- i18n: 821 keys across English and Vietnamese
+- i18n: 821 keys across English and Vietnamese, 4 new managed.* keys
 
 **Tech Stack Additions:**
 

@@ -73,7 +73,7 @@
 | **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
 | **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
 | **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
-| **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org/ClientAssignment models), 12 API endpoints, org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys** | **2026-02-04** |
+| **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org models), org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys. Phase 3 UI: Client.managedById FK (1-to-1 manager), removed N:N ClientAssignment, updated team/client UIs** | **2026-03-25** |
 | **Phase 6: Frontend Auth & Navigation** | **useAutoOrgSelection hook, ClerkAuthProvider, sidebar org name, useOrgRole RBAC, Team nav conditional, accept-invitation page, full i18n (EN/VI)** | **2026-02-04** |
 | **Schedule C Phase 4: 1099-NEC Breakdown** | **Per-payer NEC breakdown display, nec-breakdown-list component, getGrossReceiptsBreakdown() backend, auto-update DRAFT forms, 6 tests, income table dynamic labeling** | **2026-01-29** |
 | **Schedule C Phase 3: Portal Expense Form** | **18 files, 2,400 LOC, 10 UI components, 28 IRS categories, auto-save, accessibility, version history. Tests: 578/578 passing** | **2026-01-28** |
@@ -102,9 +102,8 @@
 
 **Core Models:**
 - **Organization**: clerkOrgId (unique), name, slug, logoUrl, isActive. Org-scoped root.
-- **Client**: organizationId FK, name, phone, email, language, intakeAnswers Json, status tracking
+- **Client**: organizationId FK, managedById FK (Staff, single manager), name, phone, email, language, intakeAnswers Json, status tracking
 - **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive
-- **ClientAssignment**: clientId + staffId (unique composite), organizationId FK. 1-to-1 staff-client mapping.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
 - **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC
@@ -138,13 +137,10 @@
 - `GET /team/invitations` - List pending Clerk org invites
 - `DELETE /team/invitations/:invitationId` - Revoke invitation
 
-**Client Assignments:**
-- `GET /client-assignments` - List org's staff-client mappings
-- `POST /client-assignments` - Create 1-to-1 assignment
-- `DELETE /client-assignments/:assignmentId` - Unassign staff from client
-- `POST /client-assignments/bulk` - Bulk create assignments
-- `PUT /client-assignments/transfer` - Transfer client between staff
-- `GET /team/members/:staffId/assignments` - Staff's assigned clients
+**Client Management (Manager Assignment via Client model):**
+- `GET /clients` - List org clients with `managedBy` relation
+- `PATCH /clients/:clientId` - Update client, including manager assignment (managedById)
+- `GET /team/members/:staffId/profile` - Get staff profile with `managedClients` list
 
 ## Frontend Architecture
 
@@ -243,7 +239,7 @@
 **Org-Scoped Queries:**
 - `buildClientScopeFilter(user)` - Core scoping function
 - Admins: See all org clients
-- Staff: See only assigned clients via ClientAssignment
+- Staff: See only managed clients (Client.managedById = staffId)
 - Applied to all entity queries (Clients, Cases, Engagements, Messages, Docs, Images, Actions)
 
 ## API Client & Endpoints (Frontend)
@@ -272,10 +268,15 @@
 
 ## Auth Flow (Clerk JWT)
 
-**Token Parsing:**
+**Token Parsing (Read-Only):**
 - userId, orgId, orgRole extracted from Clerk JWT
-- `syncOrganization()` - Upsert Clerk org to DB (5-min cache)
-- `syncStaffFromClerk()` - Create/update Staff, maps org:admin → ADMIN role
+- Middleware looks up Staff by clerkId from DB (no sync performed)
+- Role mapping handled via Clerk webhooks, not token parsing
+
+**Clerk Webhook Sync (Event-Driven):**
+- `POST /webhooks/clerk` (Svix-signed) - 7 handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org, handle out-of-order), organizationMembership.created (link user to org, email-based lookup for pre-Clerk staff), organizationMembership.updated (sync role: org:admin → ADMIN), organizationMembership.deleted (deactivate staff in org)
+- Upsert pattern idempotent on retries, returns 500 on handler error for Clerk auto-retry
+- Maps Clerk role org:admin → ADMIN, org:member → STAFF
 
 **Middleware:**
 - `requireOrg` - Verify orgId in token, attach to context
@@ -287,7 +288,7 @@
 **Data Isolation:**
 - All queries scoped by organizationId
 - `buildClientScopeFilter()` applies Admin vs Staff filtering
-- ClientAssignment enforces staff-client relationships
+- Client.managedById FK enforces single-manager relationship
 - Audit logging tracks all org-scoped changes
 
 **Permission Model:**
@@ -325,6 +326,8 @@
 - **Code Review Avg:** 9/10 quality score
 
 ## Recent Phases Summary
+
+**2026-03-24:** Clerk Webhook Sync Migration (Phase 2) complete. EVENT-DRIVEN USER/ORG SYNC: Replaced periodic sync polling with 7 Clerk webhook handlers (user.updated, user.deleted, organization.created/updated, organizationMembership.created/updated/deleted). Real-time sync of user profile (email, name, avatar), org metadata (name, slug, logo), and membership (staff role, org assignment, deactivation). ARCHITECTURE SHIFT: Auth middleware (`apps/api/src/middleware/auth.ts`) now read-only (no DB writes on request). Middleware extracts JWT claims, looks up Staff by clerkId (verify existence), returns auth context. DB sync decoupled and happens asynchronously via webhooks. BACKEND: `apps/api/src/services/clerk-webhook/index.ts` - Service with 7 async handlers, Prisma upserts for idempotency, field validation + try-catch per handler, graceful handling of missing fields (warn + return). `apps/api/src/routes/webhooks/clerk.ts` - Route awaits handler so Clerk retries on 500 (handler failure) vs 400 (verification failure). Svix signature verification (svix-id, svix-timestamp, svix-signature headers). TEAM ROUTES: `apps/api/src/routes/team/index.ts` - Mutations now use Clerk Backend API (POST /team/invite, PATCH /team/members/:staffId/role, DELETE /team/members/:staffId). Webhook handlers sync results back to DB asynchronously. KEY FEATURES: (1) organizationMembership.created handles legacy pre-Clerk staff via email lookup. (2) Out-of-order event resilience: org.updated upserts (created may arrive late), membership handlers validate org existence. (3) Role mapping: org:admin → ADMIN, org:member → STAFF. (4) Soft delete on user/membership deletion (isActive=false, deactivatedAt timestamp). (5) Field mapping: Clerk identifier (email) → Staff.email, image_url → avatarUrl. (6) ENV VAR: New CLERK_WEBHOOK_SECRET required for Svix signature validation. IDEMPOTENCY: All handlers use Prisma upsert/updateMany - safe on duplicate webhook deliveries. ERROR HANDLING: Handler failures throw to trigger 500 response (Clerk auto-retry up to 3 attempts), verification errors return 400 (permanent failure). MIGRATIONS: No schema changes (Staff/Organization already support webhook fields). Code quality 9.4/10 (production-ready event-driven sync, comprehensive field validation, resilient to out-of-order events). Completes Clerk Webhook Sync Migration enabling real-time user/org data sync with stateless request-time auth.
 
 **2026-02-23:** Phase 02 Profile API (Member Profile & Avatar Upload) complete. BACKEND: 4 new team endpoints for member profile management. GET /team/members/:staffId/profile returns member profile with assigned clients (admin-readable, org-scoped). PATCH /team/members/:staffId/profile allows self-only updates to name (1-100 chars) + phoneNumber (E.164 format optional/nullable). POST /team/members/:staffId/avatar/presigned-url generates 15-minute presigned R2 PUT URL for direct browser avatar uploads (image/jpeg|png|webp, 100B-5MB). PATCH /team/members/:staffId/avatar confirms upload after R2 completion, validates avatars/{staffId}/ key prefix, generates 7-day signed download URL. SERVICES: `apps/api/src/routes/team/schemas.ts` added 3 Zod schemas (updateProfileSchema, avatarPresignedUrlSchema, avatarConfirmSchema). `apps/api/src/services/storage.ts` added getSignedUploadUrl(), generateAvatarKey(), getSignedDownloadUrl() helper functions with R2 configuration graceful degradation. FRONTEND: `apps/workspace/src/lib/api-client.ts` added api.team.profile object with getProfile(), updateProfile(), getAvatarPresignedUrl(), confirmAvatarUpload() methods. Type definitions: ProfileResponse, StaffProfile (id, name, email, phoneNumber, avatarUrl, lastLoginAt, assignedClientCount), AvatarPresignedUrlResponse. SECURITY: Self-only enforcement via JWT context, presigned URLs expire in 15min/7days, R2 key validation prevents directory traversal. Code quality 9.2/10 (production-ready member profile + avatar management). Completes Phase 02 team member profile feature with Cloudflare R2 presigned URL integration.
 

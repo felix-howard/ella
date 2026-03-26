@@ -7,7 +7,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { UserPlus, Mail, Loader2, ShieldAlert } from 'lucide-react'
-import { Button, Badge } from '@ella/ui'
+import { Button, Badge, Switch } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TeamMemberTable } from '../../components/team/team-member-table'
 import { InviteMemberDialog } from '../../components/team/invite-member-dialog'
@@ -24,6 +24,7 @@ function TeamPage() {
   const navigate = useNavigate()
   const { isAdmin, isLoading: isRoleLoading } = useOrgRole()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   // Fetch team members
   const {
@@ -31,8 +32,8 @@ function TeamPage() {
     isLoading: isMembersLoading,
     isError,
   } = useQuery({
-    queryKey: ['team-members'],
-    queryFn: () => api.team.listMembers(),
+    queryKey: ['team-members', { includeArchived: showArchived }],
+    queryFn: () => api.team.listMembers({ includeArchived: showArchived }),
     enabled: isAdmin,
   })
 
@@ -79,9 +80,19 @@ function TeamPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t('team.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('team.members')} ({members.length})
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-sm text-muted-foreground">
+              {t('team.members')} ({members.length})
+            </p>
+            <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+              <Switch
+                checked={showArchived}
+                onCheckedChange={setShowArchived}
+                className="scale-75"
+              />
+              <span className="text-muted-foreground">{t('team.showArchived')}</span>
+            </label>
+          </div>
         </div>
         <button
           onClick={() => setIsInviteOpen(true)}
@@ -112,6 +123,7 @@ function TeamPage() {
         members={members}
         isLoading={isMembersLoading}
         isError={isError}
+        showArchived={showArchived}
       />
 
       {/* Invite Dialog */}

@@ -396,9 +396,16 @@ model Staff {
 
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  clientAssignments ClientAssignment[]
+  managedClients    Client[]  @relation("ManagedClients")
+  createdClients    Client[]  @relation("CreatedClients")
+  updatedClients    Client[]  @relation("UpdatedClients")
   documentViews     DocumentView[]
   uploadedDraftReturns DraftReturn[]
+  sentMessages  Message[] @relation("SentMessages")
+
+  // Notification subscriptions (admin subscribes to other staff's client uploads)
+  notificationSubscriptions   NotificationSubscription[] @relation("NotificationSubscriber")
+  notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -421,6 +428,22 @@ model StaffPresence {
   @@index([isOnline])
 }
 
+// Tracks which staff's client uploads an admin subscribes to for SMS notifications
+model NotificationSubscription {
+  id              String   @id @default(cuid())
+  subscriberId    String   // The staff who wants to receive notifications
+  targetStaffId   String   // The staff whose clients trigger notifications
+
+  subscriber      Staff    @relation("NotificationSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  targetStaff     Staff    @relation("NotificationTarget", fields: [targetStaffId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@unique([subscriberId, targetStaffId])
+  @@index([subscriberId])
+  @@index([targetStaffId])
+}
+
 model Organization {
   id         String   @id @default(cuid())
   clerkOrgId String   @unique
@@ -439,22 +462,6 @@ model Organization {
   updatedAt  DateTime @updatedAt
 
   @@index([clerkOrgId])
-}
-
-model ClientAssignment {
-  id           String   @id @default(cuid())
-  clientId     String
-  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  staffId      String
-  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  assignedById String?
-
-  createdAt    DateTime @default(now())
-
-  @@unique([clientId, staffId])
-  @@index([staffId])
-  @@index([clientId])
-  @@index([assignedById])
 }
 
 model Client {
@@ -477,7 +484,14 @@ model Client {
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  assignments    ClientAssignment[]
+
+  managedById    String?
+  managedBy      Staff?    @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+
+  createdById    String?
+  createdBy      Staff?    @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById    String?
+  updatedBy      Staff?    @relation("UpdatedClients", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -485,6 +499,9 @@ model Client {
   @@index([phone])
   @@index([name])
   @@index([organizationId])
+  @@index([managedById])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
@@ -863,6 +880,10 @@ model Message {
   isSystem       Boolean          @default(false)
   templateUsed   String?
 
+  // Staff who sent this message (null for inbound/system messages)
+  sentById      String?
+  sentBy        Staff?    @relation("SentMessages", fields: [sentById], references: [id], onDelete: SetNull)
+
   // Voice call specific fields (null for non-CALL messages)
   callSid           String?       // Twilio Call SID
   recordingUrl      String?       // Twilio recording URL (.mp3)
@@ -875,6 +896,7 @@ model Message {
   @@index([conversationId])
   @@index([createdAt])
   @@index([callSid])
+  @@index([sentById])
 }
 
 model MagicLink {

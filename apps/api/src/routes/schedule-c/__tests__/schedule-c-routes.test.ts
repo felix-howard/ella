@@ -38,6 +38,7 @@ vi.mock('../../../services/magic-link', () => ({
 // Mock SMS service
 vi.mock('../../../services/sms/message-sender', () => ({
   sendScheduleCFormMessage: vi.fn(),
+  getOrgSmsLanguage: vi.fn(),
 }))
 
 // Mock expense calculator
@@ -54,7 +55,7 @@ import {
   extendMagicLinkExpiry,
   createMagicLink,
 } from '../../../services/magic-link'
-import { sendScheduleCFormMessage } from '../../../services/sms/message-sender'
+import { sendScheduleCFormMessage, getOrgSmsLanguage } from '../../../services/sms/message-sender'
 import {
   calculateGrossReceipts,
   calculateScheduleCTotals,
@@ -77,6 +78,7 @@ const mockMagicLinkFindFirst = vi.mocked(prisma.magicLink.findFirst)
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockCreateMagicLinkWithDeactivation = vi.mocked(createMagicLinkWithDeactivation)
 const mockSendSMS = vi.mocked(sendScheduleCFormMessage)
+const mockGetOrgSmsLanguage = vi.mocked(getOrgSmsLanguage)
 const mockCalcGrossReceipts = vi.mocked(calculateGrossReceipts)
 const mockCalcTotals = vi.mocked(calculateScheduleCTotals)
 const mockGetScheduleCLink = vi.mocked(getScheduleCMagicLink)
@@ -95,6 +97,7 @@ function mockCase(overrides: Record<string, unknown> = {}) {
 describe('Schedule C Staff Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetOrgSmsLanguage.mockResolvedValue('EN')
   })
 
   afterEach(() => {

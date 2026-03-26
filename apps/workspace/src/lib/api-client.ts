@@ -213,8 +213,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string; sort?: 'activity' | 'stale' | 'name' | 'recentUploads' }) =>
-      request<PaginatedResponse<ClientWithActions>>('/clients', { params }),
+    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' }) =>
+      request<PaginatedResponse<ClientWithActions> & { attentionSummary: { newUploads: number; needsVerification: number; stale: number; readyForEntry: number } }>('/clients', { params }),
 
     // Search for existing client by phone (for returning client detection)
     searchByPhone: async (phone: string) => {
@@ -245,6 +245,12 @@ export const api = {
       request<{ success: boolean; message: string }>(`/clients/${id}`, {
         method: 'DELETE',
       }),
+
+    updateManagedBy: (clientId: string, staffId: string | null) =>
+      request<{ data: { managedBy: { id: string; name: string; avatarUrl?: string | null } | null } }>(
+        `/clients/${clientId}/managed-by`,
+        { method: 'PATCH', body: JSON.stringify({ staffId }) }
+      ),
 
     resendSms: (id: string) =>
       request<{ success: boolean; error: string | null; smsEnabled: boolean }>(
@@ -841,8 +847,10 @@ export const api = {
 
   // Team Management
   team: {
-    listMembers: () =>
-      request<{ data: TeamMember[] }>('/team/members'),
+    listMembers: (opts?: { includeArchived?: boolean }) =>
+      request<{ data: TeamMember[] }>('/team/members', {
+        ...(opts?.includeArchived ? { params: { includeArchived: 'true' } } : {}),
+      }),
 
     invite: (data: { emailAddress: string; role?: string }) =>
       request<{ success: boolean; invitation: { id: string; emailAddress: string; status: string } }>(
@@ -856,9 +864,6 @@ export const api = {
 
     deactivate: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
-
-    getMemberAssignments: (staffId: string) =>
-      request<{ data: ClientAssignment[] }>(`/team/members/${staffId}/assignments`),
 
     listInvitations: () =>
       request<{ data: TeamInvitation[] }>('/team/invitations'),
@@ -876,6 +881,15 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    getNotificationSubscriptions: (staffId: string) =>
+      request<NotificationSubscriptionsResponse>(`/team/members/${staffId}/notification-subscriptions`),
+
+    updateNotificationSubscriptions: (staffId: string, targetStaffIds: string[]) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/notification-subscriptions`, {
+        method: 'PUT',
+        body: JSON.stringify({ targetStaffIds }),
+      }),
+
     getAvatarPresignedUrl: (staffId: string, data: AvatarPresignedUrlInput) =>
       request<AvatarPresignedUrlResponse>(`/team/members/${staffId}/avatar/presigned-url`, {
         method: 'POST',
@@ -887,6 +901,12 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ r2Key }),
       }),
+
+    archive: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/archive`, { method: 'PATCH' }),
+
+    unarchive: (staffId: string) =>
+      request<{ success: boolean }>(`/team/members/${staffId}/unarchive`, { method: 'PATCH' }),
   },
 
   // Organization Settings
@@ -898,35 +918,6 @@ export const api = {
       request<{ smsLanguage: Language; missedCallTextBack: boolean }>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
-      }),
-  },
-
-  // Client Assignments
-  clientAssignments: {
-    create: (data: { clientId: string; staffId: string }) =>
-      request<{ data: ClientAssignment }>('/client-assignments', {
-        method: 'POST', body: JSON.stringify(data),
-      }),
-
-    bulkCreate: (data: { clientIds: string[]; staffId: string }) =>
-      request<{ data: { created: number; skipped: number } }>('/client-assignments/bulk', {
-        method: 'POST', body: JSON.stringify(data),
-      }),
-
-    remove: (id: string) =>
-      request<{ success: boolean }>(`/client-assignments/${id}`, { method: 'DELETE' }),
-
-    list: (params?: { staffId?: string; clientId?: string }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.staffId) searchParams.set('staffId', params.staffId)
-      if (params?.clientId) searchParams.set('clientId', params.clientId)
-      const qs = searchParams.toString()
-      return request<{ data: ClientAssignment[] }>(`/client-assignments${qs ? `?${qs}` : ''}`)
-    },
-
-    transfer: (data: { clientId: string; fromStaffId: string; toStaffId: string }) =>
-      request<{ success: boolean }>('/client-assignments/transfer', {
-        method: 'PUT', body: JSON.stringify(data),
       }),
   },
 
@@ -1075,8 +1066,10 @@ export interface ClientWithActions {
   updatedAt: string
   computedStatus: TaxCaseStatus | null
   actionCounts: ActionCounts | null
-  /** Staff assigned to this client (admin-only) */
-  assignedStaff?: { id: string; name: string }[]
+  /** Staff managing this client */
+  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
+  /** Staff who created this client */
+  createdBy?: { id: string; name: string } | null
   /** Upload counts per CPA (new uploads they haven't viewed) */
   uploads?: ClientUploads
   latestCase: {
@@ -1118,6 +1111,9 @@ export interface ClientDetail extends Client {
   smsEnabled: boolean
   notes: string | null
   avatarUrl: string | null
+  managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
+  createdBy?: { id: string; name: string } | null
+  updatedBy?: { id: string; name: string } | null
 }
 
 export interface ClientStats {
@@ -1361,6 +1357,12 @@ export interface Message {
   // SMS delivery status from Twilio (queued, sent, delivered, undelivered, failed)
   // For errors: "failed:21612:Landline number" or "undelivered:30006:..."
   twilioStatus?: string | null
+  // Staff who sent this message (null for inbound/system)
+  sentBy?: {
+    id: string
+    name: string
+    avatarUrl: string | null
+  } | null
   // Call-specific fields (only for CALL channel)
   callSid?: string
   recordingUrl?: string
@@ -2022,7 +2024,8 @@ export interface TeamMember {
   role: string
   avatarUrl: string | null
   lastLoginAt: string | null
-  _count: { clientAssignments: number }
+  isActive?: boolean
+  _count: { managedClients: number }
 }
 
 export interface TeamInvitation {
@@ -2033,20 +2036,12 @@ export interface TeamInvitation {
   createdAt: number
 }
 
-export interface ClientAssignment {
-  id: string
-  clientId: string
-  staffId: string
-  assignedById: string | null
-  createdAt: string
-  client?: { id: string; name: string; phone: string }
-  staff?: { id: string; name: string; email: string }
-}
-
 // Staff Profile types
 export interface StaffProfile {
   id: string
   name: string
+  firstName: string
+  lastName: string
   email: string
   role: string
   avatarUrl: string | null
@@ -2055,16 +2050,28 @@ export interface StaffProfile {
 }
 
 export interface ProfileResponse {
-  staff: StaffProfile & { _count: { clientAssignments: number } }
-  assignedClients: Array<{ id: string; name: string; phone: string }>
-  assignedCount: number
+  staff: StaffProfile & { _count: { managedClients: number }; isActive: boolean; deactivatedAt: string | null }
+  managedClients: Array<{ id: string; name: string; phone: string; avatarUrl: string | null }>
+  managedCount: number
   canEdit: boolean
 }
 
 export interface UpdateStaffProfileInput {
-  name?: string
+  firstName?: string
+  lastName?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean
+}
+
+export interface NotificationSubscriptionsResponse {
+  subscriptions: string[]
+  members: Array<{
+    id: string
+    name: string
+    avatarUrl: string | null
+    role: string
+    _count: { managedClients: number }
+  }>
 }
 
 export interface AvatarPresignedUrlInput {

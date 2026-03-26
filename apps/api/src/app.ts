@@ -14,7 +14,7 @@ import { docsRoute } from './routes/docs'
 import { imagesRoute } from './routes/images'
 import { messagesRoute } from './routes/messages'
 import { portalRoute } from './routes/portal'
-import { twilioWebhookRoute } from './routes/webhooks'
+import { twilioWebhookRoute, clerkWebhookRoute } from './routes/webhooks'
 import { inngestRoute } from './routes/inngest'
 import { adminRoute } from './routes/admin'
 import { voiceRoutes } from './routes/voice'
@@ -24,7 +24,6 @@ import { expenseRoute } from './routes/expense'
 import { rentalRoute } from './routes/rental'
 import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
-import { clientAssignmentsRoute } from './routes/client-assignments'
 import { orgSettingsRoute } from './routes/org-settings'
 import { draftReturnsRoute } from './routes/draft-returns'
 import { portalDraftRoute } from './routes/portal/draft'
@@ -56,6 +55,7 @@ app.route('/expense', expenseRoute) // Public Schedule C expense form
 app.route('/rental', rentalRoute) // Public Schedule E rental form
 app.route('/portal/draft', portalDraftRoute) // Public draft return viewer
 app.route('/webhooks/twilio', twilioWebhookRoute)
+app.route('/webhooks/clerk', clerkWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 
@@ -73,7 +73,6 @@ app.use('/schedule-c/*', authMiddleware)
 app.use('/schedule-e/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
-app.use('/client-assignments/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/draft-returns/*', authMiddleware)
 
@@ -93,7 +92,6 @@ app.route('/schedule-c', scheduleCRoute)
 app.route('/schedule-e', scheduleERoute)
 app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
-app.route('/client-assignments', clientAssignmentsRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
 

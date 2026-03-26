@@ -433,7 +433,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'placeholder:text-muted-foreground',
+              'placeholder:text-muted-foreground/50',
               errors?.firstName ? 'border-error' : 'border-border'
             )}
           />
@@ -458,7 +458,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'placeholder:text-muted-foreground',
+              'placeholder:text-muted-foreground/50',
               errors?.lastName ? 'border-error' : 'border-border'
             )}
           />
@@ -486,7 +486,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
               'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-              'placeholder:text-muted-foreground',
+              'placeholder:text-muted-foreground/50',
               errors?.phone ? 'border-error' : 'border-border'
             )}
           />
@@ -515,7 +515,7 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
           className={cn(
             'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-            'placeholder:text-muted-foreground',
+            'placeholder:text-muted-foreground/50',
             errors?.email ? 'border-error' : 'border-border'
           )}
         />

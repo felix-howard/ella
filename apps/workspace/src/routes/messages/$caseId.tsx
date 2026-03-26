@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { ArrowLeft, User, Phone, ExternalLink } from 'lucide-react'
+import { ArrowLeft, User, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -27,7 +27,6 @@ function ConversationDetailView() {
   const { caseId } = Route.useParams()
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSending, setIsSending] = useState(false)
   const [caseData, setCaseData] = useState<{
     client: { id: string; name: string; phone: string; language: Language }
     taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
@@ -47,11 +46,13 @@ function ConversationDetailView() {
       // Messages come in desc order from API, reverse for display
       const fetchedMessages = response.messages.reverse()
 
-      // Merge with existing messages to prevent duplicates from optimistic updates
-      // Use a Map to dedupe by ID, preferring fetched messages (they have complete data)
+      // Merge fetched messages with existing, keeping optimistic (temp-*) messages
       setMessages((prev) => {
-        const messageMap = new Map(prev.map((m) => [m.id, m]))
-        fetchedMessages.forEach((m) => messageMap.set(m.id, m))
+        // Keep optimistic messages that are still pending
+        const optimisticMessages = prev.filter((m) => m.id.startsWith('temp-'))
+        const messageMap = new Map(fetchedMessages.map((m) => [m.id, m]))
+        // Add back optimistic messages (they'll be replaced when API responds)
+        optimisticMessages.forEach((m) => messageMap.set(m.id, m))
         return Array.from(messageMap.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
@@ -111,41 +112,58 @@ function ConversationDetailView() {
     return () => clearInterval(interval)
   }, [fetchMessages])
 
-  // Handle message send
+  // Handle message send with true optimistic update
   const handleSend = useCallback(
     async (content: string, channel: 'SMS' | 'PORTAL') => {
-      setIsSending(true)
+      // Generate a temporary ID and show the message immediately
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      const optimisticMessage: Message & { _optimistic?: 'sending' | 'failed' } = {
+        id: tempId,
+        conversationId: caseId,
+        channel,
+        direction: 'OUTBOUND',
+        content,
+        createdAt: new Date().toISOString(),
+        _optimistic: 'sending',
+      }
+
+      // Show message in UI instantly
+      setMessages((prev) => [...prev, optimisticMessage])
+
       try {
         const response = await api.messages.send({ caseId, content, channel })
 
-        // Add new message to list (optimistic update)
-        const newMessage: Message = {
-          id: response.message.id,
-          conversationId: response.message.conversationId,
-          channel,
-          direction: 'OUTBOUND',
-          content,
-          createdAt: new Date().toISOString(),
-        }
-
-        // Use functional update with deduplication to prevent race condition
-        // with polling that may have already fetched this message
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) {
-            return prev // Already exists, skip adding
-          }
-          return [...prev, newMessage]
-        })
+        // Replace temp message with real server data
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? { ...response.message, channel, direction: 'OUTBOUND' as const, content, createdAt: response.message.createdAt || optimisticMessage.createdAt }
+              : m
+          )
+        )
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Failed to send message:', error)
         }
-        // TODO: Show error toast
-      } finally {
-        setIsSending(false)
+        // Mark as failed so user can retry
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, _optimistic: 'failed' } : m
+          )
+        )
       }
     },
     [caseId]
+  )
+
+  // Retry a failed optimistic message
+  const handleRetry = useCallback(
+    (failedMessage: Message & { _optimistic?: string }) => {
+      // Remove the failed message and re-send
+      setMessages((prev) => prev.filter((m) => m.id !== failedMessage.id))
+      handleSend(failedMessage.content, failedMessage.channel as 'SMS' | 'PORTAL')
+    },
+    [handleSend]
   )
 
   // Handle call button click
@@ -168,7 +186,7 @@ function ConversationDetailView() {
   const avatarColor = caseData ? getAvatarColor(caseData.client.name) : null
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       {/* Header */}
       <header className="flex-shrink-0 bg-card shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]">
         <div className="px-4 py-3">
@@ -201,10 +219,7 @@ function ConversationDetailView() {
                       </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {formatPhone(caseData.client.phone)}
-                      </span>
+                      <span>{formatPhone(caseData.client.phone)}</span>
                     </div>
                   </div>
                 </div>
@@ -227,15 +242,16 @@ function ConversationDetailView() {
                 isLoading={voiceState.isLoading}
                 callState={voiceState.callState}
                 onClick={handleCallClick}
+                label={t('messages.call')}
               />
               {caseData && (
                 <Link
                   to="/clients/$clientId"
                   params={{ clientId: caseData.client.id }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
                 >
                   <User className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t('messages.viewProfile')}</span>
+                  <span>{t('messages.viewProfile')}</span>
                   <ExternalLink className="w-3 h-3" />
                 </Link>
               )}
@@ -249,13 +265,13 @@ function ConversationDetailView() {
         messages={messages}
         isLoading={isLoading}
         className="flex-1 bg-background"
+        onRetry={handleRetry}
       />
 
       {/* Quick Actions Bar */}
       {caseData && (
         <QuickActionsBar
           onSend={handleSend}
-          isSending={isSending}
           clientName={caseData.client.name}
           clientPhone={caseData.client.phone}
           clientId={caseData.client.id}

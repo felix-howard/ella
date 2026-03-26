@@ -88,6 +88,7 @@ export const config = {
   clerk: {
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
     secretKey: process.env.CLERK_SECRET_KEY || '',
+    webhookSecret: process.env.CLERK_WEBHOOK_SECRET || '',
     isConfigured: Boolean(
       process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY
     ),

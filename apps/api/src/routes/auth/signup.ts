@@ -92,4 +92,36 @@ authSignupRoute.post(
   }
 )
 
+// GET /auth/invitation-info?ticket=<clerk_ticket> - Get org name from invitation ticket (public)
+authSignupRoute.get('/invitation-info', async (c) => {
+  const ticket = c.req.query('ticket')
+  if (!ticket) {
+    return c.json({ error: 'Missing ticket' }, 400)
+  }
+
+  try {
+    // Decode JWT payload to extract org ID
+    const parts = ticket.split('.')
+    if (parts.length < 2) {
+      return c.json({ orgName: '' })
+    }
+
+    // Base64url decode the payload
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'))
+
+    // Clerk tickets use 'oid' for org ID
+    const orgId = payload.oid || payload.org_id || payload.organization_id || ''
+    if (!orgId) {
+      return c.json({ orgName: '' })
+    }
+
+    const org = await clerkClient.organizations.getOrganization({ organizationId: orgId })
+    return c.json({ orgName: org.name || '' })
+  } catch (error) {
+    console.error('[Auth] Failed to get invitation info:', error)
+    return c.json({ orgName: '' })
+  }
+})
+
 export { authSignupRoute }

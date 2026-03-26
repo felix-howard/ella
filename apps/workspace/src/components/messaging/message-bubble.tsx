@@ -5,16 +5,17 @@
 
 import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@ella/ui'
+import { cn, Tooltip } from '@ella/ui'
 import { Phone, Globe, Bot, ImageOff, PhoneCall, PhoneOff, PhoneMissed, Check, CheckCheck, Clock, AlertCircle, XCircle } from 'lucide-react'
-import { sanitizeText } from '../../lib/formatters'
+import { sanitizeText, linkifyText, formatShortRelativeTime, formatFullDateTime, getInitials, getAvatarColor } from '../../lib/formatters'
 import type { Message } from '../../lib/api-client'
 import { fetchMediaBlobUrl } from '../../lib/api-client'
 import { AudioPlayer } from './audio-player'
 
 export interface MessageBubbleProps {
-  message: Message
+  message: Message & { _optimistic?: 'sending' | 'failed' }
   showTime?: boolean
+  onRetry?: (message: Message) => void
 }
 
 // Channel icons (labels are i18n keys)
@@ -87,10 +88,12 @@ const SMS_STATUS_CONFIG: Record<string, { icon: React.ReactNode; labelKey: strin
   failed: { icon: <XCircle className="w-3 h-3" />, labelKey: 'messages.smsStatus.failed', color: 'text-destructive' },
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, showTime = true }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, showTime = true, onRetry }: MessageBubbleProps) {
   const { t } = useTranslation()
   const isOutbound = message.direction === 'OUTBOUND'
   const isSystem = message.channel === 'SYSTEM'
+  const isSending = message._optimistic === 'sending'
+  const isFailed = message._optimistic === 'failed'
   const channelConfig = CHANNEL_ICONS[message.channel]
   const ChannelIcon = channelConfig.icon
   const channelLabel = t(channelConfig.labelKey)
@@ -122,7 +125,11 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/30 text-[11px] text-muted-foreground/70">
           <Bot className="w-3 h-3" />
           <span>{safeContent}</span>
-          {showTime && <span className="ml-1 opacity-60">• {time}</span>}
+          {showTime && (
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+              <span className="ml-1 opacity-60 cursor-default">• {time}</span>
+            </Tooltip>
+          )}
         </div>
       </div>
     )
@@ -177,138 +184,207 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     )
   }
 
-  // Image-only message - clean modern style without card wrapper
+  // Image-only message
   if (isImageOnly) {
+    if (isOutbound) {
+      return (
+        <div className="flex flex-col w-full items-end">
+          <div className="flex items-end gap-2 max-w-[280px]">
+            <div className="flex flex-col gap-1.5">
+              {message.attachmentUrls!.map((url, index) => (
+                <MessageImage key={index} url={url} isOutbound isStandalone />
+              ))}
+            </div>
+            <StaffAvatar sentBy={message.sentBy} />
+          </div>
+          <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
+        </div>
+      )
+    }
     return (
-      <div
-        className={cn(
-          'flex flex-col w-full gap-1',
-          isOutbound ? 'items-end' : 'items-start'
-        )}
-      >
-        {/* Images displayed standalone */}
+      <div className="flex flex-col w-full items-start">
         <div className="flex flex-col gap-1.5 max-w-[280px]">
           {message.attachmentUrls!.map((url, index) => (
-            <MessageImage
-              key={index}
-              url={url}
-              isOutbound={isOutbound}
-              isStandalone
-            />
+            <MessageImage key={index} url={url} isOutbound={false} isStandalone />
           ))}
         </div>
-
-        {/* Metadata below image */}
-        <div
-          className={cn(
-            'flex items-center gap-1.5 text-[10px] text-muted-foreground px-1',
-            isOutbound && 'flex-row-reverse'
-          )}
-        >
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 mt-1">
           <ChannelIcon className="w-3 h-3" />
           <span>{channelLabel}</span>
-          {showTime && <span>{time}</span>}
-          {smsStatusConfig && (
-            <span className={cn('flex items-center gap-0.5', smsStatusConfig.color)}>
-              {smsStatusConfig.icon}
-              <span>{t(smsStatusConfig.labelKey)}</span>
-            </span>
+          {showTime && (
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+              <span className="cursor-default">{time}</span>
+            </Tooltip>
           )}
         </div>
-        {/* Error details for failed SMS */}
-        {isError && smsStatus?.errorMessage && (
-          <div className={cn(
-            'text-[10px] text-destructive/80 px-1 max-w-[280px]',
-            isOutbound && 'text-right'
-          )}>
-            {smsStatus.errorMessage}
+      </div>
+    )
+  }
+
+  // Outbound text message — redesigned layout
+  if (isOutbound) {
+    return (
+      <div className="flex flex-col w-full items-end">
+        <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
+          {/* Message bubble - light green, only text */}
+          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 overflow-hidden">
+            {hasAttachments && (
+              <div className="flex flex-col">
+                {message.attachmentUrls!.map((url, index) => (
+                  <MessageImage key={index} url={url} isOutbound isStandalone={false} />
+                ))}
+              </div>
+            )}
+            <div className="px-3.5 py-2">
+              {hasText && (
+                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700">
+                  <LinkifiedText text={safeContent} isOutbound />
+                </p>
+              )}
+            </div>
           </div>
+          {/* Staff avatar */}
+          <StaffAvatar sentBy={message.sentBy} />
+        </div>
+
+        {/* Optimistic status: sending / failed */}
+        {isSending && (
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground pr-9">
+            <Clock className="w-3 h-3" />
+            <span>{t('messages.sending', 'Sending...')}</span>
+          </div>
+        )}
+        {isFailed && (
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-destructive pr-9">
+            <AlertCircle className="w-3 h-3" />
+            <span>{t('messages.sendFailed', 'Failed to send')}</span>
+            {onRetry && (
+              <button
+                onClick={() => onRetry(message)}
+                className="underline text-[11px] text-destructive hover:text-destructive/80 ml-1"
+              >
+                {t('messages.retry', 'Retry')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Time + status below bubble (only for confirmed messages) */}
+        {!isSending && !isFailed && (
+          <SenderMeta showTime={showTime} createdAt={message.createdAt} smsStatusConfig={smsStatusConfig} smsStatus={smsStatus} isError={isError} t={t} />
         )}
       </div>
     )
   }
 
-  // Text message (with optional images)
+  // Inbound text message — keep existing design
   return (
-    <div
-      className={cn(
-        'flex flex-col w-full gap-1',
-        isOutbound ? 'items-end' : 'items-start'
-      )}
-    >
+    <div className="flex flex-col w-full items-start">
       <div
         className={cn(
           'max-w-[75%] overflow-hidden',
-          // Modern bubble shape with chat tail
-          isOutbound
-            ? 'rounded-[20px] rounded-br-[6px]'
-            : 'rounded-[20px] rounded-bl-[6px]',
-          // Colors - card style with subtle shadow
-          isOutbound
-            ? 'bg-primary text-white shadow-sm'
-            : 'bg-card text-foreground shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
+          'rounded-[20px] rounded-bl-[6px]',
+          'bg-card text-foreground shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)]'
         )}
       >
-        {/* Images at top, edge-to-edge within bubble */}
         {hasAttachments && (
           <div className="flex flex-col">
             {message.attachmentUrls!.map((url, index) => (
-              <MessageImage
-                key={index}
-                url={url}
-                isOutbound={isOutbound}
-                isStandalone={false}
-              />
+              <MessageImage key={index} url={url} isOutbound={false} isStandalone={false} />
             ))}
           </div>
         )}
-
-        {/* Text content with padding */}
         <div className="px-3.5 py-2">
           {hasText && (
             <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-              {safeContent}
+              <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
-
-          {/* Inline metadata */}
-          <div
-            className={cn(
-              'flex items-center gap-1.5 mt-1 text-[10px]',
-              isOutbound ? 'text-white/50 justify-end' : 'text-muted-foreground/60'
-            )}
-          >
+          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/60">
             <ChannelIcon className="w-2.5 h-2.5" />
             <span>{channelLabel}</span>
-            {showTime && <span>{time}</span>}
-            {smsStatusConfig && (
-              <span className={cn(
-                'flex items-center gap-0.5',
-                isError
-                  ? (isOutbound ? 'text-red-300' : 'text-destructive')
-                  : (smsStatus?.status === 'delivered'
-                    ? (isOutbound ? 'text-white/70' : 'text-blue-500')
-                    : '')
-              )}>
-                {smsStatusConfig.icon}
-                <span>{t(smsStatusConfig.labelKey)}</span>
-              </span>
+            {showTime && (
+              <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
+                <span className="cursor-default">{time}</span>
+              </Tooltip>
             )}
           </div>
-          {/* Error details for failed SMS */}
-          {isError && smsStatus?.errorMessage && (
-            <div className={cn(
-              'mt-0.5 text-[10px] leading-tight',
-              isOutbound ? 'text-red-300/80 text-right' : 'text-destructive/80'
-            )}>
-              {smsStatus.errorMessage}
-            </div>
-          )}
         </div>
       </div>
     </div>
   )
 })
+
+/** Staff avatar shown to the right of outbound messages */
+function StaffAvatar({ sentBy }: { sentBy?: Message['sentBy'] }) {
+  if (!sentBy) return <div className="w-7 flex-shrink-0" /> // spacer for alignment
+  if (sentBy.avatarUrl) {
+    return (
+      <img
+        src={sentBy.avatarUrl}
+        alt={sentBy.name}
+        className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+      />
+    )
+  }
+  const colors = getAvatarColor(sentBy.name)
+  return (
+    <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0', colors.bg, colors.text)}>
+      {getInitials(sentBy.name)}
+    </div>
+  )
+}
+
+/** Relative time + SMS status below outbound bubble */
+function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, t }: {
+  showTime: boolean
+  createdAt: string
+  smsStatusConfig?: (typeof SMS_STATUS_CONFIG)[string] | null
+  smsStatus?: { status: string; errorCode?: string; errorMessage?: string } | null
+  isError?: boolean
+  t: (key: string) => string
+}) {
+  if (!showTime && !smsStatusConfig) return null
+  return (
+    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pr-9 cursor-default flex-wrap">
+      {showTime && (
+        <Tooltip content={formatFullDateTime(createdAt)} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+          <span>{formatShortRelativeTime(createdAt)}</span>
+        </Tooltip>
+      )}
+      {smsStatusConfig && (
+        <>
+          {showTime && <span>-</span>}
+          {isError ? (
+            <>
+              <span className="text-destructive">Sending failed</span>
+              {smsStatus?.errorMessage && <ErrorDetails errorMessage={smsStatus.errorMessage} />}
+            </>
+          ) : (
+            <span className="flex items-center gap-1">
+              {smsStatusConfig.icon}
+              {t(smsStatusConfig.labelKey)}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+
+/** Expandable error details for failed messages */
+function ErrorDetails({ errorMessage }: { errorMessage: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button onClick={() => setOpen(!open)} className="text-destructive underline text-[11px]">
+        (Details)
+      </button>
+      {open && <div className="text-[10px] text-destructive/80 mt-0.5 w-full">{errorMessage}</div>}
+    </>
+  )
+}
 
 /**
  * Modern image attachment with loading/error states
@@ -414,6 +490,36 @@ function MessageImage({ url, isOutbound: _isOutbound, isStandalone = false }: Me
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Renders text with clickable links that open in new tab
+ */
+function LinkifiedText({ text, isOutbound: _isOutbound }: { text: string; isOutbound: boolean }) {
+  const parts = linkifyText(text)
+  const hasLinks = parts.some(p => p.type === 'link')
+
+  if (!hasLinks) return <>{text}</>
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'link' ? (
+          <a
+            key={i}
+            href={part.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline break-all text-primary hover:text-primary/80"
+          >
+            {part.value}
+          </a>
+        ) : (
+          <span key={i}>{part.value}</span>
+        )
+      )}
+    </>
   )
 }
 

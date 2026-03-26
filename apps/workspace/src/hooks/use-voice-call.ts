@@ -130,6 +130,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
   const heartbeatIntervalRef = useRef<number | null>(null) // Presence heartbeat timer
   const mountedRef = useRef(true) // Track component mount status for cleanup
   const autoRegisterTriggeredRef = useRef(false) // Track if auto-register has been triggered this session
+  const gestureCleanupRef = useRef<(() => void) | null>(null) // Cleanup gesture listeners
 
   // Cleanup call event listeners
   const cleanupCallListeners = useCallback(() => {
@@ -344,6 +345,15 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
           await api.voice.unregisterPresence()
         } catch {
           // Fire and forget on unregister
+        }
+        // Auto re-register if device still exists (AudioContext already created, no gesture needed)
+        if (mountedRef.current && deviceRef.current) {
+          try {
+            setIsRegistering(true)
+            await deviceRef.current.register()
+          } catch {
+            setIsRegistering(false)
+          }
         }
       })
 
@@ -663,7 +673,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
 
   }, [incomingCall])
 
-  // Auto-register device on first user interaction (browser requires user gesture for AudioContext)
+  // Auto-register device: try immediately on load, fall back to user gesture if AudioContext blocked
   // Device stays registered until page unload - staff can accept/reject calls via modal
   useEffect(() => {
     // Skip if voice not available or already registered/registering
@@ -671,7 +681,7 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       return
     }
 
-    const handleUserGesture = async () => {
+    const attemptRegistration = async () => {
       // Prevent duplicate registration attempts
       if (autoRegisterTriggeredRef.current) {
         return
@@ -687,45 +697,75 @@ export function useVoiceCall(): [VoiceCallState, VoiceCallActions] {
       setIsRegistering(true)
       setError(null)
 
-      // Small delay to ensure gesture context is valid for AudioContext
-      setTimeout(async () => {
-        try {
-          // Check microphone permission first
-          const hasMicPermission = await checkMicrophonePermission()
-          if (!hasMicPermission) {
-            setError(t('voiceError.micPermissionRequired'))
-            setIsRegistering(false)
-            autoRegisterTriggeredRef.current = false // Allow retry
-            return
-          }
-
-          // Setup device (creates Twilio Device, registers it)
-          const success = await setupDevice()
-          if (!success) {
-            setIsRegistering(false)
-            autoRegisterTriggeredRef.current = false // Allow retry on failure
-          }
-          // isRegistered will be set in 'registered' event handler
-        } catch (e) {
-          if (import.meta.env.DEV) {
-            console.error('[Voice] Registration error:', e)
-          }
+      try {
+        // Check microphone permission first
+        const hasMicPermission = await checkMicrophonePermission()
+        if (!hasMicPermission) {
+          setError(t('voiceError.micPermissionRequired'))
           setIsRegistering(false)
-          autoRegisterTriggeredRef.current = false // Allow retry on error
+          autoRegisterTriggeredRef.current = false // Allow retry
+          return
         }
-      }, 100)
+
+        // Setup device (creates Twilio Device, registers it)
+        const success = await setupDevice()
+        if (!success) {
+          setIsRegistering(false)
+          autoRegisterTriggeredRef.current = false // Allow retry on failure
+        }
+        // isRegistered will be set in 'registered' event handler
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          console.error('[Voice] Registration error:', e)
+        }
+        setIsRegistering(false)
+        autoRegisterTriggeredRef.current = false // Allow retry on error
+      }
     }
 
-    // Listen for user interaction (click or keydown)
-    document.addEventListener('click', handleUserGesture, { once: true })
-    document.addEventListener('keydown', handleUserGesture, { once: true })
+    // Try immediate registration (works if user has interacted with site before)
+    attemptRegistration().catch(() => {
+      // AudioContext blocked - fall back to user gesture
+      autoRegisterTriggeredRef.current = false
+      setIsRegistering(false)
+
+      const handleUserGesture = () => {
+        attemptRegistration()
+      }
+
+      document.addEventListener('click', handleUserGesture, { once: true })
+      document.addEventListener('keydown', handleUserGesture, { once: true })
+
+      // Store cleanup refs
+      gestureCleanupRef.current = () => {
+        document.removeEventListener('click', handleUserGesture)
+        document.removeEventListener('keydown', handleUserGesture)
+      }
+    })
 
     return () => {
-      document.removeEventListener('click', handleUserGesture)
-      document.removeEventListener('keydown', handleUserGesture)
+      gestureCleanupRef.current?.()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable, isRegistered, isRegistering, setupDevice])
+
+  // Re-register when tab becomes visible again (device already exists, no gesture needed)
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return
+      if (!deviceRef.current || isRegistered || isRegistering) return
+
+      setIsRegistering(true)
+      deviceRef.current.register().catch(() => {
+        setIsRegistering(false)
+      })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isRegistered, isRegistering])
 
   // Cleanup on beforeunload (tab close)
   useEffect(() => {

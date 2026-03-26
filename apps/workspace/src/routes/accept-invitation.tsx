@@ -7,7 +7,7 @@
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useSignIn, useSignUp, useOrganizationList } from '@clerk/clerk-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { EllaLogoDark, EllaLogoLight } from '@ella/ui'
 import { useTheme } from '../stores/ui-store'
@@ -35,8 +35,15 @@ function AcceptInvitationPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSigningIn, setIsSigningIn] = useState(false)
+  const [isPreparing, setIsPreparing] = useState(true)
+  const [invitationEmail, setInvitationEmail] = useState('')
+  const [orgName, setOrgName] = useState('')
+  const preparedRef = useRef(false)
 
   const logo = theme === 'dark' ? EllaLogoDark : EllaLogoLight
+
+  // Validate name fields don't contain email patterns
+  const isEmailPattern = (value: string) => /\S+@\S+\.\S+/.test(value)
 
   // Extract ticket and status from URL
   const searchParams = new URLSearchParams(window.location.search)
@@ -78,18 +85,58 @@ function AcceptInvitationPage() {
     doSignIn()
   }, [signIn, setActiveSignIn, ticket, accountStatus, userMemberships?.data, t])
 
+  // Prepare signup with ticket to get email, and fetch org name from API
+  useEffect(() => {
+    if (!isLoaded || !signUp || !ticket || accountStatus !== 'sign_up' || preparedRef.current) return
+    preparedRef.current = true
+
+    const prepareSignUp = async () => {
+      try {
+        // Initialize signup with ticket to populate email
+        const result = await signUp.create({
+          strategy: 'ticket',
+          ticket,
+        })
+        setInvitationEmail(result.emailAddress || '')
+      } catch (err: unknown) {
+        console.error('Prepare signup failed:', err)
+      }
+
+      // Fetch org name from backend (decodes ticket JWT server-side)
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+        const res = await fetch(`${apiUrl}/auth/invitation-info?ticket=${encodeURIComponent(ticket)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.orgName) setOrgName(data.orgName)
+        }
+      } catch {
+        // Non-critical, just won't show org name
+      }
+
+      setIsPreparing(false)
+    }
+
+    prepareSignUp()
+  }, [isLoaded, signUp, ticket, accountStatus])
+
   // Handle sign-up form submission for new users
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isLoaded || !ticket) return
 
+    // Validate name fields don't contain email
+    if (isEmailPattern(firstName) || isEmailPattern(lastName)) {
+      setError(t('invite.nameCannotBeEmail'))
+      return
+    }
+
     setError('')
     setIsLoading(true)
 
     try {
-      const result = await signUp.create({
-        strategy: 'ticket',
-        ticket,
+      // Update the already-prepared signup with name and password
+      const result = await signUp.update({
         firstName,
         lastName,
         password,
@@ -148,6 +195,19 @@ function AcceptInvitationPage() {
 
   // New user sign-up form
   if (accountStatus === 'sign_up') {
+    // Show loading while preparing signup (fetching email)
+    if (isPreparing) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
+          <div className="mb-6 sm:mb-10">
+            <img src={logo} alt="ella.tax" className="h-10 object-contain" />
+          </div>
+          <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+          <p className="text-muted-foreground text-sm">{t('invite.processing')}</p>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
         <div className="mb-6 sm:mb-10">
@@ -157,11 +217,25 @@ function AcceptInvitationPage() {
         <div className="w-full max-w-[calc(28rem-40px)]">
           <div className="text-center mb-6">
             <p className="text-muted-foreground text-sm">
-              {t('invite.createAccount')}
+              {orgName
+                ? t('invite.createAccountForOrg', { orgName })
+                : t('invite.createAccount')}
             </p>
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-0">
+            {/* Email (read-only, from invitation) */}
+            {invitationEmail && (
+              <div className="relative">
+                <input
+                  type="email"
+                  value={invitationEmail}
+                  readOnly
+                  className="w-full px-4 py-4 bg-muted text-muted-foreground text-base rounded-t-lg border border-input border-b-0 cursor-not-allowed"
+                />
+              </div>
+            )}
+
             {/* First Name */}
             <div className="relative">
               <input
@@ -170,7 +244,7 @@ function AcceptInvitationPage() {
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder={t('invite.firstNamePlaceholder')}
                 required
-                className="w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground rounded-t-lg border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10"
+                className={`w-full px-4 py-4 bg-card text-foreground text-base placeholder-muted-foreground ${!invitationEmail ? 'rounded-t-lg' : ''} border border-input border-b-0 focus:outline-none focus:ring-2 focus:ring-primary focus:relative focus:z-10`}
                 disabled={isLoading}
               />
             </div>

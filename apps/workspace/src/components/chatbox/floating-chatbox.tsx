@@ -57,22 +57,48 @@ export function FloatingChatbox({
     refetchInterval: isOpen ? POLLING_INTERVAL_MS : false,
   })
 
-  // Send message mutation
+  // Send message mutation with optimistic update
   const sendMessageMutation = useMutation({
     mutationFn: (data: { content: string; channel: 'SMS' | 'PORTAL' }) =>
       api.messages.send({ caseId, ...data }),
+    onMutate: async (data) => {
+      // Cancel outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: ['messages', caseId] })
+
+      const previous = queryClient.getQueryData(['messages', caseId])
+
+      // Optimistically add the new message
+      const tempMessage = {
+        id: `temp-${Date.now()}`,
+        conversationId: caseId,
+        channel: data.channel,
+        direction: 'OUTBOUND' as const,
+        content: data.content,
+        createdAt: new Date().toISOString(),
+        _optimistic: 'sending' as const,
+      }
+
+      queryClient.setQueryData(['messages', caseId], (old: { messages: unknown[] } | undefined) => ({
+        ...old,
+        messages: [...(old?.messages ?? []), tempMessage],
+      }))
+
+      return { previous }
+    },
     onSuccess: () => {
-      // Refetch messages after sending
       queryClient.invalidateQueries({ queryKey: ['messages', caseId] })
-      // Update unread count in parent (debounced in parent)
       onUnreadChange?.()
     },
-    onError: () => {
+    onError: (_err, _data, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(['messages', caseId], context.previous)
+      }
       toast.error(t('chat.sendError'))
     },
   })
 
-  // Handle send message - simple function, no memoization needed
+  // Handle send message
   const handleSend = (content: string, channel: 'SMS' | 'PORTAL') => {
     sendMessageMutation.mutate({ content, channel })
   }

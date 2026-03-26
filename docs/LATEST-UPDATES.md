@@ -1,5 +1,77 @@
 # Latest Documentation Updates
 
+**Date:** 2026-03-25 | **Feature:** ClientAssignment N:N to managedById FK Migration Phase 3 (Frontend UI) COMPLETE | **Status:** Complete
+
+---
+
+## ClientAssignment N:N to managedById FK Migration - Phase 3 Frontend UI Update
+
+**Date:** 2026-03-25 | **Status:** Complete
+
+**In One Sentence:** Migrated client-manager UI from N:N ClientAssignment with bulk assignment dialogs to N:1 Client.managedById FK with simplified single-manager display.
+
+**Key Changes:**
+- Deleted 3 components: `client-assignment-section.tsx`, `bulk-assign-dialog.tsx`, `member-assignments-panel.tsx`
+- Updated `client-list-table.tsx` with new "Managed By" column (admin-only)
+- Updated `client-assigned-staff.tsx` to display single read-only manager
+- Updated `team-member-table.tsx` to show `managedClients` count
+- Updated team member profile route to fetch `managedClients` instead of assigned clients
+- API response properties renamed: `assignedClients` → `managedClients`, `ClientAssignment` type removed
+- Localization updated: `assignment.*` keys → `managed.*` keys (4 new keys added)
+
+**Architecture Change:**
+- **Before:** Admin assigns multiple staff to one client (N:N via ClientAssignment model, complex bulk UIs)
+- **After:** Admin assigns one staff to one client (N:1 via Client.managedById FK, simplified single-manager display)
+
+**Files Modified:**
+- Frontend: 10 component/page files (deletions, UI updates, i18n)
+- Backend: 2 route files (response properties)
+- Localization: en.json, vi.json (4 new managed.* keys)
+
+**Benefits:**
+- Simpler data model (no join table needed)
+- Clearer responsibility (each client has exactly one manager)
+- Faster queries (direct FK lookup vs N:N join)
+- Reduced UI complexity (no bulk assignment dialogs)
+- Better accountability (single owner per client)
+
+**Status:** Production-ready, merged to fix/more-bug branch
+
+---
+
+## Clerk Webhook Sync Migration
+
+**Date:** 2026-03-24 | **Status:** Complete
+
+**In One Sentence:** Replaced manual request-time auth middleware sync with Clerk webhooks for real-time database updates on user/org/membership changes.
+
+**Key Changes:**
+- Webhook endpoint added at `/webhooks/clerk` with Svix signature verification
+- Event handlers implemented for: `user.created`, `user.updated`, `user.deleted`, `organization.created`, `organization.updated`, `organizationMembership.created`, `organizationMembership.updated`, `organizationMembership.deleted`, `organizationInvitation.accepted`
+- Auth middleware simplified from sync-on-every-request to read-only DB queries
+- Team routes cleaned up (removed redundant sync logic)
+- 29 unit tests written (23 handler tests + 6 route tests), all passing
+- Code reviewed and 5 issues resolved (try/catch separation, user.created handler, avatar protection, DRY org upsert, startup validation)
+
+**Architecture Change:**
+- **Before:** Request → Auth Middleware (sync to DB) → Handler
+- **After:** Request → Auth Middleware (read from DB) → Handler | Clerk Event → Webhook (sync to DB async)
+
+**Files Modified:**
+- `apps/api/src/routes/webhooks/clerk.ts` (new)
+- `apps/api/src/routes/webhooks/handlers/*.ts` (new)
+- `apps/api/src/middleware/auth.ts` (simplified)
+- `apps/api/src/routes/team/index.ts` (cleanup)
+- `apps/api/src/routes/webhooks/__tests__/clerk.test.ts` (new)
+
+**Benefits:**
+- Real-time sync: Role changes take effect immediately, not when user makes request
+- Performance: No DB writes during auth (read-only middleware)
+- Reliability: Async webhook processing prevents request-response coupling
+- Testability: 29 tests with 100% handler coverage
+
+---
+
 **Date:** 2026-03-19 | **Feature:** Admin Edit Member Profiles COMPLETE | **Status:** Complete
 
 ---

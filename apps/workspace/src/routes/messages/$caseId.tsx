@@ -11,7 +11,8 @@ import { cn } from '@ella/ui'
 import { ArrowLeft, User, ExternalLink } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
-import { formatPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
 import type { Message, TaxCaseStatus, Language } from '../../lib/api-client'
 
@@ -24,6 +25,7 @@ const POLLING_INTERVAL = 10000
 
 function ConversationDetailView() {
   const { t } = useTranslation()
+  const { isAdmin } = useOrgRole()
   const { caseId } = Route.useParams()
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -219,7 +221,7 @@ function ConversationDetailView() {
                       </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                      <span>{formatPhone(caseData.client.phone)}</span>
+                      <span>{isAdmin ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}</span>
                     </div>
                   </div>
                 </div>

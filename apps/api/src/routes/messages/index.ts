@@ -23,6 +23,7 @@ import {
 import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 
 /**
@@ -458,6 +459,24 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
   } else if (channel !== 'SMS') {
     // System/Portal messages don't need SMS
     smsSent = true
+  }
+
+  // Emit chat monitoring event for staff outbound messages
+  if (user.staffId) {
+    const clientName = taxCase.client.name ||
+      `${taxCase.client.firstName} ${taxCase.client.lastName || ''}`.trim()
+    inngest.send({
+      name: 'message/staff-sent',
+      data: {
+        staffId: user.staffId,
+        staffName: message.sentBy?.name || 'Staff',
+        caseId,
+        clientName,
+        staffCaseKey: `${user.staffId}-${caseId}`,
+      },
+    }).catch((err) => {
+      console.error('[Messages] Failed to emit staff chat event:', err)
+    })
   }
 
   return c.json(

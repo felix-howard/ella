@@ -384,6 +384,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       avatarUrl: true,
       phoneNumber: true,
       notifyOnUpload: true,
+      notifyOnChat: true,
       isActive: true,
       deactivatedAt: true,
       _count: { select: { managedClients: true } },
@@ -438,7 +439,7 @@ teamRoute.patch(
       return c.json({ error: 'Can only edit your own profile' }, 403)
     }
 
-    const { firstName, lastName, phoneNumber, notifyOnUpload } = c.req.valid('json')
+    const { firstName, lastName, phoneNumber, notifyOnUpload, notifyOnChat } = c.req.valid('json')
 
     // Verify staff exists and belongs to org
     const staff = await prisma.staff.findFirst({
@@ -465,6 +466,7 @@ teamRoute.patch(
         ...(name !== undefined && { name }),
         ...(phoneNumber !== undefined && { phoneNumber }),
         ...(notifyOnUpload !== undefined && { notifyOnUpload }),
+        ...(notifyOnChat !== undefined && { notifyOnChat }),
       },
       select: {
         id: true,
@@ -473,6 +475,7 @@ teamRoute.patch(
         phoneNumber: true,
         avatarUrl: true,
         notifyOnUpload: true,
+        notifyOnChat: true,
       },
     })
 
@@ -492,8 +495,8 @@ teamRoute.patch(
     // Audit log when admin edits another member's profile
     if (targetStaffId !== user.staffId) {
       logTeamAction('PROFILE_EDITED', targetStaffId, user.staffId, {
-        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload },
-        newValue: { name, phoneNumber, notifyOnUpload },
+        oldValue: { name: staff.name, phoneNumber: staff.phoneNumber, notifyOnUpload: staff.notifyOnUpload, notifyOnChat: staff.notifyOnChat },
+        newValue: { name, phoneNumber, notifyOnUpload, notifyOnChat },
       })
     }
 
@@ -515,11 +518,18 @@ teamRoute.get('/members/:staffId/notification-subscriptions', async (c) => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
-  // Get current subscriptions
-  const subscriptions = await prisma.notificationSubscription.findMany({
+  // Get current subscriptions grouped by type
+  const allSubscriptions = await prisma.notificationSubscription.findMany({
     where: { subscriberId: targetStaffId },
-    select: { targetStaffId: true },
+    select: { targetStaffId: true, type: true },
   })
+
+  const uploadSubscriptions = allSubscriptions
+    .filter((s) => s.type === 'UPLOAD')
+    .map((s) => s.targetStaffId)
+  const chatSubscriptions = allSubscriptions
+    .filter((s) => s.type === 'CHAT')
+    .map((s) => s.targetStaffId)
 
   // Get all org members except self (for checkbox list)
   const members = await prisma.staff.findMany({
@@ -546,7 +556,9 @@ teamRoute.get('/members/:staffId/notification-subscriptions', async (c) => {
   )
 
   return c.json({
-    subscriptions: subscriptions.map((s) => s.targetStaffId),
+    subscriptions: uploadSubscriptions, // backward compat
+    uploadSubscriptions,
+    chatSubscriptions,
     members: membersWithAvatars,
   })
 })
@@ -568,7 +580,7 @@ teamRoute.put(
       return c.json({ error: 'Forbidden' }, 403)
     }
 
-    const { targetStaffIds } = c.req.valid('json')
+    const { targetStaffIds, type } = c.req.valid('json')
 
     // Verify all target staff belong to same org
     if (targetStaffIds.length > 0) {
@@ -585,10 +597,10 @@ teamRoute.put(
       }
     }
 
-    // Replace all subscriptions in a transaction
+    // Replace subscriptions scoped by type in a transaction
     await prisma.$transaction([
       prisma.notificationSubscription.deleteMany({
-        where: { subscriberId: targetStaffId },
+        where: { subscriberId: targetStaffId, type },
       }),
       ...(targetStaffIds.length > 0
         ? [
@@ -596,6 +608,7 @@ teamRoute.put(
               data: targetStaffIds.map((tid) => ({
                 subscriberId: targetStaffId,
                 targetStaffId: tid,
+                type,
               })),
             }),
           ]
@@ -604,7 +617,7 @@ teamRoute.put(
 
     // Audit log
     logTeamAction('NOTIFICATION_SUBSCRIPTIONS_UPDATED', targetStaffId, user.staffId, {
-      newValue: { targetStaffIds },
+      newValue: { targetStaffIds, type },
     })
 
     return c.json({ success: true })

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Bell } from 'lucide-react'
 import { Card, Switch } from '@ella/ui'
 import { NotificationSubscriptions } from '../profile/notification-subscriptions'
+import { ChatMonitorSubscriptions } from '../profile/chat-monitor-subscriptions'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
@@ -21,7 +22,9 @@ export function SettingsNotificationsTab() {
 
   const staff = data?.staff
 
-  const updateMutation = useMutation({
+  const profileQueryKey = ['team-member-profile', 'me']
+
+  const updateUploadMutation = useMutation({
     mutationFn: (notifyOnUpload: boolean) =>
       api.team.updateProfile('me', {
         firstName: staff!.firstName,
@@ -29,17 +32,56 @@ export function SettingsNotificationsTab() {
         phoneNumber: staff!.phoneNumber || null,
         notifyOnUpload,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['team-member-profile', 'me'] })
+    onMutate: async (notifyOnUpload) => {
+      await queryClient.cancelQueries({ queryKey: profileQueryKey })
+      const previous = queryClient.getQueryData(profileQueryKey)
+      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
+        old ? { ...old, staff: { ...(old.staff as Record<string, unknown>), notifyOnUpload } } : old
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
+      toast.error(t('profile.updateError'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
     },
-    onError: () => {
+  })
+
+  const updateChatMutation = useMutation({
+    mutationFn: (notifyOnChat: boolean) =>
+      api.team.updateProfile('me', {
+        firstName: staff!.firstName,
+        lastName: staff!.lastName,
+        phoneNumber: staff!.phoneNumber || null,
+        notifyOnChat,
+      }),
+    onMutate: async (notifyOnChat) => {
+      await queryClient.cancelQueries({ queryKey: profileQueryKey })
+      const previous = queryClient.getQueryData(profileQueryKey)
+      queryClient.setQueryData(profileQueryKey, (old: Record<string, unknown>) =>
+        old ? { ...old, staff: { ...(old.staff as Record<string, unknown>), notifyOnChat } } : old
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
       toast.error(t('profile.updateError'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
     },
   })
 
   const handleToggleNotifyOnUpload = (checked: boolean) => {
-    updateMutation.mutate(checked)
+    updateUploadMutation.mutate(checked)
+  }
+
+  const handleToggleNotifyOnChat = (checked: boolean) => {
+    updateChatMutation.mutate(checked)
   }
 
   if (isLoading) {
@@ -85,7 +127,6 @@ export function SettingsNotificationsTab() {
               id="notifyOnUpload"
               checked={staff.notifyOnUpload}
               onCheckedChange={handleToggleNotifyOnUpload}
-              disabled={updateMutation.isPending}
             />
           </div>
 
@@ -96,9 +137,34 @@ export function SettingsNotificationsTab() {
             </p>
           )}
 
-          {/* Admin: subscribe to other members' client notifications */}
+          {/* Admin: subscribe to other members' client upload notifications */}
           {staff.role === 'ADMIN' && (
             <NotificationSubscriptions staffId="me" isEditing />
+          )}
+
+          {/* Chat Monitoring - Admin only */}
+          {staff.role === 'ADMIN' && (
+            <>
+              <div className="border-t border-border my-4" />
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <label htmlFor="notifyOnChat" className="text-sm font-medium text-foreground">
+                    {t('profile.notifyOnChat')}
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('profile.notifyOnChatDesc')}
+                  </p>
+                </div>
+                <Switch
+                  id="notifyOnChat"
+                  checked={staff.notifyOnChat}
+                  onCheckedChange={handleToggleNotifyOnChat}
+                />
+              </div>
+              {staff.notifyOnChat && (
+                <ChatMonitorSubscriptions staffId="me" isEditing />
+              )}
+            </>
           )}
         </div>
       </Card>

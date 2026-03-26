@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
+import { formatPhone, maskPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
@@ -130,7 +130,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
 
       {/* Phone column */}
       <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-muted-foreground">{formatPhone(client.phone)}</span>
+        <span className="text-muted-foreground">{isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}</span>
       </td>
 
       {/* Tax Year column */}

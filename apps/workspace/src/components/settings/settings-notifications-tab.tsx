@@ -22,6 +22,8 @@ export function SettingsNotificationsTab() {
 
   const staff = data?.staff
 
+  const profileQueryKey = ['team-member-profile', 'me']
+
   const updateUploadMutation = useMutation({
     mutationFn: (notifyOnUpload: boolean) =>
       api.team.updateProfile('me', {
@@ -30,12 +32,21 @@ export function SettingsNotificationsTab() {
         phoneNumber: staff!.phoneNumber || null,
         notifyOnUpload,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['team-member-profile', 'me'] })
-      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+    onMutate: async (notifyOnUpload) => {
+      await queryClient.cancelQueries({ queryKey: profileQueryKey })
+      const previous = queryClient.getQueryData(profileQueryKey)
+      queryClient.setQueryData(profileQueryKey, (old: any) =>
+        old ? { ...old, staff: { ...old.staff, notifyOnUpload } } : old
+      )
+      return { previous }
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
       toast.error(t('profile.updateError'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
     },
   })
 
@@ -47,12 +58,21 @@ export function SettingsNotificationsTab() {
         phoneNumber: staff!.phoneNumber || null,
         notifyOnChat,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['team-member-profile', 'me'] })
-      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+    onMutate: async (notifyOnChat) => {
+      await queryClient.cancelQueries({ queryKey: profileQueryKey })
+      const previous = queryClient.getQueryData(profileQueryKey)
+      queryClient.setQueryData(profileQueryKey, (old: any) =>
+        old ? { ...old, staff: { ...old.staff, notifyOnChat } } : old
+      )
+      return { previous }
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(profileQueryKey, context.previous)
       toast.error(t('profile.updateError'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
     },
   })
 
@@ -107,7 +127,6 @@ export function SettingsNotificationsTab() {
               id="notifyOnUpload"
               checked={staff.notifyOnUpload}
               onCheckedChange={handleToggleNotifyOnUpload}
-              disabled={updateUploadMutation.isPending}
             />
           </div>
 
@@ -140,7 +159,6 @@ export function SettingsNotificationsTab() {
                   id="notifyOnChat"
                   checked={staff.notifyOnChat}
                   onCheckedChange={handleToggleNotifyOnChat}
-                  disabled={updateChatMutation.isPending}
                 />
               </div>
               {staff.notifyOnChat && (

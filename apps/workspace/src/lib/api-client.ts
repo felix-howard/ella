@@ -884,10 +884,10 @@ export const api = {
     getNotificationSubscriptions: (staffId: string) =>
       request<NotificationSubscriptionsResponse>(`/team/members/${staffId}/notification-subscriptions`),
 
-    updateNotificationSubscriptions: (staffId: string, targetStaffIds: string[]) =>
+    updateNotificationSubscriptions: (staffId: string, targetStaffIds: string[], type: 'UPLOAD' | 'CHAT' = 'UPLOAD') =>
       request<{ success: boolean }>(`/team/members/${staffId}/notification-subscriptions`, {
         method: 'PUT',
-        body: JSON.stringify({ targetStaffIds }),
+        body: JSON.stringify({ targetStaffIds, type }),
       }),
 
     getAvatarPresignedUrl: (staffId: string, data: AvatarPresignedUrlInput) =>
@@ -2047,6 +2047,7 @@ export interface StaffProfile {
   avatarUrl: string | null
   phoneNumber: string | null
   notifyOnUpload: boolean
+  notifyOnChat: boolean
 }
 
 export interface ProfileResponse {
@@ -2061,10 +2062,13 @@ export interface UpdateStaffProfileInput {
   lastName?: string
   phoneNumber?: string | null
   notifyOnUpload?: boolean
+  notifyOnChat?: boolean
 }
 
 export interface NotificationSubscriptionsResponse {
   subscriptions: string[]
+  uploadSubscriptions: string[]
+  chatSubscriptions: string[]
   members: Array<{
     id: string
     name: string

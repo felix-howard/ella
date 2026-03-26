@@ -32,11 +32,13 @@ export const updateProfileSchema = z.object({
     .nullable(),
   // Notification preferences
   notifyOnUpload: z.boolean().optional(),
+  notifyOnChat: z.boolean().optional(),
 })
 
 // Notification subscriptions update
 export const updateNotificationSubscriptionsSchema = z.object({
   targetStaffIds: z.array(z.string()).max(50),
+  type: z.enum(['UPLOAD', 'CHAT']).default('UPLOAD'),
 })
 
 // Avatar presigned URL request

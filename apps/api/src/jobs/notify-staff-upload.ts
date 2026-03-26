@@ -104,7 +104,7 @@ export const notifyStaffOnUploadJob = inngest.createFunction(
             // Staff who subscribed to the managing staff's client uploads
             ...(managedById ? [{
               notificationSubscriptions: {
-                some: { targetStaffId: managedById },
+                some: { targetStaffId: managedById, type: 'UPLOAD' as const },
               },
             }] : []),
           ],

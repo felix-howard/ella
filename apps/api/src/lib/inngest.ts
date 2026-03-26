@@ -61,6 +61,20 @@ export type DocumentGroupBatchEvent = {
 }
 
 /**
+ * Event payload for staff sending a message to a client
+ * Triggers chat monitoring notification to subscribed admins
+ */
+export type StaffMessageSentEvent = {
+  data: {
+    staffId: string
+    staffName: string
+    caseId: string
+    clientName: string
+    staffCaseKey: string // `${staffId}-${caseId}` for batch grouping
+  }
+}
+
+/**
  * Event map for type-safe event handling
  */
 export type Events = {
@@ -68,6 +82,7 @@ export type Events = {
   'document/classification.complete': ClassificationCompleteEvent
   'document/classified': DocumentClassifiedEvent
   'document/group-batch': DocumentGroupBatchEvent
+  'message/staff-sent': StaffMessageSentEvent
 }
 
 /**

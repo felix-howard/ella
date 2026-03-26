@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Bell } from 'lucide-react'
 import { Card, Switch } from '@ella/ui'
 import { NotificationSubscriptions } from '../profile/notification-subscriptions'
+import { ChatMonitorSubscriptions } from '../profile/chat-monitor-subscriptions'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
@@ -21,7 +22,7 @@ export function SettingsNotificationsTab() {
 
   const staff = data?.staff
 
-  const updateMutation = useMutation({
+  const updateUploadMutation = useMutation({
     mutationFn: (notifyOnUpload: boolean) =>
       api.team.updateProfile('me', {
         firstName: staff!.firstName,
@@ -38,8 +39,29 @@ export function SettingsNotificationsTab() {
     },
   })
 
+  const updateChatMutation = useMutation({
+    mutationFn: (notifyOnChat: boolean) =>
+      api.team.updateProfile('me', {
+        firstName: staff!.firstName,
+        lastName: staff!.lastName,
+        phoneNumber: staff!.phoneNumber || null,
+        notifyOnChat,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', 'me'] })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+    },
+    onError: () => {
+      toast.error(t('profile.updateError'))
+    },
+  })
+
   const handleToggleNotifyOnUpload = (checked: boolean) => {
-    updateMutation.mutate(checked)
+    updateUploadMutation.mutate(checked)
+  }
+
+  const handleToggleNotifyOnChat = (checked: boolean) => {
+    updateChatMutation.mutate(checked)
   }
 
   if (isLoading) {
@@ -85,7 +107,7 @@ export function SettingsNotificationsTab() {
               id="notifyOnUpload"
               checked={staff.notifyOnUpload}
               onCheckedChange={handleToggleNotifyOnUpload}
-              disabled={updateMutation.isPending}
+              disabled={updateUploadMutation.isPending}
             />
           </div>
 
@@ -96,9 +118,35 @@ export function SettingsNotificationsTab() {
             </p>
           )}
 
-          {/* Admin: subscribe to other members' client notifications */}
+          {/* Admin: subscribe to other members' client upload notifications */}
           {staff.role === 'ADMIN' && (
             <NotificationSubscriptions staffId="me" isEditing />
+          )}
+
+          {/* Chat Monitoring - Admin only */}
+          {staff.role === 'ADMIN' && (
+            <>
+              <div className="border-t border-border my-4" />
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <label htmlFor="notifyOnChat" className="text-sm font-medium text-foreground">
+                    {t('profile.notifyOnChat')}
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('profile.notifyOnChatDesc')}
+                  </p>
+                </div>
+                <Switch
+                  id="notifyOnChat"
+                  checked={staff.notifyOnChat}
+                  onCheckedChange={handleToggleNotifyOnChat}
+                  disabled={updateChatMutation.isPending}
+                />
+              </div>
+              {staff.notifyOnChat && (
+                <ChatMonitorSubscriptions staffId="me" isEditing />
+              )}
+            </>
           )}
         </div>
       </Card>

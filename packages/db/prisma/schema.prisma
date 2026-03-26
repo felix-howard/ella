@@ -333,6 +333,11 @@ enum Language {
   EN
 }
 
+enum SubscriptionType {
+  UPLOAD
+  CHAT
+}
+
 enum FieldType {
   BOOLEAN
   SELECT
@@ -380,8 +385,9 @@ model Staff {
   phoneNumber String?   // E.164 format (+84901234567)
   isActive    Boolean   @default(true)
 
-  // Upload notification preferences
+  // Notification preferences
   notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
+  notifyOnChat      Boolean @default(false)  // Enable/disable SMS when monitored staff sends messages
 
   // Audit fields
   deactivatedAt DateTime?
@@ -430,16 +436,17 @@ model StaffPresence {
 
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications
 model NotificationSubscription {
-  id              String   @id @default(cuid())
-  subscriberId    String   // The staff who wants to receive notifications
-  targetStaffId   String   // The staff whose clients trigger notifications
+  id              String           @id @default(cuid())
+  subscriberId    String           // The staff who wants to receive notifications
+  targetStaffId   String           // The staff whose clients trigger notifications
+  type            SubscriptionType @default(UPLOAD)
 
   subscriber      Staff    @relation("NotificationSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
   targetStaff     Staff    @relation("NotificationTarget", fields: [targetStaffId], references: [id], onDelete: Cascade)
 
   createdAt       DateTime @default(now())
 
-  @@unique([subscriberId, targetStaffId])
+  @@unique([subscriberId, targetStaffId, type])
   @@index([subscriberId])
   @@index([targetStaffId])
 }

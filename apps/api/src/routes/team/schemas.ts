@@ -41,11 +41,6 @@ export const updateNotificationSubscriptionsSchema = z.object({
   type: z.enum(['UPLOAD', 'CHAT']).default('UPLOAD'),
 })
 
-// Notification subscriptions update
-export const updateNotificationSubscriptionsSchema = z.object({
-  targetStaffIds: z.array(z.string()).max(50),
-})
-
 // Avatar presigned URL request
 export const avatarPresignedUrlSchema = z.object({
   contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),

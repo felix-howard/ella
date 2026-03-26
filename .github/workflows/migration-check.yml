@@ -27,26 +27,42 @@ jobs:
         run: pnpm --filter @ella/db exec prisma generate
 
       - name: Check migration status against production
-        run: pnpm --filter @ella/db exec prisma migrate status
+        id: migrate_status
+        run: |
+          OUTPUT=$(pnpm --filter @ella/db exec prisma migrate status 2>&1) || true
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "Following migrations have not yet been applied"; then
+            echo "has_pending=true" >> $GITHUB_OUTPUT
+            PENDING=$(echo "$OUTPUT" | grep -A 100 "Following migrations have not yet been applied" | grep "^  " | sed 's/^  /- /')
+            {
+              echo "pending_list<<EOF"
+              echo "$PENDING"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          else
+            echo "has_pending=false" >> $GITHUB_OUTPUT
+          fi
         env:
           DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL_PRODUCTION }}
-
-      - name: List pending migrations
-        run: |
-          echo "## Pending migrations for production:"
-          ls -la packages/db/prisma/migrations/ | tail -20
 
       - name: Comment migration status on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const { execSync } = require('child_process');
-            const migrations = execSync('ls packages/db/prisma/migrations/').toString();
+            const hasPending = '${{ steps.migrate_status.outputs.has_pending }}' === 'true';
+            const pendingList = `${{ steps.migrate_status.outputs.pending_list }}`;
+
+            let body;
+            if (hasPending) {
+              body = `## ⚠️ Migration Check — Pending Migrations\n\nThe following migrations need to be applied to **production** after merging:\n\n${pendingList}\n\n> Run \`prisma migrate deploy\` after merging to apply these migrations.`;
+            } else {
+              body = `## ✅ Migration Check — All Up to Date\n\nNo pending migrations. Production database is in sync.`;
+            }
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## Migration Check\n\nMigration status check passed. Review the migration files before merging.\n\n\`\`\`\n${migrations}\n\`\`\``
+              body
             });

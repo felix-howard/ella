@@ -13,6 +13,7 @@ const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 const updateOrgSettingsSchema = z.object({
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
+  autoSendFormClientUploadLink: z.boolean().optional(),
 })
 
 // GET /org-settings - Get org settings
@@ -24,7 +25,7 @@ orgSettingsRoute.get('/', async (c) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
-    select: { smsLanguage: true, missedCallTextBack: true },
+    select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true },
   })
 
   if (!org) {
@@ -34,6 +35,8 @@ orgSettingsRoute.get('/', async (c) => {
   return c.json({
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
+    autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
+    slug: org.slug,
   })
 })
 
@@ -57,12 +60,14 @@ orgSettingsRoute.patch(
     const updated = await prisma.organization.update({
       where: { id: user.organizationId },
       data,
-      select: { smsLanguage: true, missedCallTextBack: true },
+      select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true },
     })
 
     return c.json({
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
+      autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
+      slug: updated.slug,
     })
   }
 )

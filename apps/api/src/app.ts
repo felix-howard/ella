@@ -28,6 +28,7 @@ import { orgSettingsRoute } from './routes/org-settings'
 import { draftReturnsRoute } from './routes/draft-returns'
 import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
+import { formRoute } from './routes/form'
 
 const app = new OpenAPIHono()
 
@@ -58,6 +59,7 @@ app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/webhooks/clerk', clerkWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
+app.route('/form', formRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

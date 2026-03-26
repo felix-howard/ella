@@ -15,8 +15,10 @@ import { Route as RentalTokenRouteImport } from './routes/rental/$token'
 import { Route as ExpenseTokenRouteImport } from './routes/expense/$token'
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
 import { Route as RentalTokenIndexRouteImport } from './routes/rental/$token/index'
+import { Route as FormOrgSlugIndexRouteImport } from './routes/form/$orgSlug/index'
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
 import { Route as DraftTokenIndexRouteImport } from './routes/draft/$token/index'
+import { Route as FormOrgSlugStaffSlugIndexRouteImport } from './routes/form/$orgSlug/$staffSlug/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -48,6 +50,11 @@ const RentalTokenIndexRoute = RentalTokenIndexRouteImport.update({
   path: '/',
   getParentRoute: () => RentalTokenRoute,
 } as any)
+const FormOrgSlugIndexRoute = FormOrgSlugIndexRouteImport.update({
+  id: '/form/$orgSlug/',
+  path: '/form/$orgSlug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpenseTokenIndexRoute = ExpenseTokenIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -58,6 +65,12 @@ const DraftTokenIndexRoute = DraftTokenIndexRouteImport.update({
   path: '/draft/$token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FormOrgSlugStaffSlugIndexRoute =
+  FormOrgSlugStaffSlugIndexRouteImport.update({
+    id: '/form/$orgSlug/$staffSlug/',
+    path: '/form/$orgSlug/$staffSlug/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,15 +79,19 @@ export interface FileRoutesByFullPath {
   '/u/$token': typeof UTokenRouteWithChildren
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
+  '/form/$orgSlug': typeof FormOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
+  '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token': typeof ExpenseTokenIndexRoute
+  '/form/$orgSlug': typeof FormOrgSlugIndexRoute
   '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
+  '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -84,8 +101,10 @@ export interface FileRoutesById {
   '/u/$token': typeof UTokenRouteWithChildren
   '/draft/$token/': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
+  '/form/$orgSlug/': typeof FormOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
+  '/form/$orgSlug/$staffSlug/': typeof FormOrgSlugStaffSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,10 +115,19 @@ export interface FileRouteTypes {
     | '/u/$token'
     | '/draft/$token'
     | '/expense/$token/'
+    | '/form/$orgSlug'
     | '/rental/$token/'
     | '/u/$token/'
+    | '/form/$orgSlug/$staffSlug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/draft/$token' | '/expense/$token' | '/rental/$token' | '/u/$token'
+  to:
+    | '/'
+    | '/draft/$token'
+    | '/expense/$token'
+    | '/form/$orgSlug'
+    | '/rental/$token'
+    | '/u/$token'
+    | '/form/$orgSlug/$staffSlug'
   id:
     | '__root__'
     | '/'
@@ -108,8 +136,10 @@ export interface FileRouteTypes {
     | '/u/$token'
     | '/draft/$token/'
     | '/expense/$token/'
+    | '/form/$orgSlug/'
     | '/rental/$token/'
     | '/u/$token/'
+    | '/form/$orgSlug/$staffSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -118,6 +148,8 @@ export interface RootRouteChildren {
   RentalTokenRoute: typeof RentalTokenRouteWithChildren
   UTokenRoute: typeof UTokenRouteWithChildren
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
+  FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
+  FormOrgSlugStaffSlugIndexRoute: typeof FormOrgSlugStaffSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -164,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RentalTokenIndexRouteImport
       parentRoute: typeof RentalTokenRoute
     }
+    '/form/$orgSlug/': {
+      id: '/form/$orgSlug/'
+      path: '/form/$orgSlug'
+      fullPath: '/form/$orgSlug'
+      preLoaderRoute: typeof FormOrgSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expense/$token/': {
       id: '/expense/$token/'
       path: '/'
@@ -176,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/draft/$token'
       fullPath: '/draft/$token'
       preLoaderRoute: typeof DraftTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form/$orgSlug/$staffSlug/': {
+      id: '/form/$orgSlug/$staffSlug/'
+      path: '/form/$orgSlug/$staffSlug'
+      fullPath: '/form/$orgSlug/$staffSlug'
+      preLoaderRoute: typeof FormOrgSlugStaffSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -222,6 +268,8 @@ const rootRouteChildren: RootRouteChildren = {
   RentalTokenRoute: RentalTokenRouteWithChildren,
   UTokenRoute: UTokenRouteWithChildren,
   DraftTokenIndexRoute: DraftTokenIndexRoute,
+  FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,
+  FormOrgSlugStaffSlugIndexRoute: FormOrgSlugStaffSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

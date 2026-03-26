@@ -77,7 +77,7 @@ function ClientDetailPage() {
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const { isAdmin } = useOrgRole()
+  const _orgRole = useOrgRole()
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)

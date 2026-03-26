@@ -1,45 +1,5 @@
 # Latest Documentation Updates
 
-**Date:** 2026-03-26 | **Feature:** Staff Chat Monitoring Notification System - Phase 02 Backend | **Status:** Implementation Complete
-
----
-
-## Staff Chat Monitoring Notification System - Phase 02 Backend
-
-**Date:** 2026-03-26 | **Status:** Implementation Complete
-
-**In One Sentence:** Added SMS notification system for admins when monitored staff members send messages to clients, with 5-minute throttling and dual-language (VI/EN) support.
-
-**Key Changes:**
-- NEW: SMS template `staff-chat-monitor.ts` with VI/EN message formatting (<160 chars GSM-7 safe)
-- NEW: `notifyStaffChat()` function in notification-service with recipientId/recipientPhone params
-- NEW: In-memory throttle map (5 min per recipient+staff combo) to prevent duplicate notifications
-- NEW: Validation for messageCount (>0), phone format (E.164), SMS enabled check
-- UPDATED: templates/index.ts with re-exports for new template
-- UPDATED: notification-service.ts with throttle constants and new function
-
-**Architecture:**
-- SMS sent to admin subscriber phone (NOT monitored staff)
-- Message aggregates staff→client message batches via Inngest job
-- Throttle key: `${recipientId}:${staffName}` prevents 5-minute re-sends
-- Error handling with typed codes: SMS_NOT_ENABLED, INVALID_COUNT, NO_PHONE_NUMBER, INVALID_PHONE, THROTTLED
-
-**Files Modified:**
-- Backend: 3 files (1 new template, 2 service updates)
-
-**Integration Point:**
-- notifyStaffChatMonitorJob (Inngest batching job) calls notifyStaffChat()
-
-**Next Steps:**
-1. Deploy notifyStaffChatMonitorJob with batch aggregation logic
-2. (Optional) Move throttle data from in-memory Map to database for restart resilience
-3. Create admin UI for monitoring preferences (opt-in/language/batch window)
-4. Add comprehensive unit/integration tests
-
-**Status:** Ready for integration with Inngest job
-
----
-
 **Date:** 2026-03-25 | **Feature:** ClientAssignment N:N to managedById FK Migration Phase 3 (Frontend UI) COMPLETE | **Status:** Complete
 
 ---

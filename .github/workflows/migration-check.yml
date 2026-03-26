@@ -37,7 +37,7 @@ jobs:
           echo "$OUTPUT"
           if echo "$OUTPUT" | grep -q "Following migrations have not yet been applied"; then
             echo "has_pending=true" >> $GITHUB_OUTPUT
-            PENDING=$(echo "$OUTPUT" | grep -A 100 "Following migrations have not yet been applied" | grep "^  " | sed 's/^  /- /')
+            PENDING=$(echo "$OUTPUT" | grep -A 100 "Following migrations have not yet been applied" | grep -E "^[0-9]" | sed 's/^/- /')
             {
               echo "pending_list<<EOF"
               echo "$PENDING"

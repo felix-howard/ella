@@ -20,7 +20,6 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
-  Trash2,
   Upload,
   Send,
   ClipboardList,
@@ -29,7 +28,7 @@ import {
   Home,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
-import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
+import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, Input } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
@@ -73,6 +72,7 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('files')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
@@ -583,15 +583,6 @@ function ClientDetailPage() {
                 <span>{t('clients.sendUploadLink')}</span>
               </button>
             )}
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-destructive/10 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-              aria-label={t('clientDetail.deleteClient')}
-              title={t('clientDetail.deleteClient')}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete</span>
-            </button>
           </div>
         </div>
       </div>
@@ -625,7 +616,7 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <ClientOverviewTab client={client} />
+        <ClientOverviewTab client={client} onDeleteClick={() => setIsDeleteModalOpen(true)} />
       )}
 
       {/* Files Tab - Primary document explorer view */}
@@ -741,18 +732,27 @@ function ClientDetailPage() {
       )}
 
       {/* Delete Client Confirmation Modal */}
-      <Modal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+      <Modal open={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeleteConfirmText('') }}>
         <ModalHeader>
           <ModalTitle>{t('clientDetail.deleteModalTitle')}</ModalTitle>
           <ModalDescription>
             {t('clientDetail.deleteModalDesc', { name: client.name })}
           </ModalDescription>
         </ModalHeader>
+        <div className="px-6 pb-2">
+          <Input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={t('clientDetail.deleteConfirmPlaceholder')}
+            className="w-full"
+            autoFocus
+          />
+        </div>
         <ModalFooter>
           <Button
             variant="outline"
             className="px-6"
-            onClick={() => setIsDeleteModalOpen(false)}
+            onClick={() => { setIsDeleteModalOpen(false); setDeleteConfirmText('') }}
             disabled={deleteClientMutation.isPending}
           >
             {t('common.cancel')}
@@ -761,7 +761,7 @@ function ClientDetailPage() {
             variant="destructive"
             className="px-6"
             onClick={() => deleteClientMutation.mutate()}
-            disabled={deleteClientMutation.isPending}
+            disabled={deleteConfirmText !== 'Delete' || deleteClientMutation.isPending}
           >
             {deleteClientMutation.isPending ? (
               <>

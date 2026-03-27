@@ -49,7 +49,7 @@ function GenericFormPage() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <FormHeader orgName={org!.name} orgLogo={org!.logoUrl} />
+      <FormHeader orgName={org!.name} />
       <IntakeForm
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}

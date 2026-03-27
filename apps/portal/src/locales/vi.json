@@ -243,7 +243,7 @@
   "form.firstName": "Tên",
   "form.firstNamePlaceholder": "Nhập tên của bạn",
   "form.lastName": "Họ",
-  "form.lastNamePlaceholder": "Nhập họ của bạn (không bắt buộc)",
+  "form.lastNamePlaceholder": "Nhập họ của bạn",
   "form.phone": "Số điện thoại",
   "form.taxYear": "Năm thuế",
   "form.submit": "Gửi",

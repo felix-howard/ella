@@ -20,7 +20,7 @@ export interface IntakeFormData {
 }
 
 const currentYear = new Date().getFullYear()
-const taxYears = [currentYear, currentYear - 1, currentYear - 2]
+const taxYears = [currentYear - 1, currentYear - 2, currentYear - 3]
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
@@ -30,7 +30,7 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
-  const [taxYear, setTaxYear] = useState(currentYear)
+  const [taxYear, setTaxYear] = useState(currentYear - 1)
   const submittingRef = useRef(false)
 
   const formatPhone = (value: string) => {
@@ -67,7 +67,7 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
     }
   }
 
-  const isValid = firstName.trim().length > 0 && phone.replace(/\D/g, '').length === 10
+  const isValid = firstName.trim().length > 0 && lastName.trim().length > 0 && phone.replace(/\D/g, '').length === 10
 
   return (
     <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
@@ -90,7 +90,7 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
 
       <div>
         <label htmlFor="intake-lastName" className="block text-sm font-medium text-foreground mb-1.5">
-          {t('form.lastName')}
+          {t('form.lastName')} <span className="text-destructive">*</span>
         </label>
         <input
           id="intake-lastName"
@@ -99,6 +99,7 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
           onChange={(e) => setLastName(e.target.value)}
           placeholder={t('form.lastNamePlaceholder')}
           className={inputClass}
+          required
           maxLength={50}
           disabled={isSubmitting}
         />

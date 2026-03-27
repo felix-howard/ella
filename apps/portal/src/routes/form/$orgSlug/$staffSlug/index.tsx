@@ -51,7 +51,6 @@ function StaffFormPage() {
     <div className="flex-1 flex flex-col">
       <FormHeader
         orgName={org!.name}
-        orgLogo={org!.logoUrl}
         staffName={staff?.name}
       />
       <IntakeForm

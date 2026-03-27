@@ -260,7 +260,7 @@
   "form.firstName": "First Name",
   "form.firstNamePlaceholder": "Enter your first name",
   "form.lastName": "Last Name",
-  "form.lastNamePlaceholder": "Enter your last name (optional)",
+  "form.lastNamePlaceholder": "Enter your last name",
   "form.phone": "Phone Number",
   "form.taxYear": "Tax Year",
   "form.submit": "Submit",

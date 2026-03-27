@@ -419,6 +419,8 @@ model Staff {
   notificationSubscriptions   NotificationSubscription[] @relation("NotificationSubscriber")
   notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
 
+  termsAcceptances TermsAcceptance[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -439,6 +441,24 @@ model StaffPresence {
   updatedAt DateTime @updatedAt
 
   @@index([isOnline])
+}
+
+// Staff Terms & Conditions acceptance tracking
+model TermsAcceptance {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  version   String   // e.g., "2026.03.27"
+  signedAt  DateTime @default(now())
+  pdfR2Key  String   // R2 key: terms/{orgId}/{staffId}/{version}.pdf
+  ipAddress String?  // IPv4 or IPv6
+  userAgent String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, version])
+  @@index([staffId])
+  @@index([version])
 }
 
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications

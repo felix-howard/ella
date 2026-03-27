@@ -926,7 +926,7 @@ export const api = {
     get: () =>
       request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings'),
 
-    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean; autoSendFormClientUploadLink?: boolean }) =>
+    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean; autoSendFormClientUploadLink?: boolean; slug?: string | null }) =>
       request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),

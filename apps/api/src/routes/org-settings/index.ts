@@ -14,6 +14,7 @@ const updateOrgSettingsSchema = z.object({
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
+  slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
 })
 
 // GET /org-settings - Get org settings
@@ -56,6 +57,16 @@ orgSettingsRoute.patch(
     }
 
     const data = c.req.valid('json')
+
+    // Validate slug uniqueness if provided
+    if (data.slug) {
+      const existing = await prisma.organization.findFirst({
+        where: { slug: data.slug, id: { not: user.organizationId } },
+      })
+      if (existing) {
+        return c.json({ error: 'SLUG_TAKEN' }, 409)
+      }
+    }
 
     const updated = await prisma.organization.update({
       where: { id: user.organizationId },

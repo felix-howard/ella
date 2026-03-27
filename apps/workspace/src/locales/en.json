@@ -287,6 +287,8 @@
   "clients.sendUploadLink": "Send Upload Link",
   "clients.uploadLinkSent": "Upload link sent successfully",
   "clients.uploadLinkFailed": "Failed to send upload link",
+  "sendUploadLinkModal.title": "Message to be sent",
+  "sendUploadLinkModal.sendButton": "Send Upload Link",
   "clients.managedBy": "Managed By",
   "clients.allMembers": "All",
   "clients.me": "Me",

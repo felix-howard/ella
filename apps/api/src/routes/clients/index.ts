@@ -1269,6 +1269,15 @@ clientsRoute.post(
     const { id } = c.req.valid('param')
     const user = c.get('user')
 
+    // Parse optional custom message from body
+    let customMessage: string | undefined
+    try {
+      const body = await c.req.json()
+      customMessage = body?.customMessage
+    } catch {
+      // No body or invalid JSON - use default template
+    }
+
     if (!user?.organizationId) {
       return c.json({ error: 'No organization' }, 403)
     }
@@ -1317,6 +1326,7 @@ clientsRoute.post(
         portalUrl,
         latestCase.taxYear,
         client.language as 'VI' | 'EN',
+        customMessage,
       )
 
       if (!result.smsSent) {

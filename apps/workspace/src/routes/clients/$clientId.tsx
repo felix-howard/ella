@@ -48,6 +48,7 @@ import {
   ClientOverviewTab,
 } from '../../components/clients'
 import { FilesTab } from '../../components/files'
+import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
@@ -82,6 +83,7 @@ function ClientDetailPage() {
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
+  const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -173,9 +175,11 @@ function ClientDetailPage() {
 
   // Send upload link mutation
   const sendUploadLinkMutation = useMutation({
-    mutationFn: () => api.clients.sendUploadLink(clientId),
+    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage),
     onSuccess: () => {
       toast.success(t('clients.uploadLinkSent'))
+      setIsSendUploadLinkOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
     },
     onError: (err: Error) => {
       toast.error(err.message || t('clients.uploadLinkFailed'))
@@ -569,17 +573,13 @@ function ClientDetailPage() {
                 )}
               </Link>
             )}
-            {client.source === 'FORM' && (
+            {/* Show Send Upload Link only when client has no active magic link */}
+            {!(selectedCase?.portalUrl || client.portalUrl) && (
               <button
-                onClick={() => sendUploadLinkMutation.mutate()}
-                disabled={sendUploadLinkMutation.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 disabled:opacity-50"
+                onClick={() => setIsSendUploadLinkOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               >
-                {sendUploadLinkMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Send className="w-3.5 h-3.5" />
-                )}
+                <Send className="w-3.5 h-3.5" />
                 <span>{t('clients.sendUploadLink')}</span>
               </button>
             )}
@@ -787,6 +787,18 @@ function ClientDetailPage() {
         existingEngagements={engagements}
         onSuccess={handleEngagementCreated}
       />
+
+      {/* Send Upload Link Modal */}
+      {activeCase && (
+        <SendUploadLinkModal
+          isOpen={isSendUploadLinkOpen}
+          onClose={() => setIsSendUploadLinkOpen(false)}
+          onSend={(message) => sendUploadLinkMutation.mutate(message)}
+          isSending={sendUploadLinkMutation.isPending}
+          clientName={client.name}
+          taxYear={activeCase.taxYear}
+        />
+      )}
 
       {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
       {activeCaseId && !isUnreadError && (

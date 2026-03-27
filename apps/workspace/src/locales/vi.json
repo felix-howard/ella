@@ -284,6 +284,8 @@
   "clients.sendUploadLink": "Gửi link upload",
   "clients.uploadLinkSent": "Đã gửi link upload thành công",
   "clients.uploadLinkFailed": "Không thể gửi link upload",
+  "sendUploadLinkModal.title": "Tin nhắn sẽ được gửi",
+  "sendUploadLinkModal.sendButton": "Gửi link upload",
   "clients.managedBy": "Người quản lý",
   "clients.allMembers": "Tất cả",
   "clients.me": "Tôi",

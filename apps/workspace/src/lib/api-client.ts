@@ -258,10 +258,10 @@ export const api = {
         { method: 'POST' }
       ),
 
-    sendUploadLink: (id: string) =>
+    sendUploadLink: (id: string, customMessage?: string) =>
       request<{ success: boolean; messageId?: string }>(
         `/clients/${id}/send-upload-link`,
-        { method: 'POST' }
+        { method: 'POST', body: JSON.stringify({ customMessage }) }
       ),
 
     // Cascade cleanup when parent answer changes to false

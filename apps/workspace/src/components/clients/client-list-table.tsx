@@ -202,9 +202,9 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Uploads column (combined: new count + last upload time) */}
       <td className="px-4 py-3 hidden md:table-cell">
         {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
             {uploads.newCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground w-fit">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                 {t('clients.newUploads', { count: uploads.newCount })}
               </span>

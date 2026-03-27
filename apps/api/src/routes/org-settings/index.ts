@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import { clerkClient } from '../../lib/clerk-client'
 import type { AuthVariables } from '../../middleware/auth'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -71,8 +72,19 @@ orgSettingsRoute.patch(
     const updated = await prisma.organization.update({
       where: { id: user.organizationId },
       data,
-      select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true },
+      select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true, clerkOrgId: true },
     })
+
+    // Sync slug to Clerk if it changed
+    if (data.slug !== undefined && updated.clerkOrgId) {
+      try {
+        await clerkClient.organizations.updateOrganization(updated.clerkOrgId, {
+          slug: data.slug ?? undefined,
+        })
+      } catch (err) {
+        console.error('[OrgSettings] Failed to sync slug to Clerk:', err)
+      }
+    }
 
     return c.json({
       smsLanguage: updated.smsLanguage,

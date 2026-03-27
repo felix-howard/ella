@@ -208,15 +208,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             <MessageImage key={index} url={url} isOutbound={false} isStandalone />
           ))}
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 mt-1">
-          <ChannelIcon className="w-3 h-3" />
-          <span>{channelLabel}</span>
-          {showTime && (
-            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
-              <span className="cursor-default">{time}</span>
+        {showTime && (
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pl-1 cursor-default">
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+              <span>{formatShortRelativeTime(message.createdAt)}</span>
             </Tooltip>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -277,7 +275,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     )
   }
 
-  // Inbound text message — keep existing design
+  // Inbound text message — matching outbound layout
   return (
     <div className="flex flex-col w-full items-start">
       <div
@@ -300,17 +298,16 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
               <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
-          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/60">
-            <ChannelIcon className="w-2.5 h-2.5" />
-            <span>{channelLabel}</span>
-            {showTime && (
-              <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
-                <span className="cursor-default">{time}</span>
-              </Tooltip>
-            )}
-          </div>
         </div>
       </div>
+      {/* Time below bubble — matching outbound style */}
+      {showTime && (
+        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pl-1 cursor-default">
+          <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+            <span>{formatShortRelativeTime(message.createdAt)}</span>
+          </Tooltip>
+        </div>
+      )}
     </div>
   )
 })

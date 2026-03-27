@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, maskPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
+import { formatPhone, maskPhone, getInitials, getAvatarColor, formatShortRelativeTime } from '../../lib/formatters'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
@@ -61,9 +61,6 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.uploads')}
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                {t('clients.lastUpload')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.tasks')}
@@ -198,28 +195,26 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Created column */}
       <td className="px-4 py-3 hidden lg:table-cell">
         <span className="text-sm text-muted-foreground">
-          {formatRelativeTime(client.createdAt, i18n.language as 'en' | 'vi')}
+          {formatShortRelativeTime(client.createdAt, i18n.language)}
         </span>
       </td>
 
-      {/* Uploads column */}
+      {/* Uploads column (combined: new count + last upload time) */}
       <td className="px-4 py-3 hidden md:table-cell">
-        {uploads && uploads.newCount > 0 ? (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-            {t('clients.newUploads', { count: uploads.newCount })}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </td>
-
-      {/* Last Upload column */}
-      <td className="px-4 py-3 hidden md:table-cell">
-        {uploads?.latestAt ? (
-          <span className="text-sm text-muted-foreground">
-            {formatRelativeTime(uploads.latestAt, i18n.language as 'en' | 'vi')}
-          </span>
+        {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
+          <div className="flex flex-col gap-0.5">
+            {uploads.newCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground w-fit">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                {t('clients.newUploads', { count: uploads.newCount })}
+              </span>
+            )}
+            {uploads.latestAt && (
+              <span className="text-xs text-muted-foreground">
+                {formatShortRelativeTime(uploads.latestAt, i18n.language)}
+              </span>
+            )}
+          </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -323,9 +318,6 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
@@ -368,9 +360,6 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex gap-1">

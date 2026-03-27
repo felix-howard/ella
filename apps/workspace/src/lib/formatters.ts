@@ -198,9 +198,10 @@ export function stripHtmlTags(text: string): string {
 }
 
 /**
- * Format concise relative time: "25 min", "2 hrs", "3 days", "2 months"
+ * Format concise relative time: "25 mins", "2 hrs", "3 days", "2 mos"
+ * Supports locale for Vietnamese short format
  */
-export function formatShortRelativeTime(isoString: string): string {
+export function formatShortRelativeTime(isoString: string, locale?: string): string {
   const now = new Date()
   const date = new Date(isoString)
   const diffMs = now.getTime() - date.getTime()
@@ -210,12 +211,24 @@ export function formatShortRelativeTime(isoString: string): string {
   const diffMonths = Math.floor(diffDays / 30)
   const diffYears = Math.floor(diffDays / 365)
 
+  const resolved = locale ?? i18n.language ?? 'en'
+  const isVi = resolved.toLowerCase().startsWith('vi')
+
+  if (isVi) {
+    if (diffMin < 1) return 'Vừa xong'
+    if (diffMin < 60) return `${diffMin} phút`
+    if (diffHrs < 24) return `${diffHrs} giờ`
+    if (diffDays < 30) return `${diffDays} ngày`
+    if (diffMonths < 12) return `${diffMonths} tháng`
+    return `${diffYears} năm`
+  }
+
   if (diffMin < 1) return 'now'
-  if (diffMin < 60) return `${diffMin} min`
-  if (diffHrs < 24) return `${diffHrs} hr${diffHrs > 1 ? 's' : ''}`
-  if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''}`
-  if (diffMonths < 12) return `${diffMonths} month${diffMonths > 1 ? 's' : ''}`
-  return `${diffYears} yr${diffYears > 1 ? 's' : ''}`
+  if (diffMin < 60) return `${diffMin} mins`
+  if (diffHrs < 24) return `${diffHrs} hrs`
+  if (diffDays < 7) return `${diffDays}d`
+  // Beyond 7 days, show short date like "Mar 25"
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
 }
 
 /**

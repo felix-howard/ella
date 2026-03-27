@@ -7,7 +7,7 @@
 import { useState, useCallback, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   ArrowLeft,
   Phone,
@@ -736,7 +736,11 @@ function ClientDetailPage() {
         <ModalHeader>
           <ModalTitle>{t('clientDetail.deleteModalTitle')}</ModalTitle>
           <ModalDescription>
-            {t('clientDetail.deleteModalDesc', { name: client.name })}
+            <Trans
+              i18nKey="clientDetail.deleteModalDesc"
+              values={{ name: client.name }}
+              components={{ red: <span className="text-destructive font-semibold" /> }}
+            />
           </ModalDescription>
         </ModalHeader>
         <div className="px-6 pb-2">

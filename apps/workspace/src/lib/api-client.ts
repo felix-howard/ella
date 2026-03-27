@@ -1076,6 +1076,7 @@ export interface ClientWithActions {
   email: string | null
   language: 'VI' | 'EN'
   source: 'MANUAL' | 'FORM'
+  hasUploadLink: boolean
   createdAt: string
   updatedAt: string
   computedStatus: TaxCaseStatus | null

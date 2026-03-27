@@ -152,6 +152,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
             _count: {
               select: {
                 checklistItems: { where: { status: 'MISSING' } },
+                magicLinks: { where: { isActive: true } },
               }
             },
             digitalDocs: {
@@ -162,7 +163,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
             },
             conversation: {
               select: { unreadCount: true }
-            }
+            },
           }
         }
       },
@@ -267,6 +268,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       phone: client.phone,
       email: client.email,
       language: client.language as 'VI' | 'EN',
+      source: client.source as 'MANUAL' | 'FORM',
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
@@ -274,6 +276,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       createdBy,
       actionCounts,
       uploads,
+      hasUploadLink: latestCase ? latestCase._count.magicLinks > 0 : false,
       latestCase: latestCase ? {
         id: latestCase.id,
         taxYear: latestCase.taxYear,

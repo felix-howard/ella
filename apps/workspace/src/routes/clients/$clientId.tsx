@@ -173,15 +173,55 @@ function ClientDetailPage() {
     },
   })
 
-  // Send upload link mutation
+  // Send upload link mutation with optimistic update to chatbox
   const sendUploadLinkMutation = useMutation({
     mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage),
+    onMutate: async (customMessage) => {
+      // Close modal immediately for snappy UX
+      setIsSendUploadLinkOpen(false)
+
+      if (!activeCaseId) return
+
+      // Cancel outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: ['messages', activeCaseId] })
+
+      const previous = queryClient.getQueryData(['messages', activeCaseId])
+
+      // Build preview content from the template message
+      const previewContent = (customMessage || '')
+        .replace(/\{\{client_name\}\}/g, client?.name || '')
+        .replace(/\{\{tax_year\}\}/g, String(activeCase?.taxYear || ''))
+        .replace(/\{\{portal_link\}\}/g, '(link)')
+
+      const tempMessage = {
+        id: `temp-upload-link-${Date.now()}`,
+        conversationId: activeCaseId,
+        channel: 'SMS' as const,
+        direction: 'OUTBOUND' as const,
+        content: previewContent,
+        createdAt: new Date().toISOString(),
+        _optimistic: 'sending' as const,
+      }
+
+      queryClient.setQueryData(['messages', activeCaseId], (old: { messages: unknown[] } | undefined) => ({
+        ...old,
+        messages: [...(old?.messages ?? []), tempMessage],
+      }))
+
+      return { previous }
+    },
     onSuccess: () => {
       toast.success(t('clients.uploadLinkSent'))
-      setIsSendUploadLinkOpen(false)
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      if (activeCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', activeCaseId] })
+      }
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _data, context) => {
+      // Rollback optimistic update on error
+      if (context?.previous && activeCaseId) {
+        queryClient.setQueryData(['messages', activeCaseId], context.previous)
+      }
       toast.error(err.message || t('clients.uploadLinkFailed'))
     },
   })

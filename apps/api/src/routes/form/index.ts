@@ -186,24 +186,14 @@ formRoute.post(
       throw error
     }
 
-    // 4. Create magic link (outside transaction)
-    let magicLink: string
-    try {
-      magicLink = await createMagicLink(result.taxCase.id)
-    } catch (error) {
-      console.error('[Form] Failed to create magic link:', error)
-      // Client was created successfully, return success without SMS
-      return c.json({
-        success: true,
-        clientId: result.client.id,
-        smsSent: false,
-      })
-    }
-
-    // 5. Send welcome SMS if auto-send enabled
+    // 4. Send welcome SMS with upload link if auto-send enabled
+    // Only create magic link when actually sending — otherwise the client list
+    // badge ("need send upload link") won't appear since hasUploadLink checks
+    // for existing magic links.
     let smsSent = false
     if (org.autoSendFormClientUploadLink && isSmsEnabled()) {
       try {
+        const magicLink = await createMagicLink(result.taxCase.id)
         const smsResult = await sendWelcomeMessage(
           result.taxCase.id,
           fullName,

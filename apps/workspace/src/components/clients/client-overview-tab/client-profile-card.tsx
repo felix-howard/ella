@@ -8,7 +8,8 @@ import { Phone, Mail, Pencil, Check, X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type ClientDetail } from '../../../lib/api-client'
 import { toast } from '../../../stores/toast-store'
-import { formatPhone, formatPhoneInput } from '../../../lib/formatters'
+import { formatPhone, formatPhoneInput, maskPhone } from '../../../lib/formatters'
+import { useOrgRole } from '../../../hooks/use-org-role'
 import { ClientAvatarUploader } from './client-avatar-uploader'
 
 interface ClientProfileCardProps {
@@ -106,6 +107,7 @@ function DisplayInfo({
   onEdit: () => void
 }) {
   const { t } = useTranslation()
+  const { isAdmin } = useOrgRole()
 
   return (
     <div className="space-y-3">
@@ -125,7 +127,7 @@ function DisplayInfo({
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Phone className="w-4 h-4" />
-          {formatPhone(client.phone)}
+          {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
         </span>
         {client.email && (
           <span className="flex items-center gap-1.5">

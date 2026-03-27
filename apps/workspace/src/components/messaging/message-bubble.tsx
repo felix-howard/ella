@@ -227,7 +227,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
       <div className="flex flex-col w-full items-end">
         <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
           {/* Message bubble - light green, only text */}
-          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 overflow-hidden">
+          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30 overflow-hidden">
             {hasAttachments && (
               <div className="flex flex-col">
                 {message.attachmentUrls!.map((url, index) => (
@@ -237,7 +237,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             )}
             <div className="px-3.5 py-2">
               {hasText && (
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700">
+                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200">
                   <LinkifiedText text={safeContent} isOutbound />
                 </p>
               )}

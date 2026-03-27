@@ -269,5 +269,8 @@
   "draft.openInNewTab": "Mở trong tab mới",
   "draft.download": "Tải PDF",
   "draft.loadingPdf": "Đang tải PDF...",
-  "draft.scrollHint": "Cuộn xuống để xem thêm trang"
+  "draft.scrollHint": "Cuộn xuống để xem thêm trang",
+  "portal.disclaimerTitle": "Thông báo quan trọng",
+  "portal.disclaimer1": "Tất cả các liên lạc chính thức và có tính ràng buộc pháp lý (cuộc gọi và tin nhắn) phải được thực hiện thông qua số điện thoại được chỉ định: 878-678-0999.",
+  "portal.disclaimer2": "Ella.tax sẽ không chịu trách nhiệm về bất kỳ thông tin, thỏa thuận, hoặc hành động nào phát sinh từ các liên lạc được thực hiện ngoài số điện thoại được ủy quyền."
 }

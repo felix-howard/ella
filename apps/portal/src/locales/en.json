@@ -269,5 +269,8 @@
   "form.notFound": "Form Not Found",
   "form.successTitle": "Thank You!",
   "form.successMessage": "Your information has been received. Our team will contact you shortly.",
-  "form.successMessageWithSms": "Your information has been received. Check your phone for a link to upload documents."
+  "form.successMessageWithSms": "Your information has been received. Check your phone for a link to upload documents.",
+  "portal.disclaimerTitle": "Important Notice",
+  "portal.disclaimer1": "All official and legally binding communications (phone call and text) must be conducted exclusively through the designated phone number: 878-678-0999.",
+  "portal.disclaimer2": "Ella.tax will not be held responsible or liable for any information, agreements, or actions resulting from communications made outside of the authorized number."
 }

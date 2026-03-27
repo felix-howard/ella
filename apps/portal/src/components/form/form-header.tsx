@@ -1,7 +1,8 @@
 /**
- * Form Header - Branded header with org logo/name and optional CPA name
+ * Form Header - Branded header with Ella logo, org name, and optional CPA name
  */
 import { useTranslation } from 'react-i18next'
+import { EllaLogoFull } from '@ella/ui'
 
 interface FormHeaderProps {
   orgName: string
@@ -14,6 +15,12 @@ export function FormHeader({ orgName, orgLogo, staffName }: FormHeaderProps) {
 
   return (
     <div className="text-center py-8 px-6 border-b border-border/50">
+      <img
+        src={EllaLogoFull}
+        alt="ella.tax"
+        className="h-10 mx-auto mb-6"
+      />
+
       {orgLogo ? (
         <img
           src={orgLogo}

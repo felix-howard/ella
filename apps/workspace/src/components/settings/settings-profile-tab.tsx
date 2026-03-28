@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, User } from 'lucide-react'
 import { ProfileForm } from '../profile/profile-form'
 import { AvatarUploader } from '../profile/avatar-uploader'
+import { StaffFormLinkCard } from '../profile/staff-form-link-card'
 import { api } from '../../lib/api-client'
 import { useOrgRole } from '../../hooks/use-org-role'
 
@@ -17,6 +18,11 @@ export function SettingsProfileTab() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['team-member-profile', 'me'],
     queryFn: () => api.team.getProfile('me'),
+  })
+
+  const { data: orgSettings } = useQuery({
+    queryKey: ['org-settings'],
+    queryFn: () => api.orgSettings.get(),
   })
 
   if (isLoading) {
@@ -63,6 +69,14 @@ export function SettingsProfileTab() {
         staffId="me"
         canChangeRole={false}
         hideNotifications
+      />
+
+      {/* Personal Form Link */}
+      <StaffFormLinkCard
+        staffId="me"
+        formSlug={staff.formSlug}
+        orgSlug={orgSettings?.slug || null}
+        canEdit={canEdit}
       />
     </div>
   )

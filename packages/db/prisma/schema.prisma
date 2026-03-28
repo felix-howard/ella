@@ -371,6 +371,11 @@ enum DocCategory {
   OTHER       // Khac: unclassified
 }
 
+enum ClientSource {
+  MANUAL
+  FORM
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -398,6 +403,7 @@ model Staff {
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
   auditLogs AuditLog[]
   language  Language   @default(VI)
+  formSlug  String?   // URL slug for public intake form (/form/:orgSlug/:staffSlug)
   presence  StaffPresence?
 
   organizationId    String?
@@ -413,9 +419,12 @@ model Staff {
   notificationSubscriptions   NotificationSubscription[] @relation("NotificationSubscriber")
   notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
 
+  termsAcceptances TermsAcceptance[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@unique([organizationId, formSlug])
   @@index([clerkId])
   @@index([organizationId])
 }
@@ -432,6 +441,24 @@ model StaffPresence {
   updatedAt DateTime @updatedAt
 
   @@index([isOnline])
+}
+
+// Staff Terms & Conditions acceptance tracking
+model TermsAcceptance {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  version   String   // e.g., "2026.03.27"
+  signedAt  DateTime @default(now())
+  pdfR2Key  String   // R2 key: terms/{orgId}/{staffId}/{version}.pdf
+  ipAddress String?  // IPv4 or IPv6
+  userAgent String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, version])
+  @@index([staffId])
+  @@index([version])
 }
 
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications
@@ -460,7 +487,8 @@ model Organization {
   isActive   Boolean  @default(true)
 
   smsLanguage         Language @default(VI)
-  missedCallTextBack  Boolean  @default(false)
+  missedCallTextBack            Boolean  @default(false)
+  autoSendFormClientUploadLink  Boolean  @default(false)
 
   staff      Staff[]
   clients    Client[]
@@ -479,6 +507,7 @@ model Client {
   phone     String   @unique
   email     String?
   language  Language @default(VI)
+  source    ClientSource @default(MANUAL)
 
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
@@ -505,6 +534,7 @@ model Client {
 
   @@index([phone])
   @@index([name])
+  @@index([source])
   @@index([organizationId])
   @@index([managedById])
   @@index([createdById])

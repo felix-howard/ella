@@ -141,7 +141,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /rental/:token/submit` - Submit form, create version entry
 - Staff routes authenticated, public routes token-authenticated
 
-**Team & Organization (17 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation):**
+**Public Client Intake Form (3 - Phase 02):**
+- `GET /form/:orgSlug` - Get intake form metadata (public, no auth). Returns form fields, validation rules, client language preference
+- `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
+- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record, sets source=INTAKE_FORM, optional file uploads, returns confirmationUrl
+- Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; autoSendFormClientUploadLink controls SMS notification after submission
+
+**Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
+- `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
+- `PATCH /org-settings` - Update org profile + autoSendFormClientUploadLink (Phase 02 Intake Form)
 - `GET /team/members` - List org staff (reads from DB)
 - `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
 - `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
@@ -150,7 +158,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
 - `PATCH /team/members/:staffId/avatar` - Confirm avatar upload (self only, Phase 02)
-- `GET /staff/me` - Get current staff details with avatarUrl field (Phase 04 - navigation)
+- `GET /staff/me` - Get current staff details with avatarUrl + formSlug field (Phase 04 navigation + Phase 02 Intake Form)
+- `PATCH /staff/me/form-slug` - Update personal form slug (self only, Phase 02 Intake Form)
 - `GET /client-assignments` - List staff-client mappings
 - `POST /client-assignments` - Create assignment (app-level, not Clerk-synced)
 - `POST /client-assignments/bulk` - Bulk assign (app-level, not Clerk-synced)
@@ -241,9 +250,9 @@ Organization (root entity)
 ## Database Schema
 
 **Key Models (Multi-Tenant):**
-- **Organization** - Org root with Clerk integration
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt (Phase 02 Backend)
+- **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
+- **Client** - organizationId FK, managedById FK (Staff, single manager), profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: DIRECT|INTAKE_FORM, Phase 02 Intake Form - tracks client origin)
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
@@ -257,8 +266,9 @@ Organization (root entity)
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 
-**Phase 2 Types (Document Upload Notification):**
+**Phase 02 Types (Document Upload Notification & Intake Form):**
 - **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.
+- **ClientSource** - Enum: `DIRECT | INTAKE_FORM`. Tracks client origin: DIRECT = created via staff portal, INTAKE_FORM = created via public intake form submission (Phase 02)
 
 **Indexes:**
 - Organization: clerkOrgId (unique), name

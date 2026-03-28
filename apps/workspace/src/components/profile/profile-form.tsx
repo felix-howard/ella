@@ -13,6 +13,7 @@ import { api, type StaffProfile } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { formatPhone } from '../../lib/formatters'
 import { NotificationSubscriptions } from './notification-subscriptions'
+import { TermsDownloadButton } from './terms-download-button'
 
 // Phone input styles
 import 'react-phone-number-input/style.css'
@@ -294,6 +295,14 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
             )}
           </div>
         )}
+
+        {/* Terms & Conditions */}
+        <div className="border-t border-border pt-6 mt-6">
+          <h3 className="text-sm font-medium text-foreground mb-4">
+            {t('profile.termsAndConditions', 'Terms & Conditions')}
+          </h3>
+          <TermsDownloadButton staffId={staffId} />
+        </div>
 
         {/* Actions */}
         {isEditing && (

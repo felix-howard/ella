@@ -2,6 +2,9 @@
  * Client Overview Tab - Main container composing all sub-components
  * Grid layout: Profile card (full width), Stats, Activity + Staff + Notes
  */
+import { useTranslation } from 'react-i18next'
+import { Trash2 } from 'lucide-react'
+import { Button } from '@ella/ui'
 import { type ClientDetail } from '../../../lib/api-client'
 import { ClientProfileCard } from './client-profile-card'
 import { ClientMetaInfo } from './client-meta-info'
@@ -12,9 +15,12 @@ import { ClientNotesEditor } from './client-notes-editor'
 
 interface ClientOverviewTabProps {
   client: ClientDetail
+  onDeleteClick?: () => void
 }
 
-export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
+export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-6">
       {/* Profile Card - Full width */}
@@ -47,6 +53,26 @@ export function ClientOverviewTab({ client }: ClientOverviewTabProps) {
 
       {/* Activity Timeline - Full width */}
       <ClientActivityTimeline clientId={client.id} />
+
+      {/* Danger Zone */}
+      {onDeleteClick && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6">
+          <h3 className="text-sm font-semibold text-destructive mb-1">
+            {t('clientDetail.dangerZone')}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            {t('clientDetail.dangerZoneDesc')}
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onDeleteClick}
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            {t('clientDetail.deleteClient')}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

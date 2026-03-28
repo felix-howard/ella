@@ -4,10 +4,10 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 import {
   ArrowLeft,
   Phone,
@@ -20,15 +20,15 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
-  Trash2,
   Upload,
+  Send,
   ClipboardList,
   FolderOpen,
   Calculator,
   Home,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
-import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button } from '@ella/ui'
+import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, Input } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
@@ -48,6 +48,7 @@ import {
   ClientOverviewTab,
 } from '../../components/clients'
 import { FilesTab } from '../../components/files'
+import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
@@ -72,6 +73,7 @@ function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('files')
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
@@ -81,6 +83,8 @@ function ClientDetailPage() {
   // Multi-year engagement state
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
+  const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
+  const tempIdCounterRef = useRef(0)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -167,6 +171,59 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error(t('clientDetail.reopenError'))
+    },
+  })
+
+  // Send upload link mutation with optimistic update to chatbox
+  const sendUploadLinkMutation = useMutation({
+    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage),
+    onMutate: async (customMessage) => {
+      // Close modal immediately for snappy UX
+      setIsSendUploadLinkOpen(false)
+
+      if (!activeCaseId) return
+
+      // Cancel outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: ['messages', activeCaseId] })
+
+      const previous = queryClient.getQueryData(['messages', activeCaseId])
+
+      // Build preview content from the template message
+      const previewContent = (customMessage || '')
+        .replace(/\{\{client_name\}\}/g, client?.name || '')
+        .replace(/\{\{tax_year\}\}/g, String(activeCase?.taxYear || ''))
+        .replace(/\{\{portal_link\}\}/g, '(link)')
+
+      const tempMessage = {
+        id: `temp-upload-link-${++tempIdCounterRef.current}`,
+        conversationId: activeCaseId,
+        channel: 'SMS' as const,
+        direction: 'OUTBOUND' as const,
+        content: previewContent,
+        createdAt: new Date().toISOString(),
+        _optimistic: 'sending' as const,
+      }
+
+      queryClient.setQueryData(['messages', activeCaseId], (old: { messages: unknown[] } | undefined) => ({
+        ...old,
+        messages: [...(old?.messages ?? []), tempMessage],
+      }))
+
+      return { previous }
+    },
+    onSuccess: () => {
+      toast.success(t('clients.uploadLinkSent'))
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      if (activeCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', activeCaseId] })
+      }
+    },
+    onError: (err: Error, _data, context) => {
+      // Rollback optimistic update on error
+      if (context?.previous && activeCaseId) {
+        queryClient.setQueryData(['messages', activeCaseId], context.previous)
+      }
+      toast.error(err.message || t('clients.uploadLinkFailed'))
     },
   })
 
@@ -257,7 +314,7 @@ function ClientDetailPage() {
 
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
-  const handleYearChange = useCallback((year: number, engagementId: string) => {
+  const handleYearChange = (year: number, engagementId: string) => {
     setSelectedEngagementId(engagementId)
     // Invalidate queries for the new case to ensure fresh data
     const newCase = client?.taxCases?.find((tc) => tc.taxYear === year)
@@ -266,17 +323,17 @@ function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['images', newCase.id] })
       queryClient.invalidateQueries({ queryKey: ['docs', newCase.id] })
     }
-  }, [client?.taxCases, queryClient])
+  }
 
   // Handler for new engagement created
   // IMPORTANT: Must be before early returns to maintain consistent hook order
-  const handleEngagementCreated = useCallback((newYear: number, engagementId: string) => {
+  const handleEngagementCreated = (newYear: number, engagementId: string) => {
     // Select the newly created engagement
     setSelectedEngagementId(engagementId)
     // Refresh data
     queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-  }, [clientId, queryClient])
+  }
 
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
@@ -557,15 +614,16 @@ function ClientDetailPage() {
                 )}
               </Link>
             )}
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive bg-muted border border-destructive/40 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-destructive/10 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-              aria-label={t('clientDetail.deleteClient')}
-              title={t('clientDetail.deleteClient')}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete</span>
-            </button>
+            {/* Show Send Upload Link only when client has no active magic link */}
+            {!(selectedCase?.portalUrl || client.portalUrl) && (
+              <button
+                onClick={() => setIsSendUploadLinkOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{t('clients.sendUploadLink')}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -599,7 +657,7 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <ClientOverviewTab client={client} />
+        <ClientOverviewTab client={client} onDeleteClick={() => setIsDeleteModalOpen(true)} />
       )}
 
       {/* Files Tab - Primary document explorer view */}
@@ -715,18 +773,31 @@ function ClientDetailPage() {
       )}
 
       {/* Delete Client Confirmation Modal */}
-      <Modal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+      <Modal open={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeleteConfirmText('') }}>
         <ModalHeader>
           <ModalTitle>{t('clientDetail.deleteModalTitle')}</ModalTitle>
           <ModalDescription>
-            {t('clientDetail.deleteModalDesc', { name: client.name })}
+            <Trans
+              i18nKey="clientDetail.deleteModalDesc"
+              values={{ name: client.name }}
+              components={{ red: <span className="text-destructive font-semibold" /> }}
+            />
           </ModalDescription>
         </ModalHeader>
+        <div className="px-6 pb-2">
+          <Input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={t('clientDetail.deleteConfirmPlaceholder')}
+            className="w-full"
+            autoFocus
+          />
+        </div>
         <ModalFooter>
           <Button
             variant="outline"
             className="px-6"
-            onClick={() => setIsDeleteModalOpen(false)}
+            onClick={() => { setIsDeleteModalOpen(false); setDeleteConfirmText('') }}
             disabled={deleteClientMutation.isPending}
           >
             {t('common.cancel')}
@@ -735,7 +806,7 @@ function ClientDetailPage() {
             variant="destructive"
             className="px-6"
             onClick={() => deleteClientMutation.mutate()}
-            disabled={deleteClientMutation.isPending}
+            disabled={deleteConfirmText !== t('clientDetail.deleteConfirmWord', 'Delete') || deleteClientMutation.isPending}
           >
             {deleteClientMutation.isPending ? (
               <>
@@ -757,6 +828,18 @@ function ClientDetailPage() {
         existingEngagements={engagements}
         onSuccess={handleEngagementCreated}
       />
+
+      {/* Send Upload Link Modal */}
+      {activeCase && (
+        <SendUploadLinkModal
+          isOpen={isSendUploadLinkOpen}
+          onClose={() => setIsSendUploadLinkOpen(false)}
+          onSend={(message) => sendUploadLinkMutation.mutate(message)}
+          isSending={sendUploadLinkMutation.isPending}
+          clientName={client.name}
+          taxYear={activeCase.taxYear}
+        />
+      )}
 
       {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
       {activeCaseId && !isUnreadError && (

@@ -24,6 +24,7 @@ const BADGE_DOT_COLORS: Record<BadgeType, string> = {
   stale: 'bg-slate-400 dark:bg-slate-500',
   ready: 'bg-emerald-500',
   'new-activity': 'bg-purple-500',
+  'need-upload-link': 'bg-rose-500',
 } as const
 
 export const ActionBadge = memo(function ActionBadge({ type, count, days }: ActionBadgeProps) {

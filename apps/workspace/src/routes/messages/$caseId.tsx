@@ -283,7 +283,7 @@ function ConversationDetailView() {
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
           clientName={caseData.client.name}
-          clientPhone={formatPhone(caseData.client.phone)}
+          clientPhone={isAdmin ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

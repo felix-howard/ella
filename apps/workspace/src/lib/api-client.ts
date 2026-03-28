@@ -1168,6 +1168,10 @@ export interface ClientActivity {
   timestamp: string
   description: string
   count?: number // For batched uploads
+  channel?: string
+  callStatus?: string | null
+  recordingDuration?: number | null
+  direction?: string
 }
 
 export interface TaxCaseSummary {
@@ -1535,9 +1539,11 @@ export interface Conversation {
   lastMessage: {
     id: string
     content: string
-    channel: 'SMS' | 'PORTAL' | 'SYSTEM'
+    channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
     createdAt: string
+    callStatus?: string
+    recordingDuration?: number
   } | null
 }
 

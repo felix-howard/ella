@@ -4,6 +4,7 @@
  * Features: Ring animation, accessibility, focus trap
  */
 import { useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { Phone, PhoneOff, PhoneIncoming, User } from 'lucide-react'
 import { cn } from '@ella/ui'
@@ -23,6 +24,7 @@ export function IncomingCallModal({
   onAccept,
   onReject,
 }: IncomingCallModalProps) {
+  const { t } = useTranslation()
   const modalRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
@@ -45,7 +47,7 @@ export function IncomingCallModal({
 
     // Focus accept button (more accessible default)
     const focusableElements = getFocusableElements()
-    const acceptButton = focusableElements.find((el) => el.getAttribute('aria-label')?.includes('Chấp'))
+    const acceptButton = focusableElements.find((el) => el.getAttribute('data-action') === 'accept')
     if (acceptButton) {
       acceptButton.focus()
     } else if (focusableElements.length > 0) {
@@ -133,12 +135,12 @@ export function IncomingCallModal({
           </div>
 
           <h2 id="incoming-call-title" className="text-lg font-semibold truncate">
-            {callerInfo?.clientName || 'Khách hàng mới'}
+            {callerInfo?.clientName || t('call.newClient')}
           </h2>
-          <p className="text-sm opacity-90">{callerInfo?.phone || 'Số điện thoại không xác định'}</p>
+          <p className="text-sm opacity-90">{callerInfo?.phone || t('call.unknownPhone')}</p>
           {callerInfo?.caseId && (
             <p className="text-xs opacity-75 mt-1">
-              Mã hồ sơ: #{callerInfo.caseId.slice(-6).toUpperCase()}
+              {t('call.caseId', { id: callerInfo.caseId.slice(-6).toUpperCase() })}
             </p>
           )}
         </div>
@@ -151,7 +153,7 @@ export function IncomingCallModal({
             role="status"
             aria-live="polite"
           >
-            Cuộc gọi đến...
+            {t('call.incomingCall')}
           </p>
         </div>
 
@@ -165,8 +167,8 @@ export function IncomingCallModal({
               'focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
               'active:scale-95'
             )}
-            aria-label="Từ chối cuộc gọi"
-            title="Từ chối - Chuyển sang thư thoại"
+            aria-label={t('call.rejectCall')}
+            title={t('call.rejectToVoicemail')}
           >
             <PhoneOff className="w-7 h-7" aria-hidden="true" />
           </button>
@@ -179,8 +181,9 @@ export function IncomingCallModal({
               'focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2',
               'active:scale-95 animate-bounce'
             )}
-            aria-label="Chấp nhận cuộc gọi"
-            title="Chấp nhận cuộc gọi"
+            data-action="accept"
+            aria-label={t('call.acceptCall')}
+            title={t('call.acceptCall')}
           >
             <Phone className="w-7 h-7" aria-hidden="true" />
           </button>
@@ -189,7 +192,7 @@ export function IncomingCallModal({
         {/* Help text */}
         <div className="px-4 pb-4 text-center">
           <p className="text-xs text-muted-foreground">
-            Từ chối sẽ chuyển cuộc gọi sang thư thoại
+            {t('call.rejectHelp')}
           </p>
         </div>
       </div>

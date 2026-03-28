@@ -89,41 +89,41 @@ const TRACKED_FIELDS = [
   'vehicleOtherMiles',
 ] as const
 
-// Vietnamese field labels for change descriptions
-const FIELD_LABELS_VI: Record<string, string> = {
-  businessName: 'Tên doanh nghiệp',
-  businessDesc: 'Mô tả kinh doanh',
-  grossReceipts: 'Tổng thu',
-  returns: 'Trả hàng/giảm giá',
-  costOfGoods: 'Giá vốn hàng bán',
-  otherIncome: 'Thu nhập khác',
-  advertising: 'Quảng cáo',
-  carExpense: 'Chi phí xe',
-  commissions: 'Hoa hồng',
-  contractLabor: 'Thuê ngoài',
-  depletion: 'Khấu hao tài nguyên',
-  depreciation: 'Khấu hao tài sản',
-  employeeBenefits: 'Phúc lợi nhân viên',
-  insurance: 'Bảo hiểm',
-  interestMortgage: 'Lãi vay thế chấp',
-  interestOther: 'Lãi vay khác',
-  legalServices: 'Dịch vụ pháp lý',
-  officeExpense: 'Chi phí văn phòng',
-  pensionPlans: 'Kế hoạch hưu trí',
-  rentEquipment: 'Thuê thiết bị',
-  rentProperty: 'Thuê mặt bằng',
-  repairs: 'Sửa chữa',
-  supplies: 'Vật tư',
-  taxesAndLicenses: 'Thuế & giấy phép',
-  travel: 'Đi lại',
-  meals: 'Ăn uống',
-  utilities: 'Tiện ích',
-  wages: 'Lương',
-  otherExpenses: 'Chi phí khác',
-  otherExpensesNotes: 'Ghi chú chi phí khác',
-  vehicleMiles: 'Số dặm xe',
-  vehicleCommuteMiles: 'Dặm đi làm',
-  vehicleOtherMiles: 'Dặm cá nhân',
+// English field labels for change descriptions (frontend handles i18n translation)
+const FIELD_LABELS: Record<string, string> = {
+  businessName: 'Business name',
+  businessDesc: 'Business description',
+  grossReceipts: 'Gross receipts',
+  returns: 'Returns/allowances',
+  costOfGoods: 'Cost of goods sold',
+  otherIncome: 'Other income',
+  advertising: 'Advertising',
+  carExpense: 'Car expense',
+  commissions: 'Commissions',
+  contractLabor: 'Contract labor',
+  depletion: 'Depletion',
+  depreciation: 'Depreciation',
+  employeeBenefits: 'Employee benefits',
+  insurance: 'Insurance',
+  interestMortgage: 'Mortgage interest',
+  interestOther: 'Other interest',
+  legalServices: 'Legal services',
+  officeExpense: 'Office expense',
+  pensionPlans: 'Pension plans',
+  rentEquipment: 'Equipment rental',
+  rentProperty: 'Property rental',
+  repairs: 'Repairs',
+  supplies: 'Supplies',
+  taxesAndLicenses: 'Taxes & licenses',
+  travel: 'Travel',
+  meals: 'Meals',
+  utilities: 'Utilities',
+  wages: 'Wages',
+  otherExpenses: 'Other expenses',
+  otherExpensesNotes: 'Other expenses notes',
+  vehicleMiles: 'Vehicle miles',
+  vehicleCommuteMiles: 'Commute miles',
+  vehicleOtherMiles: 'Personal miles',
 }
 
 /**
@@ -179,14 +179,14 @@ export function createExpenseSnapshot(expense: ScheduleCExpense): ScheduleCExpen
 
 /**
  * Detect changes between current and previous expense data
- * Returns list of Vietnamese change descriptions
+ * Returns list of English change descriptions (frontend handles i18n)
  */
 export function detectChanges(
   current: ScheduleCExpense,
   previous: ScheduleCExpenseSnapshot | null
 ): string[] {
   if (!previous) {
-    return ['Tạo mới']
+    return ['Initial submission']
   }
 
   const changes: string[] = []
@@ -200,13 +200,13 @@ export function detectChanges(
     const previousStr = previousValue?.toString() || ''
 
     if (currentStr !== previousStr) {
-      const label = FIELD_LABELS_VI[field] || field
+      const label = FIELD_LABELS[field] || field
       if (!previousStr && currentStr) {
-        changes.push(`Thêm ${label}`)
+        changes.push(`Added ${label}`)
       } else if (previousStr && !currentStr) {
-        changes.push(`Xóa ${label}`)
+        changes.push(`Removed ${label}`)
       } else {
-        changes.push(`Cập nhật ${label}`)
+        changes.push(`Updated ${label}`)
       }
     }
   }

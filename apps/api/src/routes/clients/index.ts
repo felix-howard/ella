@@ -1066,7 +1066,7 @@ clientsRoute.get(
         where: { conversation: { caseId: { in: caseIds } } },
         orderBy: { createdAt: 'desc' },
         take: 10,
-        select: { id: true, direction: true, content: true, createdAt: true },
+        select: { id: true, direction: true, content: true, channel: true, callStatus: true, recordingDuration: true, createdAt: true },
       }),
       // TaxCase status changes (use updatedAt as proxy)
       prisma.taxCase.findMany({
@@ -1103,6 +1103,10 @@ clientsRoute.get(
       timestamp: string
       description: string
       count?: number
+      channel?: string
+      callStatus?: string | null
+      recordingDuration?: number | null
+      direction?: string
     }
 
     const activities: ActivityItem[] = [
@@ -1123,6 +1127,10 @@ clientsRoute.get(
           msg.direction === 'INBOUND'
             ? `Client sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`
             : `Staff sent: "${(msg.content || '').substring(0, 50)}${(msg.content || '').length > 50 ? '...' : ''}"`,
+        channel: msg.channel,
+        callStatus: msg.callStatus,
+        recordingDuration: msg.recordingDuration,
+        direction: msg.direction,
       })),
       // Case updates
       ...taxCaseChanges.map((tc) => ({

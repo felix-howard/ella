@@ -4,6 +4,7 @@
  * Accessibility: Focus trap, keyboard navigation, aria attributes
  */
 import { useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Phone, PhoneOff, Mic, MicOff, X } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { CallState } from '../../hooks/use-voice-call'
@@ -33,6 +34,7 @@ export function ActiveCallModal({
   onToggleMute,
   onClose,
 }: ActiveCallModalProps) {
+  const { t } = useTranslation()
   const modalRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
@@ -121,17 +123,17 @@ export function ActiveCallModal({
   const getStatusText = (): string => {
     switch (callState) {
       case 'connecting':
-        return 'Đang kết nối...'
+        return t('call.connecting')
       case 'ringing':
-        return 'Đang đổ chuông...'
+        return t('call.ringing')
       case 'connected':
-        return 'Đang gọi'
+        return t('call.inCall')
       case 'disconnecting':
-        return 'Đang kết thúc...'
+        return t('call.disconnecting')
       case 'error':
-        return error || 'Lỗi cuộc gọi'
+        return error || t('call.error')
       default:
-        return 'Cuộc gọi kết thúc'
+        return t('call.ended')
     }
   }
 
@@ -158,7 +160,7 @@ export function ActiveCallModal({
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-1 rounded-full hover:bg-white/20 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('call.close')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -215,9 +217,9 @@ export function ActiveCallModal({
                   ? 'bg-yellow-500 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               )}
-              aria-label={isMuted ? 'Bật mic' : 'Tắt mic'}
+              aria-label={isMuted ? t('call.unmute') : t('call.mute')}
               aria-pressed={isMuted}
-              title={isMuted ? 'Bật mic' : 'Tắt mic'}
+              title={isMuted ? t('call.unmute') : t('call.mute')}
             >
               {isMuted ? <MicOff className="w-6 h-6" aria-hidden="true" /> : <Mic className="w-6 h-6" aria-hidden="true" />}
             </button>
@@ -227,8 +229,8 @@ export function ActiveCallModal({
             <button
               onClick={onEndCall}
               className="w-14 h-14 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90 transition-colors"
-              aria-label="Kết thúc cuộc gọi"
-              title="Kết thúc cuộc gọi"
+              aria-label={t('call.endCall')}
+              title={t('call.endCall')}
             >
               <PhoneOff className="w-6 h-6" aria-hidden="true" />
             </button>
@@ -238,7 +240,7 @@ export function ActiveCallModal({
             <button
               onClick={onClose}
               className="w-14 h-14 rounded-full bg-muted text-muted-foreground flex items-center justify-center hover:bg-muted/80 transition-colors"
-              aria-label="Đóng"
+              aria-label={t('call.close')}
             >
               <X className="w-6 h-6" aria-hidden="true" />
             </button>

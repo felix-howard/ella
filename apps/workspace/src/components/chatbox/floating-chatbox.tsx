@@ -16,7 +16,8 @@ import { ActiveCallModal } from '../messaging/active-call-modal'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { useVoiceCall } from '../../hooks/use-voice-call'
-import { formatPhone } from '../../lib/formatters'
+import { formatPhone, maskPhone } from '../../lib/formatters'
+import { useOrgRole } from '../../hooks/use-org-role'
 
 // Constants for configuration
 const POLLING_INTERVAL_MS = 15000 // 15 seconds - balanced between real-time and performance
@@ -40,6 +41,7 @@ export function FloatingChatbox({
 }: FloatingChatboxProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { isAdmin } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
 
   // Voice call state
@@ -199,7 +201,7 @@ export function FloatingChatbox({
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
           clientName={clientName}
-          clientPhone={formatPhone(clientPhone)}
+          clientPhone={isAdmin ? formatPhone(clientPhone) : maskPhone(clientPhone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

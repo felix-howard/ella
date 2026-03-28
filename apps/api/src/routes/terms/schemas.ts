@@ -8,3 +8,7 @@ export const acceptTermsSchema = z.object({
 export const downloadParamsSchema = z.object({
   acceptanceId: z.string().cuid(),
 })
+
+export const acceptanceParamsSchema = z.object({
+  staffId: z.string().cuid(),
+})

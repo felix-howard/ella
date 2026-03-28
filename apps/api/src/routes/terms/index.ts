@@ -9,7 +9,7 @@ import { prisma } from '../../lib/db'
 import { uploadFile, getSignedDownloadUrl } from '../../services/storage'
 import { CURRENT_TERMS_VERSION } from '@ella/shared'
 import type { AuthVariables } from '../../middleware/auth'
-import { acceptTermsSchema, downloadParamsSchema } from './schemas'
+import { acceptTermsSchema, downloadParamsSchema, acceptanceParamsSchema } from './schemas'
 
 const termsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -125,6 +125,44 @@ termsRoute.get('/download/:acceptanceId', zValidator('param', downloadParamsSche
   }
 
   return c.json({ url })
+})
+
+// GET /terms/acceptance/:staffId - Get staff's latest acceptance record
+termsRoute.get('/acceptance/:staffId', zValidator('param', acceptanceParamsSchema), async (c) => {
+  const user = c.get('user')
+  const { staffId } = c.req.valid('param')
+
+  // Authorization: own record or admin in same org
+  if (staffId !== user.staffId) {
+    if (user.orgRole !== 'org:admin') {
+      return c.json({ error: 'FORBIDDEN', message: 'Not authorized' }, 403)
+    }
+
+    const targetStaff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      select: { organizationId: true },
+    })
+
+    if (!targetStaff || targetStaff.organizationId !== user.organizationId) {
+      return c.json({ error: 'NOT_FOUND', message: 'Staff not found' }, 404)
+    }
+  }
+
+  const acceptance = await prisma.termsAcceptance.findFirst({
+    where: { staffId },
+    orderBy: { signedAt: 'desc' },
+    select: { id: true, version: true, signedAt: true },
+  })
+
+  if (!acceptance) {
+    return c.json({ error: 'NOT_ACCEPTED', message: 'No terms acceptance found' }, 404)
+  }
+
+  return c.json({
+    id: acceptance.id,
+    version: acceptance.version,
+    signedAt: acceptance.signedAt.toISOString(),
+  })
 })
 
 export { termsRoute }

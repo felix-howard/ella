@@ -1305,5 +1305,24 @@
   "autoLogin.goToLogin": "Go to login page",
   "autoLogin.sessionExists": "You're already logged in with another account.",
   "autoLogin.signOutAndContinue": "Sign out & continue with new account",
-  "autoLogin.signingOut": "Signing out..."
+  "autoLogin.signingOut": "Signing out...",
+
+  "terms.version": "Version",
+  "terms.effectiveDate": "Effective Date",
+  "terms.signature": "Your Signature",
+  "terms.signatureHint": "Draw your signature above",
+  "terms.clearSignature": "Clear",
+  "terms.acceptAndContinue": "Accept and Continue",
+  "terms.submitting": "Submitting...",
+  "terms.submitHint": "By clicking Accept, you agree to the terms above and your signature will be recorded.",
+  "terms.acceptSuccess": "Terms accepted successfully",
+  "terms.acceptError": "Failed to submit. Please try again.",
+  "terms.checkingStatus": "Checking terms status...",
+  "terms.statusError": "Unable to verify terms status",
+  "terms.pdfTooLarge": "Generated PDF is too large. Please try again.",
+  "terms.signedTerms": "Signed Terms & Conditions",
+  "terms.signedVersion": "Version {{version}} - Signed {{date}}",
+  "terms.notAccepted": "Terms not yet accepted",
+  "terms.downloadError": "Failed to download. Please try again.",
+  "profile.termsAndConditions": "Terms & Conditions"
 }

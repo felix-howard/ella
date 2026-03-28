@@ -14,6 +14,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom'],
   },
+  build: {
+    rollupOptions: {
+      // @react-pdf/pdfkit references pako internals that Rollup can't resolve
+      external: (id) => id.startsWith('pako/lib/'),
+    },
+  },
   server: {
     port: 5174,
     strictPort: true, // Fail instead of auto-incrementing to prevent port collision

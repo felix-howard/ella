@@ -1301,5 +1301,24 @@
   "autoLogin.goToLogin": "Đến trang đăng nhập",
   "autoLogin.sessionExists": "Bạn đang đăng nhập với tài khoản khác.",
   "autoLogin.signOutAndContinue": "Đăng xuất & tiếp tục với tài khoản mới",
-  "autoLogin.signingOut": "Đang đăng xuất..."
+  "autoLogin.signingOut": "Đang đăng xuất...",
+
+  "terms.version": "Phiên bản",
+  "terms.effectiveDate": "Ngày hiệu lực",
+  "terms.signature": "Chữ ký của bạn",
+  "terms.signatureHint": "Vẽ chữ ký của bạn ở trên",
+  "terms.clearSignature": "Xóa",
+  "terms.acceptAndContinue": "Đồng ý và Tiếp tục",
+  "terms.submitting": "Đang gửi...",
+  "terms.submitHint": "Bằng cách nhấn Đồng ý, bạn chấp nhận các điều khoản trên và chữ ký của bạn sẽ được ghi lại.",
+  "terms.acceptSuccess": "Đã chấp nhận điều khoản thành công",
+  "terms.acceptError": "Không thể gửi. Vui lòng thử lại.",
+  "terms.checkingStatus": "Đang kiểm tra trạng thái điều khoản...",
+  "terms.statusError": "Không thể xác minh trạng thái điều khoản",
+  "terms.pdfTooLarge": "PDF được tạo quá lớn. Vui lòng thử lại.",
+  "terms.signedTerms": "Điều Khoản & Điều Kiện Đã Ký",
+  "terms.signedVersion": "Phiên bản {{version}} - Ký ngày {{date}}",
+  "terms.notAccepted": "Chưa chấp nhận điều khoản",
+  "terms.downloadError": "Không thể tải xuống. Vui lòng thử lại.",
+  "profile.termsAndConditions": "Điều Khoản & Điều Kiện"
 }

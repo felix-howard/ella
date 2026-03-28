@@ -985,6 +985,30 @@ export const api = {
     getVersionSignedUrl: (caseId: string, version: number) =>
       request<{ url: string; filename: string }>(`/draft-returns/version/${caseId}/${version}/signed-url`),
   },
+
+  // Terms & Conditions
+  terms: {
+    getStatus: () =>
+      request<{
+        hasAccepted: boolean
+        currentVersion: string
+        acceptedVersion?: string
+        acceptedAt?: string
+      }>('/terms/status'),
+
+    accept: (data: { version: string; pdfBase64: string; language: 'EN' | 'VI' }) =>
+      request<{ id: string; version: string; signedAt: string }>('/terms/accept', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    getDownloadUrl: (acceptanceId: string) =>
+      request<{ url: string }>(`/terms/download/${acceptanceId}`),
+
+    getAcceptance: (staffId: string) =>
+      request<{ id: string; version: string; signedAt: string }>(`/terms/acceptance/${staffId}`),
+  },
 }
 
 // Type definitions

@@ -4,65 +4,66 @@ import { TERMS_CONTENT, type TermsContent, type TermsLanguage } from './terms-co
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 30,
     fontFamily: PDF_FONT_FAMILY,
-    fontSize: 11,
-    lineHeight: 1.5,
+    fontSize: 9,
+    lineHeight: 1.4,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 10,
     textAlign: 'center',
   },
   title: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   version: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666',
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 6,
   },
   heading: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: 3,
   },
   paragraph: {
-    marginBottom: 6,
+    marginBottom: 3,
     textAlign: 'justify',
   },
   signatureBlock: {
-    marginTop: 30,
+    marginTop: 12,
     borderTop: '1px solid #ccc',
-    paddingTop: 20,
+    paddingTop: 10,
   },
   signatureRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 10,
   },
   signatureField: {
     width: '45%',
   },
   signatureLabel: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   signatureImage: {
-    width: 200,
-    height: 80,
+    width: 150,
+    height: 60,
     objectFit: 'contain',
   },
   acknowledgment: {
-    marginTop: 20,
+    marginTop: 10,
+    fontWeight: 'bold',
   },
   timestamp: {
-    marginTop: 10,
-    fontSize: 10,
+    marginTop: 6,
+    fontSize: 8,
     color: '#666',
   },
 })
@@ -88,14 +89,15 @@ function isValidSignatureDataUrl(url: string): boolean {
 }
 
 interface TermsPDFDocumentProps {
-  language: TermsLanguage
+  language?: TermsLanguage
   signatureDataUrl: string
   staffName: string
   signedAt: Date
 }
 
-export function TermsPDFDocument({ language, signatureDataUrl, staffName, signedAt }: TermsPDFDocumentProps) {
-  const content: TermsContent = TERMS_CONTENT[language]
+export function TermsPDFDocument({ signatureDataUrl, staffName, signedAt }: TermsPDFDocumentProps) {
+  // PDF is always generated in English
+  const content: TermsContent = TERMS_CONTENT['EN']
   const validSignature = signatureDataUrl && isValidSignatureDataUrl(signatureDataUrl)
 
   return (
@@ -122,23 +124,19 @@ export function TermsPDFDocument({ language, signatureDataUrl, staffName, signed
 
           <View style={styles.signatureRow}>
             <View style={styles.signatureField}>
-              <Text style={styles.signatureLabel}>
-                {language === 'EN' ? 'Signature' : 'Ch\u1EEF k\u00FD'}
-              </Text>
+              <Text style={styles.signatureLabel}>Signature</Text>
               {validSignature && (
                 <Image src={signatureDataUrl} style={styles.signatureImage} />
               )}
             </View>
             <View style={styles.signatureField}>
-              <Text style={styles.signatureLabel}>
-                {language === 'EN' ? 'Full Name' : 'H\u1ECD v\u00E0 t\u00EAn'}
-              </Text>
+              <Text style={styles.signatureLabel}>Full Name</Text>
               <Text>{staffName}</Text>
             </View>
           </View>
 
           <Text style={styles.timestamp}>
-            {language === 'EN' ? 'Signed on' : 'K\u00FD ng\u00E0y'}: {formatSignedDate(signedAt, language)}
+            Signed on: {formatSignedDate(signedAt, 'EN')}
           </Text>
         </View>
       </Page>

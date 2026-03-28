@@ -89,7 +89,7 @@ export function TermsModal({ staffName, onAccepted }: TermsModalProps) {
           <button
             type="button"
             onClick={toggleLanguage}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             <Globe className="w-4 h-4" />
             {language === 'EN' ? 'Tiếng Việt' : 'English'}

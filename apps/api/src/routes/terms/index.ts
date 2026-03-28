@@ -133,7 +133,14 @@ termsRoute.get('/download/:acceptanceId', zValidator('param', downloadParamsSche
 // GET /terms/acceptance/:staffId - Get staff's latest acceptance record
 termsRoute.get('/acceptance/:staffId', zValidator('param', acceptanceParamsSchema), async (c) => {
   const user = c.get('user')
-  const { staffId } = c.req.valid('param')
+  const { staffId: rawStaffId } = c.req.valid('param')
+
+  // Resolve 'me' to current user's staffId
+  const staffId = rawStaffId === 'me' ? user.staffId : rawStaffId
+
+  if (!staffId) {
+    return c.json({ error: 'Staff record not found' }, 404)
+  }
 
   // Authorization: own record or admin in same org
   if (staffId !== user.staffId) {

@@ -17,6 +17,7 @@ export function useAcceptTerms() {
     mutationFn: api.terms.accept,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['terms-status'] })
+      queryClient.invalidateQueries({ queryKey: ['terms-acceptance'] })
     },
   })
 }

@@ -11,5 +11,5 @@ export const downloadParamsSchema = z.object({
 })
 
 export const acceptanceParamsSchema = z.object({
-  staffId: z.string().cuid(),
+  staffId: z.union([z.literal('me'), z.string().cuid()]),
 })

@@ -223,7 +223,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Action badges column */}
       <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
-          {!client.hasUploadLink && (
+          {!client.hasUploadLink && client.source === 'FORM' && (
             <ActionBadge type="need-upload-link" />
           )}
           {actionCounts?.hasNewActivity && (

@@ -12,7 +12,7 @@ const slugSchema = z
 
 const phoneSchema = z
   .string()
-  .regex(/^\+1\d{10}$/, 'Phone must be +1XXXXXXXXXX format')
+  .regex(/^\+\d{7,15}$/, 'Phone must be in E.164 format (e.g., +1XXXXXXXXXX)')
 
 export const getFormInfoParamsSchema = z.object({
   orgSlug: slugSchema,

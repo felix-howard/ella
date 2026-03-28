@@ -1306,17 +1306,12 @@ clientsRoute.post(
       return c.json({ error: 'No tax case found' }, 400)
     }
 
-    const portalBaseUrl = process.env.PORTAL_URL
-    if (!portalBaseUrl) {
-      return c.json({ error: 'PORTAL_URL not configured' }, 500)
-    }
-
     if (!isSmsEnabled()) {
       return c.json({ error: 'SMS not configured' }, 500)
     }
 
-    const magicLinkUrl = await createMagicLink(latestCase.id)
-    const portalUrl = `${portalBaseUrl}/u/${magicLinkUrl}`
+    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
+    const portalUrl = await createMagicLink(latestCase.id)
 
     try {
       const result = await sendWelcomeMessage(

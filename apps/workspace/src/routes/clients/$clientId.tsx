@@ -805,7 +805,7 @@ function ClientDetailPage() {
             variant="destructive"
             className="px-6"
             onClick={() => deleteClientMutation.mutate()}
-            disabled={deleteConfirmText !== 'Delete' || deleteClientMutation.isPending}
+            disabled={deleteConfirmText !== t('clientDetail.deleteConfirmWord', 'Delete') || deleteClientMutation.isPending}
           >
             {deleteClientMutation.isPending ? (
               <>

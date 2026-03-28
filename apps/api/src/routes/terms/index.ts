@@ -3,6 +3,7 @@
  * Staff acceptance flow with PDF storage and version tracking
  */
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { zValidator } from '@hono/zod-validator'
 import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
@@ -39,7 +40,7 @@ termsRoute.get('/status', async (c) => {
 })
 
 // POST /terms/accept - Submit T&C acceptance with signed PDF
-termsRoute.post('/accept', zValidator('json', acceptTermsSchema), async (c) => {
+termsRoute.post('/accept', bodyLimit({ maxSize: 15 * 1024 * 1024 }), zValidator('json', acceptTermsSchema), async (c) => {
   const user = c.get('user')
   if (!user.staffId) {
     return c.json({ error: 'Staff record not found' }, 404)
@@ -51,16 +52,8 @@ termsRoute.post('/accept', zValidator('json', acceptTermsSchema), async (c) => {
     return c.json({ error: 'VERSION_MISMATCH', message: 'Terms version outdated' }, 400)
   }
 
-  // Decode PDF and upload to R2
   const pdfBuffer = Buffer.from(pdfBase64, 'base64')
   const r2Key = `terms/${user.organizationId}/${user.staffId}/${version}.pdf`
-
-  try {
-    await uploadFile(r2Key, pdfBuffer, 'application/pdf')
-  } catch (error) {
-    console.error('[Terms] PDF upload failed:', error)
-    return c.json({ error: 'UPLOAD_FAILED', message: 'Failed to store signed PDF' }, 500)
-  }
 
   // Capture IP and user agent server-side
   const ipAddress = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
@@ -68,8 +61,10 @@ termsRoute.post('/accept', zValidator('json', acceptTermsSchema), async (c) => {
     || 'unknown'
   const userAgent = c.req.header('user-agent') || null
 
+  // DB insert first to catch P2002 duplicate before uploading to R2 (avoids orphan files)
+  let acceptance
   try {
-    const acceptance = await prisma.termsAcceptance.create({
+    acceptance = await prisma.termsAcceptance.create({
       data: {
         staffId: user.staffId,
         version,
@@ -79,18 +74,26 @@ termsRoute.post('/accept', zValidator('json', acceptTermsSchema), async (c) => {
       },
       select: { id: true, version: true, signedAt: true },
     })
-
-    return c.json({
-      id: acceptance.id,
-      version: acceptance.version,
-      signedAt: acceptance.signedAt.toISOString(),
-    }, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return c.json({ error: 'ALREADY_ACCEPTED', message: 'Already accepted this version' }, 409)
     }
     throw error
   }
+
+  try {
+    await uploadFile(r2Key, pdfBuffer, 'application/pdf')
+  } catch (error) {
+    console.error('[Terms] PDF upload failed, cleaning up DB record:', error)
+    await prisma.termsAcceptance.delete({ where: { id: acceptance.id } }).catch(() => {})
+    return c.json({ error: 'UPLOAD_FAILED', message: 'Failed to store signed PDF' }, 500)
+  }
+
+  return c.json({
+    id: acceptance.id,
+    version: acceptance.version,
+    signedAt: acceptance.signedAt.toISOString(),
+  }, 201)
 })
 
 // GET /terms/download/:acceptanceId - Download signed PDF

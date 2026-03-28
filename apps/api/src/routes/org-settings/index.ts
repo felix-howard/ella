@@ -5,6 +5,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
+import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
 import type { AuthVariables } from '../../middleware/auth'
@@ -69,11 +70,19 @@ orgSettingsRoute.patch(
       }
     }
 
-    const updated = await prisma.organization.update({
-      where: { id: user.organizationId },
-      data,
-      select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true, clerkOrgId: true },
-    })
+    let updated
+    try {
+      updated = await prisma.organization.update({
+        where: { id: user.organizationId },
+        data,
+        select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true, clerkOrgId: true },
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return c.json({ error: 'SLUG_TAKEN' }, 409)
+      }
+      throw error
+    }
 
     // Sync slug to Clerk if it changed
     if (data.slug !== undefined && updated.clerkOrgId) {

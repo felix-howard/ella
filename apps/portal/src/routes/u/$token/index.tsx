@@ -161,6 +161,19 @@ function PortalPage() {
         <MissingDocsList docs={data.checklist.missing} language={language} />
       </div> */}
 
+      {/* Disclaimer */}
+      <div className="px-6 py-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">
+            {t('portal.disclaimerTitle')}
+          </p>
+          <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+            <li>{t('portal.disclaimer1')}</li>
+            <li>{t('portal.disclaimer2')}</li>
+          </ol>
+        </div>
+      </div>
+
       {/* Footer */}
       <footer className="px-6 py-4 text-center">
         <p className="text-xs text-muted-foreground">

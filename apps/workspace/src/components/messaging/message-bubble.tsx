@@ -95,8 +95,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const isSending = message._optimistic === 'sending'
   const isFailed = message._optimistic === 'failed'
   const channelConfig = CHANNEL_ICONS[message.channel]
-  const ChannelIcon = channelConfig.icon
-  const channelLabel = t(channelConfig.labelKey)
+  const _ChannelIcon = channelConfig.icon
+  const _channelLabel = t(channelConfig.labelKey)
   const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
 
   // Format time
@@ -208,15 +208,13 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             <MessageImage key={index} url={url} isOutbound={false} isStandalone />
           ))}
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 mt-1">
-          <ChannelIcon className="w-3 h-3" />
-          <span>{channelLabel}</span>
-          {showTime && (
-            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
-              <span className="cursor-default">{time}</span>
+        {showTime && (
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pl-1 cursor-default">
+            <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+              <span>{formatShortRelativeTime(message.createdAt)}</span>
             </Tooltip>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -227,7 +225,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
       <div className="flex flex-col w-full items-end">
         <div className={cn('flex items-end gap-2 max-w-[75%]', isSending && 'opacity-70')}>
           {/* Message bubble - light green, only text */}
-          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 overflow-hidden">
+          <div className="rounded-[20px] rounded-br-[6px] bg-emerald-50 dark:bg-emerald-900/30 overflow-hidden">
             {hasAttachments && (
               <div className="flex flex-col">
                 {message.attachmentUrls!.map((url, index) => (
@@ -237,7 +235,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
             )}
             <div className="px-3.5 py-2">
               {hasText && (
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700">
+                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words text-gray-700 dark:text-gray-200">
                   <LinkifiedText text={safeContent} isOutbound />
                 </p>
               )}
@@ -277,7 +275,7 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     )
   }
 
-  // Inbound text message — keep existing design
+  // Inbound text message — matching outbound layout
   return (
     <div className="flex flex-col w-full items-start">
       <div
@@ -300,17 +298,16 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
               <LinkifiedText text={safeContent} isOutbound={false} />
             </p>
           )}
-          <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground/60">
-            <ChannelIcon className="w-2.5 h-2.5" />
-            <span>{channelLabel}</span>
-            {showTime && (
-              <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white" showArrow={false}>
-                <span className="cursor-default">{time}</span>
-              </Tooltip>
-            )}
-          </div>
         </div>
       </div>
+      {/* Time below bubble — matching outbound style */}
+      {showTime && (
+        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground pl-1 cursor-default">
+          <Tooltip content={formatFullDateTime(message.createdAt)} position="top" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+            <span>{formatShortRelativeTime(message.createdAt)}</span>
+          </Tooltip>
+        </div>
+      )}
     </div>
   )
 })

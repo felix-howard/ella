@@ -8,3 +8,5 @@ export {
   isValidStatusTransition,
   getValidNextStatuses,
 } from './case-status'
+
+export { CURRENT_TERMS_VERSION } from './terms'

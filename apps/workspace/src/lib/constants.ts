@@ -327,6 +327,7 @@ export const ACTION_BADGE_LABELS = translatedLabels({
   stale: 'actionBadge.stale',
   ready: 'actionBadge.ready',
   'new-activity': 'actionBadge.newActivity',
+  'need-upload-link': 'actionBadge.needUploadLink',
 })
 
 /** Action badge ARIA labels for accessibility */
@@ -337,6 +338,7 @@ export const ACTION_BADGE_ARIA_LABELS = translatedLabels({
   stale: 'actionBadgeAria.stale',
   ready: 'actionBadgeAria.ready',
   'new-activity': 'actionBadgeAria.newActivity',
+  'need-upload-link': 'actionBadgeAria.needUploadLink',
 })
 
 /** Time format strings for localization */

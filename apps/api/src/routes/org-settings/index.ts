@@ -5,7 +5,9 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
+import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
+import { clerkClient } from '../../lib/clerk-client'
 import type { AuthVariables } from '../../middleware/auth'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -13,6 +15,8 @@ const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 const updateOrgSettingsSchema = z.object({
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
+  autoSendFormClientUploadLink: z.boolean().optional(),
+  slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
 })
 
 // GET /org-settings - Get org settings
@@ -24,7 +28,7 @@ orgSettingsRoute.get('/', async (c) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
-    select: { smsLanguage: true, missedCallTextBack: true },
+    select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true },
   })
 
   if (!org) {
@@ -34,6 +38,8 @@ orgSettingsRoute.get('/', async (c) => {
   return c.json({
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
+    autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
+    slug: org.slug,
   })
 })
 
@@ -54,15 +60,46 @@ orgSettingsRoute.patch(
 
     const data = c.req.valid('json')
 
-    const updated = await prisma.organization.update({
-      where: { id: user.organizationId },
-      data,
-      select: { smsLanguage: true, missedCallTextBack: true },
-    })
+    // Validate slug uniqueness if provided
+    if (data.slug) {
+      const existing = await prisma.organization.findFirst({
+        where: { slug: data.slug, id: { not: user.organizationId } },
+      })
+      if (existing) {
+        return c.json({ error: 'SLUG_TAKEN' }, 409)
+      }
+    }
+
+    let updated
+    try {
+      updated = await prisma.organization.update({
+        where: { id: user.organizationId },
+        data,
+        select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true, clerkOrgId: true },
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return c.json({ error: 'SLUG_TAKEN' }, 409)
+      }
+      throw error
+    }
+
+    // Sync slug to Clerk if it changed
+    if (data.slug !== undefined && updated.clerkOrgId) {
+      try {
+        await clerkClient.organizations.updateOrganization(updated.clerkOrgId, {
+          slug: data.slug ?? undefined,
+        })
+      } catch (err) {
+        console.error('[OrgSettings] Failed to sync slug to Clerk:', err)
+      }
+    }
 
     return c.json({
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
+      autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
+      slug: updated.slug,
     })
   }
 )

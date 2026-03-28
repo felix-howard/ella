@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, maskPhone, getInitials, getAvatarColor, formatRelativeTime } from '../../lib/formatters'
+import { formatPhone, maskPhone, getInitials, getAvatarColor, formatShortRelativeTime } from '../../lib/formatters'
 import { ActionBadge } from './action-badge'
 import type { ClientWithActions } from '../../lib/api-client'
 
@@ -45,6 +45,9 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {UI_TEXT.form.taxYear}
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+                {t('clients.source')}
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {t('clients.documents')}
               </th>
@@ -58,9 +61,6 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.uploads')}
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                {t('clients.lastUpload')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('clients.tasks')}
@@ -145,6 +145,11 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         )}
       </td>
 
+      {/* Source column */}
+      <td className="px-4 py-3 hidden sm:table-cell">
+        <SourceBadge source={client.source} />
+      </td>
+
       {/* Documents column */}
       <td className="px-4 py-3 hidden lg:table-cell">
         {uploads && uploads.totalCount > 0 ? (
@@ -190,28 +195,26 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Created column */}
       <td className="px-4 py-3 hidden lg:table-cell">
         <span className="text-sm text-muted-foreground">
-          {formatRelativeTime(client.createdAt, i18n.language as 'en' | 'vi')}
+          {formatShortRelativeTime(client.createdAt, i18n.language)}
         </span>
       </td>
 
-      {/* Uploads column */}
+      {/* Uploads column (combined: new count + last upload time) */}
       <td className="px-4 py-3 hidden md:table-cell">
-        {uploads && uploads.newCount > 0 ? (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-            {t('clients.newUploads', { count: uploads.newCount })}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </td>
-
-      {/* Last Upload column */}
-      <td className="px-4 py-3 hidden md:table-cell">
-        {uploads?.latestAt ? (
-          <span className="text-sm text-muted-foreground">
-            {formatRelativeTime(uploads.latestAt, i18n.language as 'en' | 'vi')}
-          </span>
+        {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
+          <div className="flex items-center gap-2">
+            {uploads.newCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                {t('clients.newUploads', { count: uploads.newCount })}
+              </span>
+            )}
+            {uploads.latestAt && (
+              <span className="text-xs text-muted-foreground">
+                {formatShortRelativeTime(uploads.latestAt, i18n.language)}
+              </span>
+            )}
+          </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
@@ -220,6 +223,9 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Action badges column */}
       <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
+          {!client.hasUploadLink && client.source === 'FORM' && (
+            <ActionBadge type="need-upload-link" />
+          )}
           {actionCounts?.hasNewActivity && (
             <ActionBadge type="new-activity" />
           )}
@@ -260,6 +266,24 @@ function EmptyState() {
   )
 }
 
+function SourceBadge({ source }: { source?: 'MANUAL' | 'FORM' }) {
+  const { t } = useTranslation()
+
+  if (source === 'FORM') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+        {t('clients.sourceForm')}
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+      {t('clients.sourceManual')}
+    </span>
+  )
+}
+
 /**
  * Skeleton loader for table - accepts isAdmin to match live table column layout
  */
@@ -279,6 +303,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+                <div className="h-4 w-14 bg-muted rounded animate-pulse" />
+              </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 <div className="h-4 w-20 bg-muted rounded animate-pulse" />
               </th>
@@ -288,9 +315,6 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 </th>
               )}
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 <div className="h-4 w-16 bg-muted rounded animate-pulse" />
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
@@ -320,6 +344,9 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 <td className="px-4 py-3">
                   <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                 </td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
+                </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
                 </td>
@@ -333,9 +360,6 @@ export function ClientListTableSkeleton({ isAdmin }: { isAdmin?: boolean }) {
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="h-5 w-24 bg-muted rounded-full animate-pulse" />
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex gap-1">

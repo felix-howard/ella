@@ -28,6 +28,8 @@ import { orgSettingsRoute } from './routes/org-settings'
 import { draftReturnsRoute } from './routes/draft-returns'
 import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
+import { formRoute } from './routes/form'
+import { termsRoute } from './routes/terms'
 
 const app = new OpenAPIHono()
 
@@ -58,6 +60,7 @@ app.route('/webhooks/twilio', twilioWebhookRoute)
 app.route('/webhooks/clerk', clerkWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
+app.route('/form', formRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)
@@ -75,6 +78,7 @@ app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/draft-returns/*', authMiddleware)
+app.use('/terms/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -94,6 +98,7 @@ app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
+app.route('/terms', termsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

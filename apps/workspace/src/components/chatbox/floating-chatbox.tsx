@@ -145,12 +145,12 @@ export function FloatingChatbox({
   const messages = messagesData?.messages ?? []
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-3">
       {/* Chat window - shown when open */}
       {isOpen && (
         <div
           className={cn(
-            'w-[360px] max-h-[500px] flex flex-col',
+            'w-[360px] min-h-[450px] max-h-[500px] flex flex-col',
             'bg-card rounded-xl shadow-2xl border border-border',
             'animate-in slide-in-from-bottom-4 fade-in duration-200'
           )}
@@ -167,7 +167,7 @@ export function FloatingChatbox({
           <MessageThread
             messages={messages}
             isLoading={isLoadingMessages}
-            className="h-[320px] bg-background"
+            className="flex-1 min-h-[320px] bg-background"
           />
 
           {/* Quick actions / composer */}

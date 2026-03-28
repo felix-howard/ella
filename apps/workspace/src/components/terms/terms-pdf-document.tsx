@@ -59,7 +59,6 @@ const styles = StyleSheet.create({
   },
   acknowledgment: {
     marginTop: 20,
-    fontStyle: 'italic',
   },
   timestamp: {
     marginTop: 10,

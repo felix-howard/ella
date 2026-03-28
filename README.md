@@ -228,12 +228,6 @@ pnpm build
 - `docs/*` - Documentation
 - All PRs require code review
 
-### Commit Convention
-- `[Add] New feature` - New functionality
-- `[Update] Enhancement` - Improvements
-- `[Fix] Bug fix` - Bug resolution
-- `[Refactor] Code restructuring` - Refactoring
-- `[Docs] Documentation update` - Documentation
 
 ## Deployment
 

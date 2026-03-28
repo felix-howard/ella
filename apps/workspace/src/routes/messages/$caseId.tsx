@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { ArrowLeft, User, ExternalLink } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
@@ -202,9 +202,13 @@ function ConversationDetailView() {
                 <ArrowLeft className="w-4 h-4" />
               </Link>
 
-              {/* Client Info */}
+              {/* Client Info - clickable to navigate to profile */}
               {caseData && avatarColor ? (
-                <div className="flex items-center gap-3">
+                <Link
+                  to="/clients/$clientId"
+                  params={{ clientId: caseData.client.id }}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 -my-1 hover:bg-muted/60 transition-colors duration-200 cursor-pointer"
+                >
                   <div className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center shadow-sm ring-2 ring-background',
                     avatarColor.bg,
@@ -224,7 +228,7 @@ function ConversationDetailView() {
                       <span>{isAdmin ? formatPhone(caseData.client.phone) : maskPhone(caseData.client.phone)}</span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ) : (
                 <div className="animate-pulse flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-muted/60" />
@@ -246,17 +250,6 @@ function ConversationDetailView() {
                 onClick={handleCallClick}
                 label={t('messages.call')}
               />
-              {caseData && (
-                <Link
-                  to="/clients/$clientId"
-                  params={{ clientId: caseData.client.id }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>{t('messages.viewProfile')}</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
-              )}
             </div>
           </div>
         </div>

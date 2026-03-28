@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -84,6 +84,7 @@ function ClientDetailPage() {
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null)
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
   const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
+  const tempIdCounterRef = useRef(0)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -194,7 +195,7 @@ function ClientDetailPage() {
         .replace(/\{\{portal_link\}\}/g, '(link)')
 
       const tempMessage = {
-        id: `temp-upload-link-${Date.now()}`,
+        id: `temp-upload-link-${++tempIdCounterRef.current}`,
         conversationId: activeCaseId,
         channel: 'SMS' as const,
         direction: 'OUTBOUND' as const,
@@ -313,7 +314,7 @@ function ClientDetailPage() {
 
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
-  const handleYearChange = useCallback((year: number, engagementId: string) => {
+  const handleYearChange = (year: number, engagementId: string) => {
     setSelectedEngagementId(engagementId)
     // Invalidate queries for the new case to ensure fresh data
     const newCase = client?.taxCases?.find((tc) => tc.taxYear === year)
@@ -322,17 +323,17 @@ function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['images', newCase.id] })
       queryClient.invalidateQueries({ queryKey: ['docs', newCase.id] })
     }
-  }, [client?.taxCases, queryClient])
+  }
 
   // Handler for new engagement created
   // IMPORTANT: Must be before early returns to maintain consistent hook order
-  const handleEngagementCreated = useCallback((newYear: number, engagementId: string) => {
+  const handleEngagementCreated = (newYear: number, engagementId: string) => {
     // Select the newly created engagement
     setSelectedEngagementId(engagementId)
     // Refresh data
     queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-  }, [clientId, queryClient])
+  }
 
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {

@@ -2,7 +2,7 @@
  * Client Form Link Card - Shows generic intake form link + org slug editor + auto-send toggle
  * Used in Org Settings General tab
  */
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Copy, Check, Link as LinkIcon, Send, AlertTriangle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -27,11 +27,14 @@ export function ClientFormLinkCard() {
     queryFn: () => api.orgSettings.get(),
   })
 
-  useEffect(() => {
+  // Sync slug value when data changes (adjust state during render pattern)
+  const [prevSlug, setPrevSlug] = useState(data?.slug)
+  if (data?.slug !== prevSlug) {
+    setPrevSlug(data?.slug)
     if (!isEditingSlug && data?.slug) {
       setSlugValue(data.slug)
     }
-  }, [data?.slug, isEditingSlug])
+  }
 
   const slugMutation = useMutation({
     mutationFn: (newSlug: string) =>

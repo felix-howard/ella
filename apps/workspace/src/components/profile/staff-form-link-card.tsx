@@ -2,11 +2,11 @@
  * Staff Form Link Card - Shows personal intake form link with editable slug
  * Used in Staff Profile page
  */
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Copy, Check, Link as LinkIcon, AlertTriangle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, cn, Button, Input } from '@ella/ui'
+import { Card, Button, Input } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 
@@ -32,12 +32,14 @@ export function StaffFormLinkCard({
   const [slugValue, setSlugValue] = useState(formSlug || '')
   const [slugError, setSlugError] = useState<string | null>(null)
 
-  // Sync slug value when prop changes (after mutation invalidation)
-  useEffect(() => {
+  // Sync slug value when prop changes (adjust state during render pattern)
+  const [prevFormSlug, setPrevFormSlug] = useState(formSlug)
+  if (formSlug !== prevFormSlug) {
+    setPrevFormSlug(formSlug)
     if (!isEditing) {
       setSlugValue(formSlug || '')
     }
-  }, [formSlug, isEditing])
+  }
 
   const mutation = useMutation({
     mutationFn: (newSlug: string | null) =>

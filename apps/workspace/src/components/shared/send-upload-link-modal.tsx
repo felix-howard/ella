@@ -2,7 +2,7 @@
  * SendUploadLinkModal - Modal for customizing SMS message before sending upload link
  * Shows editable message template with VN/EN toggle and placeholder guide
  */
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Send, Loader2, Info, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
@@ -37,8 +37,10 @@ export function SendUploadLinkModal({
     EN: UPLOAD_LINK_TEMPLATE_EN,
   })
 
-  // Reset when modal opens
-  useEffect(() => {
+  // Reset when modal opens (adjust state during render pattern)
+  const [prevIsOpen, setPrevIsOpen] = useState(false)
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen)
     if (isOpen) {
       setMessages({
         VI: UPLOAD_LINK_TEMPLATE_VI,
@@ -46,7 +48,7 @@ export function SendUploadLinkModal({
       })
       setLanguage('VI')
     }
-  }, [isOpen])
+  }
 
   const currentMessage = messages[language]
 

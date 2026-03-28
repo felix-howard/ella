@@ -95,8 +95,8 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
   const isSending = message._optimistic === 'sending'
   const isFailed = message._optimistic === 'failed'
   const channelConfig = CHANNEL_ICONS[message.channel]
-  const ChannelIcon = channelConfig.icon
-  const channelLabel = t(channelConfig.labelKey)
+  const _ChannelIcon = channelConfig.icon
+  const _channelLabel = t(channelConfig.labelKey)
   const hasAttachments = message.attachmentUrls && message.attachmentUrls.length > 0
 
   // Format time

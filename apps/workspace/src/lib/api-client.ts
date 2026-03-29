@@ -2116,6 +2116,7 @@ export interface TeamMember {
   avatarUrl: string | null
   lastLoginAt: string | null
   isActive?: boolean
+  formSlug: string | null
   _count: { managedClients: number }
 }
 

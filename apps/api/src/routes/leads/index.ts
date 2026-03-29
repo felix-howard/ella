@@ -421,7 +421,7 @@ leadsRoute.post(
     }
 
     // Build form URL
-    const portalBaseUrl = process.env.PORTAL_URL || 'https://portal.ella.tax'
+    const portalBaseUrl = process.env.PORTAL_URL || 'https://portal.ellatax.com'
     const formUrl = staffFormSlug
       ? `${portalBaseUrl}/form/${org.slug}/${staffFormSlug}`
       : `${portalBaseUrl}/form/${org.slug}`

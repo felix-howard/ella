@@ -10,6 +10,7 @@ import { PageContainer } from '../../components/layout'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
 import { LeadCard } from '../../components/leads/lead-card'
 import { ConvertLeadDialog } from '../../components/leads/convert-lead-dialog'
+import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { api } from '../../lib/api-client'
 import type { Lead, LeadStatus } from '../../lib/api-client'
 import { useDebouncedValue } from '../../hooks'
@@ -24,6 +25,7 @@ function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [convertLead, setConvertLead] = useState<Lead | null>(null)
+  const [showBulkSms, setShowBulkSms] = useState(false)
   const [page, setPage] = useState(1)
 
   const [debouncedSearch] = useDebouncedValue(search, 300)
@@ -91,7 +93,7 @@ function LeadsPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusChange}
         selectedCount={selectedIds.size}
-        onBulkSms={() => {/* Phase 5 */}}
+        onBulkSms={() => setShowBulkSms(true)}
       />
 
       {/* Select All */}
@@ -166,6 +168,13 @@ function LeadsPage() {
 
       {convertLead && (
         <ConvertLeadDialog lead={convertLead} onClose={() => setConvertLead(null)} />
+      )}
+
+      {showBulkSms && (
+        <BulkSmsDialog
+          leads={leads.filter((l) => selectedIds.has(l.id))}
+          onClose={() => { setShowBulkSms(false); setSelectedIds(new Set()) }}
+        />
       )}
     </PageContainer>
   )

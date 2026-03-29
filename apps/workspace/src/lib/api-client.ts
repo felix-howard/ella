@@ -1015,6 +1015,30 @@ export const api = {
     getAcceptance: (staffId: string) =>
       request<{ id: string; version: string; signedAt: string }>(`/terms/acceptance/${staffId}`),
   },
+
+  // Leads management (admin-only)
+  leads: {
+    list: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+      request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
+
+    get: (id: string) =>
+      request<{ success: boolean; data: Lead }>(`/leads/${id}`),
+
+    update: (id: string, data: { status?: string; notes?: string | null; firstName?: string; lastName?: string; email?: string | null; businessName?: string | null }) =>
+      request<{ success: boolean; data: Lead }>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+    convertCheck: (id: string) =>
+      request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
+
+    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string }) =>
+      request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
+
+    bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>
+      request<{ success: boolean; sent: number; failed: number; errors?: string[] }>('/leads/bulk-sms', { method: 'POST', body: JSON.stringify(data) }),
+
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Type definitions
@@ -1030,6 +1054,22 @@ export type TaxCaseStatus =
 export type TaxType = 'FORM_1040' | 'FORM_1120S' | 'FORM_1065'
 
 export type Language = 'VI' | 'EN'
+
+export type LeadStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'LOST'
+
+export interface Lead {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  email: string | null
+  businessName: string | null
+  status: LeadStatus
+  source: string | null
+  notes: string | null
+  convertedToId: string | null
+  createdAt: string
+}
 
 export type ActionType =
   | 'VERIFY_DOCS'

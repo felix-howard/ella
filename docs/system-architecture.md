@@ -94,9 +94,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Structure:**
 - Entry: `src/index.ts` (PORT 3002, Gemini validation)
 - App: `src/app.ts` (Hono instance, all routes)
-- Middleware: Error handler, request logging
-- Routes: `src/routes/{team,clients,cases,docs,messages,voice,webhooks}/`
-- Services: `src/services/{auth,org,ai,webhook-handlers}/`
+- Middleware: Error handler, request logging, rate limiting
+- Routes: `src/routes/{team,clients,cases,docs,messages,voice,webhooks,leads,forms}/`
+- Services: `src/services/{auth,org,ai,webhook-handlers,sms,magic-link}/`
 - Database: `src/lib/db.ts` (Prisma singleton)
 
 **Endpoints (80+ total):**
@@ -146,6 +146,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
 - `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record, sets source=INTAKE_FORM, optional file uploads, returns confirmationUrl
 - Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; autoSendFormClientUploadLink controls SMS notification after submission
+
+**Lead Management (8 - Phase 02 API Endpoints Complete):**
+- `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent)
+- `GET /leads` - List org leads (org-scoped, admin required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), full-text search (firstName, lastName, phone, businessName)
+- `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc)
+- `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName). All text fields sanitized
+- `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin required). Returns hasDuplicate + existingClient data
+- `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
+- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. SMS endpoints: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Auto-updates lead status from NEW→CONTACTED on success
+- `DELETE /leads/:id` - Delete lead (org-scoped, admin required)
+- Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. SMS integration via Twilio with optional staff form routing
 
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
 - `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
@@ -265,8 +276,8 @@ Organization (root entity)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
-- **Lead** - Marketing lead capture. Fields: firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), source (eventSlug), notes. Links to Client via convertedTo (conversion tracking). organizationId FK, indexes on status and phone. Phase 01 Marketing Module.
-- **SmsSendLog** - Audit trail for SMS to leads. Fields: message, status (SENT|FAILED), twilioSid (optional), error (optional). Relations: leadId FK, sentById FK (Staff), organizationId FK. sentAt timestamp. Phase 01 Marketing Module.
+- **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), source (eventSlug or null), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone. Phase 02 Marketing API Complete.
+- **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoint to track per-message delivery. Phase 02 Marketing API Complete.
 
 **Phase 02 Types (Document Upload Notification & Intake Form):**
 - **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.

@@ -30,6 +30,7 @@ import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
+import { leadsRoute } from './routes/leads'
 
 const app = new OpenAPIHono()
 
@@ -61,6 +62,7 @@ app.route('/webhooks/clerk', clerkWebhookRoute)
 app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
+app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

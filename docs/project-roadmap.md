@@ -1,8 +1,81 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-25 ICT
-> **Current Phase:** ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + ClientAssignment Refactor (All 3 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + All prior enhancements
+> **Last Updated:** 2026-03-29 ICT
+> **Current Phase:** Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Lead Page Redesign - Phase 1 COMPLETE ✅ (In Progress)
+**Started:** 2026-03-29
+**Phase 1 Completed:** 2026-03-29
+**Deliverable:** Move form links to Settings tab, redesign lead list as table with detail drawer
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Notes |
+|-------|-----------|--------|--------|-------|
+| 1 | Settings Form Links Tab | ✅ DONE | 1.5h | Consolidated Lead + Client form links to new Settings tab |
+| 2 | Lead List Table Redesign | ⏳ PENDING | 2h | Convert card layout to table matching client list |
+| 3 | Lead Detail Drawer | ⏳ PENDING | 2.5h | 900px right drawer with info, notes, status, convert, messages |
+
+**Phase 1 Summary (Settings Form Links Tab):**
+- New "Form Links" tab in Settings (4th tab alongside General, Profile, Notifications)
+- Consolidated LeadFormLinkCard + ClientFormLinkCard in single tab
+- Removed LeadFormLinkCard from leads page
+- Removed ClientFormLinkCard from settings general tab
+- URL param: `?tab=form-links`
+- **Files Modified:**
+  - `apps/workspace/src/components/settings/settings-form-links-tab.tsx` (new)
+  - `apps/workspace/src/routes/settings.tsx` (added tab)
+  - `apps/workspace/src/components/settings/settings-general-tab.tsx` (removed client form link)
+  - `apps/workspace/src/routes/leads/index.tsx` (removed lead form link)
+  - `apps/workspace/src/locales/en.json` (added i18n keys)
+  - `apps/workspace/src/locales/vi.json` (added i18n keys)
+- **Dependencies:** Phase 1 independent | Phase 2 independent | Phase 3 depends on Phase 2
+- **Status:** Phase 1 PRODUCTION READY
+
+---
+
+### Lead Registration Form Link - All 2 Phases COMPLETE ✅
+**Started:** 2026-03-29
+**Completed:** 2026-03-29 (Phase 01-02)
+**Deliverable:** Registration form link component with campaign URL support on leads management page + portal base route for form access
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Registration form link component | ✅ DONE | 2026-03-29 | LeadFormLinkCard with URL display, copy button, campaign slug input |
+| 2 | i18n translations | ✅ DONE | 2026-03-29 | English and Vietnamese translation keys for all UI text |
+
+**Completion Summary (All 2 Phases):**
+- **Phase 1:** Created `LeadFormLinkCard` component in `/apps/workspace/src/components/leads/lead-form-link-card.tsx`
+  - Collapsible card design (default collapsed to save space)
+  - Displays base registration URL: `{PORTAL_BASE_URL}/register/{orgSlug}`
+  - Optional campaign slug input for event-specific URLs: `{PORTAL_BASE_URL}/register/{orgSlug}/{eventSlug}`
+  - Copy-to-clipboard functionality for both URLs
+  - Integrated into `/leads` page (below title, above toolbar)
+  - Uses existing `api.orgSettings.get()` for org slug
+  - Graceful handling when org slug not configured
+- **Phase 2:** Full i18n support with translation keys:
+  - English translations in `apps/workspace/src/locales/en.json`
+  - Vietnamese translations in `apps/workspace/src/locales/vi.json`
+  - All UI text externalized: card title, descriptions, button labels, placeholders, warnings
+- **Bonus:** Created portal base route at `/apps/portal/src/routes/register/$orgSlug/index.tsx` for base URL support without event slug
+- **Architecture:** Collapsible card component reuses existing patterns from `client-form-link-card.tsx` and `bulk-sms-dialog.tsx`
+- **No API Changes:** All functionality uses existing endpoints and environment variables
+- **No DB Changes:** Event slugs are freeform URL parameters, no schema changes needed
+- **File Changes:**
+  - `apps/workspace/src/components/leads/lead-form-link-card.tsx` (new)
+  - `apps/workspace/src/routes/leads/index.tsx` (modified)
+  - `apps/portal/src/routes/register/$orgSlug/index.tsx` (new)
+  - `apps/workspace/src/locales/en.json` (modified)
+  - `apps/workspace/src/locales/vi.json` (modified)
+- **User Benefits:** Admins can now see and share lead registration form URLs directly from leads management page without navigating to settings
+- **Campaign Tracking:** Campaign-specific URLs allow tracking which marketing event generated leads via `source` field
+- **Code Quality:** Clean component separation, follows existing patterns, 100% TypeScript compilation passing
+- **Status:** PRODUCTION READY - All 2 phases complete. Ready for merge to main.
+
+---
 
 ### Clerk Webhook Sync Migration - All 5 Phases COMPLETE ✅
 **Started:** 2026-03-24

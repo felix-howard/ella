@@ -265,6 +265,8 @@ Organization (root entity)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
+- **Lead** - Marketing lead capture. Fields: firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), source (eventSlug), notes. Links to Client via convertedTo (conversion tracking). organizationId FK, indexes on status and phone. Phase 01 Marketing Module.
+- **SmsSendLog** - Audit trail for SMS to leads. Fields: message, status (SENT|FAILED), twilioSid (optional), error (optional). Relations: leadId FK, sentById FK (Staff), organizationId FK. sentAt timestamp. Phase 01 Marketing Module.
 
 **Phase 02 Types (Document Upload Notification & Intake Form):**
 - **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.

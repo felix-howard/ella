@@ -19,6 +19,7 @@ import { Route as FormOrgSlugIndexRouteImport } from './routes/form/$orgSlug/ind
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
 import { Route as DraftTokenIndexRouteImport } from './routes/draft/$token/index'
 import { Route as FormOrgSlugStaffSlugIndexRouteImport } from './routes/form/$orgSlug/$staffSlug/index'
+import { Route as RegisterOrgSlugEventSlugIndexRouteImport } from './routes/register/$orgSlug/$eventSlug/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -71,6 +72,12 @@ const FormOrgSlugStaffSlugIndexRoute =
     path: '/form/$orgSlug/$staffSlug/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const RegisterOrgSlugEventSlugIndexRoute =
+  RegisterOrgSlugEventSlugIndexRouteImport.update({
+    id: '/register/$orgSlug/$eventSlug/',
+    path: '/register/$orgSlug/$eventSlug/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
+  '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesByTo {
   '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
+  '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,6 +114,7 @@ export interface FileRoutesById {
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
   '/form/$orgSlug/$staffSlug/': typeof FormOrgSlugStaffSlugIndexRoute
+  '/register/$orgSlug/$eventSlug/': typeof RegisterOrgSlugEventSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/rental/$token/'
     | '/u/$token/'
     | '/form/$orgSlug/$staffSlug'
+    | '/register/$orgSlug/$eventSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/rental/$token'
     | '/u/$token'
     | '/form/$orgSlug/$staffSlug'
+    | '/register/$orgSlug/$eventSlug'
   id:
     | '__root__'
     | '/'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/rental/$token/'
     | '/u/$token/'
     | '/form/$orgSlug/$staffSlug/'
+    | '/register/$orgSlug/$eventSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -150,6 +163,7 @@ export interface RootRouteChildren {
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
   FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
   FormOrgSlugStaffSlugIndexRoute: typeof FormOrgSlugStaffSlugIndexRoute
+  RegisterOrgSlugEventSlugIndexRoute: typeof RegisterOrgSlugEventSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -224,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormOrgSlugStaffSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register/$orgSlug/$eventSlug/': {
+      id: '/register/$orgSlug/$eventSlug/'
+      path: '/register/$orgSlug/$eventSlug'
+      fullPath: '/register/$orgSlug/$eventSlug'
+      preLoaderRoute: typeof RegisterOrgSlugEventSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -270,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   DraftTokenIndexRoute: DraftTokenIndexRoute,
   FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,
   FormOrgSlugStaffSlugIndexRoute: FormOrgSlugStaffSlugIndexRoute,
+  RegisterOrgSlugEventSlugIndexRoute: RegisterOrgSlugEventSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

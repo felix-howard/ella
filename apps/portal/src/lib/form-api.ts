@@ -23,6 +23,14 @@ export interface FormInfoResponse {
   staff?: StaffInfo
 }
 
+export interface RegistrationFormData {
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  businessName: string
+}
+
 export interface SubmitFormData {
   firstName: string
   lastName?: string
@@ -63,6 +71,30 @@ export const formApi = {
       throw new Error(data.error || 'Form not found')
     }
     return res.json()
+  },
+
+  async createLead(data: {
+    firstName: string
+    lastName: string
+    phone: string
+    email?: string
+    businessName?: string
+    orgSlug: string
+    eventSlug?: string
+  }): Promise<{ success: boolean; leadId?: string; error?: string }> {
+    const res = await fetch(`${API_BASE}/leads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    const json = await safeParseJson(res)
+
+    if (!res.ok) {
+      return { success: false, error: json.message || json.error || 'Registration failed' }
+    }
+
+    return json as unknown as { success: boolean; leadId?: string; error?: string }
   },
 
   async submit(orgSlug: string, data: SubmitFormData): Promise<SubmitResponse> {

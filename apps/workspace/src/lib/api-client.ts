@@ -855,6 +855,12 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ formSlug }),
       }),
+
+    updateAutoSendUploadLink: (autoSendUploadLink: boolean) =>
+      request<{ id: string; autoSendUploadLink: boolean }>('/staff/me/auto-send-upload-link', {
+        method: 'PATCH',
+        body: JSON.stringify({ autoSendUploadLink }),
+      }),
   },
 
   // Team Management
@@ -2094,6 +2100,7 @@ export interface StaffProfile {
   notifyOnUpload: boolean
   notifyOnChat: boolean
   formSlug: string | null
+  autoSendUploadLink: boolean
 }
 
 export interface ProfileResponse {

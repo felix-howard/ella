@@ -393,6 +393,7 @@ model Staff {
   // Notification preferences
   notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
   notifyOnChat      Boolean @default(false)  // Enable/disable SMS when monitored staff sends messages
+  autoSendUploadLink Boolean @default(false) // Per-staff auto-send upload link on personal form
 
   // Audit fields
   deactivatedAt DateTime?

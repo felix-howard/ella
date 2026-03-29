@@ -3,7 +3,7 @@
  * Used in Staff Profile page
  */
 import { useState } from 'react'
-import { Copy, Check, Link as LinkIcon, AlertTriangle, Loader2 } from 'lucide-react'
+import { Copy, Check, Link as LinkIcon, AlertTriangle, Loader2, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Button, Input } from '@ella/ui'
@@ -17,6 +17,7 @@ interface StaffFormLinkCardProps {
   formSlug: string | null
   orgSlug: string | null
   canEdit: boolean
+  autoSendUploadLink: boolean
 }
 
 export function StaffFormLinkCard({
@@ -24,6 +25,7 @@ export function StaffFormLinkCard({
   formSlug,
   orgSlug,
   canEdit,
+  autoSendUploadLink,
 }: StaffFormLinkCardProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -56,6 +58,18 @@ export function StaffFormLinkCard({
       } else {
         toast.error(err.message || t('profile.slugSaveFailed'))
       }
+    },
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.staff.updateAutoSendUploadLink(enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      toast.success(t('settings.saved'))
+    },
+    onError: () => {
+      toast.error(t('settings.saveFailed'))
     },
   })
 
@@ -207,6 +221,35 @@ export function StaffFormLinkCard({
             ? t('profile.noOrgSlug')
             : t('profile.noFormSlug')}
         </p>
+      )}
+      {/* Auto-send Upload Link Toggle - only for own profile (API is /staff/me/) */}
+      {canEdit && formLink && staffId === 'me' && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+              <Send className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t('settings.autoSendUploadLink')}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t('settings.autoSendUploadLinkDescription')}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => toggleMutation.mutate(!autoSendUploadLink)}
+            disabled={toggleMutation.isPending}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              autoSendUploadLink ? 'bg-primary' : 'bg-muted'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              autoSendUploadLink ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
       )}
     </Card>
   )

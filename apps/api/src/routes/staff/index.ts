@@ -120,4 +120,26 @@ staffRoute.patch(
   }
 )
 
+// PATCH /staff/me/auto-send-upload-link - Toggle auto-send upload link
+staffRoute.patch(
+  '/me/auto-send-upload-link',
+  zValidator('json', z.object({ autoSendUploadLink: z.boolean() })),
+  async (c) => {
+    const user = c.get('user')
+    if (!user?.staffId) {
+      return c.json({ error: 'Staff record not found' }, 404)
+    }
+
+    const { autoSendUploadLink } = c.req.valid('json')
+
+    const updated = await prisma.staff.update({
+      where: { id: user.staffId },
+      data: { autoSendUploadLink },
+      select: { id: true, autoSendUploadLink: true },
+    })
+
+    return c.json(updated)
+  }
+)
+
 export { staffRoute }

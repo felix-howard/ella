@@ -77,6 +77,7 @@ export function SettingsProfileTab() {
         formSlug={staff.formSlug}
         orgSlug={orgSettings?.slug || null}
         canEdit={canEdit}
+        autoSendUploadLink={staff.autoSendUploadLink ?? false}
       />
     </div>
   )

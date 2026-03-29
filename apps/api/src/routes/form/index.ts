@@ -105,6 +105,7 @@ formRoute.post(
 
     // 2. Find staff if staffSlug provided
     let staffId: string | null = null
+    let staffAutoSend: boolean | null = null
     if (input.staffSlug) {
       const staff = await prisma.staff.findFirst({
         where: {
@@ -112,12 +113,13 @@ formRoute.post(
           formSlug: input.staffSlug,
           isActive: true,
         },
-        select: { id: true },
+        select: { id: true, autoSendUploadLink: true },
       })
       if (!staff) {
         return c.json({ error: 'Staff member not found' }, 404)
       }
       staffId = staff.id
+      staffAutoSend = staff.autoSendUploadLink
     }
 
     // 3. Create client + engagement + case in transaction
@@ -190,8 +192,10 @@ formRoute.post(
     // Only create magic link when actually sending — otherwise the client list
     // badge ("need send upload link") won't appear since hasUploadLink checks
     // for existing magic links.
+    // Staff personal form uses staff toggle; generic form uses org toggle
+    const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
     let smsSent = false
-    if (org.autoSendFormClientUploadLink && isSmsEnabled()) {
+    if (shouldAutoSend && isSmsEnabled()) {
       try {
         const magicLink = await createMagicLink(result.taxCase.id)
         const smsResult = await sendWelcomeMessage(

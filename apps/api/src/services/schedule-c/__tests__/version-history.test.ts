@@ -59,7 +59,7 @@ describe('Version History', () => {
     it('returns "Tạo mới" when no previous data', () => {
       const expense = createExpense({ grossReceipts: new Decimal('5000') })
       const changes = detectChanges(expense, null)
-      expect(changes).toEqual(['Tạo mới'])
+      expect(changes).toEqual(['Initial submission'])
     })
 
     it('detects added fields', () => {
@@ -69,7 +69,7 @@ describe('Version History', () => {
       const previous = createExpenseSnapshot(createExpense())
 
       const changes = detectChanges(expense, previous)
-      expect(changes).toContain('Thêm Quảng cáo')
+      expect(changes).toContain('Added Advertising')
     })
 
     it('detects removed fields', () => {
@@ -79,7 +79,7 @@ describe('Version History', () => {
       )
 
       const changes = detectChanges(expense, previous)
-      expect(changes).toContain('Xóa Quảng cáo')
+      expect(changes).toContain('Removed Advertising')
     })
 
     it('detects updated fields', () => {
@@ -91,7 +91,7 @@ describe('Version History', () => {
       )
 
       const changes = detectChanges(expense, previous)
-      expect(changes).toContain('Cập nhật Quảng cáo')
+      expect(changes).toContain('Updated Advertising')
     })
 
     it('returns empty array when no changes', () => {
@@ -117,9 +117,9 @@ describe('Version History', () => {
 
       const changes = detectChanges(expense, previous)
       expect(changes).toHaveLength(3)
-      expect(changes).toContain('Cập nhật Tên doanh nghiệp')
-      expect(changes).toContain('Thêm Quảng cáo')
-      expect(changes).toContain('Cập nhật Bảo hiểm')
+      expect(changes).toContain('Updated Business name')
+      expect(changes).toContain('Added Advertising')
+      expect(changes).toContain('Updated Insurance')
     })
 
     it('detects vehicle miles changes', () => {
@@ -127,7 +127,7 @@ describe('Version History', () => {
       const previous = createExpenseSnapshot(createExpense())
 
       const changes = detectChanges(expense, previous)
-      expect(changes).toContain('Thêm Số dặm xe')
+      expect(changes).toContain('Added Vehicle miles')
     })
   })
 
@@ -138,7 +138,7 @@ describe('Version History', () => {
 
       expect(entry.version).toBe(1)
       expect(entry.submittedAt).toBeDefined()
-      expect(entry.changes).toEqual(['Tạo mới'])
+      expect(entry.changes).toEqual(['Initial submission'])
       expect(entry.data.grossReceipts).toBe('5000')
     })
 
@@ -150,7 +150,7 @@ describe('Version History', () => {
 
       const entry = createVersionEntry(expense, previous, 2)
       expect(entry.version).toBe(2)
-      expect(entry.changes).toContain('Cập nhật Quảng cáo')
+      expect(entry.changes).toContain('Updated Advertising')
     })
   })
 
@@ -165,14 +165,14 @@ describe('Version History', () => {
 
     it('returns array as-is', () => {
       const history: VersionHistoryEntry[] = [
-        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Tạo mới'], data: {} },
+        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Initial submission'], data: {} },
       ]
       expect(parseVersionHistory(history)).toEqual(history)
     })
 
     it('parses JSON string', () => {
       const history = [
-        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Tạo mới'], data: {} },
+        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Initial submission'], data: {} },
       ]
       const result = parseVersionHistory(JSON.stringify(history))
       expect(result).toEqual(history)
@@ -191,12 +191,12 @@ describe('Version History', () => {
   describe('appendVersionHistory', () => {
     it('appends entry to existing history', () => {
       const existing: VersionHistoryEntry[] = [
-        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Tạo mới'], data: {} },
+        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Initial submission'], data: {} },
       ]
       const newEntry: VersionHistoryEntry = {
         version: 2,
         submittedAt: '2026-01-29T00:00:00Z',
-        changes: ['Cập nhật Quảng cáo'],
+        changes: ['Updated Advertising'],
         data: {},
       }
 
@@ -209,7 +209,7 @@ describe('Version History', () => {
       const newEntry: VersionHistoryEntry = {
         version: 1,
         submittedAt: '2026-01-28T00:00:00Z',
-        changes: ['Tạo mới'],
+        changes: ['Initial submission'],
         data: {},
       }
 
@@ -220,7 +220,7 @@ describe('Version History', () => {
 
     it('handles JSON string history', () => {
       const existing = JSON.stringify([
-        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Tạo mới'], data: {} },
+        { version: 1, submittedAt: '2026-01-28T00:00:00Z', changes: ['Initial submission'], data: {} },
       ])
       const newEntry: VersionHistoryEntry = {
         version: 2,

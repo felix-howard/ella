@@ -89,8 +89,32 @@ export function ClientActivityTimeline({ clientId }: ClientActivityTimelineProps
 }
 
 function ActivityItem({ activity }: { activity: ClientActivity }) {
+  const { t } = useTranslation()
   const Icon = activityIcons[activity.type] || RefreshCw
   const colorClass = activityColors[activity.type] || activityColors.case_updated
+
+  // For CALL channel messages, translate the description using i18n
+  const getDescription = () => {
+    if (activity.channel === 'CALL') {
+      const prefix = activity.direction === 'INBOUND' ? t('clientOverview.clientAction') : t('clientOverview.staffAction')
+      let callText: string
+      if (activity.callStatus === 'completed' && activity.recordingDuration) {
+        const mins = Math.floor(activity.recordingDuration / 60)
+        const secs = activity.recordingDuration % 60
+        callText = t('call.preview', { duration: `${mins}:${secs.toString().padStart(2, '0')}` })
+      } else if (activity.callStatus === 'busy') {
+        callText = t('call.previewBusy')
+      } else if (activity.callStatus === 'no-answer') {
+        callText = t('call.previewNoAnswer')
+      } else if (activity.callStatus === 'failed' || activity.callStatus === 'canceled') {
+        callText = t('call.previewFailed')
+      } else {
+        callText = t('call.previewDefault')
+      }
+      return `${prefix}: "${callText}"`
+    }
+    return activity.description
+  }
 
   return (
     <div className="flex gap-3 relative">
@@ -105,7 +129,7 @@ function ActivityItem({ activity }: { activity: ClientActivity }) {
       {/* Content */}
       <div className="flex-1 min-w-0 pb-4">
         <p className="text-sm text-foreground leading-relaxed">
-          {activity.description}
+          {getDescription()}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           {formatRelativeTime(activity.timestamp)}

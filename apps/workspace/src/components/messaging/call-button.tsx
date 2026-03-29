@@ -2,6 +2,7 @@
  * CallButton - Phone icon button for initiating voice calls
  * Shown in conversation header when voice calling is available
  */
+import { useTranslation } from 'react-i18next'
 import { Phone, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { CallState } from '../../hooks/use-voice-call'
@@ -23,6 +24,7 @@ export function CallButton({
   label,
   className,
 }: CallButtonProps) {
+  const { t } = useTranslation()
   const isInCall = ['connecting', 'ringing', 'connected', 'disconnecting'].includes(callState)
   const isDisabled = isLoading || !isAvailable || isInCall
 
@@ -32,15 +34,15 @@ export function CallButton({
   }
 
   const getAriaLabel = () => {
-    if (isLoading) return 'Đang tải...'
-    if (isInCall) return 'Đang gọi'
-    return 'Gọi điện'
+    if (isLoading) return t('call.loading')
+    if (isInCall) return t('call.calling')
+    return t('call.makeCall')
   }
 
   const getTitle = () => {
-    if (isLoading) return 'Đang tải...'
-    if (isInCall) return 'Đang trong cuộc gọi'
-    return 'Gọi điện cho khách hàng'
+    if (isLoading) return t('call.loading')
+    if (isInCall) return t('call.inProgress')
+    return t('call.callClient')
   }
 
   return (

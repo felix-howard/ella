@@ -226,7 +226,7 @@ describe('Public Expense Routes', () => {
       mockCreateVersionEntry.mockReturnValueOnce({
         version: 1,
         submittedAt: new Date().toISOString(),
-        changes: ['Tạo mới'],
+        changes: ['Initial submission'],
         data: {},
       })
       mockExpenseUpdate.mockResolvedValueOnce(created)
@@ -254,12 +254,12 @@ describe('Public Expense Routes', () => {
       mockCreateVersionEntry.mockReturnValueOnce({
         version: 2,
         submittedAt: new Date().toISOString(),
-        changes: ['Cập nhật Quảng cáo'],
+        changes: ['Updated Advertising'],
         data: {},
       })
       mockAppendHistory.mockReturnValueOnce([
-        { version: 1, submittedAt: '', changes: ['Tạo mới'], data: {} },
-        { version: 2, submittedAt: '', changes: ['Cập nhật Quảng cáo'], data: {} },
+        { version: 1, submittedAt: '', changes: ['Initial submission'], data: {} },
+        { version: 2, submittedAt: '', changes: ['Updated Advertising'], data: {} },
       ])
       mockExpenseUpdate.mockResolvedValueOnce(updated)
 

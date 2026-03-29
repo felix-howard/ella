@@ -1,7 +1,7 @@
 /**
  * Version History - Timeline of Schedule C submissions and changes
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { History, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { VersionHistoryEntry } from '../../../../lib/api-client'
@@ -11,9 +11,65 @@ interface VersionHistoryProps {
   history: VersionHistoryEntry[]
 }
 
+// Map of Vietnamese change strings to i18n keys for legacy DB data
+const VI_CHANGE_MAP: Record<string, string> = {
+  'Tạo mới': 'schedule.change.initialSubmission',
+  'Không có thay đổi': 'schedule.change.noChanges',
+}
+
+// Pattern-based translation for change descriptions
+const VI_PREFIXES: [RegExp, string][] = [
+  [/^Thêm (.+)$/, 'schedule.change.added'],
+  [/^Xóa (.+)$/, 'schedule.change.removed'],
+  [/^Cập nhật (.+)$/, 'schedule.change.updated'],
+  [/^Thêm bất động sản (.+)$/, 'schedule.change.addedProperty'],
+  [/^Xóa bất động sản (.+)$/, 'schedule.change.removedProperty'],
+]
+
+const EN_PREFIXES: [RegExp, string][] = [
+  [/^Added property (.+)$/, 'schedule.change.addedProperty'],
+  [/^Removed property (.+)$/, 'schedule.change.removedProperty'],
+  [/^Added (.+)$/, 'schedule.change.added'],
+  [/^Removed (.+)$/, 'schedule.change.removed'],
+  [/^Updated (.+)$/, 'schedule.change.updated'],
+]
+
+const EN_CHANGE_MAP: Record<string, string> = {
+  'Initial submission': 'schedule.change.initialSubmission',
+  'No changes': 'schedule.change.noChanges',
+}
+
 export function VersionHistory({ history }: VersionHistoryProps) {
   const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Translate a single change description
+  const translateChange = useCallback((change: string): string => {
+    // Check exact matches first (both Vietnamese and English)
+    const exactKey = VI_CHANGE_MAP[change] || EN_CHANGE_MAP[change]
+    if (exactKey) return t(exactKey)
+
+    // Check bracket prefix pattern: [propId] Updated Field
+    const bracketMatch = change.match(/^\[(.+?)\]\s*(.+)$/)
+    if (bracketMatch) {
+      const [, propId, rest] = bracketMatch
+      const allPrefixes = [...VI_PREFIXES, ...EN_PREFIXES]
+      for (const [regex, key] of allPrefixes) {
+        const match = rest.match(regex)
+        if (match) return `[${propId}] ${t(key, { field: match[1] })}`
+      }
+      return change
+    }
+
+    // Check pattern-based matches
+    const allPrefixes = [...VI_PREFIXES, ...EN_PREFIXES]
+    for (const [regex, key] of allPrefixes) {
+      const match = change.match(regex)
+      if (match) return t(key, { field: match[1] })
+    }
+
+    return change
+  }, [t])
 
   // Memoize sorted history to avoid sorting on every render
   const sortedHistory = useMemo(() =>
@@ -56,8 +112,8 @@ export function VersionHistory({ history }: VersionHistoryProps) {
               {/* Changes */}
               <p className="text-foreground break-words">
                 {entry.changes.length > 0
-                  ? entry.changes.join(', ')
-                  : t('schedule.initialSubmission')}
+                  ? entry.changes.map(translateChange).join(', ')
+                  : t('schedule.change.initialSubmission')}
               </p>
             </div>
           </div>

@@ -350,7 +350,7 @@ twilioWebhookRoute.post('/voice/recording', async (c) => {
         data: {
           recordingUrl: `${recordingUrl}.mp3`,
           recordingDuration,
-          content: `Cuộc gọi (${formatVoicemailDuration(recordingDuration)})`,
+          content: `Call (${formatVoicemailDuration(recordingDuration)})`,
         },
       })
     })
@@ -438,16 +438,16 @@ twilioWebhookRoute.post('/voice/status', async (c) => {
 })
 
 /**
- * Get Vietnamese message for call status
+ * Get fallback message for call status (English-neutral, frontend handles i18n)
  */
 function getCallStatusMessage(status: string): string {
   const messages: Record<string, string> = {
-    'busy': 'Cuộc gọi - Máy bận',
-    'no-answer': 'Cuộc gọi - Không trả lời',
-    'failed': 'Cuộc gọi - Thất bại',
-    'canceled': 'Cuộc gọi - Đã hủy',
+    'busy': 'Call - Busy',
+    'no-answer': 'Call - No answer',
+    'failed': 'Call - Failed',
+    'canceled': 'Call - Canceled',
   }
-  return messages[status] || `Cuộc gọi - ${status}`
+  return messages[status] || `Call - ${status}`
 }
 
 // ============================================
@@ -574,7 +574,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
             conversationId: conversation.id,
             channel: 'CALL',
             direction: 'INBOUND',
-            content: `Cuộc gọi đến từ ${from}`,
+            content: `Incoming call from ${from}`,
             isSystem: false,
             callSid,
             callStatus: 'ringing',
@@ -599,7 +599,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
             conversationId: placeholderConv.id,
             channel: 'CALL',
             direction: 'INBOUND',
-            content: `Cuộc gọi đến từ ${from}`,
+            content: `Incoming call from ${from}`,
             isSystem: false,
             callSid,
             callStatus: 'ringing',
@@ -819,7 +819,7 @@ twilioWebhookRoute.post('/voice/inbound-recording', async (c) => {
         data: {
           recordingUrl: `${recordingUrl}.mp3`,
           recordingDuration,
-          content: `Cuộc gọi (${formatVoicemailDuration(recordingDuration)})`,
+          content: `Call (${formatVoicemailDuration(recordingDuration)})`,
           // Keep callStatus as 'completed' (set by dial-complete)
         },
       })

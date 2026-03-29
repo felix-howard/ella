@@ -6,10 +6,12 @@
  * Includes error boundary to prevent voice failures from crashing the app
  */
 import { createContext, useContext, Component, type ReactNode, type ErrorInfo, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useVoiceCall, type VoiceCallState, type VoiceCallActions } from '../../hooks/use-voice-call'
 import { IncomingCallModal } from '../messaging/incoming-call-modal'
 import { ActiveCallModal } from '../messaging/active-call-modal'
-import { formatPhone } from '../../lib/formatters'
+import { formatPhone, maskPhone } from '../../lib/formatters'
+import { useOrgRole } from '../../hooks/use-org-role'
 
 // Combined context type
 interface VoiceCallContextValue {
@@ -55,6 +57,8 @@ class VoiceErrorBoundary extends Component<{ children: ReactNode }, VoiceErrorBo
 
 function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
   const [state, actions] = useVoiceCall()
+  const { t } = useTranslation()
+  const { isAdmin } = useOrgRole()
 
   // Track if this is an inbound call (accepted from incoming modal)
   // We show ActiveCallModal for inbound calls that were accepted
@@ -69,7 +73,7 @@ function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
     // Save caller info before accepting (it will be cleared)
     if (state.callerInfo) {
       setInboundCallerInfo({
-        name: state.callerInfo.clientName || 'Khách hàng',
+        name: state.callerInfo.clientName || t('call.newClient'),
         phone: state.callerInfo.phone,
       })
     }
@@ -107,7 +111,7 @@ function VoiceCallProviderInner({ children }: VoiceCallProviderProps) {
           isMuted={state.isMuted}
           duration={state.duration}
           clientName={inboundCallerInfo.name}
-          clientPhone={formatPhone(inboundCallerInfo.phone)}
+          clientPhone={isAdmin ? formatPhone(inboundCallerInfo.phone) : maskPhone(inboundCallerInfo.phone)}
           error={state.error}
           onEndCall={actions.endCall}
           onToggleMute={actions.toggleMute}

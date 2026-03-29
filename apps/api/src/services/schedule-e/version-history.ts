@@ -4,22 +4,22 @@
  */
 import type { ScheduleEProperty, ScheduleEVersionHistoryEntry } from '@ella/shared'
 
-// Vietnamese labels for property fields
-const FIELD_LABELS_VI: Record<string, string> = {
-  address: 'Địa chỉ',
-  propertyType: 'Loại bất động sản',
-  monthsRented: 'Số tháng cho thuê',
-  fairRentalDays: 'Số ngày thuê hợp lý',
-  personalUseDays: 'Số ngày sử dụng cá nhân',
-  rentsReceived: 'Tiền thuê nhận được',
-  insurance: 'Bảo hiểm',
-  mortgageInterest: 'Lãi vay thế chấp',
-  repairs: 'Sửa chữa',
-  taxes: 'Thuế',
-  utilities: 'Tiện ích',
-  managementFees: 'Phí quản lý',
-  cleaningMaintenance: 'Vệ sinh & bảo trì',
-  otherExpenses: 'Chi phí khác',
+// English labels for property fields (frontend handles i18n translation)
+const FIELD_LABELS: Record<string, string> = {
+  address: 'Address',
+  propertyType: 'Property type',
+  monthsRented: 'Months rented',
+  fairRentalDays: 'Fair rental days',
+  personalUseDays: 'Personal use days',
+  rentsReceived: 'Rents received',
+  insurance: 'Insurance',
+  mortgageInterest: 'Mortgage interest',
+  repairs: 'Repairs',
+  taxes: 'Taxes',
+  utilities: 'Utilities',
+  managementFees: 'Management fees',
+  cleaningMaintenance: 'Cleaning & maintenance',
+  otherExpenses: 'Other expenses',
 }
 
 /**
@@ -47,14 +47,14 @@ function detectPropertyChanges(
   previous: ScheduleEProperty | undefined
 ): string[] {
   if (!previous) {
-    return [`Thêm bất động sản ${current.id}`]
+    return [`Added property ${current.id}`]
   }
 
   const changes: string[] = []
   const prefix = `[${current.id}]`
 
   if (!addressesEqual(current.address, previous.address)) {
-    changes.push(`${prefix} Cập nhật ${FIELD_LABELS_VI.address}`)
+    changes.push(`${prefix} Updated ${FIELD_LABELS.address}`)
   }
 
   const numericFields = [
@@ -76,8 +76,8 @@ function detectPropertyChanges(
     const currentVal = current[field] ?? 0
     const previousVal = previous[field] ?? 0
     if (currentVal !== previousVal) {
-      const label = FIELD_LABELS_VI[field] || field
-      changes.push(`${prefix} Cập nhật ${label}`)
+      const label = FIELD_LABELS[field] || field
+      changes.push(`${prefix} Updated ${label}`)
     }
   }
 
@@ -85,7 +85,7 @@ function detectPropertyChanges(
   const currentOther = current.otherExpenses || []
   const previousOther = previous.otherExpenses || []
   if (JSON.stringify(currentOther) !== JSON.stringify(previousOther)) {
-    changes.push(`${prefix} Cập nhật ${FIELD_LABELS_VI.otherExpenses}`)
+    changes.push(`${prefix} Updated ${FIELD_LABELS.otherExpenses}`)
   }
 
   return changes
@@ -117,11 +117,11 @@ export function detectChanges(
   for (const previous of previousProperties) {
     const stillExists = currentProperties.some((p) => p.id === previous.id)
     if (!stillExists) {
-      changes.push(`Xóa bất động sản ${previous.id}`)
+      changes.push(`Removed property ${previous.id}`)
     }
   }
 
-  return changes.length > 0 ? changes : ['Không có thay đổi']
+  return changes.length > 0 ? changes : ['No changes']
 }
 
 /**

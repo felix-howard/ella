@@ -28,9 +28,24 @@ export const ConversationListItem = memo(function ConversationListItem({
   const avatarColor = getAvatarColor(client.name)
 
   // Truncate and sanitize last message
-  const messagePreview = lastMessage
-    ? sanitizeText(lastMessage.content).slice(0, 60) + (lastMessage.content.length > 60 ? '...' : '')
-    : t('messages.noMessages')
+  const getMessagePreview = () => {
+    if (!lastMessage) return t('messages.noMessages')
+    if (lastMessage.channel === 'CALL') {
+      // Translate call messages instead of showing hardcoded Vietnamese from DB
+      if (lastMessage.callStatus === 'completed' && lastMessage.recordingDuration) {
+        const mins = Math.floor(lastMessage.recordingDuration / 60)
+        const secs = lastMessage.recordingDuration % 60
+        return t('call.preview', { duration: `${mins}:${secs.toString().padStart(2, '0')}` })
+      }
+      if (lastMessage.callStatus === 'busy') return t('call.previewBusy')
+      if (lastMessage.callStatus === 'no-answer') return t('call.previewNoAnswer')
+      if (lastMessage.callStatus === 'failed' || lastMessage.callStatus === 'canceled') return t('call.previewFailed')
+      return t('call.previewDefault')
+    }
+    const text = sanitizeText(lastMessage.content)
+    return text.slice(0, 60) + (text.length > 60 ? '...' : '')
+  }
+  const messagePreview = getMessagePreview()
 
   return (
     <Link

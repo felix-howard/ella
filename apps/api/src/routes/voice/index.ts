@@ -280,7 +280,7 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
         conversationId: conversation.id,
         channel: 'CALL',
         direction: 'OUTBOUND',
-        content: `Cuộc gọi đến ${toPhone}`,
+        content: `Outgoing call to ${toPhone}`,
         isSystem: false,
         callStatus: 'initiated',
         sentById: user.staffId,

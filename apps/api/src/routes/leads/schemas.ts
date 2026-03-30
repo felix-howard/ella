@@ -51,7 +51,7 @@ export const convertLeadSchema = z.object({
 
 /** Bulk SMS */
 export const bulkSmsSchema = z.object({
-  leadIds: z.array(z.string().cuid()).min(1).max(100),
+  leadIds: z.array(z.string().cuid()).min(1).max(200),
   message: z.string().min(1).max(500),
   formLinkType: z.enum(['org', 'staff']).default('org'),
   staffSlug: z.string().optional(),

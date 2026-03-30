@@ -18,9 +18,9 @@ import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeamIndexRouteImport } from './routes/team/index'
 import { Route as MessagesIndexRouteImport } from './routes/messages/index'
+import { Route as LeadsIndexRouteImport } from './routes/leads/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
-import { Route as LeadsIndexRouteImport } from './routes/leads/index'
 import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
@@ -73,6 +73,11 @@ const MessagesIndexRoute = MessagesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => MessagesRoute,
 } as any)
+const LeadsIndexRoute = LeadsIndexRouteImport.update({
+  id: '/leads/',
+  path: '/leads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
   path: '/clients/',
@@ -81,11 +86,6 @@ const ClientsIndexRoute = ClientsIndexRouteImport.update({
 const ActionsIndexRoute = ActionsIndexRouteImport.update({
   id: '/actions/',
   path: '/actions/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeadsIndexRoute = LeadsIndexRouteImport.update({
-  id: '/leads/',
-  path: '/leads/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesCaseIdRoute = MessagesCaseIdRouteImport.update({
@@ -321,6 +321,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesIndexRouteImport
       parentRoute: typeof MessagesRoute
     }
+    '/leads/': {
+      id: '/leads/'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clients/': {
       id: '/clients/'
       path: '/clients'
@@ -333,13 +340,6 @@ declare module '@tanstack/react-router' {
       path: '/actions'
       fullPath: '/actions'
       preLoaderRoute: typeof ActionsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leads/': {
-      id: '/leads/'
-      path: '/leads'
-      fullPath: '/leads'
-      preLoaderRoute: typeof LeadsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages/$caseId': {

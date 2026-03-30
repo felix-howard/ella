@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { PageContainer } from '../../components/layout'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
 import { LeadListTable } from '../../components/leads/lead-list-table'
+import { LeadDetailDrawer } from '../../components/leads/lead-detail-drawer'
 import { ConvertLeadDialog } from '../../components/leads/convert-lead-dialog'
 import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { api } from '../../lib/api-client'
@@ -23,6 +24,7 @@ function LeadsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [convertLead, setConvertLead] = useState<Lead | null>(null)
   const [showBulkSms, setShowBulkSms] = useState(false)
   const [page, setPage] = useState(1)
@@ -80,8 +82,8 @@ function LeadsPage() {
     setSelectedIds(new Set())
   }
 
-  const handleRowClick = (_lead: Lead) => {
-    // Will be wired to drawer in Phase 3
+  const handleRowClick = (lead: Lead) => {
+    setSelectedLead(lead)
   }
 
   const newCount = useMemo(() => leads.filter((l) => l.status === 'NEW').length, [leads])
@@ -143,6 +145,13 @@ function LeadsPage() {
           </button>
         </div>
       )}
+
+      <LeadDetailDrawer
+        lead={selectedLead}
+        open={selectedLead !== null}
+        onClose={() => setSelectedLead(null)}
+        onConvert={(lead) => { setSelectedLead(null); setConvertLead(lead) }}
+      />
 
       {convertLead && (
         <ConvertLeadDialog lead={convertLead} onClose={() => setConvertLead(null)} />

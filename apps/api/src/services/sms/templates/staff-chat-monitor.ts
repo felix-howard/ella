@@ -1,6 +1,6 @@
 /**
  * Staff Chat Monitor Notification Template
- * Sent to admin when a monitored staff member sends messages to a client
+ * Sent to admin when a monitored staff member sends messages or makes calls to a client
  *
  * Constraints:
  * - Must be under 160 chars (GSM-7 to avoid multi-segment billing)
@@ -13,16 +13,25 @@ export interface StaffChatMonitorTemplateParams {
   clientName: string
   messageCount: number
   language: 'VI' | 'EN'
+  activityType?: 'message' | 'call'
 }
 
 const TEMPLATES = {
   VI: (params: StaffChatMonitorTemplateParams) => {
-    const { staffName, messageCount, clientName } = params
+    const { staffName, clientName, activityType = 'message' } = params
+    if (activityType === 'call') {
+      return `[Ella] ${staffName} da goi dien cho ${clientName}.`
+    }
+    const { messageCount } = params
     return `[Ella] ${staffName} da gui ${messageCount} tin nhan cho ${clientName}.`
   },
 
   EN: (params: StaffChatMonitorTemplateParams) => {
-    const { staffName, messageCount, clientName } = params
+    const { staffName, clientName, activityType = 'message' } = params
+    if (activityType === 'call') {
+      return `[Ella] ${staffName} called ${clientName}.`
+    }
+    const { messageCount } = params
     const word = messageCount === 1 ? 'message' : 'messages'
     return `[Ella] ${staffName} sent ${messageCount} ${word} to ${clientName}.`
   },

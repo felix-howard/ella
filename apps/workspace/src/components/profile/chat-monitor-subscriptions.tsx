@@ -89,7 +89,7 @@ export function ChatMonitorSubscriptions({ staffId, isEditing }: ChatMonitorSubs
               checked={selectedIds.has(member.id)}
               onChange={() => handleToggle(member.id)}
               disabled={!isEditing}
-              className="h-4 w-4 rounded border-input text-primary focus:ring-primary/20 disabled:opacity-50"
+              className="h-4 w-4 rounded border-input accent-emerald-500 focus:ring-emerald-500/20 disabled:opacity-50"
             />
             <div className="flex-1 min-w-0">
               <span className="text-sm text-foreground">{member.name}</span>

@@ -50,7 +50,7 @@ export function LeadListTable({
                   type="checkbox"
                   checked={allSelected}
                   onChange={(e) => onSelectAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="h-4 w-4 rounded border-gray-300 accent-emerald-500 focus:ring-emerald-500"
                   aria-label={t('leads.selectAll')}
                 />
               </th>
@@ -129,7 +129,7 @@ const LeadRow = memo(function LeadRow({
           disabled={isConverted}
           onChange={(e) => onSelect(lead.id, e.target.checked)}
           onClick={(e) => e.stopPropagation()}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          className="h-4 w-4 rounded border-gray-300 accent-emerald-500 focus:ring-emerald-500"
           aria-label={`Select ${lead.firstName} ${lead.lastName}`}
         />
       </td>

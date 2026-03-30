@@ -1429,6 +1429,8 @@
   "leads.messageHistory": "Message History",
   "leads.noMessages": "No messages yet",
   "leads.smsSent": "Sent",
+  "leads.smsDelivered": "Delivered",
+  "leads.smsUndelivered": "Undelivered",
   "leads.smsFailed": "Failed",
   "leads.deleteLead": "Delete Lead",
   "leads.deleteConfirm": "Are you sure?",

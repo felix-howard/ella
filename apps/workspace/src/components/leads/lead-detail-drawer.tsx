@@ -402,16 +402,23 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                       <div key={log.id} className="bg-muted/30 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            {log.status === 'SENT' ? (
+                            {log.status === 'DELIVERED' ? (
                               <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                            ) : log.status === 'SENT' ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-yellow-500" />
                             ) : (
                               <XCircle className="w-3.5 h-3.5 text-red-500" />
                             )}
                             <span className={cn(
                               'text-xs font-medium',
-                              log.status === 'SENT' ? 'text-green-600' : 'text-red-500'
+                              log.status === 'DELIVERED' && 'text-green-600',
+                              log.status === 'SENT' && 'text-yellow-500',
+                              (log.status === 'FAILED' || log.status === 'UNDELIVERED') && 'text-red-500',
                             )}>
-                              {log.status === 'SENT' ? t('leads.smsSent') : t('leads.smsFailed')}
+                              {log.status === 'DELIVERED' ? t('leads.smsDelivered')
+                                : log.status === 'SENT' ? t('leads.smsSent')
+                                : log.status === 'UNDELIVERED' ? t('leads.smsUndelivered')
+                                : t('leads.smsFailed')}
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">

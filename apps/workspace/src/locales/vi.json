@@ -1426,6 +1426,8 @@
   "leads.messageHistory": "Lịch sử tin nhắn",
   "leads.noMessages": "Chưa có tin nhắn",
   "leads.smsSent": "Đã gửi",
+  "leads.smsDelivered": "Đã nhận",
+  "leads.smsUndelivered": "Không gửi được",
   "leads.smsFailed": "Thất bại",
   "leads.deleteLead": "Xóa khách tiềm năng",
   "leads.deleteConfirm": "Bạn có chắc chắn?",

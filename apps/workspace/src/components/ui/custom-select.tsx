@@ -127,7 +127,7 @@ export function CustomSelect({
                 'hover:bg-muted transition-colors',
                 'flex items-center justify-between',
                 'text-foreground',
-                value === option.value && 'bg-primary text-white'
+                value === option.value && 'bg-primary text-white hover:bg-primary/90'
               )}
             >
               <span>{option.label}</span>

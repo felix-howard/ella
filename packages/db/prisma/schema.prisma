@@ -380,6 +380,8 @@ enum LeadStatus {
 
 enum SmsSendStatus {
   SENT
+  DELIVERED
+  UNDELIVERED
   FAILED
 }
 
@@ -1387,4 +1389,5 @@ model SmsSendLog {
   @@index([leadId])
   @@index([organizationId])
   @@index([sentById])
+  @@index([twilioSid])
 }

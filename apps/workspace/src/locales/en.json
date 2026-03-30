@@ -1428,6 +1428,8 @@
   "leads.changeStatus": "Change Status",
   "leads.messageHistory": "Message History",
   "leads.noMessages": "No messages yet",
+  "leads.smsSent": "Sent",
+  "leads.smsFailed": "Failed",
   "leads.deleteLead": "Delete Lead",
   "leads.deleteConfirm": "Are you sure?",
   "leads.updateError": "Failed to update lead",

@@ -1063,6 +1063,13 @@ export type Language = 'VI' | 'EN'
 
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
+export interface SmsSendLog {
+  id: string
+  message: string
+  status: string
+  sentAt: string
+}
+
 export interface Lead {
   id: string
   firstName: string
@@ -1076,6 +1083,7 @@ export interface Lead {
   notes: string | null
   convertedToId: string | null
   createdAt: string
+  smsSendLogs?: SmsSendLog[]
 }
 
 export type ActionType =

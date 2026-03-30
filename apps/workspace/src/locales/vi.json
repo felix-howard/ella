@@ -1425,6 +1425,8 @@
   "leads.changeStatus": "Thay đổi trạng thái",
   "leads.messageHistory": "Lịch sử tin nhắn",
   "leads.noMessages": "Chưa có tin nhắn",
+  "leads.smsSent": "Đã gửi",
+  "leads.smsFailed": "Thất bại",
   "leads.deleteLead": "Xóa khách tiềm năng",
   "leads.deleteConfirm": "Bạn có chắc chắn?",
   "leads.updateError": "Không thể cập nhật khách tiềm năng",

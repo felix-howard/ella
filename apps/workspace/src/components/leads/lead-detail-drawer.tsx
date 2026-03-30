@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   X, Phone, Mail, Building2, Globe, Calendar,
   Loader2, Trash2, ArrowRight, MessageSquare, Plus,
+  CheckCircle, XCircle,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
@@ -390,15 +391,43 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                 </div>
               </section>
 
-              {/* Message History Placeholder */}
+              {/* Message History */}
               <section>
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">
                   {t('leads.messageHistory')}
                 </h3>
-                <div className="bg-muted/30 rounded-lg p-6 text-center">
-                  <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">{t('leads.noMessages')}</p>
-                </div>
+                {currentLead?.smsSendLogs && currentLead.smsSendLogs.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {currentLead.smsSendLogs.map((log) => (
+                      <div key={log.id} className="bg-muted/30 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            {log.status === 'SENT' ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5 text-red-500" />
+                            )}
+                            <span className={cn(
+                              'text-xs font-medium',
+                              log.status === 'SENT' ? 'text-green-600' : 'text-red-500'
+                            )}>
+                              {log.status === 'SENT' ? t('leads.smsSent') : t('leads.smsFailed')}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatShortRelativeTime(log.sentAt, i18n.language)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">{log.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-muted/30 rounded-lg p-6 text-center">
+                    <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">{t('leads.noMessages')}</p>
+                  </div>
+                )}
               </section>
             </div>
           </div>

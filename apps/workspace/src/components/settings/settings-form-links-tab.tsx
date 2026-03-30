@@ -7,7 +7,7 @@ import { ClientFormLinkCard } from './client-form-link-card'
 export function SettingsFormLinksTab() {
   return (
     <div className="space-y-4">
-      <LeadFormLinkCard defaultExpanded />
+      <LeadFormLinkCard />
       <ClientFormLinkCard />
     </div>
   )

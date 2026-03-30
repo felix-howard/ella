@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  X, Phone, Mail, Building2, Globe, Calendar, Save,
+  X, Phone, Mail, Building2, Globe, Calendar,
   Loader2, Trash2, ArrowRight, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
@@ -78,14 +78,31 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
     queryClient.invalidateQueries({ queryKey: ['lead', currentLead?.id] })
   }
 
-  // Update status mutation
+  // Update status mutation with optimistic update
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.leads.update(id, { status }),
-    onSuccess: () => { setMutationError(null); invalidateLeadQueries() },
-    onError: () => setMutationError(t('leads.updateError')),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['lead', id] })
+      const previousLead = queryClient.getQueryData(['lead', id])
+      queryClient.setQueryData(['lead', id], (old: any) =>
+        old ? { ...old, data: { ...old.data, status } } : old
+      )
+      queryClient.setQueriesData({ queryKey: ['leads'] }, (old: any) => {
+        if (!old?.data) return old
+        return { ...old, data: old.data.map((l: any) => l.id === id ? { ...l, status } : l) }
+      })
+      setMutationError(null)
+      return { previousLead }
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.previousLead) queryClient.setQueryData(['lead', id], context.previousLead)
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      setMutationError(t('leads.updateError'))
+    },
+    onSettled: () => invalidateLeadQueries(),
   })
 
-  // Save notes mutation
+  // Save notes mutation (auto-save on blur)
   const notesMutation = useMutation({
     mutationFn: ({ id, notes: newNotes }: { id: string; notes: string }) =>
       api.leads.update(id, { notes: newNotes || null }),
@@ -100,8 +117,8 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
     onError: () => setMutationError(t('leads.deleteError')),
   })
 
-  const handleSaveNotes = () => {
-    if (!currentLead) return
+  const handleNotesBlur = () => {
+    if (!currentLead || !notesChanged) return
     notesMutation.mutate({ id: currentLead.id, notes })
   }
 
@@ -208,30 +225,22 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
 
               {/* Notes */}
               <section>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                  {t('leads.editNotes')}
-                </h3>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    {t('leads.editNotes')}
+                  </h3>
+                  {notesMutation.isPending && (
+                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                  )}
+                </div>
                 <textarea
                   value={notes}
                   onChange={(e) => { setNotes(e.target.value); setNotesChanged(true) }}
+                  onBlur={handleNotesBlur}
                   rows={4}
                   placeholder={t('leads.notesPlaceholder')}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
-                {notesChanged && (
-                  <button
-                    onClick={handleSaveNotes}
-                    disabled={notesMutation.isPending}
-                    className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                  >
-                    {notesMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    {t('leads.saveNotes')}
-                  </button>
-                )}
               </section>
 
               {/* Actions */}

@@ -46,13 +46,22 @@ export function LeadListTable({
           <thead>
             <tr className="border-b border-border/50 bg-muted/50">
               <th className="px-4 py-3 w-10">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={(e) => onSelectAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 accent-emerald-500 focus:ring-emerald-500"
-                  aria-label={t('leads.selectAll')}
-                />
+                <label className="relative flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(e) => onSelectAll(e.target.checked)}
+                    className="peer sr-only"
+                    aria-label={t('leads.selectAll')}
+                  />
+                  <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 peer-checked:border-emerald-500 peer-checked:bg-emerald-500 transition-colors flex items-center justify-center">
+                    {allSelected && (
+                      <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                </label>
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3">
                 {t('leads.name')}
@@ -123,15 +132,26 @@ const LeadRow = memo(function LeadRow({
     >
       {/* Checkbox */}
       <td className="px-4 py-3 w-10">
-        <input
-          type="checkbox"
-          checked={selected}
-          disabled={isConverted}
-          onChange={(e) => onSelect(lead.id, e.target.checked)}
+        <label
+          className={cn('relative flex items-center', isConverted ? 'cursor-not-allowed opacity-40' : 'cursor-pointer')}
           onClick={(e) => e.stopPropagation()}
-          className="h-4 w-4 rounded border-gray-300 accent-emerald-500 focus:ring-emerald-500"
-          aria-label={`Select ${lead.firstName} ${lead.lastName}`}
-        />
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={isConverted}
+            onChange={(e) => onSelect(lead.id, e.target.checked)}
+            className="peer sr-only"
+            aria-label={`Select ${lead.firstName} ${lead.lastName}`}
+          />
+          <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 peer-checked:border-emerald-500 peer-checked:bg-emerald-500 transition-colors flex items-center justify-center">
+            {selected && (
+              <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+        </label>
       </td>
 
       {/* Name + Email */}

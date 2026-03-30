@@ -1,55 +1,24 @@
 /**
- * Client Form Link Card - Shows generic intake form link + org slug editor + auto-send toggle
+ * Client Form Link Card - Shows generic intake form link + auto-send toggle
  * Used in Settings Form Links tab
  */
 import { useState } from 'react'
-import { Copy, Check, Link as LinkIcon, Send, AlertTriangle, Loader2 } from 'lucide-react'
+import { Copy, Check, Link as LinkIcon, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, cn, Button, Input } from '@ella/ui'
+import { Card, cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
-import { useOrgRole } from '../../hooks/use-org-role'
 
 export function ClientFormLinkCard() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { isAdmin } = useOrgRole()
   const [copied, setCopied] = useState(false)
-  const [isEditingSlug, setIsEditingSlug] = useState(false)
-  const [slugValue, setSlugValue] = useState('')
-  const [slugError, setSlugError] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['org-settings'],
     queryFn: () => api.orgSettings.get(),
-  })
-
-  // Sync slug value when data changes (adjust state during render pattern)
-  const [prevSlug, setPrevSlug] = useState(data?.slug)
-  if (data?.slug !== prevSlug) {
-    setPrevSlug(data?.slug)
-    if (!isEditingSlug && data?.slug) {
-      setSlugValue(data.slug)
-    }
-  }
-
-  const slugMutation = useMutation({
-    mutationFn: (newSlug: string) =>
-      api.orgSettings.update({ slug: newSlug }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(['org-settings'], result)
-      toast.success(t('settings.saved'))
-      setIsEditingSlug(false)
-    },
-    onError: (err: Error) => {
-      if (err.message.includes('SLUG_TAKEN')) {
-        setSlugError(t('settings.slugTaken'))
-      } else {
-        toast.error(err.message || t('settings.saveFailed'))
-      }
-    },
   })
 
   const toggleMutation = useMutation({
@@ -79,35 +48,6 @@ export function ClientFormLinkCard() {
     }
   }
 
-  const validateSlug = (value: string): boolean => {
-    if (!value) {
-      setSlugError(t('settings.slugRequired'))
-      return false
-    }
-    if (!/^[a-z0-9-]+$/.test(value)) {
-      setSlugError(t('settings.slugInvalidFormat'))
-      return false
-    }
-    if (value.length < 2 || value.length > 50) {
-      setSlugError(t('settings.slugInvalidLength'))
-      return false
-    }
-    setSlugError(null)
-    return true
-  }
-
-  const handleSaveSlug = () => {
-    const trimmed = slugValue.trim().toLowerCase()
-    if (!validateSlug(trimmed)) return
-    slugMutation.mutate(trimmed)
-  }
-
-  const handleCancelSlug = () => {
-    setSlugValue(data?.slug || '')
-    setSlugError(null)
-    setIsEditingSlug(false)
-  }
-
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -134,75 +74,6 @@ export function ClientFormLinkCard() {
           </div>
         </div>
       </div>
-
-      {/* Org Slug Editor (admin only) */}
-      {isAdmin && (
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-            {t('settings.orgSlug')}
-          </label>
-          {isEditingSlug ? (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={slugValue}
-                  onChange={(e) => {
-                    setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                    setSlugError(null)
-                  }}
-                  placeholder="my-company"
-                  className="flex-1"
-                  disabled={slugMutation.isPending}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSaveSlug}
-                  disabled={slugMutation.isPending}
-                >
-                  {slugMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    t('common.save')
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelSlug}
-                  disabled={slugMutation.isPending}
-                >
-                  {t('common.cancel')}
-                </Button>
-              </div>
-              {slugError && (
-                <p className="text-xs text-destructive">{slugError}</p>
-              )}
-              {data?.slug && (
-                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                  <AlertTriangle className="w-3 h-3" />
-                  {t('settings.slugChangeWarning')}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <code className="px-2 py-1 bg-muted rounded text-sm">
-                {data?.slug || t('settings.noSlugSet')}
-              </code>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setSlugValue(data?.slug || '')
-                  setIsEditingSlug(true)
-                }}
-              >
-                {data?.slug ? t('common.edit') : t('settings.setSlug')}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
 
       {formLink ? (
         <div className="flex items-center gap-2">

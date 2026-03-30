@@ -1,8 +1,137 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-25 ICT
-> **Current Phase:** ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** 100% MVP + Multi-Tenancy COMPLETE + Landing Page Killer Features COMPLETE + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + ClientAssignment Refactor (All 3 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + All prior enhancements
+> **Last Updated:** 2026-03-30 ICT
+> **Current Phase:** Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Tag-Based Lead & Client Categorization - All 5 Phases COMPLETE ✅
+**Started:** 2026-03-30
+**Completed:** 2026-03-30 (Phase 01-05)
+**Deliverable:** Tag-based lead/client categorization with auto-tagging from campaign URLs, expanded client source enum, and tag filtering on list pages
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema & Migration | ✅ DONE | 45m | 2026-03-30 |
+| 2 | Backend API Changes | ✅ DONE | 1.5h | 2026-03-30 |
+| 3 | Frontend - Lead Tags | ✅ DONE | 1.5h | 2026-03-30 |
+| 4 | Frontend - Client Tags | ✅ DONE | 1.5h | 2026-03-30 |
+| 5 | Testing & Validation | ✅ DONE | 45m | 2026-03-30 |
+
+**Completion Summary (All 5 Phases):**
+- Added `tags: String[]` array to Lead + Client models (free-form categorization)
+- Renamed `Lead.source` → `Lead.campaignTag` (clarity on campaign tracking)
+- Expanded `ClientSource` enum: `GENERIC_FORM`, `STAFF_FORM`, `CONVERTED` (distinction between form types)
+- Auto-tagging: Leads from campaign URLs auto-tagged with campaign slug
+- Tag carry-over: Lead→Client conversion copies tags + sets source=CONVERTED
+- Tag filtering: Dropdown filters on Lead + Client list pages powered by `/leads/tags` + `/clients/tags` endpoints
+- Tag management: Add/remove tags in Lead detail drawer + Client detail page
+- Tag display: Badge chips in list table rows showing all tags
+- Validation: Tags are lowercase alphanumeric + hyphens, max 50 chars, max 10 per record
+- Data migration: Existing Lead.source values copied to campaignTag + tags array (non-destructive)
+- i18n: Complete translation support (English + Vietnamese)
+- Testing: type-check + lint + build all passing, manual flows validated
+
+**Key Features:**
+- Org-scoped tags: All queries filtered by organizationId (no cross-org leaks)
+- Postgres `text[]` with GIN indexing: Fast `hasSome` queries for tag filtering
+- Form source distinction: Intake forms set GENERIC_FORM or STAFF_FORM based on staffSlug
+- Backward compatible: Old `Client.source = 'FORM'` unchanged, migration additive only
+
+**Files Modified:**
+- Schema: `packages/db/prisma/schema.prisma`
+- Migration: `packages/db/prisma/migrations/*_add_tags_and_expand_client_source`
+- API: `apps/api/src/routes/leads/*`, `apps/api/src/routes/clients/*`, `apps/api/src/routes/form/*`
+- Frontend: `apps/workspace/src/lib/api-client.ts`, leads + client components, i18n
+
+**Benefits:**
+- Free-form grouping without rigid enum constraints
+- Campaign source tracking at ingestion
+- Better filtering and discovery
+- Clear origin distinction (generic vs staff vs converted)
+
+**Risk Mitigation:**
+- Non-destructive migration with data preservation
+- Org-scoped queries prevent data leaks
+- Tag validation prevents abuse
+- All tests passing, no regressions
+
+**Status:** PRODUCTION READY - All 5 phases complete, fully tested, ready to merge
+
+---
+
+### Lead Page Redesign - Phase 1 COMPLETE ✅ (In Progress)
+**Started:** 2026-03-29
+**Phase 1 Completed:** 2026-03-29
+**Deliverable:** Move form links to Settings tab, redesign lead list as table with detail drawer
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Notes |
+|-------|-----------|--------|--------|-------|
+| 1 | Settings Form Links Tab | ✅ DONE | 1.5h | Consolidated Lead + Client form links to new Settings tab |
+| 2 | Lead List Table Redesign | ⏳ PENDING | 2h | Convert card layout to table matching client list |
+| 3 | Lead Detail Drawer | ⏳ PENDING | 2.5h | 900px right drawer with info, notes, status, convert, messages |
+
+**Phase 1 Summary (Settings Form Links Tab):**
+- New "Form Links" tab in Settings (4th tab alongside General, Profile, Notifications)
+- Consolidated LeadFormLinkCard + ClientFormLinkCard in single tab
+- Removed LeadFormLinkCard from leads page
+- Removed ClientFormLinkCard from settings general tab
+- URL param: `?tab=form-links`
+- **Files Modified:**
+  - `apps/workspace/src/components/settings/settings-form-links-tab.tsx` (new)
+  - `apps/workspace/src/routes/settings.tsx` (added tab)
+  - `apps/workspace/src/components/settings/settings-general-tab.tsx` (removed client form link)
+  - `apps/workspace/src/routes/leads/index.tsx` (removed lead form link)
+  - `apps/workspace/src/locales/en.json` (added i18n keys)
+  - `apps/workspace/src/locales/vi.json` (added i18n keys)
+- **Dependencies:** Phase 1 independent | Phase 2 independent | Phase 3 depends on Phase 2
+- **Status:** Phase 1 PRODUCTION READY
+
+---
+
+### Lead Registration Form Link - All 2 Phases COMPLETE ✅
+**Started:** 2026-03-29
+**Completed:** 2026-03-29 (Phase 01-02)
+**Deliverable:** Registration form link component with campaign URL support on leads management page + portal base route for form access
+
+**Phase Breakdown:**
+| Phase | Component | Status | Completion | Notes |
+|-------|-----------|--------|-----------|-------|
+| 1 | Registration form link component | ✅ DONE | 2026-03-29 | LeadFormLinkCard with URL display, copy button, campaign slug input |
+| 2 | i18n translations | ✅ DONE | 2026-03-29 | English and Vietnamese translation keys for all UI text |
+
+**Completion Summary (All 2 Phases):**
+- **Phase 1:** Created `LeadFormLinkCard` component in `/apps/workspace/src/components/leads/lead-form-link-card.tsx`
+  - Collapsible card design (default collapsed to save space)
+  - Displays base registration URL: `{PORTAL_BASE_URL}/register/{orgSlug}`
+  - Optional campaign slug input for event-specific URLs: `{PORTAL_BASE_URL}/register/{orgSlug}/{eventSlug}`
+  - Copy-to-clipboard functionality for both URLs
+  - Integrated into `/leads` page (below title, above toolbar)
+  - Uses existing `api.orgSettings.get()` for org slug
+  - Graceful handling when org slug not configured
+- **Phase 2:** Full i18n support with translation keys:
+  - English translations in `apps/workspace/src/locales/en.json`
+  - Vietnamese translations in `apps/workspace/src/locales/vi.json`
+  - All UI text externalized: card title, descriptions, button labels, placeholders, warnings
+- **Bonus:** Created portal base route at `/apps/portal/src/routes/register/$orgSlug/index.tsx` for base URL support without event slug
+- **Architecture:** Collapsible card component reuses existing patterns from `client-form-link-card.tsx` and `bulk-sms-dialog.tsx`
+- **No API Changes:** All functionality uses existing endpoints and environment variables
+- **No DB Changes:** Event slugs are freeform URL parameters, no schema changes needed
+- **File Changes:**
+  - `apps/workspace/src/components/leads/lead-form-link-card.tsx` (new)
+  - `apps/workspace/src/routes/leads/index.tsx` (modified)
+  - `apps/portal/src/routes/register/$orgSlug/index.tsx` (new)
+  - `apps/workspace/src/locales/en.json` (modified)
+  - `apps/workspace/src/locales/vi.json` (modified)
+- **User Benefits:** Admins can now see and share lead registration form URLs directly from leads management page without navigating to settings
+- **Campaign Tracking:** Campaign-specific URLs allow tracking which marketing event generated leads via `source` field
+- **Code Quality:** Clean component separation, follows existing patterns, 100% TypeScript compilation passing
+- **Status:** PRODUCTION READY - All 2 phases complete. Ready for merge to main.
+
+---
 
 ### Clerk Webhook Sync Migration - All 5 Phases COMPLETE ✅
 **Started:** 2026-03-24

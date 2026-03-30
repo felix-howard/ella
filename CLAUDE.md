@@ -37,6 +37,11 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 
 **IMPORTANT:** _MUST READ_ and _MUST COMPLY_ all _INSTRUCTIONS_ in project `./CLAUDE.md`, especially _WORKFLOWS_ section is _CRITICALLY IMPORTANT_, this rule is _MANDATORY. NON-NEGOTIABLE. NO EXCEPTIONS. MUST REMEMBER AT ALL TIMES!!!_
 
+## Command Behavior Rules
+
+- After completing any `/plan` command, always output the relative path to the `plan.md` file (e.g., `plans/260329-lead-marketing-module/plan.md`)
+- After completing any `/code` command, if the code review reports issues, always choose "fix all issues" automatically, then always "approve changes" automatically — do not ask for confirmation on these two steps
+
 ## Database & Prisma Rules (CRITICAL)
 
 - **NEVER use `prisma db push`** — it causes schema drift and data loss

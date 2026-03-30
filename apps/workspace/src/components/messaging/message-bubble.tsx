@@ -370,16 +370,12 @@ function SenderMeta({ showTime, createdAt, smsStatusConfig, smsStatus, isError, 
 }
 
 
-/** Expandable error details for failed messages */
+/** Tooltip showing error details on hover for failed messages */
 function ErrorDetails({ errorMessage }: { errorMessage: string }) {
-  const [open, setOpen] = useState(false)
   return (
-    <>
-      <button onClick={() => setOpen(!open)} className="text-destructive underline text-[11px]">
-        (Details)
-      </button>
-      {open && <div className="text-[10px] text-destructive/80 mt-0.5 w-full">{errorMessage}</div>}
-    </>
+    <Tooltip content={errorMessage} position="top-right" className="whitespace-nowrap !bg-slate-800 !text-white !bottom-[calc(100%+4px)]" showArrow={false}>
+      <span className="text-destructive underline text-[11px] cursor-default">(Details)</span>
+    </Tooltip>
   )
 }
 

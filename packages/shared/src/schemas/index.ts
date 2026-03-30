@@ -28,3 +28,69 @@ export const intakeAnswersSchema = z
     (data) => JSON.stringify(data).length <= MAX_INTAKE_ANSWERS_SIZE,
     { message: `Intake answers exceeds maximum size of ${MAX_INTAKE_ANSWERS_SIZE / 1024}KB` }
   )
+
+// ============================================
+// TAGS
+// ============================================
+
+/** Reusable tags validation: lowercase alphanumeric + hyphens, max 20 tags */
+export const tagsSchema = z.array(
+  z.string().max(100).regex(/^[a-z0-9-]+$/, 'Tags must be lowercase alphanumeric with hyphens')
+).max(20).default([])
+
+// ============================================
+// LEAD / MARKETING
+// ============================================
+
+export const leadStatusEnum = z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST'])
+export type LeadStatus = z.infer<typeof leadStatusEnum>
+
+export const createLeadSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  phone: phoneSchema,
+  email: z.string().email().max(254).optional().nullable(),
+  businessName: z.string().max(200).optional().nullable(),
+  campaignTag: z.string().max(100).optional(),
+  notes: z.string().max(5000).optional().nullable(),
+  organizationId: z.string().cuid(),
+})
+export type CreateLeadInput = z.infer<typeof createLeadSchema>
+
+export const updateLeadSchema = z.object({
+  status: leadStatusEnum.optional(),
+  notes: z.string().max(5000).optional().nullable(),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  phone: phoneSchema.optional(),
+  email: z.string().email().max(254).optional().nullable(),
+  businessName: z.string().max(200).optional().nullable(),
+  tags: tagsSchema.optional(),
+})
+export type UpdateLeadInput = z.infer<typeof updateLeadSchema>
+
+export const listLeadsQuerySchema = paginationSchema.extend({
+  status: leadStatusEnum.optional(),
+  search: z.string().max(100).optional(),
+})
+export type ListLeadsQuery = z.infer<typeof listLeadsQuerySchema>
+
+export const convertLeadSchema = z.object({
+  managedById: z.string().cuid().optional(),
+  language: z.enum(['VI', 'EN']).default('VI'),
+  taxYear: z.number().int().min(2020).max(2099),
+  sendWelcomeSms: z.boolean().default(true),
+  customMessage: z.string().max(500).optional(),
+})
+export type ConvertLeadInput = z.infer<typeof convertLeadSchema>
+
+export const bulkSmsSchema = z.object({
+  leadIds: z.array(z.string().cuid()).min(1).max(100),
+  message: z.string().min(1).max(500),
+  formLinkType: z.enum(['org', 'staff']).default('org'),
+  staffSlug: z.string().optional(),
+}).refine(
+  (data) => data.formLinkType !== 'staff' || (data.staffSlug && data.staffSlug.length > 0),
+  { message: 'staffSlug is required when formLinkType is "staff"', path: ['staffSlug'] }
+)
+export type BulkSmsInput = z.infer<typeof bulkSmsSchema>

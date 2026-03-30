@@ -208,16 +208,34 @@ twilioWebhookRoute.post('/status', async (c) => {
       statusValue = `${messageStatus}:${errorCode}:${errorMessage || 'Unknown error'}`
     }
 
+    // Update Message records (case conversations)
     const updateResult = await prisma.message.updateMany({
       where: { twilioSid: messageSid },
       data: { twilioStatus: statusValue },
     })
 
-    if (updateResult.count === 0) {
+    // Update SmsSendLog records (bulk lead SMS)
+    const smsLogStatus = messageStatus === 'delivered' ? 'DELIVERED'
+      : (messageStatus === 'undelivered' || messageStatus === 'failed') ? 'UNDELIVERED'
+      : undefined
+
+    let smsLogUpdated = 0
+    if (smsLogStatus) {
+      const smsResult = await prisma.smsSendLog.updateMany({
+        where: { twilioSid: messageSid },
+        data: {
+          status: smsLogStatus,
+          error: errorCode ? `${errorCode}: ${errorMessage || 'Unknown error'}` : undefined,
+        },
+      })
+      smsLogUpdated = smsResult.count
+    }
+
+    if (updateResult.count === 0 && smsLogUpdated === 0) {
       console.warn(`[Twilio Status] No message found for SID: ${messageSid}`)
     }
 
-    return c.json({ received: true, processed: updateResult.count > 0 })
+    return c.json({ received: true, processed: updateResult.count > 0 || smsLogUpdated > 0 })
   } catch (error) {
     console.error('[Twilio Status] Update error:', error)
     return c.json({ error: 'Processing failed' }, 500)

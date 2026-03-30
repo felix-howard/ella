@@ -17,13 +17,13 @@ export interface StaffUploadTemplateParams {
 const TEMPLATES = {
   VI: (params: StaffUploadTemplateParams) => {
     const { clientName, uploadCount } = params
-    return `[Ella] ${clientName} vua gui ${uploadCount} tai lieu.`
+    return `[Ella] ${clientName} vua gui ${uploadCount} tai lieu. Dang nhap de xem.`
   },
 
   EN: (params: StaffUploadTemplateParams) => {
     const { clientName, uploadCount } = params
     const docWord = uploadCount === 1 ? 'document' : 'documents'
-    return `[Ella] ${clientName} uploaded ${uploadCount} ${docWord}.`
+    return `[Ella] ${clientName} uploaded ${uploadCount} ${docWord}. Log in to view.`
   },
 }
 

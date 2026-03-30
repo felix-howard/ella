@@ -71,6 +71,7 @@ export type StaffMessageSentEvent = {
     caseId: string
     clientName: string
     staffCaseKey: string // `${staffId}-${caseId}` for batch grouping
+    type?: 'message' | 'call' // defaults to 'message'
   }
 }
 

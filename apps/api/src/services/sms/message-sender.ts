@@ -212,8 +212,9 @@ export async function sendSmsOnly(
 }
 
 /**
- * Internal: Send SMS via Twilio first, then record in database only if SMS succeeds.
- * This prevents misleading "sent" messages in the chat panel when SMS delivery fails.
+ * Internal: Send SMS via Twilio, then record in database regardless of outcome.
+ * Failed messages are stored with error status so they appear in the chat panel
+ * with an error indicator instead of being silently hidden.
  */
 async function sendAndRecordMessage(
   caseId: string,
@@ -221,7 +222,6 @@ async function sendAndRecordMessage(
   content: string,
   templateName: TemplateName | undefined
 ): Promise<SendMessageResult> {
-  // Send SMS first — don't create DB record if SMS fails
   if (!isTwilioConfigured()) {
     return { success: true, smsSent: false, error: 'SMS_NOT_CONFIGURED' }
   }
@@ -232,11 +232,7 @@ async function sendAndRecordMessage(
     body: content,
   })
 
-  if (!result.success) {
-    return { success: true, smsSent: false, error: result.error }
-  }
-
-  // SMS sent successfully — now record in database
+  // Always create conversation and message record (even on failure)
   const conversation = await prisma.conversation.upsert({
     where: { caseId },
     update: {},
@@ -250,8 +246,10 @@ async function sendAndRecordMessage(
       direction: 'OUTBOUND' as MessageDirection,
       content,
       templateUsed: templateName,
-      twilioSid: result.sid ?? null,
-      twilioStatus: result.status ?? null,
+      twilioSid: result.success ? (result.sid ?? null) : null,
+      twilioStatus: result.success
+        ? (result.status ?? null)
+        : `ERROR: ${result.error || 'Unknown error'}`,
     },
   })
 
@@ -270,7 +268,8 @@ async function sendAndRecordMessage(
   return {
     success: true,
     messageId: message.id,
-    smsSent: true,
+    smsSent: result.success,
+    error: result.success ? undefined : result.error,
   }
 }
 

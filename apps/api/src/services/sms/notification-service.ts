@@ -367,6 +367,8 @@ export interface NotifyStaffChatParams {
   /** Number of messages sent in this batch */
   messageCount: number
   language: 'VI' | 'EN'
+  /** Type of staff activity: 'message' (default) or 'call' */
+  activityType?: 'message' | 'call'
 }
 
 export interface NotifyStaffChatResult {
@@ -381,7 +383,7 @@ const chatMonitorThrottleMap = new Map<string, number>()
 export async function notifyStaffChat(
   params: NotifyStaffChatParams
 ): Promise<NotifyStaffChatResult> {
-  const { recipientId, recipientPhone, staffId, staffName, clientName, messageCount, language } = params
+  const { recipientId, recipientPhone, staffId, staffName, clientName, messageCount, language, activityType = 'message' } = params
 
   if (!isSmsEnabled()) {
     return { success: false, error: 'SMS_NOT_ENABLED' }
@@ -422,6 +424,7 @@ export async function notifyStaffChat(
     clientName,
     messageCount,
     language,
+    activityType,
   })
 
   const result = await sendSms({

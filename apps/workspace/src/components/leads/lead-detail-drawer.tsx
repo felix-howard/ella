@@ -7,7 +7,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   X, Phone, Mail, Building2, Globe, Calendar,
-  Loader2, Trash2, ArrowRight, MessageSquare,
+  Loader2, Trash2, ArrowRight, MessageSquare, Tag, Plus,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
@@ -49,6 +49,7 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
       setNotesChanged(false)
     }
     setShowDeleteConfirm(false)
+    setNewTag('')
   }, [currentLead?.id])
 
   // Handle escape key
@@ -76,6 +77,7 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
   const invalidateLeadQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] })
     queryClient.invalidateQueries({ queryKey: ['lead', currentLead?.id] })
+    queryClient.invalidateQueries({ queryKey: ['lead-tags'] })
   }
 
   // Update status mutation with optimistic update
@@ -109,6 +111,29 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
     onSuccess: () => { setNotesChanged(false); setMutationError(null); invalidateLeadQueries() },
     onError: () => setMutationError(t('leads.updateError')),
   })
+
+  // Tag mutation
+  const [newTag, setNewTag] = useState('')
+  const tagMutation = useMutation({
+    mutationFn: ({ id, tags }: { id: string; tags: string[] }) => api.leads.update(id, { tags }),
+    onSuccess: () => { setMutationError(null); invalidateLeadQueries() },
+    onError: () => setMutationError(t('leads.updateError')),
+  })
+
+  const handleAddTag = () => {
+    if (!currentLead || !newTag.trim()) return
+    const tags = currentLead.tags ?? []
+    const tag = newTag.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+    if (!tag || tags.includes(tag)) { setNewTag(''); return }
+    tagMutation.mutate({ id: currentLead.id, tags: [...tags, tag] })
+    setNewTag('')
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    if (!currentLead) return
+    const tags = currentLead.tags ?? []
+    tagMutation.mutate({ id: currentLead.id, tags: tags.filter(t => t !== tagToRemove) })
+  }
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -194,6 +219,66 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                     label={t('leads.created')}
                     value={formatShortRelativeTime(currentLead.createdAt, i18n.language)}
                   />
+                </div>
+              </section>
+
+              {/* Tags */}
+              <section>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  {t('leads.tags')}
+                </h3>
+                <div className="space-y-3">
+                  {currentLead.campaignTag && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{t('leads.campaignTagLabel')}:</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                        {currentLead.campaignTag}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(currentLead.tags ?? []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground group"
+                      >
+                        {tag}
+                        {!isConverted && (
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="opacity-60 hover:opacity-100 transition-opacity"
+                            aria-label={`Remove tag ${tag}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  {!isConverted && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
+                        placeholder={t('leads.addTagPlaceholder')}
+                        className="flex-1 px-3 py-1.5 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        maxLength={50}
+                      />
+                      <button
+                        onClick={handleAddTag}
+                        disabled={!newTag.trim() || tagMutation.isPending}
+                        className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {tagMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
 

@@ -276,12 +276,13 @@ Organization (root entity)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
-- **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), source (eventSlug or null), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone. Phase 02 Marketing API Complete.
+- **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
 - **SmsSendLog** - Audit trail for SMS to leads. Fields: id (cuid), message, status (SENT|FAILED), twilioSid (optional), error (optional), sentAt timestamp, createdAt/updatedAt. Relations: leadId FK, sentById FK (Staff), organizationId FK. Used by bulk-sms endpoint to track per-message delivery. Phase 02 Marketing API Complete.
 
 **Phase 02 Types (Document Upload Notification & Intake Form):**
 - **ClientUploads** - Type: `{ newCount: number, totalCount: number, latestAt?: Date }`. Per-client upload tracking based on DocumentView records. `newCount` = images without DocumentView record (unviewed). `totalCount` = all images in client's cases. `latestAt` = most recent image createdAt. Included in GET /clients response via aggregation query.
-- **ClientSource** - Enum: `DIRECT | INTAKE_FORM`. Tracks client origin: DIRECT = created via staff portal, INTAKE_FORM = created via public intake form submission (Phase 02)
+- **ClientSource** - Enum: `MANUAL | FORM | GENERIC_FORM | STAFF_FORM | CONVERTED`. Tracks client origin: MANUAL = created via staff portal, FORM = deprecated (phase 02), GENERIC_FORM = created via public intake form, STAFF_FORM = created by staff via form link, CONVERTED = converted from Lead. Phase 01 Tag-Based Categorization extended enum.
+- **Client Tags** - Phase 01 addition. String[] field for flexible categorization beyond source. Indexed via GIN for fast filtering.
 
 **Indexes:**
 - Organization: clerkOrgId (unique), name

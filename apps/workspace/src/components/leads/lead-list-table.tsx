@@ -73,7 +73,7 @@ export function LeadListTable({
                 {t('leads.statusLabel')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
-                {t('leads.source')}
+                {t('leads.tags')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                 {t('leads.business')}
@@ -188,9 +188,22 @@ const LeadRow = memo(function LeadRow({
         <LeadStatusBadge status={lead.status} />
       </td>
 
-      {/* Source */}
+      {/* Tags */}
       <td className="px-4 py-3 hidden sm:table-cell">
-        <span className="text-muted-foreground">{lead.campaignTag || '—'}</span>
+        <div className="flex flex-wrap gap-1">
+          {lead.tags && lead.tags.length > 0 ? (
+            lead.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground"
+              >
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </div>
       </td>
 
       {/* Business */}

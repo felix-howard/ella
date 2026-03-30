@@ -8,8 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, CheckCircle, AlertCircle, User, Link2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api, type Lead } from '../../lib/api-client'
-
-const PORTAL_BASE_URL = import.meta.env.VITE_PORTAL_URL || 'https://portal.ellatax.com'
+import { PORTAL_BASE_URL } from '../../lib/constants'
 
 interface BulkSmsDialogProps {
   leads: Lead[]

@@ -23,6 +23,7 @@ function LeadsPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
+  const [tagFilter, setTagFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [convertLead, setConvertLead] = useState<Lead | null>(null)
@@ -32,12 +33,13 @@ function LeadsPage() {
   const [debouncedSearch] = useDebouncedValue(search, 300)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', page, debouncedSearch, statusFilter],
+    queryKey: ['leads', page, debouncedSearch, statusFilter, tagFilter],
     queryFn: () => api.leads.list({
       page,
       limit: 20,
       search: debouncedSearch || undefined,
       status: statusFilter || undefined,
+      tag: tagFilter || undefined,
     }),
     placeholderData: keepPreviousData,
   })
@@ -82,6 +84,12 @@ function LeadsPage() {
     setSelectedIds(new Set())
   }
 
+  const handleTagChange = (tag: string) => {
+    setTagFilter(tag)
+    setPage(1)
+    setSelectedIds(new Set())
+  }
+
   const handleRowClick = (lead: Lead) => {
     setSelectedLead(lead)
   }
@@ -109,6 +117,8 @@ function LeadsPage() {
         onSearchChange={handleSearchChange}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusChange}
+        tagFilter={tagFilter}
+        onTagFilterChange={handleTagChange}
         selectedCount={selectedIds.size}
         onBulkSms={() => setShowBulkSms(true)}
       />

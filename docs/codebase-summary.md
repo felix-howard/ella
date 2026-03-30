@@ -108,8 +108,9 @@
 
 **Core Models:**
 - **Organization**: clerkOrgId (unique), name, slug, logoUrl, isActive. Org-scoped root.
-- **Client**: organizationId FK, managedById FK (Staff, single manager), name, phone, email, language, intakeAnswers Json, status tracking
+- **Client**: organizationId FK, managedById FK (Staff, single manager), name, phone, email, language, source (ClientSource enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED), tags String[] (flexible categorization, GIN indexed), intakeAnswers Json, status tracking. Phase 01 Tag-Based Categorization: adds tags field + expands ClientSource enum.
 - **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive
+- **Lead**: organizationId FK, firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (formerly "source", eventSlug or null), tags String[] (auto-populated from campaignTag on creation, GIN indexed), convertedToId FK (Client). Phase 01 Tag-Based Categorization: renames source→campaignTag, adds tags field + GIN index.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
 - **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC

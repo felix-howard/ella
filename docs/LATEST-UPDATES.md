@@ -1,5 +1,56 @@
 # Latest Documentation Updates
 
+**Date:** 2026-03-30 | **Feature:** Tag-Based Lead/Client Categorization Phase 1 (Schema & Migration) COMPLETE | **Status:** Complete
+
+---
+
+## Tag-Based Lead/Client Categorization - Phase 1: Schema & Migration
+
+**Date:** 2026-03-30 | **Status:** Complete
+
+**In One Sentence:** Added flexible String[] tags field to Lead & Client models with GIN indexes, expanded ClientSource enum, and migrated existing source values into tags array.
+
+**Key Changes:**
+- **Lead Model:** Renamed `source` → `campaignTag` (backwards compat via @map("source")), added `tags` String[] field
+- **Client Model:** Added `tags` String[] field for flexible categorization
+- **ClientSource Enum:** Expanded from 2 values (MANUAL, FORM) to 5 values (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
+- **Migration:** 20260330120000_add_tags_and_expand_client_source - AlterEnum + ALTER TABLE + data migration + GIN indexes
+- **Data Migration:** Existing Lead.source values auto-populated into tags array
+- **Indexing:** GIN indexes on both Lead.tags and Client.tags for fast array containment queries
+- **API Updated:** Lead create/list/convert/update endpoints support tags; clients route returns tags
+- **Frontend Updated:** Lead & Client TypeScript interfaces updated with tags field
+- **Shared Schemas:** Added `tagsSchema` validation (non-empty string array), updated lead schemas
+
+**Architecture:**
+- **Before:** `Lead.source` was single string (eventSlug). `ClientSource` was binary (MANUAL | FORM).
+- **After:** `Lead.campaignTag` preserves original source, `tags` allows 1..N categorization. `ClientSource` covers full client origin path (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED).
+
+**Database Impact:**
+- Additive schema change (no breaking migrations)
+- Data migration copies Lead.source → tags on first run (idempotent)
+- GIN indexes optimize filter queries (hasSome, has operators)
+- Postgres 12+ compatibility (GIN native support)
+
+**Files Modified:**
+- `packages/db/prisma/schema.prisma` (Lead + Client models, ClientSource enum)
+- `packages/db/prisma/migrations/20260330120000_add_tags_and_expand_client_source/migration.sql` (new)
+- `packages/shared/src/schemas/lead.ts` (tagsSchema validation)
+- `apps/api/src/routes/leads/schemas.ts` (updated lead schemas with tags)
+- `apps/api/src/routes/leads/index.ts` (tags support in endpoints)
+- `apps/api/src/routes/clients/index.ts` (tags in response)
+- `apps/workspace/src/types/api.ts`, `apps/portal/src/types/api.ts` (Lead/Client interfaces)
+
+**Benefits:**
+- Flexible tagging: Multiple categorization axes (campaign, lead source, form type, conversion status)
+- Better analytics: Filter/group leads/clients by tags
+- Future-proof: Extensible without schema changes
+- Performance: GIN indexes fast containment queries
+- Backward compat: Lead.campaignTag preserves source semantics
+
+**Status:** Production-ready, Phase 1 documentation updated
+
+---
+
 **Date:** 2026-03-25 | **Feature:** ClientAssignment N:N to managedById FK Migration Phase 3 (Frontend UI) COMPLETE | **Status:** Complete
 
 ---

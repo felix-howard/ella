@@ -8,9 +8,8 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Button, Input } from '@ella/ui'
 import { api } from '../../lib/api-client'
+import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
-
-const PORTAL_BASE_URL = import.meta.env.VITE_PORTAL_URL || 'https://portal.ellatax.com'
 
 interface StaffFormLinkCardProps {
   staffId: string

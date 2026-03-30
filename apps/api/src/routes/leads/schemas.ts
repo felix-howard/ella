@@ -26,6 +26,7 @@ export const listLeadsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   status: z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
   search: z.string().max(100).optional(),
+  tag: z.string().max(50).optional(),
 })
 
 /** Update lead */
@@ -36,7 +37,7 @@ export const updateLeadSchema = z.object({
   lastName: z.string().min(1).max(100).optional(),
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
-  tags: z.array(z.string().max(100).regex(/^[a-z0-9-]+$/)).max(20).optional(),
+  tags: z.array(z.string().max(50).regex(/^[a-z0-9-]+$/)).max(20).optional(),
 })
 
 /** Convert lead to client */

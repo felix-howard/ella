@@ -138,7 +138,7 @@ formRoute.post(
             name: fullName,
             phone: input.phone,
             language: input.language as Language,
-            source: 'FORM',
+            source: staffId ? 'STAFF_FORM' : 'GENERIC_FORM',
             organizationId: org.id,
             managedById: staffId,
           },

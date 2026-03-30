@@ -25,6 +25,7 @@ function ClientListPage() {
   const { isAdmin, staffId } = useOrgRole()
   const [searchQuery, setSearchQuery] = useState('')
   const [managedById, setManagedById] = useState<string | undefined>(undefined)
+  const [tagFilter, setTagFilter] = useState<string | undefined>(undefined)
   const [attention, setAttention] = useState<string | undefined>(undefined)
 
   // Debounce search query for server-side search (300ms delay)
@@ -37,6 +38,14 @@ function ClientListPage() {
     enabled: isAdmin,
     staleTime: 60000,
   })
+
+  // Fetch tags for filter dropdown
+  const { data: tagsData } = useQuery({
+    queryKey: ['client-tags'],
+    queryFn: () => api.clients.tags(),
+    staleTime: 60_000,
+  })
+  const availableTags = tagsData?.data ?? []
   // Fetch clients from API
   const {
     data: clientsResponse,
@@ -48,12 +57,14 @@ function ClientListPage() {
     queryKey: ['clients', {
       search: debouncedSearch || undefined,
       managedById,
+      tagFilter,
       attention,
     }],
     queryFn: () => api.clients.list({
       limit: 100,
       search: debouncedSearch || undefined,
       managedById,
+      tag: tagFilter,
       attention: attention as 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' | undefined,
     }),
     placeholderData: keepPreviousData,
@@ -127,6 +138,17 @@ function ClientListPage() {
             onChange={(val) => setManagedById(val || undefined)}
             options={managedByOptions}
             placeholder={t('clients.allMembers')}
+            className="w-[160px]"
+          />
+        )}
+
+        {/* Tag filter dropdown */}
+        {availableTags.length > 0 && (
+          <CustomSelect
+            value={tagFilter ?? ''}
+            onChange={(val) => setTagFilter(val || undefined)}
+            options={availableTags.map((tag) => ({ value: tag, label: tag }))}
+            placeholder={t('clients.allTags')}
             className="w-[160px]"
           />
         )}

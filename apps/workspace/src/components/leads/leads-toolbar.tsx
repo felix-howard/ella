@@ -2,7 +2,9 @@
  * Leads Toolbar - Search, filter, and bulk actions
  */
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { Search, MessageSquare } from 'lucide-react'
+import { api } from '../../lib/api-client'
 import type { LeadStatus } from '../../lib/api-client'
 
 interface LeadsToolbarProps {
@@ -10,6 +12,8 @@ interface LeadsToolbarProps {
   onSearchChange: (value: string) => void
   statusFilter: LeadStatus | ''
   onStatusFilterChange: (status: LeadStatus | '') => void
+  tagFilter: string
+  onTagFilterChange: (tag: string) => void
   selectedCount: number
   onBulkSms: () => void
 }
@@ -17,9 +21,18 @@ interface LeadsToolbarProps {
 const STATUSES: (LeadStatus | '')[] = ['', 'NEW', 'CONTACTED', 'CONVERTED', 'LOST']
 
 export function LeadsToolbar({
-  search, onSearchChange, statusFilter, onStatusFilterChange, selectedCount, onBulkSms,
+  search, onSearchChange, statusFilter, onStatusFilterChange,
+  tagFilter, onTagFilterChange, selectedCount, onBulkSms,
 }: LeadsToolbarProps) {
   const { t } = useTranslation()
+
+  const { data: tagsData } = useQuery({
+    queryKey: ['lead-tags'],
+    queryFn: () => api.leads.tags(),
+    staleTime: 60_000,
+  })
+
+  const tags = tagsData?.data ?? []
 
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -45,6 +58,19 @@ export function LeadsToolbar({
           </option>
         ))}
       </select>
+
+      {tags.length > 0 && (
+        <select
+          value={tagFilter}
+          onChange={(e) => onTagFilterChange(e.target.value)}
+          className="px-3 py-2 rounded-full bg-card shadow-sm text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="">{t('leads.allTags')}</option>
+          {tags.map((tag) => (
+            <option key={tag} value={tag}>{tag}</option>
+          ))}
+        </select>
+      )}
 
       {selectedCount > 0 && (
         <button

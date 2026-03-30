@@ -213,8 +213,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' }) =>
+    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string }) =>
       request<PaginatedResponse<ClientWithActions> & { attentionSummary: { newUploads: number; needsVerification: number; stale: number; readyForEntry: number } }>('/clients', { params }),
+
+    tags: () =>
+      request<{ success: boolean; data: string[] }>('/clients/tags'),
 
     // Search for existing client by phone (for returning client detection)
     searchByPhone: async (phone: string) => {
@@ -1018,14 +1021,17 @@ export const api = {
 
   // Leads management (admin-only)
   leads: {
-    list: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
 
     get: (id: string) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`),
 
-    update: (id: string, data: { status?: string; notes?: string | null; firstName?: string; lastName?: string; email?: string | null; businessName?: string | null }) =>
+    update: (id: string, data: { status?: string; notes?: string | null; firstName?: string; lastName?: string; email?: string | null; businessName?: string | null; tags?: string[] }) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+    tags: () =>
+      request<{ success: boolean; data: string[] }>('/leads/tags'),
 
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
@@ -1147,7 +1153,8 @@ export interface ClientWithActions {
   phone: string
   email: string | null
   language: 'VI' | 'EN'
-  source: 'MANUAL' | 'FORM'
+  source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
+  tags: string[]
   hasUploadLink: boolean
   createdAt: string
   updatedAt: string
@@ -1506,6 +1513,7 @@ export interface UpdateClientInput {
   phone?: string
   email?: string | null
   language?: Language
+  tags?: string[]
 }
 
 // Update client profile (intakeAnswers + filingStatus)

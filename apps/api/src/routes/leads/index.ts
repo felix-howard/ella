@@ -94,13 +94,17 @@ leadsRoute.get(
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
-    const { page, limit, status, search } = c.req.valid('query')
+    const { page, limit, status, search, tag } = c.req.valid('query')
     const { skip } = getPaginationParams(page, limit)
 
     const where: Record<string, unknown> = { organizationId: orgId }
 
     if (status) {
       where.status = status
+    }
+
+    if (tag) {
+      where.tags = { has: tag }
     }
 
     if (search) {
@@ -142,6 +146,25 @@ leadsRoute.get(
       data: leads,
       pagination: buildPaginationResponse(page, limit, total),
     })
+  }
+)
+
+// ============================================
+// PROTECTED+ADMIN: Get Distinct Tags
+// ============================================
+leadsRoute.get(
+  '/tags',
+  authMiddleware,
+  requireOrgAdmin,
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const result = await prisma.$queryRaw<Array<{ tag: string }>>`
+      SELECT DISTINCT unnest(tags) as tag
+      FROM "Lead"
+      WHERE "organizationId" = ${orgId}
+      ORDER BY tag
+    `
+    return c.json({ success: true, data: result.map((r) => r.tag) })
   }
 )
 

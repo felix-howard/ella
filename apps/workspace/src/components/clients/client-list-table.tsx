@@ -46,7 +46,7 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
                 {UI_TEXT.form.taxYear}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
-                {t('clients.source')}
+                {t('clients.tags')}
               </th>
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {t('clients.documents')}
@@ -145,9 +145,22 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
         )}
       </td>
 
-      {/* Source column */}
+      {/* Tags column */}
       <td className="px-4 py-3 hidden sm:table-cell">
-        <SourceBadge source={client.source} />
+        <div className="flex flex-wrap gap-1">
+          {client.tags && client.tags.length > 0 ? (
+            client.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground"
+              >
+                {tag}
+              </span>
+            ))
+          ) : (
+            <SourceBadge source={client.source} />
+          )}
+        </div>
       </td>
 
       {/* Documents column */}
@@ -223,7 +236,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Action badges column */}
       <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
-          {!client.hasUploadLink && client.source === 'FORM' && (
+          {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
           )}
           {actionCounts?.hasNewActivity && (
@@ -266,20 +279,22 @@ function EmptyState() {
   )
 }
 
-function SourceBadge({ source }: { source?: 'MANUAL' | 'FORM' }) {
+function SourceBadge({ source }: { source?: string }) {
   const { t } = useTranslation()
 
-  if (source === 'FORM') {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-        {t('clients.sourceForm')}
-      </span>
-    )
+  const config: Record<string, { className: string; label: string }> = {
+    FORM: { className: 'bg-primary/10 text-primary', label: t('clients.sourceForm') },
+    GENERIC_FORM: { className: 'bg-primary/10 text-primary', label: t('clients.sourceGenericForm') },
+    STAFF_FORM: { className: 'bg-blue-500/10 text-blue-600', label: t('clients.sourceStaffForm') },
+    CONVERTED: { className: 'bg-emerald-500/10 text-emerald-600', label: t('clients.sourceConverted') },
+    MANUAL: { className: 'bg-muted text-muted-foreground', label: t('clients.sourceManual') },
   }
 
+  const { className, label } = config[source ?? 'MANUAL'] ?? config.MANUAL
+
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-      {t('clients.sourceManual')}
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', className)}>
+      {label}
     </span>
   )
 }

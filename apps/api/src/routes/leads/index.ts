@@ -66,7 +66,8 @@ leadsRoute.post(
           phone: normalizedPhone,
           email: email ? sanitizeTextInput(email) : null,
           businessName: businessName ? sanitizeTextInput(businessName) : null,
-          source: eventSlug || null,
+          campaignTag: eventSlug || null,
+          tags: eventSlug ? [eventSlug] : [],
           status: 'NEW',
           organizationId: org.id,
         },
@@ -126,7 +127,8 @@ leadsRoute.get(
           email: true,
           businessName: true,
           status: true,
-          source: true,
+          campaignTag: true,
+          tags: true,
           notes: true,
           createdAt: true,
           convertedToId: true,
@@ -208,6 +210,7 @@ leadsRoute.patch(
     if (updates.lastName) sanitized.lastName = sanitizeTextInput(updates.lastName)
     if (updates.email !== undefined) sanitized.email = updates.email ? sanitizeTextInput(updates.email) : null
     if (updates.businessName !== undefined) sanitized.businessName = updates.businessName ? sanitizeTextInput(updates.businessName) : null
+    if (updates.tags !== undefined) sanitized.tags = updates.tags
 
     const updated = await prisma.lead.update({
       where: { id },
@@ -301,7 +304,8 @@ leadsRoute.post(
           phone: lead.phone,
           email: lead.email,
           language,
-          source: 'FORM',
+          source: 'CONVERTED',
+          tags: lead.tags || [],
           organizationId: orgId,
           managedById: managedById || null,
           createdById: staffId,

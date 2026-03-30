@@ -190,7 +190,7 @@ const LeadRow = memo(function LeadRow({
 
       {/* Source */}
       <td className="px-4 py-3 hidden sm:table-cell">
-        <span className="text-muted-foreground">{lead.source || '—'}</span>
+        <span className="text-muted-foreground">{lead.campaignTag || '—'}</span>
       </td>
 
       {/* Business */}

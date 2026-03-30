@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import type { ClientSource } from '@ella/db'
 import {
   getPaginationParams,
   buildPaginationResponse,
@@ -268,7 +269,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       phone: client.phone,
       email: client.email,
       language: client.language as 'VI' | 'EN',
-      source: client.source as 'MANUAL' | 'FORM',
+      source: client.source as ClientSource,
+      tags: client.tags,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,

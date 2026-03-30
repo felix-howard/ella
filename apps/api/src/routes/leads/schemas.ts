@@ -36,6 +36,7 @@ export const updateLeadSchema = z.object({
   lastName: z.string().min(1).max(100).optional(),
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
+  tags: z.array(z.string().max(100).regex(/^[a-z0-9-]+$/)).max(20).optional(),
 })
 
 /** Convert lead to client */

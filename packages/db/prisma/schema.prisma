@@ -386,6 +386,9 @@ enum SmsSendStatus {
 enum ClientSource {
   MANUAL
   FORM
+  GENERIC_FORM
+  STAFF_FORM
+  CONVERTED
 }
 
 // ============================================
@@ -524,6 +527,7 @@ model Client {
   email     String?
   language  Language @default(VI)
   source    ClientSource @default(MANUAL)
+  tags      String[]     @default([])
 
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
@@ -1338,7 +1342,8 @@ model Lead {
   email          String?
   businessName   String?
   status         LeadStatus   @default(NEW)
-  source         String?      // e.g., "free-tax-meeting-march-2026" from eventSlug
+  campaignTag    String?      @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
+  tags           String[]     @default([])
   notes          String?      @db.Text
 
   // Conversion tracking

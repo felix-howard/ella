@@ -30,6 +30,15 @@ export const intakeAnswersSchema = z
   )
 
 // ============================================
+// TAGS
+// ============================================
+
+/** Reusable tags validation: lowercase alphanumeric + hyphens, max 20 tags */
+export const tagsSchema = z.array(
+  z.string().max(100).regex(/^[a-z0-9-]+$/, 'Tags must be lowercase alphanumeric with hyphens')
+).max(20).default([])
+
+// ============================================
 // LEAD / MARKETING
 // ============================================
 
@@ -42,7 +51,7 @@ export const createLeadSchema = z.object({
   phone: phoneSchema,
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
-  source: z.string().max(100).optional(),
+  campaignTag: z.string().max(100).optional(),
   notes: z.string().max(5000).optional().nullable(),
   organizationId: z.string().cuid(),
 })
@@ -56,6 +65,7 @@ export const updateLeadSchema = z.object({
   phone: phoneSchema.optional(),
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
+  tags: tagsSchema.optional(),
 })
 export type UpdateLeadInput = z.infer<typeof updateLeadSchema>
 

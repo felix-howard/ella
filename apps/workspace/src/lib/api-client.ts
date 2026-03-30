@@ -1065,7 +1065,8 @@ export interface Lead {
   email: string | null
   businessName: string | null
   status: LeadStatus
-  source: string | null
+  campaignTag: string | null
+  tags: string[]
   notes: string | null
   convertedToId: string | null
   createdAt: string
@@ -1109,7 +1110,8 @@ export interface Client {
   phone: string
   email: string | null
   language: Language
-  source?: 'MANUAL' | 'FORM'
+  source?: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
+  tags: string[]
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]

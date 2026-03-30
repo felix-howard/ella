@@ -188,7 +188,7 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                   <InfoRow icon={Phone} label={t('leads.phone')} value={formatPhone(currentLead.phone)} />
                   <InfoRow icon={Mail} label={t('leads.email')} value={currentLead.email || '—'} />
                   <InfoRow icon={Building2} label={t('leads.business')} value={currentLead.businessName || '—'} />
-                  <InfoRow icon={Globe} label={t('leads.source')} value={currentLead.source || '—'} />
+                  <InfoRow icon={Globe} label={t('leads.source')} value={currentLead.campaignTag || '—'} />
                   <InfoRow
                     icon={Calendar}
                     label={t('leads.created')}

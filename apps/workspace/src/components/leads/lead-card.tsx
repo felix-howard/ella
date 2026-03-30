@@ -74,8 +74,8 @@ export function LeadCard({ lead, selected, onSelect, onConvert }: LeadCardProps)
               </div>
             )}
             <div className="flex items-center gap-3 text-xs">
-              {lead.source && (
-                <span>{t('leads.source')}: {lead.source}</span>
+              {lead.campaignTag && (
+                <span>{t('leads.source')}: {lead.campaignTag}</span>
               )}
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />

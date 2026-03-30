@@ -12,7 +12,7 @@ export const createLeadSchema = z.object({
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
   orgSlug: z.string().min(1).max(100),
-  eventSlug: z.string().max(100).optional(),
+  eventSlug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional(),
 })
 
 /** Lead ID param */
@@ -26,7 +26,7 @@ export const listLeadsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   status: z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
   search: z.string().max(100).optional(),
-  tag: z.string().max(50).optional(),
+  tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
 })
 
 /** Update lead */

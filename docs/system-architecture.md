@@ -144,19 +144,20 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Public Client Intake Form (3 - Phase 02):**
 - `GET /form/:orgSlug` - Get intake form metadata (public, no auth). Returns form fields, validation rules, client language preference
 - `GET /form/:orgSlug/:staffSlug` - Get form routed to specific staff member (public). Staff-specific form via formSlug, includes manager assignment
-- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record, sets source=INTAKE_FORM, optional file uploads, returns confirmationUrl
-- Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; autoSendFormClientUploadLink controls SMS notification after submission
+- `POST /form/:orgSlug/submit` - Submit completed intake form (public). Creates Client record with source=GENERIC_FORM (no staff) or STAFF_FORM (routed to staff), optional file uploads, returns confirmationUrl. autoSendFormClientUploadLink controls SMS notification after submission.
+- Public endpoints unauthenticated; orgSlug + staffSlug route to correct staff member; ClientSource distinguishes generic forms vs staff-routed forms
 
-**Lead Management (8 - Phase 02 API Endpoints Complete):**
-- `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent)
-- `GET /leads` - List org leads (org-scoped, admin required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), full-text search (firstName, lastName, phone, businessName)
-- `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc)
-- `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName). All text fields sanitized
+**Lead Management (9 - Phase 02 API Endpoints + Tag-Based Categorization Complete):**
+- `POST /leads` - Create lead from registration form (public, rate-limited 5/min). P2002 duplicate phone+org returns success (idempotent). Accepts `tags` string array for flexible categorization.
+- `GET /leads` - List org leads (org-scoped, admin required). Supports pagination (limit 1-100), status filter (NEW|CONTACTED|CONVERTED|LOST), tag filters (hasSome, hasAll operators), full-text search (firstName, lastName, phone, businessName)
+- `GET /leads/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org leads, sorted alphabetically. Used for tag filter dropdowns + tag management UI.
+- `GET /leads/:id` - Get lead detail with SMS send history (last 20 SMS logs ordered by sentAt desc). Returns tags array + campaignTag (original source)
+- `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName, tags). All text fields + tags sanitized. Tags support add/remove mutations.
 - `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin required). Returns hasDuplicate + existingClient data
-- `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
-- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. SMS endpoints: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Auto-updates lead status from NEW→CONTACTED on success
+- `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Carries over tags to new Client. Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
+- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Supports tag-based filtering + batched concurrency (default 5 concurrent). SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Auto-updates lead status from NEW→CONTACTED on success
 - `DELETE /leads/:id` - Delete lead (org-scoped, admin required)
-- Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. SMS integration via Twilio with optional staff form routing
+- Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
 **Team & Organization (19 - Phase 3 + Phase 02 Profile API + Phase 04 Navigation + Phase 02 Intake Form):**
 - `GET /org-settings` - Get org profile + autoSendFormClientUploadLink toggle (Phase 02 Intake Form)
@@ -177,11 +178,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PUT /client-assignments/transfer` - Transfer client (app-level, not Clerk-synced)
 - Similar for invitations & staff assignments
 
-**Clients (14+):**
-- `GET /clients` - List with org scoping + sort (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client)
-- `POST /clients` - Create with organization
-- `GET /clients/:id` - Detail with org verification
-- `PATCH /clients/:id` - Update profile/intakeAnswers
+**Clients (14+ with Tag Support):**
+- `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Returns tags + source enum.
+- `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
+- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
+- `GET /clients/:id` - Detail with org verification. Returns tags array + source enum + conversion metadata (convertedLeads)
+- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
@@ -190,7 +192,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
 - `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
-- Status endpoints for action tracking
+- Status endpoints for action tracking. Client.source expanded to 5 values (vs 2 previously): MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED tracks full origin path
 
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements

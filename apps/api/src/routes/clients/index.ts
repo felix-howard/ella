@@ -696,6 +696,11 @@ clientsRoute.patch(
       tags?: string[]
     }
 
+    // Normalize tags (consistent with lead tag handling)
+    if (updateData.tags) {
+      updateData.tags = updateData.tags.map(t => t.trim().toLowerCase())
+    }
+
     // Recompute display name if firstName or lastName changed
     if (updateData.firstName !== undefined || updateData.lastName !== undefined) {
       const newFirstName = updateData.firstName ?? existing.firstName

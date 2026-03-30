@@ -1,8 +1,64 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-29 ICT
-> **Current Phase:** Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-03-30 ICT
+> **Current Phase:** Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Tag-Based Lead & Client Categorization - All 5 Phases COMPLETE ✅
+**Started:** 2026-03-30
+**Completed:** 2026-03-30 (Phase 01-05)
+**Deliverable:** Tag-based lead/client categorization with auto-tagging from campaign URLs, expanded client source enum, and tag filtering on list pages
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema & Migration | ✅ DONE | 45m | 2026-03-30 |
+| 2 | Backend API Changes | ✅ DONE | 1.5h | 2026-03-30 |
+| 3 | Frontend - Lead Tags | ✅ DONE | 1.5h | 2026-03-30 |
+| 4 | Frontend - Client Tags | ✅ DONE | 1.5h | 2026-03-30 |
+| 5 | Testing & Validation | ✅ DONE | 45m | 2026-03-30 |
+
+**Completion Summary (All 5 Phases):**
+- Added `tags: String[]` array to Lead + Client models (free-form categorization)
+- Renamed `Lead.source` → `Lead.campaignTag` (clarity on campaign tracking)
+- Expanded `ClientSource` enum: `GENERIC_FORM`, `STAFF_FORM`, `CONVERTED` (distinction between form types)
+- Auto-tagging: Leads from campaign URLs auto-tagged with campaign slug
+- Tag carry-over: Lead→Client conversion copies tags + sets source=CONVERTED
+- Tag filtering: Dropdown filters on Lead + Client list pages powered by `/leads/tags` + `/clients/tags` endpoints
+- Tag management: Add/remove tags in Lead detail drawer + Client detail page
+- Tag display: Badge chips in list table rows showing all tags
+- Validation: Tags are lowercase alphanumeric + hyphens, max 50 chars, max 10 per record
+- Data migration: Existing Lead.source values copied to campaignTag + tags array (non-destructive)
+- i18n: Complete translation support (English + Vietnamese)
+- Testing: type-check + lint + build all passing, manual flows validated
+
+**Key Features:**
+- Org-scoped tags: All queries filtered by organizationId (no cross-org leaks)
+- Postgres `text[]` with GIN indexing: Fast `hasSome` queries for tag filtering
+- Form source distinction: Intake forms set GENERIC_FORM or STAFF_FORM based on staffSlug
+- Backward compatible: Old `Client.source = 'FORM'` unchanged, migration additive only
+
+**Files Modified:**
+- Schema: `packages/db/prisma/schema.prisma`
+- Migration: `packages/db/prisma/migrations/*_add_tags_and_expand_client_source`
+- API: `apps/api/src/routes/leads/*`, `apps/api/src/routes/clients/*`, `apps/api/src/routes/form/*`
+- Frontend: `apps/workspace/src/lib/api-client.ts`, leads + client components, i18n
+
+**Benefits:**
+- Free-form grouping without rigid enum constraints
+- Campaign source tracking at ingestion
+- Better filtering and discovery
+- Clear origin distinction (generic vs staff vs converted)
+
+**Risk Mitigation:**
+- Non-destructive migration with data preservation
+- Org-scoped queries prevent data leaks
+- Tag validation prevents abuse
+- All tests passing, no regressions
+
+**Status:** PRODUCTION READY - All 5 phases complete, fully tested, ready to merge
 
 ---
 

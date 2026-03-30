@@ -149,7 +149,7 @@ export const listClientsQuerySchema = z.object({
   // Quick filter for attention-needed clients
   attention: z.enum(['newUploads', 'needsVerification', 'stale', 'readyForEntry']).optional(),
   // Filter by tag
-  tag: z.string().max(50).optional(),
+  tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
 })
 
 // Cascade cleanup input

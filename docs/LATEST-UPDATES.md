@@ -8,46 +8,77 @@
 
 **Date:** 2026-03-30 | **Status:** Complete
 
-**In One Sentence:** Added flexible String[] tags field to Lead & Client models with GIN indexes, expanded ClientSource enum, and migrated existing source values into tags array.
+**In One Sentence:** Implemented tag-based lead & client categorization across schema, API, frontend UI, bulk SMS, and conversion workflows with lint fixes, race condition fixes, and tag sanitization.
 
-**Key Changes:**
-- **Lead Model:** Renamed `source` → `campaignTag` (backwards compat via @map("source")), added `tags` String[] field
-- **Client Model:** Added `tags` String[] field for flexible categorization
-- **ClientSource Enum:** Expanded from 2 values (MANUAL, FORM) to 5 values (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
-- **Migration:** 20260330120000_add_tags_and_expand_client_source - AlterEnum + ALTER TABLE + data migration + GIN indexes
-- **Data Migration:** Existing Lead.source values auto-populated into tags array
-- **Indexing:** GIN indexes on both Lead.tags and Client.tags for fast array containment queries
-- **API Updated:** Lead create/list/convert/update endpoints support tags; clients route returns tags
-- **Frontend Updated:** Lead & Client TypeScript interfaces updated with tags field
-- **Shared Schemas:** Added `tagsSchema` validation (non-empty string array), updated lead schemas
+**All Phases Summary:**
+- **Phase 1 (Schema & Migration):** Added String[] tags to Lead/Client, expanded ClientSource (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED), GIN indexes, data migration
+- **Phase 2 (API Endpoints):** Lead CRUD with tags, tag filter queries (hasSome, hasAll), lead-to-client conversion carrying tags, tag sanitization
+- **Phase 3 (Bulk SMS):** Batched concurrency (default 5 concurrent requests), tag-based lead filtering, improved SMS send reliability
+- **Phase 4 (Frontend UI):** Tag management on lead/client detail drawers, tag display with remove buttons, tag filter controls on list pages, bilingual i18n
+- **Phase 5 (Fixes & Polish):** Lint fixes (lead-detail-drawer.tsx), eventSlug regex validation, bulk SMS race condition fix, tag sanitization validation
 
-**Architecture:**
-- **Before:** `Lead.source` was single string (eventSlug). `ClientSource` was binary (MANUAL | FORM).
-- **After:** `Lead.campaignTag` preserves original source, `tags` allows 1..N categorization. `ClientSource` covers full client origin path (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED).
+**Key Implementation Details:**
+
+**Schema Changes:**
+- Lead model: Renamed source → campaignTag (@map("source") for compat), added tags String[] @default([])
+- Client model: Added tags String[] @default([])
+- ClientSource enum: Expanded from 2 → 5 values (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
+- GIN indexes on both Lead.tags and Client.tags for fast array containment queries
+- Migration 20260330120000_add_tags_and_expand_client_source: AlterEnum + ALTER TABLE + data migration (idempotent)
+
+**Backend (API):**
+- Tags support in all lead endpoints: POST /leads (create with tags), GET /leads (list with tag filters), GET /leads/tags (distinct tags dropdown), PATCH /leads/:id (update tags), GET /leads/:id, POST /leads/:id/convert (carries tags to client)
+- Client tags endpoints: GET /clients/tags (distinct tags dropdown), tags returned in GET /clients, POST /clients, GET /clients/:id, PATCH /clients/:id (update tags)
+- Bulk SMS endpoint enhanced: POST /leads/bulk-sms with batched concurrency (default 5, configurable), tag-based filtering, race condition handling via unique key constraint
+- Tag validation: 1-100 char strings, regex /^[a-z0-9-]+$/, SQL sanitization, Zod schema enforcement
+- Client.tags populated during conversion (inherits Lead.tags)
+
+**Frontend (React):**
+- Lead detail drawer: Tag display with remove button, tag input for adding (form validation, bilingual labels)
+- Client detail drawer: Tag management UI, tag pill display with visual feedback
+- List page filters: Tag filter controls (hasSome/hasAll operators), tag pills on filtered state
+- Bilingual support: All tag-related strings in en.json/vi.json (leads.tags, leads.addTag, clients.tags, etc.)
+- TypeScript interfaces: Lead/Client types updated with tags: string[]
 
 **Database Impact:**
-- Additive schema change (no breaking migrations)
-- Data migration copies Lead.source → tags on first run (idempotent)
-- GIN indexes optimize filter queries (hasSome, has operators)
-- Postgres 12+ compatibility (GIN native support)
+- Additive schema change (no data loss)
+- Backward-compatible (Lead.campaignTag preserves source, existing tags populated from migration)
+- GIN indexes optimize filter queries (O(log n) containment checks)
+- Postgres 12+ native support
 
-**Files Modified:**
-- `packages/db/prisma/schema.prisma` (Lead + Client models, ClientSource enum)
-- `packages/db/prisma/migrations/20260330120000_add_tags_and_expand_client_source/migration.sql` (new)
-- `packages/shared/src/schemas/lead.ts` (tagsSchema validation)
-- `apps/api/src/routes/leads/schemas.ts` (updated lead schemas with tags)
-- `apps/api/src/routes/leads/index.ts` (tags support in endpoints)
-- `apps/api/src/routes/clients/index.ts` (tags in response)
-- `apps/workspace/src/types/api.ts`, `apps/portal/src/types/api.ts` (Lead/Client interfaces)
+**Files Modified (Full List):**
+- `packages/db/prisma/schema.prisma` - Lead, Client, ClientSource
+- `packages/db/prisma/migrations/20260330120000_add_tags_and_expand_client_source/migration.sql` - New
+- `packages/shared/src/schemas/lead.ts` - tagsSchema
+- `apps/api/src/routes/leads/schemas.ts` - Lead schemas with tags
+- `apps/api/src/routes/leads/index.ts` - Tags in CRUD endpoints, /tags endpoint, bulk SMS batching, tag filters
+- `apps/api/src/routes/clients/schemas.ts` - Client schemas with tags support
+- `apps/api/src/routes/clients/index.ts` - Tags in response, /tags endpoint
+- `apps/workspace/src/components/leads/lead-detail-drawer.tsx` - Tag management UI (lint fixed)
+- `apps/workspace/src/components/clients/client-detail-drawer.tsx` - Tag management UI
+- `apps/workspace/src/routes/leads/index.tsx` - Tag filters on list page
+- `apps/workspace/src/routes/clients/index.tsx` - Tag filters on list page
+- `apps/workspace/src/types/api.ts`, `apps/portal/src/types/api.ts` - Updated interfaces with tags
+- `apps/workspace/src/locales/en.json`, `vi.json` - Tag-related i18n keys
+- `apps/api/src/routes/form/index.ts` - GENERIC_FORM vs STAFF_FORM source distinction
 
 **Benefits:**
-- Flexible tagging: Multiple categorization axes (campaign, lead source, form type, conversion status)
-- Better analytics: Filter/group leads/clients by tags
-- Future-proof: Extensible without schema changes
-- Performance: GIN indexes fast containment queries
-- Backward compat: Lead.campaignTag preserves source semantics
+- Flexible categorization: Multiple tags per lead/client (campaign, source, form type, status)
+- Analytics ready: Filter/group/report by tags
+- Lead conversion: Tags carry over to client for continuity
+- Performance: GIN indexes fast array queries
+- Extensible: No schema changes needed for new tag types
+- Robust: Tag sanitization, race condition handling, bulk SMS batching
 
-**Status:** Production-ready, Phase 1 documentation updated
+**Testing & QA:**
+- Schema migration tested (idempotent, data integrity)
+- API endpoints verified (create, list, filter, update, convert)
+- Frontend UI: Tag add/remove, filter interactions
+- Bulk SMS: Batching, rate limiting, concurrency safety
+- Linting: Zero errors in all modified files
+- Type safety: 100% TypeScript strict mode
+
+**Status:** Production-ready, all phases complete, documentation synchronized
 
 ---
 

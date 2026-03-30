@@ -1,13 +1,13 @@
 /**
  * Lead Detail Drawer - Right-side 900px drawer showing lead details, notes, status, actions
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   X, Phone, Mail, Building2, Globe, Calendar,
-  Loader2, Trash2, ArrowRight, MessageSquare, Tag, Plus,
+  Loader2, Trash2, ArrowRight, MessageSquare, Plus,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
@@ -31,6 +31,8 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
   const [notes, setNotes] = useState('')
   const [notesChanged, setNotesChanged] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [newTag, setNewTag] = useState('')
+  const prevLeadIdRef = useRef<string | undefined>(undefined)
 
   // Fetch fresh lead data
   const { data: freshLead } = useQuery({
@@ -43,14 +45,15 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
   const currentLead = freshLead?.data ?? lead
 
   // Sync notes and reset state when lead changes
-  useEffect(() => {
+  if (currentLead?.id !== prevLeadIdRef.current) {
+    prevLeadIdRef.current = currentLead?.id
     if (currentLead) {
       setNotes(currentLead.notes ?? '')
       setNotesChanged(false)
     }
     setShowDeleteConfirm(false)
     setNewTag('')
-  }, [currentLead?.id])
+  }
 
   // Handle escape key
   useEffect(() => {
@@ -86,12 +89,12 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ['lead', id] })
       const previousLead = queryClient.getQueryData(['lead', id])
-      queryClient.setQueryData(['lead', id], (old: any) =>
+      queryClient.setQueryData(['lead', id], (old: { data: Lead } | undefined) =>
         old ? { ...old, data: { ...old.data, status } } : old
       )
-      queryClient.setQueriesData({ queryKey: ['leads'] }, (old: any) => {
+      queryClient.setQueriesData({ queryKey: ['leads'] }, (old: { data: Lead[] } | undefined) => {
         if (!old?.data) return old
-        return { ...old, data: old.data.map((l: any) => l.id === id ? { ...l, status } : l) }
+        return { ...old, data: old.data.map((l) => l.id === id ? { ...l, status } : l) }
       })
       setMutationError(null)
       return { previousLead }
@@ -113,7 +116,6 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
   })
 
   // Tag mutation
-  const [newTag, setNewTag] = useState('')
   const tagMutation = useMutation({
     mutationFn: ({ id, tags }: { id: string; tags: string[] }) => api.leads.update(id, { tags }),
     onSuccess: () => { setMutationError(null); invalidateLeadQueries() },

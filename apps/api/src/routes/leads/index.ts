@@ -233,7 +233,7 @@ leadsRoute.patch(
     if (updates.lastName) sanitized.lastName = sanitizeTextInput(updates.lastName)
     if (updates.email !== undefined) sanitized.email = updates.email ? sanitizeTextInput(updates.email) : null
     if (updates.businessName !== undefined) sanitized.businessName = updates.businessName ? sanitizeTextInput(updates.businessName) : null
-    if (updates.tags !== undefined) sanitized.tags = updates.tags
+    if (updates.tags !== undefined) sanitized.tags = updates.tags.map(t => t.trim().toLowerCase())
 
     const updated = await prisma.lead.update({
       where: { id },
@@ -304,21 +304,17 @@ leadsRoute.post(
       return c.json({ success: false, error: 'Lead already converted' }, 400)
     }
 
-    // Server-side duplicate client check (frontend has convert-check but backend must enforce)
-    const existingClient = await prisma.client.findFirst({
-      where: { phone: lead.phone, organizationId: orgId },
-      select: { id: true, firstName: true, lastName: true },
-    })
-
-    if (existingClient) {
-      return c.json({
-        success: false,
-        error: 'Client with this phone already exists',
-        existingClient,
-      }, 409)
-    }
-
     const result = await prisma.$transaction(async (tx) => {
+      // Duplicate check inside transaction to prevent race conditions
+      const existingClient = await tx.client.findFirst({
+        where: { phone: lead.phone, organizationId: orgId },
+        select: { id: true, firstName: true, lastName: true },
+      })
+
+      if (existingClient) {
+        return { duplicate: true as const, existingClient }
+      }
+
       const client = await tx.client.create({
         data: {
           firstName: lead.firstName,
@@ -362,8 +358,16 @@ leadsRoute.post(
         },
       })
 
-      return { client, engagement, taxCase }
+      return { duplicate: false as const, client, engagement, taxCase }
     })
+
+    if (result.duplicate) {
+      return c.json({
+        success: false,
+        error: 'Client with this phone already exists',
+        existingClient: result.existingClient,
+      }, 409)
+    }
 
     // Send welcome SMS if requested (outside transaction)
     if (sendWelcomeSms && isTwilioConfigured()) {
@@ -457,36 +461,49 @@ leadsRoute.post(
     let failed = 0
     const errors: string[] = []
 
-    for (const lead of leads) {
-      const personalizedMessage = message
-        .replace(/\{\{firstName\}\}/g, lead.firstName)
-        .replace(/\{\{formLink\}\}/g, formUrl)
+    // Process SMS in batches of 10 for concurrency control
+    const BATCH_SIZE = 10
+    for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+      const batch = leads.slice(i, i + BATCH_SIZE)
+      const results = await Promise.allSettled(
+        batch.map(async (lead) => {
+          const personalizedMessage = message
+            .replace(/\{\{firstName\}\}/g, lead.firstName)
+            .replace(/\{\{formLink\}\}/g, formUrl)
 
-      const smsResult = await sendSmsOnly(lead.phone, personalizedMessage)
+          const smsResult = await sendSmsOnly(lead.phone, personalizedMessage)
 
-      // Log SMS send
-      await prisma.smsSendLog.create({
-        data: {
-          leadId: lead.id,
-          message: personalizedMessage,
-          status: smsResult.success ? 'SENT' : 'FAILED',
-          twilioSid: smsResult.sid ?? null,
-          error: smsResult.error ?? null,
-          sentById: staffId,
-          organizationId: orgId,
-        },
-      })
+          await prisma.smsSendLog.create({
+            data: {
+              leadId: lead.id,
+              message: personalizedMessage,
+              status: smsResult.success ? 'SENT' : 'FAILED',
+              twilioSid: smsResult.sid ?? null,
+              error: smsResult.error ?? null,
+              sentById: staffId,
+              organizationId: orgId,
+            },
+          })
 
-      if (smsResult.success) {
-        sent++
-        // Update lead status to CONTACTED if currently NEW
-        await prisma.lead.updateMany({
-          where: { id: lead.id, status: 'NEW' },
-          data: { status: 'CONTACTED' },
+          if (smsResult.success) {
+            await prisma.lead.updateMany({
+              where: { id: lead.id, status: 'NEW' },
+              data: { status: 'CONTACTED' },
+            })
+            return { success: true, leadName: lead.firstName }
+          }
+          return { success: false, leadName: lead.firstName }
         })
-      } else {
-        failed++
-        errors.push(`${lead.firstName}: SMS delivery failed`)
+      )
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          sent++
+        } else {
+          failed++
+          const name = result.status === 'fulfilled' ? result.value.leadName : 'Unknown'
+          errors.push(`${name}: SMS delivery failed`)
+        }
       }
     }
 

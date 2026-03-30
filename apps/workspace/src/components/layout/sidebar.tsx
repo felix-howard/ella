@@ -16,6 +16,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Megaphone,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { useUIStore, useMobileMenu } from '../../stores/ui-store'
@@ -32,6 +33,7 @@ const BASE_NAV_ITEMS = [
   { path: '/messages', i18nKey: 'nav.messages', icon: MessageSquare },
 ] as const
 
+const LEADS_NAV_ITEM = { path: '/leads', i18nKey: 'nav.leads', icon: Megaphone } as const
 const TEAM_NAV_ITEM = { path: '/team', i18nKey: 'nav.team', icon: UsersRound } as const
 const SETTINGS_NAV_ITEM = { path: '/settings', i18nKey: 'nav.settings', icon: Settings } as const
 
@@ -94,6 +96,7 @@ export function Sidebar() {
 
   const navItems = [
     ...BASE_NAV_ITEMS,
+    ...(isAdmin ? [LEADS_NAV_ITEM] : []),
     ...(isAdmin ? [TEAM_NAV_ITEM] : []),
     SETTINGS_NAV_ITEM,
   ]

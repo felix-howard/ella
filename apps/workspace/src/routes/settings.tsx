@@ -1,19 +1,20 @@
 /**
- * Settings Page - Tabbed layout with General, Profile, and Notifications
+ * Settings Page - Tabbed layout with General, Profile, Notifications, and Form Links
  * Uses URL search params for tab state so tabs are bookmarkable
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Settings, User, Bell } from 'lucide-react'
+import { Settings, User, Bell, Link as LinkIcon } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ella/ui'
 import { PageContainer } from '../components/layout'
 import { SettingsGeneralTab } from '../components/settings/settings-general-tab'
 import { SettingsProfileTab } from '../components/settings/settings-profile-tab'
 import { SettingsNotificationsTab } from '../components/settings/settings-notifications-tab'
+import { SettingsFormLinksTab } from '../components/settings/settings-form-links-tab'
 
-type SettingsTab = 'general' | 'profile' | 'notifications'
+type SettingsTab = 'general' | 'profile' | 'notifications' | 'form-links'
 
-const VALID_TABS: SettingsTab[] = ['general', 'profile', 'notifications']
+const VALID_TABS: SettingsTab[] = ['general', 'profile', 'notifications', 'form-links']
 
 export const Route = createFileRoute('/settings')({
   validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => {
@@ -58,6 +59,10 @@ function SettingsPage() {
               <Bell className="w-4 h-4" />
               {t('settings.tabNotifications')}
             </TabsTrigger>
+            <TabsTrigger value="form-links" className="flex items-center gap-2">
+              <LinkIcon className="w-4 h-4" />
+              {t('settings.tabFormLinks')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="general">
@@ -70,6 +75,10 @@ function SettingsPage() {
 
           <TabsContent value="notifications">
             <SettingsNotificationsTab />
+          </TabsContent>
+
+          <TabsContent value="form-links">
+            <SettingsFormLinksTab />
           </TabsContent>
         </Tabs>
       </div>

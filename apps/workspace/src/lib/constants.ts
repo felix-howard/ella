@@ -5,6 +5,9 @@
 
 import i18n from './i18n'
 
+/** Portal base URL for client/lead form links */
+export const PORTAL_BASE_URL = import.meta.env.VITE_PORTAL_URL || 'https://portal.ellatax.com'
+
 /**
  * Helper to create a translated label map using Proxy
  * Returns a proxy that calls i18n.t() when properties are accessed

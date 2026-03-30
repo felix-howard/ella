@@ -371,9 +371,26 @@ enum DocCategory {
   OTHER       // Khac: unclassified
 }
 
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  LOST
+}
+
+enum SmsSendStatus {
+  SENT
+  DELIVERED
+  UNDELIVERED
+  FAILED
+}
+
 enum ClientSource {
   MANUAL
   FORM
+  GENERIC_FORM
+  STAFF_FORM
+  CONVERTED
 }
 
 // ============================================
@@ -421,6 +438,7 @@ model Staff {
   notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
 
   termsAcceptances TermsAcceptance[]
+  sentSmsLogs      SmsSendLog[]     @relation("SentSmsLogs")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -491,8 +509,10 @@ model Organization {
   missedCallTextBack            Boolean  @default(false)
   autoSendFormClientUploadLink  Boolean  @default(false)
 
-  staff      Staff[]
-  clients    Client[]
+  staff       Staff[]
+  clients     Client[]
+  leads       Lead[]
+  smsSendLogs SmsSendLog[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -509,15 +529,17 @@ model Client {
   email     String?
   language  Language @default(VI)
   source    ClientSource @default(MANUAL)
+  tags      String[]     @default([])
 
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
   notes          String?   @db.Text  // Rich text notes (HTML from Tiptap)
   notesUpdatedAt DateTime? // Track when notes last edited
 
-  profile      ClientProfile?
-  engagements  TaxEngagement[]
-  taxCases     TaxCase[]
+  profile        ClientProfile?
+  engagements    TaxEngagement[]
+  taxCases       TaxCase[]
+  convertedLeads Lead[]          @relation("ConvertedLead")
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -1308,4 +1330,64 @@ model DocumentView {
   @@unique([staffId, rawImageId])
   @@index([staffId])
   @@index([rawImageId])
+}
+
+// ============================================
+// LEAD / MARKETING
+// ============================================
+
+model Lead {
+  id             String       @id @default(cuid())
+  firstName      String
+  lastName       String
+  phone          String
+  email          String?
+  businessName   String?
+  status         LeadStatus   @default(NEW)
+  campaignTag    String?      @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
+  tags           String[]     @default([])
+  notes          String?      @db.Text
+
+  // Conversion tracking
+  convertedToId  String?
+  convertedTo    Client?      @relation("ConvertedLead", fields: [convertedToId], references: [id], onDelete: SetNull)
+  convertedAt    DateTime?
+
+  // Organization scope
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relations
+  smsSendLogs    SmsSendLog[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([phone, organizationId])
+  @@index([status])
+  @@index([organizationId, status])
+  @@index([phone])
+}
+
+model SmsSendLog {
+  id             String        @id @default(cuid())
+  message        String        @db.Text
+  status         SmsSendStatus
+  twilioSid      String?
+  error          String?
+
+  // Relations
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sentById       String
+  sentBy         Staff         @relation("SentSmsLogs", fields: [sentById], references: [id])
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  sentAt         DateTime      @default(now())
+
+  @@index([leadId])
+  @@index([organizationId])
+  @@index([sentById])
+  @@index([twilioSid])
 }

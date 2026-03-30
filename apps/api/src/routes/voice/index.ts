@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { generateVoiceToken, isVoiceConfigured } from '../../services/voice'
 import { prisma } from '../../lib/db'
+import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 import { presenceRateLimit } from '../../middleware/rate-limiter'
 
@@ -291,6 +292,29 @@ voiceRoutes.post('/calls', zValidator('json', initiateCallSchema), async (c) => 
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: { lastMessageAt: new Date() },
+    })
+
+    // Emit chat monitoring event for staff outbound calls
+    const clientName = taxCase.client.name ||
+      `${taxCase.client.firstName} ${taxCase.client.lastName || ''}`.trim()
+
+    const staff = await prisma.staff.findUnique({
+      where: { id: user.staffId },
+      select: { name: true },
+    })
+
+    inngest.send({
+      name: 'message/staff-sent',
+      data: {
+        staffId: user.staffId,
+        staffName: staff?.name || 'Staff',
+        caseId,
+        clientName,
+        staffCaseKey: `${user.staffId}-${caseId}`,
+        type: 'call',
+      },
+    }).catch((err) => {
+      console.error('[Voice Calls] Failed to emit staff chat event:', err)
     })
 
     return c.json({

@@ -8,9 +8,8 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Button, Input } from '@ella/ui'
 import { api } from '../../lib/api-client'
+import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
-
-const PORTAL_BASE_URL = import.meta.env.VITE_PORTAL_URL || 'https://portal.ellatax.com'
 
 interface StaffFormLinkCardProps {
   staffId: string
@@ -61,14 +60,27 @@ export function StaffFormLinkCard({
     },
   })
 
+  const [optimisticAutoSend, setOptimisticAutoSend] = useState(autoSendUploadLink)
+
+  // Sync optimistic state when prop changes from server
+  const [prevAutoSend, setPrevAutoSend] = useState(autoSendUploadLink)
+  if (autoSendUploadLink !== prevAutoSend) {
+    setPrevAutoSend(autoSendUploadLink)
+    setOptimisticAutoSend(autoSendUploadLink)
+  }
+
   const toggleMutation = useMutation({
     mutationFn: (enabled: boolean) =>
       api.staff.updateAutoSendUploadLink(enabled),
+    onMutate: (enabled: boolean) => {
+      setOptimisticAutoSend(enabled)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       toast.success(t('settings.saved'))
     },
     onError: () => {
+      setOptimisticAutoSend(autoSendUploadLink)
       toast.error(t('settings.saveFailed'))
     },
   })
@@ -239,14 +251,14 @@ export function StaffFormLinkCard({
             </div>
           </div>
           <button
-            onClick={() => toggleMutation.mutate(!autoSendUploadLink)}
+            onClick={() => toggleMutation.mutate(!optimisticAutoSend)}
             disabled={toggleMutation.isPending}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              autoSendUploadLink ? 'bg-primary' : 'bg-muted'
+              optimisticAutoSend ? 'bg-primary' : 'bg-muted-foreground/40'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              autoSendUploadLink ? 'translate-x-6' : 'translate-x-1'
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+              optimisticAutoSend ? 'translate-x-5' : 'translate-x-0.5'
             }`} />
           </button>
         </div>

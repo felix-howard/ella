@@ -24,8 +24,9 @@ export const notifyAdminStaffChatJob = inngest.createFunction(
   },
   { event: 'message/staff-sent' },
   async ({ events, step }) => {
-    const { staffId, staffName, clientName } = events[0].data
+    const { staffId, staffName, clientName, type } = events[0].data
     const messageCount = events.length
+    const activityType = type || 'message'
 
     // Step 1: Get sending staff's org
     const sendingStaff = await step.run('get-staff-org', async () => {
@@ -100,6 +101,7 @@ export const notifyAdminStaffChatJob = inngest.createFunction(
             clientName,
             messageCount,
             language: (recipient.language as 'VI' | 'EN') || 'VI',
+            activityType,
           })
 
           sendResults.push({

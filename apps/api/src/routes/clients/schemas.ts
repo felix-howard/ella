@@ -131,6 +131,7 @@ export const updateClientSchema = z.object({
   phone: phoneSchema.optional(),
   email: z.string().email().nullable().optional(),
   language: z.enum(['VI', 'EN']).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9-]+$/).max(50)).max(20).optional(),
 })
 
 // Client ID param validation (CUID format)
@@ -147,6 +148,8 @@ export const listClientsQuerySchema = z.object({
   managedById: z.string().regex(/^c[a-z0-9]{24}$/, 'Invalid staff ID format').optional(),
   // Quick filter for attention-needed clients
   attention: z.enum(['newUploads', 'needsVerification', 'stale', 'readyForEntry']).optional(),
+  // Filter by tag
+  tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
 })
 
 // Cascade cleanup input

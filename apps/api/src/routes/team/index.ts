@@ -55,6 +55,7 @@ teamRoute.get('/members', async (c) => {
       avatarUrl: true,
       lastLoginAt: true,
       isActive: true,
+      formSlug: true,
       _count: { select: { managedClients: true } },
     },
     orderBy: { name: 'asc' },

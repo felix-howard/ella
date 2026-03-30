@@ -7,9 +7,10 @@ import { EllaLogoFull } from '@ella/ui'
 interface FormHeaderProps {
   orgName: string
   staffName?: string
+  showDescription?: boolean
 }
 
-export function FormHeader({ orgName, staffName }: FormHeaderProps) {
+export function FormHeader({ orgName, staffName, showDescription = true }: FormHeaderProps) {
   const { t } = useTranslation()
 
   return (
@@ -28,9 +29,11 @@ export function FormHeader({ orgName, staffName }: FormHeaderProps) {
         </p>
       )}
 
-      <p className="text-sm text-muted-foreground mt-3 max-w-xs mx-auto">
-        {t('form.description')}
-      </p>
+      {showDescription && (
+        <p className="text-sm text-muted-foreground mt-3 max-w-xs mx-auto">
+          {t('form.description')}
+        </p>
+      )}
     </div>
   )
 }

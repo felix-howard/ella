@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
+import type { ClientSource } from '@ella/db'
 import {
   getPaginationParams,
   buildPaginationResponse,
@@ -90,7 +91,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, managedById, attention } = c.req.valid('query')
+  const { page, limit, search, managedById, attention, tag } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -117,6 +118,10 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
   // Managed By filter (admin only — non-admins already scoped by buildClientScopeFilter)
   if (managedById && isAdmin) {
     where.managedById = managedById
+  }
+
+  if (tag) {
+    where.tags = { has: tag }
   }
 
   const orderBy = { createdAt: 'desc' as const }
@@ -268,7 +273,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       phone: client.phone,
       email: client.email,
       language: client.language as 'VI' | 'EN',
-      source: client.source as 'MANUAL' | 'FORM',
+      source: client.source as ClientSource,
+      tags: client.tags,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
@@ -322,6 +328,23 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
     pagination: buildPaginationResponse(safePage, safeLimit, attention ? filteredData.length : total),
     attentionSummary,
   })
+})
+
+// GET /clients/tags - Get distinct tags for filter dropdown
+clientsRoute.get('/tags', async (c) => {
+  const user = c.get('user')
+  const scopeFilter = buildClientScopeFilter(user)
+  const orgId = scopeFilter.organizationId as string
+  if (!orgId) {
+    return c.json({ success: true, data: [] })
+  }
+  const result = await prisma.$queryRaw<Array<{ tag: string }>>`
+    SELECT DISTINCT unnest(tags) as tag
+    FROM "Client"
+    WHERE "organizationId" = ${orgId}
+    ORDER BY tag
+  `
+  return c.json({ success: true, data: result.map((r) => r.tag) })
 })
 
 // POST /clients - Create new client with profile and tax case
@@ -663,13 +686,19 @@ clientsRoute.patch(
     }
 
     // Explicitly pick only allowed fields to prevent mass assignment
-    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language'] as const
+    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags'] as const
     const updateData = pickFields(body, [...allowedFields]) as {
       firstName?: string
       lastName?: string | null
       phone?: string
       email?: string | null
       language?: Language
+      tags?: string[]
+    }
+
+    // Normalize tags (consistent with lead tag handling)
+    if (updateData.tags) {
+      updateData.tags = updateData.tags.map(t => t.trim().toLowerCase())
     }
 
     // Recompute display name if firstName or lastName changed

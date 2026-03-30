@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, MessageSquare } from 'lucide-react'
 import { api } from '../../lib/api-client'
 import type { LeadStatus } from '../../lib/api-client'
+import { CustomSelect } from '../ui/custom-select'
 
 interface LeadsToolbarProps {
   search: string
@@ -47,29 +48,25 @@ export function LeadsToolbar({
         />
       </div>
 
-      <select
+      <CustomSelect
         value={statusFilter}
-        onChange={(e) => onStatusFilterChange(e.target.value as LeadStatus | '')}
-        className="px-3 py-2 rounded-full bg-card shadow-sm text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-      >
-        {STATUSES.map((status) => (
-          <option key={status || 'all'} value={status}>
-            {status ? t(`leads.status.${status}`) : t('leads.allStatuses')}
-          </option>
-        ))}
-      </select>
+        onChange={(val) => onStatusFilterChange(val as LeadStatus | '')}
+        options={STATUSES.filter(Boolean).map((status) => ({
+          value: status,
+          label: t(`leads.status.${status}`),
+        }))}
+        placeholder={t('leads.allStatuses')}
+        className="w-36"
+      />
 
       {tags.length > 0 && (
-        <select
+        <CustomSelect
           value={tagFilter}
-          onChange={(e) => onTagFilterChange(e.target.value)}
-          className="px-3 py-2 rounded-full bg-card shadow-sm text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-        >
-          <option value="">{t('leads.allTags')}</option>
-          {tags.map((tag) => (
-            <option key={tag} value={tag}>{tag}</option>
-          ))}
-        </select>
+          onChange={onTagFilterChange}
+          options={tags.map((tag) => ({ value: tag, label: tag }))}
+          placeholder={t('leads.allTags')}
+          className="w-36"
+        />
       )}
 
       {selectedCount > 0 && (

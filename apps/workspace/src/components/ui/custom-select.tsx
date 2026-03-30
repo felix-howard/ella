@@ -68,11 +68,11 @@ export function CustomSelect({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground text-left',
+          'w-full px-3 py-2 rounded-full bg-card shadow-sm text-foreground text-left text-sm',
           'flex items-center justify-between',
-          'focus:outline-none',
+          'focus:outline-none focus:ring-2 focus:ring-primary/20',
           'transition-colors',
-          error ? 'border-error' : 'border-border',
+          error ? 'border border-error' : '',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
       >

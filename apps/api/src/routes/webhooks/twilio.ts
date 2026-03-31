@@ -609,7 +609,7 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
       // Unknown caller or known client without conversation — create placeholder
       console.log(`[Incoming Webhook] Creating placeholder conversation for unknown caller ${from}`)
       const defaultOrgId = clientOrgId || await findDefaultOrganizationId()
-      const placeholderConv = await createPlaceholderConversation(from, defaultOrgId)
+      const placeholderConv = await createPlaceholderConversation(from, defaultOrgId, 'INCOMING_CALL')
 
       await prisma.$transaction(async (tx) => {
         await tx.message.create({
@@ -954,7 +954,7 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
     if (!conversation) {
       console.log(`[Voicemail Recording] Unknown caller ${callerPhone}, creating placeholder conversation`)
       const defaultOrgId = await findDefaultOrganizationId()
-      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId)
+      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId, 'INCOMING_CALL')
     }
 
     // Create new voicemail message

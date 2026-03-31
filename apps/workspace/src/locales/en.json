@@ -290,6 +290,8 @@
   "clients.sourceGenericForm": "Form",
   "clients.sourceStaffForm": "Staff Form",
   "clients.sourceConverted": "Converted",
+  "clients.sourceIncomingSms": "Incoming SMS",
+  "clients.sourceIncomingCall": "Incoming Call",
   "clients.tags": "Tags",
   "clients.allTags": "All Tags",
   "clients.sendUploadLink": "Send Upload Link",

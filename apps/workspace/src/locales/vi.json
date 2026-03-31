@@ -288,6 +288,8 @@
   "clients.sourceGenericForm": "Form",
   "clients.sourceStaffForm": "Form NV",
   "clients.sourceConverted": "Chuyển đổi",
+  "clients.sourceIncomingSms": "SMS đến",
+  "clients.sourceIncomingCall": "Gọi đến",
   "clients.tags": "Nhãn",
   "clients.allTags": "Tất cả nhãn",
   "clients.sendUploadLink": "Gửi link upload",

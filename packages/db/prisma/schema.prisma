@@ -391,6 +391,8 @@ enum ClientSource {
   GENERIC_FORM
   STAFF_FORM
   CONVERTED
+  INCOMING_SMS
+  INCOMING_CALL
 }
 
 // ============================================

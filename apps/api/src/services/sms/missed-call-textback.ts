@@ -58,7 +58,7 @@ export async function sendMissedCallTextBack(
 
     if (!conversation) {
       const defaultOrgId = organizationId || await findDefaultOrganizationId()
-      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId)
+      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId, 'INCOMING_CALL')
     }
 
     // Send SMS

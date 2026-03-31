@@ -197,7 +197,7 @@ export async function processIncomingMessage(
 
     // Create placeholder client + tax case + conversation (atomic transaction)
     const defaultOrgId = await findDefaultOrganizationId()
-    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId)
+    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId, 'INCOMING_SMS')
     conversationId = placeholderConversation.id
 
     // Get the case ID from the conversation

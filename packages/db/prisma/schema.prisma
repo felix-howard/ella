@@ -564,6 +564,7 @@ model Client {
   @@index([managedById])
   @@index([createdById])
   @@index([updatedById])
+  @@index([tags], type: Gin)
 }
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
@@ -762,6 +763,7 @@ model RawImage {
   @@index([caseId, reuploadRequested])
   @@index([documentGroupId])          // Multi-page grouping lookup
   @@index([caseId, documentGroupId])  // Find pages in same group
+  @@index([aiMetadata])               // AI metadata queries
 }
 
 // Groups duplicate images of the same physical document
@@ -1369,6 +1371,7 @@ model Lead {
   @@index([status])
   @@index([organizationId, status])
   @@index([phone])
+  @@index([tags], type: Gin)
 }
 
 model SmsSendLog {

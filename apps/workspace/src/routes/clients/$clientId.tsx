@@ -34,6 +34,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
 const DraftReturnTab = lazy(() => import('../../components/draft-return').then(m => ({ default: m.DraftReturnTab })))
+const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -64,7 +65,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'form-1099-nec'
 
 function ClientDetailPage() {
   const { t } = useTranslation()
@@ -467,6 +468,8 @@ function ClientDetailPage() {
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
     // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
     ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
+    // 1099-NEC tab: Only for BUSINESS clients
+    ...(client.clientType === 'BUSINESS' ? [{ id: 'form-1099-nec' as TabType, label: '1099-NEC', icon: FileText }] : []),
     // Schedule E tab: Always visible (no trigger condition like Schedule C)
     { id: 'schedule-e', label: 'Schedule E', icon: Home },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
@@ -781,6 +784,15 @@ function ClientDetailPage() {
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.draftReturnError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <DraftReturnTab caseId={activeCaseId} clientName={client.name} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* 1099-NEC Tab - Contractor management for business clients (lazy loaded) */}
+      {activeTab === 'form-1099-nec' && client.clientType === 'BUSINESS' && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load 1099-NEC tab</div>}>
+          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
+            <Form1099NECTab clientId={clientId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

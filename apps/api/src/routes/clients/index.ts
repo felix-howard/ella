@@ -22,6 +22,7 @@ import {
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
   updateNotesSchema,
+  updateBusinessFieldsSchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -33,6 +34,7 @@ import { createMagicLink } from '../../services/magic-link'
 import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
+import { encryptSSN } from '../../services/crypto'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
@@ -719,6 +721,61 @@ clientsRoute.patch(
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
     })
+  }
+)
+
+// PATCH /clients/:id/business - Update business fields for 1099-NEC
+clientsRoute.patch(
+  '/:id/business',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', updateBusinessFieldsSchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const user = c.get('user')
+
+    const existing = await prisma.client.findFirst({
+      where: { id, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+    if (!existing) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (body.clientType !== undefined) updateData.clientType = body.clientType
+    if (body.businessName !== undefined) updateData.businessName = body.businessName
+    if (body.businessType !== undefined) updateData.businessType = body.businessType
+    if (body.businessAddress !== undefined) updateData.businessAddress = body.businessAddress
+    if (body.businessCity !== undefined) updateData.businessCity = body.businessCity
+    if (body.businessState !== undefined) updateData.businessState = body.businessState
+    if (body.businessZip !== undefined) updateData.businessZip = body.businessZip
+
+    // Encrypt EIN if provided
+    if (body.ein) {
+      updateData.einEncrypted = encryptSSN(body.ein)
+    }
+
+    updateData.updatedById = user.staffId
+
+    const client = await prisma.client.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        clientType: true,
+        businessName: true,
+        businessType: true,
+        businessAddress: true,
+        businessCity: true,
+        businessState: true,
+        businessZip: true,
+        updatedAt: true,
+      },
+    })
+
+    console.log(`[Clients] Updated business fields for client ${id} by staff ${user.staffId}`)
+    return c.json({ data: client })
   }
 )
 

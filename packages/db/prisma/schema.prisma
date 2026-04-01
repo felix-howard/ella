@@ -30,6 +30,19 @@ enum TaxType {
   FORM_1065
 }
 
+enum ClientType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum BusinessType {
+  SOLE_PROPRIETORSHIP
+  LLC
+  PARTNERSHIP
+  S_CORP
+  C_CORP
+}
+
 enum DocType {
   // Personal / Identity
   SSN_CARD
@@ -533,6 +546,16 @@ model Client {
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
 
+  // Business client fields (for 1099-NEC filing)
+  clientType      ClientType   @default(INDIVIDUAL)
+  businessName    String?
+  businessType    BusinessType?
+  einEncrypted    String?      // AES-256-GCM encrypted EIN
+  businessAddress String?
+  businessCity    String?
+  businessState   String?
+  businessZip     String?
+
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
   notes          String?   @db.Text  // Rich text notes (HTML from Tiptap)
@@ -542,6 +565,7 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
+  contractors    Contractor[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -1395,4 +1419,30 @@ model SmsSendLog {
   @@index([organizationId])
   @@index([sentById])
   @@index([twilioSid])
+}
+
+// ============================================
+// 1099-NEC: Contractor for business clients
+// ============================================
+
+model Contractor {
+  id                  String   @id @default(cuid())
+  clientId            String
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firstName           String
+  lastName            String
+  ssnEncrypted        String   // AES-256-GCM encrypted SSN
+  ssnLast4            String   // Last 4 digits for masked display
+  address             String
+  city                String
+  state               String
+  zip                 String
+  email               String?
+  phone               String?
+  tax1099RecipientId  String?  // External ID from Tax1099 API
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([clientId])
 }

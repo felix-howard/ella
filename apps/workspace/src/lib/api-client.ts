@@ -313,6 +313,36 @@ export const api = {
       request<{ id: string; avatarUrl: null }>(`/clients/${id}/avatar`, {
         method: 'DELETE',
       }),
+
+    // Business fields for 1099-NEC
+    updateBusiness: (id: string, data: UpdateBusinessFieldsInput) =>
+      request<{ data: Client }>(`/clients/${id}/business`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  },
+
+  // Contractors (nested under clients)
+  contractors: {
+    list: (clientId: string) =>
+      request<{ data: Contractor[] }>(`/clients/${clientId}/contractors`),
+
+    create: (clientId: string, data: CreateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (clientId: string, id: string, data: UpdateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (clientId: string, id: string) =>
+      request<{ success: boolean }>(`/clients/${clientId}/contractors/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   // Tax Cases
@@ -1116,6 +1146,9 @@ export interface OcrTriggerResponse {
 }
 
 // Client types
+export type ClientType = 'INDIVIDUAL' | 'BUSINESS'
+export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+
 export interface Client {
   id: string
   firstName: string
@@ -1126,9 +1159,67 @@ export interface Client {
   language: Language
   source?: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
   tags: string[]
+  clientType: ClientType
+  businessName?: string | null
+  businessType?: BusinessType | null
+  businessAddress?: string | null
+  businessCity?: string | null
+  businessState?: string | null
+  businessZip?: string | null
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
+}
+
+export interface Contractor {
+  id: string
+  firstName: string
+  lastName: string
+  ssnLast4: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string | null
+  phone?: string | null
+  tax1099RecipientId?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateContractorInput {
+  firstName: string
+  lastName: string
+  ssn: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string
+  phone?: string
+}
+
+export interface UpdateContractorInput {
+  firstName?: string
+  lastName?: string
+  ssn?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  email?: string | null
+  phone?: string | null
+}
+
+export interface UpdateBusinessFieldsInput {
+  clientType?: ClientType
+  businessName?: string
+  businessType?: BusinessType | null
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
 }
 
 // Action counts for client list view

@@ -31,6 +31,7 @@ import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
+import { contractorsRoute } from './routes/contractors'
 
 const app = new OpenAPIHono()
 
@@ -86,6 +87,7 @@ app.use('/terms/*', authMiddleware)
 app.use('/clients/*', deprecationHeadersMiddleware)
 app.use('/cases/*', deprecationHeadersMiddleware)
 app.route('/clients', clientsRoute)
+app.route('/clients', contractorsRoute) // /clients/:clientId/contractors
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)

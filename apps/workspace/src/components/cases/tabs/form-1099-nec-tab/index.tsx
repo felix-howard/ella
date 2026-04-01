@@ -1,16 +1,18 @@
 /**
  * 1099-NEC Tab - Contractor management for business clients
  * Shows contractor table with CRUD operations
- * Phase 1: Basic table + add/edit/delete
- * Phase 2+: Excel upload, Tax1099 integration, PDF generation
+ * Supports Excel upload with review table for bulk import
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload } from 'lucide-react'
 import { Button } from '@ella/ui'
-import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput } from '../../../../lib/api-client'
+import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
+import { toast } from '../../../../stores/toast-store'
 import { ContractorTable } from './contractor-table'
 import { ContractorFormModal } from './contractor-form-modal'
+import { ContractorUpload } from './contractor-upload'
+import { ContractorReviewTable } from './contractor-review-table'
 
 interface Form1099NECTabProps {
   clientId: string
@@ -21,6 +23,8 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null)
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null)
+  const [showUpload, setShowUpload] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contractors', clientId],
@@ -58,6 +62,33 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
     },
   })
 
+  const bulkSaveMutation = useMutation({
+    mutationFn: (contractors: ParsedContractor[]) =>
+      api.contractors.bulkSave(clientId, {
+        contractors: contractors.map((c) => ({
+          firstName: c.firstName,
+          lastName: c.lastName,
+          ssn: c.ssn,
+          address: c.address,
+          city: c.city,
+          state: c.state,
+          zip: c.zip,
+          email: c.email || '',
+          amountPaid: c.amountPaid,
+        })),
+        taxYear: contractors[0]?.taxYear ?? new Date().getFullYear(),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      setParseResult(null)
+      setShowUpload(false)
+      toast.success(`${data.count} contractors saved`)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to save contractors')
+    },
+  })
+
   const contractors = data?.data ?? []
 
   if (isLoading) {
@@ -81,6 +112,22 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
             Retry
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  // Review table after Excel parse
+  if (parseResult) {
+    return (
+      <div className="bg-card rounded-xl border border-border p-4">
+        <ContractorReviewTable
+          contractors={parseResult.contractors}
+          taxYear={parseResult.taxYear}
+          businessName={parseResult.businessName}
+          onSave={(reviewed) => bulkSaveMutation.mutate(reviewed)}
+          onCancel={() => setParseResult(null)}
+          isSaving={bulkSaveMutation.isPending}
+        />
       </div>
     )
   }
@@ -110,6 +157,15 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpload(!showUpload)}
+              className="gap-1.5"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Excel
+            </Button>
+            <Button
               size="sm"
               onClick={() => setIsFormOpen(true)}
               className="gap-1.5"
@@ -120,18 +176,40 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
           </div>
         </div>
 
+        {/* Upload dropzone (toggleable) */}
+        {showUpload && (
+          <div className="mb-4">
+            <ContractorUpload
+              clientId={clientId}
+              onParsed={(data) => {
+                setParseResult(data)
+                setShowUpload(false)
+              }}
+            />
+          </div>
+        )}
+
         {/* Contractor Table or Empty State */}
-        {contractors.length === 0 ? (
+        {contractors.length === 0 && !showUpload ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
               <Plus className="w-6 h-6 text-muted-foreground" />
             </div>
             <h3 className="text-sm font-medium text-foreground mb-1">Add your first contractor</h3>
-            <p className="text-xs text-muted-foreground max-w-sm">
-              Add contractors who received payments for {clientName}. You can also upload an Excel file with contractor data in the next phase.
+            <p className="text-xs text-muted-foreground max-w-sm mb-4">
+              Add contractors who received payments for {clientName}, or upload an Excel file to import them in bulk.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpload(true)}
+              className="gap-1.5"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Excel
+            </Button>
           </div>
-        ) : (
+        ) : contractors.length > 0 ? (
           <ContractorTable
             contractors={contractors}
             onEdit={handleEdit}
@@ -141,7 +219,7 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
             }}
             deletingId={deletingId}
           />
-        )}
+        ) : null}
       </div>
 
       {/* Add/Edit Contractor Modal */}

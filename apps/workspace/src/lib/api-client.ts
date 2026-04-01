@@ -87,13 +87,16 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   try {
+    // Skip Content-Type for FormData (browser sets multipart boundary automatically)
+    const isFormData = fetchOptions.body instanceof FormData
+    const headers = isFormData
+      ? { ...fetchOptions.headers }
+      : { 'Content-Type': 'application/json', ...fetchOptions.headers }
+
     const response = await fetch(url, {
       ...fetchOptions,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...fetchOptions.headers,
-      },
+      headers,
     })
 
     let data: unknown
@@ -342,6 +345,18 @@ export const api = {
     delete: (clientId: string, id: string) =>
       request<{ success: boolean }>(`/clients/${clientId}/contractors/${id}`, {
         method: 'DELETE',
+      }),
+
+    uploadExcel: (clientId: string, formData: FormData) =>
+      request<{ success: boolean; data: ParseResult }>(`/clients/${clientId}/contractors/upload-excel`, {
+        method: 'POST',
+        body: formData,
+      }),
+
+    bulkSave: (clientId: string, data: BulkSaveContractorsInput) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/bulk-save`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
 
@@ -1209,6 +1224,46 @@ export interface UpdateContractorInput {
   zip?: string
   email?: string | null
   phone?: string | null
+}
+
+export interface ParsedContractor {
+  rowIndex: number
+  taxYear: number
+  businessName: string
+  firstName: string
+  lastName: string
+  rawAddress: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  ssn: string
+  ssnMasked: string
+  amountPaid: number
+  email?: string
+  parseWarnings: string[]
+}
+
+export interface ParseResult {
+  contractors: ParsedContractor[]
+  taxYear: number
+  businessName: string
+  errors: string[]
+}
+
+export interface BulkSaveContractorsInput {
+  contractors: {
+    firstName: string
+    lastName: string
+    ssn: string
+    address: string
+    city: string
+    state: string
+    zip: string
+    email?: string
+    amountPaid: number
+  }[]
+  taxYear: number
 }
 
 export interface UpdateBusinessFieldsInput {

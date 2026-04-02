@@ -7,6 +7,62 @@
 
 ## 2026-04-02
 
+### Feature: AI-Powered Address Parsing Fallback ✅ COMPLETE
+**Status:** Production Ready
+**Branch:** feature/more-ella-polish
+**Effort:** 2h
+**Completion Date:** 2026-04-02
+
+**What Changed:**
+- Added AI-powered address parsing fallback using Gemini for addresses without comma delimiters
+- Handles US addresses in formats like `6424 NW 53 RD ST LAUDERHILL, FL 33319` and `7610 STIRLING RD APT D105 HOLLYWOOD FL 33024`
+- Batch processing with 50 address limit prevents context overflow
+- Graceful degradation when Gemini unavailable (original behavior preserved)
+- Input sanitization for prompt injection prevention
+
+**API Changes:**
+- `excel-parser.ts`: `parseNailSalonExcel()` now async with AI fallback for empty city fields
+- New service: `apps/api/src/services/ai/prompts/address-parser.ts` - Batched US address parsing prompt
+- New function: `parseAddressesWithAI()` in excel-parser for Gemini integration
+- Route handler: `apps/api/src/routes/contractors/index.ts` updated with await for async parser
+
+**Implementation Details:**
+- Regex parser remains primary for reliable fields (SSN, amount, name, state, zip)
+- Gemini called only when city extraction fails (empty city field)
+- AI responses validated with type guards to prevent hallucination
+- Results merged back into contractor records with updated warning message
+- Max batch size: 50 addresses per AI call
+
+**Backend Changes:**
+- New prompt file: `apps/api/src/services/ai/prompts/address-parser.ts`
+  - `AddressParseInput` / `AddressParseResult` / `AddressParseResponse` types
+  - `getAddressParsePrompt()` - Generates batched address parsing prompt with few-shot examples
+  - `validateAddressParseResponse()` - Type guard validation
+- Modified: `apps/api/src/services/excel-parser.ts`
+  - Made `parseNailSalonExcel()` async
+  - Added `parseAddressesWithAI()` for Gemini batch calls
+  - Collect failed addresses and merge AI results
+  - Warning text: "City/address split may need review" → "City extracted by AI"
+- Modified: `apps/api/src/routes/contractors/index.ts`
+  - Added await to parser call (line 299)
+
+**No Changes Required:**
+- Frontend (city field populated instead of empty)
+- Database schema
+- npm dependencies
+
+**Testing:**
+- Compilation: `pnpm -F api build` passes
+- Regex parser: Still handles addresses with comma delimiters
+- AI fallback: Extracts city from problematic addresses
+- Graceful degradation: Empty city + original warning when Gemini unavailable
+- Batch processing: 50-address limit prevents context overflow
+- Prompt injection: Input sanitized before Gemini submission
+
+---
+
+## 2026-04-02
+
 ### Feature: Tax1099 API Integration - Phase 3 ✅ COMPLETE
 **Status:** Production Ready
 **Branch:** feature/more-ella-polish

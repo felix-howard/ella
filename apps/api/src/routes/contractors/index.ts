@@ -296,7 +296,7 @@ contractorsRoute.post('/:clientId/contractors/upload-excel', async (c) => {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
-    const result = parseNailSalonExcel(buffer)
+    const result = await parseNailSalonExcel(buffer)
 
     console.log(`[Contractors] Parsed Excel: ${result.contractors.length} contractors for client ${clientId} by staff ${user.staffId}`)
     return c.json({ success: true, data: result })

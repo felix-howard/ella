@@ -949,8 +949,17 @@ apps/api/src/services/ai/
 ├── blur-detector.ts - Quality detection
 └── prompts/
     ├── classify.ts - Classification + SmartRename prompts
+    ├── address-parser.ts - US address parsing (structured extraction for contractors)
     └── ocr/ - 22 OCR extraction prompts (forms 1040, schedules, income docs)
 ```
+
+**Address Parsing Service (NEW - Excel Import Fallback):**
+- Used in `excel-parser.ts` when regex fails to extract city from contractor addresses
+- Batch API calls: up to 50 addresses per request, handles network fallback gracefully
+- Input: raw address strings (e.g., "6424 NW 53 RD ST LAUDERHILL, FL 33319")
+- Output: structured { address, city, state, zip } with index mapping for fast lookup
+- Validation: response type checking + address field verification
+- Graceful degradation: AI parsing optional (if no Gemini key, continues with regex results)
 
 **Phase 02 Fallback Smart Rename:**
 - Triggered when classification confidence < 60%

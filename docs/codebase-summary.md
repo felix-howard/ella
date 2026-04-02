@@ -155,6 +155,15 @@
 - `POST /clients/:clientId/contractors` - Create contractor (name, address, phone, ssn4Encrypted, einEncrypted, businessType, amount1099)
 - `PATCH /clients/:clientId/contractors/:contractorId` - Update contractor details
 - `DELETE /clients/:clientId/contractors/:contractorId` - Delete contractor
+- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block), with AI address parsing fallback
+- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to database
+
+**Excel Parsing with AI Fallback:**
+- Service: `apps/api/src/services/excel-parser.ts`
+- Format: 2 contractors per row block (left: columns A-C, right: columns E-G)
+- Address parsing: Regex first (comma-based city split), AI fallback (Gemini) if city extraction fails
+- AI service: Batch processing up to 50 addresses per request, returns structured { address, city, state, zip }
+- Validation: Type checking + response format verification, graceful degradation if AI unavailable
 
 ## Frontend Architecture
 

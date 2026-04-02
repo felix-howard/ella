@@ -4,6 +4,14 @@
  * Left contractor: columns A-C, Right contractor: columns E-G
  */
 import * as XLSX from 'xlsx'
+import { generateJsonContent, isGeminiConfigured } from './ai/gemini-client'
+import {
+  getAddressParsePrompt,
+  validateAddressParseResponse,
+  type AddressParseInput,
+  type AddressParseResult,
+  type AddressParseResponse,
+} from './ai/prompts/address-parser'
 
 // --- Types ---
 
@@ -31,6 +39,9 @@ export interface ParseResult {
   businessName: string
   errors: string[]
 }
+
+const ADDRESS_WARNING_NEEDS_REVIEW = 'City/address split may need review'
+const ADDRESS_WARNING_AI_EXTRACTED = 'City extracted by AI'
 
 // --- Address Parser ---
 
@@ -80,8 +91,59 @@ export function parseAddress(raw: string): {
   }
 
   // No comma — city/address split uncertain
-  warnings.push('City/address split may need review')
+  warnings.push(ADDRESS_WARNING_NEEDS_REVIEW)
   return { address: beforeStateZip, city: '', state, zip, warnings }
+}
+
+// --- AI Address Parser Fallback ---
+
+const MAX_AI_BATCH_SIZE = 50
+
+/**
+ * Parse addresses using Gemini AI when regex fails
+ * Returns a Map of index -> parsed result for fast lookup
+ */
+async function parseAddressesWithAI(
+  inputs: AddressParseInput[]
+): Promise<Map<number, AddressParseResult>> {
+  const resultMap = new Map<number, AddressParseResult>()
+
+  if (!isGeminiConfigured || inputs.length === 0) {
+    return resultMap
+  }
+
+  // Batch if needed
+  const batches: AddressParseInput[][] = []
+  for (let i = 0; i < inputs.length; i += MAX_AI_BATCH_SIZE) {
+    batches.push(inputs.slice(i, i + MAX_AI_BATCH_SIZE))
+  }
+
+  for (const batch of batches) {
+    try {
+      const prompt = getAddressParsePrompt(batch)
+      const response = await generateJsonContent<AddressParseResponse>(prompt)
+
+      if (!response.success || !response.data) {
+        console.warn('[ExcelParser] AI address parsing failed:', response.error)
+        continue
+      }
+
+      if (!validateAddressParseResponse(response.data)) {
+        console.warn('[ExcelParser] AI address response validation failed')
+        continue
+      }
+
+      for (const addr of response.data.addresses) {
+        if (addr.city) {
+          resultMap.set(addr.index, addr)
+        }
+      }
+    } catch (err) {
+      console.error('[ExcelParser] AI address parsing error:', err)
+    }
+  }
+
+  return resultMap
 }
 
 // --- Name Parser ---
@@ -258,7 +320,7 @@ const MAX_ROWS = 5000 // Safety limit to prevent memory abuse
  * Left contractor: columns 0-2 (A-C)
  * Right contractor: columns 4-6 (E-G)
  */
-export function parseNailSalonExcel(buffer: Buffer): ParseResult {
+export async function parseNailSalonExcel(buffer: Buffer): Promise<ParseResult> {
   const workbook = XLSX.read(buffer, { type: 'buffer' })
   const sheet = workbook.Sheets[workbook.SheetNames[0]]
   const ref = sheet['!ref']
@@ -303,6 +365,42 @@ export function parseNailSalonExcel(buffer: Buffer): ParseResult {
 
   if (contractors.length === 0) {
     errors.push('No contractor blocks found. Check Excel format.')
+  }
+
+  // --- AI Fallback for Failed Address Parsing ---
+  const failedAddresses: Array<{ idx: number; input: AddressParseInput }> = []
+
+  contractors.forEach((c, idx) => {
+    if (!c.city && c.rawAddress) {
+      failedAddresses.push({
+        idx,
+        input: { index: idx, raw: c.rawAddress },
+      })
+    }
+  })
+
+  if (failedAddresses.length > 0) {
+    console.log(`[ExcelParser] Attempting AI parsing for ${failedAddresses.length} addresses`)
+
+    const aiResults = await parseAddressesWithAI(
+      failedAddresses.map((f) => f.input)
+    )
+
+    for (const { idx } of failedAddresses) {
+      const aiResult = aiResults.get(idx)
+      if (aiResult && aiResult.city) {
+        const contractor = contractors[idx]
+        contractor.city = aiResult.city
+        if (aiResult.address) contractor.address = aiResult.address
+        if (aiResult.state) contractor.state = aiResult.state
+        if (aiResult.zip) contractor.zip = aiResult.zip
+        // Replace warning
+        const warningIdx = contractor.parseWarnings.indexOf(ADDRESS_WARNING_NEEDS_REVIEW)
+        if (warningIdx !== -1) {
+          contractor.parseWarnings[warningIdx] = ADDRESS_WARNING_AI_EXTRACTED
+        }
+      }
+    }
   }
 
   return { contractors, taxYear, businessName, errors }

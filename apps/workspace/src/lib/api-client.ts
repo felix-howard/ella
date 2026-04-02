@@ -188,15 +188,26 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headersWithAuth = {
     ...fetchOptions.headers,
     ...authHeaders,
-  }
+  } as Record<string, string>
 
   let lastError: ApiError | null = null
+  let hasRetriedAuth = false
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await attemptRequest<T>(url, { ...fetchOptions, headers: headersWithAuth }, timeout)
     } catch (error) {
       lastError = error instanceof ApiError ? error : new ApiError(0, 'UNKNOWN', 'Unknown error')
+
+      // On 401, refresh token and retry once
+      if (lastError.status === 401 && !hasRetriedAuth && getAuthToken) {
+        hasRetriedAuth = true
+        const freshToken = await getAuthToken()
+        if (freshToken) {
+          headersWithAuth['Authorization'] = `Bearer ${freshToken}`
+          continue // retry immediately with fresh token
+        }
+      }
 
       // Don't retry if not retryable or last attempt
       if (!isRetryable(lastError) || attempt === retries) {

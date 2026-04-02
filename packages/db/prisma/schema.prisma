@@ -1487,16 +1487,36 @@ model Form1099NEC {
   @@index([status])
 }
 
+enum FilingStatus {
+  PENDING
+  SUBMITTED
+  PROCESSING
+  ACCEPTED
+  PARTIALLY_ACCEPTED
+  REJECTED
+}
+
 model FilingBatch {
-  id             String        @id @default(cuid())
-  clientId       String
-  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  taxYear        Int
-  status         String        @default("PENDING") // PENDING, SUBMITTED, ACCEPTED, REJECTED
-  submittedAt    DateTime?
-  forms          Form1099NEC[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                  String        @id @default(cuid())
+  clientId            String
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear             Int
+  status              FilingStatus  @default(PENDING)
+  tax1099SubmissionId String?
+  submittedAt         DateTime?
+  acceptedAt          DateTime?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  totalForms          Int           @default(0)
+  acceptedForms       Int           @default(0)
+  rejectedForms       Int           @default(0)
+  tinCheckEnabled     Boolean       @default(true)
+  uspsEnabled         Boolean       @default(true)
+  eDeliveryEnabled    Boolean       @default(true)
+  forms               Form1099NEC[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   @@index([clientId])
+  @@index([status])
 }

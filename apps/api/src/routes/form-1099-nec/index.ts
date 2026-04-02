@@ -12,7 +12,9 @@ import { tax1099Client } from '../../services/tax1099-client'
 import { uploadFile, getSignedDownloadUrl } from '../../services/storage'
 import type { AuthVariables } from '../../middleware/auth'
 import { requireOrgAdmin } from '../../middleware/auth'
-import type { Form1099Status } from '@ella/db'
+import type { Form1099Status, FilingStatus } from '@ella/db'
+import { z } from 'zod'
+import { zValidator } from '@hono/zod-validator'
 
 const form1099NecRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -397,5 +399,281 @@ form1099NecRoute.get('/:clientId/1099-nec/:formId/pdf', async (c) => {
     filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}.pdf`,
   })
 })
+
+// ============================================
+// Submit & Filing Batch Endpoints
+// ============================================
+
+const submitSchema = z.object({
+  tinCheckEnabled: z.boolean().default(true),
+  uspsEnabled: z.boolean().default(true),
+  eDeliveryEnabled: z.boolean().default(true),
+})
+
+/**
+ * POST /clients/:clientId/1099-nec/submit
+ * Submit PDF-ready forms to IRS via Tax1099
+ */
+form1099NecRoute.post('/:clientId/1099-nec/submit', requireOrgAdmin, zValidator('json', submitSchema), async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+  const options = c.req.valid('json')
+
+  if (!config.tax1099.isConfigured) {
+    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+  }
+
+  const accessCheck = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'Client not found' }, 404)
+  }
+
+  // Get forms ready for submission (PDF_READY status with tax1099FormId)
+  const forms = await prisma.form1099NEC.findMany({
+    where: {
+      contractor: { clientId },
+      status: 'PDF_READY' as Form1099Status,
+      tax1099FormId: { not: null },
+    },
+  })
+
+  if (forms.length === 0) {
+    return c.json({ error: 'No forms ready for submission' }, 400)
+  }
+
+  // Guard: all forms must be same tax year
+  const taxYears = [...new Set(forms.map((f) => f.taxYear))]
+  if (taxYears.length > 1) {
+    return c.json({ error: 'Cannot submit forms from multiple tax years in one batch' }, 400)
+  }
+
+  // Create filing batch
+  const batch = await prisma.filingBatch.create({
+    data: {
+      clientId,
+      taxYear: forms[0].taxYear,
+      status: 'PENDING',
+      totalForms: forms.length,
+      tinCheckEnabled: options.tinCheckEnabled,
+      uspsEnabled: options.uspsEnabled,
+      eDeliveryEnabled: options.eDeliveryEnabled,
+    },
+  })
+
+  // Link forms to batch
+  await prisma.form1099NEC.updateMany({
+    where: { id: { in: forms.map((f) => f.id) } },
+    data: { batchId: batch.id },
+  })
+
+  try {
+    // Submit to Tax1099
+    const response = await tax1099Client.submitForms({
+      formIds: forms.map((f) => f.tax1099FormId!),
+      tinCheckAllForms: options.tinCheckEnabled,
+      uspsAllForms: options.uspsEnabled,
+      eDeliveryRecipientAllForms: options.eDeliveryEnabled,
+      isSeparateStateFiling: false,
+    })
+
+    // Update batch with submission result
+    await prisma.filingBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: 'SUBMITTED',
+        tax1099SubmissionId: response.submissionId,
+        submittedAt: new Date(),
+      },
+    })
+
+    // Update individual form statuses in batch
+    const now = new Date()
+    await prisma.$transaction(
+      response.forms
+        .filter((fr) => forms.some((f) => f.tax1099FormId === fr.formId))
+        .map((formResult) => {
+          const form = forms.find((f) => f.tax1099FormId === formResult.formId)!
+          return prisma.form1099NEC.update({
+            where: { id: form.id },
+            data: {
+              status: formResult.status === 'SUBMITTED' ? 'SUBMITTED' : 'REJECTED',
+              efileSubmittedAt: formResult.status === 'SUBMITTED' ? now : null,
+              efileStatus: formResult.status,
+              validationErrors: formResult.errors || [],
+            },
+          })
+        })
+    )
+
+    const submittedCount = response.forms.filter((f) => f.status === 'SUBMITTED').length
+    const rejectedCount = response.forms.filter((f) => f.status === 'REJECTED').length
+
+    return c.json({
+      success: true,
+      batchId: batch.id,
+      submittedCount,
+      rejectedCount,
+    })
+  } catch (error) {
+    // Mark batch as failed
+    await prisma.filingBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: error instanceof Error ? error.message : 'Submission failed',
+        rejectedAt: new Date(),
+      },
+    })
+
+    console.error('[1099-NEC] Submit failed:', error)
+    return c.json({
+      success: false,
+      batchId: batch.id,
+      error: error instanceof Error ? error.message : 'Submission failed',
+    }, 500)
+  }
+})
+
+/**
+ * GET /clients/:clientId/1099-nec/batches
+ * List filing batches for a client
+ */
+form1099NecRoute.get('/:clientId/1099-nec/batches', async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+
+  const accessCheck = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'Client not found' }, 404)
+  }
+
+  const batches = await prisma.filingBatch.findMany({
+    where: { clientId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      _count: { select: { forms: true } },
+    },
+  })
+
+  return c.json({ data: batches })
+})
+
+/**
+ * GET /clients/:clientId/1099-nec/batches/:batchId
+ * Get batch details with form statuses
+ */
+form1099NecRoute.get('/:clientId/1099-nec/batches/:batchId', async (c) => {
+  const user = c.get('user')
+  const { clientId, batchId } = c.req.param()
+
+  const accessCheck = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'Client not found' }, 404)
+  }
+
+  const batch = await prisma.filingBatch.findFirst({
+    where: { id: batchId, clientId },
+    include: {
+      forms: {
+        include: {
+          contractor: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+      },
+    },
+  })
+
+  if (!batch) {
+    return c.json({ error: 'Batch not found' }, 404)
+  }
+
+  return c.json({ data: batch })
+})
+
+/**
+ * POST /clients/:clientId/1099-nec/batches/:batchId/refresh
+ * Refresh batch status from Tax1099 API
+ */
+form1099NecRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrgAdmin, async (c) => {
+  const user = c.get('user')
+  const { clientId, batchId } = c.req.param()
+
+  if (!config.tax1099.isConfigured) {
+    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+  }
+
+  const accessCheck = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'Client not found' }, 404)
+  }
+
+  const batch = await prisma.filingBatch.findFirst({
+    where: { id: batchId, clientId },
+  })
+
+  if (!batch || !batch.tax1099SubmissionId) {
+    return c.json({ error: 'Batch not found or not submitted' }, 404)
+  }
+
+  // Fetch status from Tax1099
+  const statusResponse = await tax1099Client.getSubmissionStatus(batch.tax1099SubmissionId)
+
+  // Map Tax1099 status to our enum
+  const newStatus = mapTax1099Status(statusResponse.status)
+
+  await prisma.filingBatch.update({
+    where: { id: batchId },
+    data: {
+      status: newStatus,
+      acceptedForms: statusResponse.acceptedCount || 0,
+      rejectedForms: statusResponse.rejectedCount || 0,
+      acceptedAt: newStatus === 'ACCEPTED' ? new Date() : batch.acceptedAt,
+      rejectedAt: newStatus === 'REJECTED' ? new Date() : batch.rejectedAt,
+    },
+  })
+
+  // Update individual form statuses if available
+  if (statusResponse.forms && statusResponse.forms.length > 0) {
+    await prisma.$transaction(
+      statusResponse.forms.map((fs) => {
+        const mapped: Form1099Status =
+          fs.status === 'ACCEPTED' ? 'ACCEPTED' :
+          fs.status === 'REJECTED' ? 'REJECTED' : 'SUBMITTED'
+
+        return prisma.form1099NEC.updateMany({
+          where: { tax1099FormId: fs.formId },
+          data: { efileStatus: fs.status, status: mapped },
+        })
+      })
+    )
+  }
+
+  return c.json({ success: true, status: newStatus })
+})
+
+function mapTax1099Status(status: string): FilingStatus {
+  switch (status.toUpperCase()) {
+    case 'ACCEPTED': return 'ACCEPTED'
+    case 'REJECTED': return 'REJECTED'
+    case 'PARTIALLY_ACCEPTED': return 'PARTIALLY_ACCEPTED'
+    case 'PROCESSING': return 'PROCESSING'
+    default:
+      console.warn(`[Tax1099] Unknown submission status: ${status}, defaulting to SUBMITTED`)
+      return 'SUBMITTED'
+  }
+}
 
 export { form1099NecRoute }

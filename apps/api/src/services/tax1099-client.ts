@@ -86,6 +86,35 @@ export interface PdfResponse {
   }>
 }
 
+export interface SubmitRequest {
+  formIds: number[]
+  tinCheckAllForms: boolean
+  uspsAllForms: boolean
+  eDeliveryRecipientAllForms: boolean
+  isSeparateStateFiling: boolean
+}
+
+export interface SubmitResponse {
+  success: boolean
+  submissionId: string
+  status: string
+  forms: Array<{
+    formId: number
+    status: 'SUBMITTED' | 'REJECTED'
+    errors?: string[]
+  }>
+}
+
+export interface SubmissionStatusResponse {
+  status: string
+  acceptedCount: number
+  rejectedCount: number
+  forms?: Array<{
+    formId: number
+    status: string
+  }>
+}
+
 // ============================================
 // Client
 // ============================================
@@ -249,6 +278,28 @@ class Tax1099Client {
     return this.request<PdfResponse>(
       `${config.tax1099.urls.pdf}/forms/getpdfs`,
       { method: 'POST', body: JSON.stringify({ formIds }) }
+    )
+  }
+
+  /**
+   * Submit forms to IRS via Tax1099 with TIN Check, USPS, and eDelivery options
+   */
+  async submitForms(data: SubmitRequest): Promise<SubmitResponse> {
+    console.log(`[Tax1099] Submitting ${data.formIds.length} forms to IRS`)
+    return this.request<SubmitResponse>(
+      `${config.tax1099.urls.payment}/forms/submit`,
+      { method: 'POST', body: JSON.stringify(data) }
+    )
+  }
+
+  /**
+   * Get submission status from Tax1099
+   */
+  async getSubmissionStatus(submissionId: string): Promise<SubmissionStatusResponse> {
+    console.log(`[Tax1099] Checking submission status: ${submissionId}`)
+    return this.request<SubmissionStatusResponse>(
+      `${config.tax1099.urls.payment}/submission/${submissionId}/status`,
+      { method: 'GET' }
     )
   }
 }

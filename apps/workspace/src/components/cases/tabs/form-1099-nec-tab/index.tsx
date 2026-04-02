@@ -14,6 +14,7 @@ import { ContractorFormModal } from './contractor-form-modal'
 import { ContractorUpload } from './contractor-upload'
 import { ContractorReviewTable } from './contractor-review-table'
 import { FormActionsPanel } from './form-actions-panel'
+import { FilingStatusPanel } from './filing-status-panel'
 
 interface Form1099NECTabProps {
   clientId: string
@@ -226,6 +227,11 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
       {/* Tax1099 Actions Panel */}
       {contractors.length > 0 && (
         <FormActionsPanel clientId={clientId} />
+      )}
+
+      {/* Filing History */}
+      {contractors.length > 0 && (
+        <FilingStatusPanel clientId={clientId} />
       )}
 
       {/* Add/Edit Contractor Modal */}

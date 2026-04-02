@@ -2,6 +2,7 @@
  * Form Actions Panel - Tax1099 workflow actions
  * Sequential steps: Validate -> Import -> Get PDFs -> Submit to IRS
  */
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, CheckCircle2, FileText, Download, Send } from 'lucide-react'
 import { Button } from '@ella/ui'
@@ -68,6 +69,30 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'PDF fetch failed')
+    },
+  })
+
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const submitMutation = useMutation({
+    mutationFn: () =>
+      api.form1099nec.submit(clientId, {
+        tinCheckEnabled: true,
+        uspsEnabled: true,
+        eDeliveryEnabled: true,
+      }),
+    onSuccess: (data) => {
+      toast.success(`Submitted ${data.submittedCount} forms to IRS`)
+      if (data.rejectedCount > 0) {
+        toast.error(`${data.rejectedCount} forms were rejected`)
+      }
+      refreshStatus()
+      queryClient.invalidateQueries({ queryKey: ['filing-batches', clientId] })
+      setShowConfirm(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Submission failed')
+      setShowConfirm(false)
     },
   })
 
@@ -142,15 +167,44 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
             3. Get PDFs
           </Button>
 
-          <Button
-            variant="default"
-            size="sm"
-            disabled={status.pdfReady === 0}
-            className="gap-1.5"
-          >
-            <Send className="w-3.5 h-3.5" />
-            4. Submit to IRS
-          </Button>
+          {showConfirm ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Submit {status.pdfReady} forms?</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => submitMutation.mutate()}
+                disabled={submitMutation.isPending}
+                className="gap-1.5"
+              >
+                {submitMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                Confirm
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowConfirm(false)}
+                disabled={submitMutation.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowConfirm(true)}
+              disabled={status.pdfReady === 0}
+              className="gap-1.5"
+            >
+              <Send className="w-3.5 h-3.5" />
+              4. Submit to IRS
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -382,6 +382,23 @@ export const api = {
 
     downloadPdf: (clientId: string, formId: string) =>
       request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
+
+    submit: (clientId: string, options: SubmitOptions) =>
+      request<SubmitResponse>(`/clients/${clientId}/1099-nec/submit`, {
+        method: 'POST',
+        body: JSON.stringify(options),
+      }),
+
+    getBatches: (clientId: string) =>
+      request<{ data: FilingBatch[] }>(`/clients/${clientId}/1099-nec/batches`),
+
+    getBatch: (clientId: string, batchId: string) =>
+      request<{ data: FilingBatchDetail }>(`/clients/${clientId}/1099-nec/batches/${batchId}`),
+
+    refreshBatchStatus: (clientId: string, batchId: string) =>
+      request<{ success: boolean; status: FilingStatusType }>(`/clients/${clientId}/1099-nec/batches/${batchId}/refresh`, {
+        method: 'POST',
+      }),
   },
 
   // Tax Cases
@@ -1307,6 +1324,59 @@ export interface Form1099ValidationResult {
   formId: string
   valid: boolean
   errors: string[]
+}
+
+// Filing submission types
+export type FilingStatusType = 'PENDING' | 'SUBMITTED' | 'PROCESSING' | 'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED'
+
+export interface SubmitOptions {
+  tinCheckEnabled: boolean
+  uspsEnabled: boolean
+  eDeliveryEnabled: boolean
+}
+
+export interface SubmitResponse {
+  success: boolean
+  batchId: string
+  submittedCount: number
+  rejectedCount: number
+}
+
+export interface FilingBatch {
+  id: string
+  clientId: string
+  taxYear: number
+  status: FilingStatusType
+  tax1099SubmissionId: string | null
+  submittedAt: string | null
+  acceptedAt: string | null
+  rejectedAt: string | null
+  rejectionReason: string | null
+  totalForms: number
+  acceptedForms: number
+  rejectedForms: number
+  tinCheckEnabled: boolean
+  uspsEnabled: boolean
+  eDeliveryEnabled: boolean
+  createdAt: string
+  updatedAt: string
+  _count?: { forms: number }
+}
+
+export interface FilingBatchDetail extends FilingBatch {
+  forms: Array<{
+    id: string
+    status: string
+    efileStatus: string | null
+    taxYear: number
+    amountBox1: string
+    validationErrors: string[]
+    contractor: {
+      id: string
+      firstName: string
+      lastName: string
+    }
+  }>
 }
 
 export interface UpdateBusinessFieldsInput {

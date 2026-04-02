@@ -74,7 +74,7 @@ form1099NecRoute.post('/:clientId/1099-nec/validate', requireOrgAdmin, async (c)
   const user = c.get('user')
   const { clientId } = c.req.param()
 
-  if (!config.tax1099.isConfigured) {
+  if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'Tax1099 API is not configured' }, 503)
   }
 
@@ -104,6 +104,15 @@ form1099NecRoute.post('/:clientId/1099-nec/validate', requireOrgAdmin, async (c)
 
   if (formPairs.length === 0) {
     return c.json({ error: 'No draft forms to validate' }, 400)
+  }
+
+  // Pre-flight: verify Tax1099 login works before processing all forms
+  try {
+    await tax1099Client.checkAuth()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Tax1099 authentication failed'
+    console.error(`[Tax1099] Pre-flight auth check failed: ${message}`)
+    return c.json({ error: `Tax1099 authentication failed: ${message}` }, 502)
   }
 
   // Process with concurrency limit (5 at a time)
@@ -174,7 +183,7 @@ form1099NecRoute.post('/:clientId/1099-nec/import', requireOrgAdmin, async (c) =
   const user = c.get('user')
   const { clientId } = c.req.param()
 
-  if (!config.tax1099.isConfigured) {
+  if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'Tax1099 API is not configured' }, 503)
   }
 
@@ -294,7 +303,7 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
   const user = c.get('user')
   const { clientId } = c.req.param()
 
-  if (!config.tax1099.isConfigured) {
+  if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'Tax1099 API is not configured' }, 503)
   }
 
@@ -419,7 +428,7 @@ form1099NecRoute.post('/:clientId/1099-nec/submit', requireOrgAdmin, zValidator(
   const { clientId } = c.req.param()
   const options = c.req.valid('json')
 
-  if (!config.tax1099.isConfigured) {
+  if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'Tax1099 API is not configured' }, 503)
   }
 
@@ -608,7 +617,7 @@ form1099NecRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrg
   const user = c.get('user')
   const { clientId, batchId } = c.req.param()
 
-  if (!config.tax1099.isConfigured) {
+  if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'Tax1099 API is not configured' }, 503)
   }
 

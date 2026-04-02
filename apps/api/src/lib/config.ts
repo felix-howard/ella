@@ -113,44 +113,7 @@ export const config = {
         : true,
   },
 
-  // Tax1099 API Configuration (1099-NEC filing)
-  tax1099: {
-    login: process.env.TAX1099_LOGIN || '',
-    password: process.env.TAX1099_PASSWORD || '',
-    appKey: process.env.TAX1099_APP_KEY || '',
-    isSandbox: process.env.TAX1099_SANDBOX !== 'false', // Default to sandbox
-    isConfigured: Boolean(
-      process.env.TAX1099_LOGIN &&
-        process.env.TAX1099_PASSWORD &&
-        process.env.TAX1099_APP_KEY
-    ),
-    urls: (() => {
-      const sandbox = process.env.TAX1099_SANDBOX !== 'false'
-      const domain = sandbox ? 'devapi.tax1099.com' : '1099cloud.com'
-      return {
-        login: sandbox
-          ? `https://${domain}/api/v1/login`
-          : 'https://tax1099api.1099cloud.com/api/v1/login',
-        payer: sandbox
-          ? `https://${domain}/api/v1/payer`
-          : 'https://apipayer.1099cloud.com/api/v1/payer',
-        recipient: sandbox
-          ? `https://${domain}/api/v1/recipient`
-          : 'https://apirecipient.1099cloud.com/api/v1/recipient',
-        form: sandbox
-          ? `https://${domain}/api/v2/form`
-          : 'https://apiformnec.1099cloud.com/api/v2/form',
-        pdf: sandbox
-          ? `https://${domain}/api/v1/pdf`
-          : 'https://tax1099api.1099cloud.com/api/v1/pdf',
-        payment: sandbox
-          ? `https://${domain}/api/v1/payment`
-          : 'https://apipayment.1099cloud.com/api/v1/payment',
-      }
-    })(),
-  },
-
-  // TaxBandits API Configuration (1099-NEC e-filing via TaxBandits)
+  // TaxBandits API Configuration (1099-NEC e-filing)
   taxbandits: {
     clientId: process.env.TAXBANDITS_CLIENT_ID || '',
     clientSecret: process.env.TAXBANDITS_CLIENT_SECRET || '',

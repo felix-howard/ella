@@ -7,6 +7,54 @@
 
 ## 2026-04-02
 
+### Feature: TaxBandits API Client Migration - Phase 1 ✅ COMPLETE
+**Status:** Integration Ready
+**Branch:** feature/more-ella-polish
+**Effort:** 1h
+**Completion Date:** 2026-04-02
+
+**What Changed:**
+- Created TaxBandits API client singleton service with OAuth 2.0 JWT authentication
+- Implemented token caching, expiry management, and automatic refresh on 401
+- Added retry logic with exponential backoff (3 attempts default, 30s timeout per request)
+- Configured environment variables for sandbox/production endpoints
+
+**Configuration:**
+- New service: `apps/api/src/services/taxbandits-client.ts`
+  - Methods: `createForm1099NEC()`, `getStatus()`, `requestDraftPdf()`, `transmit()`
+  - OAuth JWT: Header+Payload+Signature (HS256) with client credentials
+  - Token caching: 55-min default expiry (60-min API token - 5-min buffer)
+  - Auth cooldown: 60s between failed login attempts
+  - Request timeout: 30s with AbortController
+- Config addition: `apps/api/src/lib/config.ts`
+  - `config.taxbandits.clientId/clientSecret/userToken` from env vars
+  - Sandbox/production URLs auto-selected based on `TAXBANDITS_SANDBOX` env
+
+**Environment Variables:**
+- `TAXBANDITS_CLIENT_ID` - OAuth client ID for API authentication
+- `TAXBANDITS_CLIENT_SECRET` - OAuth client secret (HMAC key for JWT signing)
+- `TAXBANDITS_USER_TOKEN` - User token for JWT audience claim
+- `TAXBANDITS_SANDBOX` - Boolean flag to use test API (default: true)
+
+**Types Exported:**
+- Request/response types for 1099-NEC creation, status checks, PDF requests, transmission
+- Payer and recipient data interfaces with required address/TIN fields
+- Success/error record structures for batch submissions
+
+**Benefits:**
+- Stateless token management: No DB writes, all in-memory caching
+- Resilient to transient failures: Auto-retry with exponential backoff
+- Production-ready: Sandbox endpoint testing + gradual migration
+- No external dependencies beyond Node.js fetch/crypto (native modules)
+
+**Testing:**
+- Manual OAuth flow verification against TaxBandits sandbox
+- Token refresh on 401 response confirmed
+- Timeout handling (30s AbortController) verified
+- Type safety: All request/response types exported + validated
+
+---
+
 ### Feature: AI-Powered Address Parsing Fallback ✅ COMPLETE
 **Status:** Production Ready
 **Branch:** feature/more-ella-polish

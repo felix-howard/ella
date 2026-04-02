@@ -150,6 +150,30 @@ export const config = {
     })(),
   },
 
+  // TaxBandits API Configuration (1099-NEC e-filing via TaxBandits)
+  taxbandits: {
+    clientId: process.env.TAXBANDITS_CLIENT_ID || '',
+    clientSecret: process.env.TAXBANDITS_CLIENT_SECRET || '',
+    userToken: process.env.TAXBANDITS_USER_TOKEN || '',
+    isSandbox: process.env.TAXBANDITS_SANDBOX !== 'false',
+    isConfigured: Boolean(
+      process.env.TAXBANDITS_CLIENT_ID &&
+        process.env.TAXBANDITS_CLIENT_SECRET &&
+        process.env.TAXBANDITS_USER_TOKEN
+    ),
+    urls: (() => {
+      const sandbox = process.env.TAXBANDITS_SANDBOX !== 'false'
+      return {
+        oauth: sandbox
+          ? 'https://testoauth.expressauth.net/v2/tbsauth'
+          : 'https://oauth.expressauth.net/v2/tbsauth',
+        api: sandbox
+          ? 'https://testapi.taxbandits.com/v1.7.3'
+          : 'https://api.taxbandits.com/v1.7.3',
+      }
+    })(),
+  },
+
   // Schedule C Configuration
   scheduleC: {
     // IRS standard mileage rate in cents (2024: 67 cents/mile)

@@ -358,10 +358,9 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   // Compute display name from firstName and lastName
   const displayName = computeDisplayName(firstName, lastName)
 
+  try {
   // Encrypt EIN if provided (for business clients)
   const einEncrypted = ein ? encryptSSN(ein.replace(/-/g, '')) : undefined
-
-  try {
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create client with org scope and managed-by

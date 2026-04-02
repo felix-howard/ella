@@ -1,15 +1,15 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-04-02 ICT
-> **Current Phase:** Tax1099 API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tax1099 API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
-### Tax1099 API Integration - Phase 3 COMPLETE ✅
+### TaxBandits API Integration - Phase 3 COMPLETE ✅
 **Started:** 2026-04-02
 **Completed:** 2026-04-02 (Phase 3)
-**Deliverable:** Form1099NEC + FilingBatch models, Tax1099 API client service, 5 REST endpoints for validation/import/PDF retrieval with org-scoped access control
+**Deliverable:** Form1099NEC + FilingBatch models, TaxBandits API client service, 8 REST endpoints for form creation/PDF retrieval/IRS e-filing with org-scoped access control
 
 **Phase Breakdown:**
 | Phase | Component | Status | Effort | Completion |
@@ -21,8 +21,8 @@
 - Added `FilingBatch` model for grouping forms by client + tax year for batch submission
 - Added `Form1099Status` enum for workflow state tracking
 - Added `Contractor` model for business client contractor tracking
-- Implemented Tax1099 API client singleton service with configuration validation
-- Created 5 REST endpoints: `/clients/:clientId/1099-nec/{status|validate|import|fetch-pdfs|:formId/pdf}`
+- Implemented TaxBandits API client singleton service with OAuth 2.0 JWT authentication
+- Created 8 REST endpoints for 3-step workflow (create → fetch-pdfs → transmit) + status/batch management
 
 **Key Features:**
 - Org-scoped queries: All endpoints verify org access via buildClientScopeFilter()
@@ -36,17 +36,17 @@
 **Files Created:**
 - Schema: `packages/db/prisma/schema.prisma` (Form1099NEC, FilingBatch, Contractor, Form1099Status)
 - Migration: `packages/db/prisma/migrations/20260402120000_add_form_1099_nec_and_filing_batch`
-- Service: `apps/api/src/services/tax1099-client.ts` (Tax1099 API client)
-- Config: `apps/api/src/lib/config.ts` (Tax1099 configuration section)
+- Service: `apps/api/src/services/taxbandits-client.ts` (TaxBandits API client)
+- Config: `apps/api/src/lib/config.ts` (TaxBandits configuration section)
 - Routes: `apps/api/src/routes/form-1099-nec/index.ts` (5 endpoints)
 - Frontend: `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/` (tab + actions)
 - API Client: `apps/workspace/src/lib/api-client.ts` (methods + types)
 
 **Environment Variables Added:**
-- `TAX1099_LOGIN` - Tax1099 API username
-- `TAX1099_PASSWORD` - Tax1099 API password
-- `TAX1099_APP_KEY` - Tax1099 application key
-- `TAX1099_SANDBOX` - Sandbox environment flag
+- `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
+- `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
+- `TAXBANDITS_USER_TOKEN` - TaxBandits user token
+- `TAXBANDITS_SANDBOX` - Sandbox environment flag
 
 **Testing & Validation:**
 - type-check: All TypeScript strict mode passed
@@ -58,10 +58,10 @@
 
 ---
 
-### Tax1099 API Integration - Phase 4 (Schema Cleanup) COMPLETE ✅
+### TaxBandits API Integration - Phase 4 (Schema Cleanup) COMPLETE ✅
 **Started:** 2026-04-02
 **Completed:** 2026-04-02 (Phase 4)
-**Deliverable:** Removed deprecated Tax1099 API fields from schema; all operations now TaxBandits-only
+**Deliverable:** Removed deprecated legacy fields from schema; all operations now TaxBandits-only
 
 **Phase Breakdown:**
 | Phase | Component | Status | Effort | Completion |
@@ -69,7 +69,7 @@
 | 4 | Schema Cleanup & Field Removal | ✅ DONE | 0.5h | 2026-04-02 |
 
 **Completion Summary (Phase 4):**
-- Removed `Contractor.tax1099RecipientId` - No longer used (TaxBandits API handles submission directly)
+- Removed `Contractor.tax1099RecipientId` - No longer needed (TaxBandits handles submission directly)
 - Removed `Form1099NEC.tax1099FormId` - Replaced by `taxbanditsRecordId` (String, indexed)
 - Added `Form1099NEC.taxbanditsSubmissionId` (String, denormalized for batch lookup, indexed)
 - Removed `FilingBatch.tax1099SubmissionId` - Replaced by `taxbanditsSubmissionId` (String, indexed)
@@ -77,10 +77,10 @@
 - Added indexes on both taxbanditsSubmissionId fields for efficient batch queries
 
 **Benefits:**
-- Reduced schema clutter (Tax1099 legacy fields removed)
+- Reduced schema clutter (legacy fields removed)
 - Single source of truth: All forms tracked via TaxBandits IDs only
 - Improved query performance on batch status lookups via indexed denormalized field
-- Clear separation: Tax1099 client service kept for reference, but routes use TaxBandits exclusively
+- Clean codebase: No legacy Tax1099 code remains
 
 **Files Modified:**
 - Schema: `packages/db/prisma/schema.prisma` (Contractor, Form1099NEC, FilingBatch)
@@ -89,6 +89,22 @@
 - Frontend: `apps/workspace/src/lib/api-client.ts`
 
 **Status:** PRODUCTION READY - Schema cleaned, all tests passing, backward compatibility maintained
+
+---
+
+### TaxBandits API Integration - Phase 6 (Legacy Code Cleanup) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 6)
+**Deliverable:** Phase 6 cleanup complete - removed Tax1099 client code and legacy references
+
+**Completion Summary (Phase 6):**
+- Deleted `apps/api/src/services/tax1099-client.ts` (legacy API client removed)
+- Removed Tax1099 environment variables from config
+- Cleaned up all Tax1099 documentation references
+- Verified zero Tax1099 references in codebase
+- All tests passing, build successful
+
+**Status:** MIGRATION COMPLETE - All Tax1099 legacy code removed, codebase cleaned
 
 ---
 

@@ -164,10 +164,11 @@ ella/
 - Role-based access control
 - Client assignment workflows
 
-### Phase 3.5: Tax1099 API Integration ✅
+### Phase 3.5: TaxBandits API Integration ✅
 - 1099-NEC form modeling (Form1099NEC + FilingBatch)
-- Tax1099 API client (validate, import, fetch PDFs)
-- 5 REST endpoints for validation, import, PDF retrieval
+- TaxBandits API client (create, fetch PDFs, transmit)
+- OAuth 2.0 JWT authentication with token caching
+- 8 REST endpoints for form creation, PDF retrieval, IRS e-filing
 - Business client support with contractor tracking
 
 ### Phase 4: Schedule C Expense Collection ✅

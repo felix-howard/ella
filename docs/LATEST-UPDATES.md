@@ -8,14 +8,14 @@
 
 **Date:** 2026-04-02 | **Status:** Complete
 
-**In One Sentence:** Migrated from Tax1099 to TaxBandits OAuth 2.0 API with 3-step workflow (create forms → fetch PDFs → transmit to IRS), added taxbanditsRecordId + taxbanditsSubmissionId fields for submission tracking.
+**In One Sentence:** Migrated to TaxBandits OAuth 2.0 API with 3-step workflow (create forms → fetch PDFs → transmit to IRS), added taxbanditsRecordId + taxbanditsSubmissionId fields for submission tracking.
 
 **Key Implementation Details:**
 
 **Schema Changes:**
 - Form1099NEC additions: taxbanditsRecordId (String, indexed), validationErrors, efileSubmittedAt, efileStatus
 - FilingBatch additions: taxbanditsSubmissionId (String), status enum (PENDING|SUBMITTED|ACCEPTED|REJECTED)
-- Old Tax1099 fields retained for Phase 4 cleanup (backward compatibility)
+- Old legacy fields removed in Phase 4 schema cleanup
 - Migration: `20260402140000_add_taxbandits_fields` - Non-destructive schema extensions
 
 **API Endpoints (8 total - 3 core + 5 supporting):**
@@ -34,7 +34,7 @@
 - TaxBandits config section in apps/api/src/lib/config.ts with OAuth credentials
 - Env vars: TAXBANDITS_CLIENT_ID, TAXBANDITS_CLIENT_SECRET, TAXBANDITS_USER_TOKEN, TAXBANDITS_SANDBOX (default: true)
 - Singleton service: apps/api/src/services/taxbandits-client.ts with OAuth 2.0 JWT auth, token caching (55-min), retry logic (3 attempts)
-- Deprecated: apps/api/src/services/tax1099-client.ts (kept for backward compatibility)
+- Removed: apps/api/src/services/tax1099-client.ts (Phase 6 cleanup)
 
 **Frontend:**
 - Updated form-actions-panel.tsx: 3-step UI (Create → Fetch PDFs → Transmit)

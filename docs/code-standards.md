@@ -254,8 +254,6 @@ const clients = await prisma.client.findMany({ where: filter })
 
 **Primary Service:** `apps/api/src/services/taxbandits-client.ts` (OAuth 2.0 JWT-based e-filing)
 
-**Legacy Service:** `apps/api/src/services/tax1099-client.ts` (Deprecated, kept for reference only)
-
 **Configuration:**
 - TaxBandits env vars: `TAXBANDITS_CLIENT_ID`, `TAXBANDITS_CLIENT_SECRET`, `TAXBANDITS_USER_TOKEN`, `TAXBANDITS_SANDBOX`
 - Singleton client initialized on demand, checked via `config.taxbandits.isConfigured`
@@ -342,11 +340,11 @@ describe('Feature', () => {
 - `PORTAL_URL` - Client portal base URL
 - `R2_*` - Cloudflare R2 credentials
 
-**Tax1099 Integration (Optional - Phase 3.5):**
-- `TAX1099_LOGIN` - Tax1099 API username
-- `TAX1099_PASSWORD` - Tax1099 API password
-- `TAX1099_APP_KEY` - Tax1099 application key
-- `TAX1099_SANDBOX` - Set to `true` for sandbox environment
+**TaxBandits Integration (Phase 3.5):**
+- `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
+- `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
+- `TAXBANDITS_USER_TOKEN` - TaxBandits user token
+- `TAXBANDITS_SANDBOX` - Set to `true` for sandbox environment
 
 **Optional:**
 - `GEMINI_MODEL` - default: gemini-2.0-flash
@@ -373,4 +371,4 @@ describe('Feature', () => {
 
 **Version:** 2.5
 **Last Updated:** 2026-04-02
-**Status:** Tax1099 API Integration Phases 3 & 4 complete. Phase 3: TaxBandits API client + 8 endpoints. Phase 4: Schema cleanup (removed Tax1099 fields, indexed TaxBandits IDs).
+**Status:** TaxBandits API Integration complete. TaxBandits API client + 8 endpoints. Schema cleanup done (removed legacy fields, indexed TaxBandits IDs).

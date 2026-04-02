@@ -7,6 +7,33 @@
 
 ## 2026-04-02
 
+### Cleanup: TaxBandits Migration Phase 6 - Remove Legacy Tax1099 Code ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/more-ella-polish
+**Completion Date:** 2026-04-02
+
+**Summary:** Removed deprecated Tax1099 API client service, cleaned up documentation, deleted research files. Zero tax1099 references remain in source code.
+
+**Files Deleted:**
+- `apps/api/src/services/tax1099-client.ts` (334 lines, deprecated Tax1099 API client)
+- `docs/PHASE-03-TAX1099-DOCUMENTATION-UPDATE-SUMMARY.md` (legacy documentation)
+- `apps/api/TESTING_REPORT_PHASE3.md` (testing report)
+- Research files: `research-tax1099-api.md`, `research-taxbandits-api.md`, `research-taxbandits-api-integration.md`, + 2 others
+
+**Files Updated:**
+- `README.md` - Removed Tax1099 references
+- `docs/code-standards.md` - Removed deprecated patterns
+- `docs/system-architecture.md` - Updated service topology
+- `docs/LATEST-UPDATES.md` - Updated changelog
+- `docs/project-roadmap.md` - Phase 6 completion noted
+- `docs/project-changelog.md` - Phase 6 entry added
+- `docs/codebase-summary.md` - Regenerated via repomix
+- `docs/PHASE-04-TAXBANDITS-SCHEMA-CLEANUP.md` - Updated metadata
+
+**Impact:** Codebase now contains only TaxBandits API integration. Reduced technical debt. Cleaner documentation structure.
+
+---
+
 ### Feature: TaxBandits API Client Migration - Phase 1 ✅ COMPLETE
 **Status:** Integration Ready
 **Branch:** feature/more-ella-polish
@@ -117,19 +144,19 @@
 **Effort:** 0.5h
 **Completion Date:** 2026-04-02
 
-**Summary:** Removed deprecated Tax1099 API fields from schema. All form/batch operations now use TaxBandits-only fields.
+**Summary:** Removed deprecated legacy fields from schema. All form/batch operations now use TaxBandits-only fields.
 
 **Database Changes:**
-- Removed: `Contractor.tax1099RecipientId` - No longer needed (TaxBandits uses direct API submission)
+- Removed: `Contractor.tax1099RecipientId` - No longer needed (TaxBandits handles submission directly)
 - Removed: `Form1099NEC.tax1099FormId` - Replaced by `taxbanditsRecordId` (String, indexed)
 - Added: `Form1099NEC.taxbanditsSubmissionId` (String, denormalized for quick lookup, indexed)
 - Removed: `FilingBatch.tax1099SubmissionId` - Replaced by `taxbanditsSubmissionId` (String, indexed)
 - Both `taxbanditsSubmissionId` fields indexed for batch status lookups
 
 **Code Changes:**
-- Updated: `apps/api/src/routes/contractors/index.ts` - Removed tax1099RecipientId references
-- Updated: `apps/api/src/routes/contractors/validators.ts` - Removed tax1099RecipientId field validation
-- Updated: `apps/api/src/services/crypto/index.ts` - Removed unused Tax1099 field handling
+- Updated: `apps/api/src/routes/contractors/index.ts` - Removed legacy field references
+- Updated: `apps/api/src/routes/contractors/validators.ts` - Removed legacy field validation
+- Updated: `apps/api/src/services/crypto/index.ts` - Removed unused legacy field handling
 - Updated: `apps/workspace/src/lib/api-client.ts` - Removed old field references from request types
 
 **Impact:**
@@ -146,11 +173,11 @@
 **Effort:** 8h
 **Completion Date:** 2026-04-02
 
-**Summary:** Migrated from Tax1099 API to TaxBandits API with OAuth 2.0 JWT authentication. Implements 3-step workflow: create forms → fetch PDFs → transmit to IRS. Deprecated old Tax1099 client service.
+**Summary:** Migrated to TaxBandits API with OAuth 2.0 JWT authentication. Implements 3-step workflow: create forms → fetch PDFs → transmit to IRS.
 
 **What Changed:**
-- Replaced Tax1099 API client with TaxBandits OAuth 2.0 JWT implementation (`taxbandits-client.ts`)
-- Rewrote 1099-NEC routes: 3-step process (create → fetch-pdfs → transmit) replaces old 4-step Tax1099 workflow
+- Implemented TaxBandits OAuth 2.0 JWT client (`taxbandits-client.ts`)
+- Rewrote 1099-NEC routes: 3-step process (create → fetch-pdfs → transmit)
 - Added schema fields: `Form1099NEC.taxbanditsRecordId`, `FilingBatch.taxbanditsSubmissionId` (alongside old fields for Phase 4 cleanup)
 - Simplified form status workflow: DRAFT → IMPORTED → PDF_READY → SUBMITTED → ACCEPTED/REJECTED
 - Form action panel UI updated for new 3-step workflow
@@ -158,7 +185,7 @@
 **Database Changes:**
 - Migration: `packages/db/prisma/migrations/20260402140000_add_taxbandits_fields`
 - Schema additions: `Form1099NEC.taxbanditsRecordId`, `FilingBatch.taxbanditsSubmissionId` (nullable, indexed)
-- Old Tax1099 fields retained for Phase 4 cleanup (backward compatibility)
+- Old legacy fields cleaned up in Phase 4
 
 **API Changes (8 endpoints - 3 core + 5 supporting):**
 - **Core 3-Step Workflow:**
@@ -173,7 +200,7 @@
   - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits
 
 **Backend Changes:**
-- Deprecated: `apps/api/src/services/tax1099-client.ts` - Old Tax1099 API client (kept for now)
+- Removed: `apps/api/src/services/tax1099-client.ts` - Old legacy API client (Phase 6 cleanup)
 - New service: `apps/api/src/services/taxbandits-client.ts` - TaxBandits OAuth 2.0 JWT client singleton
   - Token caching: 55-min expiry (auto-refresh on 401)
   - Retry logic: 3 attempts with exponential backoff

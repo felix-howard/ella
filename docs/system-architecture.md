@@ -26,8 +26,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 └────────┬────────┘  │ - Google Gemini AI      │
          │           │ - Twilio Voice/SMS      │
          ↓           │ - Cloudflare R2         │
-┌─────────────────────────────────────────────────┐│ - Tax1099 API (forms/validation)     │
-│     Data Layer (Org-Scoped)                      │ - TaxBandits API (e-filing)         │
+┌─────────────────────────────────────────────────┐│ - TaxBandits API (1099 e-filing)    │
+│     Data Layer (Org-Scoped)                      │                                     │
 │  - Organizations, Staff, Clients, Cases         │
 │  - Client.managedById (single manager FK)       │
 │  - Documents, Messages, Audit logs              │
@@ -213,14 +213,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
 - Endpoints for document lifecycle
 
-**1099-NEC Tax Form Integration (5 - Phase 3 Tax1099 API + Phase 4 TaxBandits e-filing):**
-- `GET /clients/:clientId/1099-nec/status` - Get form status counts (DRAFT, VALIDATED, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED). Business clients only. Org-scoped.
-- `POST /clients/:clientId/1099-nec/validate` - Validate all DRAFT forms via Tax1099 API. Requires BUSINESS client + org admin. Transitions forms from DRAFT→VALIDATED or DRAFT→error status.
-- `POST /clients/:clientId/1099-nec/import` - Import form from Tax1099 into DB. Requires org admin. Decrypts contractor SSN, validates data, transitions to IMPORTED.
-- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Fetch PDFs for IMPORTED forms from Tax1099 API. Stores on R2, transitions forms to PDF_READY. Org admin only.
-- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed PDF URL for form. 24-hour TTL. Read-only endpoint.
-- Models: Form1099NEC (with status enum, validation errors, eFile tracking), FilingBatch (groups multiple forms by tax year). Tax1099 API integration via singleton client with configuration. TaxBandits API integration for IRS e-filing via singleton client (Phase 4).
-- **Tax1099 Client** (`apps/api/src/services/tax1099-client.ts`): REST-based form validation, import, PDF retrieval. Username/password auth.
+**1099-NEC Tax Form Integration (8 - TaxBandits API):**
+- `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org admin only.
+- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org admin only.
+- `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org admin only.
+- `GET /clients/:clientId/1099-nec/status` - Form status counts. Business clients only. Org-scoped.
+- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL).
+- `GET /clients/:clientId/1099-nec/batches` - List filing batches.
+- `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with forms.
+- `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits.
+- Models: Form1099NEC (with status enum, validation errors, eFile tracking), FilingBatch (groups multiple forms by tax year). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
 
 **Messages & Voice (15):**

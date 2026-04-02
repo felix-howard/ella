@@ -360,6 +360,30 @@ export const api = {
       }),
   },
 
+  // 1099-NEC Forms (Tax1099 API integration)
+  form1099nec: {
+    status: (clientId: string) =>
+      request<{ data: Form1099StatusCounts }>(`/clients/${clientId}/1099-nec/status`),
+
+    validate: (clientId: string) =>
+      request<{ success: boolean; results: Form1099ValidationResult[] }>(`/clients/${clientId}/1099-nec/validate`, {
+        method: 'POST',
+      }),
+
+    import: (clientId: string) =>
+      request<{ success: boolean; importedCount: number }>(`/clients/${clientId}/1099-nec/import`, {
+        method: 'POST',
+      }),
+
+    fetchPdfs: (clientId: string) =>
+      request<{ success: boolean; pdfCount: number }>(`/clients/${clientId}/1099-nec/fetch-pdfs`, {
+        method: 'POST',
+      }),
+
+    downloadPdf: (clientId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
+  },
+
   // Tax Cases
   cases: {
     list: (params?: { page?: number; limit?: number; status?: string; taxYear?: number; clientId?: string }) =>
@@ -1264,6 +1288,25 @@ export interface BulkSaveContractorsInput {
     amountPaid: number
   }[]
   taxYear: number
+}
+
+// 1099-NEC Form Status Counts
+export interface Form1099StatusCounts {
+  draft: number
+  validated: number
+  imported: number
+  pdfReady: number
+  submitted: number
+  accepted: number
+  rejected: number
+  total: number
+}
+
+export interface Form1099ValidationResult {
+  contractorId: string
+  formId: string
+  valid: boolean
+  errors: string[]
 }
 
 export interface UpdateBusinessFieldsInput {

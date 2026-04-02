@@ -566,6 +566,7 @@ model Client {
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
   contractors    Contractor[]
+  filingBatches  FilingBatch[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -1441,8 +1442,61 @@ model Contractor {
   phone               String?
   tax1099RecipientId  String?  // External ID from Tax1099 API
 
+  forms               Form1099NEC[]
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+// ============================================
+// 1099-NEC: Form and Filing
+// ============================================
+
+enum Form1099Status {
+  DRAFT
+  VALIDATED
+  IMPORTED
+  PDF_READY
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+model Form1099NEC {
+  id                String          @id @default(cuid())
+  contractorId      String
+  contractor        Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  batchId           String?
+  batch             FilingBatch?    @relation(fields: [batchId], references: [id])
+  taxYear           Int
+  amountBox1        Decimal         @db.Decimal(12, 2)
+  amountBox4        Decimal         @default(0) @db.Decimal(12, 2)
+  pdfStorageKey     String?
+  status            Form1099Status  @default(DRAFT)
+  tax1099FormId     Int?
+  validationErrors  String[]        @default([])
+  efileSubmittedAt  DateTime?
+  efileStatus       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([contractorId, taxYear])
+  @@index([batchId])
+  @@index([status])
+}
+
+model FilingBatch {
+  id             String        @id @default(cuid())
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear        Int
+  status         String        @default("PENDING") // PENDING, SUBMITTED, ACCEPTED, REJECTED
+  submittedAt    DateTime?
+  forms          Form1099NEC[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([clientId])
 }

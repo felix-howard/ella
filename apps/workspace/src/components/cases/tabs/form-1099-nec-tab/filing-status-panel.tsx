@@ -1,6 +1,6 @@
 /**
  * Filing Status Panel - Shows filing batch history and status
- * Allows refreshing status from Tax1099 API
+ * Allows refreshing status from TaxBandits API
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'

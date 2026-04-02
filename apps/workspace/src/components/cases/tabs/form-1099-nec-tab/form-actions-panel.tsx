@@ -95,7 +95,7 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
           </span>
           {status.submitted > 0 && (
             <span>
-              <span className="font-medium text-foreground">{status.submitted}</span> submitted
+              <span className="font-medium text-foreground">{status.submitted}</span> transmitted
             </span>
           )}
         </div>

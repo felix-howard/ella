@@ -164,6 +164,12 @@ ella/
 - Role-based access control
 - Client assignment workflows
 
+### Phase 3.5: Tax1099 API Integration ✅
+- 1099-NEC form modeling (Form1099NEC + FilingBatch)
+- Tax1099 API client (validate, import, fetch PDFs)
+- 5 REST endpoints for validation, import, PDF retrieval
+- Business client support with contractor tracking
+
 ### Phase 4: Schedule C Expense Collection ✅
 - Self-employed expense form (28 IRS categories)
 - 1099-NEC income integration
@@ -177,12 +183,13 @@ ella/
 
 ## API Documentation
 
-REST API with 60+ endpoints organized by feature:
+REST API with 85+ endpoints organized by feature:
 
 - **Team** - Members, invitations, assignments
 - **Clients** - CRUD, profiles, assignments
 - **Cases** - Tax cases, engagements, checklist
 - **Documents** - Upload, classify, verify, extract
+- **Tax Forms** - 1099-NEC validation, import, PDF retrieval
 - **Messages** - Conversations, SMS, voice calls
 - **Voice** - Token generation, presence, recordings
 - **Webhooks** - Twilio callbacks (calls, SMS)

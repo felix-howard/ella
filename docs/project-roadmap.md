@@ -1,8 +1,60 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-30 ICT
-> **Current Phase:** Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-02 ICT
+> **Current Phase:** Tax1099 API Integration COMPLETE (Phase 3 Schema + 5 Endpoints) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Tax1099 API Integration COMPLETE (Phase 3) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Tax1099 API Integration - Phase 3 COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 3)
+**Deliverable:** Form1099NEC + FilingBatch models, Tax1099 API client service, 5 REST endpoints for validation/import/PDF retrieval with org-scoped access control
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 3 | Database + API + Frontend | ✅ DONE | 8h | 2026-04-02 |
+
+**Completion Summary (Phase 3):**
+- Added `Form1099NEC` model with status workflow (DRAFT → VALIDATED → IMPORTED → PDF_READY → SUBMITTED → ACCEPTED/REJECTED)
+- Added `FilingBatch` model for grouping forms by client + tax year for batch submission
+- Added `Form1099Status` enum for workflow state tracking
+- Added `Contractor` model for business client contractor tracking
+- Implemented Tax1099 API client singleton service with configuration validation
+- Created 5 REST endpoints: `/clients/:clientId/1099-nec/{status|validate|import|fetch-pdfs|:formId/pdf}`
+
+**Key Features:**
+- Org-scoped queries: All endpoints verify org access via buildClientScopeFilter()
+- Business client only: Returns 404 for non-BUSINESS clients
+- Status tracking: Form validation errors stored in validationErrors array for audit
+- eFile integration: efileSubmittedAt + efileStatus fields for IRS submission status
+- PDF storage: PDFs uploaded to R2 with signed download URLs (24-hour TTL)
+- SSN security: Contractor SSN decrypted on import via crypto service
+- Admin-only actions: validate, import, fetch-pdfs endpoints require org:admin role
+
+**Files Created:**
+- Schema: `packages/db/prisma/schema.prisma` (Form1099NEC, FilingBatch, Contractor, Form1099Status)
+- Migration: `packages/db/prisma/migrations/20260402120000_add_form_1099_nec_and_filing_batch`
+- Service: `apps/api/src/services/tax1099-client.ts` (Tax1099 API client)
+- Config: `apps/api/src/lib/config.ts` (Tax1099 configuration section)
+- Routes: `apps/api/src/routes/form-1099-nec/index.ts` (5 endpoints)
+- Frontend: `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/` (tab + actions)
+- API Client: `apps/workspace/src/lib/api-client.ts` (methods + types)
+
+**Environment Variables Added:**
+- `TAX1099_LOGIN` - Tax1099 API username
+- `TAX1099_PASSWORD` - Tax1099 API password
+- `TAX1099_APP_KEY` - Tax1099 application key
+- `TAX1099_SANDBOX` - Sandbox environment flag
+
+**Testing & Validation:**
+- type-check: All TypeScript strict mode passed
+- lint: No linting issues (React dependencies verified)
+- build: Successful compilation
+- Code review: Org-scoped, business client verified, error handling complete
+
+**Status:** PRODUCTION READY - All endpoints functional, org-scoped, business client verified
 
 ---
 

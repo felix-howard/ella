@@ -250,6 +250,36 @@ const clients = await prisma.client.findMany({ where: filter })
 - W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A support
 - Confidence scoring for verification workflow
 
+## Tax1099 API Integration
+
+**Service Location:** `apps/api/src/services/tax1099-client.ts`
+
+**Configuration:**
+- Env vars: `TAX1099_LOGIN`, `TAX1099_PASSWORD`, `TAX1099_APP_KEY`, `TAX1099_SANDBOX`
+- Singleton client initialized on demand, checked via `config.tax1099.isConfigured`
+- Endpoints defined in `apps/api/src/lib/config.ts`
+
+**Models:**
+- `Form1099NEC` - Individual tax forms with status (DRAFT, VALIDATED, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED)
+- `FilingBatch` - Groups multiple 1099-NECs by client + tax year for batch submission
+- `Contractor` - Business client contractor tracking
+- Form1099Status enum for workflow states
+
+**Workflow:**
+1. `DRAFT` - Form created locally
+2. `VALIDATED` - Passed Tax1099 validation API
+3. `IMPORTED` - Data accepted into Tax1099 system
+4. `PDF_READY` - PDF generated and stored on R2
+5. `SUBMITTED` - E-filed to IRS
+6. `ACCEPTED` / `REJECTED` - IRS response
+
+**Routes (org-scoped, business clients only):**
+- `GET /clients/:clientId/1099-nec/status` - Status counts (requires READ)
+- `POST /clients/:clientId/1099-nec/validate` - Validate against Tax1099 API (requires ADMIN)
+- `POST /clients/:clientId/1099-nec/import` - Import form data (requires ADMIN)
+- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Fetch & store PDFs (requires ADMIN)
+- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed URL (requires READ)
+
 ## Testing Patterns
 
 **Unit Tests (Vitest):**
@@ -301,6 +331,12 @@ describe('Feature', () => {
 - `PORTAL_URL` - Client portal base URL
 - `R2_*` - Cloudflare R2 credentials
 
+**Tax1099 Integration (Optional - Phase 3.5):**
+- `TAX1099_LOGIN` - Tax1099 API username
+- `TAX1099_PASSWORD` - Tax1099 API password
+- `TAX1099_APP_KEY` - Tax1099 application key
+- `TAX1099_SANDBOX` - Set to `true` for sandbox environment
+
 **Optional:**
 - `GEMINI_MODEL` - default: gemini-2.0-flash
 - `GEMINI_MAX_RETRIES` - default: 3
@@ -324,6 +360,6 @@ describe('Feature', () => {
 
 ---
 
-**Version:** 2.3
-**Last Updated:** 2026-03-24
-**Status:** Multi-Tenancy & Clerk Webhook Sync Migration complete (event-driven DB sync, read-only auth middleware)
+**Version:** 2.4
+**Last Updated:** 2026-04-02
+**Status:** Tax1099 API Integration Phase 3 complete (Form1099NEC/FilingBatch models, 5 API endpoints, client singleton, validation/import/PDF workflows)

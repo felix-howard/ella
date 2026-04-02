@@ -1,5 +1,51 @@
 # Latest Documentation Updates
 
+**Date:** 2026-04-02 | **Feature:** Tax1099 API Integration Phase 3 (Form1099NEC, FilingBatch, 5 API Endpoints) COMPLETE | **Status:** Complete
+
+---
+
+## Tax1099 API Integration - Phase 3 Complete
+
+**Date:** 2026-04-02 | **Status:** Complete
+
+**In One Sentence:** Implemented Tax1099 API integration with Form1099NEC + FilingBatch models, Tax1099 client service, and 5 REST endpoints for validation, import, and PDF retrieval with org-scoped access control.
+
+**Key Implementation Details:**
+
+**Schema Changes:**
+- Form1099NEC model: id, contractorId (FK), batchId (FK), taxYear, amountBox1, amountBox4, pdfStorageKey, status (Form1099Status enum), tax1099FormId (int), validationErrors (string array), efileSubmittedAt, efileStatus
+- FilingBatch model: id, clientId (FK), taxYear, status (PENDING|SUBMITTED|ACCEPTED|REJECTED), submittedAt, forms relationship
+- Contractor model: contractorId linking to Client with business type
+- Migration: `20260402120000_add_form_1099_nec_and_filing_batch` - idempotent SQL with IF NOT EXISTS
+
+**API Endpoints (5 total):**
+- GET /clients/:clientId/1099-nec/status - Form status counts (draft, validated, imported, pdfReady, submitted, accepted, rejected). Business client only.
+- POST /clients/:clientId/1099-nec/validate - Validate DRAFT forms via Tax1099 API (DRAFT → VALIDATED). Org admin required.
+- POST /clients/:clientId/1099-nec/import - Import form data from Tax1099 (VALIDATED → IMPORTED). Decrypts SSN. Org admin required.
+- POST /clients/:clientId/1099-nec/fetch-pdfs - Fetch PDFs from Tax1099, upload to R2 (IMPORTED → PDF_READY). Org admin required.
+- GET /clients/:clientId/1099-nec/:formId/pdf - Download signed URL (24h TTL). Read-only.
+
+**Configuration:**
+- Tax1099 config section in apps/api/src/lib/config.ts with endpoint detection
+- Env vars: TAX1099_LOGIN, TAX1099_PASSWORD, TAX1099_APP_KEY, TAX1099_SANDBOX
+- Singleton service: apps/api/src/services/tax1099-client.ts with auth + retries
+
+**Frontend:**
+- Form actions panel: Validate/Import/Fetch PDF buttons with loading + error states
+- Tab integration: 1099-NEC tab in /clients/:id for BUSINESS clients only
+- API client methods + types in apps/workspace/src/lib/api-client.ts
+
+**Validation & Safety:**
+- Org-scoped queries: buildClientScopeFilter() on all endpoints
+- Business client verification: 404 if client.clientType !== 'BUSINESS'
+- SSN encryption/decryption: Contractor SSN handled securely
+- Validation error tracking: Form1099NEC.validationErrors array for audit
+- Status workflow: Clear state machine (DRAFT → VALIDATED → IMPORTED → PDF_READY → SUBMITTED → ACCEPTED/REJECTED)
+
+---
+
+## 2026-03-30 | Tag-Based Lead/Client Categorization Phase 1
+
 **Date:** 2026-03-30 | **Feature:** Tag-Based Lead/Client Categorization Phase 1 (Schema & Migration) COMPLETE | **Status:** Complete
 
 ---

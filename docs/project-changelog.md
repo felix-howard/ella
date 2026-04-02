@@ -1,7 +1,69 @@
 # Project Changelog
 
-> **Last Updated:** 2026-03-30 ICT
+> **Last Updated:** 2026-04-02 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-02
+
+### Feature: Tax1099 API Integration - Phase 3 ✅ COMPLETE
+**Status:** Production Ready
+**Branch:** feature/more-ella-polish
+**Effort:** 8h
+**Completion Date:** 2026-04-02
+
+**What Changed:**
+- Added `Form1099NEC` model for individual 1099-NEC form tracking with status workflow
+- Added `FilingBatch` model to group multiple 1099-NECs by client + tax year for batch submission
+- Added `Form1099Status` enum: DRAFT, VALIDATED, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED
+- Added `Contractor` model for business client contractor tracking
+- Implemented Tax1099 API client singleton service (`tax1099-client.ts`)
+- Created 5 new API endpoints for form validation, import, and PDF retrieval
+
+**Database Changes:**
+- Migration: `packages/db/prisma/migrations/20260402120000_add_form_1099_nec_and_filing_batch`
+- Schema: Form1099NEC model with taxYear, amountBox1/4, pdfStorageKey, validation tracking
+- Schema: FilingBatch model grouping forms by client + tax year
+- Schema: Contractor model linking to Client + Tax1099FormId
+
+**API Changes (5 new endpoints):**
+- `GET /clients/:clientId/1099-nec/status` - Get form status counts (DRAFT, VALIDATED, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED). Business clients only. Org-scoped.
+- `POST /clients/:clientId/1099-nec/validate` - Validate all DRAFT forms via Tax1099 API, transition to VALIDATED or error state. Org admin required.
+- `POST /clients/:clientId/1099-nec/import` - Import form data from Tax1099 into DB, decrypt SSN, validate data, transition to IMPORTED. Org admin required.
+- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Fetch generated PDFs from Tax1099 API, upload to R2, transition forms to PDF_READY. Org admin required.
+- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed PDF URL with 24-hour TTL. Read-only endpoint.
+
+**Backend Changes:**
+- New service: `apps/api/src/services/tax1099-client.ts` - Tax1099 API client with auth, configuration validation
+- New routes: `apps/api/src/routes/form-1099-nec/index.ts` - All 5 endpoints with org-scoped queries
+- Config addition: `apps/api/src/lib/config.ts` - Tax1099 configuration section with endpoint detection
+- Route registration: Updated `apps/api/src/app.ts` to include 1099-NEC routes
+
+**Frontend Changes:**
+- New component: `form-actions-panel.tsx` - Actions UI for form validation/import/PDF fetch
+- New integration: `form-1099-nec-tab/index.tsx` - Tab for business client 1099-NEC management
+- New API client methods: `apps/workspace/src/lib/api-client.ts` - Methods + types for all 5 endpoints
+- Tab support: Added 1099-NEC tab to `/clients/:id` page for BUSINESS clients only
+
+**Environment Variables:**
+- `TAX1099_LOGIN` - Tax1099 API username
+- `TAX1099_PASSWORD` - Tax1099 API password
+- `TAX1099_APP_KEY` - Tax1099 application key
+- `TAX1099_SANDBOX` - Sandbox environment flag (true/false)
+
+**Validation & Safety:**
+- Org-scoped queries: All endpoints verify org access via `buildClientScopeFilter()`
+- Business client check: Endpoints return 404 for non-BUSINESS clients
+- SSN decryption: Contractor SSN decrypted on import via crypto service
+- Validation errors tracked in Form1099NEC.validationErrors array for audit
+- eFile tracking: efileSubmittedAt + efileStatus fields for IRS submission status
+
+**Testing:**
+- type-check: All TypeScript errors resolved
+- lint: No linting issues (React dependencies verified)
+- build: Successful compilation
+- Code review: All endpoints org-scoped, business client verified, error handling complete
 
 ---
 

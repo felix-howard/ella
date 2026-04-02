@@ -250,35 +250,46 @@ const clients = await prisma.client.findMany({ where: filter })
 - W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A support
 - Confidence scoring for verification workflow
 
-## Tax1099 API Integration
+## 1099-NEC Tax Form Integration (TaxBandits API)
 
-**Service Location:** `apps/api/src/services/tax1099-client.ts`
+**Primary Service:** `apps/api/src/services/taxbandits-client.ts` (OAuth 2.0 JWT-based e-filing)
+
+**Legacy Service:** `apps/api/src/services/tax1099-client.ts` (Deprecated, kept for reference only)
 
 **Configuration:**
-- Env vars: `TAX1099_LOGIN`, `TAX1099_PASSWORD`, `TAX1099_APP_KEY`, `TAX1099_SANDBOX`
-- Singleton client initialized on demand, checked via `config.tax1099.isConfigured`
-- Endpoints defined in `apps/api/src/lib/config.ts`
+- TaxBandits env vars: `TAXBANDITS_CLIENT_ID`, `TAXBANDITS_CLIENT_SECRET`, `TAXBANDITS_USER_TOKEN`, `TAXBANDITS_SANDBOX`
+- Singleton client initialized on demand, checked via `config.taxbandits.isConfigured`
+- OAuth JWT: Header+Payload+Signature (HS256) with client credentials
+- Token caching: 55-min expiry (60-min API token minus 5-min buffer)
+- Request timeout: 30s with AbortController
 
-**Models:**
-- `Form1099NEC` - Individual tax forms with status (DRAFT, VALIDATED, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED)
-- `FilingBatch` - Groups multiple 1099-NECs by client + tax year for batch submission
-- `Contractor` - Business client contractor tracking
-- Form1099Status enum for workflow states
+**Models (Phase 4 Schema - Cleaned):**
+- `Form1099NEC` - Individual tax forms with status (DRAFT, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED)
+  - `taxbanditsRecordId` (String, indexed) - TaxBandits form ID
+  - `taxbanditsSubmissionId` (String, indexed, denormalized) - For batch lookups
+  - `validationErrors` array for error tracking
+  - `efileStatus` for IRS response tracking
+- `FilingBatch` - Groups multiple 1099-NECs by client + tax year
+  - `taxbanditsSubmissionId` (String, indexed) - Batch submission ID from TaxBandits
+- `Contractor` - Business client contractor tracking (ssn4Encrypted, einEncrypted, name, address, phone, businessType)
+- Form1099Status enum: DRAFT, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED
 
-**Workflow:**
-1. `DRAFT` - Form created locally
-2. `VALIDATED` - Passed Tax1099 validation API
-3. `IMPORTED` - Data accepted into Tax1099 system
-4. `PDF_READY` - PDF generated and stored on R2
-5. `SUBMITTED` - E-filed to IRS
-6. `ACCEPTED` / `REJECTED` - IRS response
+**Workflow (3-Step TaxBandits Process):**
+1. `DRAFT` - Form created locally with contractor data
+2. `IMPORTED` - Form transmitted to TaxBandits (creates RecordId + SubmissionId)
+3. `PDF_READY` - Draft PDF retrieved from TaxBandits and stored on R2
+4. `SUBMITTED` - Batch transmitted to IRS via TaxBandits
+5. `ACCEPTED` / `REJECTED` - IRS response received
 
 **Routes (org-scoped, business clients only):**
-- `GET /clients/:clientId/1099-nec/status` - Status counts (requires READ)
-- `POST /clients/:clientId/1099-nec/validate` - Validate against Tax1099 API (requires ADMIN)
-- `POST /clients/:clientId/1099-nec/import` - Import form data (requires ADMIN)
-- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Fetch & store PDFs (requires ADMIN)
-- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed URL (requires READ)
+- `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED)
+- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY)
+- `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED)
+- `GET /clients/:clientId/1099-nec/status` - Status counts (org admin only)
+- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed URL (24-hour TTL)
+- `GET /clients/:clientId/1099-nec/batches` - List filing batches
+- `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with forms
+- `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits
 
 ## Testing Patterns
 
@@ -360,6 +371,6 @@ describe('Feature', () => {
 
 ---
 
-**Version:** 2.4
+**Version:** 2.5
 **Last Updated:** 2026-04-02
-**Status:** Tax1099 API Integration Phase 3 complete (Form1099NEC/FilingBatch models, 5 API endpoints, client singleton, validation/import/PDF workflows)
+**Status:** Tax1099 API Integration Phases 3 & 4 complete. Phase 3: TaxBandits API client + 8 endpoints. Phase 4: Schema cleanup (removed Tax1099 fields, indexed TaxBandits IDs).

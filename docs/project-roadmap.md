@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-04-02 ICT
-> **Current Phase:** Tax1099 API Integration COMPLETE (Phase 3 Schema + 5 Endpoints) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tax1099 API Integration COMPLETE (Phase 3) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** Tax1099 API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Tax1099 API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
@@ -55,6 +55,40 @@
 - Code review: Org-scoped, business client verified, error handling complete
 
 **Status:** PRODUCTION READY - All endpoints functional, org-scoped, business client verified
+
+---
+
+### Tax1099 API Integration - Phase 4 (Schema Cleanup) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 4)
+**Deliverable:** Removed deprecated Tax1099 API fields from schema; all operations now TaxBandits-only
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 4 | Schema Cleanup & Field Removal | ✅ DONE | 0.5h | 2026-04-02 |
+
+**Completion Summary (Phase 4):**
+- Removed `Contractor.tax1099RecipientId` - No longer used (TaxBandits API handles submission directly)
+- Removed `Form1099NEC.tax1099FormId` - Replaced by `taxbanditsRecordId` (String, indexed)
+- Added `Form1099NEC.taxbanditsSubmissionId` (String, denormalized for batch lookup, indexed)
+- Removed `FilingBatch.tax1099SubmissionId` - Replaced by `taxbanditsSubmissionId` (String, indexed)
+- Updated routes + validators to remove old field references
+- Added indexes on both taxbanditsSubmissionId fields for efficient batch queries
+
+**Benefits:**
+- Reduced schema clutter (Tax1099 legacy fields removed)
+- Single source of truth: All forms tracked via TaxBandits IDs only
+- Improved query performance on batch status lookups via indexed denormalized field
+- Clear separation: Tax1099 client service kept for reference, but routes use TaxBandits exclusively
+
+**Files Modified:**
+- Schema: `packages/db/prisma/schema.prisma` (Contractor, Form1099NEC, FilingBatch)
+- Routes: `apps/api/src/routes/contractors/index.ts`, `validators.ts`
+- Services: `apps/api/src/services/crypto/index.ts`
+- Frontend: `apps/workspace/src/lib/api-client.ts`
+
+**Status:** PRODUCTION READY - Schema cleaned, all tests passing, backward compatibility maintained
 
 ---
 

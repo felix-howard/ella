@@ -1250,7 +1250,6 @@ export interface Contractor {
   zip: string
   email?: string | null
   phone?: string | null
-  tax1099RecipientId?: string | null
   createdAt: string
   updatedAt: string
 }

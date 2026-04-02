@@ -111,6 +111,35 @@
 
 ## 2026-04-02
 
+### Refactor: TaxBandits API Migration - Phase 4 (Schema Cleanup) ✅ COMPLETE
+**Status:** Production Ready
+**Branch:** feature/more-ella-polish
+**Effort:** 0.5h
+**Completion Date:** 2026-04-02
+
+**Summary:** Removed deprecated Tax1099 API fields from schema. All form/batch operations now use TaxBandits-only fields.
+
+**Database Changes:**
+- Removed: `Contractor.tax1099RecipientId` - No longer needed (TaxBandits uses direct API submission)
+- Removed: `Form1099NEC.tax1099FormId` - Replaced by `taxbanditsRecordId` (String, indexed)
+- Added: `Form1099NEC.taxbanditsSubmissionId` (String, denormalized for quick lookup, indexed)
+- Removed: `FilingBatch.tax1099SubmissionId` - Replaced by `taxbanditsSubmissionId` (String, indexed)
+- Both `taxbanditsSubmissionId` fields indexed for batch status lookups
+
+**Code Changes:**
+- Updated: `apps/api/src/routes/contractors/index.ts` - Removed tax1099RecipientId references
+- Updated: `apps/api/src/routes/contractors/validators.ts` - Removed tax1099RecipientId field validation
+- Updated: `apps/api/src/services/crypto/index.ts` - Removed unused Tax1099 field handling
+- Updated: `apps/workspace/src/lib/api-client.ts` - Removed old field references from request types
+
+**Impact:**
+- Reduced schema noise (1099 legacy fields removed)
+- Single source of truth: All forms now tracked via TaxBandits IDs only
+- Improved query performance on batch lookups via indexed denormalized field
+- Backward compatibility: Data migration handled by migration script
+
+---
+
 ### Feature: TaxBandits API Migration - Phase 3 ✅ COMPLETE
 **Status:** Production Ready
 **Branch:** feature/more-ella-polish

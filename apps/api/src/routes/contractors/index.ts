@@ -46,7 +46,6 @@ contractorsRoute.get('/:clientId/contractors', async (c) => {
       zip: true,
       email: true,
       phone: true,
-      tax1099RecipientId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -110,7 +109,6 @@ contractorsRoute.post(
         zip: true,
         email: true,
         phone: true,
-        tax1099RecipientId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -202,7 +200,6 @@ contractorsRoute.patch(
         zip: true,
         email: true,
         phone: true,
-        tax1099RecipientId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -212,6 +209,32 @@ contractorsRoute.patch(
     return c.json({ data: contractor })
   }
 )
+
+/**
+ * DELETE /clients/:clientId/contractors/all - Delete all contractors for a client
+ * MUST be registered before /:id route to avoid "all" being matched as an ID
+ */
+contractorsRoute.delete('/:clientId/contractors/all', async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
+
+  // Form1099NEC records cascade-delete via onDelete: Cascade on Contractor
+  const result = await prisma.contractor.deleteMany({
+    where: { clientId },
+  })
+
+  console.log(`[Contractors] Bulk deleted ${result.count} contractors for client ${clientId} by staff ${user.staffId}`)
+  return c.json({ success: true, count: result.count })
+})
 
 /**
  * DELETE /clients/:clientId/contractors/:id - Delete contractor
@@ -332,13 +355,14 @@ contractorsRoute.post(
     }
 
     try {
-      const saved = await prisma.$transaction(
-        contractors.map((contractor) => {
+      const saved = await prisma.$transaction(async (tx) => {
+        const results = []
+        for (const contractor of contractors) {
           const ssnDigits = contractor.ssn.replace(/\D/g, '')
           const ssnLast4 = ssnDigits.slice(-4)
           const ssnEncrypted = encryptSSN(ssnDigits)
 
-          return prisma.contractor.create({
+          const created = await tx.contractor.create({
             data: {
               clientId,
               firstName: contractor.firstName,
@@ -358,8 +382,22 @@ contractorsRoute.post(
               ssnLast4: true,
             },
           })
-        })
-      )
+
+          // Create Form1099NEC record with amount from Excel
+          if (contractor.amountPaid > 0) {
+            await tx.form1099NEC.create({
+              data: {
+                contractorId: created.id,
+                taxYear,
+                amountBox1: contractor.amountPaid,
+              },
+            })
+          }
+
+          results.push(created)
+        }
+        return results
+      })
 
       // Audit log bulk SSN encryption
       void logProfileChanges(

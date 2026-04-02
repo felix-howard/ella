@@ -2,7 +2,7 @@
  * Zod schemas for Contractor API endpoints
  */
 import { z } from 'zod'
-import { isValidSSN } from '../../services/crypto'
+import { isValidSSN, isValidTIN } from '../../services/crypto'
 
 export const createContractorSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
@@ -32,7 +32,7 @@ export const bulkSaveContractorsSchema = z.object({
   contractors: z.array(z.object({
     firstName: z.string().min(1),
     lastName: z.string().min(1),
-    ssn: z.string().refine(isValidSSN, 'Invalid SSN format'),
+    ssn: z.string().refine(isValidTIN, 'Invalid SSN/EIN/ITIN format'),
     address: z.string().min(1),
     city: z.string().min(1),
     state: z.string().length(2),

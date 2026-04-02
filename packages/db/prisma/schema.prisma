@@ -1440,7 +1440,6 @@ model Contractor {
   zip                 String
   email               String?
   phone               String?
-  tax1099RecipientId  String?  // External ID from Tax1099 API
 
   forms               Form1099NEC[]
 
@@ -1475,8 +1474,8 @@ model Form1099NEC {
   amountBox4        Decimal         @default(0) @db.Decimal(12, 2)
   pdfStorageKey     String?
   status            Form1099Status  @default(DRAFT)
-  tax1099FormId     Int?
-  taxbanditsRecordId String?
+  taxbanditsRecordId     String?
+  taxbanditsSubmissionId String?
   validationErrors  String[]        @default([])
   efileSubmittedAt  DateTime?
   efileStatus       String?
@@ -1487,6 +1486,7 @@ model Form1099NEC {
   @@index([batchId])
   @@index([status])
   @@index([taxbanditsRecordId])
+  @@index([taxbanditsSubmissionId])
 }
 
 enum FilingStatus {
@@ -1504,7 +1504,6 @@ model FilingBatch {
   client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   taxYear             Int
   status              FilingStatus  @default(PENDING)
-  tax1099SubmissionId String?
   taxbanditsSubmissionId String?
   submittedAt         DateTime?
   acceptedAt          DateTime?
@@ -1522,4 +1521,5 @@ model FilingBatch {
 
   @@index([clientId])
   @@index([status])
+  @@index([taxbanditsSubmissionId])
 }

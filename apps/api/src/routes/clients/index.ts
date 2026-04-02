@@ -38,7 +38,7 @@ import { encryptSSN } from '../../services/crypto'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
-import type { TaxType, Language } from '@ella/db'
+import type { TaxType, Language, ClientType } from '@ella/db'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -352,11 +352,14 @@ clientsRoute.get('/tags', async (c) => {
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, customMessage, firstName, lastName, ...clientData } = body
+  const { profile, customMessage, firstName, lastName, clientType, businessName, ein, ...clientData } = body
   const user = c.get('user')
 
   // Compute display name from firstName and lastName
   const displayName = computeDisplayName(firstName, lastName)
+
+  // Encrypt EIN if provided (for business clients)
+  const einEncrypted = ein ? encryptSSN(ein.replace(/-/g, '')) : undefined
 
   try {
   // Create client with profile and tax case in transaction
@@ -369,6 +372,9 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         name: displayName,  // Computed for backward compatibility
         ...clientData,
         language: clientData.language as Language,
+        clientType: (clientType || 'INDIVIDUAL') as ClientType,
+        businessName: businessName || null,
+        einEncrypted: einEncrypted || null,
         organizationId: user.organizationId,
         managedById: user.staffId,  // Always set creator as manager
         createdById: user.staffId,  // Track who created this client

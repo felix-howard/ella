@@ -119,6 +119,9 @@ export const createClientSchema = z.object({
   phone: phoneSchema,
   email: z.string().email().optional(),
   language: z.enum(['VI', 'EN']).default('VI'),
+  clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
+  businessName: z.string().max(200).optional(),
+  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
   profile: clientProfileSchema,
   // Custom welcome message (optional) - uses placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
   customMessage: z.string().max(500).optional(),

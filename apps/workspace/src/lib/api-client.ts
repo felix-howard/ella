@@ -1742,6 +1742,9 @@ export interface CreateClientInput {
   phone: string
   email?: string
   language?: Language
+  clientType?: ClientType
+  businessName?: string
+  ein?: string
   profile: {
     taxYear: number
     taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend

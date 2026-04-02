@@ -5,8 +5,8 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus, Upload } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2 } from 'lucide-react'
+import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
 import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 import { ContractorTable } from './contractor-table'
@@ -61,6 +61,22 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
     },
     onError: () => {
       setDeletingId(null)
+    },
+  })
+
+  const [showDeleteAll, setShowDeleteAll] = useState(false)
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => api.contractors.deleteAll(clientId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
+      toast.success(`Deleted ${data.count} contractors`)
+      setShowDeleteAll(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete contractors')
+      setShowDeleteAll(false)
     },
   })
 
@@ -158,6 +174,17 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {contractors.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteAll(true)}
+                className="gap-1.5 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete All
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -224,7 +251,7 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
         ) : null}
       </div>
 
-      {/* Tax1099 Actions Panel */}
+      {/* TaxBandits Actions Panel */}
       {contractors.length > 0 && (
         <FormActionsPanel clientId={clientId} />
       )}
@@ -248,6 +275,39 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
         contractor={editingContractor}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* Delete All Confirmation Modal */}
+      <Modal open={showDeleteAll} onClose={() => setShowDeleteAll(false)}>
+        <ModalHeader>
+          <ModalTitle>Delete All Contractors</ModalTitle>
+        </ModalHeader>
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete all <span className="font-semibold text-foreground">{contractors.length}</span> contractors
+            and their associated 1099-NEC forms? This action cannot be undone.
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteAll(false)}
+            disabled={deleteAllMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => deleteAllMutation.mutate()}
+            disabled={deleteAllMutation.isPending}
+            className="gap-1.5"
+          >
+            {deleteAllMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Delete All
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

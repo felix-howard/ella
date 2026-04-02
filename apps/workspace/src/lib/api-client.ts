@@ -199,24 +199,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch (error) {
       lastError = error instanceof ApiError ? error : new ApiError(0, 'UNKNOWN', 'Unknown error')
 
-      // On 401, refresh token and retry once
-      if (lastError.status === 401 && !hasRetriedAuth && getAuthToken) {
-        hasRetriedAuth = true
-        const freshToken = await getAuthToken()
-        if (freshToken) {
-          headersWithAuth['Authorization'] = `Bearer ${freshToken}`
-          continue // retry immediately with fresh token
-        }
-      }
-
       // Don't retry if not retryable or last attempt
       if (!isRetryable(lastError) || attempt === retries) {
-        throw lastError
+        break // exit loop, try auth refresh below
       }
 
       // Exponential backoff: 1s, 2s, 4s...
       const delay = RETRY_DELAY_BASE * Math.pow(2, attempt)
       await sleep(delay)
+    }
+  }
+
+  // On 401, refresh token and retry once (works even with retries: 0)
+  if (lastError?.status === 401 && !hasRetriedAuth && getAuthToken) {
+    hasRetriedAuth = true
+    const freshToken = await getAuthToken()
+    if (freshToken) {
+      headersWithAuth['Authorization'] = `Bearer ${freshToken}`
+      return await attemptRequest<T>(url, { ...fetchOptions, headers: headersWithAuth }, timeout)
     }
   }
 
@@ -362,6 +362,8 @@ export const api = {
       request<{ success: boolean; data: ParseResult }>(`/clients/${clientId}/contractors/upload-excel`, {
         method: 'POST',
         body: formData,
+        timeout: 120000, // 2 min — server does AI address parsing
+        retries: 0, // Don't retry file uploads
       }),
 
     bulkSave: (clientId: string, data: BulkSaveContractorsInput) =>
@@ -369,20 +371,20 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    deleteAll: (clientId: string) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/all`, {
+        method: 'DELETE',
+      }),
   },
 
-  // 1099-NEC Forms (Tax1099 API integration)
+  // 1099-NEC Forms (TaxBandits API integration)
   form1099nec: {
     status: (clientId: string) =>
       request<{ data: Form1099StatusCounts }>(`/clients/${clientId}/1099-nec/status`),
 
-    validate: (clientId: string) =>
-      request<{ success: boolean; results: Form1099ValidationResult[] }>(`/clients/${clientId}/1099-nec/validate`, {
-        method: 'POST',
-      }),
-
-    import: (clientId: string) =>
-      request<{ success: boolean; importedCount: number }>(`/clients/${clientId}/1099-nec/import`, {
+    create: (clientId: string) =>
+      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/clients/${clientId}/1099-nec/create`, {
         method: 'POST',
       }),
 
@@ -394,10 +396,9 @@ export const api = {
     downloadPdf: (clientId: string, formId: string) =>
       request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
 
-    submit: (clientId: string, options: SubmitOptions) =>
-      request<SubmitResponse>(`/clients/${clientId}/1099-nec/submit`, {
+    transmit: (clientId: string) =>
+      request<TransmitResponse>(`/clients/${clientId}/1099-nec/transmit`, {
         method: 'POST',
-        body: JSON.stringify(options),
       }),
 
     getBatches: (clientId: string) =>
@@ -1330,27 +1331,13 @@ export interface Form1099StatusCounts {
   total: number
 }
 
-export interface Form1099ValidationResult {
-  contractorId: string
-  formId: string
-  valid: boolean
-  errors: string[]
-}
-
 // Filing submission types
 export type FilingStatusType = 'PENDING' | 'SUBMITTED' | 'PROCESSING' | 'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED'
 
-export interface SubmitOptions {
-  tinCheckEnabled: boolean
-  uspsEnabled: boolean
-  eDeliveryEnabled: boolean
-}
-
-export interface SubmitResponse {
+export interface TransmitResponse {
   success: boolean
   batchId: string
-  submittedCount: number
-  rejectedCount: number
+  transmittedCount: number
 }
 
 export interface FilingBatch {
@@ -1358,7 +1345,7 @@ export interface FilingBatch {
   clientId: string
   taxYear: number
   status: FilingStatusType
-  tax1099SubmissionId: string | null
+  taxbanditsSubmissionId: string | null
   submittedAt: string | null
   acceptedAt: string | null
   rejectedAt: string | null

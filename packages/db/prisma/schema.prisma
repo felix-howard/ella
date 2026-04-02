@@ -1476,6 +1476,7 @@ model Form1099NEC {
   pdfStorageKey     String?
   status            Form1099Status  @default(DRAFT)
   tax1099FormId     Int?
+  taxbanditsRecordId String?
   validationErrors  String[]        @default([])
   efileSubmittedAt  DateTime?
   efileStatus       String?
@@ -1485,6 +1486,7 @@ model Form1099NEC {
   @@unique([contractorId, taxYear])
   @@index([batchId])
   @@index([status])
+  @@index([taxbanditsRecordId])
 }
 
 enum FilingStatus {
@@ -1503,6 +1505,7 @@ model FilingBatch {
   taxYear             Int
   status              FilingStatus  @default(PENDING)
   tax1099SubmissionId String?
+  taxbanditsSubmissionId String?
   submittedAt         DateTime?
   acceptedAt          DateTime?
   rejectedAt          DateTime?

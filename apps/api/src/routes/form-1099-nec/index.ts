@@ -1,6 +1,6 @@
 /**
  * 1099-NEC Form Routes
- * Tax1099 API integration: validate, import, fetch PDFs, download
+ * TaxBandits API integration: create, fetch PDFs, transmit, status
  * Nested under /clients/:clientId/1099-nec
  */
 import { Hono } from 'hono'
@@ -8,13 +8,11 @@ import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { decryptSSN } from '../../services/crypto'
-import { tax1099Client } from '../../services/tax1099-client'
+import { taxbanditsClient } from '../../services/taxbandits-client'
 import { uploadFile, getSignedDownloadUrl } from '../../services/storage'
 import type { AuthVariables } from '../../middleware/auth'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { Form1099Status, FilingStatus } from '@ella/db'
-import { z } from 'zod'
-import { zValidator } from '@hono/zod-validator'
 
 const form1099NecRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -67,15 +65,15 @@ form1099NecRoute.get('/:clientId/1099-nec/status', async (c) => {
 })
 
 /**
- * POST /clients/:clientId/1099-nec/validate
- * Validate all DRAFT forms via Tax1099 API
+ * POST /clients/:clientId/1099-nec/create
+ * Create all DRAFT forms in TaxBandits (unified: replaces old validate + import)
  */
-form1099NecRoute.post('/:clientId/1099-nec/validate', requireOrgAdmin, async (c) => {
+form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
-    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
   const client = await prisma.client.findFirst({
@@ -93,218 +91,125 @@ form1099NecRoute.post('/:clientId/1099-nec/validate', requireOrgAdmin, async (c)
     return c.json({ error: 'Business client not found' }, 404)
   }
 
-  if (!client.einEncrypted) {
-    return c.json({ error: 'Client EIN is required for validation' }, 400)
-  }
-
-  // Flatten to form+contractor pairs for parallel processing
-  const formPairs = client.contractors.flatMap((contractor) =>
-    contractor.forms.map((form) => ({ contractor, form }))
-  )
-
-  if (formPairs.length === 0) {
-    return c.json({ error: 'No draft forms to validate' }, 400)
-  }
-
-  // Pre-flight: verify Tax1099 login works before processing all forms
-  try {
-    await tax1099Client.checkAuth()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Tax1099 authentication failed'
-    console.error(`[Tax1099] Pre-flight auth check failed: ${message}`)
-    return c.json({ error: `Tax1099 authentication failed: ${message}` }, 502)
-  }
-
-  // Process with concurrency limit (5 at a time)
-  const CONCURRENCY = 5
-  const results: Array<{
-    contractorId: string
-    formId: string
-    valid: boolean
-    errors: string[]
-  }> = []
-
-  for (let i = 0; i < formPairs.length; i += CONCURRENCY) {
-    const batch = formPairs.slice(i, i + CONCURRENCY)
-    const batchResults = await Promise.allSettled(
-      batch.map(async ({ contractor, form }) => {
-        const response = await tax1099Client.validateForm({
-          clientPayerId: clientId,
-          clientRecipientId: contractor.id,
-          taxYear: form.taxYear,
-          payerTIN: decryptSSN(client.einEncrypted!).replace(/-/g, ''),
-          recipientTIN: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
-          amtBox1: Number(form.amountBox1),
-          amtBox4: Number(form.amountBox4),
-        })
-
-        await prisma.form1099NEC.update({
-          where: { id: form.id },
-          data: {
-            status: response.isValid ? 'VALIDATED' : 'DRAFT',
-            validationErrors: response.errors || [],
-          },
-        })
-
-        return {
-          contractorId: contractor.id,
-          formId: form.id,
-          valid: response.isValid,
-          errors: response.errors || [],
-        }
-      })
-    )
-
-    for (const result of batchResults) {
-      if (result.status === 'fulfilled') {
-        results.push(result.value)
-      } else {
-        // Extract contractor info from the batch item
-        const batchIndex = batchResults.indexOf(result)
-        const pair = batch[batchIndex]
-        results.push({
-          contractorId: pair.contractor.id,
-          formId: pair.form.id,
-          valid: false,
-          errors: [result.reason instanceof Error ? result.reason.message : 'Validation failed'],
-        })
-      }
-    }
-  }
-
-  return c.json({ success: true, results })
-})
-
-/**
- * POST /clients/:clientId/1099-nec/import
- * Sync payer + recipients + import forms to Tax1099
- */
-form1099NecRoute.post('/:clientId/1099-nec/import', requireOrgAdmin, async (c) => {
-  const user = c.get('user')
-  const { clientId } = c.req.param()
-
-  if (!config.taxbandits.isConfigured) {
-    return c.json({ error: 'Tax1099 API is not configured' }, 503)
-  }
-
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    include: {
-      contractors: {
-        include: {
-          forms: { where: { status: 'VALIDATED' as Form1099Status } },
-        },
-      },
-    },
-  })
-
-  if (!client || client.clientType !== 'BUSINESS') {
-    return c.json({ error: 'Business client not found' }, 404)
-  }
-
   if (!client.einEncrypted || !client.businessName || !client.businessAddress || !client.businessCity || !client.businessState || !client.businessZip) {
-    return c.json({ error: 'Complete business address and EIN are required' }, 400)
+    return c.json({ error: 'Complete business info (name, EIN, address) required' }, 400)
   }
 
   const contractorsWithForms = client.contractors.filter((c) => c.forms.length > 0)
   if (contractorsWithForms.length === 0) {
-    return c.json({ error: 'No validated forms to import' }, 400)
+    return c.json({ error: 'No draft forms to create' }, 400)
   }
 
-  // Step 1: Save Payer
-  await tax1099Client.savePayer({
-    clientPayerId: clientId,
-    payerName: client.businessName,
-    payerTIN: decryptSSN(client.einEncrypted).replace(/-/g, ''),
-    tinType: 'Business',
-    address1: client.businessAddress,
-    city: client.businessCity,
-    state: client.businessState,
-    zip: client.businessZip,
+  // All forms must be same tax year for a single submission
+  const taxYears = [...new Set(contractorsWithForms.flatMap((c) => c.forms.map((f) => f.taxYear)))]
+  if (taxYears.length > 1) {
+    return c.json({ error: 'Cannot submit forms from multiple tax years' }, 400)
+  }
+
+  // Pre-flight auth check
+  try {
+    await taxbanditsClient.checkAuth()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'TaxBandits authentication failed'
+    console.error(`[TaxBandits] Pre-flight auth failed: ${message}`)
+    return c.json({ error: `TaxBandits authentication failed: ${message}` }, 502)
+  }
+
+  // Build recipients list with form mapping (Sequence -> formId for correlation)
+  const recipientMap: Array<{ formId: string; contractorId: string }> = []
+  const recipients = contractorsWithForms.flatMap((contractor) =>
+    contractor.forms.map((form) => {
+      recipientMap.push({ formId: form.id, contractorId: contractor.id })
+      return {
+        name: `${contractor.firstName} ${contractor.lastName}`,
+        tinType: 'SSN' as const,
+        tin: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
+        address1: contractor.address,
+        city: contractor.city,
+        state: contractor.state,
+        zip: contractor.zip,
+        email: contractor.email || undefined,
+        amountBox1: Number(form.amountBox1),
+        amountBox4: Number(form.amountBox4),
+      }
+    })
+  )
+
+  let response
+  try {
+    response = await taxbanditsClient.createForm1099NEC({
+      taxYear: taxYears[0],
+      payer: {
+        businessName: client.businessName,
+        ein: decryptSSN(client.einEncrypted).replace(/-/g, ''),
+        address1: client.businessAddress,
+        city: client.businessCity,
+        state: client.businessState,
+        zip: client.businessZip,
+      },
+      recipients,
+    })
+  } catch (error) {
+    console.error('[1099-NEC] Create failed:', error)
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create forms in TaxBandits',
+    }, 502)
+  }
+
+  // Create FilingBatch
+  const batch = await prisma.filingBatch.create({
+    data: {
+      clientId,
+      taxYear: taxYears[0],
+      status: 'PENDING',
+      totalForms: response.Form1099Records.SuccessRecords.length,
+      taxbanditsSubmissionId: response.SubmissionId,
+    },
   })
 
-  // Step 2: Save Recipients (concurrent with limit)
-  const CONCURRENCY = 5
-  for (let i = 0; i < contractorsWithForms.length; i += CONCURRENCY) {
-    const batch = contractorsWithForms.slice(i, i + CONCURRENCY)
-    await Promise.allSettled(
-      batch.map(async (contractor) => {
-        const response = await tax1099Client.saveRecipient({
-          clientRecipientId: contractor.id,
-          clientPayerId: clientId,
-          recipientName: `${contractor.firstName} ${contractor.lastName}`,
-          recipientTIN: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
-          tinType: 'Individual',
-          address1: contractor.address,
-          city: contractor.city,
-          state: contractor.state,
-          zip: contractor.zip,
-          email: contractor.email || undefined,
+  // Update successful forms with RecordIds (correlate via Sequence index)
+  if (response.Form1099Records.SuccessRecords.length > 0) {
+    await prisma.$transaction(
+      response.Form1099Records.SuccessRecords.map((record) => {
+        const seqIndex = parseInt(record.Sequence, 10) - 1
+        const mapping = recipientMap[seqIndex]
+        return prisma.form1099NEC.update({
+          where: { id: mapping.formId },
+          data: {
+            taxbanditsRecordId: record.RecordId,
+            status: 'IMPORTED',
+            batchId: batch.id,
+          },
         })
-
-        if (response.recipientId) {
-          await prisma.contractor.update({
-            where: { id: contractor.id },
-            data: { tax1099RecipientId: response.recipientId.toString() },
-          })
-        }
       })
     )
   }
 
-  // Step 3: Import Forms
-  const formsToImport = contractorsWithForms.flatMap((contractor) =>
-    contractor.forms.map((f) => ({
-      clientPayerId: clientId,
-      clientRecipientId: contractor.id,
-      taxYear: f.taxYear,
-      amtBox1: Number(f.amountBox1),
-      amtBox4: Number(f.amountBox4),
-    }))
-  )
-
-  const importResponse = await tax1099Client.importOnly(formsToImport)
-
-  // Update forms with Tax1099 formIds — match on contractorId + taxYear
-  await prisma.$transaction(
-    importResponse.forms.map((result) => {
-      const originalForm = contractorsWithForms
-        .flatMap((c) => c.forms)
-        .find(
-          (f) =>
-            contractorsWithForms.find((c) => c.forms.includes(f))?.id === result.clientRecipientId
-        )
-
-      return prisma.form1099NEC.updateMany({
-        where: {
-          contractorId: result.clientRecipientId,
-          status: 'VALIDATED',
-          ...(originalForm ? { taxYear: originalForm.taxYear } : {}),
-        },
-        data: {
-          tax1099FormId: result.formId,
-          status: 'IMPORTED',
-        },
-      })
-    })
-  )
+  // Collect errors for response
+  const errors = response.Form1099Records.ErrorRecords.map((err) => ({
+    sequence: err.Sequence,
+    errors: err.Errors.map((e) => `${e.Code}: ${e.Message}${e.FieldName ? ` (${e.FieldName})` : ''}`),
+  }))
 
   return c.json({
     success: true,
-    importedCount: importResponse.forms.length,
+    batchId: batch.id,
+    createdCount: response.Form1099Records.SuccessRecords.length,
+    ...(errors.length > 0 ? { errors } : {}),
   })
 })
 
 /**
  * POST /clients/:clientId/1099-nec/fetch-pdfs
- * Fetch PDFs from Tax1099 and store in R2
+ * Fetch draft PDFs from TaxBandits and store in R2
  */
 form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
-    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
   const accessCheck = await prisma.client.findFirst({
@@ -319,44 +224,57 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
     where: {
       contractor: { clientId },
       status: 'IMPORTED',
-      tax1099FormId: { not: null },
+      taxbanditsRecordId: { not: null },
+      batch: { taxbanditsSubmissionId: { not: null } },
     },
-    include: { contractor: true },
+    include: { contractor: true, batch: true },
   })
 
   if (forms.length === 0) {
-    return c.json({ error: 'No imported forms to fetch PDFs for' }, 400)
+    return c.json({ error: 'No created forms to fetch PDFs for' }, 400)
   }
-
-  const formIds = forms.map((f) => f.tax1099FormId!)
-  const pdfResponse = await tax1099Client.getPdfs(formIds)
 
   let pdfCount = 0
   const errors: string[] = []
 
-  for (const pdfData of pdfResponse.forms) {
-    const form = forms.find((f) => f.tax1099FormId === pdfData.formId)
-    if (!form) continue
+  // Process PDFs in parallel batches of 5
+  const CONCURRENCY = 5
+  for (let i = 0; i < forms.length; i += CONCURRENCY) {
+    const batch = forms.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(
+      batch.map(async (form) => {
+        const pdfResponse = await taxbanditsClient.requestDraftPdf(
+          form.batch!.taxbanditsSubmissionId!,
+          form.taxbanditsRecordId!
+        )
 
-    try {
-      const pdfBuffer = Buffer.from(pdfData.recipientPdf, 'base64')
-      const key = `1099-nec/${clientId}/${form.taxYear}/${form.contractor.id}.pdf`
+        const pdfFetch = await fetch(pdfResponse.DraftPdfUrl)
+        if (!pdfFetch.ok) {
+          throw new Error(`PDF download failed: ${pdfFetch.status}`)
+        }
+        const pdfBuffer = Buffer.from(await pdfFetch.arrayBuffer())
 
-      await uploadFile(key, pdfBuffer, 'application/pdf')
+        const key = `1099-nec/${clientId}/${form.taxYear}/${form.contractor.id}.pdf`
+        await uploadFile(key, pdfBuffer, 'application/pdf')
 
-      await prisma.form1099NEC.update({
-        where: { id: form.id },
-        data: {
-          pdfStorageKey: key,
-          status: 'PDF_READY',
-        },
+        await prisma.form1099NEC.update({
+          where: { id: form.id },
+          data: { pdfStorageKey: key, status: 'PDF_READY' },
+        })
+
+        return form.id
       })
+    )
 
-      pdfCount++
-    } catch (error) {
-      const msg = `Form ${form.id}: ${error instanceof Error ? error.message : 'PDF store failed'}`
-      console.error(`[1099-NEC] ${msg}`)
-      errors.push(msg)
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j]
+      if (result.status === 'fulfilled') {
+        pdfCount++
+      } else {
+        const msg = `Form ${batch[j].id}: ${result.reason instanceof Error ? result.reason.message : 'PDF fetch failed'}`
+        console.error(`[1099-NEC] ${msg}`)
+        errors.push(msg)
+      }
     }
   }
 
@@ -396,7 +314,6 @@ form1099NecRoute.get('/:clientId/1099-nec/:formId/pdf', async (c) => {
     return c.json({ error: 'PDF not found' }, 404)
   }
 
-  // Short expiry (5 min) for SSN-bearing documents
   const signedUrl = await getSignedDownloadUrl(form.pdfStorageKey, 300)
 
   if (!signedUrl) {
@@ -410,26 +327,19 @@ form1099NecRoute.get('/:clientId/1099-nec/:formId/pdf', async (c) => {
 })
 
 // ============================================
-// Submit & Filing Batch Endpoints
+// Transmit & Filing Batch Endpoints
 // ============================================
 
-const submitSchema = z.object({
-  tinCheckEnabled: z.boolean().default(true),
-  uspsEnabled: z.boolean().default(true),
-  eDeliveryEnabled: z.boolean().default(true),
-})
-
 /**
- * POST /clients/:clientId/1099-nec/submit
- * Submit PDF-ready forms to IRS via Tax1099
+ * POST /clients/:clientId/1099-nec/transmit
+ * Transmit PDF-ready forms to IRS via TaxBandits
  */
-form1099NecRoute.post('/:clientId/1099-nec/submit', requireOrgAdmin, zValidator('json', submitSchema), async (c) => {
+form1099NecRoute.post('/:clientId/1099-nec/transmit', requireOrgAdmin, async (c) => {
   const user = c.get('user')
   const { clientId } = c.req.param()
-  const options = c.req.valid('json')
 
   if (!config.taxbandits.isConfigured) {
-    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
   const accessCheck = await prisma.client.findFirst({
@@ -440,108 +350,68 @@ form1099NecRoute.post('/:clientId/1099-nec/submit', requireOrgAdmin, zValidator(
     return c.json({ error: 'Client not found' }, 404)
   }
 
-  // Get forms ready for submission (PDF_READY status with tax1099FormId)
   const forms = await prisma.form1099NEC.findMany({
     where: {
       contractor: { clientId },
       status: 'PDF_READY' as Form1099Status,
-      tax1099FormId: { not: null },
+      taxbanditsRecordId: { not: null },
     },
+    include: { batch: true },
   })
 
   if (forms.length === 0) {
-    return c.json({ error: 'No forms ready for submission' }, 400)
+    return c.json({ error: 'No forms ready for transmission' }, 400)
   }
 
-  // Guard: all forms must be same tax year
-  const taxYears = [...new Set(forms.map((f) => f.taxYear))]
-  if (taxYears.length > 1) {
-    return c.json({ error: 'Cannot submit forms from multiple tax years in one batch' }, 400)
+  // Get unique batch (should be one)
+  const batch = forms[0].batch
+  if (!batch?.taxbanditsSubmissionId) {
+    return c.json({ error: 'Batch submission ID missing' }, 500)
   }
 
-  // Create filing batch
-  const batch = await prisma.filingBatch.create({
-    data: {
-      clientId,
-      taxYear: forms[0].taxYear,
-      status: 'PENDING',
-      totalForms: forms.length,
-      tinCheckEnabled: options.tinCheckEnabled,
-      uspsEnabled: options.uspsEnabled,
-      eDeliveryEnabled: options.eDeliveryEnabled,
-    },
-  })
-
-  // Link forms to batch
-  await prisma.form1099NEC.updateMany({
-    where: { id: { in: forms.map((f) => f.id) } },
-    data: { batchId: batch.id },
-  })
+  const recordIds = forms.map((f) => f.taxbanditsRecordId!)
 
   try {
-    // Submit to Tax1099
-    const response = await tax1099Client.submitForms({
-      formIds: forms.map((f) => f.tax1099FormId!),
-      tinCheckAllForms: options.tinCheckEnabled,
-      uspsAllForms: options.uspsEnabled,
-      eDeliveryRecipientAllForms: options.eDeliveryEnabled,
-      isSeparateStateFiling: false,
-    })
+    await taxbanditsClient.transmit(batch.taxbanditsSubmissionId, recordIds)
 
-    // Update batch with submission result
     await prisma.filingBatch.update({
       where: { id: batch.id },
       data: {
         status: 'SUBMITTED',
-        tax1099SubmissionId: response.submissionId,
         submittedAt: new Date(),
       },
     })
 
-    // Update individual form statuses in batch
     const now = new Date()
-    await prisma.$transaction(
-      response.forms
-        .filter((fr) => forms.some((f) => f.tax1099FormId === fr.formId))
-        .map((formResult) => {
-          const form = forms.find((f) => f.tax1099FormId === formResult.formId)!
-          return prisma.form1099NEC.update({
-            where: { id: form.id },
-            data: {
-              status: formResult.status === 'SUBMITTED' ? 'SUBMITTED' : 'REJECTED',
-              efileSubmittedAt: formResult.status === 'SUBMITTED' ? now : null,
-              efileStatus: formResult.status,
-              validationErrors: formResult.errors || [],
-            },
-          })
-        })
-    )
-
-    const submittedCount = response.forms.filter((f) => f.status === 'SUBMITTED').length
-    const rejectedCount = response.forms.filter((f) => f.status === 'REJECTED').length
+    await prisma.form1099NEC.updateMany({
+      where: { id: { in: forms.map((f) => f.id) } },
+      data: {
+        status: 'SUBMITTED',
+        efileSubmittedAt: now,
+        efileStatus: 'TRANSMITTED',
+      },
+    })
 
     return c.json({
       success: true,
       batchId: batch.id,
-      submittedCount,
-      rejectedCount,
+      transmittedCount: forms.length,
     })
   } catch (error) {
-    // Mark batch as failed
     await prisma.filingBatch.update({
       where: { id: batch.id },
       data: {
         status: 'REJECTED',
-        rejectionReason: error instanceof Error ? error.message : 'Submission failed',
+        rejectionReason: error instanceof Error ? error.message : 'Transmission failed',
         rejectedAt: new Date(),
       },
     })
 
-    console.error('[1099-NEC] Submit failed:', error)
+    console.error('[1099-NEC] Transmit failed:', error)
     return c.json({
       success: false,
       batchId: batch.id,
-      error: error instanceof Error ? error.message : 'Submission failed',
+      error: error instanceof Error ? error.message : 'Transmission failed',
     }, 500)
   }
 })
@@ -611,14 +481,14 @@ form1099NecRoute.get('/:clientId/1099-nec/batches/:batchId', async (c) => {
 
 /**
  * POST /clients/:clientId/1099-nec/batches/:batchId/refresh
- * Refresh batch status from Tax1099 API
+ * Refresh batch status from TaxBandits API
  */
 form1099NecRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrgAdmin, async (c) => {
   const user = c.get('user')
   const { clientId, batchId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
-    return c.json({ error: 'Tax1099 API is not configured' }, 503)
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
   const accessCheck = await prisma.client.findFirst({
@@ -631,58 +501,81 @@ form1099NecRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrg
 
   const batch = await prisma.filingBatch.findFirst({
     where: { id: batchId, clientId },
+    include: { forms: true },
   })
 
-  if (!batch || !batch.tax1099SubmissionId) {
+  if (!batch?.taxbanditsSubmissionId) {
     return c.json({ error: 'Batch not found or not submitted' }, 404)
   }
 
-  // Fetch status from Tax1099
-  const statusResponse = await tax1099Client.getSubmissionStatus(batch.tax1099SubmissionId)
+  const recordIds = batch.forms
+    .filter((f) => f.taxbanditsRecordId)
+    .map((f) => f.taxbanditsRecordId!)
 
-  // Map Tax1099 status to our enum
-  const newStatus = mapTax1099Status(statusResponse.status)
+  if (recordIds.length === 0) {
+    return c.json({ error: 'No forms with record IDs to check' }, 400)
+  }
 
-  await prisma.filingBatch.update({
-    where: { id: batchId },
-    data: {
-      status: newStatus,
-      acceptedForms: statusResponse.acceptedCount || 0,
-      rejectedForms: statusResponse.rejectedCount || 0,
-      acceptedAt: newStatus === 'ACCEPTED' ? new Date() : batch.acceptedAt,
-      rejectedAt: newStatus === 'REJECTED' ? new Date() : batch.rejectedAt,
-    },
-  })
+  const statusResponse = await taxbanditsClient.getStatus(
+    batch.taxbanditsSubmissionId,
+    recordIds
+  )
 
-  // Update individual form statuses if available
-  if (statusResponse.forms && statusResponse.forms.length > 0) {
+  // Update individual form statuses from response
+  if (statusResponse.Form1099Records?.length > 0) {
     await prisma.$transaction(
-      statusResponse.forms.map((fs) => {
-        const mapped: Form1099Status =
-          fs.status === 'ACCEPTED' ? 'ACCEPTED' :
-          fs.status === 'REJECTED' ? 'REJECTED' : 'SUBMITTED'
-
+      statusResponse.Form1099Records.map((record) => {
+        const mapped = mapTaxBanditsFormStatus(record.FederalFilingStatus)
         return prisma.form1099NEC.updateMany({
-          where: { tax1099FormId: fs.formId },
-          data: { efileStatus: fs.status, status: mapped },
+          where: { taxbanditsRecordId: record.RecordId },
+          data: { efileStatus: record.FederalFilingStatus, status: mapped },
         })
       })
     )
   }
 
-  return c.json({ success: true, status: newStatus })
+  // Derive batch status from form statuses
+  const formStatuses = statusResponse.Form1099Records?.map((r) => r.FederalFilingStatus) || []
+  const newBatchStatus = deriveBatchStatus(formStatuses)
+  const acceptedCount = formStatuses.filter((s) => s === 'ACCEPTED').length
+  const rejectedCount = formStatuses.filter((s) => s === 'REJECTED').length
+
+  await prisma.filingBatch.update({
+    where: { id: batchId },
+    data: {
+      status: newBatchStatus,
+      acceptedForms: acceptedCount,
+      rejectedForms: rejectedCount,
+      acceptedAt: newBatchStatus === 'ACCEPTED' ? new Date() : batch.acceptedAt,
+      rejectedAt: newBatchStatus === 'REJECTED' ? new Date() : batch.rejectedAt,
+    },
+  })
+
+  return c.json({ success: true, status: newBatchStatus })
 })
 
-function mapTax1099Status(status: string): FilingStatus {
+function mapTaxBanditsFormStatus(status: string): Form1099Status {
   switch (status.toUpperCase()) {
     case 'ACCEPTED': return 'ACCEPTED'
     case 'REJECTED': return 'REJECTED'
-    case 'PARTIALLY_ACCEPTED': return 'PARTIALLY_ACCEPTED'
-    case 'PROCESSING': return 'PROCESSING'
+    case 'TRANSMITTED':
+    case 'UNDER_PROCESSING':
+    case 'SENT_TO_AGENCY': return 'SUBMITTED'
+    case 'CREATED': return 'IMPORTED'
     default:
-      console.warn(`[Tax1099] Unknown submission status: ${status}, defaulting to SUBMITTED`)
+      console.warn(`[TaxBandits] Unknown form status: ${status}`)
       return 'SUBMITTED'
   }
+}
+
+function deriveBatchStatus(statuses: string[]): FilingStatus {
+  if (statuses.length === 0) return 'SUBMITTED'
+  const upper = statuses.map((s) => s.toUpperCase())
+  if (upper.every((s) => s === 'ACCEPTED')) return 'ACCEPTED'
+  if (upper.every((s) => s === 'REJECTED')) return 'REJECTED'
+  if (upper.some((s) => s === 'ACCEPTED') && upper.some((s) => s === 'REJECTED')) return 'PARTIALLY_ACCEPTED'
+  if (upper.some((s) => ['TRANSMITTED', 'UNDER_PROCESSING', 'SENT_TO_AGENCY'].includes(s))) return 'PROCESSING'
+  return 'SUBMITTED'
 }
 
 export { form1099NecRoute }

@@ -1,10 +1,10 @@
 /**
- * Form Actions Panel - Tax1099 workflow actions
- * Sequential steps: Validate -> Import -> Get PDFs -> Submit to IRS
+ * Form Actions Panel - TaxBandits workflow actions
+ * Sequential steps: Create -> Get PDFs -> Transmit to IRS
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, CheckCircle2, FileText, Download, Send } from 'lucide-react'
+import { Loader2, FileText, Download, Send } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -37,27 +37,17 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
     queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
   }
 
-  const validateMutation = useMutation({
-    mutationFn: () => api.form1099nec.validate(clientId),
+  const createMutation = useMutation({
+    mutationFn: () => api.form1099nec.create(clientId),
     onSuccess: (data) => {
-      const validCount = data.results.filter((r) => r.valid).length
-      const totalCount = data.results.length
-      toast.success(`Validation complete: ${validCount}/${totalCount} passed`)
+      toast.success(`Created ${data.createdCount} forms in TaxBandits`)
+      if (data.errors && data.errors.length > 0) {
+        toast.error(`${data.errors.length} form(s) had errors`)
+      }
       refreshStatus()
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Validation failed')
-    },
-  })
-
-  const importMutation = useMutation({
-    mutationFn: () => api.form1099nec.import(clientId),
-    onSuccess: (data) => {
-      toast.success(`Imported ${data.importedCount} forms to Tax1099`)
-      refreshStatus()
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Import failed')
+      toast.error(err instanceof Error ? err.message : 'Form creation failed')
     },
   })
 
@@ -74,24 +64,16 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
 
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const submitMutation = useMutation({
-    mutationFn: () =>
-      api.form1099nec.submit(clientId, {
-        tinCheckEnabled: true,
-        uspsEnabled: true,
-        eDeliveryEnabled: true,
-      }),
+  const transmitMutation = useMutation({
+    mutationFn: () => api.form1099nec.transmit(clientId),
     onSuccess: (data) => {
-      toast.success(`Submitted ${data.submittedCount} forms to IRS`)
-      if (data.rejectedCount > 0) {
-        toast.error(`${data.rejectedCount} forms were rejected`)
-      }
+      toast.success(`Transmitted ${data.transmittedCount} forms to IRS`)
       refreshStatus()
       queryClient.invalidateQueries({ queryKey: ['filing-batches', clientId] })
       setShowConfirm(false)
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Submission failed')
+      toast.error(err instanceof Error ? err.message : 'Transmission failed')
       setShowConfirm(false)
     },
   })
@@ -106,10 +88,7 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
             <span className="font-medium text-foreground">{status.draft}</span> draft
           </span>
           <span>
-            <span className="font-medium text-foreground">{status.validated}</span> validated
-          </span>
-          <span>
-            <span className="font-medium text-foreground">{status.imported}</span> imported
+            <span className="font-medium text-foreground">{status.imported}</span> created
           </span>
           <span>
             <span className="font-medium text-foreground">{status.pdfReady}</span> ready
@@ -125,31 +104,16 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => validateMutation.mutate()}
-            disabled={status.draft === 0 || validateMutation.isPending}
+            onClick={() => createMutation.mutate()}
+            disabled={status.draft === 0 || createMutation.isPending}
             className="gap-1.5"
           >
-            {validateMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            )}
-            1. Validate
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => importMutation.mutate()}
-            disabled={status.validated === 0 || importMutation.isPending}
-            className="gap-1.5"
-          >
-            {importMutation.isPending ? (
+            {createMutation.isPending ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <FileText className="w-3.5 h-3.5" />
             )}
-            2. Import
+            1. Create
           </Button>
 
           <Button
@@ -164,20 +128,20 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
             ) : (
               <Download className="w-3.5 h-3.5" />
             )}
-            3. Get PDFs
+            2. Get PDFs
           </Button>
 
           {showConfirm ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Submit {status.pdfReady} forms?</span>
+              <span className="text-xs text-muted-foreground">Transmit {status.pdfReady} forms?</span>
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending}
+                onClick={() => transmitMutation.mutate()}
+                disabled={transmitMutation.isPending}
                 className="gap-1.5"
               >
-                {submitMutation.isPending ? (
+                {transmitMutation.isPending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Send className="w-3.5 h-3.5" />
@@ -188,7 +152,7 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowConfirm(false)}
-                disabled={submitMutation.isPending}
+                disabled={transmitMutation.isPending}
               >
                 Cancel
               </Button>
@@ -202,7 +166,7 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
               className="gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
-              4. Submit to IRS
+              3. Transmit to IRS
             </Button>
           )}
         </div>

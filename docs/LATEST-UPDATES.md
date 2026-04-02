@@ -1,46 +1,56 @@
 # Latest Documentation Updates
 
-**Date:** 2026-04-02 | **Feature:** Tax1099 API Integration Phase 3 (Form1099NEC, FilingBatch, 5 API Endpoints) COMPLETE | **Status:** Complete
+**Date:** 2026-04-02 | **Feature:** TaxBandits API Migration Phase 3 (OAuth JWT, 3-Step Workflow, PDF + IRS Transmission) COMPLETE | **Status:** Complete
 
 ---
 
-## Tax1099 API Integration - Phase 3 Complete
+## TaxBandits API Migration - Phase 3 Complete
 
 **Date:** 2026-04-02 | **Status:** Complete
 
-**In One Sentence:** Implemented Tax1099 API integration with Form1099NEC + FilingBatch models, Tax1099 client service, and 5 REST endpoints for validation, import, and PDF retrieval with org-scoped access control.
+**In One Sentence:** Migrated from Tax1099 to TaxBandits OAuth 2.0 API with 3-step workflow (create forms → fetch PDFs → transmit to IRS), added taxbanditsRecordId + taxbanditsSubmissionId fields for submission tracking.
 
 **Key Implementation Details:**
 
 **Schema Changes:**
-- Form1099NEC model: id, contractorId (FK), batchId (FK), taxYear, amountBox1, amountBox4, pdfStorageKey, status (Form1099Status enum), tax1099FormId (int), validationErrors (string array), efileSubmittedAt, efileStatus
-- FilingBatch model: id, clientId (FK), taxYear, status (PENDING|SUBMITTED|ACCEPTED|REJECTED), submittedAt, forms relationship
-- Contractor model: contractorId linking to Client with business type
-- Migration: `20260402120000_add_form_1099_nec_and_filing_batch` - idempotent SQL with IF NOT EXISTS
+- Form1099NEC additions: taxbanditsRecordId (String, indexed), validationErrors, efileSubmittedAt, efileStatus
+- FilingBatch additions: taxbanditsSubmissionId (String), status enum (PENDING|SUBMITTED|ACCEPTED|REJECTED)
+- Old Tax1099 fields retained for Phase 4 cleanup (backward compatibility)
+- Migration: `20260402140000_add_taxbandits_fields` - Non-destructive schema extensions
 
-**API Endpoints (5 total):**
-- GET /clients/:clientId/1099-nec/status - Form status counts (draft, validated, imported, pdfReady, submitted, accepted, rejected). Business client only.
-- POST /clients/:clientId/1099-nec/validate - Validate DRAFT forms via Tax1099 API (DRAFT → VALIDATED). Org admin required.
-- POST /clients/:clientId/1099-nec/import - Import form data from Tax1099 (VALIDATED → IMPORTED). Decrypts SSN. Org admin required.
-- POST /clients/:clientId/1099-nec/fetch-pdfs - Fetch PDFs from Tax1099, upload to R2 (IMPORTED → PDF_READY). Org admin required.
-- GET /clients/:clientId/1099-nec/:formId/pdf - Download signed URL (24h TTL). Read-only.
+**API Endpoints (8 total - 3 core + 5 supporting):**
+- **Core 3-Step Workflow:**
+  - POST /clients/:clientId/1099-nec/create - Create DRAFT forms in TaxBandits, store RecordIds + SubmissionId. Returns batchId + error list.
+  - POST /clients/:clientId/1099-nec/fetch-pdfs - Request draft PDFs from TaxBandits, upload to R2. Parallel batch processing (5 concurrent).
+  - POST /clients/:clientId/1099-nec/transmit - Transmit accepted forms to IRS via TaxBandits. Updates batch + form status to SUBMITTED.
+- **Status & Management:**
+  - GET /clients/:clientId/1099-nec/status - Form status counts (DRAFT, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED)
+  - GET /clients/:clientId/1099-nec/:formId/pdf - Download signed PDF URL (24h TTL)
+  - GET /clients/:clientId/1099-nec/batches - List all filing batches
+  - GET /clients/:clientId/1099-nec/batches/:batchId - Batch details + form breakdown
+  - POST /clients/:clientId/1099-nec/batches/:batchId/refresh - Refresh batch status from TaxBandits
 
 **Configuration:**
-- Tax1099 config section in apps/api/src/lib/config.ts with endpoint detection
-- Env vars: TAX1099_LOGIN, TAX1099_PASSWORD, TAX1099_APP_KEY, TAX1099_SANDBOX
-- Singleton service: apps/api/src/services/tax1099-client.ts with auth + retries
+- TaxBandits config section in apps/api/src/lib/config.ts with OAuth credentials
+- Env vars: TAXBANDITS_CLIENT_ID, TAXBANDITS_CLIENT_SECRET, TAXBANDITS_USER_TOKEN, TAXBANDITS_SANDBOX (default: true)
+- Singleton service: apps/api/src/services/taxbandits-client.ts with OAuth 2.0 JWT auth, token caching (55-min), retry logic (3 attempts)
+- Deprecated: apps/api/src/services/tax1099-client.ts (kept for backward compatibility)
 
 **Frontend:**
-- Form actions panel: Validate/Import/Fetch PDF buttons with loading + error states
-- Tab integration: 1099-NEC tab in /clients/:id for BUSINESS clients only
-- API client methods + types in apps/workspace/src/lib/api-client.ts
+- Updated form-actions-panel.tsx: 3-step UI (Create → Fetch PDFs → Transmit)
+- Updated form-1099-nec-tab/index.tsx: Integrated with TaxBandits endpoints
+- Updated api-client.ts: New TaxBandits methods + response types
+- No database schema change required on frontend
 
 **Validation & Safety:**
-- Org-scoped queries: buildClientScopeFilter() on all endpoints
-- Business client verification: 404 if client.clientType !== 'BUSINESS'
-- SSN encryption/decryption: Contractor SSN handled securely
-- Validation error tracking: Form1099NEC.validationErrors array for audit
-- Status workflow: Clear state machine (DRAFT → VALIDATED → IMPORTED → PDF_READY → SUBMITTED → ACCEPTED/REJECTED)
+- Org-scoped: All endpoints use buildClientScopeFilter()
+- Business client only: Non-BUSINESS clients return 404
+- Complete payer validation: Name, EIN, address required before create
+- Sequence correlation: Forms mapped to TaxBandits records via Sequence index (1-based)
+- Batch grouping: All forms must be same tax year per submission
+- Auth pre-flight: TaxBandits OAuth verified before form creation
+- SSN security: Contractor SSN decrypted for submission only, not stored in responses
+- Error tracking: Detailed error breakdown per form in response
 
 ---
 

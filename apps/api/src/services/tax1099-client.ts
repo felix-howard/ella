@@ -1,5 +1,6 @@
+// @ts-nocheck — DEPRECATED: This file is replaced by taxbandits-client.ts and will be deleted in Phase 6
 /**
- * Tax1099 API Client
+ * Tax1099 API Client (DEPRECATED - use taxbandits-client.ts)
  * Singleton client for Tax1099 API with token caching, login mutex, and retry logic
  * Handles: login, payer, recipient, form validation, import, PDF retrieval
  */
@@ -120,11 +121,14 @@ export interface SubmissionStatusResponse {
 // ============================================
 
 const TOKEN_BUFFER_MS = 5 * 60 * 1000 // Refresh 5 min before expiry
+const LOGIN_COOLDOWN_MS = 60 * 1000 // Wait 60s before retrying after login failure
 
 class Tax1099Client {
   private token: string | null = null
   private tokenExpiry: Date | null = null
   private loginPromise: Promise<void> | null = null
+  private loginFailedAt: Date | null = null
+  private loginFailError: string | null = null
 
   /**
    * Base request with auth, retry, and error handling
@@ -216,14 +220,36 @@ class Tax1099Client {
       return this.token
     }
 
+    // If login recently failed, reject immediately to avoid hammering the API
+    if (this.loginFailedAt && Date.now() - this.loginFailedAt.getTime() < LOGIN_COOLDOWN_MS) {
+      throw new Error(`Tax1099 login failed (cooldown ${LOGIN_COOLDOWN_MS / 1000}s): ${this.loginFailError}`)
+    }
+
     // Mutex: reuse in-flight login promise
     if (!this.loginPromise) {
-      this.loginPromise = this.doLogin().finally(() => {
-        this.loginPromise = null
-      })
+      this.loginPromise = this.doLogin()
+        .then(() => {
+          this.loginFailedAt = null
+          this.loginFailError = null
+        })
+        .catch((err) => {
+          this.loginFailedAt = new Date()
+          this.loginFailError = err.message
+          throw err
+        })
+        .finally(() => {
+          this.loginPromise = null
+        })
     }
     await this.loginPromise
     return this.token!
+  }
+
+  /**
+   * Pre-flight auth check — call before batch operations to fail fast
+   */
+  async checkAuth(): Promise<void> {
+    await this.ensureAuth()
   }
 
   /**

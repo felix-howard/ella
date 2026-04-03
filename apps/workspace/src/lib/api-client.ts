@@ -413,6 +413,9 @@ export const api = {
     downloadPdf: (businessId: string, formId: string) =>
       request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
 
+    getAllPdfs: (businessId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
+
     transmit: (businessId: string) =>
       request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
         method: 'POST',

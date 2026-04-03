@@ -329,6 +329,42 @@ form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
   })
 })
 
+/**
+ * GET /businesses/:businessId/1099-nec/pdfs
+ * Get signed download URLs for all PDF-ready forms
+ */
+form1099NecRoute.get('/:businessId/1099-nec/pdfs', async (c) => {
+  const user = c.get('user')
+  const { businessId } = c.req.param()
+
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const forms = await prisma.form1099NEC.findMany({
+    where: {
+      contractor: { businessId },
+      pdfStorageKey: { not: null },
+      status: { in: ['PDF_READY', 'SUBMITTED', 'ACCEPTED'] },
+    },
+    include: { contractor: { select: { firstName: true, lastName: true } } },
+  })
+
+  const pdfs = await Promise.all(
+    forms.map(async (form) => {
+      const url = await getSignedDownloadUrl(form.pdfStorageKey!, 300)
+      return {
+        formId: form.id,
+        url,
+        filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}-${form.contractor.firstName}.pdf`,
+      }
+    })
+  )
+
+  return c.json({ data: pdfs.filter((p) => p.url) })
+})
+
 // ============================================
 // Transmit & Filing Batch Endpoints
 // ============================================

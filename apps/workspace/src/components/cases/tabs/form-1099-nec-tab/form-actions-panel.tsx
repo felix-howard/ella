@@ -4,7 +4,8 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, FileText, Download, Send } from 'lucide-react'
+import { Loader2, FileText, Download, Send, Archive } from 'lucide-react'
+import JSZip from 'jszip'
 import { Button } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -61,6 +62,50 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
       toast.error(err instanceof Error ? err.message : 'PDF fetch failed')
     },
   })
+
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownloadAll = async () => {
+    setIsDownloading(true)
+    try {
+      const { data: pdfs } = await api.form1099nec.getAllPdfs(businessId)
+      if (!pdfs.length) {
+        toast.error('No PDFs available to download')
+        return
+      }
+
+      const zip = new JSZip()
+      const results = await Promise.allSettled(
+        pdfs.map(async (pdf) => {
+          const res = await fetch(pdf.url)
+          if (!res.ok) throw new Error(`Failed to download ${pdf.filename}`)
+          const blob = await res.blob()
+          zip.file(pdf.filename, blob)
+        })
+      )
+
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) {
+        toast.error(`${failed} PDF(s) failed to download`)
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = '1099-NEC-forms.zip'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success(`Downloaded ${pdfs.length - failed} PDFs as zip`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
 
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -129,6 +174,21 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
               <Download className="w-3.5 h-3.5" />
             )}
             2. Get PDFs
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadAll}
+            disabled={status.pdfReady === 0 || isDownloading}
+            className="gap-1.5"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Archive className="w-3.5 h-3.5" />
+            )}
+            Download All
           </Button>
 
           {showConfirm ? (

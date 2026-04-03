@@ -308,13 +308,23 @@ class TaxBanditsClient {
 
   async downloadPdfFromS3(draftPdfUrl: string): Promise<Buffer> {
     const s3Path = new URL(draftPdfUrl).pathname.substring(1)
-    const sseKey = Buffer.from(config.taxbandits.base64Key, 'base64')
+    const awsKey = config.taxbandits.awsAccessKey
+    const awsSecret = config.taxbandits.awsSecretKey
+    const bucket = config.taxbandits.s3Bucket
+    const b64Key = config.taxbandits.base64Key
+    console.log(`[TaxBandits] S3 download: bucket=${bucket}, keyLen=${awsKey.length}, secretLen=${awsSecret.length}, b64KeyLen=${b64Key.length}, path=${s3Path}`)
+
+    if (!awsKey || !awsSecret) {
+      throw new Error('TaxBandits AWS credentials not configured (TAXBANDITS_AWS_ACCESS_KEY / TAXBANDITS_AWS_SECRET_KEY)')
+    }
+
+    const sseKey = Buffer.from(b64Key, 'base64')
 
     const s3 = new S3Client({
       region: 'us-east-1',
       credentials: {
-        accessKeyId: config.taxbandits.awsAccessKey,
-        secretAccessKey: config.taxbandits.awsSecretKey,
+        accessKeyId: awsKey,
+        secretAccessKey: awsSecret,
       },
     })
 

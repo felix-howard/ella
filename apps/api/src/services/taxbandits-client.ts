@@ -82,19 +82,21 @@ export interface DraftPdfResponse {
 }
 
 export interface PdfCopyUrls {
-  Description: string
-  MaskedUrl?: string
+  Masked?: string
   MaskedPath?: string
-  UnmaskedUrl?: string
+  Unmasked?: string
   UnmaskedPath?: string
 }
 
 export interface PdfURLsSuccessRecord {
   RecordId: string
-  CopyB: PdfCopyUrls
-  CopyC: PdfCopyUrls
-  Copy1: PdfCopyUrls
-  Copy2: PdfCopyUrls
+  Status: string
+  Files: {
+    CopyB?: PdfCopyUrls
+    CopyC?: PdfCopyUrls
+    Copy1?: PdfCopyUrls
+    Copy2?: PdfCopyUrls
+  }
 }
 
 export interface PdfURLsErrorRecord {

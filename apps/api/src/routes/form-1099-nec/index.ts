@@ -372,11 +372,8 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAd
             throw new Error(`No form found for RecordId ${record.RecordId}`)
           }
 
-          // Log full record structure to debug missing URLs
-          console.log(`[1099-NEC] Record ${record.RecordId} FULL:`, JSON.stringify(record))
-
           // Download Copy B (masked TIN - for contractor)
-          const copyBUrl = record.CopyB?.MaskedUrl || record.CopyB?.UnmaskedUrl
+          const copyBUrl = record.Files?.CopyB?.Masked || record.Files?.CopyB?.Unmasked
           if (copyBUrl) {
             console.log(`[1099-NEC] Downloading Copy B for ${record.RecordId}`)
             const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyBUrl)
@@ -389,7 +386,7 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAd
           }
 
           // Download Copy C (unmasked TIN - for payer records)
-          const copyCUrl = record.CopyC?.UnmaskedUrl || record.CopyC?.MaskedUrl
+          const copyCUrl = record.Files?.CopyC?.Unmasked || record.Files?.CopyC?.Masked
           if (copyCUrl) {
             console.log(`[1099-NEC] Downloading Copy C for ${record.RecordId}`)
             const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyCUrl)

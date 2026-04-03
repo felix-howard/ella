@@ -52,7 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses (Phase 01), Schedule C, Schedule E, Draft Return (Phase 04), 1099-NEC (visible for all clients)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses, Schedule C, Schedule E, Draft Return (Phase 04)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -1049,6 +1049,146 @@ ScheduleETab (index.tsx) [4 states]
 - Type: `ScheduleEResponse { expense, magicLink, totals }`
 - Endpoint: `GET /schedule-e/:caseId` (via `api.scheduleE.get(caseId)`)
 - Magic link operations reuse existing POST /send, POST /resend routes
+
+## Businesses Tab Workspace (Phase 05 Frontend - 2026-04-03)
+
+**Location:** `apps/workspace/src/components/businesses/`
+
+**Overview:**
+Client detail tab for managing multiple businesses per client. Each business is an expandable card showing basic info + embedded contractor/1099-NEC management. Supports full CRUD operations on businesses.
+
+**Component Hierarchy:**
+```
+BusinessesTab (index.tsx)
+├── State: isLoading → <Spinner />
+├── State: error → <ErrorCard /> (with Retry button)
+├── State: empty → <EmptyState />
+│   └── Building2 icon, "No businesses yet" message
+│   └── Add Business button
+├── State: with data → <Header /> + <BusinessCard[]>
+│   └── Business count label, Add Business button
+│   └── BusinessCard[0..N]
+│       ├── Business header (clickable, expandable)
+│       │   ├── Building2 icon
+│       │   ├── Name + masked EIN badge
+│       │   ├── Type label (Sole Prop, LLC, etc.)
+│       │   ├── Address, city, state, zip
+│       │   ├── Contractor count (if > 0)
+│       │   ├── Edit button (pencil icon)
+│       │   ├── Delete button (trash icon, red)
+│       │   └── Chevron up/down (expand/collapse)
+│       └── Expanded content: <Form1099NECTab businessId={id} />
+└── <BusinessFormModal /> (create/edit)
+    ├── Name input (required)
+    ├── Type select dropdown
+    ├── EIN input (auto-formatted XX-XXXXXXX)
+    ├── Address input (required)
+    ├── City, State, ZIP (required, grid layout)
+    └── Save/Cancel buttons
+```
+
+**Sub-Components:**
+- **businesses-tab.tsx** - Main tab, data fetching, empty/error states, business list rendering
+- **business-card.tsx** - Expandable card per business, edit/delete triggers, Form1099NECTab embedding
+- **business-form-modal.tsx** - Create/edit form with validation + EIN auto-formatting
+- **index.ts** - Barrel export (BusinessesTab)
+
+**Data Hooks:**
+```typescript
+useQuery({
+  queryKey: ['businesses', clientId],
+  queryFn: () => api.businesses.list(clientId),
+})
+```
+
+**Mutations:**
+```typescript
+api.businesses.create(clientId, data)    // POST /clients/:clientId/businesses
+api.businesses.update(clientId, bizId, data)  // PATCH /clients/:clientId/businesses/:businessId
+api.businesses.delete(clientId, bizId)   // DELETE /clients/:clientId/businesses/:businessId
+```
+
+**Form Validation:**
+- Business name: required, non-empty string
+- Type: enum (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+- EIN: required on create, optional on edit (auto-formats as XX-XXXXXXX)
+- Address: required, non-empty
+- City: required, non-empty
+- State: required, must be 2-letter code (auto-uppercase)
+- ZIP: required, must be 5 or 9 digits (format: XXXXX or XXXXX-XXXX)
+
+**Error Handling:**
+- List load error: Alert card with "Failed to load businesses" message + Retry button
+- Delete error: Toast notification with error message
+- Create/update error: Toast notification with validation details
+
+**EIN Masking:**
+- Display format: XX-XXX#### (show last 4 digits only)
+- Example: 12-3456789 → 12-345#### (masked from API response)
+
+**API Types:**
+```typescript
+interface Business {
+  id: string
+  clientId: string
+  name: string
+  type: BusinessType          // 'SOLE_PROPRIETORSHIP' | 'LLC' | ...
+  einMasked: string          // 'XX-XXX####'
+  address: string
+  city: string
+  state: string              // 2-letter code
+  zip: string
+  contractorCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+
+interface CreateBusinessInput {
+  name: string
+  type: BusinessType
+  ein: string                // XX-XXXXXXX format
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+```
+
+**Key Features:**
+- Multi-business per client: Single client can have many businesses
+- Expandable design: Contractors/1099s shown only when expanded (reduces clutter)
+- Contractor count badge: Quick visual indicator of activity per business
+- Cascade delete warning: Modal shows contractor count before deletion
+- Business type labels: Readable names (Sole Prop, LLC, etc.) vs. enum values
+- EIN security: Masked in UI, never shown in plaintext (encrypted at rest)
+
+**Integration Points:**
+- Depends on Phase 02 (Business CRUD API endpoints) and Phase 01 (Prisma model + FKs)
+- Form1099NECTab now scoped to businessId (was clientId in Phase 03)
+- Contractor routes unchanged (already migrated to businessId in Phase 03)
+- Tab navigation: Replaced "1099-NEC" tab with "Businesses" tab in client detail route
+
+**Internationalization:**
+- Placeholder text, labels, buttons, error messages need i18n keys
+- Empty state: "No businesses yet", "Add a business to manage contractors..."
+- Delete confirmation: "Are you sure you want to delete [name]?"
+- Type labels: All business type enums translated (6 keys)
+
+**Performance:**
+- Query key structure: `['businesses', clientId]` — invalidated on CRUD operations
+- Contractors query: `['contractors', businessId]` — scoped per business (loaded only when card expanded)
+- Business count badge: Re-calculated on contractor add/delete (via query invalidation)
+
+**Accessibility:**
+- Business card header: role="button", tabIndex=0, keyboard-accessible (Enter/Space)
+- Buttons: Accessible with hover/focus states
+- Icons: Semantic (Building2 for business, Pencil for edit, Trash for delete, ChevronUp/Down for expand)
+- Modal: ModalHeader, ModalTitle, form labels with htmlFor references
+- Delete confirmation: ModalFooter with Cancel/Delete buttons (red delete button)
+
+---
 
 ## Phase 04: Frontend Profile Toggles - CPA Upload SMS Notifications
 

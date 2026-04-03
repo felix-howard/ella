@@ -7,6 +7,69 @@
 
 ## 2026-04-03
 
+### Feature: Businesses Tab Frontend (Phase 05) ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/more-ella-polish
+**Completion Date:** 2026-04-03
+**Plan:** [Client-Business Entity Separation Phase 5](../plans/260402-client-business-separation/phase-05-businesses-tab-frontend.md)
+
+**Summary:** Built frontend UI for Businesses tab in client detail page. Enables staff to view, add, edit, delete businesses; manage contractors and 1099-NECs per business via expandable cards.
+
+**Frontend Changes:**
+- Created: `apps/workspace/src/components/businesses/`
+  - `businesses-tab.tsx` - Main tab component, lists businesses with empty state & error handling
+  - `business-card.tsx` - Expandable card per business (name, type, masked EIN, address, contractor count)
+  - `business-form-modal.tsx` - Modal for create/edit business (name, type, EIN, address, city, state, zip)
+  - `index.ts` - Barrel export
+- Replaced 1099-NEC tab with Businesses tab in `/clients/$clientId.tsx`
+- Updated route file prop: lazy-loaded BusinessesTab component, added to TabType union
+- Integrated with Form1099NECTab: embedded in BusinessCard expansion to show contractor/1099 management per business
+
+**Props Changed:**
+- `Form1099NECTab`: `clientId` → `businessId`, `clientName` (preserved)
+- Updated refs in form-actions-panel.tsx, filing-status-panel.tsx, contractor-upload.tsx to use businessId
+- All contractor mutations now pass businessId instead of clientId to API
+
+**UI Features:**
+- **BusinessesTab (empty state):** Building icon, "No businesses yet" message, Add Business button
+- **BusinessesTab (with data):** Business count, Add Business button, list of BusinessCards
+- **BusinessCard header:** Building icon, business name + masked EIN badge, type label, address, contractor count
+- **BusinessCard actions:** Pencil (edit) + Trash (delete) buttons, chevron collapse/expand
+- **BusinessCard expansion:** Embedded Form1099NECTab for contractor management (contractors table, upload, 1099 actions)
+- **BusinessFormModal:** Create/edit form with validation (required: name, address, city, state, zip; EIN format: XX-XXXXXXX)
+- **Delete confirmation:** Modal showing business name + contractor cascade warning
+
+**Types Updated:**
+- API client: `Business`, `BusinessType`, `CreateBusinessInput`, `UpdateBusinessInput` (existing, used in modal)
+- Form1099NECTab: Props interface changed to `{ businessId, clientName }`
+- Contractor API calls: All routes scoped to businessId instead of clientId
+
+**Query Keys:**
+- `['businesses', clientId]` - List all businesses for client
+- `['contractors', businessId]` - Contractors in business (existing key, scoped change)
+
+**Integration:**
+- Depends on Phase 02 (Business CRUD API) & Phase 01 (database model + FKs)
+- No new migrations (API already complete)
+- Contractor routes already migrated to businessId (Phase 03)
+- Backward compatible: Existing 1099 functionality preserved, just reorganized per-business
+
+**Testing:**
+- `pnpm build` passes in apps/workspace
+- No TypeScript errors after tab replacement
+- Modal validation: EIN format checking, required field enforcement
+- Delete flow: Confirmation modal with cascade warning
+- Empty state renders when no businesses
+- Error state: Retry button on API failures
+
+**Benefits:**
+- Clear business organization: Multiple businesses per client now visually distinct
+- Contractor management: Users see contractors grouped by business (logical grouping)
+- UX improvement: Expandable cards reduce visual clutter vs. flat list
+- Setup flow: Businesses created at client detail page, not during client signup (Phase 04)
+
+---
+
 ### Feature: Simplify Client Creation Form ✅ COMPLETE
 **Status:** Complete
 **Branch:** feature/more-ella-polish

@@ -184,7 +184,7 @@ form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c)
   if (response.Form1099Records.SuccessRecords.length > 0) {
     await prisma.$transaction(
       response.Form1099Records.SuccessRecords.map((record) => {
-        const seqIndex = parseInt(record.Sequence, 10) - 1
+        const seqIndex = parseInt(record.SequenceId, 10) - 1
         const mapping = recipientMap[seqIndex]
         return prisma.form1099NEC.update({
           where: { id: mapping.formId },
@@ -200,7 +200,7 @@ form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c)
 
   // Collect errors for response
   const errors = response.Form1099Records.ErrorRecords.map((err) => ({
-    sequence: err.Sequence,
+    sequence: err.SequenceId,
     errors: err.Errors.map((e) => `${e.Code}: ${e.Message}${e.FieldName ? ` (${e.FieldName})` : ''}`),
   }))
 

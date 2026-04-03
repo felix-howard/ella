@@ -46,11 +46,11 @@ export interface SuccessRecord {
   RecordId: string
   RecipientId: string
   FederalFilingStatus: string
-  Sequence: string
+  SequenceId: string
 }
 
 export interface ErrorRecord {
-  Sequence: string
+  SequenceId: string
   Errors: Array<{ Code: string; Message: string; FieldName?: string }>
 }
 
@@ -198,7 +198,7 @@ class TaxBanditsClient {
             if (parsed.Form1099Records?.ErrorRecords?.length) {
               for (const rec of parsed.Form1099Records.ErrorRecords) {
                 details.push(...(rec.Errors || []).map((e: { FieldName?: string; Message?: string }) =>
-                  `Record ${rec.Sequence}: ${e.FieldName || ''} ${e.Message}`.trim()
+                  `Record ${rec.SequenceId}: ${e.FieldName || ''} ${e.Message}`.trim()
                 ))
               }
             }
@@ -260,7 +260,7 @@ class TaxBanditsClient {
         },
       },
       ReturnData: data.recipients.map((r, i) => ({
-        Sequence: (i + 1).toString(),
+        SequenceId: (i + 1).toString(),
         Recipient: {
           FirstNm: r.firstName,
           LastNm: r.lastName,

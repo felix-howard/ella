@@ -81,6 +81,36 @@ export interface DraftPdfResponse {
   DraftPdfUrl: string
 }
 
+export interface PdfCopyUrls {
+  Description: string
+  MaskedUrl?: string
+  MaskedPath?: string
+  UnmaskedUrl?: string
+  UnmaskedPath?: string
+}
+
+export interface PdfURLsSuccessRecord {
+  RecordId: string
+  CopyB: PdfCopyUrls
+  CopyC: PdfCopyUrls
+  Copy1: PdfCopyUrls
+  Copy2: PdfCopyUrls
+}
+
+export interface PdfURLsErrorRecord {
+  RecordId: string
+  ErrorMessage: string
+}
+
+export interface PdfURLsResponse {
+  SubmissionId: string
+  Form1099NecRecords: {
+    SuccessRecords: PdfURLsSuccessRecord[]
+    ErrorRecords: PdfURLsErrorRecord[]
+  }
+  Errors: Array<{ Code: string; Message: string }>
+}
+
 export interface TransmitResponse {
   StatusCode: number
   SubmissionId: string
@@ -104,6 +134,20 @@ class TaxBanditsClient {
   private authPromise: Promise<void> | null = null
   private authFailedAt: Date | null = null
   private authFailError: string | null = null
+  private s3Client: S3Client | null = null
+
+  private getS3Client(): S3Client {
+    if (!this.s3Client) {
+      this.s3Client = new S3Client({
+        region: 'us-east-1',
+        credentials: {
+          accessKeyId: config.taxbandits.awsAccessKey,
+          secretAccessKey: config.taxbandits.awsSecretKey,
+        },
+      })
+    }
+    return this.s3Client
+  }
 
   private createJWS(): string {
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
@@ -306,27 +350,35 @@ class TaxBanditsClient {
     )
   }
 
+  async requestPdfURLs(
+    submissionId: string,
+    recordIds: string[],
+    tinMaskType: 'MASKED' | 'UNMASKED' | 'BOTH' = 'BOTH'
+  ): Promise<PdfURLsResponse> {
+    console.log(`[TaxBandits] Requesting PDF URLs: ${recordIds.length} record(s)`)
+    return this.request<PdfURLsResponse>(
+      `${config.taxbandits.urls.api}/Form1099NEC/RequestPdfURLs`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          SubmissionId: submissionId,
+          RecordIds: recordIds.map((id) => ({ id })),
+          Customization: { TINMaskType: tinMaskType },
+        }),
+      }
+    )
+  }
+
   async downloadPdfFromS3(draftPdfUrl: string): Promise<Buffer> {
     const s3Path = new URL(draftPdfUrl).pathname.substring(1)
-    const awsKey = config.taxbandits.awsAccessKey
-    const awsSecret = config.taxbandits.awsSecretKey
-    const bucket = config.taxbandits.s3Bucket
     const b64Key = config.taxbandits.base64Key
-    console.log(`[TaxBandits] S3 download: bucket=${bucket}, keyLen=${awsKey.length}, secretLen=${awsSecret.length}, b64KeyLen=${b64Key.length}, path=${s3Path}`)
+    console.log(`[TaxBandits] S3 download: path=${s3Path}`)
 
-    if (!awsKey || !awsSecret) {
-      throw new Error('TaxBandits AWS credentials not configured (TAXBANDITS_AWS_ACCESS_KEY / TAXBANDITS_AWS_SECRET_KEY)')
+    if (!config.taxbandits.awsAccessKey || !config.taxbandits.awsSecretKey || !b64Key) {
+      throw new Error('TaxBandits AWS credentials not configured (TAXBANDITS_AWS_ACCESS_KEY / TAXBANDITS_AWS_SECRET_KEY / TAXBANDITS_BASE64_KEY)')
     }
 
     const sseKey = Buffer.from(b64Key, 'base64')
-
-    const s3 = new S3Client({
-      region: 'us-east-1',
-      credentials: {
-        accessKeyId: awsKey,
-        secretAccessKey: awsSecret,
-      },
-    })
 
     const command = new GetObjectCommand({
       Bucket: config.taxbandits.s3Bucket,
@@ -335,7 +387,7 @@ class TaxBanditsClient {
       SSECustomerKey: sseKey.toString('base64'),
     })
 
-    const response = await s3.send(command)
+    const response = await this.getS3Client().send(command)
     const stream = response.Body as NodeJS.ReadableStream
     const chunks: Buffer[] = []
     for await (const chunk of stream) {

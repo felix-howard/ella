@@ -292,41 +292,170 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-pdfs', requireOrgAdmin, async
 })
 
 /**
- * GET /businesses/:businessId/1099-nec/:formId/pdf
- * Download PDF from R2 (returns signed URL, 5-min expiry for SSN docs)
+ * POST /businesses/:businessId/1099-nec/fetch-recipient-pdfs
+ * Fetch final Copy B + Copy C PDFs after transmission from TaxBandits
  */
-form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
+form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAdmin, async (c) => {
   const user = c.get('user')
-  const { businessId, formId } = c.req.param()
+  const { businessId } = c.req.param()
+
+  if (!config.taxbandits.isConfigured) {
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
+  }
 
   const business = await verifyBusinessAccess(businessId, user)
   if (!business) {
     return c.json({ error: 'Business not found' }, 404)
   }
 
-  const form = await prisma.form1099NEC.findFirst({
+  const forms = await prisma.form1099NEC.findMany({
     where: {
-      id: formId,
       contractor: { businessId },
-      pdfStorageKey: { not: null },
+      status: { in: ['SUBMITTED', 'ACCEPTED'] },
+      taxbanditsRecordId: { not: null },
+      batch: { taxbanditsSubmissionId: { not: null } },
     },
-    include: { contractor: true },
+    include: { contractor: true, batch: true },
   })
 
-  if (!form || !form.pdfStorageKey) {
-    return c.json({ error: 'PDF not found' }, 404)
+  if (forms.length === 0) {
+    return c.json({ error: 'No transmitted forms to fetch recipient PDFs for' }, 400)
   }
 
-  const signedUrl = await getSignedDownloadUrl(form.pdfStorageKey, 300)
+  // Group forms by batch (submissionId)
+  const batchGroups = new Map<string, typeof forms>()
+  for (const form of forms) {
+    const subId = form.batch!.taxbanditsSubmissionId!
+    if (!batchGroups.has(subId)) batchGroups.set(subId, [])
+    batchGroups.get(subId)!.push(form)
+  }
 
-  if (!signedUrl) {
-    return c.json({ error: 'Failed to generate download URL' }, 500)
+  let pdfCount = 0
+  const errors: string[] = []
+
+  for (const [submissionId, batchForms] of batchGroups) {
+    const recordIds = batchForms.map((f) => f.taxbanditsRecordId!)
+
+    let pdfResponse
+    try {
+      pdfResponse = await taxbanditsClient.requestPdfURLs(submissionId, recordIds, 'BOTH')
+    } catch (error) {
+      const msg = `Batch ${submissionId}: ${error instanceof Error ? error.message : 'RequestPdfURLs failed'}`
+      console.error(`[1099-NEC] ${msg}`)
+      errors.push(msg)
+      continue
+    }
+
+    if (pdfResponse.Errors?.length > 0) {
+      errors.push(...pdfResponse.Errors.map((e) => `${e.Code}: ${e.Message}`))
+    }
+
+    if (!pdfResponse.Form1099NecRecords?.SuccessRecords?.length) continue
+
+    // Build recordId -> form lookup
+    const formByRecordId = new Map(batchForms.map((f) => [f.taxbanditsRecordId!, f]))
+
+    // Download and store PDFs in parallel batches
+    const CONCURRENCY = 5
+    const successRecords = pdfResponse.Form1099NecRecords.SuccessRecords
+    for (let i = 0; i < successRecords.length; i += CONCURRENCY) {
+      const slice = successRecords.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(
+        slice.map(async (record) => {
+          const form = formByRecordId.get(record.RecordId)
+          if (!form) {
+            throw new Error(`No form found for RecordId ${record.RecordId}`)
+          }
+
+          // Download Copy B (masked TIN - for contractor)
+          const copyBUrl = record.CopyB?.MaskedUrl || record.CopyB?.UnmaskedUrl
+          if (copyBUrl) {
+            console.log(`[1099-NEC] Downloading Copy B for ${record.RecordId}`)
+            const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyBUrl)
+            const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}-copy-b.pdf`
+            await uploadFile(key, pdfBuffer, 'application/pdf')
+            await prisma.form1099NEC.update({
+              where: { id: form.id },
+              data: { copyBStorageKey: key },
+            })
+          }
+
+          // Download Copy C (unmasked TIN - for payer records)
+          const copyCUrl = record.CopyC?.UnmaskedUrl || record.CopyC?.MaskedUrl
+          if (copyCUrl) {
+            console.log(`[1099-NEC] Downloading Copy C for ${record.RecordId}`)
+            const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyCUrl)
+            const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}-copy-c.pdf`
+            await uploadFile(key, pdfBuffer, 'application/pdf')
+            await prisma.form1099NEC.update({
+              where: { id: form.id },
+              data: { copyCStorageKey: key },
+            })
+          }
+
+          return record.RecordId
+        })
+      )
+
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === 'fulfilled') {
+          pdfCount++
+        } else {
+          const msg = `Record ${slice[j].RecordId}: ${(results[j] as PromiseRejectedResult).reason?.message || 'PDF fetch failed'}`
+          console.error(`[1099-NEC] ${msg}`)
+          errors.push(msg)
+        }
+      }
+    }
+
+    // Log error records from TaxBandits
+    if (pdfResponse.Form1099NecRecords.ErrorRecords?.length > 0) {
+      for (const errRec of pdfResponse.Form1099NecRecords.ErrorRecords) {
+        errors.push(`Record ${errRec.RecordId}: ${errRec.ErrorMessage}`)
+      }
+    }
   }
 
   return c.json({
-    url: signedUrl,
-    filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}.pdf`,
+    success: pdfCount > 0,
+    pdfCount,
+    ...(errors.length > 0 ? { errors } : {}),
   })
+})
+
+/**
+ * GET /businesses/:businessId/1099-nec/pdfs/recipient
+ * Get signed URLs for Copy B PDFs (for contractors)
+ */
+form1099NecRoute.get('/:businessId/1099-nec/pdfs/recipient', async (c) => {
+  const user = c.get('user')
+  const { businessId } = c.req.param()
+
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const forms = await prisma.form1099NEC.findMany({
+    where: {
+      contractor: { businessId },
+      copyBStorageKey: { not: null },
+    },
+    include: { contractor: { select: { firstName: true, lastName: true } } },
+  })
+
+  const pdfs = await Promise.all(
+    forms.map(async (form) => {
+      const url = await getSignedDownloadUrl(form.copyBStorageKey!, 300)
+      return {
+        formId: form.id,
+        url,
+        filename: `1099-NEC-${form.taxYear}-CopyB-${form.contractor.lastName}-${form.contractor.firstName}.pdf`,
+      }
+    })
+  )
+
+  return c.json({ data: pdfs.filter((p) => p.url) })
 })
 
 /**
@@ -363,6 +492,44 @@ form1099NecRoute.get('/:businessId/1099-nec/pdfs', async (c) => {
   )
 
   return c.json({ data: pdfs.filter((p) => p.url) })
+})
+
+/**
+ * GET /businesses/:businessId/1099-nec/:formId/pdf
+ * Download PDF from R2 (returns signed URL, 5-min expiry for SSN docs)
+ */
+form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
+  const user = c.get('user')
+  const { businessId, formId } = c.req.param()
+
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const form = await prisma.form1099NEC.findFirst({
+    where: {
+      id: formId,
+      contractor: { businessId },
+      pdfStorageKey: { not: null },
+    },
+    include: { contractor: true },
+  })
+
+  if (!form || !form.pdfStorageKey) {
+    return c.json({ error: 'PDF not found' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(form.pdfStorageKey, 300)
+
+  if (!signedUrl) {
+    return c.json({ error: 'Failed to generate download URL' }, 500)
+  }
+
+  return c.json({
+    url: signedUrl,
+    filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}.pdf`,
+  })
 })
 
 // ============================================

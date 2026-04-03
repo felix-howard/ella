@@ -4,11 +4,54 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, FileText, Download, Send, Archive } from 'lucide-react'
+import { Loader2, FileText, Download, Send, Archive, Users } from 'lucide-react'
 import JSZip from 'jszip'
 import { Button } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
+
+async function downloadPdfsAsZip(
+  pdfs: Array<{ url: string; filename: string }>,
+  zipName: string,
+  label: string
+) {
+  if (!pdfs.length) {
+    toast.error(`No ${label} available to download`)
+    return
+  }
+
+  const zip = new JSZip()
+  let failed = 0
+  const CHUNK = 10
+  for (let i = 0; i < pdfs.length; i += CHUNK) {
+    const slice = pdfs.slice(i, i + CHUNK)
+    const results = await Promise.allSettled(
+      slice.map(async (pdf) => {
+        const res = await fetch(pdf.url)
+        if (!res.ok) throw new Error(`Failed to download ${pdf.filename}`)
+        const blob = await res.blob()
+        zip.file(pdf.filename, blob)
+      })
+    )
+    failed += results.filter((r) => r.status === 'rejected').length
+  }
+
+  if (failed > 0) {
+    toast.error(`${failed} PDF(s) failed to download`)
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(zipBlob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = zipName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+
+  toast.success(`Downloaded ${pdfs.length - failed} ${label} as zip`)
+}
 
 interface FormActionsPanelProps {
   businessId: string
@@ -69,41 +112,40 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     setIsDownloading(true)
     try {
       const { data: pdfs } = await api.form1099nec.getAllPdfs(businessId)
-      if (!pdfs.length) {
-        toast.error('No PDFs available to download')
-        return
-      }
-
-      const zip = new JSZip()
-      const results = await Promise.allSettled(
-        pdfs.map(async (pdf) => {
-          const res = await fetch(pdf.url)
-          if (!res.ok) throw new Error(`Failed to download ${pdf.filename}`)
-          const blob = await res.blob()
-          zip.file(pdf.filename, blob)
-        })
-      )
-
-      const failed = results.filter((r) => r.status === 'rejected').length
-      if (failed > 0) {
-        toast.error(`${failed} PDF(s) failed to download`)
-      }
-
-      const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(zipBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = '1099-NEC-forms.zip'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
-      toast.success(`Downloaded ${pdfs.length - failed} PDFs as zip`)
+      await downloadPdfsAsZip(pdfs, '1099-NEC-forms.zip', 'PDFs')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Download failed')
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  const fetchRecipientMutation = useMutation({
+    mutationFn: () => api.form1099nec.fetchRecipientPdfs(businessId),
+    onSuccess: (data) => {
+      toast.success(`Fetched ${data.pdfCount} recipient PDFs`)
+      if (data.errors && data.errors.length > 0) {
+        toast.error(`${data.errors.length} record(s) had errors`)
+      }
+      refreshStatus()
+      queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Recipient PDF fetch failed')
+    },
+  })
+
+  const [isDownloadingRecipient, setIsDownloadingRecipient] = useState(false)
+
+  const handleDownloadRecipient = async () => {
+    setIsDownloadingRecipient(true)
+    try {
+      const { data: pdfs } = await api.form1099nec.getRecipientPdfs(businessId)
+      await downloadPdfsAsZip(pdfs, '1099-NEC-recipient-copies.zip', 'recipient PDFs')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setIsDownloadingRecipient(false)
     }
   }
 
@@ -141,6 +183,11 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
           {status.submitted > 0 && (
             <span>
               <span className="font-medium text-foreground">{status.submitted}</span> transmitted
+            </span>
+          )}
+          {status.accepted > 0 && (
+            <span>
+              <span className="font-medium text-foreground">{status.accepted}</span> accepted
             </span>
           )}
         </div>
@@ -228,6 +275,41 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
               <Send className="w-3.5 h-3.5" />
               3. Transmit to IRS
             </Button>
+          )}
+
+          {(status.submitted > 0 || status.accepted > 0) && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchRecipientMutation.mutate()}
+                disabled={fetchRecipientMutation.isPending}
+                className="gap-1.5"
+              >
+                {fetchRecipientMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Users className="w-3.5 h-3.5" />
+                )}
+                4. Get Recipient Copies
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadRecipient}
+                disabled={isDownloadingRecipient}
+                className="gap-1.5"
+                title="Download Copy B PDFs (final copies for contractors)"
+              >
+                {isDownloadingRecipient ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Archive className="w-3.5 h-3.5" />
+                )}
+                Download Recipient Copies
+              </Button>
+            </>
           )}
         </div>
       </div>

@@ -416,6 +416,14 @@ export const api = {
     getAllPdfs: (businessId: string) =>
       request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
 
+    fetchRecipientPdfs: (businessId: string) =>
+      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/businesses/${businessId}/1099-nec/fetch-recipient-pdfs`, {
+        method: 'POST',
+      }),
+
+    getRecipientPdfs: (businessId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs/recipient`),
+
     transmit: (businessId: string) =>
       request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
         method: 'POST',

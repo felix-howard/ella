@@ -1484,6 +1484,8 @@ model Form1099NEC {
   amountBox1        Decimal         @db.Decimal(12, 2)
   amountBox4        Decimal         @default(0) @db.Decimal(12, 2)
   pdfStorageKey     String?
+  copyBStorageKey   String?
+  copyCStorageKey   String?
   status            Form1099Status  @default(DRAFT)
   taxbanditsRecordId     String?
   taxbanditsSubmissionId String?

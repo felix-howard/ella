@@ -108,6 +108,33 @@
 
 ---
 
+### Client-Business Entity Separation - Phase 1 (Database Schema) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 1)
+**Deliverable:** Business model created, Contractor & FilingBatch FKs migrated from Client to Business, ClientType enum removed
+
+**Phase 1 Completion Summary:**
+- Added new `Business` model with clientId FK, name, type, einEncrypted, address fields
+- One Client → many Businesses relationship (1:N)
+- Migrated `Contractor.clientId` → `Contractor.businessId`
+- Migrated `FilingBatch.clientId` → `FilingBatch.businessId`
+- Removed `ClientType` enum (INDIVIDUAL/BUSINESS no longer needed)
+- Removed business fields from Client: businessName, businessType, einEncrypted, businessAddress, businessCity, businessState, businessZip
+- Client simplified to: firstName, lastName, phone, email, language, source, tags only
+- AES-256-GCM encryption reused for Business.einEncrypted
+- Indexes added on Business.clientId, Contractor.businessId, FilingBatch.businessId for query performance
+
+**Remaining Phases (2-6):**
+- Phase 2: Business CRUD API endpoints
+- Phase 3: Update 1099-NEC & Contractor routes to use Business entity
+- Phase 4: Simplify Client creation (remove business fields from form)
+- Phase 5: Add Businesses tab in Client detail page
+- Phase 6: Integration testing & cleanup
+
+**Status:** Phase 1 COMPLETE - Ready for Phase 2 (Business CRUD API)
+
+---
+
 ### Tag-Based Lead & Client Categorization - All 5 Phases COMPLETE ✅
 **Started:** 2026-03-30
 **Completed:** 2026-03-30 (Phase 01-05)

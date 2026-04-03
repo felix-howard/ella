@@ -52,7 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return (Phase 04), 1099-NEC (Phase 3 - BUSINESS clients only)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses (Phase 01), Schedule C, Schedule E, Draft Return (Phase 04), 1099-NEC (Phase 3 - Business entities only)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -277,12 +277,14 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: DIRECT|INTAKE_FORM, Phase 02 Intake Form - tracks client origin), clientType (INDIVIDUAL|BUSINESS), businessName, einEncrypted, businessAddress, businessPhone. Phase 02 1099-NEC: tracks business entity type + details for contractor management
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form). Phase 01 Client-Business Entity Separation: simplified to hold client contact info only, business details moved to Business model.
+- **Business** - clientId FK (one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds business profile, contractors, and filing batches.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
-- **Contractor** - clientId FK (BUSINESS clients only), ssn4Encrypted (last 4 SSN digits, encrypted), name, address, phone, einEncrypted (optional, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), amount1099 (gross payments). Phase 02 1099-NEC: contractor tracking for Schedule NEC reporting
+- **Contractor** - businessId FK (belongs to Business, not Client), firstName, lastName, ssn4Encrypted (last 4 SSN digits, encrypted), address, phone, einEncrypted (optional, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), amount1099 (gross payments). Phase 01 Client-Business Entity Separation: migrated from clientId to businessId FK.
+- **FilingBatch** - businessId FK (Phase 01: migrated from clientId), taxYear, status (PENDING|IN_PROGRESS|SUBMITTED|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), tracking for 1099-NEC e-filing via TaxBandits API
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.

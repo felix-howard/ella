@@ -108,14 +108,15 @@
 
 **Core Models:**
 - **Organization**: clerkOrgId (unique), name, slug, logoUrl, isActive. Org-scoped root.
-- **Client**: organizationId FK, managedById FK (Staff, single manager), name, phone, email, language, source (ClientSource enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED), tags String[] (flexible categorization, GIN indexed), intakeAnswers Json, status tracking, clientType (INDIVIDUAL|BUSINESS), businessName, einEncrypted (encrypted SSN/EIN), businessAddress, businessPhone. Phase 01 Tag-Based Categorization: adds tags field + expands ClientSource enum. Phase 02 1099-NEC: adds clientType + business fields for business entity tracking.
+- **Client**: organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, source (ClientSource enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED), tags String[] (flexible categorization, GIN indexed), intakeAnswers Json, status tracking. Phase 01 Tag-Based Categorization: adds tags field + expands ClientSource enum. Phase 01 Client-Business Entity Separation: removes businessName, einEncrypted, businessAddress, businessPhone, clientType enum — now normalized to Business model.
+- **Business**: clientId FK (1-to-many, one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds all business details, contractors, and filing batches.
 - **Staff**: organizationId FK, clerkId (unique), userId, role (ADMIN|STAFF|CPA), isActive
 - **Lead**: organizationId FK, firstName, lastName, phone (unique per org), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (formerly "source", eventSlug or null), tags String[] (auto-populated from campaignTag on creation, GIN indexed), convertedToId FK (Client). Phase 01 Tag-Based Categorization: renames source→campaignTag, adds tags field + GIN index.
 - **TaxCase**: caseId, engagementId FK, taxYear, status (INTAKE→FILED), caseDocs[], checklistItems[]
 - **TaxEngagement**: engagementId, clientId FK, taxYear, year-specific profile fields, status
 - **ScheduleCExpense**: 20+ expense fields, vehicle info, version history tracking, gross receipts from 1099-NEC
 - **ScheduleEExpense**: Up to 3 rental properties (JSON array), 7 IRS expense fields, custom expenses, version history, status (DRAFT/SUBMITTED/LOCKED)
-- **Contractor**: clientId FK (BUSINESS clients only), ssn4Encrypted (last 4 digits SSN, encrypted), name, address, phone, einEncrypted (optional EIN, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), 1099amount (gross payments). Phase 02 1099-NEC: tracks contractors for Schedule NEC reporting.
+- **Contractor**: businessId FK (belongs to Business, not Client), firstName, lastName, ssn4Encrypted (last 4 digits SSN, encrypted), address, phone, einEncrypted (optional EIN, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), amount1099 (gross payments). Phase 01 Client-Business Entity Separation: migrated from clientId to businessId FK.
 - **DigitalDoc**: Extracted OCR fields, source reference, AI confidence
 - **DraftReturn**: taxCaseId FK (Cascade), r2Key (unique), filename, fileSize, version, uploadedById FK, status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks relation, Cascade delete with TaxCase, Restrict delete with Staff
 - **MagicLink**: type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token, caseId/type, draftReturnId FK optional (SetNull), isActive, expiresAt
@@ -147,16 +148,21 @@
 **Client Management (Manager Assignment via Client model):**
 - `GET /clients` - List org clients with `managedBy` relation
 - `PATCH /clients/:clientId` - Update client, including manager assignment (managedById)
-- `PATCH /clients/:clientId/business` - Update business fields (businessName, einEncrypted, businessAddress, businessPhone) for BUSINESS clients. Phase 02 1099-NEC.
 - `GET /team/members/:staffId/profile` - Get staff profile with `managedClients` list
 
-**Contractor Management (Phase 02 1099-NEC):**
-- `GET /clients/:clientId/contractors` - List contractors for a BUSINESS client
-- `POST /clients/:clientId/contractors` - Create contractor (name, address, phone, ssn4Encrypted, einEncrypted, businessType, amount1099)
-- `PATCH /clients/:clientId/contractors/:contractorId` - Update contractor details
-- `DELETE /clients/:clientId/contractors/:contractorId` - Delete contractor
-- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block), with AI address parsing fallback
-- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to database
+**Business Management (Phase 01 Client-Business Entity Separation):**
+- `GET /clients/:clientId/businesses` - List businesses for a client
+- `POST /clients/:clientId/businesses` - Create business (name, type, einEncrypted, address, city, state, zip)
+- `PATCH /businesses/:businessId` - Update business details
+- `DELETE /businesses/:businessId` - Delete business (cascades to contractors and filing batches)
+
+**Contractor Management (Phase 02 1099-NEC → Phase 01 migrated to Business):**
+- `GET /businesses/:businessId/contractors` - List contractors for a business
+- `POST /businesses/:businessId/contractors` - Create contractor (firstName, lastName, address, phone, ssn4Encrypted, einEncrypted, businessType, amount1099)
+- `PATCH /contractors/:contractorId` - Update contractor details
+- `DELETE /contractors/:contractorId` - Delete contractor
+- `POST /businesses/:businessId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block), with AI address parsing fallback
+- `POST /businesses/:businessId/contractors/bulk-save` - Batch save parsed contractors to database
 
 **Excel Parsing with AI Fallback:**
 - Service: `apps/api/src/services/excel-parser.ts`

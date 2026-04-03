@@ -75,6 +75,7 @@ contractorsRoute.post(
         businessId,
         firstName: data.firstName,
         lastName: data.lastName,
+        tinType: data.tinType,
         ssnEncrypted,
         ssnLast4,
         address: data.address,
@@ -142,6 +143,7 @@ contractorsRoute.patch(
     const updateData: Record<string, unknown> = {}
     if (data.firstName !== undefined) updateData.firstName = data.firstName
     if (data.lastName !== undefined) updateData.lastName = data.lastName
+    if (data.tinType !== undefined) updateData.tinType = data.tinType
     if (data.address !== undefined) updateData.address = data.address
     if (data.city !== undefined) updateData.city = data.city
     if (data.state !== undefined) updateData.state = data.state
@@ -321,6 +323,7 @@ contractorsRoute.post(
               businessId,
               firstName: contractor.firstName,
               lastName: contractor.lastName,
+              tinType: contractor.tinType,
               ssnEncrypted,
               ssnLast4,
               address: contractor.address,

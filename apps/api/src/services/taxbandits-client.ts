@@ -181,7 +181,8 @@ class TaxBanditsClient {
           this.tokenExpiry = null
           continue
         }
-        if (!response.ok) {
+        // TaxBandits returns 300 (MultiStatus) for partial success — treat as success
+        if (!response.ok && response.status !== 300) {
           const errorText = await response.text()
           // Parse TaxBandits error response for user-friendly messages
           let message = `TaxBandits API error ${response.status}`
@@ -299,8 +300,8 @@ class TaxBanditsClient {
   async requestDraftPdf(submissionId: string, recordId: string): Promise<DraftPdfResponse> {
     console.log(`[TaxBandits] Requesting draft PDF: ${recordId}`)
     return this.request<DraftPdfResponse>(
-      `${config.taxbandits.urls.api}/Form1099NEC/${submissionId}/RequestDraftPdfUrl/${recordId}`,
-      { method: 'GET' }
+      `${config.taxbandits.urls.api}/Form1099NEC/RequestDraftPdfUrl`,
+      { method: 'POST', body: JSON.stringify({ RecordId: recordId }) }
     )
   }
 

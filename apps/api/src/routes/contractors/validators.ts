@@ -7,7 +7,8 @@ import { isValidSSN, isValidTIN } from '../../services/crypto'
 export const createContractorSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  ssn: z.string().refine(isValidSSN, 'Invalid SSN format'),
+  ssn: z.string().refine(isValidTIN, 'Invalid SSN/EIN format'),
+  tinType: z.enum(['SSN', 'EIN']).default('SSN'),
   address: z.string().min(1, 'Address is required').max(500),
   city: z.string().min(1, 'City is required').max(100),
   state: z.string().length(2, 'State must be 2-letter code'),
@@ -19,7 +20,8 @@ export const createContractorSchema = z.object({
 export const updateContractorSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
-  ssn: z.string().refine(isValidSSN, 'Invalid SSN format').optional(),
+  ssn: z.string().refine(isValidTIN, 'Invalid SSN/EIN format').optional(),
+  tinType: z.enum(['SSN', 'EIN']).optional(),
   address: z.string().min(1).max(500).optional(),
   city: z.string().min(1).max(100).optional(),
   state: z.string().length(2).optional(),
@@ -32,7 +34,8 @@ export const bulkSaveContractorsSchema = z.object({
   contractors: z.array(z.object({
     firstName: z.string().min(1),
     lastName: z.string().min(1),
-    ssn: z.string().refine(isValidTIN, 'Invalid SSN/EIN/ITIN format'),
+    ssn: z.string().refine(isValidTIN, 'Invalid SSN/EIN format'),
+    tinType: z.enum(['SSN', 'EIN']).default('SSN'),
     address: z.string().min(1),
     city: z.string().min(1),
     state: z.string().length(2),

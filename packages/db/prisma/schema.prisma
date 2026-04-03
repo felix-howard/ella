@@ -1442,7 +1442,8 @@ model Contractor {
   business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   firstName           String
   lastName            String
-  ssnEncrypted        String   // AES-256-GCM encrypted SSN
+  tinType             String   @default("SSN") // "SSN" or "EIN"
+  ssnEncrypted        String   // AES-256-GCM encrypted SSN/EIN
   ssnLast4            String   // Last 4 digits for masked display
   address             String
   city                String

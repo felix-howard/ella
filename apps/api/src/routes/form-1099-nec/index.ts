@@ -132,7 +132,7 @@ form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c)
       return {
         firstName: contractor.firstName,
         lastName: contractor.lastName,
-        tinType: 'SSN' as const,
+        tinType: (contractor.tinType === 'EIN' ? 'EIN' : 'SSN') as 'SSN' | 'EIN',
         tin: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
         address1: contractor.address,
         city: contractor.city,

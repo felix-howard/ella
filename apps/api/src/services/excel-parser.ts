@@ -28,6 +28,7 @@ export interface ParsedContractor {
   zip: string
   ssn: string
   ssnMasked: string
+  tinType: 'SSN' | 'EIN'
   amountPaid: number
   email?: string
   parseWarnings: string[]
@@ -178,6 +179,18 @@ function maskSSN(ssn: string): string {
   return `***-**-${digits.slice(-4)}`
 }
 
+/**
+ * Detect if a TIN is an EIN or SSN based on raw format
+ * EIN format: XX-XXXXXXX (2 digits, dash, 7 digits)
+ * SSN format: XXX-XX-XXXX (3 digits, dash, 2 digits, dash, 4 digits)
+ */
+function detectTinType(raw: string): 'SSN' | 'EIN' {
+  const trimmed = raw.trim()
+  // EIN pattern: 2 digits, dash, 7 digits
+  if (/^\d{2}-\d{7}$/.test(trimmed)) return 'EIN'
+  return 'SSN'
+}
+
 // --- Cell Reader ---
 
 function getCellValue(
@@ -282,10 +295,13 @@ function parseContractorBlock(
   const parsed = parseAddress(rawAddress)
   warnings.push(...parsed.warnings)
 
-  // Validate SSN
+  // Detect TIN type before stripping
+  const tinType = detectTinType(ssnRaw)
+
+  // Validate TIN
   const ssnDigits = stripSSN(ssnRaw)
   if (ssnDigits.length !== 9) {
-    warnings.push(`SSN has ${ssnDigits.length} digits (expected 9)`)
+    warnings.push(`${tinType} has ${ssnDigits.length} digits (expected 9)`)
   }
 
   // Validate amount
@@ -306,6 +322,7 @@ function parseContractorBlock(
     zip: parsed.zip,
     ssn: ssnDigits,
     ssnMasked: maskSSN(ssnRaw),
+    tinType,
     amountPaid,
     parseWarnings: warnings,
   }

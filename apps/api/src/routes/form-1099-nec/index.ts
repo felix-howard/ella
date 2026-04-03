@@ -350,7 +350,12 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAd
       errors.push(...pdfResponse.Errors.map((e) => `${e.Code}: ${e.Message}`))
     }
 
-    if (!pdfResponse.Form1099NecRecords?.SuccessRecords?.length) continue
+    if (!pdfResponse.Form1099NecRecords?.SuccessRecords?.length) {
+      console.warn(`[1099-NEC] No SuccessRecords in PDF URL response for batch ${submissionId}`)
+      continue
+    }
+
+    console.log(`[1099-NEC] Got ${pdfResponse.Form1099NecRecords.SuccessRecords.length} success records for batch ${submissionId}`)
 
     // Build recordId -> form lookup
     const formByRecordId = new Map(batchForms.map((f) => [f.taxbanditsRecordId!, f]))
@@ -369,6 +374,7 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAd
 
           // Download Copy B (masked TIN - for contractor)
           const copyBUrl = record.CopyB?.MaskedUrl || record.CopyB?.UnmaskedUrl
+          console.log(`[1099-NEC] Record ${record.RecordId} CopyB:`, JSON.stringify(record.CopyB))
           if (copyBUrl) {
             console.log(`[1099-NEC] Downloading Copy B for ${record.RecordId}`)
             const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyBUrl)
@@ -393,13 +399,19 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-recipient-pdfs', requireOrgAd
             })
           }
 
-          return record.RecordId
+          const hasPdf = !!copyBUrl || !!copyCUrl
+          if (!hasPdf) {
+            console.warn(`[1099-NEC] Record ${record.RecordId}: No Copy B or Copy C URLs returned`)
+          }
+          return hasPdf
         })
       )
 
       for (let j = 0; j < results.length; j++) {
         if (results[j].status === 'fulfilled') {
-          pdfCount++
+          if ((results[j] as PromiseFulfilledResult<boolean>).value) {
+            pdfCount++
+          }
         } else {
           const msg = `Record ${slice[j].RecordId}: ${(results[j] as PromiseRejectedResult).reason?.message || 'PDF fetch failed'}`
           console.error(`[1099-NEC] ${msg}`)

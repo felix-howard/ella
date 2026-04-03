@@ -362,7 +362,7 @@ class TaxBanditsClient {
         method: 'POST',
         body: JSON.stringify({
           SubmissionId: submissionId,
-          RecordIds: recordIds.map((id) => ({ id })),
+          RecordIds: recordIds.map((RecordId) => ({ RecordId })),
           Customization: { TINMaskType: tinMaskType },
         }),
       }

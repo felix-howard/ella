@@ -279,15 +279,15 @@ const clients = await prisma.client.findMany({ where: filter })
 4. `SUBMITTED` - Batch transmitted to IRS via TaxBandits
 5. `ACCEPTED` / `REJECTED` - IRS response received
 
-**Routes (org-scoped, business clients only):**
-- `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED)
-- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY)
-- `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED)
-- `GET /clients/:clientId/1099-nec/status` - Status counts (org admin only)
-- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed URL (24-hour TTL)
-- `GET /clients/:clientId/1099-nec/batches` - List filing batches
-- `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with forms
-- `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits
+**Routes (org-scoped with verifyBusinessAccess):**
+- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED)
+- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY)
+- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED)
+- `GET /businesses/:businessId/1099-nec/status` - Status counts
+- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed URL (24-hour TTL)
+- `GET /businesses/:businessId/1099-nec/batches` - List filing batches
+- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms
+- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits
 
 ## Testing Patterns
 

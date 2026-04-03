@@ -328,87 +328,104 @@ export const api = {
         method: 'DELETE',
       }),
 
-    // Business fields for 1099-NEC
-    updateBusiness: (id: string, data: UpdateBusinessFieldsInput) =>
-      request<{ data: Client }>(`/clients/${id}/business`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
   },
 
-  // Contractors (nested under clients)
-  contractors: {
+  // Businesses (nested under clients)
+  businesses: {
     list: (clientId: string) =>
-      request<{ data: Contractor[] }>(`/clients/${clientId}/contractors`),
+      request<{ data: Business[] }>(`/clients/${clientId}/businesses`),
 
-    create: (clientId: string, data: CreateContractorInput) =>
-      request<{ data: Contractor }>(`/clients/${clientId}/contractors`, {
+    create: (clientId: string, data: CreateBusinessInput) =>
+      request<{ data: Business }>(`/clients/${clientId}/businesses`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    update: (clientId: string, id: string, data: UpdateContractorInput) =>
-      request<{ data: Contractor }>(`/clients/${clientId}/contractors/${id}`, {
+    update: (clientId: string, businessId: string, data: UpdateBusinessInput) =>
+      request<{ data: Business }>(`/clients/${clientId}/businesses/${businessId}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
 
-    delete: (clientId: string, id: string) =>
-      request<{ success: boolean }>(`/clients/${clientId}/contractors/${id}`, {
+    delete: (clientId: string, businessId: string) =>
+      request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Contractors (under businesses — Phase 5 will update components to pass businessId)
+  contractors: {
+    list: (businessId: string) =>
+      request<{ data: Contractor[] }>(`/businesses/${businessId}/contractors`),
+
+    create: (businessId: string, data: CreateContractorInput) =>
+      request<{ data: Contractor }>(`/businesses/${businessId}/contractors`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (businessId: string, id: string, data: UpdateContractorInput) =>
+      request<{ data: Contractor }>(`/businesses/${businessId}/contractors/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (businessId: string, id: string) =>
+      request<{ success: boolean }>(`/businesses/${businessId}/contractors/${id}`, {
         method: 'DELETE',
       }),
 
-    uploadExcel: (clientId: string, formData: FormData) =>
-      request<{ success: boolean; data: ParseResult }>(`/clients/${clientId}/contractors/upload-excel`, {
+    uploadExcel: (businessId: string, formData: FormData) =>
+      request<{ success: boolean; data: ParseResult }>(`/businesses/${businessId}/contractors/upload-excel`, {
         method: 'POST',
         body: formData,
         timeout: 120000, // 2 min — server does AI address parsing
         retries: 0, // Don't retry file uploads
       }),
 
-    bulkSave: (clientId: string, data: BulkSaveContractorsInput) =>
-      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/bulk-save`, {
+    bulkSave: (businessId: string, data: BulkSaveContractorsInput) =>
+      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/bulk-save`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    deleteAll: (clientId: string) =>
-      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/all`, {
+    deleteAll: (businessId: string) =>
+      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/all`, {
         method: 'DELETE',
       }),
   },
 
-  // 1099-NEC Forms (TaxBandits API integration)
+  // 1099-NEC Forms (under businesses — Phase 5 will update components to pass businessId)
   form1099nec: {
-    status: (clientId: string) =>
-      request<{ data: Form1099StatusCounts }>(`/clients/${clientId}/1099-nec/status`),
+    status: (businessId: string) =>
+      request<{ data: Form1099StatusCounts }>(`/businesses/${businessId}/1099-nec/status`),
 
-    create: (clientId: string) =>
-      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/clients/${clientId}/1099-nec/create`, {
+    create: (businessId: string) =>
+      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/businesses/${businessId}/1099-nec/create`, {
         method: 'POST',
       }),
 
-    fetchPdfs: (clientId: string) =>
-      request<{ success: boolean; pdfCount: number }>(`/clients/${clientId}/1099-nec/fetch-pdfs`, {
+    fetchPdfs: (businessId: string) =>
+      request<{ success: boolean; pdfCount: number }>(`/businesses/${businessId}/1099-nec/fetch-pdfs`, {
         method: 'POST',
       }),
 
-    downloadPdf: (clientId: string, formId: string) =>
-      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
+    downloadPdf: (businessId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
 
-    transmit: (clientId: string) =>
-      request<TransmitResponse>(`/clients/${clientId}/1099-nec/transmit`, {
+    transmit: (businessId: string) =>
+      request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
         method: 'POST',
       }),
 
-    getBatches: (clientId: string) =>
-      request<{ data: FilingBatch[] }>(`/clients/${clientId}/1099-nec/batches`),
+    getBatches: (businessId: string) =>
+      request<{ data: FilingBatch[] }>(`/businesses/${businessId}/1099-nec/batches`),
 
-    getBatch: (clientId: string, batchId: string) =>
-      request<{ data: FilingBatchDetail }>(`/clients/${clientId}/1099-nec/batches/${batchId}`),
+    getBatch: (businessId: string, batchId: string) =>
+      request<{ data: FilingBatchDetail }>(`/businesses/${businessId}/1099-nec/batches/${batchId}`),
 
-    refreshBatchStatus: (clientId: string, batchId: string) =>
-      request<{ success: boolean; status: FilingStatusType }>(`/clients/${clientId}/1099-nec/batches/${batchId}/refresh`, {
+    refreshBatchStatus: (businessId: string, batchId: string) =>
+      request<{ success: boolean; status: FilingStatusType }>(`/businesses/${businessId}/1099-nec/batches/${batchId}/refresh`, {
         method: 'POST',
       }),
   },
@@ -1214,7 +1231,6 @@ export interface OcrTriggerResponse {
 }
 
 // Client types
-export type ClientType = 'INDIVIDUAL' | 'BUSINESS'
 export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
 
 export interface Client {
@@ -1227,16 +1243,43 @@ export interface Client {
   language: Language
   source?: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
   tags: string[]
-  clientType: ClientType
-  businessName?: string | null
-  businessType?: BusinessType | null
-  businessAddress?: string | null
-  businessCity?: string | null
-  businessState?: string | null
-  businessZip?: string | null
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
+}
+
+export interface Business {
+  id: string
+  name: string
+  type: BusinessType
+  einMasked: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  contractorCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateBusinessInput {
+  name: string
+  type: BusinessType
+  ein: string
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+
+export interface UpdateBusinessInput {
+  name?: string
+  type?: BusinessType
+  ein?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
 }
 
 export interface Contractor {
@@ -1376,16 +1419,6 @@ export interface FilingBatchDetail extends FilingBatch {
   }>
 }
 
-export interface UpdateBusinessFieldsInput {
-  clientType?: ClientType
-  businessName?: string
-  businessType?: BusinessType | null
-  ein?: string
-  businessAddress?: string
-  businessCity?: string
-  businessState?: string
-  businessZip?: string
-}
 
 // Action counts for client list view
 export interface ActionCounts {
@@ -1739,9 +1772,6 @@ export interface CreateClientInput {
   phone: string
   email?: string
   language?: Language
-  clientType?: ClientType
-  businessName?: string
-  ein?: string
   profile: {
     taxYear: number
     taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend

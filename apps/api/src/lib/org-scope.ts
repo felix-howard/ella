@@ -68,3 +68,21 @@ export async function verifyClientAccess(
   })
   return !!client
 }
+
+/**
+ * Verify business exists and caller has org-scoped access via its parent client.
+ * Single query using nested where. Returns { id, clientId } or null.
+ */
+export async function verifyBusinessAccess(
+  businessId: string,
+  user: AuthUser
+): Promise<{ id: string; clientId: string } | null> {
+  const business = await prisma.business.findFirst({
+    where: {
+      id: businessId,
+      client: buildClientScopeFilter(user),
+    },
+    select: { id: true, clientId: true },
+  })
+  return business
+}

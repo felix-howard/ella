@@ -468,8 +468,8 @@ function ClientDetailPage() {
     // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
     // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
     ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
-    // 1099-NEC tab: Only for BUSINESS clients
-    ...(client.clientType === 'BUSINESS' ? [{ id: 'form-1099-nec' as TabType, label: '1099-NEC', icon: FileText }] : []),
+    // 1099-NEC tab: Available for all clients (businesses managed separately)
+    { id: 'form-1099-nec' as TabType, label: '1099-NEC', icon: FileText },
     // Schedule E tab: Always visible (no trigger condition like Schedule C)
     { id: 'schedule-e', label: 'Schedule E', icon: Home },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
@@ -789,7 +789,7 @@ function ClientDetailPage() {
       )}
 
       {/* 1099-NEC Tab - Contractor management for business clients (lazy loaded) */}
-      {activeTab === 'form-1099-nec' && client.clientType === 'BUSINESS' && (
+      {activeTab === 'form-1099-nec' && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load 1099-NEC tab</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <Form1099NECTab clientId={clientId} clientName={client.name} />

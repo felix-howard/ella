@@ -52,7 +52,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses (Phase 01), Schedule C, Schedule E, Draft Return (Phase 04), 1099-NEC (Phase 3 - Business entities only)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses (Phase 01), Schedule C, Schedule E, Draft Return (Phase 04), 1099-NEC (visible for all clients)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -194,6 +194,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values (vs 2 previously): MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED tracks full origin path
 
+**Business CRUD (4 - Phase 02 Client-Business Separation):**
+- `GET /clients/:clientId/businesses` - List all businesses for a client (org-scoped, reads). Returns business name, type (enum), masked EIN (XX-XXX####), address, city, state, zip, contractor count, timestamps. Ordered by createdAt descending.
+- `GET /clients/:clientId/businesses/:businessId` - Get single business detail (org-scoped, reads). Includes contractor count + filing batch count for delete validation.
+- `POST /clients/:clientId/businesses` - Create business for client (org-scoped, requireOrgAdmin). EIN encrypted with audit logging. Payload: name, type (SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), ein (XX-XXXXXXX format), address, city, state, zip. Returns 201 with created business (EIN masked).
+- `PATCH /clients/:clientId/businesses/:businessId` - Update business fields (org-scoped, requireOrgAdmin). All fields optional. EIN re-encrypted + logged if changed. Returns updated business with masked EIN.
+- `DELETE /clients/:clientId/businesses/:businessId` - Delete business (org-scoped, requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked (enforce data integrity). Returns 200 on success.
+- **Security:** All writes (POST/PATCH/DELETE) require requireOrgAdmin middleware. EIN encryption via encryptSSN/decryptSSN. Audit logging for EIN changes via logProfileChanges. Org-scoped access via buildClientScopeFilter. Client existence verified before business operations.
+
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
 - `POST /engagements` - Create (with copy-from for year reuse)
@@ -213,17 +221,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
 - Endpoints for document lifecycle
 
-**1099-NEC Tax Form Integration (8 - TaxBandits API):**
-- `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org admin only.
-- `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org admin only.
-- `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org admin only.
-- `GET /clients/:clientId/1099-nec/status` - Form status counts. Business clients only. Org-scoped.
-- `GET /clients/:clientId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL).
-- `GET /clients/:clientId/1099-nec/batches` - List filing batches.
-- `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with forms.
-- `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits.
-- Models: Form1099NEC (with status enum, validation errors, eFile tracking), FilingBatch (groups multiple forms by tax year). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
+**1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
+- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessAccess.
+- Models: Form1099NEC (with status enum, validation errors, eFile tracking, businessId FK), FilingBatch (groups multiple forms by tax year, businessId FK). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
+- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessAccess() helper validates business belongs to user's org, replaces previous clientType guards.
 
 **Messages & Voice (15):**
 - `GET /messages` - List conversations (org-scoped)

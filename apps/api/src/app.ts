@@ -32,6 +32,7 @@ import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
 import { contractorsRoute } from './routes/contractors'
+import { businessesRoute } from './routes/businesses'
 import { form1099NecRoute } from './routes/form-1099-nec'
 
 const app = new OpenAPIHono()
@@ -87,9 +88,11 @@ app.use('/terms/*', authMiddleware)
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
 app.use('/cases/*', deprecationHeadersMiddleware)
+app.use('/businesses/*', authMiddleware)
 app.route('/clients', clientsRoute)
-app.route('/clients', contractorsRoute) // /clients/:clientId/contractors
-app.route('/clients', form1099NecRoute) // /clients/:clientId/1099-nec/*
+app.route('/clients', businessesRoute) // /clients/:clientId/businesses
+app.route('/businesses', contractorsRoute) // /businesses/:businessId/contractors
+app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/*
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)

@@ -119,9 +119,6 @@ export const createClientSchema = z.object({
   phone: phoneSchema,
   email: z.string().email().optional(),
   language: z.enum(['VI', 'EN']).default('VI'),
-  clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
-  businessName: z.string().max(200).optional(),
-  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
   profile: clientProfileSchema,
   // Custom welcome message (optional) - uses placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
   customMessage: z.string().max(500).optional(),
@@ -210,18 +207,6 @@ export const updateNotesSchema = z.object({
   notes: z.string().max(50000), // ~50KB HTML limit
 })
 
-// Update business fields for 1099-NEC clients
-export const updateBusinessFieldsSchema = z.object({
-  clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
-  businessName: z.string().max(200).optional(),
-  businessType: z.enum(['SOLE_PROPRIETORSHIP', 'LLC', 'PARTNERSHIP', 'S_CORP', 'C_CORP']).nullable().optional(),
-  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
-  businessAddress: z.string().max(500).optional(),
-  businessCity: z.string().max(100).optional(),
-  businessState: z.string().length(2, 'State must be 2-letter code').optional(),
-  businessZip: z.string().regex(/^\d{5}(-\d{4})?$/, 'ZIP must be 5 or 9 digits').optional(),
-})
-
 // Type exports
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
@@ -231,4 +216,3 @@ export type CascadeCleanupInput = z.infer<typeof cascadeCleanupSchema>
 export type AvatarPresignedUrlInput = z.infer<typeof avatarPresignedUrlSchema>
 export type AvatarConfirmInput = z.infer<typeof avatarConfirmSchema>
 export type UpdateNotesInput = z.infer<typeof updateNotesSchema>
-export type UpdateBusinessFieldsInput = z.infer<typeof updateBusinessFieldsSchema>

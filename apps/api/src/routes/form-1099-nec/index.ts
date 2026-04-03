@@ -1,12 +1,12 @@
 /**
  * 1099-NEC Form Routes
  * TaxBandits API integration: create, fetch PDFs, transmit, status
- * Nested under /clients/:clientId/1099-nec
+ * Nested under /businesses/:businessId/1099-nec
  */
 import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { verifyBusinessAccess, buildClientScopeFilter } from '../../lib/org-scope'
 import { decryptSSN } from '../../services/crypto'
 import { taxbanditsClient } from '../../services/taxbandits-client'
 import { uploadFile, getSignedDownloadUrl } from '../../services/storage'
@@ -17,24 +17,20 @@ import type { Form1099Status, FilingStatus } from '@ella/db'
 const form1099NecRoute = new Hono<{ Variables: AuthVariables }>()
 
 /**
- * GET /clients/:clientId/1099-nec/status
+ * GET /businesses/:businessId/1099-nec/status
  * Get form status counts for the actions panel
  */
-form1099NecRoute.get('/:clientId/1099-nec/status', async (c) => {
+form1099NecRoute.get('/:businessId/1099-nec/status', async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true, clientType: true },
-  })
-
-  if (!client || client.clientType !== 'BUSINESS') {
-    return c.json({ error: 'Business client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const forms = await prisma.form1099NEC.findMany({
-    where: { contractor: { clientId } },
+    where: { contractor: { businessId } },
     select: { status: true },
   })
 
@@ -65,20 +61,28 @@ form1099NecRoute.get('/:clientId/1099-nec/status', async (c) => {
 })
 
 /**
- * POST /clients/:clientId/1099-nec/create
+ * POST /businesses/:businessId/1099-nec/create
  * Create all DRAFT forms in TaxBandits (unified: replaces old validate + import)
  */
-form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) => {
+form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    include: {
+  const business = await prisma.business.findFirst({
+    where: { id: businessId },
+    select: {
+      id: true,
+      clientId: true,
+      name: true,
+      einEncrypted: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
       contractors: {
         include: {
           forms: { where: { status: 'DRAFT' as Form1099Status } },
@@ -87,15 +91,20 @@ form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) =
     },
   })
 
-  if (!client || client.clientType !== 'BUSINESS') {
-    return c.json({ error: 'Business client not found' }, 404)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
-  if (!client.einEncrypted || !client.businessName || !client.businessAddress || !client.businessCity || !client.businessState || !client.businessZip) {
-    return c.json({ error: 'Complete business info (name, EIN, address) required' }, 400)
+  // Check org access via client
+  const hasAccess = await prisma.client.findFirst({
+    where: { id: business.clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!hasAccess) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
-  const contractorsWithForms = client.contractors.filter((c) => c.forms.length > 0)
+  const contractorsWithForms = business.contractors.filter((c) => c.forms.length > 0)
   if (contractorsWithForms.length === 0) {
     return c.json({ error: 'No draft forms to create' }, 400)
   }
@@ -140,12 +149,12 @@ form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) =
     response = await taxbanditsClient.createForm1099NEC({
       taxYear: taxYears[0],
       payer: {
-        businessName: client.businessName,
-        ein: decryptSSN(client.einEncrypted).replace(/-/g, ''),
-        address1: client.businessAddress,
-        city: client.businessCity,
-        state: client.businessState,
-        zip: client.businessZip,
+        businessName: business.name,
+        ein: decryptSSN(business.einEncrypted).replace(/-/g, ''),
+        address1: business.address,
+        city: business.city,
+        state: business.state,
+        zip: business.zip,
       },
       recipients,
     })
@@ -160,7 +169,7 @@ form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) =
   // Create FilingBatch
   const batch = await prisma.filingBatch.create({
     data: {
-      clientId,
+      businessId,
       taxYear: taxYears[0],
       status: 'PENDING',
       totalForms: response.Form1099Records.SuccessRecords.length,
@@ -201,28 +210,25 @@ form1099NecRoute.post('/:clientId/1099-nec/create', requireOrgAdmin, async (c) =
 })
 
 /**
- * POST /clients/:clientId/1099-nec/fetch-pdfs
+ * POST /businesses/:businessId/1099-nec/fetch-pdfs
  * Fetch draft PDFs from TaxBandits and store in R2
  */
-form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (c) => {
+form1099NecRoute.post('/:businessId/1099-nec/fetch-pdfs', requireOrgAdmin, async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const forms = await prisma.form1099NEC.findMany({
     where: {
-      contractor: { clientId },
+      contractor: { businessId },
       status: 'IMPORTED',
       taxbanditsRecordId: { not: null },
       batch: { taxbanditsSubmissionId: { not: null } },
@@ -240,9 +246,9 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
   // Process PDFs in parallel batches of 5
   const CONCURRENCY = 5
   for (let i = 0; i < forms.length; i += CONCURRENCY) {
-    const batch = forms.slice(i, i + CONCURRENCY)
+    const batchSlice = forms.slice(i, i + CONCURRENCY)
     const results = await Promise.allSettled(
-      batch.map(async (form) => {
+      batchSlice.map(async (form) => {
         const pdfResponse = await taxbanditsClient.requestDraftPdf(
           form.batch!.taxbanditsSubmissionId!,
           form.taxbanditsRecordId!
@@ -254,7 +260,7 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
         }
         const pdfBuffer = Buffer.from(await pdfFetch.arrayBuffer())
 
-        const key = `1099-nec/${clientId}/${form.taxYear}/${form.contractor.id}.pdf`
+        const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}.pdf`
         await uploadFile(key, pdfBuffer, 'application/pdf')
 
         await prisma.form1099NEC.update({
@@ -271,7 +277,7 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
       if (result.status === 'fulfilled') {
         pdfCount++
       } else {
-        const msg = `Form ${batch[j].id}: ${result.reason instanceof Error ? result.reason.message : 'PDF fetch failed'}`
+        const msg = `Form ${batchSlice[j].id}: ${result.reason instanceof Error ? result.reason.message : 'PDF fetch failed'}`
         console.error(`[1099-NEC] ${msg}`)
         errors.push(msg)
       }
@@ -286,25 +292,22 @@ form1099NecRoute.post('/:clientId/1099-nec/fetch-pdfs', requireOrgAdmin, async (
 })
 
 /**
- * GET /clients/:clientId/1099-nec/:formId/pdf
+ * GET /businesses/:businessId/1099-nec/:formId/pdf
  * Download PDF from R2 (returns signed URL, 5-min expiry for SSN docs)
  */
-form1099NecRoute.get('/:clientId/1099-nec/:formId/pdf', async (c) => {
+form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
   const user = c.get('user')
-  const { clientId, formId } = c.req.param()
+  const { businessId, formId } = c.req.param()
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const form = await prisma.form1099NEC.findFirst({
     where: {
       id: formId,
-      contractor: { clientId },
+      contractor: { businessId },
       pdfStorageKey: { not: null },
     },
     include: { contractor: true },
@@ -331,28 +334,25 @@ form1099NecRoute.get('/:clientId/1099-nec/:formId/pdf', async (c) => {
 // ============================================
 
 /**
- * POST /clients/:clientId/1099-nec/transmit
+ * POST /businesses/:businessId/1099-nec/transmit
  * Transmit PDF-ready forms to IRS via TaxBandits
  */
-form1099NecRoute.post('/:clientId/1099-nec/transmit', requireOrgAdmin, async (c) => {
+form1099NecRoute.post('/:businessId/1099-nec/transmit', requireOrgAdmin, async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const forms = await prisma.form1099NEC.findMany({
     where: {
-      contractor: { clientId },
+      contractor: { businessId },
       status: 'PDF_READY' as Form1099Status,
       taxbanditsRecordId: { not: null },
     },
@@ -417,23 +417,20 @@ form1099NecRoute.post('/:clientId/1099-nec/transmit', requireOrgAdmin, async (c)
 })
 
 /**
- * GET /clients/:clientId/1099-nec/batches
- * List filing batches for a client
+ * GET /businesses/:businessId/1099-nec/batches
+ * List filing batches for a business
  */
-form1099NecRoute.get('/:clientId/1099-nec/batches', async (c) => {
+form1099NecRoute.get('/:businessId/1099-nec/batches', async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const batches = await prisma.filingBatch.findMany({
-    where: { clientId },
+    where: { businessId },
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { forms: true } },
@@ -444,23 +441,20 @@ form1099NecRoute.get('/:clientId/1099-nec/batches', async (c) => {
 })
 
 /**
- * GET /clients/:clientId/1099-nec/batches/:batchId
+ * GET /businesses/:businessId/1099-nec/batches/:batchId
  * Get batch details with form statuses
  */
-form1099NecRoute.get('/:clientId/1099-nec/batches/:batchId', async (c) => {
+form1099NecRoute.get('/:businessId/1099-nec/batches/:batchId', async (c) => {
   const user = c.get('user')
-  const { clientId, batchId } = c.req.param()
+  const { businessId, batchId } = c.req.param()
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const batch = await prisma.filingBatch.findFirst({
-    where: { id: batchId, clientId },
+    where: { id: batchId, businessId },
     include: {
       forms: {
         include: {
@@ -480,27 +474,24 @@ form1099NecRoute.get('/:clientId/1099-nec/batches/:batchId', async (c) => {
 })
 
 /**
- * POST /clients/:clientId/1099-nec/batches/:batchId/refresh
+ * POST /businesses/:businessId/1099-nec/batches/:batchId/refresh
  * Refresh batch status from TaxBandits API
  */
-form1099NecRoute.post('/:clientId/1099-nec/batches/:batchId/refresh', requireOrgAdmin, async (c) => {
+form1099NecRoute.post('/:businessId/1099-nec/batches/:batchId/refresh', requireOrgAdmin, async (c) => {
   const user = c.get('user')
-  const { clientId, batchId } = c.req.param()
+  const { businessId, batchId } = c.req.param()
 
   if (!config.taxbandits.isConfigured) {
     return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
-  const accessCheck = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-  if (!accessCheck) {
-    return c.json({ error: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
   }
 
   const batch = await prisma.filingBatch.findFirst({
-    where: { id: batchId, clientId },
+    where: { id: batchId, businessId },
     include: { forms: true },
   })
 

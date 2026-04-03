@@ -1,7 +1,111 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-02 ICT
+> **Last Updated:** 2026-04-03 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-03
+
+### Feature: Simplify Client Creation Form ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/more-ella-polish
+**Completion Date:** 2026-04-03
+**Plan:** [Client-Business Entity Separation Phase 4](../plans/260402-client-business-separation/phase-04-simplify-client-creation.md)
+
+**Summary:** Removed business-related fields from client creation form & API schemas. Client creation now accepts name + phone only. Business info collected separately via Businesses API.
+
+**API Schema Changes:**
+- Removed: `clientType`, `businessName`, `ein` from `createClientSchema`
+- Removed: `updateBusinessFieldsSchema` endpoint entirely
+- Updated: `Client` interface — removed business fields from response type
+- Added: `Business`, `CreateBusinessInput`, `UpdateBusinessInput` interfaces for dedicated business management
+
+**Frontend Changes:**
+- Removed: ClientType toggle (INDIVIDUAL/BUSINESS selector)
+- Removed: Business Fields section from form
+- Simplified: Client creation form now 5 input fields (firstName, lastName, phone, email, taxYear)
+- Updated: `BasicInfoData` interface to remove clientType, businessName, ein
+- Cleaned: Unused imports (Building2, UserRound icons removed)
+
+**API Changes:**
+- Updated: `POST /clients` handler to ignore business fields
+- Removed: `PATCH /clients/:id/business-fields` endpoint
+- Added: Business CRUD methods to API client (`api.businesses.*`)
+- Updated: api-client.ts types reflect new schema
+
+**Impact:**
+- Cleaner UX: Fewer fields at client signup
+- Business info collected later via dedicated Businesses tab (Phase 5)
+- Aligns with IRS model: Client = individual, Business = separate entity
+- Type-safe business management via dedicated API methods
+
+**Validation:**
+- `pnpm build` passes in both apps/workspace and apps/api
+- No TypeScript errors after ClientType removal
+- All imports cleaned up
+
+---
+
+### Feature: Business CRUD API Implementation ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/more-ella-polish
+**Completion Date:** 2026-04-03
+**Plan:** [Client-Business Entity Separation Phase 2](../plans/260402-client-business-separation/phase-02-business-crud-api.md)
+
+**Summary:** Implemented 5 CRUD endpoints for Business entity. Enables multi-business per client with encrypted EIN storage, org-scoped access control, and masked EIN in responses.
+
+**API Endpoints Created:**
+- `POST /clients/:clientId/businesses` - Create business (requires org admin)
+- `GET /clients/:clientId/businesses` - List client's businesses (org-scoped)
+- `GET /clients/:clientId/businesses/:businessId` - Get single business
+- `PATCH /clients/:clientId/businesses/:businessId` - Update business (requires org admin)
+- `DELETE /clients/:clientId/businesses/:businessId` - Delete business (requires org admin)
+
+**Files Created:**
+- `apps/api/src/routes/businesses/schemas.ts` - Zod validation for create/update operations
+  - `createBusinessSchema` - Validates name, type, EIN (XX-XXXXXXX format), address, city, state, zip
+  - `updateBusinessSchema` - All fields optional for PATCH operations
+  - `businessIdParamSchema` - Validates business ID param format
+- `apps/api/src/routes/businesses/index.ts` - Route handlers with 5 CRUD operations
+  - EIN encryption/decryption using existing `encryptSSN()` service
+  - Masked EIN responses (show last 4 digits only, format: XX-XXX####)
+  - Org-scoped client validation before all operations
+  - Cascade delete warning for businesses with contractors/filing batches
+  - Audit logging for create/delete operations
+
+**Files Modified:**
+- `apps/api/src/app.ts` - Registered business routes under `/clients` mount point
+
+**Security & Validation:**
+- EIN encrypted via AES-256-GCM before storage, never returned in plaintext
+- Masked EIN format: `XX-XXX####` (show last 4 only)
+- Org-scoped access control via `buildClientScopeFilter()`
+- Client ownership validated before all business operations
+- Only org admins can create/update/delete businesses
+- Cross-org access attempts return 404 (not 403) to avoid information leakage
+
+**Data Handling:**
+- Business type enum: SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP
+- Contractor/FilingBatch cascade delete on business deletion (with warning log)
+- All timestamps tracked: `createdAt`, `updatedAt`
+- Contractor count exposed in list response for UI rendering
+
+**Testing & Validation:**
+- Zod schemas validate: EIN format (XX-XXXXXXX), ZIP format (5 or 9 digits), state (2-letter code)
+- Build successful: `pnpm build` in apps/api
+- Type safety: All request/response types exported from schemas module
+- Authorization: requireOrgAdmin middleware applied to write operations
+
+**Integration Points:**
+- Depends on Phase 01 (Business model in Prisma schema)
+- No schema migrations required (Phase 01 already created Business table + FKs)
+- Ready for Phase 03 (update 1099-NEC/Contractor routes to use Business instead of Client)
+
+**Next Steps:**
+- Phase 03: Update Contractor/FilingBatch routes to link to Business instead of Client
+- Phase 04: Simplify client creation (remove business fields from client model)
+- Phase 05: Build Businesses tab in client detail UI
 
 ---
 

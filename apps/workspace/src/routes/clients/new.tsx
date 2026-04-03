@@ -8,13 +8,13 @@
 import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, User, Check, Building2, UserRound } from 'lucide-react'
+import { ArrowLeft, ArrowRight, User, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ReturningClientSection, ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../../components/clients'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhoneInput } from '../../lib/formatters'
-import { api, type Language, type ClientType, type ClientWithActions } from '../../lib/api-client'
+import { api, type Language, type ClientWithActions } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/new')({
   component: CreateClientPage,
@@ -30,13 +30,10 @@ interface BasicInfoData {
   email: string
   language: Language
   taxYear: number
-  clientType: ClientType
-  businessName: string
-  ein: string
 }
 
 interface FormErrors {
-  basic?: Partial<Record<keyof BasicInfoData | 'businessName' | 'ein', string>>
+  basic?: Partial<Record<keyof BasicInfoData, string>>
 }
 
 // Tax years: previous year (default), then 2 more prior years
@@ -65,9 +62,6 @@ function CreateClientPage() {
     email: '',
     language: 'VI',
     taxYear: currentYear - 1,
-    clientType: 'INDIVIDUAL',
-    businessName: '',
-    ein: '',
   })
 
   // Custom message templates per language
@@ -148,16 +142,6 @@ function CreateClientPage() {
       newErrors.email = t('newClient.errorEmailInvalid')
     }
 
-    // Business client validations
-    if (basicInfo.clientType === 'BUSINESS') {
-      if (!basicInfo.businessName.trim()) {
-        newErrors.businessName = 'Business name is required'
-      }
-      if (basicInfo.ein && !/^\d{2}-\d{7}$/.test(basicInfo.ein)) {
-        newErrors.ein = 'EIN must be XX-XXXXXXX format'
-      }
-    }
-
     setErrors((prev) => ({ ...prev, basic: newErrors }))
     return Object.keys(newErrors).length === 0
   }
@@ -215,9 +199,6 @@ function CreateClientPage() {
           phone: formattedPhone,
           email: sanitizedEmail || undefined,
           language: basicInfo.language,
-          clientType: basicInfo.clientType,
-          businessName: basicInfo.clientType === 'BUSINESS' ? basicInfo.businessName.trim() : undefined,
-          ein: basicInfo.clientType === 'BUSINESS' && basicInfo.ein ? basicInfo.ein : undefined,
           profile: {
             taxYear: basicInfo.taxYear,
             taxTypes: ['FORM_1040'], // Default to individual form
@@ -540,106 +521,6 @@ function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone }:
         />
         {errors?.email && <p id="email-error" className="text-sm text-error" role="alert">{errors.email}</p>}
       </div>
-
-      {/* Client Type */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-foreground">
-          Client Type
-          <span className="text-error ml-1">*</span>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => onChange({ clientType: 'INDIVIDUAL' })}
-            className={cn(
-              'flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all border',
-              data.clientType === 'INDIVIDUAL'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-card text-foreground border-border hover:border-primary/50'
-            )}
-          >
-            <UserRound className="w-4 h-4" />
-            Individual
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ clientType: 'BUSINESS' })}
-            className={cn(
-              'flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all border',
-              data.clientType === 'BUSINESS'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-card text-foreground border-border hover:border-primary/50'
-            )}
-          >
-            <Building2 className="w-4 h-4" />
-            Business
-          </button>
-        </div>
-      </div>
-
-      {/* Business Fields (shown when clientType is BUSINESS) */}
-      {data.clientType === 'BUSINESS' && (
-        <div className="space-y-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
-          <h3 className="text-sm font-medium text-primary">Business Information</h3>
-
-          {/* Business Name */}
-          <div className="space-y-1.5">
-            <label htmlFor="client-business-name" className="block text-sm font-medium text-foreground">
-              Business Name
-              <span className="text-error ml-1" aria-hidden="true">*</span>
-            </label>
-            <input
-              id="client-business-name"
-              type="text"
-              value={data.businessName}
-              onChange={(e) => onChange({ businessName: e.target.value })}
-              placeholder="e.g. Acme Corp LLC"
-              aria-required="true"
-              aria-invalid={!!errors?.businessName}
-              className={cn(
-                'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'placeholder:text-muted-foreground/50',
-                errors?.businessName ? 'border-error' : 'border-border'
-              )}
-            />
-            {errors?.businessName && <p className="text-sm text-error" role="alert">{errors.businessName}</p>}
-          </div>
-
-          {/* EIN */}
-          <div className="space-y-1.5">
-            <label htmlFor="client-ein" className="block text-sm font-medium text-foreground">
-              EIN (Employer Identification Number)
-            </label>
-            <input
-              id="client-ein"
-              type="text"
-              value={data.ein}
-              onChange={(e) => {
-                // Auto-format EIN: XX-XXXXXXX
-                let val = e.target.value.replace(/[^\d-]/g, '')
-                const digits = val.replace(/-/g, '')
-                if (digits.length >= 2 && !val.includes('-')) {
-                  val = digits.slice(0, 2) + '-' + digits.slice(2, 9)
-                } else if (digits.length > 9) {
-                  val = digits.slice(0, 2) + '-' + digits.slice(2, 9)
-                }
-                onChange({ ein: val })
-              }}
-              placeholder="XX-XXXXXXX"
-              maxLength={10}
-              aria-invalid={!!errors?.ein}
-              className={cn(
-                'w-full px-3 py-2.5 rounded-lg border bg-card text-base text-foreground',
-                'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                'placeholder:text-muted-foreground/50',
-                errors?.ein ? 'border-error' : 'border-border'
-              )}
-            />
-            {errors?.ein && <p className="text-sm text-error" role="alert">{errors.ein}</p>}
-          </div>
-        </div>
-      )}
 
       {/* Tax Year */}
       <div className="space-y-1.5">

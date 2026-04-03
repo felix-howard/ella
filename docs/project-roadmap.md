@@ -124,14 +124,30 @@
 - AES-256-GCM encryption reused for Business.einEncrypted
 - Indexes added on Business.clientId, Contractor.businessId, FilingBatch.businessId for query performance
 
-**Remaining Phases (2-6):**
-- Phase 2: Business CRUD API endpoints
-- Phase 3: Update 1099-NEC & Contractor routes to use Business entity
-- Phase 4: Simplify Client creation (remove business fields from form)
-- Phase 5: Add Businesses tab in Client detail page
+**Phase 2 Completion Summary:**
+- Added Business CRUD API endpoints: GET list, GET detail, POST create, PATCH update, DELETE with cascade protection
+- Business model holds all business details (name, type, EIN, address)
+- Org-scoped access control with EIN encryption + audit logging
+
+**Phase 3 Completion Summary:**
+- Updated Contractor routes: POST/GET/PATCH/DELETE `/businesses/:businessId/contractors`
+- Updated 1099-NEC routes: All endpoints now under `/businesses/:businessId/1099-nec/`
+- Migrated API client (workspace) with full Business, CreateBusinessInput, UpdateBusinessInput interfaces
+- Updated contractor & form1099nec API methods to use /businesses/ paths
+
+**Phase 4 Completion Summary:**
+- Simplified client creation form: Removed clientType toggle and all business fields (businessName, ein, businessType, businessAddress, etc.)
+- Client now created with only: firstName, lastName, phone, email, language
+- Removed PATCH /clients/:id/business endpoint (business management moved to dedicated Business CRUD)
+- Removed updateBusinessFieldsSchema validation
+- 1099-NEC tab now visible for all clients (no longer gated on business entity existence)
+- Business creation/management now separate workflow accessed via Businesses tab
+
+**Remaining Phases (5-6):**
+- Phase 5: Add Businesses tab in Client detail page (UI for managing multiple businesses per client)
 - Phase 6: Integration testing & cleanup
 
-**Status:** Phase 1 COMPLETE - Ready for Phase 2 (Business CRUD API)
+**Status:** Phases 1-4 COMPLETE - Client-Business separation complete, ready for Phase 5 (UI)
 
 ---
 

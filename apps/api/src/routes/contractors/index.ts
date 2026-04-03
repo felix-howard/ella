@@ -1,12 +1,12 @@
 /**
  * Contractor CRUD routes
- * Nested under /clients/:clientId/contractors
- * All routes require auth + org scope via parent /clients/* middleware
+ * Nested under /businesses/:businessId/contractors
+ * All routes require auth via parent middleware
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import { buildClientScopeFilter } from '../../lib/org-scope'
+import { verifyBusinessAccess } from '../../lib/org-scope'
 import { encryptSSN } from '../../services/crypto'
 import { logProfileChanges } from '../../services/audit-logger'
 import { parseNailSalonExcel } from '../../services/excel-parser'
@@ -16,24 +16,19 @@ import type { AuthVariables } from '../../middleware/auth'
 const contractorsRoute = new Hono<{ Variables: AuthVariables }>()
 
 /**
- * GET /clients/:clientId/contractors - List contractors for a client
+ * GET /businesses/:businessId/contractors - List contractors for a business
  */
-contractorsRoute.get('/:clientId/contractors', async (c) => {
+contractorsRoute.get('/:businessId/contractors', async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
-  // Verify client access (org-scoped)
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-
-  if (!client) {
-    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
   }
 
   const contractors = await prisma.contractor.findMany({
-    where: { clientId },
+    where: { businessId },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
@@ -55,28 +50,19 @@ contractorsRoute.get('/:clientId/contractors', async (c) => {
 })
 
 /**
- * POST /clients/:clientId/contractors - Create contractor
+ * POST /businesses/:businessId/contractors - Create contractor
  */
 contractorsRoute.post(
-  '/:clientId/contractors',
+  '/:businessId/contractors',
   zValidator('json', createContractorSchema),
   async (c) => {
     const user = c.get('user')
-    const { clientId } = c.req.param()
+    const { businessId } = c.req.param()
     const data = c.req.valid('json')
 
-    // Verify client access + must be BUSINESS type
-    const client = await prisma.client.findFirst({
-      where: { id: clientId, ...buildClientScopeFilter(user) },
-      select: { id: true, clientType: true },
-    })
-
-    if (!client) {
-      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
-    }
-
-    if (client.clientType !== 'BUSINESS') {
-      return c.json({ error: 'INVALID_CLIENT_TYPE', message: 'Contractors can only be added to BUSINESS clients' }, 400)
+    const business = await verifyBusinessAccess(businessId, user)
+    if (!business) {
+      return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
     }
 
     // Encrypt SSN and extract last 4
@@ -86,7 +72,7 @@ contractorsRoute.post(
 
     const contractor = await prisma.contractor.create({
       data: {
-        clientId,
+        businessId,
         firstName: data.firstName,
         lastName: data.lastName,
         ssnEncrypted,
@@ -116,40 +102,35 @@ contractorsRoute.post(
 
     // Audit log SSN encryption
     void logProfileChanges(
-      clientId,
+      business.clientId,
       [{ field: 'contractor_ssn_encrypted', oldValue: null, newValue: `[ENCRYPTED] contractor:${contractor.id}` }],
       user.staffId ?? undefined
     )
 
-    console.log(`[Contractors] Created contractor ${contractor.id} for client ${clientId} by staff ${user.staffId}`)
+    console.log(`[Contractors] Created contractor ${contractor.id} for business ${businessId} by staff ${user.staffId}`)
     return c.json({ data: contractor }, 201)
   }
 )
 
 /**
- * PATCH /clients/:clientId/contractors/:id - Update contractor
+ * PATCH /businesses/:businessId/contractors/:id - Update contractor
  */
 contractorsRoute.patch(
-  '/:clientId/contractors/:id',
+  '/:businessId/contractors/:id',
   zValidator('json', updateContractorSchema),
   async (c) => {
     const user = c.get('user')
-    const { clientId, id } = c.req.param()
+    const { businessId, id } = c.req.param()
     const data = c.req.valid('json')
 
-    // Verify client access
-    const client = await prisma.client.findFirst({
-      where: { id: clientId, ...buildClientScopeFilter(user) },
-      select: { id: true },
-    })
-
-    if (!client) {
-      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    const business = await verifyBusinessAccess(businessId, user)
+    if (!business) {
+      return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
     }
 
-    // Verify contractor belongs to client
+    // Verify contractor belongs to business
     const existing = await prisma.contractor.findFirst({
-      where: { id, clientId },
+      where: { id, businessId },
       select: { id: true },
     })
 
@@ -176,7 +157,7 @@ contractorsRoute.patch(
 
       // Audit log SSN re-encryption
       void logProfileChanges(
-        clientId,
+        business.clientId,
         [{ field: 'contractor_ssn_updated', oldValue: '[ENCRYPTED]', newValue: `[RE-ENCRYPTED] contractor:${id}` }],
         user.staffId ?? undefined
       )
@@ -205,57 +186,48 @@ contractorsRoute.patch(
       },
     })
 
-    console.log(`[Contractors] Updated contractor ${id} for client ${clientId} by staff ${user.staffId}`)
+    console.log(`[Contractors] Updated contractor ${id} for business ${businessId} by staff ${user.staffId}`)
     return c.json({ data: contractor })
   }
 )
 
 /**
- * DELETE /clients/:clientId/contractors/all - Delete all contractors for a client
+ * DELETE /businesses/:businessId/contractors/all - Delete all contractors for a business
  * MUST be registered before /:id route to avoid "all" being matched as an ID
  */
-contractorsRoute.delete('/:clientId/contractors/all', async (c) => {
+contractorsRoute.delete('/:businessId/contractors/all', async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-
-  if (!client) {
-    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
   }
 
   // Form1099NEC records cascade-delete via onDelete: Cascade on Contractor
   const result = await prisma.contractor.deleteMany({
-    where: { clientId },
+    where: { businessId },
   })
 
-  console.log(`[Contractors] Bulk deleted ${result.count} contractors for client ${clientId} by staff ${user.staffId}`)
+  console.log(`[Contractors] Bulk deleted ${result.count} contractors for business ${businessId} by staff ${user.staffId}`)
   return c.json({ success: true, count: result.count })
 })
 
 /**
- * DELETE /clients/:clientId/contractors/:id - Delete contractor
+ * DELETE /businesses/:businessId/contractors/:id - Delete contractor
  */
-contractorsRoute.delete('/:clientId/contractors/:id', async (c) => {
+contractorsRoute.delete('/:businessId/contractors/:id', async (c) => {
   const user = c.get('user')
-  const { clientId, id } = c.req.param()
+  const { businessId, id } = c.req.param()
 
-  // Verify client access
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true },
-  })
-
-  if (!client) {
-    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
   }
 
-  // Verify contractor belongs to client
+  // Verify contractor belongs to business
   const existing = await prisma.contractor.findFirst({
-    where: { id, clientId },
+    where: { id, businessId },
     select: { id: true },
   })
 
@@ -265,29 +237,20 @@ contractorsRoute.delete('/:clientId/contractors/:id', async (c) => {
 
   await prisma.contractor.delete({ where: { id } })
 
-  console.log(`[Contractors] Deleted contractor ${id} for client ${clientId} by staff ${user.staffId}`)
+  console.log(`[Contractors] Deleted contractor ${id} for business ${businessId} by staff ${user.staffId}`)
   return c.json({ success: true, message: 'Contractor deleted' })
 })
 
 /**
- * POST /clients/:clientId/contractors/upload-excel - Parse Excel file, return structured data
+ * POST /businesses/:businessId/contractors/upload-excel - Parse Excel file, return structured data
  */
-contractorsRoute.post('/:clientId/contractors/upload-excel', async (c) => {
+contractorsRoute.post('/:businessId/contractors/upload-excel', async (c) => {
   const user = c.get('user')
-  const { clientId } = c.req.param()
+  const { businessId } = c.req.param()
 
-  // Verify client access + must be BUSINESS type
-  const client = await prisma.client.findFirst({
-    where: { id: clientId, ...buildClientScopeFilter(user) },
-    select: { id: true, clientType: true },
-  })
-
-  if (!client) {
-    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
-  }
-
-  if (client.clientType !== 'BUSINESS') {
-    return c.json({ error: 'INVALID_CLIENT_TYPE', message: 'Excel upload only for BUSINESS clients' }, 400)
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
   }
 
   const body = await c.req.parseBody()
@@ -321,7 +284,7 @@ contractorsRoute.post('/:clientId/contractors/upload-excel', async (c) => {
     const buffer = Buffer.from(await file.arrayBuffer())
     const result = await parseNailSalonExcel(buffer)
 
-    console.log(`[Contractors] Parsed Excel: ${result.contractors.length} contractors for client ${clientId} by staff ${user.staffId}`)
+    console.log(`[Contractors] Parsed Excel: ${result.contractors.length} contractors for business ${businessId} by staff ${user.staffId}`)
     return c.json({ success: true, data: result })
   } catch (err) {
     console.error('[Contractors] Excel parse error:', err)
@@ -330,28 +293,19 @@ contractorsRoute.post('/:clientId/contractors/upload-excel', async (c) => {
 })
 
 /**
- * POST /clients/:clientId/contractors/bulk-save - Save reviewed contractors from Excel
+ * POST /businesses/:businessId/contractors/bulk-save - Save reviewed contractors from Excel
  */
 contractorsRoute.post(
-  '/:clientId/contractors/bulk-save',
+  '/:businessId/contractors/bulk-save',
   zValidator('json', bulkSaveContractorsSchema),
   async (c) => {
     const user = c.get('user')
-    const { clientId } = c.req.param()
+    const { businessId } = c.req.param()
     const { contractors, taxYear } = c.req.valid('json')
 
-    // Verify client access + must be BUSINESS type
-    const client = await prisma.client.findFirst({
-      where: { id: clientId, ...buildClientScopeFilter(user) },
-      select: { id: true, clientType: true },
-    })
-
-    if (!client) {
-      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
-    }
-
-    if (client.clientType !== 'BUSINESS') {
-      return c.json({ error: 'INVALID_CLIENT_TYPE', message: 'Bulk save only for BUSINESS clients' }, 400)
+    const business = await verifyBusinessAccess(businessId, user)
+    if (!business) {
+      return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
     }
 
     try {
@@ -364,7 +318,7 @@ contractorsRoute.post(
 
           const created = await tx.contractor.create({
             data: {
-              clientId,
+              businessId,
               firstName: contractor.firstName,
               lastName: contractor.lastName,
               ssnEncrypted,
@@ -401,7 +355,7 @@ contractorsRoute.post(
 
       // Audit log bulk SSN encryption
       void logProfileChanges(
-        clientId,
+        business.clientId,
         saved.map((s) => ({
           field: 'contractor_ssn_encrypted',
           oldValue: null,
@@ -410,7 +364,7 @@ contractorsRoute.post(
         user.staffId ?? undefined
       )
 
-      console.log(`[Contractors] Bulk saved ${saved.length} contractors (year ${taxYear}) for client ${clientId} by staff ${user.staffId}`)
+      console.log(`[Contractors] Bulk saved ${saved.length} contractors (year ${taxYear}) for business ${businessId} by staff ${user.staffId}`)
       return c.json({ success: true, count: saved.length, data: saved }, 201)
     } catch (err) {
       console.error('[Contractors] Bulk save error:', err)

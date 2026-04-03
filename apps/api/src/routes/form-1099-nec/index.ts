@@ -257,9 +257,14 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-pdfs', requireOrgAdmin, async
           form.taxbanditsRecordId!
         )
 
-        const pdfFetch = await fetch(pdfResponse.DraftPdfUrl)
+        console.log(`[1099-NEC] Downloading PDF from: ${pdfResponse.DraftPdfUrl}`)
+        const pdfFetch = await fetch(pdfResponse.DraftPdfUrl, {
+          headers: { Accept: 'application/pdf' },
+          redirect: 'follow',
+        })
         if (!pdfFetch.ok) {
-          throw new Error(`PDF download failed: ${pdfFetch.status}`)
+          const errorBody = await pdfFetch.text().catch(() => 'no body')
+          throw new Error(`PDF download failed: ${pdfFetch.status} - ${errorBody}`)
         }
         const pdfBuffer = Buffer.from(await pdfFetch.arrayBuffer())
 

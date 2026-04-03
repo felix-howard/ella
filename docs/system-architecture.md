@@ -286,7 +286,7 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form). Phase 01 Client-Business Entity Separation: simplified to hold client contact info only, business details moved to Business model.
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form). Phase 01 Client-Business Entity Separation: simplified to hold client contact info only, business details moved to Business model. Phase 06 Cleanup: removed legacy businessName, einEncrypted, businessAddress, businessPhone fields from all intake forms and components (fully migrated to Business entity).
 - **Business** - clientId FK (one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds business profile, contractors, and filing batches.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
@@ -1511,6 +1511,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.7
-**Last Updated:** 2026-03-24
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Auth middleware is read-only (no request-time DB writes), all user/org/membership syncs via event-driven webhooks + Clerk Backend API for mutations. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification.
+**Version:** 2.8
+**Last Updated:** 2026-04-03
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup.

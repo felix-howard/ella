@@ -225,8 +225,6 @@ function PreviewContent({ preview }: { preview: EngagementCopyPreview }) {
     { key: 'hasInvestments', label: 'Có đầu tư', value: preview.hasInvestments ? 'Có' : 'Không' },
     { key: 'hasKidsUnder17', label: 'Con dưới 17', value: preview.hasKidsUnder17 ? 'Có' : 'Không' },
     { key: 'numKidsUnder17', label: 'Số con dưới 17', value: preview.numKidsUnder17?.toString() ?? '0' },
-    { key: 'businessName', label: 'Tên doanh nghiệp', value: preview.businessName },
-    { key: 'ein', label: 'EIN', value: preview.ein },
   ].filter((f) => f.value !== null && f.value !== undefined && f.value !== '0' && f.value !== 'Không')
 
   if (fields.length === 0) {

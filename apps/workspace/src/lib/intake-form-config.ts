@@ -316,8 +316,6 @@ const FIELD_CONFIG_DATA: Record<string, { i18nKey: string; section: string; form
   feieResidencyEndDate: { i18nKey: 'field.feieResidencyEndDate', section: 'foreign', format: 'text' },
   foreignGiftValue: { i18nKey: 'field.foreignGiftValue', section: 'foreign', format: 'currency' },
   // Business
-  businessName: { i18nKey: 'field.businessName', section: 'business', format: 'text' },
-  ein: { i18nKey: 'field.ein', section: 'business', format: 'text' },
   hasEmployees: { i18nKey: 'field.hasEmployees', section: 'business', format: 'boolean' },
   hasContractors: { i18nKey: 'field.hasContractors', section: 'business', format: 'boolean' },
   has1099K: { i18nKey: 'field.has1099K', section: 'business', format: 'boolean' },

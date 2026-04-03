@@ -26,8 +26,6 @@ export interface IntakeFormData {
   // Business
   hasSelfEmployment: boolean
   hasRentalProperty: boolean
-  businessName: string
-  ein: string
   hasEmployees: boolean
   hasContractors: boolean
   has1099K: boolean
@@ -239,55 +237,23 @@ export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsF
       {/* Section: Business - Conditional */}
       {showBusinessQuestions && (
         <FormSection title="Thông tin doanh nghiệp">
-          <div className="space-y-4">
-            <FormRow>
-              <FormLabel>Tên doanh nghiệp</FormLabel>
-              <input
-                type="text"
-                value={data.businessName || ''}
-                onChange={(e) => handleChange('businessName', e.target.value)}
-                placeholder="VD: ABC Consulting LLC"
-                className={cn(
-                  'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                  'border-border'
-                )}
-              />
-            </FormRow>
-
-            <FormRow>
-              <FormLabel>EIN (nếu có)</FormLabel>
-              <input
-                type="text"
-                value={data.ein || ''}
-                onChange={(e) => handleChange('ein', e.target.value)}
-                placeholder="XX-XXXXXXX"
-                className={cn(
-                  'w-full px-3 py-2.5 rounded-lg border bg-card text-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
-                  'border-border'
-                )}
-              />
-            </FormRow>
-
-            <div className="space-y-3">
-              <ToggleQuestion
-                label="Có nhân viên (W2)?"
-                checked={data.hasEmployees}
-                onChange={(v) => handleChange('hasEmployees', v)}
-              />
-              <ToggleQuestion
-                label="Có trả cho contractors (1099-NEC)?"
-                checked={data.hasContractors}
-                onChange={(v) => handleChange('hasContractors', v)}
-              />
-              <ToggleQuestion
-                label="Có nhận thanh toán qua thẻ (1099-K)?"
-                checked={data.has1099K}
-                onChange={(v) => handleChange('has1099K', v)}
-                hint="Stripe, Square, PayPal Business, etc."
-              />
-            </div>
+          <div className="space-y-3">
+            <ToggleQuestion
+              label="Có nhân viên (W2)?"
+              checked={data.hasEmployees}
+              onChange={(v) => handleChange('hasEmployees', v)}
+            />
+            <ToggleQuestion
+              label="Có trả cho contractors (1099-NEC)?"
+              checked={data.hasContractors}
+              onChange={(v) => handleChange('hasContractors', v)}
+            />
+            <ToggleQuestion
+              label="Có nhận thanh toán qua thẻ (1099-K)?"
+              checked={data.has1099K}
+              onChange={(v) => handleChange('has1099K', v)}
+              hint="Stripe, Square, PayPal Business, etc."
+            />
           </div>
         </FormSection>
       )}
@@ -396,8 +362,6 @@ export function getDefaultIntakeFormData(): IntakeFormData {
     hasKids17to24: false,
     hasSelfEmployment: false,
     hasRentalProperty: false,
-    businessName: '',
-    ein: '',
     hasEmployees: false,
     hasContractors: false,
     has1099K: false,

@@ -1,8 +1,53 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-02 ICT
-> **Current Phase:** TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-03 ICT
+> **Current Phase:** Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Client-Business Entity Separation - All 6 Phases COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-03 (All 6 Phases)
+**Deliverable:** Business model fully integrated; multi-business per client support; simplified client creation; cleanup + integration testing complete
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Database Schema & Migration | ✅ DONE | 2h | 2026-04-02 |
+| 2 | Business CRUD API | ✅ DONE | 1.5h | 2026-04-02 |
+| 3 | Update Routes | ✅ DONE | 2h | 2026-04-02 |
+| 4 | Simplify Client Creation | ✅ DONE | 1h | 2026-04-03 |
+| 5 | Businesses Tab Frontend | ✅ DONE | 2h | 2026-04-03 |
+| 6 | Cleanup & Integration Testing | ✅ DONE | 0.5h | 2026-04-03 |
+
+**Complete Summary (All 6 Phases):**
+- Created Business model: one Client → many Businesses (1:N), holds EIN, address, business type
+- Migrated Contractor & FilingBatch FKs: now reference Business instead of Client
+- Removed ClientType enum: Client no longer INDIVIDUAL/BUSINESS type
+- Simplified Client: name, phone, email, language only (no business fields)
+- Business CRUD API: POST/GET/PATCH/DELETE with org-scoped access + EIN encryption
+- Updated Routes: Contractors & 1099-NEC routes scoped to `/businesses/:businessId/`
+- Simplified client creation: name + phone only; businesses added via separate workflow
+- Businesses tab: Frontend UI in client detail with expandable cards for business management
+- Contractor management: Per-business contractor UI within each business card expansion
+- 1099-NEC filing: Per-business form generation & filing
+- Cleanup done: Zero `clientType` references remain (except migrations)
+- Build validated: Full compile + smoke testing complete
+
+**Key Achievements:**
+- No creation overhead for businesses: Can add businesses after client signup
+- Multi-business support: Single client can have unlimited businesses with separate contractors
+- Clean separation: Business logic isolated from client entity
+- Backward compatible: Existing 1099 workflows preserved per-business
+
+**Files Created/Modified:**
+- Schema: `packages/db/prisma/schema.prisma` + migration
+- API: `apps/api/src/routes/businesses/` (new), updated contractors/1099-nec
+- Frontend: `apps/workspace/src/components/businesses/` (new tab + modal components)
+- API Client: Updated with Business interfaces & endpoints
+
+**Status:** PRODUCTION READY - All 6 phases complete, integration tested, zero regressions
 
 ---
 
@@ -143,11 +188,23 @@
 - 1099-NEC tab now visible for all clients (no longer gated on business entity existence)
 - Business creation/management now separate workflow accessed via Businesses tab
 
-**Remaining Phases (5-6):**
-- Phase 5: Add Businesses tab in Client detail page (UI for managing multiple businesses per client)
-- Phase 6: Integration testing & cleanup
+**Phase 5 Completion Summary:**
+- Built Businesses tab UI in client detail page with expandable business cards
+- Business card displays name, masked EIN, type, address, contractor count
+- Edit/delete actions per business with cascade warning on delete
+- Embedded Form1099NECTab for contractor management within each business
+- Create/edit business modal with validation (required: name, address, city, state, zip; EIN format XX-XXXXXXX)
 
-**Status:** Phases 1-4 COMPLETE - Client-Business separation complete, ready for Phase 5 (UI)
+**Phase 6 Completion Summary:**
+- Removed all stale `clientType` references from codebase
+- Cleaned up constants, field labels, localization strings
+- Updated client overview sections (removed old business display)
+- Updated intake form (removed business questions)
+- Verified Schedule C, Files, Data Entry tabs unaffected
+- Full compile check: `pnpm build` successful
+- Integration tested with smoke test coverage
+
+**Status:** All 6 Phases COMPLETE - Client-Business separation fully implemented, integrated, tested
 
 ---
 

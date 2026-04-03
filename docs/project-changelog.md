@@ -7,6 +7,38 @@
 
 ## 2026-04-03
 
+### Feature: Client-Business Entity Separation Plan COMPLETE ✅ (All 6 Phases)
+**Status:** Complete
+**Branch:** feature/more-ella-polish
+**Completion Date:** 2026-04-03
+**Plan:** [Client-Business Entity Separation](../plans/260402-client-business-separation/plan.md)
+
+**Summary:** Multi-phase restructuring complete. Client = person, Business = separate entity. Enables multi-business per client, simplified client creation. All cleanup + integration testing done.
+
+**Phase 06: Cleanup & Integration Testing** (0.5h)
+- Removed all stale `clientType` references from codebase (except migration files)
+- Cleaned up constants, field labels, localization strings
+- Removed business-related form fields from client overview & intake form
+- Verified zero regressions: Schedule C, Files, Data Entry tabs unaffected
+- Full compile check passed: `pnpm build` successful
+- Smoke test coverage: Client creation, business CRUD, contractor management, 1099-NEC filing
+
+**All Phases Summary:**
+- Phase 01: Database schema + Business model + Contractor/FilingBatch FK migrations ✅
+- Phase 02: Business CRUD API endpoints ✅
+- Phase 03: Update Contractor & FilingBatch routes to use Business FK ✅
+- Phase 04: Simplify client creation form (name + phone only) ✅
+- Phase 05: Businesses tab frontend with expandable cards ✅
+- Phase 06: Cleanup + integration testing ✅
+
+**Key Achievements:**
+- No client creation overhead for businesses
+- Multi-business support fully functional
+- Backward compatible: Existing 1099 workflows preserved
+- Clean codebase: Zero legacy clientType code remains
+
+---
+
 ### Feature: Businesses Tab Frontend (Phase 05) ✅ COMPLETE
 **Status:** Complete
 **Branch:** feature/more-ella-polish

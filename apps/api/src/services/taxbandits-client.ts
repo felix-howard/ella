@@ -399,7 +399,7 @@ class TaxBanditsClient {
   async transmit(submissionId: string, recordIds: string[]): Promise<TransmitResponse> {
     console.log(`[TaxBandits] Transmitting ${recordIds.length} form(s) to IRS`)
     return this.request<TransmitResponse>(
-      `${config.taxbandits.urls.api}/Form1099NEC/${submissionId}/Transmit`,
+      `${config.taxbandits.urls.api}/Form1099NEC/Transmit`,
       { method: 'POST', body: JSON.stringify({ SubmissionId: submissionId, RecordIds: recordIds }) }
     )
   }

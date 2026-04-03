@@ -130,7 +130,8 @@ form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c)
     contractor.forms.map((form) => {
       recipientMap.push({ formId: form.id, contractorId: contractor.id })
       return {
-        name: `${contractor.firstName} ${contractor.lastName}`,
+        firstName: contractor.firstName,
+        lastName: contractor.lastName,
         tinType: 'SSN' as const,
         tin: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
         address1: contractor.address,
@@ -160,9 +161,11 @@ form1099NecRoute.post('/:businessId/1099-nec/create', requireOrgAdmin, async (c)
     })
   } catch (error) {
     console.error('[1099-NEC] Create failed:', error)
+    const message = error instanceof Error ? error.message : 'Failed to create forms in TaxBandits'
     return c.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create forms in TaxBandits',
+      error: 'TaxBandits validation failed',
+      message,
     }, 502)
   }
 

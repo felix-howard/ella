@@ -23,7 +23,8 @@ export interface PayerData {
 }
 
 export interface RecipientFormData {
-  name: string
+  firstName: string
+  lastName: string
   tinType: 'SSN' | 'EIN'
   tin: string
   address1: string
@@ -182,7 +183,28 @@ class TaxBanditsClient {
         }
         if (!response.ok) {
           const errorText = await response.text()
-          const err = new Error(`TaxBandits API error ${response.status}: ${errorText}`)
+          // Parse TaxBandits error response for user-friendly messages
+          let message = `TaxBandits API error ${response.status}`
+          try {
+            const parsed = JSON.parse(errorText)
+            const details: string[] = []
+            // Top-level validation errors
+            if (parsed.Errors?.length) {
+              details.push(...parsed.Errors.map((e: { Name?: string; Message?: string }) =>
+                `${e.Name}: ${e.Message}`
+              ))
+            }
+            // Per-record errors in Form1099Records
+            if (parsed.Form1099Records?.ErrorRecords?.length) {
+              for (const rec of parsed.Form1099Records.ErrorRecords) {
+                details.push(...(rec.Errors || []).map((e: { FieldName?: string; Message?: string }) =>
+                  `Record ${rec.Sequence}: ${e.FieldName || ''} ${e.Message}`.trim()
+                ))
+              }
+            }
+            message = details.length > 0 ? details.join('; ') : (parsed.StatusMessage || message)
+          } catch { /* use default message */ }
+          const err = new Error(message)
           // Don't retry client errors (except 429 rate limit)
           if (response.status >= 400 && response.status < 500 && response.status !== 429) {
             throw err
@@ -221,37 +243,41 @@ class TaxBanditsClient {
         IsOnlineAccess: true,
       },
       ReturnHeader: {
-        BusinessName: data.payer.businessName,
-        EIN: data.payer.ein,
-        BusinessAddress: {
-          AddressLine1: data.payer.address1,
-          City: data.payer.city,
-          State: data.payer.state,
-          ZipCode: data.payer.zip,
-          CountryCode: 'US',
+        Business: {
+          BusinessNm: data.payer.businessName,
+          EINorSSN: data.payer.ein,
+          IsEIN: true,
+          IsForeign: false,
+          USAddress: {
+            Address1: data.payer.address1,
+            City: data.payer.city,
+            State: data.payer.state,
+            ZipCd: data.payer.zip,
+          },
+          ...(data.payer.contactName && { ContactNm: data.payer.contactName }),
+          ...(data.payer.contactPhone && { Phone: data.payer.contactPhone }),
+          ...(data.payer.contactEmail && { Email: data.payer.contactEmail }),
         },
-        ...(data.payer.contactName && { ContactPerson: data.payer.contactName }),
-        ...(data.payer.contactPhone && { ContactPhone: data.payer.contactPhone }),
-        ...(data.payer.contactEmail && { ContactEmail: data.payer.contactEmail }),
       },
       ReturnData: data.recipients.map((r, i) => ({
         Sequence: (i + 1).toString(),
         Recipient: {
-          Name: r.name,
+          FirstNm: r.firstName,
+          LastNm: r.lastName,
           TINType: r.tinType,
-          TINNumber: r.tin,
-          Address: {
-            AddressLine1: r.address1,
+          TIN: r.tin,
+          IsForeign: false,
+          USAddress: {
+            Address1: r.address1,
             City: r.city,
             State: r.state,
-            ZipCode: r.zip,
-            CountryCode: 'US',
+            ZipCd: r.zip,
           },
           ...(r.email && { Email: r.email }),
         },
         NECFormData: {
-          Box1: r.amountBox1,
-          Box4: r.amountBox4 ?? 0,
+          B1NEC: r.amountBox1,
+          B4FedTaxWH: r.amountBox4 ?? 0,
         },
       })),
     }

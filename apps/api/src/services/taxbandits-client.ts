@@ -4,6 +4,7 @@
  * Handles: 1099-NEC create, status, PDF, transmit
  */
 import { createHmac } from 'crypto'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { config } from '../lib/config'
 
 // ============================================
@@ -303,6 +304,34 @@ class TaxBanditsClient {
       `${config.taxbandits.urls.api}/Form1099NEC/RequestDraftPdfUrl`,
       { method: 'POST', body: JSON.stringify({ RecordId: recordId }) }
     )
+  }
+
+  async downloadPdfFromS3(draftPdfUrl: string): Promise<Buffer> {
+    const s3Path = new URL(draftPdfUrl).pathname.substring(1)
+    const sseKey = Buffer.from(config.taxbandits.base64Key, 'base64')
+
+    const s3 = new S3Client({
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: config.taxbandits.awsAccessKey,
+        secretAccessKey: config.taxbandits.awsSecretKey,
+      },
+    })
+
+    const command = new GetObjectCommand({
+      Bucket: config.taxbandits.s3Bucket,
+      Key: s3Path,
+      SSECustomerAlgorithm: 'AES256',
+      SSECustomerKey: sseKey.toString('base64'),
+    })
+
+    const response = await s3.send(command)
+    const stream = response.Body as NodeJS.ReadableStream
+    const chunks: Buffer[] = []
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks)
   }
 
   async transmit(submissionId: string, recordIds: string[]): Promise<TransmitResponse> {

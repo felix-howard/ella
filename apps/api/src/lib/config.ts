@@ -124,6 +124,10 @@ export const config = {
         process.env.TAXBANDITS_CLIENT_SECRET &&
         process.env.TAXBANDITS_USER_TOKEN
     ),
+    awsAccessKey: process.env.TAXBANDITS_AWS_ACCESS_KEY || '',
+    awsSecretKey: process.env.TAXBANDITS_AWS_SECRET_KEY || '',
+    base64Key: process.env.TAXBANDITS_BASE64_KEY || '',
+    s3Bucket: process.env.TAXBANDITS_S3_BUCKET || '',
     urls: (() => {
       const sandbox = process.env.TAXBANDITS_SANDBOX !== 'false'
       return {

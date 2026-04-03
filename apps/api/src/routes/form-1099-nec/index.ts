@@ -257,16 +257,8 @@ form1099NecRoute.post('/:businessId/1099-nec/fetch-pdfs', requireOrgAdmin, async
           form.taxbanditsRecordId!
         )
 
-        console.log(`[1099-NEC] Downloading PDF from: ${pdfResponse.DraftPdfUrl}`)
-        const pdfFetch = await fetch(pdfResponse.DraftPdfUrl, {
-          headers: { Accept: 'application/pdf' },
-          redirect: 'follow',
-        })
-        if (!pdfFetch.ok) {
-          const errorBody = await pdfFetch.text().catch(() => 'no body')
-          throw new Error(`PDF download failed: ${pdfFetch.status} - ${errorBody}`)
-        }
-        const pdfBuffer = Buffer.from(await pdfFetch.arrayBuffer())
+        console.log(`[1099-NEC] Downloading PDF from S3: ${pdfResponse.DraftPdfUrl}`)
+        const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(pdfResponse.DraftPdfUrl)
 
         const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}.pdf`
         await uploadFile(key, pdfBuffer, 'application/pdf')

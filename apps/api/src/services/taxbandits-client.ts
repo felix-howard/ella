@@ -256,7 +256,7 @@ class TaxBanditsClient {
       })),
     }
     return this.request<CreateFormResponse>(
-      `${config.taxbandits.urls.api}/Form1099NEC`,
+      `${config.taxbandits.urls.api}/Form1099NEC/Create`,
       { method: 'POST', body: JSON.stringify(body) }
     )
   }

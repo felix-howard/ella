@@ -17,11 +17,11 @@ import { FormActionsPanel } from './form-actions-panel'
 import { FilingStatusPanel } from './filing-status-panel'
 
 interface Form1099NECTabProps {
-  clientId: string
+  businessId: string
   clientName: string
 }
 
-export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
+export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) {
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null)
@@ -29,23 +29,27 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
   const [showUpload, setShowUpload] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['contractors', clientId],
-    queryFn: () => api.contractors.list(clientId),
+    queryKey: ['contractors', businessId],
+    queryFn: () => api.contractors.list(businessId),
   })
 
+  // Invalidate businesses list to update contractorCount on cards
+  const invalidateBusinesses = () => queryClient.invalidateQueries({ queryKey: ['businesses'] })
+
   const createMutation = useMutation({
-    mutationFn: (data: CreateContractorInput) => api.contractors.create(clientId, data),
+    mutationFn: (data: CreateContractorInput) => api.contractors.create(businessId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+      invalidateBusinesses()
       setIsFormOpen(false)
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateContractorInput }) =>
-      api.contractors.update(clientId, id, data),
+      api.contractors.update(businessId, id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
       setEditingContractor(null)
       setIsFormOpen(false)
     },
@@ -54,9 +58,10 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.contractors.delete(clientId, id),
+    mutationFn: (id: string) => api.contractors.delete(businessId, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+      invalidateBusinesses()
       setDeletingId(null)
     },
     onError: () => {
@@ -67,10 +72,11 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
   const [showDeleteAll, setShowDeleteAll] = useState(false)
 
   const deleteAllMutation = useMutation({
-    mutationFn: () => api.contractors.deleteAll(clientId),
+    mutationFn: () => api.contractors.deleteAll(businessId),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
-      queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+      queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
+      invalidateBusinesses()
       toast.success(`Deleted ${data.count} contractors`)
       setShowDeleteAll(false)
     },
@@ -82,7 +88,7 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
 
   const bulkSaveMutation = useMutation({
     mutationFn: (contractors: ParsedContractor[]) =>
-      api.contractors.bulkSave(clientId, {
+      api.contractors.bulkSave(businessId, {
         contractors: contractors.map((c) => ({
           firstName: c.firstName,
           lastName: c.lastName,
@@ -97,7 +103,8 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
         taxYear: contractors[0]?.taxYear ?? new Date().getFullYear(),
       }),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+      invalidateBusinesses()
       setParseResult(null)
       setShowUpload(false)
       toast.success(`${data.count} contractors saved`)
@@ -209,7 +216,7 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
         {showUpload && (
           <div className="mb-4">
             <ContractorUpload
-              clientId={clientId}
+              businessId={businessId}
               onParsed={(data) => {
                 setParseResult(data)
                 setShowUpload(false)
@@ -253,12 +260,12 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
 
       {/* TaxBandits Actions Panel */}
       {contractors.length > 0 && (
-        <FormActionsPanel clientId={clientId} />
+        <FormActionsPanel businessId={businessId} />
       )}
 
       {/* Filing History */}
       {contractors.length > 0 && (
-        <FilingStatusPanel clientId={clientId} />
+        <FilingStatusPanel businessId={businessId} />
       )}
 
       {/* Add/Edit Contractor Modal */}

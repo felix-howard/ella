@@ -10,15 +10,15 @@ import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 
 interface FormActionsPanelProps {
-  clientId: string
+  businessId: string
 }
 
-export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
+export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   const queryClient = useQueryClient()
 
   const { data: statusData, isLoading } = useQuery({
-    queryKey: ['form-1099-status', clientId],
-    queryFn: () => api.form1099nec.status(clientId),
+    queryKey: ['form-1099-status', businessId],
+    queryFn: () => api.form1099nec.status(businessId),
   })
 
   const status: Form1099StatusCounts = statusData?.data ?? {
@@ -33,12 +33,12 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
   }
 
   const refreshStatus = () => {
-    queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
-    queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
+    queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
   }
 
   const createMutation = useMutation({
-    mutationFn: () => api.form1099nec.create(clientId),
+    mutationFn: () => api.form1099nec.create(businessId),
     onSuccess: (data) => {
       toast.success(`Created ${data.createdCount} forms in TaxBandits`)
       if (data.errors && data.errors.length > 0) {
@@ -52,7 +52,7 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
   })
 
   const fetchPdfsMutation = useMutation({
-    mutationFn: () => api.form1099nec.fetchPdfs(clientId),
+    mutationFn: () => api.form1099nec.fetchPdfs(businessId),
     onSuccess: (data) => {
       toast.success(`Fetched ${data.pdfCount} PDFs`)
       refreshStatus()
@@ -65,11 +65,11 @@ export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
   const [showConfirm, setShowConfirm] = useState(false)
 
   const transmitMutation = useMutation({
-    mutationFn: () => api.form1099nec.transmit(clientId),
+    mutationFn: () => api.form1099nec.transmit(businessId),
     onSuccess: (data) => {
       toast.success(`Transmitted ${data.transmittedCount} forms to IRS`)
       refreshStatus()
-      queryClient.invalidateQueries({ queryKey: ['filing-batches', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['filing-batches', businessId] })
       setShowConfirm(false)
     },
     onError: (err) => {

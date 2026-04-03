@@ -8,17 +8,19 @@ import { Button, cn } from '@ella/ui'
 import { api, type ParseResult } from '../../../../lib/api-client'
 
 interface ContractorUploadProps {
-  clientId: string
+  businessId: string
   onParsed: (data: ParseResult) => void
 }
 
-export function ContractorUpload({ clientId, onParsed }: ContractorUploadProps) {
+export function ContractorUpload({ businessId, onParsed }: ContractorUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = async (file: File) => {
+    if (!file.name.match(/\.xlsx?$/i)) { setError('Only .xlsx/.xls files supported'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('File must be under 5MB'); return }
     setIsUploading(true)
     setError(null)
 
@@ -26,7 +28,7 @@ export function ContractorUpload({ clientId, onParsed }: ContractorUploadProps) 
     formData.append('file', file)
 
     try {
-      const result = await api.contractors.uploadExcel(clientId, formData)
+      const result = await api.contractors.uploadExcel(businessId, formData)
       if (result.data.errors.length > 0) {
         setError(result.data.errors.join('. '))
         return

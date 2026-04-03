@@ -9,7 +9,7 @@ import { api, type FilingStatusType } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 
 interface FilingStatusPanelProps {
-  clientId: string
+  businessId: string
 }
 
 const STATUS_COLORS: Record<FilingStatusType, string> = {
@@ -41,19 +41,19 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
-export function FilingStatusPanel({ clientId }: FilingStatusPanelProps) {
+export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
   const queryClient = useQueryClient()
 
   const { data } = useQuery({
-    queryKey: ['filing-batches', clientId],
-    queryFn: () => api.form1099nec.getBatches(clientId),
+    queryKey: ['filing-batches', businessId],
+    queryFn: () => api.form1099nec.getBatches(businessId),
   })
 
   const refreshMutation = useMutation({
-    mutationFn: (batchId: string) => api.form1099nec.refreshBatchStatus(clientId, batchId),
+    mutationFn: (batchId: string) => api.form1099nec.refreshBatchStatus(businessId, batchId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['filing-batches', clientId] })
-      queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['filing-batches', businessId] })
+      queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to refresh status')

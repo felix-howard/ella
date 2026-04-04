@@ -23,7 +23,7 @@ const STATUS_CONFIG: Record<ScheduleCStatus, {
   SUBMITTED: {
     i18nKey: 'scheduleC.statusSubmitted',
     icon: CheckCircle2,
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+    className: 'bg-muted text-muted-foreground ring-1 ring-border',
   },
   LOCKED: {
     i18nKey: 'scheduleC.statusLocked',

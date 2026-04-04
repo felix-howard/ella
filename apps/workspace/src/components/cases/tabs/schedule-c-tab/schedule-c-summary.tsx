@@ -26,7 +26,7 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
   const isLocked = expense.status === 'LOCKED'
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+    <div className="max-w-3xl bg-card rounded-xl border border-border p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

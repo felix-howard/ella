@@ -15,7 +15,7 @@ interface ScheduleCTabProps {
 }
 
 export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
-  const { expense, magicLink, totals, has1099NEC, count1099NEC, necBreakdown, isLoading, error, refetch } = useScheduleC({
+  const { expense, magicLink, totals, necBreakdown, isLoading, error, refetch } = useScheduleC({
     caseId,
     enabled: true,
   })
@@ -48,9 +48,9 @@ export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
     )
   }
 
-  // State 1: No Schedule C exists, but 1099-NEC detected → Show empty state with send button
-  if (!expense && has1099NEC) {
-    return <ScheduleCEmptyState caseId={caseId} clientName={clientName} count1099NEC={count1099NEC} necBreakdown={necBreakdown} />
+  // State 1: No Schedule C exists → Show empty state with send button
+  if (!expense) {
+    return <ScheduleCEmptyState caseId={caseId} clientName={clientName} />
   }
 
   // State 2: Schedule C exists but status is DRAFT → Show waiting state
@@ -71,13 +71,8 @@ export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
     )
   }
 
-  // Fallback: Should not happen, but show empty state if no expense and no 1099-NEC
-  return (
-    <div className="text-center py-12 text-muted-foreground">
-      <p>Không có dữ liệu Schedule C</p>
-      <p className="text-sm mt-1">Cần có 1099-NEC đã xác minh để gửi form thu thập chi phí</p>
-    </div>
-  )
+  // State 3 & 4 handled above — this shouldn't be reached
+  return <ScheduleCEmptyState caseId={caseId} clientName={clientName} />
 }
 
 export { ScheduleCEmptyState } from './schedule-c-empty-state'

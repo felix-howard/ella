@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<ScheduleCStatus, {
   DRAFT: {
     i18nKey: 'scheduleC.statusDraft',
     icon: Clock,
-    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+    className: 'bg-muted text-muted-foreground ring-1 ring-border',
   },
   SUBMITTED: {
     i18nKey: 'scheduleC.statusSubmitted',

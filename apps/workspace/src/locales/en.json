@@ -871,6 +871,8 @@
   "scheduleC.1099necDetected": "1099-NEC Detected",
   "scheduleC.1099necDetectedDesc": "{{count}} verified 1099-NEC form(s) detected. Send an expense collection form to complete Schedule C for this client.",
   "scheduleC.cancelButton": "Cancel",
+  "scheduleC.emptyTitle": "Collect Business Expense Information",
+  "scheduleC.emptyDesc": "Send a form to collect self-employment business expenses from the client. You can send the form at any time.",
   "scheduleC.confirmLock": "Lock form",
   "scheduleC.customExpensesDetail": "Other expenses (detail)",
   "scheduleC.expenseRow.advertising": "Advertising",

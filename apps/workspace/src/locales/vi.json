@@ -868,6 +868,8 @@
   "scheduleC.1099necDetected": "Phát hiện 1099-NEC",
   "scheduleC.1099necDetectedDesc": "Đã phát hiện {{count}} mẫu 1099-NEC đã xác minh. Gửi form thu thập chi phí để hoàn thành Schedule C cho khách hàng này.",
   "scheduleC.cancelButton": "Hủy",
+  "scheduleC.emptyTitle": "Thu thập chi phí kinh doanh",
+  "scheduleC.emptyDesc": "Gửi form để khách hàng nhập chi phí kinh doanh tự doanh. Bạn có thể gửi form bất cứ lúc nào.",
   "scheduleC.confirmLock": "Khóa form",
   "scheduleC.customExpensesDetail": "Chi phí khác (chi tiết)",
   "scheduleC.expenseRow.advertising": "Quảng cáo",

@@ -29,13 +29,13 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
   const isLocked = expense.status === 'LOCKED'
 
   return (
-    <div className="space-y-5">
-      {/* Header Card */}
-      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] px-6 py-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="max-w-3xl space-y-6">
+      {/* Header */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Schedule E</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <h2 className="text-lg font-semibold text-foreground">Schedule E</h2>
+            <p className="text-xs text-muted-foreground">
               {t('scheduleE.lastUpdated', {
                 datetime: formatDateTime(expense.updatedAt, 'DATETIME_FULL'),
                 version: expense.version,
@@ -47,8 +47,8 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
 
         {/* Locked Notice */}
         {isLocked && expense.lockedAt && (
-          <div className="mt-4 bg-muted/50 dark:bg-white/[0.03] rounded-lg px-4 py-3 flex items-center gap-3">
-            <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <div className="mt-4 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-gray-500" />
             <div>
               <p className="text-sm font-medium text-foreground">{t('scheduleE.formLockedNotice')}</p>
               <p className="text-xs text-muted-foreground">
@@ -57,24 +57,22 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
             </div>
           </div>
         )}
-      </div>
 
-      {/* Aggregate Totals */}
-      {totals && properties.length > 0 && (
-        <TotalsCard totals={totals} />
-      )}
+        {/* Aggregate Totals */}
+        {totals && properties.length > 0 && (
+          <TotalsCard totals={totals} />
+        )}
+      </div>
 
       {/* Property Cards */}
       {properties.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-semibold text-foreground">
-              {t('scheduleE.rentalProperties')}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                ({properties.length})
-              </span>
-            </h3>
-          </div>
+          <h3 className="text-sm font-medium text-foreground uppercase tracking-wide">
+            {t('scheduleE.rentalProperties')}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              ({properties.length})
+            </span>
+          </h3>
           <div className="space-y-2">
             {properties.map((property) => (
               <PropertyCard
@@ -95,9 +93,7 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
       )}
 
       {/* Actions */}
-      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] px-6 py-4">
-        <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
-      </div>
+      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

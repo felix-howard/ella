@@ -19,7 +19,7 @@ export function ScheduleEWaiting({ expense, magicLink, caseId }: ScheduleEWaitin
   const { t } = useTranslation()
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-6 space-y-6">
+    <div className="max-w-3xl bg-card rounded-xl border border-border p-6 space-y-6">
       {/* Header with Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Schedule E</h2>

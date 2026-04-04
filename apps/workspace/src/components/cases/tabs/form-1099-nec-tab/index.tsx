@@ -248,6 +248,7 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
         ) : contractors.length > 0 ? (
           <ContractorTable
             contractors={contractors}
+            businessId={businessId}
             onEdit={handleEdit}
             onDelete={(id) => {
               setDeletingId(id)

@@ -1,6 +1,6 @@
 /**
  * Form Actions Panel - TaxBandits workflow actions
- * Sequential steps: Create -> Get PDFs -> Transmit to IRS
+ * Organized into: status counts, workflow steps, bulk downloads
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -167,67 +167,133 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
 
   if (isLoading || status.total === 0) return null
 
+  const hasTransmitted = status.submitted > 0 || status.accepted > 0
+
   return (
-    <div className="bg-card rounded-xl border border-border p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+      {/* Row 1: Status Counts */}
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <span className="text-xs font-medium text-foreground uppercase tracking-wider">Status</span>
+        <span>
+          <span className="font-medium text-foreground">{status.draft}</span> draft
+        </span>
+        <span>
+          <span className="font-medium text-foreground">{status.imported}</span> created
+        </span>
+        <span>
+          <span className="font-medium text-foreground">{status.pdfReady}</span> ready
+        </span>
+        {status.submitted > 0 && (
           <span>
-            <span className="font-medium text-foreground">{status.draft}</span> draft
+            <span className="font-medium text-foreground">{status.submitted}</span> transmitted
           </span>
+        )}
+        {status.accepted > 0 && (
           <span>
-            <span className="font-medium text-foreground">{status.imported}</span> created
+            <span className="font-medium text-foreground">{status.accepted}</span> accepted
           </span>
-          <span>
-            <span className="font-medium text-foreground">{status.pdfReady}</span> ready
-          </span>
-          {status.submitted > 0 && (
-            <span>
-              <span className="font-medium text-foreground">{status.submitted}</span> transmitted
-            </span>
-          )}
-          {status.accepted > 0 && (
-            <span>
-              <span className="font-medium text-foreground">{status.accepted}</span> accepted
-            </span>
-          )}
-        </div>
+        )}
+      </div>
 
-        <div className="flex items-center gap-2">
+      {/* Row 2: Workflow Steps */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground mr-1">Workflow</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => createMutation.mutate()}
+          disabled={status.draft === 0 || createMutation.isPending}
+          className="gap-1.5"
+        >
+          {createMutation.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <FileText className="w-3.5 h-3.5" />
+          )}
+          1. Create
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchPdfsMutation.mutate()}
+          disabled={status.imported === 0 || fetchPdfsMutation.isPending}
+          className="gap-1.5"
+        >
+          {fetchPdfsMutation.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Download className="w-3.5 h-3.5" />
+          )}
+          2. Get PDFs
+        </Button>
+
+        {showConfirm ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Transmit {status.pdfReady} forms?</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => transmitMutation.mutate()}
+              disabled={transmitMutation.isPending}
+              className="gap-1.5"
+            >
+              {transmitMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
+              Confirm
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowConfirm(false)}
+              disabled={transmitMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setShowConfirm(true)}
+            disabled={status.pdfReady === 0}
+            className="gap-1.5"
+          >
+            <Send className="w-3.5 h-3.5" />
+            3. Transmit to IRS
+          </Button>
+        )}
+
+        {hasTransmitted && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => createMutation.mutate()}
-            disabled={status.draft === 0 || createMutation.isPending}
+            onClick={() => fetchRecipientMutation.mutate()}
+            disabled={fetchRecipientMutation.isPending}
             className="gap-1.5"
           >
-            {createMutation.isPending ? (
+            {fetchRecipientMutation.isPending ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <FileText className="w-3.5 h-3.5" />
+              <Users className="w-3.5 h-3.5" />
             )}
-            1. Create
+            4. Get Recipient Copies
           </Button>
+        )}
+      </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchPdfsMutation.mutate()}
-            disabled={status.imported === 0 || fetchPdfsMutation.isPending}
-            className="gap-1.5"
-          >
-            {fetchPdfsMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Download className="w-3.5 h-3.5" />
-            )}
-            2. Get PDFs
-          </Button>
-
+      {/* Row 3: Bulk Downloads (only shown when PDFs exist) */}
+      {(status.pdfReady > 0 || status.submitted > 0 || status.accepted > 0) && (
+        <div className="flex items-center gap-2 pt-1 border-t border-border">
+          <span className="text-xs font-medium text-muted-foreground mr-1">Downloads</span>
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownloadAll}
-            disabled={status.pdfReady === 0 || isDownloading}
+            disabled={isDownloading}
             className="gap-1.5"
           >
             {isDownloading ? (
@@ -235,84 +301,28 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
             ) : (
               <Archive className="w-3.5 h-3.5" />
             )}
-            Download All
+            All Copy A (ZIP)
           </Button>
 
-          {showConfirm ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Transmit {status.pdfReady} forms?</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => transmitMutation.mutate()}
-                disabled={transmitMutation.isPending}
-                className="gap-1.5"
-              >
-                {transmitMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Send className="w-3.5 h-3.5" />
-                )}
-                Confirm
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowConfirm(false)}
-                disabled={transmitMutation.isPending}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
+          {hasTransmitted && (
             <Button
-              variant="default"
+              variant="outline"
               size="sm"
-              onClick={() => setShowConfirm(true)}
-              disabled={status.pdfReady === 0}
+              onClick={handleDownloadRecipient}
+              disabled={isDownloadingRecipient}
               className="gap-1.5"
+              title="Download all Copy B PDFs as ZIP (for contractors)"
             >
-              <Send className="w-3.5 h-3.5" />
-              3. Transmit to IRS
+              {isDownloadingRecipient ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Archive className="w-3.5 h-3.5" />
+              )}
+              All Copy B (ZIP)
             </Button>
           )}
-
-          {(status.submitted > 0 || status.accepted > 0) && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fetchRecipientMutation.mutate()}
-                disabled={fetchRecipientMutation.isPending}
-                className="gap-1.5"
-              >
-                {fetchRecipientMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Users className="w-3.5 h-3.5" />
-                )}
-                4. Get Recipient Copies
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadRecipient}
-                disabled={isDownloadingRecipient}
-                className="gap-1.5"
-                title="Download Copy B PDFs (final copies for contractors)"
-              >
-                {isDownloadingRecipient ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Archive className="w-3.5 h-3.5" />
-                )}
-                Download Recipient Copies
-              </Button>
-            </>
-          )}
         </div>
-      </div>
+      )}
     </div>
   )
 }

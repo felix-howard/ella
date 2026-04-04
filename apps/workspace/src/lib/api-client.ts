@@ -413,6 +413,9 @@ export const api = {
     downloadPdf: (businessId: string, formId: string) =>
       request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
 
+    downloadRecipientPdf: (businessId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf/recipient`),
+
     getAllPdfs: (businessId: string) =>
       request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
 
@@ -1306,6 +1309,10 @@ export interface Contractor {
   phone?: string | null
   createdAt: string
   updatedAt: string
+  formId?: string | null
+  formStatus?: string | null
+  hasCopyA?: boolean
+  hasCopyB?: boolean
 }
 
 export interface CreateContractorInput {

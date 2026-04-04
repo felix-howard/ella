@@ -43,10 +43,43 @@ contractorsRoute.get('/:businessId/contractors', async (c) => {
       phone: true,
       createdAt: true,
       updatedAt: true,
+      forms: {
+        select: {
+          id: true,
+          status: true,
+          pdfStorageKey: true,
+          copyBStorageKey: true,
+        },
+        orderBy: { taxYear: 'desc' },
+        take: 1,
+      },
     },
   })
 
-  return c.json({ data: contractors })
+  // Flatten form info for frontend consumption
+  const mapped = contractors.map((c) => {
+    const form = c.forms[0]
+    return {
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      ssnLast4: c.ssnLast4,
+      address: c.address,
+      city: c.city,
+      state: c.state,
+      zip: c.zip,
+      email: c.email,
+      phone: c.phone,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      formId: form?.id ?? null,
+      formStatus: form?.status ?? null,
+      hasCopyA: !!form?.pdfStorageKey,
+      hasCopyB: !!form?.copyBStorageKey,
+    }
+  })
+
+  return c.json({ data: mapped })
 })
 
 /**

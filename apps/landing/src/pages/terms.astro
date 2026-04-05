@@ -1,0 +1,223 @@
+---
+/**
+ * Terms of Service page for Ella Tax Services LLC.
+ * Effective April 4th, 2026.
+ */
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import { breadcrumbSchema } from "@/components/seo/structured-data";
+import { siteConfig } from "@/config/site";
+
+const structuredData = [
+  breadcrumbSchema([
+    { name: "Home", url: siteConfig.url },
+    { name: "Terms of Service", url: `${siteConfig.url}/terms` },
+  ]),
+];
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Terms of Service - Ella Tax Services LLC"
+    description="Read the Terms of Service governing your use of Ella Tax Services LLC's tax preparation, bookkeeping, and business services."
+    structuredData={structuredData}
+  />
+
+  <main class="pt-28 pb-16 sm:pt-32 sm:pb-24">
+    <article class="legal-content mx-auto max-w-3xl px-4 sm:px-6">
+      <h1>Ella Tax Services LLC &ndash; Terms of Service</h1>
+      <p><strong>Effective Date:</strong> April 4th, 2026</p>
+      <p>
+        These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of services provided by <strong>Ella Tax Services LLC</strong> (&ldquo;Ella Tax Services,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). By accessing or using our services, you agree to be bound by these Terms.
+      </p>
+
+      <hr />
+
+      <h2>1. Services</h2>
+      <p>Ella Tax Services LLC provides services including:</p>
+      <ul>
+        <li>Tax preparation and filing for individuals and businesses</li>
+        <li>Bookkeeping and financial record maintenance</li>
+        <li>Tax strategy and advisory services</li>
+        <li>Business formation services, including LLC formation in all 50 states</li>
+      </ul>
+      <p>Services may be delivered through digital platforms, third-party tools, or direct consultation.</p>
+
+      <hr />
+
+      <h2>2. No Legal or Tax Advice Guarantee</h2>
+      <p>
+        While we provide tax-related services, <strong>nothing on our platform or in our communications constitutes legal advice</strong>.
+      </p>
+      <p>Unless explicitly stated in a separate written agreement:</p>
+      <ul>
+        <li>We are not acting as your CPA, attorney, or fiduciary</li>
+        <li>You are responsible for final decisions regarding your finances and filings</li>
+      </ul>
+
+      <hr />
+
+      <h2>3. User Accounts</h2>
+      <p>To access certain services, you may be required to create an account.</p>
+      <p>You agree to:</p>
+      <ul>
+        <li>Provide accurate and complete information</li>
+        <li>Maintain the confidentiality of your login credentials</li>
+        <li>Notify us immediately of unauthorized use</li>
+      </ul>
+      <p>You are responsible for all activity under your account.</p>
+
+      <hr />
+
+      <h2>4. Client Obligations</h2>
+      <p>You agree that:</p>
+      <ul>
+        <li>All information and documents you provide are true, accurate, and complete</li>
+        <li>You will promptly provide any additional requested information</li>
+        <li>You will review all filings and documents prior to submission</li>
+      </ul>
+      <p>
+        Ella Tax Services LLC is not responsible for errors resulting from incomplete, inaccurate, or delayed information.
+      </p>
+
+      <hr />
+
+      <h2>5. Authorization to File and Act</h2>
+      <p>By using our services, you authorize Ella Tax Services LLC to:</p>
+      <ul>
+        <li>Prepare and submit tax filings on your behalf</li>
+        <li>Communicate with relevant tax authorities</li>
+        <li>Use your information to complete requested services</li>
+      </ul>
+      <p>Where required, additional authorization forms (e.g., IRS forms) will be provided and must be signed.</p>
+
+      <hr />
+
+      <h2>6. Fees and Payment</h2>
+      <ul>
+        <li>Fees will be disclosed before services are performed</li>
+        <li>Payment may be required upfront, upon completion, or via subscription</li>
+        <li>Subscription services may automatically renew unless canceled</li>
+      </ul>
+      <p>By providing a payment method, you authorize Ella Tax Services LLC to:</p>
+      <ul>
+        <li>Charge all agreed fees</li>
+        <li>Charge any outstanding balances for completed services</li>
+      </ul>
+      <p>Failure to pay may result in suspension or termination of services.</p>
+
+      <hr />
+
+      <h2>7. Refunds</h2>
+      <p>
+        All fees are <strong>non-refundable</strong> once services have been initiated or completed, unless otherwise stated in writing.
+      </p>
+
+      <hr />
+
+      <h2>8. Deadlines and Client Delays</h2>
+      <p>You acknowledge that:</p>
+      <ul>
+        <li>Timely submission of documents is your responsibility</li>
+        <li>Ella Tax Services LLC is not responsible for missed deadlines caused by client delays</li>
+      </ul>
+
+      <hr />
+
+      <h2>9. Third-Party Services</h2>
+      <p>We may use third-party providers (e.g., software, payment processors, filing systems).</p>
+      <p>We are not responsible for:</p>
+      <ul>
+        <li>Failures or delays caused by third-party services</li>
+        <li>Actions or policies of those providers</li>
+      </ul>
+
+      <hr />
+
+      <h2>10. No Guarantee of Results</h2>
+      <p>We do not guarantee:</p>
+      <ul>
+        <li>Tax refunds or financial outcomes</li>
+        <li>Acceptance of filings by tax authorities</li>
+        <li>Error-free results under all circumstances</li>
+      </ul>
+      <p>Results depend on information provided and applicable laws.</p>
+
+      <hr />
+
+      <h2>11. Limitation of Liability</h2>
+      <p>To the fullest extent permitted by law:</p>
+      <ul>
+        <li>Ella Tax Services LLC shall not be liable for indirect, incidental, special, or consequential damages</li>
+        <li>Our total liability shall not exceed the total amount paid by you for the specific service giving rise to the claim</li>
+      </ul>
+
+      <hr />
+
+      <h2>12. Indemnification</h2>
+      <p>
+        You agree to indemnify and hold harmless Ella Tax Services LLC from any claims, damages, or liabilities arising from:
+      </p>
+      <ul>
+        <li>Your misuse of services</li>
+        <li>Inaccurate or incomplete information provided by you</li>
+        <li>Your violation of these Terms</li>
+      </ul>
+
+      <hr />
+
+      <h2>13. Intellectual Property</h2>
+      <p>
+        All content, software, branding, and materials are the property of Ella Tax Services LLC and may not be copied, distributed, or used without permission.
+      </p>
+
+      <hr />
+
+      <h2>14. Termination</h2>
+      <p>We reserve the right to suspend or terminate your access to services at any time if:</p>
+      <ul>
+        <li>You violate these Terms</li>
+        <li>Fraudulent or suspicious activity is detected</li>
+        <li>Payment obligations are not met</li>
+      </ul>
+
+      <hr />
+
+      <h2>15. Dispute Resolution</h2>
+      <p>
+        Any disputes arising under these Terms shall be resolved through <strong>binding arbitration</strong>, and not through court proceedings or class actions, except where prohibited by law.
+      </p>
+
+      <hr />
+
+      <h2>16. Governing Law</h2>
+      <p>
+        These Terms shall be governed by and construed in accordance with the laws of the applicable jurisdiction in which Ella Tax Services LLC operates.
+      </p>
+
+      <hr />
+
+      <h2>17. Privacy</h2>
+      <p>
+        Your use of our services is also governed by our <a href="/privacy">Privacy Policy</a>, which explains how we collect, use, and protect your data.
+      </p>
+
+      <hr />
+
+      <h2>18. Modifications</h2>
+      <p>
+        We may update these Terms at any time. Continued use of our services after updates constitutes acceptance of the revised Terms.
+      </p>
+
+      <hr />
+
+      <h2>19. Contact Information</h2>
+      <p>For questions regarding these Terms, please contact:</p>
+      <ul>
+        <li>Email: <a href="mailto:contact@ella.tax">contact@ella.tax</a></li>
+        <li>Web: <a href="https://ella.tax">ella.tax</a></li>
+      </ul>
+    </article>
+  </main>
+</BaseLayout>

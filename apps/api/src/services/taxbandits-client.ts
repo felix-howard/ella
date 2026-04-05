@@ -260,8 +260,8 @@ class TaxBanditsClient {
           throw err
         }
         return response.json() as Promise<T>
-      } catch (error: any) {
-        if (error?.name === 'AbortError') {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') {
           throw new Error(`TaxBandits request timed out after ${REQUEST_TIMEOUT_MS / 1000}s: ${url}`)
         }
         if (attempt === retries - 1) throw error

@@ -2,7 +2,7 @@
  * Zod schemas for Contractor API endpoints
  */
 import { z } from 'zod'
-import { isValidSSN, isValidTIN } from '../../services/crypto'
+import { isValidTIN } from '../../services/crypto'
 
 export const createContractorSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),

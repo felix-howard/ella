@@ -37,7 +37,10 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
   const { organization } = useOrganization()
   const channelRef = useRef<RealtimeChannel | null>(null)
   const onEventRef = useRef(onEvent)
-  onEventRef.current = onEvent
+
+  useEffect(() => {
+    onEventRef.current = onEvent
+  })
 
   useEffect(() => {
     if (!enabled || !organization?.id || !isSupabaseConfigured()) {

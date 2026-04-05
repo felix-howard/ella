@@ -141,6 +141,15 @@ export const config = {
     })(),
   },
 
+  // Supabase Configuration (Realtime)
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    isConfigured: Boolean(
+      process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ),
+  },
+
   // Schedule C Configuration
   scheduleC: {
     // IRS standard mileage rate in cents (2024: 67 cents/mile)

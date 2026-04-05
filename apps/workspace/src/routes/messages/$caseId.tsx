@@ -11,6 +11,7 @@ import { cn } from '@ella/ui'
 import { ArrowLeft } from 'lucide-react'
 import { MessageThread, QuickActionsBar, CallButton, ActiveCallModal } from '../../components/messaging'
 import { useVoiceCall } from '../../hooks/use-voice-call'
+import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { api } from '../../lib/api-client'
@@ -20,8 +21,8 @@ export const Route = createFileRoute('/messages/$caseId')({
   component: ConversationDetailView,
 })
 
-// Polling interval (10 seconds for active conversation)
-const POLLING_INTERVAL = 10000
+// Fallback polling interval (60 seconds — realtime handles instant updates)
+const FALLBACK_POLLING_INTERVAL = 60000
 
 function ConversationDetailView() {
   const { t } = useTranslation()
@@ -92,6 +93,12 @@ function ConversationDetailView() {
     }
   }, [caseId])
 
+  // Subscribe to realtime message events — refetch messages on new events
+  useRealtimeMessages({
+    caseId,
+    onEvent: () => fetchMessages(true),
+  })
+
   // Initial fetch and reset when case changes
   useEffect(() => {
     if (prevCaseIdRef.current !== caseId) {
@@ -105,11 +112,11 @@ function ConversationDetailView() {
     fetchCaseData()
   }, [caseId, fetchMessages, fetchCaseData])
 
-  // Polling for real-time updates
+  // Fallback polling (realtime handles instant updates)
   useEffect(() => {
     const interval = setInterval(() => {
       fetchMessages(true)
-    }, POLLING_INTERVAL)
+    }, FALLBACK_POLLING_INTERVAL)
 
     return () => clearInterval(interval)
   }, [fetchMessages])

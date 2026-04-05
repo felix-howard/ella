@@ -11,6 +11,7 @@ import { MessageSquare } from 'lucide-react'
 import { ConversationList } from '../components/messaging'
 import { useUIStore } from '../stores/ui-store'
 import { useIsMobile } from '../hooks/use-mobile-breakpoint'
+import { useRealtimeMessages } from '../hooks/use-realtime-messages'
 import { api } from '../lib/api-client'
 import type { Conversation } from '../lib/api-client'
 
@@ -18,8 +19,8 @@ export const Route = createFileRoute('/messages')({
   component: MessagesLayout,
 })
 
-// Polling interval (30 seconds)
-const POLLING_INTERVAL = 30000
+// Fallback polling interval (60 seconds — realtime handles instant updates)
+const FALLBACK_POLLING_INTERVAL = 60000
 
 function MessagesLayout() {
   const { t } = useTranslation()
@@ -54,16 +55,21 @@ function MessagesLayout() {
     }
   }, [])
 
+  // Subscribe to realtime message events — refetch conversations on new messages
+  useRealtimeMessages({
+    onEvent: () => fetchConversations(true),
+  })
+
   // Initial fetch
   useEffect(() => {
     fetchConversations()
   }, [fetchConversations])
 
-  // Polling for real-time updates
+  // Fallback polling (realtime handles instant updates)
   useEffect(() => {
     const interval = setInterval(() => {
       fetchConversations(true)
-    }, POLLING_INTERVAL)
+    }, FALLBACK_POLLING_INTERVAL)
 
     return () => clearInterval(interval)
   }, [fetchConversations])

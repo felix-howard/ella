@@ -26,6 +26,7 @@ import {
 } from '../../services/voice'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
+import { publishMessageEventFromConversation } from '../../services/realtime/message-publisher'
 
 const twilioWebhookRoute = new Hono()
 
@@ -586,8 +587,8 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
     // For known clients with existing conversation
     if (client?.taxCases[0]?.conversation) {
       const conversation = client.taxCases[0].conversation
-      await prisma.$transaction(async (tx) => {
-        await tx.message.create({
+      const callTxResult = await prisma.$transaction(async (tx) => {
+        const msg = await tx.message.create({
           data: {
             conversationId: conversation.id,
             channel: 'CALL',
@@ -604,15 +605,24 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
           where: { id: conversation.id },
           data: { lastMessageAt: new Date() },
         })
+
+        return msg
       })
+
+      // Publish realtime event after transaction (non-blocking)
+      publishMessageEventFromConversation(conversation.id, {
+        id: callTxResult.id,
+        direction: 'INBOUND',
+        channel: 'CALL',
+      }).catch(() => {})
     } else if (isValidE164Phone(from)) {
       // Unknown caller or known client without conversation — create placeholder
       console.log(`[Incoming Webhook] Creating placeholder conversation for unknown caller ${from}`)
       const defaultOrgId = clientOrgId || await findDefaultOrganizationId()
       const placeholderConv = await createPlaceholderConversation(from, defaultOrgId, 'INCOMING_CALL')
 
-      await prisma.$transaction(async (tx) => {
-        await tx.message.create({
+      const unknownCallTxResult = await prisma.$transaction(async (tx) => {
+        const msg = await tx.message.create({
           data: {
             conversationId: placeholderConv.id,
             channel: 'CALL',
@@ -628,7 +638,16 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
           where: { id: placeholderConv.id },
           data: { lastMessageAt: new Date() },
         })
+
+        return msg
       })
+
+      // Publish realtime event after transaction (non-blocking)
+      publishMessageEventFromConversation(placeholderConv.id, {
+        id: unknownCallTxResult.id,
+        direction: 'INBOUND',
+        channel: 'CALL',
+      }).catch(() => {})
     }
 
     // 5. Generate TwiML to ring staff browsers with recording enabled
@@ -984,6 +1003,13 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
 
       return message
     })
+
+    // Publish realtime event after transaction (non-blocking)
+    publishMessageEventFromConversation(conversation!.id, {
+      id: result.id,
+      direction: 'INBOUND',
+      channel: 'CALL',
+    }).catch(() => {})
 
     console.log(`[Voicemail Recording] Created voicemail message ${result.id} for caller ${callerPhone}`)
     return c.json({ received: true, processed: true, created: true })

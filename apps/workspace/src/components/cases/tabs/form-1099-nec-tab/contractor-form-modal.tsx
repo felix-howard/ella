@@ -39,6 +39,7 @@ export function ContractorFormModal({ isOpen, onClose, onSubmit, contractor, isS
 
   // Populate form when editing
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- resetting form fields on open is intentional */
     if (contractor) {
       setFirstName(contractor.firstName)
       setLastName(contractor.lastName)
@@ -60,6 +61,7 @@ export function ContractorFormModal({ isOpen, onClose, onSubmit, contractor, isS
       setEmail('')
       setPhone('')
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [contractor, isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {

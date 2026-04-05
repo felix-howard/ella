@@ -12,7 +12,7 @@ export function TermsGate({ children }: TermsGateProps) {
   const { t } = useTranslation()
   const { isSignedIn } = useAuth()
   const { user } = useUser()
-  const { data: status, isLoading, isError, refetch, failureCount } = useTermsStatus()
+  const { data: status, isLoading, isError, refetch } = useTermsStatus()
 
   // Not signed in - skip gate (login page needs to render)
   if (!isSignedIn) {

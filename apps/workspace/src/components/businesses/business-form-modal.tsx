@@ -40,6 +40,7 @@ export function BusinessFormModal({ isOpen, onClose, clientId, business }: Busin
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- resetting form on open is intentional */
     if (isOpen) {
       if (business) {
         setForm({
@@ -56,6 +57,7 @@ export function BusinessFormModal({ isOpen, onClose, clientId, business }: Busin
       }
       setErrors({})
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [isOpen, business])
 
   const validate = (): boolean => {

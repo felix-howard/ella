@@ -4,7 +4,7 @@
  */
 import { useState, useRef } from 'react'
 import { FileSpreadsheet, Loader2, AlertCircle } from 'lucide-react'
-import { Button, cn } from '@ella/ui'
+import { cn } from '@ella/ui'
 import { api, type ParseResult } from '../../../../lib/api-client'
 
 interface ContractorUploadProps {

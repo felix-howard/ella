@@ -719,6 +719,8 @@
   "messages.viewProfile": "Hồ sơ",
   "messages.call": "Gọi",
   "messages.noMessages": "Chưa có tin nhắn",
+  "messages.noConversations": "Chưa có cuộc hội thoại",
+  "messages.noConversationsHint": "Tin nhắn với khách hàng sẽ xuất hiện ở đây",
   "messages.loading": "Đang tải tin nhắn...",
   "messages.startConversation": "Bắt đầu cuộc trò chuyện với khách hàng",
   "messages.inputPlaceholder": "Nhập tin nhắn...",

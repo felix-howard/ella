@@ -722,6 +722,8 @@
   "messages.viewProfile": "Profile",
   "messages.call": "Call",
   "messages.noMessages": "No messages yet",
+  "messages.noConversations": "No conversations yet",
+  "messages.noConversationsHint": "Messages with clients will appear here",
   "messages.loading": "Loading messages...",
   "messages.startConversation": "Start a conversation with the client",
   "messages.inputPlaceholder": "Type a message...",

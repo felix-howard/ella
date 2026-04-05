@@ -19,11 +19,13 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
+  const [tagManuallyEdited, setTagManuallyEdited] = useState(false)
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; slug: string; description?: string }) =>
+    mutationFn: (data: { name: string; slug: string; tag: string; description?: string }) =>
       api.campaigns.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
@@ -54,6 +56,9 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
     if (!slugManuallyEdited) {
       setSlug(generateSlug(value))
     }
+    if (!tagManuallyEdited) {
+      setTag(generateSlug(value))
+    }
   }
 
   const handleSlugChange = (value: string) => {
@@ -61,12 +66,18 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
     setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
   }
 
+  const handleTagChange = (value: string) => {
+    setTagManuallyEdited(true)
+    setTag(value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !slug.trim()) return
+    if (!name.trim() || !slug.trim() || !tag.trim()) return
     createMutation.mutate({
       name: name.trim(),
       slug: slug.trim(),
+      tag: tag.trim(),
       description: description.trim() || undefined,
     })
   }
@@ -75,7 +86,7 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
     ? `${PORTAL_BASE_URL}/register/${orgSlug}/${slug}`
     : null
 
-  const isValid = name.trim().length > 0 && /^[a-z0-9-]+$/.test(slug) && slug.length > 0
+  const isValid = name.trim().length > 0 && /^[a-z0-9-]+$/.test(slug) && slug.length > 0 && tag.trim().length > 0
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -138,6 +149,24 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
               </code>
             </div>
           )}
+
+          {/* Tag */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              {t('leads.campaignTag')}
+            </label>
+            <input
+              type="text"
+              value={tag}
+              onChange={(e) => handleTagChange(e.target.value)}
+              placeholder={t('leads.campaignTagPlaceholder')}
+              maxLength={50}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('leads.campaignTagHint')}
+            </p>
+          </div>
 
           {/* Description */}
           <div>

@@ -1443,6 +1443,7 @@ model Campaign {
   id             String         @id @default(cuid())
   name           String
   slug           String
+  tag            String
   status         CampaignStatus @default(ACTIVE)
   description    String?        @db.Text
 
@@ -1456,6 +1457,7 @@ model Campaign {
   updatedAt      DateTime       @updatedAt
 
   @@unique([slug, organizationId])
+  @@unique([tag, organizationId])
   @@index([organizationId, status])
 }
 

@@ -215,6 +215,68 @@ const clients = await prisma.client.findMany({ where: filter })
 - Dark mode support via `dark:` prefix
 - Component variants via `class-variance-authority`
 
+## Realtime Messaging (Supabase Broadcast)
+
+**Backend Pattern:**
+```typescript
+// After message creation, publish lightweight event
+import { publishMessageEvent } from '../../services/realtime/message-publisher'
+
+await publishMessageEvent(orgId, {
+  conversationId: conv.id,
+  caseId: conv.caseId,
+  messageId: message.id,
+  direction: 'INBOUND',
+  channel: 'SMS',
+  timestamp: new Date().toISOString(),
+})
+// Non-blocking: publish failures never interrupt message flow
+```
+
+**Frontend Hook Pattern:**
+```typescript
+// Subscribe to org-scoped realtime events + invalidate React Query
+import { useRealtimeMessages } from '../hooks/use-realtime-messages'
+
+export function MyComponent() {
+  useRealtimeMessages({
+    caseId: '123',  // Optional: filter to specific case
+    enabled: true,  // Control subscription lifecycle
+    onEvent: (data) => {
+      // Optional: manual handling beyond cache invalidation
+      console.log('Message received:', data)
+    },
+  })
+  // Hook auto-invalidates: ['conversations'], ['unread-count'], ['messages']
+}
+```
+
+**Architecture:**
+- Channel format: `org:{clerkOrgId}:messages` - Org-scoped isolation
+- Event type: `message` - Broadcast event for all org members
+- Payload: Lightweight metadata (IDs + timestamps, no full message body)
+- Frontend fetches full data via API on cache invalidation
+- Graceful degradation: Missing Supabase config disables realtime (polling fallback remains)
+- Non-blocking: Publisher errors logged, never thrown
+
+**Environment Variables:**
+- Backend: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (for publish)
+- Frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (for subscribe)
+- Configuration checked via `isSupabaseConfigured()` before operations
+
+**Performance Characteristics:**
+- Latency: 100-500ms realtime vs 10-30s polling
+- Bandwidth: Lightweight events (~500 bytes) + API fetch (vs full refetch)
+- Scalability: Supabase managed, auto-scales with org count
+- Fallback: 60s polling interval if realtime unavailable
+
+**Testing:**
+- Verify `isSupabaseConfigured()` returns true after env var setup
+- Test browser console: no errors when config missing (graceful degradation)
+- Monitor WebSocket connection in DevTools Network tab
+- Verify React Query cache keys invalidated on event receipt
+- Confirm message creation triggers realtime event in different browser tab
+
 ## Multi-Tenancy & RBAC
 
 **Data Isolation:**

@@ -87,6 +87,19 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
             />
           </div>
 
+          {/* Tag (read-only) */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              {t('leads.campaignTag')}
+            </label>
+            <input
+              type="text"
+              value={campaign.tag}
+              disabled
+              className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm font-mono text-muted-foreground cursor-not-allowed"
+            />
+          </div>
+
           {/* Description */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">

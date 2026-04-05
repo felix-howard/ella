@@ -25,8 +25,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 │ (via Prisma)    │  │ - Clerk org management  │
 └────────┬────────┘  │ - Google Gemini AI      │
          │           │ - Twilio Voice/SMS      │
-         ↓           │ - Cloudflare R2         │
-┌─────────────────────────────────────────────────┐│ - TaxBandits API (1099 e-filing)    │
+         │           │ - Cloudflare R2         │
+         │           │ - TaxBandits API        │
+         └─────────────────→ - Supabase Realtime │
+                    ↓
+┌─────────────────────────────────────────────────┐
+│ Realtime Messaging (Supabase Broadcast)         │
+│ - Org-scoped channels: org:{orgId}:messages    │
+│ - Lightweight event notifications + cache      │
 │     Data Layer (Org-Scoped)                      │                                     │
 │  - Organizations, Staff, Clients, Cases         │
 │  - Client.managedById (single manager FK)       │
@@ -242,6 +248,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /voice/presence/register` - Register staff online
 - `GET /voice/caller/:phone` - Lookup incoming caller
 - Recording endpoints with auth
+
+**Realtime Messaging (Supabase Broadcast):**
+- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation. Event payload: `{ conversationId, caseId, messageId, direction, channel, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
+- **Frontend Subscription** (`apps/workspace/src/hooks/use-realtime-messages.ts`): React hook using Supabase client to subscribe to org-scoped message channels. On event receipt: invalidates React Query caches (`conversations`, `unread-count`, `messages`). Optional `caseId` filter for component-level subscriptions. Gracefully handles missing Supabase config.
+- **60-Second Fallback Polling**: Retained as safety net if Realtime unavailable. React Query cache auto-refetch at 60s intervals keeps data fresh.
+- **Performance Impact**: Near-instant updates (100-500ms vs 10-30s polling). Org-scoped isolation ensures no cross-org leaks. Broadcast channels auto-cleanup after unsubscribe.
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
@@ -1449,11 +1461,13 @@ All avatar/notes UI will need i18n keys in workspace:
 - Frontend: `pnpm -F @ella/workspace dev` (Vite, PORT 5174)
 - Backend: `pnpm -F @ella/api dev` (Hono, PORT 3002)
 - Database: Local PostgreSQL (docker-compose)
+- Realtime: Optional Supabase Realtime (disabled locally if env vars missing)
 
 **Production:**
 - Frontend: Vercel (React + TanStack Router)
 - Backend: Railway or Fly.io (Hono + Node)
 - Database: PostgreSQL (Supabase or cloud provider)
+- Realtime: Supabase Realtime Broadcast (requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY backend; VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY frontend)
 - File Storage: Cloudflare R2
 - CI/CD: GitHub Actions
 
@@ -1511,6 +1525,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.8
-**Last Updated:** 2026-04-03
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup.
+**Version:** 2.9
+**Last Updated:** 2026-04-05
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging.

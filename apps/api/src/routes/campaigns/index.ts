@@ -52,14 +52,14 @@ campaignsRoute.get(
       },
     })
 
-    // Compute lead counts per campaign slug
-    const slugs = campaigns.map((c) => c.slug)
-    const leadCounts = slugs.length > 0
+    // Compute lead counts per campaign tag
+    const tags = campaigns.map((c) => c.tag)
+    const leadCounts = tags.length > 0
       ? await prisma.lead.groupBy({
           by: ['campaignTag'],
           where: {
             organizationId: orgId,
-            campaignTag: { in: slugs },
+            campaignTag: { in: tags },
           },
           _count: { id: true },
         })
@@ -71,7 +71,7 @@ campaignsRoute.get(
 
     const data = campaigns.map((campaign) => ({
       ...campaign,
-      _count: { leads: countMap.get(campaign.slug) || 0 },
+      _count: { leads: countMap.get(campaign.tag) || 0 },
     }))
 
     return c.json({ success: true, data })
@@ -88,13 +88,14 @@ campaignsRoute.post(
   zValidator('json', createCampaignSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
-    const { name, slug, description } = c.req.valid('json')
+    const { name, slug, tag, description } = c.req.valid('json')
 
     try {
       const campaign = await prisma.campaign.create({
         data: {
           name: sanitizeTextInput(name),
           slug,
+          tag: sanitizeTextInput(tag),
           description: description ? sanitizeTextInput(description, 500) : null,
           organizationId: orgId,
           createdById: staffId,
@@ -182,7 +183,7 @@ campaignsRoute.delete(
     // Transaction to prevent race between count check and delete
     const result = await prisma.$transaction(async (tx) => {
       const leadCount = await tx.lead.count({
-        where: { organizationId: orgId, campaignTag: campaign.slug },
+        where: { organizationId: orgId, campaignTag: campaign.tag },
       })
 
       if (leadCount > 0) {

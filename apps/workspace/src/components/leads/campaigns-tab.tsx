@@ -118,7 +118,7 @@ export function CampaignsTab({ onViewLeads, orgSlug }: CampaignsTabProps) {
               orgSlug={orgSlug}
               copiedId={copiedId}
               onCopyLink={() => handleCopyLink(campaign)}
-              onViewLeads={() => onViewLeads(campaign.slug)}
+              onViewLeads={() => onViewLeads(campaign.tag)}
               onToggleStatus={() =>
                 updateMutation.mutate({
                   id: campaign.id,
@@ -212,6 +212,14 @@ function CampaignCard({
           </button>
         </div>
       )}
+
+      {/* Tag */}
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-muted-foreground">{t('leads.campaignTag')}:</span>
+        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-medium font-mono">
+          {campaign.tag}
+        </span>
+      </div>
 
       {/* Description */}
       {campaign.description && (

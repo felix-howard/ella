@@ -1180,7 +1180,7 @@ export const api = {
     list: () =>
       request<{ success: boolean; data: Campaign[] }>('/campaigns'),
 
-    create: (data: { name: string; slug: string; description?: string }) =>
+    create: (data: { name: string; slug: string; tag: string; description?: string }) =>
       request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
     update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED' }) =>
@@ -1237,6 +1237,7 @@ export interface Campaign {
   id: string
   name: string
   slug: string
+  tag: string
   status: CampaignStatus
   description: string | null
   createdById: string

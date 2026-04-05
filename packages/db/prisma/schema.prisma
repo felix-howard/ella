@@ -602,6 +602,7 @@ model Business {
 
   contractors    Contractor[]
   filingBatches  FilingBatch[]
+  intakeTokens   ContractorIntakeToken[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -1487,6 +1488,27 @@ model Contractor {
   updatedAt           DateTime @updatedAt
 
   @@index([businessId])
+}
+
+// ============================================
+// Contractor Intake Token (public intake form)
+// ============================================
+
+model ContractorIntakeToken {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  token      String   @unique @default(cuid())
+  taxYear    Int
+  isActive   Boolean  @default(true)
+
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([token])
+  @@index([businessId, isActive])
 }
 
 // ============================================

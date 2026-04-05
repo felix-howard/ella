@@ -10,6 +10,7 @@ import { buildClientScopeFilter } from '../../lib/org-scope'
 import { encryptSSN, decryptSSN } from '../../services/crypto'
 import { logProfileChanges } from '../../services/audit-logger'
 import { requireOrgAdmin } from '../../middleware/auth'
+import { z } from 'zod'
 import { createBusinessSchema, updateBusinessSchema } from './schemas'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -325,6 +326,128 @@ businessesRoute.delete(
     await prisma.business.delete({ where: { id: businessId } })
 
     console.log(`[Business] Deleted ${businessId} by staff ${user.staffId}`)
+
+    return c.json({ success: true })
+  }
+)
+
+/**
+ * GET /clients/:clientId/businesses/:businessId/intake-token - Get active intake token
+ */
+businessesRoute.get('/:clientId/businesses/:businessId/intake-token', async (c) => {
+  const user = c.get('user')
+  const { clientId, businessId } = c.req.param()
+
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
+
+  const business = await prisma.business.findFirst({
+    where: { id: businessId, clientId },
+    select: { id: true },
+  })
+
+  if (!business) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
+  }
+
+  const intakeToken = await prisma.contractorIntakeToken.findFirst({
+    where: { businessId, isActive: true },
+    orderBy: { createdAt: 'desc' },
+    select: { token: true, taxYear: true, createdAt: true },
+  })
+
+  return c.json({ data: intakeToken ?? null })
+})
+
+/**
+ * POST /clients/:clientId/businesses/:businessId/intake-token - Generate new intake token
+ */
+businessesRoute.post(
+  '/:clientId/businesses/:businessId/intake-token',
+  requireOrgAdmin,
+  zValidator('json', z.object({ taxYear: z.number().int().min(2000).max(2099).optional() })),
+  async (c) => {
+    const user = c.get('user')
+    const { clientId, businessId } = c.req.param()
+    const body = c.req.valid('json')
+
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, clientId },
+      select: { id: true },
+    })
+
+    if (!business) {
+      return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
+    }
+
+    const taxYear = body.taxYear ?? new Date().getFullYear() - 1
+
+    // Deactivate any existing active tokens
+    await prisma.contractorIntakeToken.updateMany({
+      where: { businessId, isActive: true },
+      data: { isActive: false },
+    })
+
+    const intakeToken = await prisma.contractorIntakeToken.create({
+      data: { businessId, taxYear },
+      select: { token: true, taxYear: true, createdAt: true },
+    })
+
+    console.log(`[Business] Created intake token for business ${businessId} (year ${taxYear}) by staff ${user.staffId}`)
+
+    return c.json({ data: intakeToken }, 201)
+  }
+)
+
+/**
+ * DELETE /clients/:clientId/businesses/:businessId/intake-token - Deactivate token
+ */
+businessesRoute.delete(
+  '/:clientId/businesses/:businessId/intake-token',
+  requireOrgAdmin,
+  async (c) => {
+    const user = c.get('user')
+    const { clientId, businessId } = c.req.param()
+
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, ...buildClientScopeFilter(user) },
+      select: { id: true },
+    })
+
+    if (!client) {
+      return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, clientId },
+      select: { id: true },
+    })
+
+    if (!business) {
+      return c.json({ error: 'NOT_FOUND', message: 'Business not found' }, 404)
+    }
+
+    await prisma.contractorIntakeToken.updateMany({
+      where: { businessId, isActive: true },
+      data: { isActive: false },
+    })
+
+    console.log(`[Business] Deactivated intake tokens for business ${businessId} by staff ${user.staffId}`)
 
     return c.json({ success: true })
   }

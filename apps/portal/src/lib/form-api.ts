@@ -119,4 +119,42 @@ export const formApi = {
 
     return res.json()
   },
+
+  // Contractor intake
+  async getIntakeInfo(token: string): Promise<{
+    business: { name: string }
+    org: { name: string; logoUrl: string | null }
+    taxYear: number
+  }> {
+    const res = await fetch(`${API_BASE}/contractor-intake/${token}`)
+    if (!res.ok) throw new Error('Invalid or expired link')
+    return res.json()
+  },
+
+  async submitContractor(token: string, data: {
+    firstName: string
+    lastName: string
+    ssn: string
+    tinType?: 'SSN' | 'EIN'
+    address: string
+    city: string
+    state: string
+    zip: string
+    email?: string
+    phone?: string
+  }): Promise<{
+    success: boolean
+    contractor: { firstName: string; lastName: string; ssnLast4: string }
+  }> {
+    const res = await fetch(`${API_BASE}/contractor-intake/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const json = await safeParseJson(res)
+      throw new Error(json.message || json.error || 'Submission failed')
+    }
+    return res.json()
+  },
 }

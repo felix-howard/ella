@@ -351,6 +351,22 @@ export const api = {
       request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
         method: 'DELETE',
       }),
+
+    intakeToken: {
+      get: (clientId: string, businessId: string) =>
+        request<{ data: IntakeToken | null }>(`/clients/${clientId}/businesses/${businessId}/intake-token`),
+
+      create: (clientId: string, businessId: string, taxYear?: number) =>
+        request<{ data: IntakeToken }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
+          method: 'POST',
+          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
+        }),
+
+      deactivate: (clientId: string, businessId: string) =>
+        request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
+          method: 'DELETE',
+        }),
+    },
   },
 
   // Contractors (under businesses — Phase 5 will update components to pass businessId)
@@ -1400,6 +1416,12 @@ export interface ParseResult {
   taxYear: number
   businessName: string
   errors: string[]
+}
+
+export interface IntakeToken {
+  token: string
+  taxYear: number
+  createdAt: string
 }
 
 export interface BulkSaveContractorsInput {

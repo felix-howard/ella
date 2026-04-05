@@ -5,10 +5,11 @@
  */
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2 } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Link2 } from 'lucide-react'
 import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
 import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
+import { PORTAL_BASE_URL } from '../../../../lib/constants'
 import { ContractorTable } from './contractor-table'
 import { ContractorFormModal } from './contractor-form-modal'
 import { ContractorReviewTable } from './contractor-review-table'
@@ -17,16 +18,18 @@ import { FilingStatusPanel } from './filing-status-panel'
 
 interface Form1099NECTabProps {
   businessId: string
+  clientId: string
   clientName: string
 }
 
-export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) {
+export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NECTabProps) {
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null)
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isShareLoading, setIsShareLoading] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contractors', businessId],
@@ -135,6 +138,27 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
     }
   }
 
+  const handleShareIntakeLink = async () => {
+    setIsShareLoading(true)
+    try {
+      // Check for existing active token
+      let tokenData = await api.businesses.intakeToken.get(clientId, businessId)
+
+      // If no active token, create one
+      if (!tokenData.data) {
+        tokenData = await api.businesses.intakeToken.create(clientId, businessId)
+      }
+
+      const portalUrl = PORTAL_BASE_URL + '/contractor-intake/' + tokenData.data!.token
+      await navigator.clipboard.writeText(portalUrl)
+      toast.success('Intake form link copied to clipboard')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate intake link')
+    } finally {
+      setIsShareLoading(false)
+    }
+  }
+
   const contractors = data?.data ?? []
 
   if (isLoading) {
@@ -213,6 +237,16 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
                 Delete All
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareIntakeLink}
+              disabled={isShareLoading}
+              className="gap-1.5"
+            >
+              {isShareLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              Intake Form
+            </Button>
             <Button
               variant="outline"
               size="sm"

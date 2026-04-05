@@ -12,7 +12,7 @@ export const createLeadSchema = z.object({
   email: z.string().email().max(254).optional().nullable(),
   businessName: z.string().max(200).optional().nullable(),
   orgSlug: z.string().min(1).max(100),
-  eventSlug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional(),
+  eventSlug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional().or(z.literal('')).transform(v => v || undefined),
 })
 
 /** Lead ID param */

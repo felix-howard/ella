@@ -1,8 +1,210 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-03-30 ICT
-> **Current Phase:** Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-03 ICT
+> **Current Phase:** Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Client-Business Entity Separation - All 6 Phases COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-03 (All 6 Phases)
+**Deliverable:** Business model fully integrated; multi-business per client support; simplified client creation; cleanup + integration testing complete
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Database Schema & Migration | ✅ DONE | 2h | 2026-04-02 |
+| 2 | Business CRUD API | ✅ DONE | 1.5h | 2026-04-02 |
+| 3 | Update Routes | ✅ DONE | 2h | 2026-04-02 |
+| 4 | Simplify Client Creation | ✅ DONE | 1h | 2026-04-03 |
+| 5 | Businesses Tab Frontend | ✅ DONE | 2h | 2026-04-03 |
+| 6 | Cleanup & Integration Testing | ✅ DONE | 0.5h | 2026-04-03 |
+
+**Complete Summary (All 6 Phases):**
+- Created Business model: one Client → many Businesses (1:N), holds EIN, address, business type
+- Migrated Contractor & FilingBatch FKs: now reference Business instead of Client
+- Removed ClientType enum: Client no longer INDIVIDUAL/BUSINESS type
+- Simplified Client: name, phone, email, language only (no business fields)
+- Business CRUD API: POST/GET/PATCH/DELETE with org-scoped access + EIN encryption
+- Updated Routes: Contractors & 1099-NEC routes scoped to `/businesses/:businessId/`
+- Simplified client creation: name + phone only; businesses added via separate workflow
+- Businesses tab: Frontend UI in client detail with expandable cards for business management
+- Contractor management: Per-business contractor UI within each business card expansion
+- 1099-NEC filing: Per-business form generation & filing
+- Cleanup done: Zero `clientType` references remain (except migrations)
+- Build validated: Full compile + smoke testing complete
+
+**Key Achievements:**
+- No creation overhead for businesses: Can add businesses after client signup
+- Multi-business support: Single client can have unlimited businesses with separate contractors
+- Clean separation: Business logic isolated from client entity
+- Backward compatible: Existing 1099 workflows preserved per-business
+
+**Files Created/Modified:**
+- Schema: `packages/db/prisma/schema.prisma` + migration
+- API: `apps/api/src/routes/businesses/` (new), updated contractors/1099-nec
+- Frontend: `apps/workspace/src/components/businesses/` (new tab + modal components)
+- API Client: Updated with Business interfaces & endpoints
+
+**Status:** PRODUCTION READY - All 6 phases complete, integration tested, zero regressions
+
+---
+
+### TaxBandits API Integration - Phase 3 COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 3)
+**Deliverable:** Form1099NEC + FilingBatch models, TaxBandits API client service, 8 REST endpoints for form creation/PDF retrieval/IRS e-filing with org-scoped access control
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 3 | Database + API + Frontend | ✅ DONE | 8h | 2026-04-02 |
+
+**Completion Summary (Phase 3):**
+- Added `Form1099NEC` model with status workflow (DRAFT → VALIDATED → IMPORTED → PDF_READY → SUBMITTED → ACCEPTED/REJECTED)
+- Added `FilingBatch` model for grouping forms by client + tax year for batch submission
+- Added `Form1099Status` enum for workflow state tracking
+- Added `Contractor` model for business client contractor tracking
+- Implemented TaxBandits API client singleton service with OAuth 2.0 JWT authentication
+- Created 8 REST endpoints for 3-step workflow (create → fetch-pdfs → transmit) + status/batch management
+
+**Key Features:**
+- Org-scoped queries: All endpoints verify org access via buildClientScopeFilter()
+- Business client only: Returns 404 for non-BUSINESS clients
+- Status tracking: Form validation errors stored in validationErrors array for audit
+- eFile integration: efileSubmittedAt + efileStatus fields for IRS submission status
+- PDF storage: PDFs uploaded to R2 with signed download URLs (24-hour TTL)
+- SSN security: Contractor SSN decrypted on import via crypto service
+- Admin-only actions: validate, import, fetch-pdfs endpoints require org:admin role
+
+**Files Created:**
+- Schema: `packages/db/prisma/schema.prisma` (Form1099NEC, FilingBatch, Contractor, Form1099Status)
+- Migration: `packages/db/prisma/migrations/20260402120000_add_form_1099_nec_and_filing_batch`
+- Service: `apps/api/src/services/taxbandits-client.ts` (TaxBandits API client)
+- Config: `apps/api/src/lib/config.ts` (TaxBandits configuration section)
+- Routes: `apps/api/src/routes/form-1099-nec/index.ts` (5 endpoints)
+- Frontend: `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/` (tab + actions)
+- API Client: `apps/workspace/src/lib/api-client.ts` (methods + types)
+
+**Environment Variables Added:**
+- `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
+- `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
+- `TAXBANDITS_USER_TOKEN` - TaxBandits user token
+- `TAXBANDITS_SANDBOX` - Sandbox environment flag
+
+**Testing & Validation:**
+- type-check: All TypeScript strict mode passed
+- lint: No linting issues (React dependencies verified)
+- build: Successful compilation
+- Code review: Org-scoped, business client verified, error handling complete
+
+**Status:** PRODUCTION READY - All endpoints functional, org-scoped, business client verified
+
+---
+
+### TaxBandits API Integration - Phase 4 (Schema Cleanup) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 4)
+**Deliverable:** Removed deprecated legacy fields from schema; all operations now TaxBandits-only
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 4 | Schema Cleanup & Field Removal | ✅ DONE | 0.5h | 2026-04-02 |
+
+**Completion Summary (Phase 4):**
+- Removed `Contractor.tax1099RecipientId` - No longer needed (TaxBandits handles submission directly)
+- Removed `Form1099NEC.tax1099FormId` - Replaced by `taxbanditsRecordId` (String, indexed)
+- Added `Form1099NEC.taxbanditsSubmissionId` (String, denormalized for batch lookup, indexed)
+- Removed `FilingBatch.tax1099SubmissionId` - Replaced by `taxbanditsSubmissionId` (String, indexed)
+- Updated routes + validators to remove old field references
+- Added indexes on both taxbanditsSubmissionId fields for efficient batch queries
+
+**Benefits:**
+- Reduced schema clutter (legacy fields removed)
+- Single source of truth: All forms tracked via TaxBandits IDs only
+- Improved query performance on batch status lookups via indexed denormalized field
+- Clean codebase: No legacy Tax1099 code remains
+
+**Files Modified:**
+- Schema: `packages/db/prisma/schema.prisma` (Contractor, Form1099NEC, FilingBatch)
+- Routes: `apps/api/src/routes/contractors/index.ts`, `validators.ts`
+- Services: `apps/api/src/services/crypto/index.ts`
+- Frontend: `apps/workspace/src/lib/api-client.ts`
+
+**Status:** PRODUCTION READY - Schema cleaned, all tests passing, backward compatibility maintained
+
+---
+
+### TaxBandits API Integration - Phase 6 (Legacy Code Cleanup) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 6)
+**Deliverable:** Phase 6 cleanup complete - removed Tax1099 client code and legacy references
+
+**Completion Summary (Phase 6):**
+- Deleted `apps/api/src/services/tax1099-client.ts` (legacy API client removed)
+- Removed Tax1099 environment variables from config
+- Cleaned up all Tax1099 documentation references
+- Verified zero Tax1099 references in codebase
+- All tests passing, build successful
+
+**Status:** MIGRATION COMPLETE - All Tax1099 legacy code removed, codebase cleaned
+
+---
+
+### Client-Business Entity Separation - Phase 1 (Database Schema) COMPLETE ✅
+**Started:** 2026-04-02
+**Completed:** 2026-04-02 (Phase 1)
+**Deliverable:** Business model created, Contractor & FilingBatch FKs migrated from Client to Business, ClientType enum removed
+
+**Phase 1 Completion Summary:**
+- Added new `Business` model with clientId FK, name, type, einEncrypted, address fields
+- One Client → many Businesses relationship (1:N)
+- Migrated `Contractor.clientId` → `Contractor.businessId`
+- Migrated `FilingBatch.clientId` → `FilingBatch.businessId`
+- Removed `ClientType` enum (INDIVIDUAL/BUSINESS no longer needed)
+- Removed business fields from Client: businessName, businessType, einEncrypted, businessAddress, businessCity, businessState, businessZip
+- Client simplified to: firstName, lastName, phone, email, language, source, tags only
+- AES-256-GCM encryption reused for Business.einEncrypted
+- Indexes added on Business.clientId, Contractor.businessId, FilingBatch.businessId for query performance
+
+**Phase 2 Completion Summary:**
+- Added Business CRUD API endpoints: GET list, GET detail, POST create, PATCH update, DELETE with cascade protection
+- Business model holds all business details (name, type, EIN, address)
+- Org-scoped access control with EIN encryption + audit logging
+
+**Phase 3 Completion Summary:**
+- Updated Contractor routes: POST/GET/PATCH/DELETE `/businesses/:businessId/contractors`
+- Updated 1099-NEC routes: All endpoints now under `/businesses/:businessId/1099-nec/`
+- Migrated API client (workspace) with full Business, CreateBusinessInput, UpdateBusinessInput interfaces
+- Updated contractor & form1099nec API methods to use /businesses/ paths
+
+**Phase 4 Completion Summary:**
+- Simplified client creation form: Removed clientType toggle and all business fields (businessName, ein, businessType, businessAddress, etc.)
+- Client now created with only: firstName, lastName, phone, email, language
+- Removed PATCH /clients/:id/business endpoint (business management moved to dedicated Business CRUD)
+- Removed updateBusinessFieldsSchema validation
+- 1099-NEC tab now visible for all clients (no longer gated on business entity existence)
+- Business creation/management now separate workflow accessed via Businesses tab
+
+**Phase 5 Completion Summary:**
+- Built Businesses tab UI in client detail page with expandable business cards
+- Business card displays name, masked EIN, type, address, contractor count
+- Edit/delete actions per business with cascade warning on delete
+- Embedded Form1099NECTab for contractor management within each business
+- Create/edit business modal with validation (required: name, address, city, state, zip; EIN format XX-XXXXXXX)
+
+**Phase 6 Completion Summary:**
+- Removed all stale `clientType` references from codebase
+- Cleaned up constants, field labels, localization strings
+- Updated client overview sections (removed old business display)
+- Updated intake form (removed business questions)
+- Verified Schedule C, Files, Data Entry tabs unaffected
+- Full compile check: `pnpm build` successful
+- Integration tested with smoke test coverage
+
+**Status:** All 6 Phases COMPLETE - Client-Business separation fully implemented, integrated, tested
 
 ---
 

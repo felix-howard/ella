@@ -31,6 +31,10 @@ import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
+import { contractorsRoute } from './routes/contractors'
+import { businessesRoute } from './routes/businesses'
+import { form1099NecRoute } from './routes/form-1099-nec'
+import { campaignsRoute } from './routes/campaigns'
 
 const app = new OpenAPIHono()
 
@@ -85,7 +89,11 @@ app.use('/terms/*', authMiddleware)
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
 app.use('/cases/*', deprecationHeadersMiddleware)
+app.use('/businesses/*', authMiddleware)
 app.route('/clients', clientsRoute)
+app.route('/clients', businessesRoute) // /clients/:clientId/businesses
+app.route('/businesses', contractorsRoute) // /businesses/:businessId/contractors
+app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/*
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)
@@ -101,6 +109,7 @@ app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
 app.route('/terms', termsRoute)
+app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 
 // OpenAPI documentation
 app.doc('/doc', {

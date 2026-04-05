@@ -24,6 +24,7 @@ import { api } from '../../lib/api-client'
 import { useVoiceCallContext } from '../voice/voice-call-provider'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useIsMobile } from '../../hooks'
+import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
 import { SidebarContent } from './sidebar-content'
 
 // Navigation items
@@ -94,6 +95,8 @@ export function Sidebar() {
 
   const handleClose = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
 
+  useRealtimeMessages() // Subscribe to org message events for unread badge
+
   const navItems = [
     ...BASE_NAV_ITEMS,
     ...(isAdmin ? [LEADS_NAV_ITEM] : []),
@@ -117,7 +120,7 @@ export function Sidebar() {
       const response = await api.messages.listConversations({ limit: 1 })
       return response.totalUnread || 0
     },
-    refetchInterval: 30000,
+    refetchInterval: 60000, // 60s fallback — realtime handles instant updates
     staleTime: 10000,
   })
   const unreadCount = unreadData || 0

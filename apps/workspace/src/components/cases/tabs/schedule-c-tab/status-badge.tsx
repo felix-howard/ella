@@ -18,12 +18,12 @@ const STATUS_CONFIG: Record<ScheduleCStatus, {
   DRAFT: {
     i18nKey: 'scheduleC.statusDraft',
     icon: Clock,
-    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+    className: 'bg-muted text-muted-foreground ring-1 ring-border',
   },
   SUBMITTED: {
     i18nKey: 'scheduleC.statusSubmitted',
     icon: CheckCircle2,
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+    className: 'bg-muted text-muted-foreground ring-1 ring-border',
   },
   LOCKED: {
     i18nKey: 'scheduleC.statusLocked',

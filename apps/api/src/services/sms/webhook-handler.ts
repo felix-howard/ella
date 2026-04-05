@@ -9,6 +9,7 @@ import type { MessageChannel, MessageDirection, ActionType } from '@ella/db'
 import crypto from 'crypto'
 import { processMmsMedia } from './mms-media-handler'
 import { updateLastActivity } from '../activity-tracker'
+import { publishMessageEventFromConversation } from '../realtime/message-publisher'
 import {
   isValidE164Phone,
   createPlaceholderConversation,
@@ -197,7 +198,7 @@ export async function processIncomingMessage(
 
     // Create placeholder client + tax case + conversation (atomic transaction)
     const defaultOrgId = await findDefaultOrganizationId()
-    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId)
+    const placeholderConversation = await createPlaceholderConversation(fromPhone, defaultOrgId, 'INCOMING_SMS')
     conversationId = placeholderConversation.id
 
     // Get the case ID from the conversation
@@ -241,6 +242,13 @@ export async function processIncomingMessage(
       attachmentR2Keys: mmsResult.attachmentR2Keys,
     },
   })
+
+  // Publish realtime event (non-blocking)
+  publishMessageEventFromConversation(conversationId, {
+    id: message.id,
+    direction: 'INBOUND',
+    channel: 'SMS',
+  }).catch(() => {})
 
   // Update conversation with new message timestamp and unread count
   await prisma.conversation.update({

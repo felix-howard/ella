@@ -66,14 +66,37 @@ staffRoute.patch(
   }
 )
 
-// PATCH /staff/me/form-slug - Update form slug
+// PATCH /staff/:staffId/form-slug - Update form slug for a specific staff member
+// Admins can update any member's slug; non-admins can only update their own
 staffRoute.patch(
-  '/me/form-slug',
+  '/:staffId/form-slug',
   zValidator('json', updateFormSlugSchema),
   async (c) => {
     const user = c.get('user')
     if (!user?.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
+    }
+
+    const targetStaffId = c.req.param('staffId')
+
+    // Resolve 'me' to current user's staffId
+    const resolvedStaffId = targetStaffId === 'me' ? user.staffId : targetStaffId
+
+    // Non-admins can only update their own slug
+    const isAdmin = user.orgRole === 'org:admin' || user.role === 'ADMIN'
+    if (!isAdmin && resolvedStaffId !== user.staffId) {
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    // Verify target staff belongs to same org
+    if (resolvedStaffId !== user.staffId) {
+      const targetStaff = await prisma.staff.findFirst({
+        where: { id: resolvedStaffId, organizationId: user.organizationId },
+        select: { id: true },
+      })
+      if (!targetStaff) {
+        return c.json({ error: 'Staff member not found' }, 404)
+      }
     }
 
     const { formSlug } = c.req.valid('json')
@@ -84,7 +107,7 @@ staffRoute.patch(
         where: {
           organizationId: user.organizationId,
           formSlug,
-          id: { not: user.staffId },
+          id: { not: resolvedStaffId },
         },
         select: { id: true },
       })
@@ -99,7 +122,7 @@ staffRoute.patch(
 
     try {
       const updated = await prisma.staff.update({
-        where: { id: user.staffId },
+        where: { id: resolvedStaffId },
         data: { formSlug },
         select: { id: true, formSlug: true },
       })

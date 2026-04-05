@@ -25,9 +25,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 │ (via Prisma)    │  │ - Clerk org management  │
 └────────┬────────┘  │ - Google Gemini AI      │
          │           │ - Twilio Voice/SMS      │
-         ↓           │ - Cloudflare R2         │
+         │           │ - Cloudflare R2         │
+         │           │ - TaxBandits API        │
+         └─────────────────→ - Supabase Realtime │
+                    ↓
 ┌─────────────────────────────────────────────────┐
-│     Data Layer (Org-Scoped)                      │
+│ Realtime Messaging (Supabase Broadcast)         │
+│ - Org-scoped channels: org:{orgId}:messages    │
+│ - Lightweight event notifications + cache      │
+│     Data Layer (Org-Scoped)                      │                                     │
 │  - Organizations, Staff, Clients, Cases         │
 │  - Client.managedById (single manager FK)       │
 │  - Documents, Messages, Audit logs              │
@@ -52,7 +58,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return (Phase 04)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses, Schedule C, Schedule E, Draft Return (Phase 04)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -194,6 +200,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values (vs 2 previously): MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED tracks full origin path
 
+**Business CRUD (4 - Phase 02 Client-Business Separation):**
+- `GET /clients/:clientId/businesses` - List all businesses for a client (org-scoped, reads). Returns business name, type (enum), masked EIN (XX-XXX####), address, city, state, zip, contractor count, timestamps. Ordered by createdAt descending.
+- `GET /clients/:clientId/businesses/:businessId` - Get single business detail (org-scoped, reads). Includes contractor count + filing batch count for delete validation.
+- `POST /clients/:clientId/businesses` - Create business for client (org-scoped, requireOrgAdmin). EIN encrypted with audit logging. Payload: name, type (SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), ein (XX-XXXXXXX format), address, city, state, zip. Returns 201 with created business (EIN masked).
+- `PATCH /clients/:clientId/businesses/:businessId` - Update business fields (org-scoped, requireOrgAdmin). All fields optional. EIN re-encrypted + logged if changed. Returns updated business with masked EIN.
+- `DELETE /clients/:clientId/businesses/:businessId` - Delete business (org-scoped, requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked (enforce data integrity). Returns 200 on success.
+- **Security:** All writes (POST/PATCH/DELETE) require requireOrgAdmin middleware. EIN encryption via encryptSSN/decryptSSN. Audit logging for EIN changes via logProfileChanges. Org-scoped access via buildClientScopeFilter. Client existence verified before business operations.
+
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
 - `POST /engagements` - Create (with copy-from for year reuse)
@@ -213,6 +227,19 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
 - Endpoints for document lifecycle
 
+**1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
+- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessAccess.
+- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessAccess.
+- Models: Form1099NEC (with status enum, validation errors, eFile tracking, businessId FK), FilingBatch (groups multiple forms by tax year, businessId FK). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
+- **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
+- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessAccess() helper validates business belongs to user's org, replaces previous clientType guards.
+
 **Messages & Voice (15):**
 - `GET /messages` - List conversations (org-scoped)
 - `POST /messages` - Send SMS/portal/system message
@@ -221,6 +248,12 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /voice/presence/register` - Register staff online
 - `GET /voice/caller/:phone` - Lookup incoming caller
 - Recording endpoints with auth
+
+**Realtime Messaging (Supabase Broadcast):**
+- **Backend Publisher** (`apps/api/src/services/realtime/message-publisher.ts`): Publishes lightweight message events to Supabase Broadcast channels after message creation. Event payload: `{ conversationId, caseId, messageId, direction, channel, timestamp }`. Org-scoped channels use format `org:{clerkOrgId}:messages`. Non-blocking: publish failures don't interrupt message flow. Gracefully degrades if Supabase not configured.
+- **Frontend Subscription** (`apps/workspace/src/hooks/use-realtime-messages.ts`): React hook using Supabase client to subscribe to org-scoped message channels. On event receipt: invalidates React Query caches (`conversations`, `unread-count`, `messages`). Optional `caseId` filter for component-level subscriptions. Gracefully handles missing Supabase config.
+- **60-Second Fallback Polling**: Retained as safety net if Realtime unavailable. React Query cache auto-refetch at 60s intervals keeps data fresh.
+- **Performance Impact**: Near-instant updates (100-500ms vs 10-30s polling). Org-scoped isolation ensures no cross-org leaks. Broadcast channels auto-cleanup after unsubscribe.
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
@@ -265,11 +298,14 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: DIRECT|INTAKE_FORM, Phase 02 Intake Form - tracks client origin)
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form). Phase 01 Client-Business Entity Separation: simplified to hold client contact info only, business details moved to Business model. Phase 06 Cleanup: removed legacy businessName, einEncrypted, businessAddress, businessPhone fields from all intake forms and components (fully migrated to Business entity).
+- **Business** - clientId FK (one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds business profile, contractors, and filing batches.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
+- **Contractor** - businessId FK (belongs to Business, not Client), firstName, lastName, ssn4Encrypted (last 4 SSN digits, encrypted), address, phone, einEncrypted (optional, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), amount1099 (gross payments). Phase 01 Client-Business Entity Separation: migrated from clientId to businessId FK.
+- **FilingBatch** - businessId FK (Phase 01: migrated from clientId), taxYear, status (PENDING|IN_PROGRESS|SUBMITTED|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), tracking for 1099-NEC e-filing via TaxBandits API
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
@@ -940,8 +976,17 @@ apps/api/src/services/ai/
 ├── blur-detector.ts - Quality detection
 └── prompts/
     ├── classify.ts - Classification + SmartRename prompts
+    ├── address-parser.ts - US address parsing (structured extraction for contractors)
     └── ocr/ - 22 OCR extraction prompts (forms 1040, schedules, income docs)
 ```
+
+**Address Parsing Service (NEW - Excel Import Fallback):**
+- Used in `excel-parser.ts` when regex fails to extract city from contractor addresses
+- Batch API calls: up to 50 addresses per request, handles network fallback gracefully
+- Input: raw address strings (e.g., "6424 NW 53 RD ST LAUDERHILL, FL 33319")
+- Output: structured { address, city, state, zip } with index mapping for fast lookup
+- Validation: response type checking + address field verification
+- Graceful degradation: AI parsing optional (if no Gemini key, continues with regex results)
 
 **Phase 02 Fallback Smart Rename:**
 - Triggered when classification confidence < 60%
@@ -1016,6 +1061,146 @@ ScheduleETab (index.tsx) [4 states]
 - Type: `ScheduleEResponse { expense, magicLink, totals }`
 - Endpoint: `GET /schedule-e/:caseId` (via `api.scheduleE.get(caseId)`)
 - Magic link operations reuse existing POST /send, POST /resend routes
+
+## Businesses Tab Workspace (Phase 05 Frontend - 2026-04-03)
+
+**Location:** `apps/workspace/src/components/businesses/`
+
+**Overview:**
+Client detail tab for managing multiple businesses per client. Each business is an expandable card showing basic info + embedded contractor/1099-NEC management. Supports full CRUD operations on businesses.
+
+**Component Hierarchy:**
+```
+BusinessesTab (index.tsx)
+├── State: isLoading → <Spinner />
+├── State: error → <ErrorCard /> (with Retry button)
+├── State: empty → <EmptyState />
+│   └── Building2 icon, "No businesses yet" message
+│   └── Add Business button
+├── State: with data → <Header /> + <BusinessCard[]>
+│   └── Business count label, Add Business button
+│   └── BusinessCard[0..N]
+│       ├── Business header (clickable, expandable)
+│       │   ├── Building2 icon
+│       │   ├── Name + masked EIN badge
+│       │   ├── Type label (Sole Prop, LLC, etc.)
+│       │   ├── Address, city, state, zip
+│       │   ├── Contractor count (if > 0)
+│       │   ├── Edit button (pencil icon)
+│       │   ├── Delete button (trash icon, red)
+│       │   └── Chevron up/down (expand/collapse)
+│       └── Expanded content: <Form1099NECTab businessId={id} />
+└── <BusinessFormModal /> (create/edit)
+    ├── Name input (required)
+    ├── Type select dropdown
+    ├── EIN input (auto-formatted XX-XXXXXXX)
+    ├── Address input (required)
+    ├── City, State, ZIP (required, grid layout)
+    └── Save/Cancel buttons
+```
+
+**Sub-Components:**
+- **businesses-tab.tsx** - Main tab, data fetching, empty/error states, business list rendering
+- **business-card.tsx** - Expandable card per business, edit/delete triggers, Form1099NECTab embedding
+- **business-form-modal.tsx** - Create/edit form with validation + EIN auto-formatting
+- **index.ts** - Barrel export (BusinessesTab)
+
+**Data Hooks:**
+```typescript
+useQuery({
+  queryKey: ['businesses', clientId],
+  queryFn: () => api.businesses.list(clientId),
+})
+```
+
+**Mutations:**
+```typescript
+api.businesses.create(clientId, data)    // POST /clients/:clientId/businesses
+api.businesses.update(clientId, bizId, data)  // PATCH /clients/:clientId/businesses/:businessId
+api.businesses.delete(clientId, bizId)   // DELETE /clients/:clientId/businesses/:businessId
+```
+
+**Form Validation:**
+- Business name: required, non-empty string
+- Type: enum (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+- EIN: required on create, optional on edit (auto-formats as XX-XXXXXXX)
+- Address: required, non-empty
+- City: required, non-empty
+- State: required, must be 2-letter code (auto-uppercase)
+- ZIP: required, must be 5 or 9 digits (format: XXXXX or XXXXX-XXXX)
+
+**Error Handling:**
+- List load error: Alert card with "Failed to load businesses" message + Retry button
+- Delete error: Toast notification with error message
+- Create/update error: Toast notification with validation details
+
+**EIN Masking:**
+- Display format: XX-XXX#### (show last 4 digits only)
+- Example: 12-3456789 → 12-345#### (masked from API response)
+
+**API Types:**
+```typescript
+interface Business {
+  id: string
+  clientId: string
+  name: string
+  type: BusinessType          // 'SOLE_PROPRIETORSHIP' | 'LLC' | ...
+  einMasked: string          // 'XX-XXX####'
+  address: string
+  city: string
+  state: string              // 2-letter code
+  zip: string
+  contractorCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+
+interface CreateBusinessInput {
+  name: string
+  type: BusinessType
+  ein: string                // XX-XXXXXXX format
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+```
+
+**Key Features:**
+- Multi-business per client: Single client can have many businesses
+- Expandable design: Contractors/1099s shown only when expanded (reduces clutter)
+- Contractor count badge: Quick visual indicator of activity per business
+- Cascade delete warning: Modal shows contractor count before deletion
+- Business type labels: Readable names (Sole Prop, LLC, etc.) vs. enum values
+- EIN security: Masked in UI, never shown in plaintext (encrypted at rest)
+
+**Integration Points:**
+- Depends on Phase 02 (Business CRUD API endpoints) and Phase 01 (Prisma model + FKs)
+- Form1099NECTab now scoped to businessId (was clientId in Phase 03)
+- Contractor routes unchanged (already migrated to businessId in Phase 03)
+- Tab navigation: Replaced "1099-NEC" tab with "Businesses" tab in client detail route
+
+**Internationalization:**
+- Placeholder text, labels, buttons, error messages need i18n keys
+- Empty state: "No businesses yet", "Add a business to manage contractors..."
+- Delete confirmation: "Are you sure you want to delete [name]?"
+- Type labels: All business type enums translated (6 keys)
+
+**Performance:**
+- Query key structure: `['businesses', clientId]` — invalidated on CRUD operations
+- Contractors query: `['contractors', businessId]` — scoped per business (loaded only when card expanded)
+- Business count badge: Re-calculated on contractor add/delete (via query invalidation)
+
+**Accessibility:**
+- Business card header: role="button", tabIndex=0, keyboard-accessible (Enter/Space)
+- Buttons: Accessible with hover/focus states
+- Icons: Semantic (Building2 for business, Pencil for edit, Trash for delete, ChevronUp/Down for expand)
+- Modal: ModalHeader, ModalTitle, form labels with htmlFor references
+- Delete confirmation: ModalFooter with Cancel/Delete buttons (red delete button)
+
+---
 
 ## Phase 04: Frontend Profile Toggles - CPA Upload SMS Notifications
 
@@ -1276,11 +1461,13 @@ All avatar/notes UI will need i18n keys in workspace:
 - Frontend: `pnpm -F @ella/workspace dev` (Vite, PORT 5174)
 - Backend: `pnpm -F @ella/api dev` (Hono, PORT 3002)
 - Database: Local PostgreSQL (docker-compose)
+- Realtime: Optional Supabase Realtime (disabled locally if env vars missing)
 
 **Production:**
 - Frontend: Vercel (React + TanStack Router)
 - Backend: Railway or Fly.io (Hono + Node)
 - Database: PostgreSQL (Supabase or cloud provider)
+- Realtime: Supabase Realtime Broadcast (requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY backend; VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY frontend)
 - File Storage: Cloudflare R2
 - CI/CD: GitHub Actions
 
@@ -1338,6 +1525,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.7
-**Last Updated:** 2026-03-24
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Auth middleware is read-only (no request-time DB writes), all user/org/membership syncs via event-driven webhooks + Clerk Backend API for mutations. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification.
+**Version:** 2.9
+**Last Updated:** 2026-04-05
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging.

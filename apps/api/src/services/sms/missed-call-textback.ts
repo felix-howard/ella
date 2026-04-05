@@ -8,6 +8,7 @@ import { sendSms, formatPhoneToE164, isTwilioConfigured } from './twilio-client'
 import { generateMissedCallTextbackMessage } from './templates/missed-call-textback'
 import { findConversationByPhone, createPlaceholderConversation, findDefaultOrganizationId, isValidE164Phone } from '../voice'
 import type { SmsLanguage } from './templates'
+import { publishMessageEventFromConversation } from '../realtime/message-publisher'
 
 /**
  * Send missed call text-back SMS to caller
@@ -58,7 +59,7 @@ export async function sendMissedCallTextBack(
 
     if (!conversation) {
       const defaultOrgId = organizationId || await findDefaultOrganizationId()
-      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId)
+      conversation = await createPlaceholderConversation(callerPhone, defaultOrgId, 'INCOMING_CALL')
     }
 
     // Send SMS
@@ -66,8 +67,8 @@ export async function sendMissedCallTextBack(
     const smsResult = await sendSms({ to: formattedPhone, body })
 
     // Record outbound SMS in conversation
-    await prisma.$transaction(async (tx) => {
-      await tx.message.create({
+    const txResult = await prisma.$transaction(async (tx) => {
+      const msg = await tx.message.create({
         data: {
           conversationId: conversation!.id,
           channel: 'SMS',
@@ -84,7 +85,16 @@ export async function sendMissedCallTextBack(
         where: { id: conversation!.id },
         data: { lastMessageAt: new Date() },
       })
+
+      return msg
     })
+
+    // Publish realtime event after transaction (non-blocking)
+    publishMessageEventFromConversation(conversation!.id, {
+      id: txResult.id,
+      direction: 'OUTBOUND',
+      channel: 'SMS',
+    }).catch(() => {})
 
     console.log(
       `[Missed Call TextBack] ${smsResult.success ? 'Sent' : 'Failed'} to ${callerPhone}` +

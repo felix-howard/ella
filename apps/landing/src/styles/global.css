@@ -409,6 +409,73 @@ body {
 .showcase-card-2 { background: linear-gradient(180deg, #ffffff, #f0fdf4); }
 .showcase-card-3 { background: linear-gradient(180deg, #ffffff, #f5f3ff); }
 
+/* ─── Legal content typography (privacy, terms pages) ─── */
+.legal-content {
+  color: #374151; /* gray-700 */
+  line-height: 1.75;
+}
+
+.legal-content h1 {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.legal-content h2 {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.legal-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.legal-content p {
+  margin-bottom: 1rem;
+}
+
+.legal-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.legal-content li {
+  margin-bottom: 0.25rem;
+}
+
+.legal-content hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 2rem 0;
+}
+
+.legal-content a {
+  color: #059669;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-content a:hover {
+  color: #047857;
+}
+
+.legal-content strong {
+  color: #111827;
+  font-weight: 600;
+}
+
 /* Accessibility: disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

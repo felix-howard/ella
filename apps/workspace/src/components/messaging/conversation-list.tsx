@@ -5,6 +5,7 @@
 
 import { cn } from '@ella/ui'
 import { Inbox } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { ConversationListItem } from './conversation-list-item'
 import type { Conversation } from '../../lib/api-client'
 
@@ -21,6 +22,8 @@ export function ConversationList({
   isLoading,
   className,
 }: ConversationListProps) {
+  const { t } = useTranslation()
+
   // Loading state
   if (isLoading) {
     return (
@@ -48,10 +51,10 @@ export function ConversationList({
             <Inbox className="w-7 h-7 text-muted-foreground/60" />
           </div>
           <h3 className="text-sm font-medium text-foreground mb-1">
-            Chưa có cuộc hội thoại
+            {t('messages.noConversations')}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Tin nhắn với khách hàng sẽ xuất hiện ở đây
+            {t('messages.noConversationsHint')}
           </p>
         </div>
       </div>

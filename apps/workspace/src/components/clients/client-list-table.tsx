@@ -236,7 +236,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       {/* Action badges column */}
       <td className="px-4 py-3 hidden md:table-cell">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
-          {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM'].includes(client.source) && (
+          {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
           )}
           {actionCounts?.hasNewActivity && (
@@ -287,6 +287,8 @@ function SourceBadge({ source }: { source?: string }) {
     GENERIC_FORM: { className: 'bg-primary/10 text-primary', label: t('clients.sourceGenericForm') },
     STAFF_FORM: { className: 'bg-blue-500/10 text-blue-600', label: t('clients.sourceStaffForm') },
     CONVERTED: { className: 'bg-emerald-500/10 text-emerald-600', label: t('clients.sourceConverted') },
+    INCOMING_SMS: { className: 'bg-violet-500/10 text-violet-600', label: t('clients.sourceIncomingSms') },
+    INCOMING_CALL: { className: 'bg-orange-500/10 text-orange-600', label: t('clients.sourceIncomingCall') },
     MANUAL: { className: 'bg-muted text-muted-foreground', label: t('clients.sourceManual') },
   }
 

@@ -87,13 +87,16 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   try {
+    // Skip Content-Type for FormData (browser sets multipart boundary automatically)
+    const isFormData = fetchOptions.body instanceof FormData
+    const headers = isFormData
+      ? { ...fetchOptions.headers }
+      : { 'Content-Type': 'application/json', ...fetchOptions.headers }
+
     const response = await fetch(url, {
       ...fetchOptions,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...fetchOptions.headers,
-      },
+      headers,
     })
 
     let data: unknown
@@ -185,9 +188,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headersWithAuth = {
     ...fetchOptions.headers,
     ...authHeaders,
-  }
+  } as Record<string, string>
 
   let lastError: ApiError | null = null
+  let hasRetriedAuth = false
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -197,12 +201,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
       // Don't retry if not retryable or last attempt
       if (!isRetryable(lastError) || attempt === retries) {
-        throw lastError
+        break // exit loop, try auth refresh below
       }
 
       // Exponential backoff: 1s, 2s, 4s...
       const delay = RETRY_DELAY_BASE * Math.pow(2, attempt)
       await sleep(delay)
+    }
+  }
+
+  // On 401, refresh token and retry once (works even with retries: 0)
+  if (lastError?.status === 401 && !hasRetriedAuth && getAuthToken) {
+    hasRetriedAuth = true
+    const freshToken = await getAuthToken()
+    if (freshToken) {
+      headersWithAuth['Authorization'] = `Bearer ${freshToken}`
+      return await attemptRequest<T>(url, { ...fetchOptions, headers: headersWithAuth }, timeout)
     }
   }
 
@@ -312,6 +326,121 @@ export const api = {
     deleteAvatar: (id: string) =>
       request<{ id: string; avatarUrl: null }>(`/clients/${id}/avatar`, {
         method: 'DELETE',
+      }),
+
+  },
+
+  // Businesses (nested under clients)
+  businesses: {
+    list: (clientId: string) =>
+      request<{ data: Business[] }>(`/clients/${clientId}/businesses`),
+
+    create: (clientId: string, data: CreateBusinessInput) =>
+      request<{ data: Business }>(`/clients/${clientId}/businesses`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (clientId: string, businessId: string, data: UpdateBusinessInput) =>
+      request<{ data: Business }>(`/clients/${clientId}/businesses/${businessId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (clientId: string, businessId: string) =>
+      request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Contractors (under businesses — Phase 5 will update components to pass businessId)
+  contractors: {
+    list: (businessId: string) =>
+      request<{ data: Contractor[] }>(`/businesses/${businessId}/contractors`),
+
+    create: (businessId: string, data: CreateContractorInput) =>
+      request<{ data: Contractor }>(`/businesses/${businessId}/contractors`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (businessId: string, id: string, data: UpdateContractorInput) =>
+      request<{ data: Contractor }>(`/businesses/${businessId}/contractors/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (businessId: string, id: string) =>
+      request<{ success: boolean }>(`/businesses/${businessId}/contractors/${id}`, {
+        method: 'DELETE',
+      }),
+
+    uploadExcel: (businessId: string, formData: FormData) =>
+      request<{ success: boolean; data: ParseResult }>(`/businesses/${businessId}/contractors/upload-excel`, {
+        method: 'POST',
+        body: formData,
+        timeout: 120000, // 2 min — server does AI address parsing
+        retries: 0, // Don't retry file uploads
+      }),
+
+    bulkSave: (businessId: string, data: BulkSaveContractorsInput) =>
+      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/bulk-save`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    deleteAll: (businessId: string) =>
+      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/all`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // 1099-NEC Forms (under businesses — Phase 5 will update components to pass businessId)
+  form1099nec: {
+    status: (businessId: string) =>
+      request<{ data: Form1099StatusCounts }>(`/businesses/${businessId}/1099-nec/status`),
+
+    create: (businessId: string) =>
+      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/businesses/${businessId}/1099-nec/create`, {
+        method: 'POST',
+      }),
+
+    fetchPdfs: (businessId: string) =>
+      request<{ success: boolean; pdfCount: number }>(`/businesses/${businessId}/1099-nec/fetch-pdfs`, {
+        method: 'POST',
+      }),
+
+    downloadPdf: (businessId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
+
+    downloadRecipientPdf: (businessId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf/recipient`),
+
+    getAllPdfs: (businessId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
+
+    fetchRecipientPdfs: (businessId: string) =>
+      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/businesses/${businessId}/1099-nec/fetch-recipient-pdfs`, {
+        method: 'POST',
+      }),
+
+    getRecipientPdfs: (businessId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs/recipient`),
+
+    transmit: (businessId: string) =>
+      request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
+        method: 'POST',
+      }),
+
+    getBatches: (businessId: string) =>
+      request<{ data: FilingBatch[] }>(`/businesses/${businessId}/1099-nec/batches`),
+
+    getBatch: (businessId: string, batchId: string) =>
+      request<{ data: FilingBatchDetail }>(`/businesses/${businessId}/1099-nec/batches/${batchId}`),
+
+    refreshBatchStatus: (businessId: string, batchId: string) =>
+      request<{ success: boolean; status: FilingStatusType }>(`/businesses/${businessId}/1099-nec/batches/${batchId}/refresh`, {
+        method: 'POST',
       }),
   },
 
@@ -853,8 +982,8 @@ export const api = {
         body: JSON.stringify({ language }),
       }),
 
-    updateFormSlug: (formSlug: string | null) =>
-      request<{ id: string; formSlug: string | null }>('/staff/me/form-slug', {
+    updateFormSlug: (staffId: string, formSlug: string | null) =>
+      request<{ id: string; formSlug: string | null }>(`/staff/${staffId}/form-slug`, {
         method: 'PATCH',
         body: JSON.stringify({ formSlug }),
       }),
@@ -1045,6 +1174,21 @@ export const api = {
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
   },
+
+  // Campaign management (admin-only)
+  campaigns: {
+    list: () =>
+      request<{ success: boolean; data: Campaign[] }>('/campaigns'),
+
+    create: (data: { name: string; slug: string; tag: string; description?: string }) =>
+      request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED' }) =>
+      request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/campaigns/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Type definitions
@@ -1079,11 +1223,28 @@ export interface Lead {
   businessName: string | null
   status: LeadStatus
   campaignTag: string | null
+  campaignName?: string | null
   tags: string[]
   notes: string | null
   convertedToId: string | null
   createdAt: string
   smsSendLogs?: SmsSendLog[]
+}
+
+export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'
+
+export interface Campaign {
+  id: string
+  name: string
+  slug: string
+  tag: string
+  status: CampaignStatus
+  description: string | null
+  createdById: string
+  createdBy: { name: string }
+  createdAt: string
+  updatedAt: string
+  _count: { leads: number }
 }
 
 export type ActionType =
@@ -1116,6 +1277,8 @@ export interface OcrTriggerResponse {
 }
 
 // Client types
+export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+
 export interface Client {
   id: string
   firstName: string
@@ -1130,6 +1293,182 @@ export interface Client {
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
 }
+
+export interface Business {
+  id: string
+  name: string
+  type: BusinessType
+  einMasked: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  contractorCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateBusinessInput {
+  name: string
+  type: BusinessType
+  ein: string
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+
+export interface UpdateBusinessInput {
+  name?: string
+  type?: BusinessType
+  ein?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+}
+
+export interface Contractor {
+  id: string
+  firstName: string
+  lastName: string
+  ssnLast4: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string | null
+  phone?: string | null
+  createdAt: string
+  updatedAt: string
+  formId?: string | null
+  formStatus?: string | null
+  hasCopyA?: boolean
+  hasCopyB?: boolean
+}
+
+export interface CreateContractorInput {
+  firstName: string
+  lastName: string
+  ssn: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string
+  phone?: string
+}
+
+export interface UpdateContractorInput {
+  firstName?: string
+  lastName?: string
+  ssn?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  email?: string | null
+  phone?: string | null
+}
+
+export interface ParsedContractor {
+  rowIndex: number
+  taxYear: number
+  businessName: string
+  firstName: string
+  lastName: string
+  rawAddress: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  ssn: string
+  ssnMasked: string
+  amountPaid: number
+  email?: string
+  parseWarnings: string[]
+}
+
+export interface ParseResult {
+  contractors: ParsedContractor[]
+  taxYear: number
+  businessName: string
+  errors: string[]
+}
+
+export interface BulkSaveContractorsInput {
+  contractors: {
+    firstName: string
+    lastName: string
+    ssn: string
+    address: string
+    city: string
+    state: string
+    zip: string
+    email?: string
+    amountPaid: number
+  }[]
+  taxYear: number
+}
+
+// 1099-NEC Form Status Counts
+export interface Form1099StatusCounts {
+  draft: number
+  validated: number
+  imported: number
+  pdfReady: number
+  submitted: number
+  accepted: number
+  rejected: number
+  total: number
+}
+
+// Filing submission types
+export type FilingStatusType = 'PENDING' | 'SUBMITTED' | 'PROCESSING' | 'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED'
+
+export interface TransmitResponse {
+  success: boolean
+  batchId: string
+  transmittedCount: number
+}
+
+export interface FilingBatch {
+  id: string
+  clientId: string
+  taxYear: number
+  status: FilingStatusType
+  taxbanditsSubmissionId: string | null
+  submittedAt: string | null
+  acceptedAt: string | null
+  rejectedAt: string | null
+  rejectionReason: string | null
+  totalForms: number
+  acceptedForms: number
+  rejectedForms: number
+  tinCheckEnabled: boolean
+  uspsEnabled: boolean
+  eDeliveryEnabled: boolean
+  createdAt: string
+  updatedAt: string
+  _count?: { forms: number }
+}
+
+export interface FilingBatchDetail extends FilingBatch {
+  forms: Array<{
+    id: string
+    status: string
+    efileStatus: string | null
+    taxYear: number
+    amountBox1: string
+    validationErrors: string[]
+    contractor: {
+      id: string
+      firstName: string
+      lastName: string
+    }
+  }>
+}
+
 
 // Action counts for client list view
 export interface ActionCounts {

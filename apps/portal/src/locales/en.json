@@ -293,6 +293,7 @@
   "register.errors.phoneInvalid": "Invalid phone number",
   "register.errors.emailInvalid": "Invalid email address",
   "register.errors.orgNotFound": "Organization not found",
+  "register.errors.campaignNotFound": "This registration link is no longer active.",
   "register.errors.submitFailed": "Registration failed. Please try again.",
   "portal.disclaimerTitle": "Important Notice",
   "portal.disclaimer1": "All official and legally binding communications (phone call and text) must be conducted exclusively through the designated phone number: 878-678-0999.",

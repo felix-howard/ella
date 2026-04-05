@@ -167,7 +167,7 @@ export function ClientOverviewSections({ client }: ClientOverviewSectionsProps) 
     const legacyFields = [
       'hasW2', 'hasBankAccount', 'hasInvestments', 'hasKidsUnder17',
       'numKidsUnder17', 'paysDaycare', 'hasKids17to24', 'hasSelfEmployment',
-      'hasRentalProperty', 'businessName', 'ein', 'hasEmployees',
+      'hasRentalProperty', 'hasEmployees',
       'hasContractors', 'has1099K',
     ]
 

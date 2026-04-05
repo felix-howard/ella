@@ -1,18 +1,18 @@
 /**
- * Lead Form Link Card - Card showing registration form URL with copy + campaign slug
+ * Lead Form Link Card - Card showing base registration URL + campaign management reference
  */
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { Copy, Check, Link as LinkIcon, AlertTriangle } from 'lucide-react'
+import { useRef, useCallback, useEffect, useState } from 'react'
+import { Copy, Check, Link as LinkIcon, AlertTriangle, Megaphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
 
 export function LeadFormLinkCard() {
   const { t } = useTranslation()
-  const [eventSlug, setEventSlug] = useState('')
-  const [copied, setCopied] = useState<'base' | 'campaign' | null>(null)
+  const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
@@ -26,26 +26,19 @@ export function LeadFormLinkCard() {
 
   const orgSlug = orgSettings?.slug || ''
   const baseUrl = orgSlug ? `${PORTAL_BASE_URL}/register/${orgSlug}` : ''
-  const campaignUrl = orgSlug && eventSlug
-    ? `${PORTAL_BASE_URL}/register/${orgSlug}/${eventSlug}`
-    : ''
 
-  const handleCopy = useCallback(async (url: string, type: 'base' | 'campaign') => {
-    if (!url) return
+  const handleCopy = useCallback(async () => {
+    if (!baseUrl) return
     try {
-      await navigator.clipboard.writeText(url)
-      setCopied(type)
+      await navigator.clipboard.writeText(baseUrl)
+      setCopied(true)
       toast.success(t('leads.copiedLink'))
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
-      copyTimerRef.current = setTimeout(() => setCopied(null), 2000)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error(t('settings.copyFailed'))
     }
-  }, [t])
-
-  const handleSlugChange = (value: string) => {
-    setEventSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-  }
+  }, [baseUrl, t])
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-card">
@@ -76,57 +69,28 @@ export function LeadFormLinkCard() {
                 {baseUrl}
               </code>
               <button
-                onClick={() => handleCopy(baseUrl, 'base')}
+                onClick={handleCopy}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0"
               >
-                {copied === 'base' ? (
+                {copied ? (
                   <Check className="w-4 h-4 text-primary" />
                 ) : (
                   <Copy className="w-4 h-4" />
                 )}
-                {copied === 'base' ? t('leads.copiedLink') : t('leads.copyLink')}
+                {copied ? t('leads.copiedLink') : t('leads.copyLink')}
               </button>
             </div>
 
-            {/* Campaign tag input */}
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                {t('leads.campaignTag')}
-              </label>
-              <input
-                type="text"
-                value={eventSlug}
-                onChange={(e) => handleSlugChange(e.target.value)}
-                placeholder={t('leads.campaignTagPlaceholder')}
-                maxLength={50}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
+            {/* Campaign reference */}
+            <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
+              <Megaphone className="w-4 h-4 text-muted-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground flex-1">
+                {t('leads.campaignManageHint')}
+              </p>
+              <Link to="/leads" className="text-xs text-primary hover:underline whitespace-nowrap">
+                {t('leads.campaignManageLink')}
+              </Link>
             </div>
-
-            {/* Campaign URL (shown when slug entered) */}
-            {campaignUrl && (
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                  {t('leads.campaignUrl')}
-                </label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground truncate">
-                    {campaignUrl}
-                  </code>
-                  <button
-                    onClick={() => handleCopy(campaignUrl, 'campaign')}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-border bg-background hover:bg-muted transition-colors shrink-0"
-                  >
-                    {copied === 'campaign' ? (
-                      <Check className="w-4 h-4 text-primary" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                    {copied === 'campaign' ? t('leads.copiedLink') : t('leads.copyLink')}
-                  </button>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

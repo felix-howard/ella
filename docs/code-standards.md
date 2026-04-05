@@ -215,6 +215,68 @@ const clients = await prisma.client.findMany({ where: filter })
 - Dark mode support via `dark:` prefix
 - Component variants via `class-variance-authority`
 
+## Realtime Messaging (Supabase Broadcast)
+
+**Backend Pattern:**
+```typescript
+// After message creation, publish lightweight event
+import { publishMessageEvent } from '../../services/realtime/message-publisher'
+
+await publishMessageEvent(orgId, {
+  conversationId: conv.id,
+  caseId: conv.caseId,
+  messageId: message.id,
+  direction: 'INBOUND',
+  channel: 'SMS',
+  timestamp: new Date().toISOString(),
+})
+// Non-blocking: publish failures never interrupt message flow
+```
+
+**Frontend Hook Pattern:**
+```typescript
+// Subscribe to org-scoped realtime events + invalidate React Query
+import { useRealtimeMessages } from '../hooks/use-realtime-messages'
+
+export function MyComponent() {
+  useRealtimeMessages({
+    caseId: '123',  // Optional: filter to specific case
+    enabled: true,  // Control subscription lifecycle
+    onEvent: (data) => {
+      // Optional: manual handling beyond cache invalidation
+      console.log('Message received:', data)
+    },
+  })
+  // Hook auto-invalidates: ['conversations'], ['unread-count'], ['messages']
+}
+```
+
+**Architecture:**
+- Channel format: `org:{clerkOrgId}:messages` - Org-scoped isolation
+- Event type: `message` - Broadcast event for all org members
+- Payload: Lightweight metadata (IDs + timestamps, no full message body)
+- Frontend fetches full data via API on cache invalidation
+- Graceful degradation: Missing Supabase config disables realtime (polling fallback remains)
+- Non-blocking: Publisher errors logged, never thrown
+
+**Environment Variables:**
+- Backend: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (for publish)
+- Frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (for subscribe)
+- Configuration checked via `isSupabaseConfigured()` before operations
+
+**Performance Characteristics:**
+- Latency: 100-500ms realtime vs 10-30s polling
+- Bandwidth: Lightweight events (~500 bytes) + API fetch (vs full refetch)
+- Scalability: Supabase managed, auto-scales with org count
+- Fallback: 60s polling interval if realtime unavailable
+
+**Testing:**
+- Verify `isSupabaseConfigured()` returns true after env var setup
+- Test browser console: no errors when config missing (graceful degradation)
+- Monitor WebSocket connection in DevTools Network tab
+- Verify React Query cache keys invalidated on event receipt
+- Confirm message creation triggers realtime event in different browser tab
+
 ## Multi-Tenancy & RBAC
 
 **Data Isolation:**
@@ -249,6 +311,45 @@ const clients = await prisma.client.findMany({ where: filter })
 - Structured field extraction per document type
 - W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A support
 - Confidence scoring for verification workflow
+
+## 1099-NEC Tax Form Integration (TaxBandits API)
+
+**Primary Service:** `apps/api/src/services/taxbandits-client.ts` (OAuth 2.0 JWT-based e-filing)
+
+**Configuration:**
+- TaxBandits env vars: `TAXBANDITS_CLIENT_ID`, `TAXBANDITS_CLIENT_SECRET`, `TAXBANDITS_USER_TOKEN`, `TAXBANDITS_SANDBOX`
+- Singleton client initialized on demand, checked via `config.taxbandits.isConfigured`
+- OAuth JWT: Header+Payload+Signature (HS256) with client credentials
+- Token caching: 55-min expiry (60-min API token minus 5-min buffer)
+- Request timeout: 30s with AbortController
+
+**Models (Phase 4 Schema - Cleaned):**
+- `Form1099NEC` - Individual tax forms with status (DRAFT, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED)
+  - `taxbanditsRecordId` (String, indexed) - TaxBandits form ID
+  - `taxbanditsSubmissionId` (String, indexed, denormalized) - For batch lookups
+  - `validationErrors` array for error tracking
+  - `efileStatus` for IRS response tracking
+- `FilingBatch` - Groups multiple 1099-NECs by client + tax year
+  - `taxbanditsSubmissionId` (String, indexed) - Batch submission ID from TaxBandits
+- `Contractor` - Business client contractor tracking (ssn4Encrypted, einEncrypted, name, address, phone, businessType)
+- Form1099Status enum: DRAFT, IMPORTED, PDF_READY, SUBMITTED, ACCEPTED, REJECTED
+
+**Workflow (3-Step TaxBandits Process):**
+1. `DRAFT` - Form created locally with contractor data
+2. `IMPORTED` - Form transmitted to TaxBandits (creates RecordId + SubmissionId)
+3. `PDF_READY` - Draft PDF retrieved from TaxBandits and stored on R2
+4. `SUBMITTED` - Batch transmitted to IRS via TaxBandits
+5. `ACCEPTED` / `REJECTED` - IRS response received
+
+**Routes (org-scoped with verifyBusinessAccess):**
+- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED)
+- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY)
+- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED)
+- `GET /businesses/:businessId/1099-nec/status` - Status counts
+- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed URL (24-hour TTL)
+- `GET /businesses/:businessId/1099-nec/batches` - List filing batches
+- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms
+- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits
 
 ## Testing Patterns
 
@@ -301,6 +402,12 @@ describe('Feature', () => {
 - `PORTAL_URL` - Client portal base URL
 - `R2_*` - Cloudflare R2 credentials
 
+**TaxBandits Integration (Phase 3.5):**
+- `TAXBANDITS_CLIENT_ID` - TaxBandits OAuth client ID
+- `TAXBANDITS_CLIENT_SECRET` - TaxBandits OAuth client secret
+- `TAXBANDITS_USER_TOKEN` - TaxBandits user token
+- `TAXBANDITS_SANDBOX` - Set to `true` for sandbox environment
+
 **Optional:**
 - `GEMINI_MODEL` - default: gemini-2.0-flash
 - `GEMINI_MAX_RETRIES` - default: 3
@@ -324,6 +431,6 @@ describe('Feature', () => {
 
 ---
 
-**Version:** 2.3
-**Last Updated:** 2026-03-24
-**Status:** Multi-Tenancy & Clerk Webhook Sync Migration complete (event-driven DB sync, read-only auth middleware)
+**Version:** 2.5
+**Last Updated:** 2026-04-02
+**Status:** TaxBandits API Integration complete. TaxBandits API client + 8 endpoints. Schema cleanup done (removed legacy fields, indexed TaxBandits IDs).

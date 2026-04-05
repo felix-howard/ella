@@ -18,9 +18,10 @@ import { toast } from '../../stores/toast-store'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, maskPhone } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
+import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
 
-// Constants for configuration
-const POLLING_INTERVAL_MS = 15000 // 15 seconds - balanced between real-time and performance
+// Fallback polling interval (60 seconds — realtime handles instant updates)
+const FALLBACK_POLLING_MS = 60000
 
 export interface FloatingChatboxProps {
   caseId: string
@@ -44,6 +45,8 @@ export function FloatingChatbox({
   const { isAdmin } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
 
+  useRealtimeMessages({ caseId, enabled: isOpen }) // Subscribe when chatbox is open
+
   // Voice call state
   const [voiceState, voiceActions] = useVoiceCall()
   const [showCallModal, setShowCallModal] = useState(false)
@@ -56,7 +59,7 @@ export function FloatingChatbox({
     queryKey: ['messages', caseId],
     queryFn: () => api.messages.list(caseId),
     enabled: isOpen && !!caseId,
-    refetchInterval: isOpen ? POLLING_INTERVAL_MS : false,
+    refetchInterval: isOpen ? FALLBACK_POLLING_MS : false,
   })
 
   // Send message mutation with optimistic update

@@ -21,7 +21,7 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
   const { t } = useTranslation()
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+    <div className="max-w-3xl bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-6 space-y-6">
       {/* Header with Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Schedule C</h2>
@@ -84,8 +84,8 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
       </div>
 
       {/* Waiting Notice */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-        <p className="text-sm text-amber-800 dark:text-amber-200">
+      <div className="bg-muted/50 border border-border rounded-lg p-4">
+        <p className="text-sm text-muted-foreground">
           {t('scheduleC.waitingNotice')}
         </p>
       </div>

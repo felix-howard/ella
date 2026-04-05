@@ -30,9 +30,21 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
 
     formApi
       .getOrgInfo(orgSlug)
-      .then((data) => {
+      .then(async (data) => {
         if (controller.signal.aborted) return
         setOrg(data.org)
+
+        // Validate campaign slug if provided
+        if (eventSlug) {
+          const result = await formApi.validateCampaign(orgSlug, eventSlug)
+          if (controller.signal.aborted) return
+          if (!result.valid) {
+            setError(t('register.errors.campaignNotFound'))
+            setState('error')
+            return
+          }
+        }
+
         setState('form')
       })
       .catch((err) => {

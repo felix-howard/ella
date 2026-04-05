@@ -982,8 +982,8 @@ export const api = {
         body: JSON.stringify({ language }),
       }),
 
-    updateFormSlug: (formSlug: string | null) =>
-      request<{ id: string; formSlug: string | null }>('/staff/me/form-slug', {
+    updateFormSlug: (staffId: string, formSlug: string | null) =>
+      request<{ id: string; formSlug: string | null }>(`/staff/${staffId}/form-slug`, {
         method: 'PATCH',
         body: JSON.stringify({ formSlug }),
       }),

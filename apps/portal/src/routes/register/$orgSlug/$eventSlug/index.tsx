@@ -36,9 +36,8 @@ function RegisterPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
         <h2 className="text-lg font-semibold text-foreground mb-2">
-          {t('register.errors.orgNotFound')}
+          {error || t('register.errors.orgNotFound')}
         </h2>
-        <p className="text-muted-foreground">{error}</p>
       </div>
     )
   }

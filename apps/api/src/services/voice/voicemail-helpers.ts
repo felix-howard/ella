@@ -131,7 +131,8 @@ export async function findConversationByPhone(
  */
 export async function createPlaceholderConversation(
   phone: string,
-  organizationId?: string | null
+  organizationId?: string | null,
+  source?: 'INCOMING_SMS' | 'INCOMING_CALL'
 ): Promise<{ id: string }> {
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
     // RACE CONDITION FIX: Use upsert to handle concurrent requests
@@ -143,6 +144,7 @@ export async function createPlaceholderConversation(
         name: 'New Caller',
         phone,
         language: 'VI',
+        ...(source ? { source } : {}),
         ...(organizationId ? { organizationId } : {}),
       },
       // If client exists without org, associate with org now

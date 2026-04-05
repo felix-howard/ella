@@ -6,7 +6,8 @@ export function useTermsStatus() {
     queryKey: ['terms-status'],
     queryFn: () => api.terms.getStatus(),
     staleTime: 5 * 60 * 1000,
-    retry: 2,
+    retry: 5,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   })
 }
 

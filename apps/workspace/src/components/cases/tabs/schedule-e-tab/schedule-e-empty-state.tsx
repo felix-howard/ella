@@ -31,7 +31,7 @@ export function ScheduleEEmptyState({ caseId, clientName }: ScheduleEEmptyStateP
 
   return (
     <>
-      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-6">
+      <div className="max-w-3xl bg-card rounded-xl border border-border p-6">
         <div className="flex flex-col items-center text-center py-8">
           {/* Icon */}
           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4" aria-hidden="true">

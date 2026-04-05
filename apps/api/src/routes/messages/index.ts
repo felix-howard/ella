@@ -14,6 +14,7 @@ import {
   listMessagesQuerySchema,
   listConversationsQuerySchema,
 } from './schemas'
+import { publishMessageEventFromConversation } from '../../services/realtime/message-publisher'
 import {
   sendSmsOnly,
   isSmsEnabled,
@@ -412,6 +413,13 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
       },
     },
   })
+
+  // Publish realtime event (non-blocking)
+  publishMessageEventFromConversation(conversation.id, {
+    id: message.id,
+    direction: 'OUTBOUND',
+    channel: channel as 'SMS' | 'PORTAL' | 'CALL',
+  }).catch(() => {})
 
   // Update conversation timestamp
   await prisma.conversation.update({

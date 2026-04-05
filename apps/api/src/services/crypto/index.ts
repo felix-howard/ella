@@ -130,6 +130,20 @@ export function isValidSSN(ssn: string): boolean {
 }
 
 /**
+ * Validate TIN (Taxpayer Identification Number) format
+ * Accepts SSN, EIN, and ITIN — used for 1099-NEC contractor filings
+ * - Must be 9 digits
+ * - Cannot be all zeros
+ */
+export function isValidTIN(tin: string): boolean {
+  if (!tin) return false
+  const digits = tin.replace(/\D/g, '')
+  if (digits.length !== 9) return false
+  if (digits === '000000000') return false
+  return true
+}
+
+/**
  * Format SSN with dashes (e.g., "123456789" -> "123-45-6789")
  */
 export function formatSSN(ssn: string): string {

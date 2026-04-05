@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -26,6 +26,8 @@ import {
   FolderOpen,
   Calculator,
   Home,
+  Building2,
+  ChevronDown,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, Input } from '@ella/ui'
@@ -34,6 +36,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
 const DraftReturnTab = lazy(() => import('../../components/draft-return').then(m => ({ default: m.DraftReturnTab })))
+const BusinessesTab = lazy(() => import('../../components/businesses').then(m => ({ default: m.BusinessesTab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -51,9 +54,10 @@ import { FilesTab } from '../../components/files'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
+import { useScheduleC } from '../../hooks/use-schedule-c'
+import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
-import { useScheduleC } from '../../hooks/use-schedule-c'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
@@ -64,7 +68,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'businesses'
 
 function ClientDetailPage() {
   const { t } = useTranslation()
@@ -85,6 +89,9 @@ function ClientDetailPage() {
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
   const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
   const tempIdCounterRef = useRef(0)
+  // "More" dropdown state (must be before early returns for Rules of Hooks)
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -306,11 +313,9 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
-  // Schedule C data for tab visibility
-  const { showScheduleCTab } = useScheduleC({
-    caseId: activeCaseId,
-    enabled: !!activeCaseId,
-  })
+  // Fetch Schedule C/E existence to promote tabs from "More" to primary
+  const { expense: scheduleCExpense } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
+  const { expense: scheduleEExpense } = useScheduleE({ caseId: activeCaseId, enabled: !!activeCaseId })
 
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
@@ -335,13 +340,32 @@ function ClientDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
   }
 
+  // Close "More" dropdown on outside click or Escape
+  useEffect(() => {
+    if (!isMoreOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setIsMoreOpen(false)
+      }
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMoreOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isMoreOpen])
+
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
     return (
       <PageContainer>
         <Link
           to="/clients"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>{t('clientDetail.backToList')}</span>
@@ -460,19 +484,30 @@ function ClientDetailPage() {
 
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
+
+  // Schedule C/E tabs: promote to primary tabs once a form has been sent
+  const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
+  const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
+
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: t('clientOverview.title'), icon: User },
     { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-    // TODO: Temporarily hidden - re-enable when needed
-    // { id: 'checklist', label: t('clientDetail.tabChecklist'), icon: FileText },
-    // Schedule C tab: Show if 1099-NEC detected OR Schedule C already exists
-    ...(showScheduleCTab ? [{ id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }] : []),
-    // Schedule E tab: Always visible (no trigger condition like Schedule C)
-    { id: 'schedule-e', label: 'Schedule E', icon: Home },
+    { id: 'businesses' as TabType, label: 'Businesses', icon: Building2 },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-    // Draft Return tab: For sharing draft tax returns with clients
     { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+    // Promote schedule tabs when form has been sent
+    ...(scheduleCExpense ? [scheduleCTab] : []),
+    ...(scheduleEExpense ? [scheduleETab] : []),
   ]
+
+  // Overflow tabs: only show tabs that haven't been promoted
+  const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = [
+    ...(!scheduleCExpense ? [scheduleCTab] : []),
+    ...(!scheduleEExpense ? [scheduleETab] : []),
+  ]
+
+  const isOverflowActive = overflowTabs.some((t) => t.id === activeTab)
+  const activeOverflowLabel = overflowTabs.find((t) => t.id === activeTab)?.label
 
   return (
     <PageContainer>
@@ -480,7 +515,7 @@ function ClientDetailPage() {
       <div className="mb-6">
         <Link
           to="/clients"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>{clientsText.backToList}</span>
@@ -643,29 +678,78 @@ function ClientDetailPage() {
 
       {/* Tabs - Pill style */}
       <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <nav className="flex gap-1 p-1 bg-muted/40 rounded-xl overflow-x-auto scrollbar-none" role="tablist">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0',
-                  isActive
-                    ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                )}
-              >
-                <Icon className="w-4 h-4" aria-hidden="true" />
-                <span>{tab.label}</span>
-              </button>
-            )
-          })}
-        </nav>
+        <div className="flex gap-1 p-1 bg-muted/40 rounded-xl">
+          <nav className="flex gap-1 overflow-x-auto scrollbar-none" role="tablist">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0',
+                    isActive
+                      ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className="w-4 h-4" aria-hidden="true" />
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
+          </nav>
+
+          {/* More dropdown - outside scrollable nav so dropdown isn't clipped */}
+          {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
+            <button
+              role="tab"
+              aria-selected={isOverflowActive}
+              aria-expanded={isMoreOpen}
+              aria-haspopup="true"
+              onClick={() => setIsMoreOpen((v) => !v)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap',
+                isOverflowActive
+                  ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              <span>{isOverflowActive ? activeOverflowLabel : 'More'}</span>
+              <ChevronDown className={cn('w-4 h-4 transition-transform', isMoreOpen && 'rotate-180')} aria-hidden="true" />
+            </button>
+            {isMoreOpen && (
+              <div role="menu" className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-background border border-border rounded-lg shadow-lg py-1">
+                {overflowTabs.map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      role="menuitem"
+                      onClick={() => {
+                        setActiveTab(tab.id)
+                        setIsMoreOpen(false)
+                      }}
+                      className={cn(
+                        'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
+                        isActive
+                          ? 'text-primary font-medium bg-muted/50'
+                          : 'text-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                      <span>{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>}
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -781,6 +865,15 @@ function ClientDetailPage() {
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.draftReturnError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <DraftReturnTab caseId={activeCaseId} clientName={client.name} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* Businesses Tab - Business entities with contractors and 1099-NEC (lazy loaded) */}
+      {activeTab === 'businesses' && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load Businesses tab</div>}>
+          <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+            <BusinessesTab clientId={clientId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

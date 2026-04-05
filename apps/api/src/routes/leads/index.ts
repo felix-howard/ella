@@ -58,6 +58,19 @@ leadsRoute.post(
 
     const normalizedPhone = formatPhoneToE164(phone)
 
+    // Look up campaign tag from slug — reject if campaign doesn't exist or is archived
+    let campaignTag: string | null = null
+    if (eventSlug) {
+      const campaign = await prisma.campaign.findUnique({
+        where: { slug_organizationId: { slug: eventSlug, organizationId: org.id } },
+        select: { tag: true, status: true },
+      })
+      if (!campaign || campaign.status !== 'ACTIVE') {
+        return c.json({ success: false, error: 'Campaign not found or inactive' }, 404)
+      }
+      campaignTag = campaign.tag || eventSlug
+    }
+
     try {
       const lead = await prisma.lead.create({
         data: {
@@ -66,8 +79,8 @@ leadsRoute.post(
           phone: normalizedPhone,
           email: email ? sanitizeTextInput(email) : null,
           businessName: businessName ? sanitizeTextInput(businessName) : null,
-          campaignTag: eventSlug || null,
-          tags: eventSlug ? [eventSlug] : [],
+          campaignTag,
+          tags: campaignTag ? [campaignTag] : [],
           status: 'NEW',
           organizationId: org.id,
         },
@@ -200,7 +213,17 @@ leadsRoute.get(
       return c.json({ success: false, error: 'Lead not found' }, 404)
     }
 
-    return c.json({ success: true, data: lead })
+    // Enrich with campaign name if campaign tag exists
+    let campaignName: string | null = null
+    if (lead.campaignTag) {
+      const campaign = await prisma.campaign.findUnique({
+        where: { tag_organizationId: { tag: lead.campaignTag, organizationId: orgId } },
+        select: { name: true },
+      })
+      campaignName = campaign?.name || null
+    }
+
+    return c.json({ success: true, data: { ...lead, campaignName } })
   }
 )
 

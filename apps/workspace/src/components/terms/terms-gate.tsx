@@ -19,7 +19,7 @@ export function TermsGate({ children }: TermsGateProps) {
     return <>{children}</>
   }
 
-  // Loading status
+  // Loading status (includes active retries - show spinner while webhook processes)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">

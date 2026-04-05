@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { clerkClient } from '../../lib/clerk-client'
 import { config } from '../../lib/config'
+import { prisma } from '../../lib/db'
 import { rateLimiter } from '../../middleware/rate-limiter'
 
 const signupSchema = z.object({
@@ -44,19 +45,38 @@ authSignupRoute.post(
       userId = user.id
 
       // 2. Create organization (auto-adds user as admin)
-      const org = await clerkClient.organizations.createOrganization({
+      const clerkOrg = await clerkClient.organizations.createOrganization({
         name: orgName,
         createdBy: userId,
       })
-      orgId = org.id
+      orgId = clerkOrg.id
 
-      // 3. Generate short-lived sign-in token
+      // 3. Create DB records immediately (don't wait for webhook)
+      const dbOrg = await prisma.organization.upsert({
+        where: { clerkOrgId: orgId },
+        update: {},
+        create: { clerkOrgId: orgId, name: orgName },
+      })
+      await prisma.staff.upsert({
+        where: { clerkId: userId },
+        update: { organizationId: dbOrg.id },
+        create: {
+          clerkId: userId,
+          email,
+          name: `${firstName} ${lastName}`,
+          role: 'ADMIN',
+          avatarUrl: user.imageUrl,
+          organizationId: dbOrg.id,
+        },
+      })
+
+      // 4. Generate short-lived sign-in token
       const signInToken = await clerkClient.signInTokens.createSignInToken({
         userId,
         expiresInSeconds: 300,
       })
 
-      // 4. Build redirect URL
+      // 5. Build redirect URL
       const redirectUrl = `${config.workspaceUrl}/auto-login?token=${signInToken.token}&orgId=${orgId}`
 
       return c.json({ success: true, redirectUrl })

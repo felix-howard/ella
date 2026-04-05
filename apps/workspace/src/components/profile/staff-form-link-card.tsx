@@ -44,7 +44,7 @@ export function StaffFormLinkCard({
 
   const mutation = useMutation({
     mutationFn: (newSlug: string | null) =>
-      api.staff.updateFormSlug(newSlug),
+      api.staff.updateFormSlug(staffId, newSlug),
     onSuccess: () => {
       toast.success(t('profile.slugSaved'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })

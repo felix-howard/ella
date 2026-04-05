@@ -15,6 +15,7 @@ import {
   type SmsLanguage,
 } from './templates'
 import type { MessageChannel, MessageDirection } from '@ella/db'
+import { publishMessageEventFromConversation } from '../realtime/message-publisher'
 
 /**
  * Get the organization's SMS language preference
@@ -252,6 +253,13 @@ async function sendAndRecordMessage(
         : `ERROR: ${result.error || 'Unknown error'}`,
     },
   })
+
+  // Publish realtime event (non-blocking)
+  publishMessageEventFromConversation(conversation.id, {
+    id: message.id,
+    direction: 'OUTBOUND',
+    channel: 'SMS',
+  }).catch(() => {})
 
   // Update conversation timestamp
   await prisma.conversation.update({

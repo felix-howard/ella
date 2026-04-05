@@ -1,6 +1,6 @@
 /**
  * Property Card - Expandable card showing single rental property details
- * Redesigned with cleaner layout, better hierarchy, and less visual noise
+ * Clean layout with minimal color, clear hierarchy
  */
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
@@ -27,36 +27,12 @@ const EXPENSE_FIELDS = [
   { key: 'cleaningMaintenance', lineKey: 'scheduleE.line7CleaningMaintenance' },
 ] as const
 
-// Property badge colors by letter index
-const BADGE_COLORS = [
-  'bg-primary/10 text-primary',
-  'bg-blue-500/10 text-blue-500',
-  'bg-violet-500/10 text-violet-500',
-  'bg-orange-500/10 text-orange-500',
-  'bg-pink-500/10 text-pink-500',
-  'bg-cyan-500/10 text-cyan-500',
-  'bg-amber-500/10 text-amber-500',
-  'bg-rose-500/10 text-rose-500',
-]
-
-function getBadgeColor(id: string): string {
-  const index = id.charCodeAt(0) - 65 // A=0, B=1, etc.
-  return BADGE_COLORS[index % BADGE_COLORS.length]
-}
-
 export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProps) {
   const { t, i18n } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const netIsPositive = property.netIncome >= 0
-  const badgeColor = getBadgeColor(property.id)
-
   return (
-    <div className={cn(
-      'rounded-xl overflow-hidden transition-all duration-200',
-      'bg-card border border-border/60 dark:border-white/[0.06]',
-      isExpanded && 'ring-1 ring-primary/20'
-    )}>
+    <div className="rounded-xl overflow-hidden bg-card border border-border">
       {/* Collapsed Header */}
       <button
         type="button"
@@ -66,16 +42,13 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
         aria-label={`${t('scheduleE.property')} ${property.id}`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {/* Property Letter Badge */}
-          <span className={cn(
-            'w-9 h-9 rounded-lg text-sm font-bold flex items-center justify-center flex-shrink-0',
-            badgeColor
-          )}>
+          {/* Property Letter */}
+          <span className="w-8 h-8 rounded-lg bg-muted text-muted-foreground text-sm font-semibold flex items-center justify-center flex-shrink-0">
             {property.id}
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {sanitizeText(formatAddress(property.address)) || t('scheduleE.noAddress')}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -88,26 +61,23 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
         <div className="flex items-center gap-5 ml-4">
           {/* Rent */}
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-0.5">{t('scheduleE.rent')}</p>
-            <p className="text-sm font-semibold text-foreground tabular-nums">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('scheduleE.rent')}</p>
+            <p className="text-sm font-medium text-foreground tabular-nums">
               {formatUSD(property.rentsReceived)}
             </p>
           </div>
 
           {/* Net Income */}
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-0.5">{t('scheduleE.netIncome')}</p>
-            <p className={cn(
-              'text-sm font-semibold tabular-nums',
-              netIsPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-            )}>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('scheduleE.netIncome')}</p>
+            <p className="text-sm font-medium text-foreground tabular-nums">
               {formatUSD(property.netIncome)}
             </p>
           </div>
 
           {/* Expand Chevron */}
           <ChevronDown className={cn(
-            'w-4 h-4 text-muted-foreground/60 transition-transform duration-200 flex-shrink-0',
+            'w-4 h-4 text-muted-foreground transition-transform duration-200 flex-shrink-0',
             isExpanded && 'rotate-180'
           )} />
         </div>
@@ -115,23 +85,23 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="border-t border-border/60 px-4 pb-4 pt-3 space-y-4">
+        <div className="border-t border-border px-4 pb-4 pt-3 space-y-4">
           {/* Property Information Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
             {/* Address */}
             <div className="sm:col-span-2">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 Line 1a · {t('scheduleE.address')}
               </p>
               <CopyableText
                 text={`${sanitizeText(property.address.street)}, ${sanitizeText(property.address.city)}, ${sanitizeText(property.address.state)} ${sanitizeText(property.address.zip)}`}
-                className="text-sm text-foreground font-medium"
+                className="text-sm text-foreground"
               />
             </div>
 
             {/* Property Type */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 Line 1b · {t('scheduleE.propertyType')}
               </p>
               <CopyableText
@@ -143,31 +113,31 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
 
             {/* Rents Received */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 Line 3 · {t('scheduleE.rentsReceived')}
               </p>
               <CopyableValue
                 formatted={formatUSD(property.rentsReceived)}
                 rawValue={property.rentsReceived}
-                className="text-sm font-semibold text-foreground"
+                className="text-sm font-medium text-foreground"
               />
             </div>
 
             {/* Fair Rental Days */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 Line 2 · {t('scheduleE.fairRentalDays')}
               </p>
               <CopyableNumber
                 value={property.fairRentalDays}
                 formatted={`${property.fairRentalDays} days`}
-                className="text-sm font-medium text-foreground"
+                className="text-sm text-foreground"
               />
             </div>
 
             {/* Personal Use Days */}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                 {t('scheduleE.personalUseDays')}
               </p>
               <CopyableNumber
@@ -178,12 +148,9 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-border/40" />
-
           {/* Expenses */}
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2">
+          <div className="border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
               {t('scheduleE.expenses')}
             </p>
             <div className="space-y-0.5">
@@ -191,7 +158,7 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
                 const value = property[key as keyof typeof property] as number
                 if (value === 0) return null
                 return (
-                  <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors group">
+                  <div key={key} className="flex items-center justify-between py-1.5">
                     <span className="text-sm text-muted-foreground">{t(lineKey)}</span>
                     <CopyableValue
                       formatted={formatUSD(value)}
@@ -204,7 +171,7 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
 
               {/* Custom Other Expenses */}
               {property.otherExpenses.map((expense, idx) => (
-                <div key={`other-${idx}`} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors group">
+                <div key={`other-${idx}`} className="flex items-center justify-between py-1.5">
                   <span className="text-sm text-muted-foreground">
                     {t('scheduleE.line19Other')}: {sanitizeText(expense.name)}
                   </span>
@@ -217,7 +184,7 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
               ))}
 
               {/* Total Expenses */}
-              <div className="flex items-center justify-between py-2 px-2 mt-1 rounded-lg bg-muted/40 dark:bg-white/[0.03] font-medium">
+              <div className="flex items-center justify-between py-2 mt-1 border-t border-border font-medium">
                 <span className="text-sm">{t('scheduleE.totalExpenses')}</span>
                 <CopyableValue
                   formatted={formatUSD(property.totalExpenses)}
@@ -228,26 +195,15 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
             </div>
           </div>
 
-          {/* Net Income/Loss */}
-          <div className={cn(
-            'rounded-lg px-4 py-3 flex items-center justify-between',
-            netIsPositive
-              ? 'bg-green-500/5 dark:bg-green-500/10 ring-1 ring-green-500/20'
-              : 'bg-red-500/5 dark:bg-red-500/10 ring-1 ring-red-500/20'
-          )}>
-            <span className={cn(
-              'text-sm font-semibold',
-              netIsPositive ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
-            )}>
-              {netIsPositive ? t('scheduleE.netProfit') : t('scheduleE.netLoss')}
+          {/* Net Income/Loss — subtle, no colored background */}
+          <div className="border-t border-border pt-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground uppercase tracking-wide">
+              {property.netIncome >= 0 ? t('scheduleE.netProfit') : t('scheduleE.netLoss')}
             </span>
             <CopyableValue
-              formatted={formatUSD(Math.abs(property.netIncome))}
-              rawValue={Math.abs(property.netIncome)}
-              className={cn(
-                'text-base font-bold',
-                netIsPositive ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
-              )}
+              formatted={formatUSD(property.netIncome)}
+              rawValue={property.netIncome}
+              className="text-base font-semibold text-foreground"
             />
           </div>
         </div>

@@ -113,6 +113,43 @@ export const config = {
         : true,
   },
 
+  // TaxBandits API Configuration (1099-NEC e-filing)
+  taxbandits: {
+    clientId: process.env.TAXBANDITS_CLIENT_ID || '',
+    clientSecret: process.env.TAXBANDITS_CLIENT_SECRET || '',
+    userToken: process.env.TAXBANDITS_USER_TOKEN || '',
+    isSandbox: process.env.TAXBANDITS_SANDBOX !== 'false',
+    isConfigured: Boolean(
+      process.env.TAXBANDITS_CLIENT_ID &&
+        process.env.TAXBANDITS_CLIENT_SECRET &&
+        process.env.TAXBANDITS_USER_TOKEN
+    ),
+    awsAccessKey: process.env.TAXBANDITS_AWS_ACCESS_KEY || '',
+    awsSecretKey: process.env.TAXBANDITS_AWS_SECRET_KEY || '',
+    base64Key: process.env.TAXBANDITS_BASE64_KEY || '',
+    s3Bucket: process.env.TAXBANDITS_S3_BUCKET || '',
+    urls: (() => {
+      const sandbox = process.env.TAXBANDITS_SANDBOX !== 'false'
+      return {
+        oauth: sandbox
+          ? 'https://testoauth.expressauth.net/v2/tbsauth'
+          : 'https://oauth.expressauth.net/v2/tbsauth',
+        api: sandbox
+          ? 'https://testapi.taxbandits.com/v1.7.3'
+          : 'https://api.taxbandits.com/v1.7.3',
+      }
+    })(),
+  },
+
+  // Supabase Configuration (Realtime)
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    isConfigured: Boolean(
+      process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ),
+  },
+
   // Schedule C Configuration
   scheduleC: {
     // IRS standard mileage rate in cents (2024: 67 cents/mile)

@@ -293,6 +293,7 @@
   "register.errors.phoneInvalid": "Số điện thoại không hợp lệ",
   "register.errors.emailInvalid": "Email không hợp lệ",
   "register.errors.orgNotFound": "Không tìm thấy tổ chức",
+  "register.errors.campaignNotFound": "Liên kết đăng ký này không còn hoạt động.",
   "register.errors.submitFailed": "Đăng ký thất bại. Vui lòng thử lại.",
   "portal.disclaimerTitle": "Thông báo quan trọng",
   "portal.disclaimer1": "Tất cả các liên lạc chính thức và có tính ràng buộc pháp lý (cuộc gọi và tin nhắn) phải được thực hiện thông qua số điện thoại được chỉ định: 878-678-0999.",

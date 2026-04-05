@@ -52,6 +52,36 @@ formRoute.get(
   }
 )
 
+// GET /form/:orgSlug/campaign/:campaignSlug - Validate campaign exists and is active
+formRoute.get(
+  '/:orgSlug/campaign/:campaignSlug',
+  formReadRateLimit,
+  async (c) => {
+    const orgSlug = c.req.param('orgSlug')
+    const campaignSlug = c.req.param('campaignSlug')
+
+    const org = await prisma.organization.findFirst({
+      where: { slug: orgSlug, isActive: true },
+      select: { id: true },
+    })
+
+    if (!org) return c.json({ error: 'Organization not found' }, 404)
+
+    const campaign = await prisma.campaign.findUnique({
+      where: {
+        slug_organizationId: { slug: campaignSlug, organizationId: org.id },
+      },
+      select: { id: true, name: true, status: true },
+    })
+
+    if (!campaign || campaign.status !== 'ACTIVE') {
+      return c.json({ error: 'Campaign not found' }, 404)
+    }
+
+    return c.json({ valid: true, campaignName: campaign.name })
+  }
+)
+
 // GET /form/:orgSlug/:staffSlug - Get org + staff info for personalized form
 formRoute.get(
   '/:orgSlug/:staffSlug',

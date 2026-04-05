@@ -54,6 +54,8 @@ import { FilesTab } from '../../components/files'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
+import { useScheduleC } from '../../hooks/use-schedule-c'
+import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { UI_TEXT } from '../../lib/constants'
@@ -311,6 +313,10 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
+  // Fetch Schedule C/E existence to promote tabs from "More" to primary
+  const { expense: scheduleCExpense } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
+  const { expense: scheduleEExpense } = useScheduleE({ caseId: activeCaseId, enabled: !!activeCaseId })
+
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
   const handleYearChange = (year: number, engagementId: string) => {
@@ -478,19 +484,26 @@ function ClientDetailPage() {
 
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
+
+  // Schedule C/E tabs: promote to primary tabs once a form has been sent
+  const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
+  const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
+
   const tabs: { id: TabType; label: string; icon: typeof User }[] = [
     { id: 'overview', label: t('clientOverview.title'), icon: User },
     { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-    // Businesses tab: always visible
     { id: 'businesses' as TabType, label: 'Businesses', icon: Building2 },
     { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
     { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+    // Promote schedule tabs when form has been sent
+    ...(scheduleCExpense ? [scheduleCTab] : []),
+    ...(scheduleEExpense ? [scheduleETab] : []),
   ]
 
-  // Overflow tabs shown under "More" dropdown
+  // Overflow tabs: only show tabs that haven't been promoted
   const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = [
-    { id: 'schedule-c', label: 'Schedule C', icon: Calculator },
-    { id: 'schedule-e', label: 'Schedule E', icon: Home },
+    ...(!scheduleCExpense ? [scheduleCTab] : []),
+    ...(!scheduleEExpense ? [scheduleETab] : []),
   ]
 
   const isOverflowActive = overflowTabs.some((t) => t.id === activeTab)
@@ -691,7 +704,7 @@ function ClientDetailPage() {
           </nav>
 
           {/* More dropdown - outside scrollable nav so dropdown isn't clipped */}
-          <div ref={moreRef} className="relative flex-shrink-0">
+          {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
             <button
               role="tab"
               aria-selected={isOverflowActive}
@@ -735,7 +748,7 @@ function ClientDetailPage() {
                 })}
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 

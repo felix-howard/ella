@@ -4,9 +4,9 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, FileText, Download, Send, Archive, Users } from 'lucide-react'
+import { Loader2, FileText, Download, Send, Archive, Users, AlertTriangle } from 'lucide-react'
 import JSZip from 'jszip'
-import { Button } from '@ella/ui'
+import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 
@@ -86,7 +86,10 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     onSuccess: (data) => {
       toast.success(`Created ${data.createdCount} forms in TaxBandits`)
       if (data.errors && data.errors.length > 0) {
-        toast.error(`${data.errors.length} form(s) had errors`)
+        for (const formErr of data.errors) {
+          const details = formErr.errors?.join(', ') || 'Unknown error'
+          toast.error(`Form ${formErr.sequence}: ${details}`)
+        }
       }
       refreshStatus()
     },
@@ -125,7 +128,9 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     onSuccess: (data) => {
       toast.success(`Fetched ${data.pdfCount} recipient PDFs`)
       if (data.errors && data.errors.length > 0) {
-        toast.error(`${data.errors.length} record(s) had errors`)
+        for (const errMsg of data.errors) {
+          toast.error(errMsg)
+        }
       }
       refreshStatus()
       queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
@@ -228,44 +233,16 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
           2. Get PDFs
         </Button>
 
-        {showConfirm ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Transmit {status.pdfReady} forms?</span>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => transmitMutation.mutate()}
-              disabled={transmitMutation.isPending}
-              className="gap-1.5"
-            >
-              {transmitMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Send className="w-3.5 h-3.5" />
-              )}
-              Confirm
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowConfirm(false)}
-              disabled={transmitMutation.isPending}
-            >
-              Cancel
-            </Button>
-          </div>
-        ) : (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowConfirm(true)}
-            disabled={status.pdfReady === 0}
-            className="gap-1.5"
-          >
-            <Send className="w-3.5 h-3.5" />
-            3. Transmit to IRS
-          </Button>
-        )}
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => setShowConfirm(true)}
+          disabled={status.pdfReady === 0}
+          className="gap-1.5"
+        >
+          <Send className="w-3.5 h-3.5" />
+          3. Transmit to IRS
+        </Button>
 
         {hasTransmitted && (
           <Button
@@ -323,6 +300,51 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
           )}
         </div>
       )}
+      {/* Transmit to IRS Confirmation Modal */}
+      <Modal open={showConfirm} onClose={() => !transmitMutation.isPending && setShowConfirm(false)}>
+        <ModalHeader>
+          <ModalTitle>Transmit to IRS</ModalTitle>
+        </ModalHeader>
+        <div className="p-4 space-y-3">
+          <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium">This action cannot be undone</p>
+              <p className="mt-1 text-amber-700 dark:text-amber-300">
+                Once transmitted, forms will be submitted to the IRS and cannot be recalled.
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You are about to transmit <span className="font-semibold text-foreground">{status.pdfReady}</span> form(s)
+            to the IRS. Please confirm you have reviewed all contractor information and amounts before proceeding.
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConfirm(false)}
+            disabled={transmitMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => transmitMutation.mutate()}
+            disabled={transmitMutation.isPending}
+            className="gap-1.5"
+          >
+            {transmitMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            Confirm Transmit
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

@@ -111,7 +111,7 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
       throw new ApiError(
         response.status,
         errorData.error || 'UNKNOWN_ERROR',
-        errorData.message || 'An unknown error occurred'
+        errorData.message || errorData.error || 'An unknown error occurred'
       )
     }
 

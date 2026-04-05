@@ -3,7 +3,7 @@
  * Shows contractor table with CRUD operations
  * Supports Excel upload with review table for bulk import
  */
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2 } from 'lucide-react'
 import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
@@ -11,7 +11,6 @@ import { api, type Contractor, type CreateContractorInput, type UpdateContractor
 import { toast } from '../../../../stores/toast-store'
 import { ContractorTable } from './contractor-table'
 import { ContractorFormModal } from './contractor-form-modal'
-import { ContractorUpload } from './contractor-upload'
 import { ContractorReviewTable } from './contractor-review-table'
 import { FormActionsPanel } from './form-actions-panel'
 import { FilingStatusPanel } from './filing-status-panel'
@@ -26,7 +25,8 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null)
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contractors', businessId],
@@ -106,13 +106,34 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
       queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
       invalidateBusinesses()
       setParseResult(null)
-      setShowUpload(false)
       toast.success(`${data.count} contractors saved`)
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to save contractors')
     },
   })
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.name.match(/\.xlsx?$/i)) { toast.error('Only .xlsx/.xls files supported'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('File must be under 5MB'); return }
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const result = await api.contractors.uploadExcel(businessId, formData)
+      if (result.data.errors.length > 0) { toast.error(result.data.errors.join('. ')); return }
+      if (result.data.contractors.length === 0) { toast.error('No contractors found in file. Check the Excel format.'); return }
+      setParseResult(result.data)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const contractors = data?.data ?? []
 
@@ -195,12 +216,20 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowUpload(!showUpload)}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
               className="gap-1.5"
             >
-              <Upload className="w-4 h-4" />
-              Upload Excel
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {isUploading ? 'Uploading...' : 'Upload Excel'}
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
             <Button
               size="sm"
               onClick={() => setIsFormOpen(true)}
@@ -212,38 +241,16 @@ export function Form1099NECTab({ businessId, clientName }: Form1099NECTabProps) 
           </div>
         </div>
 
-        {/* Upload dropzone (toggleable) */}
-        {showUpload && (
-          <div className="mb-4">
-            <ContractorUpload
-              businessId={businessId}
-              onParsed={(data) => {
-                setParseResult(data)
-                setShowUpload(false)
-              }}
-            />
-          </div>
-        )}
-
         {/* Contractor Table or Empty State */}
-        {contractors.length === 0 && !showUpload ? (
+        {contractors.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
               <Plus className="w-6 h-6 text-muted-foreground" />
             </div>
             <h3 className="text-sm font-medium text-foreground mb-1">Add your first contractor</h3>
-            <p className="text-xs text-muted-foreground max-w-sm mb-4">
+            <p className="text-xs text-muted-foreground max-w-sm">
               Add contractors who received payments for {clientName}, or upload an Excel file to import them in bulk.
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUpload(true)}
-              className="gap-1.5"
-            >
-              <Upload className="w-4 h-4" />
-              Upload Excel
-            </Button>
           </div>
         ) : contractors.length > 0 ? (
           <ContractorTable

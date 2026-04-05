@@ -1174,6 +1174,21 @@ export const api = {
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
   },
+
+  // Campaign management (admin-only)
+  campaigns: {
+    list: () =>
+      request<{ success: boolean; data: Campaign[] }>('/campaigns'),
+
+    create: (data: { name: string; slug: string; description?: string }) =>
+      request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED' }) =>
+      request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/campaigns/${id}`, { method: 'DELETE' }),
+  },
 }
 
 // Type definitions
@@ -1208,11 +1223,27 @@ export interface Lead {
   businessName: string | null
   status: LeadStatus
   campaignTag: string | null
+  campaignName?: string | null
   tags: string[]
   notes: string | null
   convertedToId: string | null
   createdAt: string
   smsSendLogs?: SmsSendLog[]
+}
+
+export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'
+
+export interface Campaign {
+  id: string
+  name: string
+  slug: string
+  status: CampaignStatus
+  description: string | null
+  createdById: string
+  createdBy: { name: string }
+  createdAt: string
+  updatedAt: string
+  _count: { leads: number }
 }
 
 export type ActionType =

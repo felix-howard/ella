@@ -200,7 +200,17 @@ leadsRoute.get(
       return c.json({ success: false, error: 'Lead not found' }, 404)
     }
 
-    return c.json({ success: true, data: lead })
+    // Enrich with campaign name if campaign tag exists
+    let campaignName: string | null = null
+    if (lead.campaignTag) {
+      const campaign = await prisma.campaign.findUnique({
+        where: { slug_organizationId: { slug: lead.campaignTag, organizationId: orgId } },
+        select: { name: true },
+      })
+      campaignName = campaign?.name || null
+    }
+
+    return c.json({ success: true, data: { ...lead, campaignName } })
   }
 )
 

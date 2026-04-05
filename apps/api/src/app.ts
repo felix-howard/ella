@@ -34,6 +34,7 @@ import { leadsRoute } from './routes/leads'
 import { contractorsRoute } from './routes/contractors'
 import { businessesRoute } from './routes/businesses'
 import { form1099NecRoute } from './routes/form-1099-nec'
+import { campaignsRoute } from './routes/campaigns'
 
 const app = new OpenAPIHono()
 
@@ -108,6 +109,7 @@ app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
 app.route('/terms', termsRoute)
+app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 
 // OpenAPI documentation
 app.doc('/doc', {

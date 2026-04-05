@@ -386,6 +386,11 @@ enum LeadStatus {
   LOST
 }
 
+enum CampaignStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum SmsSendStatus {
   SENT
   DELIVERED
@@ -449,6 +454,7 @@ model Staff {
 
   termsAcceptances TermsAcceptance[]
   sentSmsLogs      SmsSendLog[]     @relation("SentSmsLogs")
+  createdCampaigns Campaign[]       @relation("CreatedCampaigns")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -523,6 +529,7 @@ model Organization {
   clients     Client[]
   leads       Lead[]
   smsSendLogs SmsSendLog[]
+  campaigns   Campaign[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1430,6 +1437,26 @@ model SmsSendLog {
   @@index([organizationId])
   @@index([sentById])
   @@index([twilioSid])
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  name           String
+  slug           String
+  status         CampaignStatus @default(ACTIVE)
+  description    String?        @db.Text
+
+  // Relations
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      Staff          @relation("CreatedCampaigns", fields: [createdById], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([slug, organizationId])
+  @@index([organizationId, status])
 }
 
 // ============================================

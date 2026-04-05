@@ -506,82 +506,6 @@ form1099NecRoute.get('/:businessId/1099-nec/pdfs', async (c) => {
 })
 
 /**
- * GET /businesses/:businessId/1099-nec/:formId/pdf
- * Download PDF from R2 (returns signed URL, 5-min expiry for SSN docs)
- */
-form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
-  const user = c.get('user')
-  const { businessId, formId } = c.req.param()
-
-  const business = await verifyBusinessAccess(businessId, user)
-  if (!business) {
-    return c.json({ error: 'Business not found' }, 404)
-  }
-
-  const form = await prisma.form1099NEC.findFirst({
-    where: {
-      id: formId,
-      contractor: { businessId },
-      pdfStorageKey: { not: null },
-    },
-    include: { contractor: true },
-  })
-
-  if (!form || !form.pdfStorageKey) {
-    return c.json({ error: 'PDF not found' }, 404)
-  }
-
-  const signedUrl = await getSignedDownloadUrl(form.pdfStorageKey, 300)
-
-  if (!signedUrl) {
-    return c.json({ error: 'Failed to generate download URL' }, 500)
-  }
-
-  return c.json({
-    url: signedUrl,
-    filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}.pdf`,
-  })
-})
-
-/**
- * GET /businesses/:businessId/1099-nec/:formId/pdf/recipient
- * Download Copy B PDF (signed URL, 5-min expiry)
- */
-form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf/recipient', async (c) => {
-  const user = c.get('user')
-  const { businessId, formId } = c.req.param()
-
-  const business = await verifyBusinessAccess(businessId, user)
-  if (!business) {
-    return c.json({ error: 'Business not found' }, 404)
-  }
-
-  const form = await prisma.form1099NEC.findFirst({
-    where: {
-      id: formId,
-      contractor: { businessId },
-      copyBStorageKey: { not: null },
-    },
-    include: { contractor: true },
-  })
-
-  if (!form || !form.copyBStorageKey) {
-    return c.json({ error: 'Recipient PDF not found' }, 404)
-  }
-
-  const signedUrl = await getSignedDownloadUrl(form.copyBStorageKey, 300)
-
-  if (!signedUrl) {
-    return c.json({ error: 'Failed to generate download URL' }, 500)
-  }
-
-  return c.json({
-    url: signedUrl,
-    filename: `1099-NEC-${form.taxYear}-CopyB-${form.contractor.lastName}.pdf`,
-  })
-})
-
-/**
  * POST /businesses/:businessId/1099-nec/prepare
  * One-click: Create forms in TaxBandits + fetch draft PDFs
  * Combines the old "Create" + "Get PDFs" steps
@@ -776,6 +700,82 @@ form1099NecRoute.post('/:businessId/1099-nec/prepare', requireOrgAdmin, async (c
     batchId: batch.id,
     ...(createErrors.length > 0 ? { createErrors } : {}),
     ...(pdfErrors.length > 0 ? { pdfErrors } : {}),
+  })
+})
+
+/**
+ * GET /businesses/:businessId/1099-nec/:formId/pdf
+ * Download PDF from R2 (returns signed URL, 5-min expiry for SSN docs)
+ */
+form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf', async (c) => {
+  const user = c.get('user')
+  const { businessId, formId } = c.req.param()
+
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const form = await prisma.form1099NEC.findFirst({
+    where: {
+      id: formId,
+      contractor: { businessId },
+      pdfStorageKey: { not: null },
+    },
+    include: { contractor: true },
+  })
+
+  if (!form || !form.pdfStorageKey) {
+    return c.json({ error: 'PDF not found' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(form.pdfStorageKey, 300)
+
+  if (!signedUrl) {
+    return c.json({ error: 'Failed to generate download URL' }, 500)
+  }
+
+  return c.json({
+    url: signedUrl,
+    filename: `1099-NEC-${form.taxYear}-${form.contractor.lastName}.pdf`,
+  })
+})
+
+/**
+ * GET /businesses/:businessId/1099-nec/:formId/pdf/recipient
+ * Download Copy B PDF (signed URL, 5-min expiry)
+ */
+form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf/recipient', async (c) => {
+  const user = c.get('user')
+  const { businessId, formId } = c.req.param()
+
+  const business = await verifyBusinessAccess(businessId, user)
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const form = await prisma.form1099NEC.findFirst({
+    where: {
+      id: formId,
+      contractor: { businessId },
+      copyBStorageKey: { not: null },
+    },
+    include: { contractor: true },
+  })
+
+  if (!form || !form.copyBStorageKey) {
+    return c.json({ error: 'Recipient PDF not found' }, 404)
+  }
+
+  const signedUrl = await getSignedDownloadUrl(form.copyBStorageKey, 300)
+
+  if (!signedUrl) {
+    return c.json({ error: 'Failed to generate download URL' }, 500)
+  }
+
+  return c.json({
+    url: signedUrl,
+    filename: `1099-NEC-${form.taxYear}-CopyB-${form.contractor.lastName}.pdf`,
   })
 })
 

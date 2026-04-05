@@ -410,6 +410,12 @@ export const api = {
         method: 'POST',
       }),
 
+    prepare: (businessId: string) =>
+      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/businesses/${businessId}/1099-nec/prepare`, {
+        method: 'POST',
+        timeout: 120000,
+      }),
+
     downloadPdf: (businessId: string, formId: string) =>
       request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
 
@@ -1430,6 +1436,8 @@ export interface TransmitResponse {
   success: boolean
   batchId: string
   transmittedCount: number
+  recipientPdfCount?: number
+  recipientErrors?: string[]
 }
 
 export interface FilingBatch {

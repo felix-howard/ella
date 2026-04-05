@@ -581,6 +581,204 @@ form1099NecRoute.get('/:businessId/1099-nec/:formId/pdf/recipient', async (c) =>
   })
 })
 
+/**
+ * POST /businesses/:businessId/1099-nec/prepare
+ * One-click: Create forms in TaxBandits + fetch draft PDFs
+ * Combines the old "Create" + "Get PDFs" steps
+ */
+form1099NecRoute.post('/:businessId/1099-nec/prepare', requireOrgAdmin, async (c) => {
+  const user = c.get('user')
+  const { businessId } = c.req.param()
+
+  if (!config.taxbandits.isConfigured) {
+    return c.json({ error: 'TaxBandits API is not configured' }, 503)
+  }
+
+  const business = await prisma.business.findFirst({
+    where: { id: businessId },
+    select: {
+      id: true,
+      clientId: true,
+      name: true,
+      einEncrypted: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
+      contractors: {
+        include: {
+          forms: { where: { status: 'DRAFT' as Form1099Status } },
+        },
+      },
+    },
+  })
+
+  if (!business) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const hasAccess = await prisma.client.findFirst({
+    where: { id: business.clientId, ...buildClientScopeFilter(user) },
+    select: { id: true },
+  })
+  if (!hasAccess) {
+    return c.json({ error: 'Business not found' }, 404)
+  }
+
+  const contractorsWithForms = business.contractors.filter((c) => c.forms.length > 0)
+  if (contractorsWithForms.length === 0) {
+    return c.json({ error: 'No draft forms to prepare' }, 400)
+  }
+
+  const taxYears = [...new Set(contractorsWithForms.flatMap((c) => c.forms.map((f) => f.taxYear)))]
+  if (taxYears.length > 1) {
+    return c.json({ error: 'Cannot submit forms from multiple tax years' }, 400)
+  }
+
+  try {
+    await taxbanditsClient.checkAuth()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'TaxBandits authentication failed'
+    return c.json({ error: `TaxBandits authentication failed: ${message}` }, 502)
+  }
+
+  // Step 1: Create forms in TaxBandits
+  const recipientMap: Array<{ formId: string; contractorId: string }> = []
+  const recipients = contractorsWithForms.flatMap((contractor) =>
+    contractor.forms.map((form) => {
+      recipientMap.push({ formId: form.id, contractorId: contractor.id })
+      return {
+        firstName: contractor.firstName,
+        lastName: contractor.lastName,
+        tinType: (contractor.tinType === 'EIN' ? 'EIN' : 'SSN') as 'SSN' | 'EIN',
+        tin: decryptSSN(contractor.ssnEncrypted).replace(/-/g, ''),
+        address1: contractor.address,
+        city: contractor.city,
+        state: contractor.state,
+        zip: contractor.zip,
+        email: contractor.email || undefined,
+        amountBox1: Number(form.amountBox1),
+        amountBox4: Number(form.amountBox4),
+      }
+    })
+  )
+
+  let createResponse
+  try {
+    createResponse = await taxbanditsClient.createForm1099NEC({
+      taxYear: taxYears[0],
+      payer: {
+        businessName: business.name,
+        ein: decryptSSN(business.einEncrypted).replace(/-/g, ''),
+        address1: business.address,
+        city: business.city,
+        state: business.state,
+        zip: business.zip,
+      },
+      recipients,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to create forms in TaxBandits'
+    return c.json({ error: `Form creation failed: ${message}` }, 502)
+  }
+
+  const batch = await prisma.filingBatch.create({
+    data: {
+      businessId,
+      taxYear: taxYears[0],
+      status: 'PENDING',
+      totalForms: createResponse.Form1099Records.SuccessRecords.length,
+      taxbanditsSubmissionId: createResponse.SubmissionId,
+    },
+  })
+
+  if (createResponse.Form1099Records.SuccessRecords.length > 0) {
+    await prisma.$transaction(
+      createResponse.Form1099Records.SuccessRecords.map((record) => {
+        const seqIndex = parseInt(record.SequenceId, 10) - 1
+        const mapping = recipientMap[seqIndex]
+        return prisma.form1099NEC.update({
+          where: { id: mapping.formId },
+          data: {
+            taxbanditsRecordId: record.RecordId,
+            status: 'IMPORTED',
+            batchId: batch.id,
+          },
+        })
+      })
+    )
+  }
+
+  const createErrors = createResponse.Form1099Records.ErrorRecords.map((err) => ({
+    sequence: err.SequenceId,
+    errors: err.Errors.map((e) => `${e.Code}: ${e.Message}${e.FieldName ? ` (${e.FieldName})` : ''}`),
+  }))
+
+  const createdCount = createResponse.Form1099Records.SuccessRecords.length
+  if (createdCount === 0) {
+    return c.json({
+      success: false,
+      step: 'create',
+      createdCount: 0,
+      pdfCount: 0,
+      errors: createErrors,
+    })
+  }
+
+  // Step 2: Fetch PDFs for the newly created forms
+  const importedForms = await prisma.form1099NEC.findMany({
+    where: {
+      contractor: { businessId },
+      status: 'IMPORTED',
+      taxbanditsRecordId: { not: null },
+      batch: { taxbanditsSubmissionId: { not: null } },
+    },
+    include: { contractor: true, batch: true },
+  })
+
+  let pdfCount = 0
+  const pdfErrors: string[] = []
+
+  const CONCURRENCY = 5
+  for (let i = 0; i < importedForms.length; i += CONCURRENCY) {
+    const batchSlice = importedForms.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(
+      batchSlice.map(async (form) => {
+        const pdfResponse = await taxbanditsClient.requestDraftPdf(
+          form.batch!.taxbanditsSubmissionId!,
+          form.taxbanditsRecordId!
+        )
+        const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(pdfResponse.DraftPdfUrl)
+        const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}.pdf`
+        await uploadFile(key, pdfBuffer, 'application/pdf')
+        await prisma.form1099NEC.update({
+          where: { id: form.id },
+          data: { pdfStorageKey: key, status: 'PDF_READY' },
+        })
+        return form.id
+      })
+    )
+
+    for (let j = 0; j < results.length; j++) {
+      if (results[j].status === 'fulfilled') {
+        pdfCount++
+      } else {
+        const msg = `Form ${batchSlice[j].id}: ${(results[j] as PromiseRejectedResult).reason?.message || 'PDF fetch failed'}`
+        pdfErrors.push(msg)
+      }
+    }
+  }
+
+  return c.json({
+    success: true,
+    createdCount,
+    pdfCount,
+    batchId: batch.id,
+    ...(createErrors.length > 0 ? { createErrors } : {}),
+    ...(pdfErrors.length > 0 ? { pdfErrors } : {}),
+  })
+})
+
 // ============================================
 // Transmit & Filing Batch Endpoints
 // ============================================
@@ -644,10 +842,91 @@ form1099NecRoute.post('/:businessId/1099-nec/transmit', requireOrgAdmin, async (
       },
     })
 
+    // Auto-fetch recipient PDFs (Copy B + C) after successful transmission
+    let recipientPdfCount = 0
+    const recipientErrors: string[] = []
+    try {
+      const submittedForms = await prisma.form1099NEC.findMany({
+        where: {
+          contractor: { businessId },
+          status: { in: ['SUBMITTED', 'ACCEPTED'] },
+          taxbanditsRecordId: { not: null },
+          batch: { taxbanditsSubmissionId: { not: null } },
+        },
+        include: { contractor: true, batch: true },
+      })
+
+      const batchGroups = new Map<string, typeof submittedForms>()
+      for (const form of submittedForms) {
+        const subId = form.batch!.taxbanditsSubmissionId!
+        if (!batchGroups.has(subId)) batchGroups.set(subId, [])
+        batchGroups.get(subId)!.push(form)
+      }
+
+      for (const [submissionId, batchForms] of batchGroups) {
+        const recordIds = batchForms.map((f) => f.taxbanditsRecordId!)
+        let pdfResponse
+        try {
+          pdfResponse = await taxbanditsClient.requestPdfURLs(submissionId, recordIds, 'BOTH')
+        } catch (error) {
+          recipientErrors.push(`Recipient PDFs: ${error instanceof Error ? error.message : 'Failed'}`)
+          continue
+        }
+
+        if (!pdfResponse.Form1099NecRecords?.SuccessRecords?.length) continue
+
+        const formByRecordId = new Map(batchForms.map((f) => [f.taxbanditsRecordId!, f]))
+        const CONCURRENCY = 5
+        const successRecords = pdfResponse.Form1099NecRecords.SuccessRecords
+        for (let i = 0; i < successRecords.length; i += CONCURRENCY) {
+          const slice = successRecords.slice(i, i + CONCURRENCY)
+          const results = await Promise.allSettled(
+            slice.map(async (record) => {
+              const form = formByRecordId.get(record.RecordId)
+              if (!form) return false
+
+              const copyBUrl = record.Files?.CopyB?.Masked || record.Files?.CopyB?.Unmasked
+              if (copyBUrl) {
+                const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyBUrl)
+                const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}-copy-b.pdf`
+                await uploadFile(key, pdfBuffer, 'application/pdf')
+                await prisma.form1099NEC.update({
+                  where: { id: form.id },
+                  data: { copyBStorageKey: key },
+                })
+              }
+
+              const copyCUrl = record.Files?.CopyC?.Unmasked || record.Files?.CopyC?.Masked
+              if (copyCUrl) {
+                const pdfBuffer = await taxbanditsClient.downloadPdfFromS3(copyCUrl)
+                const key = `1099-nec/${businessId}/${form.taxYear}/${form.contractor.id}-copy-c.pdf`
+                await uploadFile(key, pdfBuffer, 'application/pdf')
+                await prisma.form1099NEC.update({
+                  where: { id: form.id },
+                  data: { copyCStorageKey: key },
+                })
+              }
+
+              return !!copyBUrl || !!copyCUrl
+            })
+          )
+
+          for (const result of results) {
+            if (result.status === 'fulfilled' && result.value) recipientPdfCount++
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[1099-NEC] Auto-fetch recipient PDFs failed:', error)
+      recipientErrors.push(error instanceof Error ? error.message : 'Recipient PDF fetch failed')
+    }
+
     return c.json({
       success: true,
       batchId: batch.id,
       transmittedCount: forms.length,
+      recipientPdfCount,
+      ...(recipientErrors.length > 0 ? { recipientErrors } : {}),
     })
   } catch (error) {
     await prisma.filingBatch.update({

@@ -4,7 +4,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Plus, Copy, Check, Archive, RotateCcw, Pencil, Trash2, Users, Megaphone } from 'lucide-react'
+import { Plus, Copy, Check, Archive, RotateCcw, Pencil, Trash2, Users, Megaphone, Link as LinkIcon, AlertTriangle } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
@@ -90,9 +90,12 @@ export function CampaignsTab({ onViewLeads, orgSlug }: CampaignsTabProps) {
 
   return (
     <div>
+      {/* Default Registration Link */}
+      <DefaultRegistrationCard orgSlug={orgSlug} />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div />
+      <div className="flex items-center justify-between mb-4 mt-6">
+        <h3 className="text-sm font-medium text-muted-foreground">{t('leads.campaigns')}</h3>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -146,6 +149,75 @@ export function CampaignsTab({ onViewLeads, orgSlug }: CampaignsTabProps) {
           onClose={() => setEditCampaign(null)}
         />
       )}
+    </div>
+  )
+}
+
+// ============================================
+// Default Registration Card
+// ============================================
+
+function DefaultRegistrationCard({ orgSlug }: { orgSlug: string | null }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  useEffect(() => {
+    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }
+  }, [])
+
+  const baseUrl = orgSlug ? `${PORTAL_BASE_URL}/register/${orgSlug}` : ''
+
+  const handleCopy = useCallback(async () => {
+    if (!baseUrl) return
+    try {
+      await navigator.clipboard.writeText(baseUrl)
+      setCopied(true)
+      toast.success(t('leads.copiedLink'))
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error(t('settings.copyFailed'))
+    }
+  }, [baseUrl, t])
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <LinkIcon className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">{t('leads.defaultRegistration')}</h3>
+        </div>
+        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          {t('leads.campaignActive')}
+        </span>
+      </div>
+
+      {!orgSlug ? (
+        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{t('leads.noSlugWarning')}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-2.5 py-1.5 bg-muted rounded-lg text-xs text-muted-foreground truncate">
+            {baseUrl}
+          </code>
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors shrink-0"
+            title={t('leads.copyLink')}
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-primary" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
+          </button>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">{t('leads.defaultRegistrationDesc')}</p>
     </div>
   )
 }

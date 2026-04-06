@@ -90,7 +90,7 @@
 | **Simplify Client Workflow (Phases 1-4)** | **2-step wizard client creation, Files tab (8 components), YearSwitcher + CreateEngagementModal, integration & testing. Code review 9.5/10** | **2026-01-27** |
 | **Voice Calls (Phases 01-04)** | **Backend: Token generation, TwiML routing, webhooks (54 tests). Frontend: Twilio SDK, useVoiceCall hook, incoming call modal. Recording endpoints with AudioPlayer** | **2026-01-22** |
 | **Actionable Client Status** | **Database: isInReview/isFiled/lastActivityAt flags. API: Status endpoints, enhanced GET /clients. Frontend: StatusBadge, sorting (activity/name/stale), action buttons. Constants centralized** | **2026-01-22** |
-| **AI Document Processing** | **Gemini 2.0-flash integration (image validation, retry logic, batch concurrency). Classification service. 17 OCR prompts (W2, 1099s, K-1, Bank, 1098, 1095-A, Form 1040 family). Tests: 88/88 passing** | **2026-02-18** |
+| **AI Document Processing** | **Gemini 2.0-flash integration (image validation, retry logic, batch concurrency). Classification service. 49 OCR prompts (Form 1040, Schedules 1-8812, Schedules A-R, W-2, 1099 variants, K-1, Bank Statement, SSN/DL, generic fallback). Tests: 88/88 passing** | **2026-04-06** |
 
 ## Tech Stack (Current)
 
@@ -129,7 +129,7 @@
 
 **DocCategory Enum (8 categories):** IDENTITY, INCOME, TAX_RETURNS, EXPENSE, ASSET, EDUCATION, HEALTHCARE, OTHER (display order maintained)
 **DocType Enum (96 types):** 5 identity + 13 income forms + 4 K-1 variants + 3 health forms + 2 education + 1 mortgage + 45 business/receipts + 2 prior-year + 1 crypto + 8 foreign/fbar + 3 real estate + 2 credits + 2 business-misc + 1 extension + 7 tax returns (1040 family, state, foreign, transcript) + 2 catchall (OTHER, UNKNOWN)
-**OcrDocType (22 types):** Form 1040 + Schedule 1 + Schedule C + Schedule D + Schedule E + Schedule SE (6 supplemental schedules) + W-2 + 1099-NEC + 1099-INT + 1099-DIV + 1099-K + 1099-R + 1099-SSA + 1099-G + 1099-MISC + 1098 + 1098-T + 1095-A + K-1 + Bank Statement + SSN Card + Driver's License (all with full OCR extraction support)
+**OcrDocType (49 types - Phase 3 Expanded):** Form 1040 + Schedules 1-8812 (2, 3, A, B, C, D, E, 8812, EIC, F, H, J, R, SE - 14 schedules) + W-2 + 1099 variants (25+: NEC, INT, DIV, K, R, SSA, G, MISC, A, B, C, CAP, H, LS, LTC, OID, PATR, Q, QA, S, SA, SB + RRB variants) + 1098 + 1098-T + 1095-A + K-1 + Bank Statement + SSN Card + Driver's License + generic-extractor (fallback for unknown types). Full OCR extraction with Vietnamese i18n.
 
 ## API Endpoints (17+ Organization/Team/Auth - Self-Service Signup)
 

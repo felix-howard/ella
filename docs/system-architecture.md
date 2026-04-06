@@ -954,7 +954,7 @@ Frontend Hook (useOrgRole)
 - Retry logic: 3 attempts, exponential backoff
 - Batch processing: 3 concurrent images
 - Classification: Multi-class tax form detection (180+ types)
-- OCR: W2, 1099-INT, 1099-NEC, K-1, 1098, 1095-A, Schedule 1/C/SE/D/E, Form 1040
+- OCR: 49 form-specific prompts covering Form 1040, Schedules 1-8812, Schedules A-R, W-2, 1099 variants (25+), K-1, Bank Statements, SSN/DL, with generic fallback for unknown types
 - Confidence scoring for verification workflow
 - **NEW (Phase 02):** Fallback smart rename for confidence < 60% (semantic filename generation via vision analysis)
 
@@ -977,7 +977,7 @@ apps/api/src/services/ai/
 └── prompts/
     ├── classify.ts - Classification + SmartRename prompts
     ├── address-parser.ts - US address parsing (structured extraction for contractors)
-    └── ocr/ - Form-specific OCR prompts (1040, schedules, income docs) + generic-extractor.ts fallback for unknown types
+    └── ocr/ - 49 form-specific extraction prompts: form-1040.ts, schedules 1-8812 (2,3,a,b,c,d,e,8812,eic,f,h,j,r,se), 1099 variants (25+), w2, k-1, bank-statement, ssn-dl, generic-extractor.ts (fallback)
 ```
 
 **Address Parsing Service (NEW - Excel Import Fallback):**

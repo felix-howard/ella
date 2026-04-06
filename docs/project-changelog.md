@@ -7,6 +7,59 @@
 
 ## 2026-04-06
 
+### Feature: IRS Schedule OCR Extraction Prompts Phase 3 ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** ~3h
+
+**Summary:** Added OCR extraction prompt templates for 10 missing IRS Form 1040 Schedules. Completes Schedule coverage with form-specific extraction rules, line-number mapping, and Vietnamese labels. Part of comprehensive OCR extraction prompts project (Phase 3 of 10).
+
+**What Changed:**
+- New OCR extraction prompts for 10 IRS Schedules: Schedule 2, 3, A, B, 8812, EIC, F, H, J, R
+- Each file contains: TypeScript interface, extraction prompt function, field validator, Vietnamese translations
+- Line-number-based extraction aligned with official IRS 1040 instructions
+- Multi-part structure support (Part I, Part II) for complex schedules
+- Form 1040 line reference mapping for totals integration
+
+**Files Created:**
+- `apps/api/src/services/ai/prompts/ocr/schedule-2.ts` - Additional Taxes (AMT, SE tax, Medicare)
+- `apps/api/src/services/ai/prompts/ocr/schedule-3.ts` - Additional Credits & Payments
+- `apps/api/src/services/ai/prompts/ocr/schedule-a.ts` - Itemized Deductions (HIGH PRIORITY)
+- `apps/api/src/services/ai/prompts/ocr/schedule-b.ts` - Interest & Dividends
+- `apps/api/src/services/ai/prompts/ocr/schedule-8812.ts` - Child Tax Credits
+- `apps/api/src/services/ai/prompts/ocr/schedule-eic.ts` - Earned Income Credit
+- `apps/api/src/services/ai/prompts/ocr/schedule-f.ts` - Farm Income/Expenses
+- `apps/api/src/services/ai/prompts/ocr/schedule-h.ts` - Household Employment Taxes (nanny tax)
+- `apps/api/src/services/ai/prompts/ocr/schedule-j.ts` - Farm Income Averaging
+- `apps/api/src/services/ai/prompts/ocr/schedule-r.ts` - Credit for Elderly/Disabled
+
+**Integration Points:**
+- OCR extractor auto-selected based on document classification (Schedule type detection)
+- Schedule line numbers validated against 2025 IRS tax year specifications
+- Fallback mechanism maintains compatibility with existing workflows
+
+**Architecture:**
+- Each schedule contains form-specific line extraction with IRS publication alignment
+- Validation ensures extracted data matches expected field types (currency, numbers, booleans)
+- Totals mapped to Form 1040 line references for downstream integration
+- Graceful degradation: If extractor unavailable, fallback to generic fallback extractor
+
+**Testing:**
+- Pattern consistency verified across all 10 files (under 200 lines each)
+- Line number mappings cross-referenced with IRS forms
+- Type safety: All TypeScript definitions compile without errors
+- `pnpm -F api build` passes with zero errors
+
+**Benefits:**
+- Complete Schedule coverage: Enables multi-schedule return processing
+- IRS compliance: Line-number extraction matches official field definitions
+- Reduced manual review: AI extraction handles complex multi-part schedules
+- Extensible architecture: Easy to add future schedule variants
+
+---
+
+## 2026-04-06
+
 ### Feature: Comprehensive 1099 Variants OCR Extraction (Phase 2) ✅ COMPLETE
 **Status:** Complete
 **Branch:** feature/enhance-101

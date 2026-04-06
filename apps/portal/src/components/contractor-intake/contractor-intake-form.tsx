@@ -2,10 +2,11 @@
  * Contractor Intake Form - Collects contractor info for 1099-NEC filing
  * Supports adding multiple contractors before batch submission
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Plus, Trash2, User } from 'lucide-react'
 import { Button } from '@ella/ui'
+import { AddressAutocomplete } from './address-autocomplete'
 
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -210,6 +211,13 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
     setQueue((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const handleAddressSelect = useCallback((result: { address: string; city: string; state: string; zip: string }) => {
+    form.setAddress(result.address)
+    form.setCity(result.city)
+    form.setState(result.state)
+    form.setZip(result.zip)
+  }, [form])
+
   const handleSubmitAll = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -338,19 +346,18 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
         />
       </div>
 
-      {/* Address */}
+      {/* Address with autocomplete */}
       <div>
         <label htmlFor="ci-address" className="block text-sm font-medium text-foreground mb-1.5">
           {t('contractorIntake.address')} <span className="text-destructive">*</span>
         </label>
-        <input
+        <AddressAutocomplete
           id="ci-address"
-          type="text"
           value={form.address}
-          onChange={(e) => form.setAddress(e.target.value)}
+          onChange={form.setAddress}
+          onSelect={handleAddressSelect}
           className={inputClass}
           required={queue.length === 0}
-          maxLength={500}
           disabled={isSubmitting}
         />
       </div>

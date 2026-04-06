@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import type { ScheduleEProperty, ScheduleEPropertyType, ScheduleEPropertyAddress } from '@ella/shared'
 import { PROPERTY_TYPES } from '../lib/rental-categories'
 import { StateCombobox } from './state-combobox'
+import { AddressAutocomplete } from '../../../components/contractor-intake/address-autocomplete'
 
 interface PropertyDetailsStepProps {
   property: ScheduleEProperty
@@ -141,6 +142,20 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
     onNext()
   }, [address.state, address.zip, onNext])
 
+  // Handle address autocomplete selection - auto-fill all address fields
+  const handleAddressSelect = useCallback((result: { address: string; city: string; state: string; zip: string }) => {
+    const newAddress = {
+      street: result.address,
+      city: result.city,
+      state: result.state,
+      zip: result.zip,
+    }
+    setAddress(newAddress)
+    onUpdate({ address: newAddress })
+    if (result.state && result.state.length === 2) setShowStateError(false)
+    if (result.zip && result.zip.trim()) setShowZipError(false)
+  }, [onUpdate])
+
   // Clear state error when state is selected
   const handleStateChange = useCallback((value: string) => {
     if (value && value.length === 2) {
@@ -180,11 +195,11 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
           <label htmlFor="street" className="text-xs font-medium text-muted-foreground mb-1.5 block">
             {t('rental.street')}
           </label>
-          <input
+          <AddressAutocomplete
             id="street"
-            type="text"
             value={address.street}
-            onChange={(e) => handleAddressChange('street', e.target.value)}
+            onChange={(value) => handleAddressChange('street', value)}
+            onSelect={handleAddressSelect}
             disabled={readOnly}
             placeholder={t('rental.streetPlaceholder')}
             className={inputClasses}

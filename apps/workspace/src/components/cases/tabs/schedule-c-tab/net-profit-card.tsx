@@ -17,17 +17,9 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
 
   return (
     <div className="border-t border-border pt-4">
-      <div className={cn(
-        'rounded-lg px-3 py-2.5 flex items-center justify-between',
-        isProfit
-          ? 'bg-primary/5 border border-primary/15'
-          : 'bg-destructive/5 border border-destructive/15'
-      )}>
+      <div className="flex items-center justify-between py-2">
         <div>
-          <span className={cn(
-            'text-sm font-medium uppercase tracking-wide',
-            isProfit ? 'text-primary' : 'text-destructive'
-          )}>
+          <span className="text-sm font-medium text-foreground">
             {isProfit ? t('scheduleC.netProfit') : t('scheduleC.netLoss')}
           </span>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -37,10 +29,7 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
         <CopyableValue
           formatted={formatUSD(netProfit)}
           rawValue={netProfit}
-          className={cn(
-            'text-lg font-semibold',
-            isProfit ? 'text-primary' : 'text-destructive'
-          )}
+          className="text-lg font-semibold text-foreground"
         />
       </div>
     </div>

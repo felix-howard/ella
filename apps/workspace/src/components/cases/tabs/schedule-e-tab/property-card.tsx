@@ -199,25 +199,14 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
           </div>
 
           {/* Net Income/Loss */}
-          <div className={cn(
-            'rounded-lg px-3 py-2.5 flex items-center justify-between',
-            property.netIncome >= 0
-              ? 'bg-primary/5 border border-primary/15'
-              : 'bg-destructive/5 border border-destructive/15'
-          )}>
-            <span className={cn(
-              'text-sm font-medium uppercase tracking-wide',
-              property.netIncome >= 0 ? 'text-primary' : 'text-destructive'
-            )}>
+          <div className="flex items-center justify-between py-2 border-t border-border mt-1 pt-3">
+            <span className="text-sm font-medium text-foreground">
               {property.netIncome >= 0 ? t('scheduleE.netProfit') : t('scheduleE.netLoss')}
             </span>
             <CopyableValue
               formatted={formatUSD(property.netIncome)}
               rawValue={property.netIncome}
-              className={cn(
-                'text-base font-semibold',
-                property.netIncome >= 0 ? 'text-primary' : 'text-destructive'
-              )}
+              className="text-base font-semibold text-foreground"
             />
           </div>
         </div>

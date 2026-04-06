@@ -139,7 +139,7 @@ function useContractorForm() {
     address.trim().length > 0 &&
     city.trim().length > 0 &&
     state.length > 0 &&
-    /^\d{5}(-?\d{4})?$/.test(zip.trim()) &&
+    /^\d{5}$/.test(zip.trim()) &&
     parseFloat(parseCurrencyRaw(amountBox1)) > 0
 
   const toFormData = (): ContractorFormData => ({
@@ -401,11 +401,11 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
           id="ci-zip"
           type="text"
           value={form.zip}
-          onChange={(e) => form.setZip(e.target.value)}
+          onChange={(e) => form.setZip(e.target.value.replace(/\D/g, '').slice(0, 5))}
           placeholder="XXXXX"
           className={inputClass}
           required={queue.length === 0}
-          maxLength={10}
+          maxLength={5}
           disabled={isSubmitting}
           inputMode="numeric"
         />

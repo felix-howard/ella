@@ -1,7 +1,31 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-05 ICT
+> **Last Updated:** 2026-04-06 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-06
+
+### Enhancement: Business Tab 1099-NEC UX Polish
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** ~2h
+
+**Summary:** Improved usability of the Business tab's contractor management UI with search, filtering, pagination, sortable columns, sticky workflow bar, and enhanced filing history.
+
+**What Changed:**
+- Search bar filtering by name, SSN, city, address with status filter chips (ordered by workflow progression)
+- Client-side pagination (10 per page) with auto-reset on filter change and safe page guard
+- Sortable table columns (Name, City, State, Status) with global sort applied before pagination
+- Workflow bar (Prepare Forms → Submit to IRS) made sticky at bottom of card container
+- Filing history: alert-style rejection banners, collapsible older batches, relative timestamps, refresh button for REJECTED/PARTIALLY_ACCEPTED statuses
+
+**Files Modified:**
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/index.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/contractor-table.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/form-actions-panel.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/filing-status-panel.tsx`
 
 ---
 

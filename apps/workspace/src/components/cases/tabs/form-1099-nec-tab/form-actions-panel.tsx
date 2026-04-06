@@ -158,7 +158,7 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   const step2Done = hasTransmitted
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+    <div className="bg-card border-t border-border p-4 space-y-4 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
       {/* Visual Stepper */}
       <div className="flex items-center gap-3">
         <StepIndicator

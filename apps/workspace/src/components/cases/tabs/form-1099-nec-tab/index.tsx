@@ -3,10 +3,10 @@
  * Shows contractor table with CRUD operations
  * Supports Excel upload with review table for bulk import
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Link2 } from 'lucide-react'
-import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Link2, Search } from 'lucide-react'
+import { Button, Modal, ModalHeader, ModalTitle, ModalFooter, cn } from '@ella/ui'
 import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 import { PORTAL_BASE_URL } from '../../../../lib/constants'
@@ -15,6 +15,19 @@ import { ContractorFormModal } from './contractor-form-modal'
 import { ContractorReviewTable } from './contractor-review-table'
 import { FormActionsPanel } from './form-actions-panel'
 import { FilingStatusPanel } from './filing-status-panel'
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Draft',
+  IMPORTED: 'Created',
+  PDF_READY: 'Ready',
+  SUBMITTED: 'Transmitted',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+}
+
+const STATUS_ORDER = ['DRAFT', 'IMPORTED', 'PDF_READY', 'SUBMITTED', 'ACCEPTED', 'REJECTED']
+
+const PAGE_SIZE = 10
 
 interface Form1099NECTabProps {
   businessId: string
@@ -30,6 +43,11 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isShareLoading, setIsShareLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortField, setSortField] = useState<'name' | 'city' | 'state' | 'status' | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contractors', businessId],
@@ -161,6 +179,55 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
 
   const contractors = data?.data ?? []
 
+  const filteredContractors = useMemo(() => {
+    let result = contractors
+    if (statusFilter) {
+      result = result.filter(c => (c.formStatus || 'DRAFT') === statusFilter)
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter(c =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+        c.ssnLast4?.includes(q) ||
+        c.city?.toLowerCase().includes(q) ||
+        c.address?.toLowerCase().includes(q)
+      )
+    }
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let aVal: string, bVal: string
+        switch (sortField) {
+          case 'name': aVal = `${a.firstName} ${a.lastName}`; bVal = `${b.firstName} ${b.lastName}`; break
+          case 'city': aVal = a.city || ''; bVal = b.city || ''; break
+          case 'state': aVal = a.state || ''; bVal = b.state || ''; break
+          case 'status': aVal = a.formStatus || ''; bVal = b.formStatus || ''; break
+          default: return 0
+        }
+        const cmp = aVal.localeCompare(bVal)
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+    }
+    return result
+  }, [contractors, searchQuery, statusFilter, sortField, sortDir])
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const c of contractors) {
+      const s = c.formStatus || 'DRAFT'
+      counts[s] = (counts[s] || 0) + 1
+    }
+    return counts
+  }, [contractors])
+
+  useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter])
+
+  const totalPages = Math.ceil(filteredContractors.length / PAGE_SIZE) || 1
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedContractors = filteredContractors.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -222,7 +289,9 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
             <p className="text-sm text-muted-foreground mt-0.5">
               {contractors.length === 0
                 ? 'No contractors added yet'
-                : `${contractors.length} contractor${contractors.length !== 1 ? 's' : ''}`}
+                : filteredContractors.length !== contractors.length
+                  ? `Showing ${filteredContractors.length} of ${contractors.length} contractors`
+                  : `${contractors.length} contractor${contractors.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -275,6 +344,49 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
           </div>
         </div>
 
+        {/* Search & Status Filters */}
+        {contractors.length > 0 && (
+          <div className="space-y-3 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search by name, SSN, city, address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setStatusFilter(null)}
+                className={cn(
+                  'px-3 py-1 text-xs font-medium rounded-full border transition-colors',
+                  !statusFilter
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                )}
+              >
+                All ({contractors.length})
+              </button>
+              {STATUS_ORDER.filter(s => statusCounts[s]).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(statusFilter === status ? null : status)}
+                  className={cn(
+                    'px-3 py-1 text-xs font-medium rounded-full border transition-colors',
+                    statusFilter === status
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                  )}
+                >
+                  {STATUS_LABELS[status] || status} ({statusCounts[status]})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Contractor Table or Empty State */}
         {contractors.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -286,9 +398,9 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
               Add contractors who received payments for {clientName}, or upload an Excel file to import them in bulk.
             </p>
           </div>
-        ) : contractors.length > 0 ? (
+        ) : paginatedContractors.length > 0 ? (
           <ContractorTable
-            contractors={contractors}
+            contractors={paginatedContractors}
             businessId={businessId}
             onEdit={handleEdit}
             onDelete={(id) => {
@@ -296,14 +408,54 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
               deleteMutation.mutate(id)
             }}
             deletingId={deletingId}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSort={(field) => {
+              if (sortField === field) {
+                setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+              } else {
+                setSortField(field)
+                setSortDir('asc')
+              }
+            }}
           />
-        ) : null}
-      </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Search className="w-8 h-8 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">No contractors match your search</p>
+            <button
+              onClick={() => { setSearchQuery(''); setStatusFilter(null) }}
+              className="text-xs text-primary hover:underline mt-1"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
 
-      {/* TaxBandits Actions Panel */}
-      {contractors.length > 0 && (
-        <FormActionsPanel businessId={businessId} />
-      )}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
+            <span className="text-xs text-muted-foreground">
+              Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredContractors.length)} of {filteredContractors.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p - 1)} disabled={safePage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p + 1)} disabled={safePage === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Sticky Workflow Bar */}
+        {contractors.length > 0 && (
+          <div className="sticky bottom-0 mt-4 -mx-4 -mb-4">
+            <FormActionsPanel businessId={businessId} />
+          </div>
+        )}
+      </div>
 
       {/* Filing History */}
       {contractors.length > 0 && (

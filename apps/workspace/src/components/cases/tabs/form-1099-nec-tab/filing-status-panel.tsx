@@ -2,8 +2,9 @@
  * Filing Status Panel - Shows filing batch history and status
  * Allows refreshing status from TaxBandits API
  */
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, AlertCircle } from 'lucide-react'
 import { Button, cn } from '@ella/ui'
 import { api, type FilingStatusType } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -41,6 +42,18 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const diff = Date.now() - new Date(dateStr).getTime()
+  if (diff < 0) return 'Just now'
+  const days = Math.floor(diff / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+  return `${Math.floor(days / 30)} months ago`
+}
+
 export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
   const queryClient = useQueryClient()
 
@@ -61,14 +74,17 @@ export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
   })
 
   const batches = data?.data ?? []
+  const [showAll, setShowAll] = useState(false)
   if (batches.length === 0) return null
+
+  const visibleBatches = showAll ? batches : batches.slice(0, 2)
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">
       <h3 className="text-sm font-semibold text-foreground mb-3">Filing History</h3>
 
       <div className="space-y-3">
-        {batches.map((batch) => (
+        {visibleBatches.map((batch) => (
           <div
             key={batch.id}
             className={cn('p-3 rounded-lg border', BORDER_COLORS[batch.status])}
@@ -85,6 +101,9 @@ export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Submitted: {formatDate(batch.submittedAt)}
+                  {batch.submittedAt && (
+                    <span className="ml-1 text-muted-foreground/70">({formatRelativeTime(batch.submittedAt)})</span>
+                  )}
                 </div>
                 {batch.status === 'PARTIALLY_ACCEPTED' && (
                   <div className="text-xs">
@@ -94,23 +113,25 @@ export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
                   </div>
                 )}
                 {batch.rejectionReason && (
-                  <div className="text-xs text-red-600 dark:text-red-400">
-                    {batch.rejectionReason}
+                  <div className="flex items-start gap-2 mt-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                    <span className="text-xs text-red-700 dark:text-red-300">{batch.rejectionReason}</span>
                   </div>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
                 <span className={cn('px-2 py-0.5 text-xs font-medium rounded', STATUS_COLORS[batch.status])}>
-                  {batch.status.replace('_', ' ')}
+                  {batch.status.replaceAll('_', ' ')}
                 </span>
-                {['SUBMITTED', 'PROCESSING'].includes(batch.status) && (
+                {['SUBMITTED', 'PROCESSING', 'REJECTED', 'PARTIALLY_ACCEPTED'].includes(batch.status) && (
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-7 w-7 p-0"
                     onClick={() => refreshMutation.mutate(batch.id)}
                     disabled={refreshMutation.isPending}
+                    title="Refresh status"
                   >
                     <RefreshCw className={cn('h-3.5 w-3.5', refreshMutation.isPending && 'animate-spin')} />
                   </Button>
@@ -119,6 +140,15 @@ export function FilingStatusPanel({ businessId }: FilingStatusPanelProps) {
             </div>
           </div>
         ))}
+
+        {batches.length > 2 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-xs text-primary hover:underline"
+          >
+            {showAll ? 'Show less' : `Show ${batches.length - 2} more`}
+          </button>
+        )}
       </div>
     </div>
   )

@@ -222,6 +222,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
               </label>
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => setShowTooltip(showTooltip === field.field ? null : field.field)}
                 className="text-muted-foreground/60 hover:text-primary transition-colors"
                 aria-label={t('rental.showTooltip')}

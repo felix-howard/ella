@@ -19,6 +19,14 @@ interface PropertyExpensesStepProps {
 
 const MAX_OTHER_EXPENSES = 10
 
+/** Add thousand separators to a numeric string (e.g. "1000.40" → "1,000.40") */
+function formatMoneyDisplay(value: string): string {
+  if (!value || value === '.') return value
+  const parts = value.split('.')
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return parts.join('.')
+}
+
 export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   property,
   onUpdate,
@@ -88,12 +96,13 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   // Handle expense field change
   // Regex allows: empty, or any valid decimal number with up to 2 decimal places
   const handleExpenseChange = useCallback((field: string, value: string) => {
-    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
-      setExpenseValues((prev) => ({ ...prev, [field]: value }))
-      const num = parseFloat(value)
+    const raw = value.replace(/,/g, '')
+    if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
+      setExpenseValues((prev) => ({ ...prev, [field]: raw }))
+      const num = parseFloat(raw)
       if (!isNaN(num) && num >= 0) {
         onUpdate({ [field]: num } as Partial<ScheduleEProperty>)
-      } else if (value === '' || value === '.') {
+      } else if (raw === '' || raw === '.') {
         onUpdate({ [field]: 0 } as Partial<ScheduleEProperty>)
       }
     }
@@ -121,23 +130,33 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
   }, [onUpdate])
 
   const handleOtherExpenseAmountChange = useCallback((index: number, value: string) => {
-    // Same validation: empty, or any valid decimal number with up to 2 decimal places
-    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
-      // Update raw string state to preserve intermediate values like "123."
+    const raw = value.replace(/,/g, '')
+    if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
       setOtherAmountStrings((prev) => {
         const updated = [...prev]
-        updated[index] = value
+        updated[index] = raw
         return updated
       })
       setOtherExpenses((prev) => {
         const updated = [...prev]
-        const num = parseFloat(value)
+        const num = parseFloat(raw)
         updated[index] = { ...updated[index], amount: isNaN(num) ? 0 : num }
         onUpdate({ otherExpenses: updated })
         return updated
       })
     }
   }, [onUpdate])
+
+  const handleOtherExpenseBlur = useCallback((index: number) => {
+    setOtherAmountStrings((prev) => {
+      const updated = [...prev]
+      const val = updated[index]
+      if (val && !isNaN(parseFloat(val))) {
+        updated[index] = parseFloat(val).toFixed(2)
+      }
+      return updated
+    })
+  }, [])
 
   const handleAddOtherExpense = useCallback(() => {
     if (otherExpenses.length >= MAX_OTHER_EXPENSES) return
@@ -228,7 +247,7 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                 id={`expense-${field.field}`}
                 type="text"
                 inputMode="decimal"
-                value={expenseValues[field.field] || ''}
+                value={formatMoneyDisplay(expenseValues[field.field] || '')}
                 onChange={(e) => handleExpenseChange(field.field, e.target.value)}
                 onBlur={() => handleBlur(field.field)}
                 disabled={readOnly}
@@ -264,8 +283,9 @@ export const PropertyExpensesStep = memo(function PropertyExpensesStep({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={otherAmountStrings[index] ?? ''}
+                  value={formatMoneyDisplay(otherAmountStrings[index] ?? '')}
                   onChange={(e) => handleOtherExpenseAmountChange(index, e.target.value)}
+                  onBlur={() => handleOtherExpenseBlur(index)}
                   disabled={readOnly}
                   placeholder="0.00"
                   className={cn(inputClasses, 'pl-8 pr-3.5')}

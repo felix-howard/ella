@@ -49,12 +49,33 @@ function formatSsn(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`
 }
 
+function formatEin(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 9)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`
+}
+
+function formatTin(value: string, tinType: 'SSN' | 'EIN'): string {
+  return tinType === 'EIN' ? formatEin(value) : formatSsn(value)
+}
+
 function formatCurrency(value: string): string {
+  // Strip everything except digits and dot
   const cleaned = value.replace(/[^0-9.]/g, '')
   const parts = cleaned.split('.')
-  if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('')
-  if (parts[1]?.length > 2) return parts[0] + '.' + parts[1].slice(0, 2)
-  return cleaned
+  // Only allow one decimal point, max 2 decimal places
+  let intPart = parts[0] || ''
+  // Remove leading zeros (but keep "0" alone)
+  intPart = intPart.replace(/^0+(\d)/, '$1')
+  const decPart = parts.length > 1 ? '.' + (parts.slice(1).join('').slice(0, 2)) : ''
+  // Add thousand separators
+  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return formatted + decPart
+}
+
+/** Strip commas to get raw numeric value */
+function parseCurrencyRaw(display: string): string {
+  return display.replace(/,/g, '')
 }
 
 function maskSsn(ssn: string): string {
@@ -96,7 +117,14 @@ function useContractorForm() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [ssnDisplay, setSsnDisplay] = useState('')
-  const [tinType, setTinType] = useState<'SSN' | 'EIN'>('SSN')
+  const [tinType, _setTinType] = useState<'SSN' | 'EIN'>('SSN')
+
+  const setTinType = (type: 'SSN' | 'EIN') => {
+    _setTinType(type)
+    // Re-format existing digits into the new format
+    const digits = ssnDisplay.replace(/\D/g, '')
+    if (digits) setSsnDisplay(formatTin(digits, type))
+  }
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -112,7 +140,7 @@ function useContractorForm() {
     city.trim().length > 0 &&
     state.length > 0 &&
     /^\d{5}(-?\d{4})?$/.test(zip.trim()) &&
-    parseFloat(amountBox1) > 0
+    parseFloat(parseCurrencyRaw(amountBox1)) > 0
 
   const toFormData = (): ContractorFormData => ({
     firstName: firstName.trim(),
@@ -123,8 +151,8 @@ function useContractorForm() {
     city: city.trim(),
     state,
     zip: zip.trim(),
-    amountBox1,
-    amountBox4: amountBox4 || undefined,
+    amountBox1: parseCurrencyRaw(amountBox1),
+    amountBox4: parseCurrencyRaw(amountBox4) || undefined,
   })
 
   const toEntry = (): ContractorEntry => ({
@@ -295,14 +323,14 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
       {/* SSN/EIN */}
       <div>
         <label htmlFor="ci-ssn" className="block text-sm font-medium text-foreground mb-1.5">
-          {t('contractorIntake.ssn')} <span className="text-destructive">*</span>
+          {form.tinType === 'EIN' ? 'EIN' : 'SSN / TIN'} <span className="text-destructive">*</span>
         </label>
         <input
           id="ci-ssn"
           type="text"
           value={form.ssnDisplay}
-          onChange={(e) => form.setSsnDisplay(formatSsn(e.target.value))}
-          placeholder="XXX-XX-XXXX"
+          onChange={(e) => form.setSsnDisplay(formatTin(e.target.value, form.tinType))}
+          placeholder={form.tinType === 'EIN' ? 'XX-XXXXXXX' : 'XXX-XX-XXXX'}
           className={inputClass}
           required={queue.length === 0}
           disabled={isSubmitting}

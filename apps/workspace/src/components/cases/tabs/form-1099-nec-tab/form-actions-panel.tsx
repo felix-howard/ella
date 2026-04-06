@@ -1,11 +1,10 @@
 /**
- * Form Actions Panel - Streamlined 1099-NEC workflow
- * 2-step flow: Prepare Forms → Submit to IRS
- * Downloads available automatically after each step
+ * Form Actions Panel - 1099-NEC workflow actions
+ * Two clear sections: Draft forms (needs action) and Transmitted forms (done)
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, FileCheck, Send, Download, AlertTriangle, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { Loader2, FileCheck, Send, Download, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import JSZip from 'jszip'
 import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
@@ -81,7 +80,6 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
   }
 
-  // Step 1: Prepare = Create + Fetch PDFs in one click
   const prepareMutation = useMutation({
     mutationFn: () => api.form1099nec.prepare(businessId),
     onSuccess: (data) => {
@@ -101,7 +99,6 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     },
   })
 
-  // Step 2: Submit = Transmit + auto-fetch recipient PDFs
   const transmitMutation = useMutation({
     mutationFn: () => api.form1099nec.transmit(businessId),
     onSuccess: (data) => {
@@ -147,82 +144,71 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
 
   if (isLoading || status.total === 0) return null
 
-  // Determine workflow state
   const hasDrafts = status.draft > 0
   const hasReady = status.pdfReady > 0
   const hasTransmitted = status.submitted > 0 || status.accepted > 0
+  const transmittedCount = status.submitted + status.accepted
   const allDone = !hasDrafts && !hasReady && hasTransmitted
 
-  // Step statuses for the visual stepper
-  const step1Done = !hasDrafts && (hasReady || hasTransmitted)
-  const step2Done = hasTransmitted
-
   return (
-    <div className="bg-card border-t border-border p-4 space-y-4 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-      {/* Visual Stepper */}
-      <div className="flex items-center gap-3">
-        <StepIndicator
-          step={1}
-          label="Prepare Forms"
-          done={step1Done}
-          active={hasDrafts}
-        />
-        <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-        <StepIndicator
-          step={2}
-          label="Submit to IRS"
-          done={step2Done}
-          active={hasReady && !hasDrafts}
-        />
-        {allDone && (
-          <>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-            <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              Complete
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Step 1: Prepare */}
-        {hasDrafts && (
-          <Button
-            size="sm"
-            onClick={() => prepareMutation.mutate()}
-            disabled={prepareMutation.isPending}
-            className="gap-1.5"
-          >
-            {prepareMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <FileCheck className="w-3.5 h-3.5" />
+    <div className="bg-card border-t border-border p-4 space-y-3 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+      {/* Section 1: Draft forms needing action */}
+      {(hasDrafts || hasReady) && (
+        <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+          <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {hasDrafts && hasReady
+                ? `${status.draft} draft form${status.draft !== 1 ? 's' : ''} + ${status.pdfReady} ready to submit`
+                : hasDrafts
+                  ? `${status.draft} draft form${status.draft !== 1 ? 's' : ''} need${status.draft === 1 ? 's' : ''} preparation`
+                  : `${status.pdfReady} form${status.pdfReady !== 1 ? 's' : ''} ready to submit to IRS`
+              }
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hasDrafts && (
+              <Button
+                size="sm"
+                onClick={() => prepareMutation.mutate()}
+                disabled={prepareMutation.isPending}
+                className="gap-1.5"
+              >
+                {prepareMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileCheck className="w-3.5 h-3.5" />
+                )}
+                {prepareMutation.isPending ? 'Preparing...' : `Prepare ${status.draft} Form${status.draft !== 1 ? 's' : ''}`}
+              </Button>
             )}
-            {prepareMutation.isPending ? 'Preparing...' : `Prepare ${status.draft} Form${status.draft !== 1 ? 's' : ''}`}
-          </Button>
-        )}
+            {hasReady && (
+              <Button
+                size="sm"
+                onClick={() => setShowConfirm(true)}
+                disabled={hasDrafts}
+                variant={hasDrafts ? 'outline' : 'default'}
+                className="gap-1.5"
+                title={hasDrafts ? 'Prepare all draft forms first' : undefined}
+              >
+                <Send className="w-3.5 h-3.5" />
+                Submit {status.pdfReady} to IRS
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
-        {/* Step 2: Submit */}
-        {hasReady && (
-          <Button
-            variant={hasDrafts ? 'outline' : 'default'}
-            size="sm"
-            onClick={() => setShowConfirm(true)}
-            disabled={hasDrafts}
-            className="gap-1.5"
-            title={hasDrafts ? 'Prepare all draft forms first' : undefined}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Submit {status.pdfReady} to IRS
-          </Button>
-        )}
-
-        {/* Download buttons */}
-        {(hasReady || hasTransmitted) && (
-          <>
-            <div className="w-px h-6 bg-border mx-1" />
+      {/* Section 2: Transmitted forms (completed) */}
+      {hasTransmitted && (
+        <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+              {transmittedCount} form{transmittedCount !== 1 ? 's' : ''} submitted to IRS
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -237,26 +223,30 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
               )}
               Copy A (ZIP)
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadCopyB}
+              disabled={isDownloadingB}
+              className="gap-1.5"
+            >
+              {isDownloadingB ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              Copy B (ZIP)
+            </Button>
+          </div>
+        </div>
+      )}
 
-            {hasTransmitted && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadCopyB}
-                disabled={isDownloadingB}
-                className="gap-1.5"
-              >
-                {isDownloadingB ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
-                Copy B (ZIP)
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+      {/* All done state */}
+      {allDone && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center">
+          All forms have been submitted to the IRS
+        </p>
+      )}
 
       {/* Transmit Confirmation Modal */}
       <Modal open={showConfirm} onClose={() => !transmitMutation.isPending && setShowConfirm(false)}>
@@ -304,30 +294,6 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
           </Button>
         </ModalFooter>
       </Modal>
-    </div>
-  )
-}
-
-function StepIndicator({ step, label, done, active }: {
-  step: number
-  label: string
-  done: boolean
-  active: boolean
-}) {
-  return (
-    <div className={`flex items-center gap-1.5 text-sm ${
-      done
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : active
-          ? 'text-foreground font-medium'
-          : 'text-muted-foreground'
-    }`}>
-      {done ? (
-        <CheckCircle2 className="w-4 h-4" />
-      ) : (
-        <Circle className={`w-4 h-4 ${active ? 'fill-primary text-primary' : ''}`} />
-      )}
-      <span>{step}. {label}</span>
     </div>
   )
 }

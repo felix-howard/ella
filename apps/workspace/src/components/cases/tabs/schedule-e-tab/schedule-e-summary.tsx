@@ -42,7 +42,10 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
               })}
             </p>
           </div>
-          <StatusBadge status={expense.status} />
+          <div className="flex items-center gap-3">
+            <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+            <StatusBadge status={expense.status} />
+          </div>
         </div>
 
         {/* Locked Notice */}
@@ -92,8 +95,6 @@ export function ScheduleESummary({ expense, magicLink, totals, properties, caseI
         </div>
       )}
 
-      {/* Actions */}
-      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

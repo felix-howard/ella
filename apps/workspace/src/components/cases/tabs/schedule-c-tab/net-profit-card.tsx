@@ -1,7 +1,8 @@
 /**
- * Net Profit Card - Subtle display of net profit/loss
+ * Net Profit Card - Subtle display of net profit/loss with brand color
  */
 import { useTranslation } from 'react-i18next'
+import { cn } from '@ella/ui'
 import { formatUSD, parseAmount } from './format-utils'
 import { CopyableValue } from './copyable-value'
 
@@ -16,9 +17,17 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
 
   return (
     <div className="border-t border-border pt-4">
-      <div className="flex items-center justify-between">
+      <div className={cn(
+        'rounded-lg px-3 py-2.5 flex items-center justify-between',
+        isProfit
+          ? 'bg-primary/5 border border-primary/15'
+          : 'bg-destructive/5 border border-destructive/15'
+      )}>
         <div>
-          <span className="text-sm font-medium text-foreground uppercase tracking-wide">
+          <span className={cn(
+            'text-sm font-medium uppercase tracking-wide',
+            isProfit ? 'text-primary' : 'text-destructive'
+          )}>
             {isProfit ? t('scheduleC.netProfit') : t('scheduleC.netLoss')}
           </span>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -28,7 +37,10 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
         <CopyableValue
           formatted={formatUSD(netProfit)}
           rawValue={netProfit}
-          className="text-lg font-semibold text-foreground"
+          className={cn(
+            'text-lg font-semibold',
+            isProfit ? 'text-primary' : 'text-destructive'
+          )}
         />
       </div>
     </div>

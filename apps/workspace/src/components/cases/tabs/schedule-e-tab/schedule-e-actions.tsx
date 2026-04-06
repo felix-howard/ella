@@ -1,5 +1,5 @@
 /**
- * Schedule E Actions - Action buttons for lock/unlock and form link access
+ * Schedule E Actions - Unlock button and compact form link with copy
  */
 import { useState } from 'react'
 import { Unlock, Loader2, ExternalLink, Copy, Check } from 'lucide-react'
@@ -23,7 +23,8 @@ export function ScheduleEActions({ caseId, status, magicLinkUrl }: ScheduleEActi
   const isLocked = status === 'LOCKED'
   const formLink = magicLinkUrl ?? null
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (!formLink) return
     try {
       await navigator.clipboard.writeText(formLink)
@@ -35,14 +36,8 @@ export function ScheduleEActions({ caseId, status, magicLinkUrl }: ScheduleEActi
     }
   }
 
-  const handleOpenLink = () => {
-    if (formLink) {
-      window.open(formLink, '_blank', 'noopener,noreferrer')
-    }
-  }
-
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex items-center gap-2">
       {/* Unlock Button - only when locked */}
       {isLocked && (
         <Button
@@ -62,34 +57,31 @@ export function ScheduleEActions({ caseId, status, magicLinkUrl }: ScheduleEActi
         </Button>
       )}
 
-      {/* Form Link Buttons - only show if link exists and not locked */}
+      {/* Form Link - compact: open link + copy icon */}
       {!isLocked && formLink && (
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleOpenLink}
-            className="gap-2"
-            aria-label={t('common.openLink')}
+        <div className="flex items-center gap-1">
+          <a
+            href={formLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
           >
-            <ExternalLink className="w-4 h-4" aria-hidden="true" />
+            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
             {t('common.openLink')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+          </a>
+          <button
+            type="button"
             onClick={handleCopyLink}
-            className="gap-2"
+            className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
             aria-label={t('common.copyLink')}
           >
             {copied ? (
-              <Check className="w-4 h-4 text-green-500" aria-hidden="true" />
+              <Check className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
             ) : (
-              <Copy className="w-4 h-4" aria-hidden="true" />
+              <Copy className="w-3.5 h-3.5" aria-hidden="true" />
             )}
-            {t('common.copyLink')}
-          </Button>
-        </>
+          </button>
+        </div>
       )}
     </div>
   )

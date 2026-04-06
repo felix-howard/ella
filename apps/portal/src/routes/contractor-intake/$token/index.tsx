@@ -40,8 +40,7 @@ function ContractorIntakePage() {
   const [loadError, setLoadError] = useState<string>('')
   const [submitError, setSubmitError] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submittedContractor, setSubmittedContractor] = useState<SubmittedContractor | null>(null)
-  const [submittedCount, setSubmittedCount] = useState(0)
+  const [submittedContractors, setSubmittedContractors] = useState<SubmittedContractor[]>([])
 
   useEffect(() => {
     formApi
@@ -56,22 +55,29 @@ function ContractorIntakePage() {
       })
   }, [token])
 
-  const handleSubmit = async (data: ContractorFormData) => {
+  const handleSubmitAll = async (entries: ContractorFormData[]) => {
     setIsSubmitting(true)
     setSubmitError('')
+
+    const results: SubmittedContractor[] = []
+
     try {
-      const result = await formApi.submitContractor(token, data)
-      setSubmittedContractor(result.contractor)
-      setSubmittedCount((c) => c + 1)
+      for (const data of entries) {
+        const result = await formApi.submitContractor(token, data)
+        results.push(result.contractor)
+      }
+      setSubmittedContractors(results)
       setState('success')
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Submission failed')
+      const submitted = results.length
+      const prefix = submitted > 0 ? `${submitted}/${entries.length} submitted. ` : ''
+      setSubmitError(prefix + (err instanceof Error ? err.message : 'Submission failed'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleAddAnother = () => {
+  const handleAddMore = () => {
     setSubmitError('')
     setState('form')
   }
@@ -96,12 +102,11 @@ function ContractorIntakePage() {
     )
   }
 
-  if (state === 'success' && submittedContractor) {
+  if (state === 'success' && submittedContractors.length > 0) {
     return (
       <ContractorIntakeSuccess
-        contractor={submittedContractor}
-        submittedCount={submittedCount}
-        onAddAnother={handleAddAnother}
+        contractors={submittedContractors}
+        onAddMore={handleAddMore}
       />
     )
   }
@@ -119,7 +124,7 @@ function ContractorIntakePage() {
       </div>
 
       <ContractorIntakeForm
-        onSubmit={handleSubmit}
+        onSubmitAll={handleSubmitAll}
         isSubmitting={isSubmitting}
         error={submitError || undefined}
       />

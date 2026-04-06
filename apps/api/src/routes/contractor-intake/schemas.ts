@@ -18,6 +18,12 @@ export const submitContractorIntakeSchema = z.object({
   city: z.string().min(1, 'City is required').max(100),
   state: z.string().length(2, 'State must be 2-letter code'),
   zip: z.string().regex(/^\d{5}(-\d{4})?$/, 'ZIP must be 5 or 9 digits'),
-  email: z.string().email().optional(),
-  phone: z.string().max(20).optional(),
+  amountBox1: z.string().refine(
+    (v) => { const n = parseFloat(v); return !isNaN(n) && n > 0 },
+    'Compensation amount must be greater than 0'
+  ),
+  amountBox4: z.string().optional().refine(
+    (v) => !v || (!isNaN(parseFloat(v)) && parseFloat(v) >= 0),
+    'Tax withheld must be a valid amount'
+  ),
 })

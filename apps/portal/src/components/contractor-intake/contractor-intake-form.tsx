@@ -1,9 +1,10 @@
 /**
  * Contractor Intake Form - Collects contractor info for 1099-NEC filing
+ * Supports adding multiple contractors before batch submission
  */
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, Trash2, User } from 'lucide-react'
 import { Button } from '@ella/ui'
 
 const US_STATES = [
@@ -23,12 +24,17 @@ export interface ContractorFormData {
   city: string
   state: string
   zip: string
-  email?: string
-  phone?: string
+  amountBox1: string
+  amountBox4?: string
+}
+
+/** Local entry with display SSN for the queue list */
+export interface ContractorEntry extends ContractorFormData {
+  ssnDisplay: string
 }
 
 interface ContractorIntakeFormProps {
-  onSubmit: (data: ContractorFormData) => Promise<void>
+  onSubmitAll: (entries: ContractorFormData[]) => Promise<void>
   isSubmitting: boolean
   error?: string
 }
@@ -43,10 +49,50 @@ function formatSsn(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`
 }
 
-export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: ContractorIntakeFormProps) {
-  const { t } = useTranslation()
-  const submittingRef = useRef(false)
+function formatCurrency(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '')
+  const parts = cleaned.split('.')
+  if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('')
+  if (parts[1]?.length > 2) return parts[0] + '.' + parts[1].slice(0, 2)
+  return cleaned
+}
 
+function maskSsn(ssn: string): string {
+  return `***-**-${ssn.slice(-4)}`
+}
+
+/** Custom pill-style radio button group for TIN type */
+function TinTypeRadio({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: 'SSN' | 'EIN'
+  onChange: (v: 'SSN' | 'EIN') => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex rounded-xl border border-border overflow-hidden">
+      {(['SSN', 'EIN'] as const).map((type) => (
+        <button
+          key={type}
+          type="button"
+          onClick={() => !disabled && onChange(type)}
+          disabled={disabled}
+          className={`flex-1 px-5 py-2.5 text-sm font-medium transition-colors ${
+            value === type
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-background text-muted-foreground hover:bg-muted/50'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          {type}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function useContractorForm() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [ssnDisplay, setSsnDisplay] = useState('')
@@ -55,12 +101,8 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-
-  const handleSsnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSsnDisplay(formatSsn(e.target.value))
-  }
+  const [amountBox1, setAmountBox1] = useState('')
+  const [amountBox4, setAmountBox4] = useState('')
 
   const isValid =
     firstName.trim().length > 0 &&
@@ -69,45 +111,158 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
     address.trim().length > 0 &&
     city.trim().length > 0 &&
     state.length > 0 &&
-    /^\d{5}(-?\d{4})?$/.test(zip.trim())
+    /^\d{5}(-?\d{4})?$/.test(zip.trim()) &&
+    parseFloat(amountBox1) > 0
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submittingRef.current || !isValid) return
-    submittingRef.current = true
+  const toFormData = (): ContractorFormData => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    ssn: ssnDisplay.replace(/\D/g, ''),
+    tinType,
+    address: address.trim(),
+    city: city.trim(),
+    state,
+    zip: zip.trim(),
+    amountBox1,
+    amountBox4: amountBox4 || undefined,
+  })
 
-    try {
-      await onSubmit({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        ssn: ssnDisplay.replace(/\D/g, ''),
-        tinType,
-        address: address.trim(),
-        city: city.trim(),
-        state,
-        zip: zip.trim(),
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-      })
-    } finally {
-      submittingRef.current = false
-    }
+  const toEntry = (): ContractorEntry => ({
+    ...toFormData(),
+    ssnDisplay,
+  })
+
+  const reset = () => {
+    setFirstName('')
+    setLastName('')
+    setSsnDisplay('')
+    setTinType('SSN')
+    setAddress('')
+    setCity('')
+    setState('')
+    setZip('')
+    setAmountBox1('')
+    setAmountBox4('')
   }
 
+  return {
+    firstName, setFirstName,
+    lastName, setLastName,
+    ssnDisplay, setSsnDisplay,
+    tinType, setTinType,
+    address, setAddress,
+    city, setCity,
+    state, setState,
+    zip, setZip,
+    amountBox1, setAmountBox1,
+    amountBox4, setAmountBox4,
+    isValid,
+    toFormData,
+    toEntry,
+    reset,
+  }
+}
+
+export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: ContractorIntakeFormProps) {
+  const { t } = useTranslation()
+  const form = useContractorForm()
+  const [queue, setQueue] = useState<ContractorEntry[]>([])
+  const [formError, setFormError] = useState('')
+  const firstNameRef = useRef<HTMLInputElement>(null)
+
+  const handleAddToQueue = () => {
+    if (!form.isValid) return
+    setQueue((prev) => [...prev, form.toEntry()])
+    form.reset()
+    setFormError('')
+    firstNameRef.current?.focus()
+  }
+
+  const handleRemoveFromQueue = (index: number) => {
+    setQueue((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSubmitAll = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // If form has data, add it to queue first
+    let finalQueue = [...queue]
+    if (form.firstName.trim() || form.lastName.trim()) {
+      if (!form.isValid) {
+        setFormError('Please complete all required fields for the current contractor before submitting.')
+        return
+      }
+      finalQueue = [...finalQueue, form.toEntry()]
+    }
+
+    if (finalQueue.length === 0) {
+      setFormError('Please add at least one contractor.')
+      return
+    }
+
+    await onSubmitAll(finalQueue.map(({ ssnDisplay: _, ...data }) => data))
+  }
+
+  const totalContractors = queue.length + (form.isValid ? 1 : 0)
+
   return (
-    <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+    <form onSubmit={handleSubmitAll} className="px-6 py-6 space-y-4">
+      {/* Queued contractors list */}
+      {queue.length > 0 && (
+        <div className="space-y-2 mb-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {t('contractorIntake.contractorsAdded', { count: queue.length })}
+          </p>
+          {queue.map((entry, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-muted/30"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {entry.firstName} {entry.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {entry.tinType}: {maskSsn(entry.ssn)} &middot; ${parseFloat(entry.amountBox1).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemoveFromQueue(i)}
+                disabled={isSubmitting}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <div className="border-t border-border/50 pt-3">
+            <p className="text-xs text-muted-foreground text-center">
+              Add another contractor below or submit all
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Name row */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="ci-firstName" className="block text-sm font-medium text-foreground mb-1.5">
             {t('contractorIntake.firstName')} <span className="text-destructive">*</span>
           </label>
           <input
+            ref={firstNameRef}
             id="ci-firstName"
             type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            value={form.firstName}
+            onChange={(e) => form.setFirstName(e.target.value)}
             className={inputClass}
-            required
+            required={queue.length === 0}
             maxLength={100}
             disabled={isSubmitting}
           />
@@ -119,38 +274,25 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
           <input
             id="ci-lastName"
             type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            value={form.lastName}
+            onChange={(e) => form.setLastName(e.target.value)}
             className={inputClass}
-            required
+            required={queue.length === 0}
             maxLength={100}
             disabled={isSubmitting}
           />
         </div>
       </div>
 
+      {/* TIN Type - custom radio */}
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">
-          {t('contractorIntake.tinType')}
+          {t('contractorIntake.tinType')} <span className="text-destructive">*</span>
         </label>
-        <div className="flex gap-4">
-          {(['SSN', 'EIN'] as const).map((type) => (
-            <label key={type} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="tinType"
-                value={type}
-                checked={tinType === type}
-                onChange={() => setTinType(type)}
-                disabled={isSubmitting}
-                className="accent-primary"
-              />
-              <span className="text-sm text-foreground">{type}</span>
-            </label>
-          ))}
-        </div>
+        <TinTypeRadio value={form.tinType} onChange={form.setTinType} disabled={isSubmitting} />
       </div>
 
+      {/* SSN/EIN */}
       <div>
         <label htmlFor="ci-ssn" className="block text-sm font-medium text-foreground mb-1.5">
           {t('contractorIntake.ssn')} <span className="text-destructive">*</span>
@@ -158,16 +300,17 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
         <input
           id="ci-ssn"
           type="text"
-          value={ssnDisplay}
-          onChange={handleSsnChange}
+          value={form.ssnDisplay}
+          onChange={(e) => form.setSsnDisplay(formatSsn(e.target.value))}
           placeholder="XXX-XX-XXXX"
           className={inputClass}
-          required
+          required={queue.length === 0}
           disabled={isSubmitting}
           inputMode="numeric"
         />
       </div>
 
+      {/* Address */}
       <div>
         <label htmlFor="ci-address" className="block text-sm font-medium text-foreground mb-1.5">
           {t('contractorIntake.address')} <span className="text-destructive">*</span>
@@ -175,15 +318,16 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
         <input
           id="ci-address"
           type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          value={form.address}
+          onChange={(e) => form.setAddress(e.target.value)}
           className={inputClass}
-          required
+          required={queue.length === 0}
           maxLength={500}
           disabled={isSubmitting}
         />
       </div>
 
+      {/* City + State */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="ci-city" className="block text-sm font-medium text-foreground mb-1.5">
@@ -192,10 +336,10 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
           <input
             id="ci-city"
             type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
+            value={form.city}
+            onChange={(e) => form.setCity(e.target.value)}
             className={inputClass}
-            required
+            required={queue.length === 0}
             maxLength={100}
             disabled={isSubmitting}
           />
@@ -206,10 +350,10 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
           </label>
           <select
             id="ci-state"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
+            value={form.state}
+            onChange={(e) => form.setState(e.target.value)}
             className={inputClass}
-            required
+            required={queue.length === 0}
             disabled={isSubmitting}
           >
             <option value="">--</option>
@@ -220,6 +364,7 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
         </div>
       </div>
 
+      {/* ZIP */}
       <div>
         <label htmlFor="ci-zip" className="block text-sm font-medium text-foreground mb-1.5">
           {t('contractorIntake.zip')} <span className="text-destructive">*</span>
@@ -227,65 +372,100 @@ export function ContractorIntakeForm({ onSubmit, isSubmitting, error }: Contract
         <input
           id="ci-zip"
           type="text"
-          value={zip}
-          onChange={(e) => setZip(e.target.value)}
+          value={form.zip}
+          onChange={(e) => form.setZip(e.target.value)}
           placeholder="XXXXX"
           className={inputClass}
-          required
+          required={queue.length === 0}
           maxLength={10}
           disabled={isSubmitting}
           inputMode="numeric"
         />
       </div>
 
-      <div>
-        <label htmlFor="ci-email" className="block text-sm font-medium text-foreground mb-1.5">
-          {t('contractorIntake.email')}
-        </label>
-        <input
-          id="ci-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          disabled={isSubmitting}
-        />
+      {/* Income fields */}
+      <div className="border-t border-border/50 pt-4 mt-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+          1099-NEC Income
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="ci-box1" className="block text-sm font-medium text-foreground mb-1.5">
+              Box 1: Compensation <span className="text-destructive">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+              <input
+                id="ci-box1"
+                type="text"
+                value={form.amountBox1}
+                onChange={(e) => form.setAmountBox1(formatCurrency(e.target.value))}
+                placeholder="0.00"
+                className={`${inputClass} pl-8`}
+                required={queue.length === 0}
+                disabled={isSubmitting}
+                inputMode="decimal"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="ci-box4" className="block text-sm font-medium text-foreground mb-1.5">
+              Box 4: Tax Withheld
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+              <input
+                id="ci-box4"
+                type="text"
+                value={form.amountBox4}
+                onChange={(e) => form.setAmountBox4(formatCurrency(e.target.value))}
+                placeholder="0.00"
+                className={`${inputClass} pl-8`}
+                disabled={isSubmitting}
+                inputMode="decimal"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="ci-phone" className="block text-sm font-medium text-foreground mb-1.5">
-          {t('contractorIntake.phone')}
-        </label>
-        <input
-          id="ci-phone"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className={inputClass}
-          disabled={isSubmitting}
-        />
-      </div>
-
-      {error && (
+      {/* Error messages */}
+      {(error || formError) && (
         <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
+          {error || formError}
         </div>
       )}
 
-      <Button
-        type="submit"
-        disabled={!isValid || isSubmitting}
-        className="w-full py-3 rounded-xl font-medium mt-2"
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            {t('contractorIntake.submitting')}
-          </>
-        ) : (
-          t('contractorIntake.submit')
-        )}
-      </Button>
+      {/* Action buttons */}
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleAddToQueue}
+          disabled={!form.isValid || isSubmitting}
+          className="flex-1 py-3 rounded-xl font-medium"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add & Continue
+        </Button>
+        <Button
+          type="submit"
+          disabled={(totalContractors === 0) || isSubmitting}
+          className="flex-1 py-3 rounded-xl font-medium"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {t('contractorIntake.submitting')}
+            </>
+          ) : (
+            <>
+              {t('contractorIntake.submit')}
+              {totalContractors > 0 && ` (${totalContractors})`}
+            </>
+          )}
+        </Button>
+      </div>
     </form>
   )
 }

@@ -140,8 +140,8 @@ export const formApi = {
     city: string
     state: string
     zip: string
-    email?: string
-    phone?: string
+    amountBox1: string
+    amountBox4?: string
   }): Promise<{
     success: boolean
     contractor: { firstName: string; lastName: string; ssnLast4: string }

@@ -1,23 +1,26 @@
 /**
- * Contractor Intake Success View - Shown after successful contractor submission
+ * Contractor Intake Success View - Shown after successful batch submission
  */
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
 
+interface SubmittedContractor {
+  firstName: string
+  lastName: string
+  ssnLast4: string
+}
+
 interface ContractorIntakeSuccessProps {
-  contractor: { firstName: string; lastName: string; ssnLast4: string }
-  submittedCount: number
-  onAddAnother: () => void
+  contractors: SubmittedContractor[]
+  onAddMore: () => void
 }
 
 export function ContractorIntakeSuccess({
-  contractor,
-  submittedCount,
-  onAddAnother,
+  contractors,
+  onAddMore,
 }: ContractorIntakeSuccessProps) {
   const { t } = useTranslation()
-  const fullName = `${contractor.firstName} ${contractor.lastName}`
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
@@ -29,15 +32,42 @@ export function ContractorIntakeSuccess({
         {t('contractorIntake.success')}
       </h2>
 
-      <p className="text-muted-foreground max-w-xs mb-2">
-        {t('contractorIntake.successMessage', { name: fullName, last4: contractor.ssnLast4 })}
+      <p className="text-muted-foreground max-w-xs mb-6">
+        {contractors.length === 1
+          ? t('contractorIntake.successMessage', {
+              name: `${contractors[0].firstName} ${contractors[0].lastName}`,
+              last4: contractors[0].ssnLast4,
+            })
+          : t('contractorIntake.successMessageMultiple', {
+              count: contractors.length,
+            })}
       </p>
 
-      <p className="text-sm text-muted-foreground mb-8">
-        {t('contractorIntake.submitted', { count: submittedCount })}
-      </p>
+      {/* List submitted contractors */}
+      {contractors.length > 1 && (
+        <div className="w-full max-w-sm space-y-2 mb-8">
+          {contractors.map((c, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border/50 bg-muted/20 text-left"
+            >
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {c.firstName} {c.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ***-**-{c.ssnLast4}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <Button onClick={onAddAnother} className="rounded-xl px-6">
+      <Button onClick={onAddMore} className="rounded-xl px-6">
         {t('contractorIntake.addAnother')}
       </Button>
     </div>

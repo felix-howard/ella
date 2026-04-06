@@ -21,7 +21,7 @@ const intakeReadRateLimit = rateLimiter({
 
 const intakeSubmitRateLimit = rateLimiter({
   keyPrefix: 'intake-submit',
-  maxRequests: 5,
+  maxRequests: 20,
   windowMs: 60000,
 })
 
@@ -71,7 +71,7 @@ contractorIntakeRoute.get(
 )
 
 /**
- * POST /contractor-intake/:token - Submit contractor info
+ * POST /contractor-intake/:token - Submit contractor info + create 1099-NEC draft
  */
 contractorIntakeRoute.post(
   '/:token',
@@ -88,7 +88,7 @@ contractorIntakeRoute.post(
         isActive: true,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
-      select: { businessId: true },
+      select: { businessId: true, taxYear: true },
     })
 
     if (!intakeToken) {
@@ -99,31 +99,47 @@ contractorIntakeRoute.post(
     const ssnLast4 = ssnDigits.slice(-4)
     const ssnEncrypted = encryptSSN(input.ssn)
 
-    const contractor = await prisma.contractor.create({
-      data: {
-        businessId: intakeToken.businessId,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        tinType: input.tinType,
-        ssnEncrypted,
-        ssnLast4,
-        address: input.address,
-        city: input.city,
-        state: input.state,
-        zip: input.zip,
-        email: input.email ?? null,
-        phone: input.phone ?? null,
-      },
-      select: {
-        firstName: true,
-        lastName: true,
-        ssnLast4: true,
-      },
+    // Create contractor + 1099-NEC draft in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const contractor = await tx.contractor.create({
+        data: {
+          businessId: intakeToken.businessId,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          tinType: input.tinType,
+          ssnEncrypted,
+          ssnLast4,
+          address: input.address,
+          city: input.city,
+          state: input.state,
+          zip: input.zip,
+          email: null,
+          phone: null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          ssnLast4: true,
+        },
+      })
+
+      await tx.form1099NEC.create({
+        data: {
+          contractorId: contractor.id,
+          taxYear: intakeToken.taxYear,
+          amountBox1: parseFloat(input.amountBox1),
+          amountBox4: input.amountBox4 ? parseFloat(input.amountBox4) : 0,
+          status: 'DRAFT',
+        },
+      })
+
+      return contractor
     })
 
-    console.log(`[ContractorIntake] Created contractor via token ${token} for business ${intakeToken.businessId}`)
+    console.log(`[ContractorIntake] Created contractor + 1099-NEC via token ${token} for business ${intakeToken.businessId}`)
 
-    return c.json({ success: true, contractor })
+    return c.json({ success: true, contractor: result })
   }
 )
 

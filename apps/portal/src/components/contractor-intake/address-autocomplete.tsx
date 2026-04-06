@@ -95,6 +95,11 @@ export function AddressAutocomplete({
 
     const address = streetNumber ? `${streetNumber} ${route}` : route
 
+    // Override the input value to show only the street (Google sets the full address)
+    if (inputRef.current) {
+      inputRef.current.value = address
+    }
+
     onSelect({ address, city, state, zip })
   }, [onSelect])
 

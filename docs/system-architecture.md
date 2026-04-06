@@ -977,7 +977,7 @@ apps/api/src/services/ai/
 └── prompts/
     ├── classify.ts - Classification + SmartRename prompts
     ├── address-parser.ts - US address parsing (structured extraction for contractors)
-    └── ocr/ - 22 OCR extraction prompts (forms 1040, schedules, income docs)
+    └── ocr/ - Form-specific OCR prompts (1040, schedules, income docs) + generic-extractor.ts fallback for unknown types
 ```
 
 **Address Parsing Service (NEW - Excel Import Fallback):**

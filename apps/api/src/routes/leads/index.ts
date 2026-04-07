@@ -403,7 +403,8 @@ leadsRoute.post(
           magicLink,
           taxYear,
           language,
-          customMessage
+          customMessage,
+          staffId
         )
       } catch (err) {
         console.error('[Leads] Welcome SMS failed:', err)

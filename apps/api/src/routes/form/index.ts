@@ -234,7 +234,9 @@ formRoute.post(
           input.phone,
           magicLink,
           input.taxYear,
-          input.language as 'VI' | 'EN'
+          input.language as 'VI' | 'EN',
+          undefined,
+          staffId
         )
         smsSent = smsResult.smsSent
       } catch (error) {

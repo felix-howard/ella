@@ -450,7 +450,8 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         magicLink,
         result.taxCase.taxYear,
         result.client.language as 'VI' | 'EN',
-        customMessage // Pass custom message from form
+        customMessage, // Pass custom message from form
+        user.staffId
       )
       smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
     } catch (error) {
@@ -640,7 +641,9 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
       client.phone,
       portalUrl,
       taxCase.taxYear,
-      smsLanguage
+      smsLanguage,
+      undefined,
+      user.staffId
     )
 
     if (result.smsSent) {
@@ -1359,6 +1362,7 @@ clientsRoute.post(
         latestCase.taxYear,
         client.language as 'VI' | 'EN',
         customMessage,
+        user.staffId,
       )
 
       if (!result.smsSent) {

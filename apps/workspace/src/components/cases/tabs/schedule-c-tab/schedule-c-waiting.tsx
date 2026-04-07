@@ -25,7 +25,10 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
       {/* Header with Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Schedule C</h2>
-        <StatusBadge status="DRAFT" />
+        <div className="flex items-center gap-3">
+          <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+          <StatusBadge status="DRAFT" />
+        </div>
       </div>
 
       {/* Magic Link Timeline */}
@@ -98,8 +101,6 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
         <IncomeTable expense={expense} necBreakdown={necBreakdown} />
       </div>
 
-      {/* Actions */}
-      <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

@@ -43,6 +43,9 @@ export const ConversationListItem = memo(function ConversationListItem({
       return t('call.previewDefault')
     }
     const text = sanitizeText(lastMessage.content)
+    if (!text && lastMessage.attachmentUrls?.length) {
+      return t('messages.imageAttachment', 'Sent a photo')
+    }
     return text.slice(0, 60) + (text.length > 60 ? '...' : '')
   }
   const messagePreview = getMessagePreview()

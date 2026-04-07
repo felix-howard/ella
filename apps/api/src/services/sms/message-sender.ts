@@ -63,7 +63,8 @@ export async function sendWelcomeMessage(
   magicLink: string,
   taxYear: number,
   language: SmsLanguage = 'VI',
-  customMessage?: string
+  customMessage?: string,
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   let body: string
 
@@ -101,7 +102,7 @@ export async function sendWelcomeMessage(
     }
   }
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'welcome')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'welcome', staffId)
 }
 
 /**
@@ -113,7 +114,8 @@ export async function sendMissingDocsReminder(
   clientPhone: string,
   magicLink: string,
   missingDocs: string[],
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   if (missingDocs.length === 0) {
     return { success: false, error: 'NO_MISSING_DOCS', smsSent: false }
@@ -126,7 +128,7 @@ export async function sendMissingDocsReminder(
     language,
   })
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'missing_docs')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'missing_docs', staffId)
 }
 
 /**
@@ -138,7 +140,8 @@ export async function sendBlurryResendRequest(
   clientPhone: string,
   magicLink: string,
   docTypes: string[],
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   if (docTypes.length === 0) {
     return { success: false, error: 'NO_BLURRY_DOCS', smsSent: false }
@@ -151,7 +154,7 @@ export async function sendBlurryResendRequest(
     language,
   })
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'blurry_resend')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'blurry_resend', staffId)
 }
 
 /**
@@ -162,7 +165,8 @@ export async function sendDocsCompleteMessage(
   clientName: string,
   clientPhone: string,
   taxYear: number,
-  language: SmsLanguage = 'VI'
+  language: SmsLanguage = 'VI',
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   const body = generateCompleteMessage({
     clientName,
@@ -170,7 +174,7 @@ export async function sendDocsCompleteMessage(
     language,
   })
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'complete')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'complete', staffId)
 }
 
 /**
@@ -180,9 +184,10 @@ export async function sendDocsCompleteMessage(
 export async function sendCustomMessage(
   caseId: string,
   clientPhone: string,
-  content: string
+  content: string,
+  staffId?: string | null
 ): Promise<SendMessageResult> {
-  return sendAndRecordMessage(caseId, clientPhone, content, undefined)
+  return sendAndRecordMessage(caseId, clientPhone, content, undefined, staffId)
 }
 
 /**
@@ -221,7 +226,8 @@ async function sendAndRecordMessage(
   caseId: string,
   phone: string,
   content: string,
-  templateName: TemplateName | undefined
+  templateName: TemplateName | undefined,
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   if (!isTwilioConfigured()) {
     return { success: true, smsSent: false, error: 'SMS_NOT_CONFIGURED' }
@@ -247,6 +253,7 @@ async function sendAndRecordMessage(
       direction: 'OUTBOUND' as MessageDirection,
       content,
       templateUsed: templateName,
+      sentById: staffId || undefined,
       twilioSid: result.success ? (result.sid ?? null) : null,
       twilioStatus: result.success
         ? (result.status ?? null)
@@ -292,7 +299,8 @@ export async function sendScheduleCFormMessage(
   clientPhone: string,
   magicLink: string,
   language: SmsLanguage = 'VI',
-  customMessage?: string
+  customMessage?: string,
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   let body: string
 
@@ -306,7 +314,7 @@ export async function sendScheduleCFormMessage(
     body = generateScheduleCMessage({ clientName, magicLink, language })
   }
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_c')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_c', staffId)
 }
 
 /**
@@ -327,7 +335,8 @@ export async function sendScheduleEFormMessage(
   clientPhone: string,
   magicLink: string,
   language: SmsLanguage = 'VI',
-  customMessage?: string
+  customMessage?: string,
+  staffId?: string | null
 ): Promise<SendMessageResult> {
   let body: string
 
@@ -341,5 +350,5 @@ export async function sendScheduleEFormMessage(
     body = generateScheduleEMessage({ clientName, magicLink, language })
   }
 
-  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_e')
+  return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_e', staffId)
 }

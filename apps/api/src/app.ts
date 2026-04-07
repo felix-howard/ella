@@ -31,6 +31,7 @@ import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
+import { contractorIntakeRoute } from './routes/contractor-intake'
 import { contractorsRoute } from './routes/contractors'
 import { businessesRoute } from './routes/businesses'
 import { form1099NecRoute } from './routes/form-1099-nec'
@@ -67,6 +68,7 @@ app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
 app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
+app.route('/contractor-intake', contractorIntakeRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
 app.use('/clients/*', authMiddleware)

@@ -203,17 +203,11 @@ export async function batchClassifyDocuments(
  * (Exclude 7 types vs include 17+ types)
  */
 export function requiresOcrExtraction(docType: SupportedDocType | 'UNKNOWN'): boolean {
-  // Types that do NOT require OCR extraction
+  // Only exclude truly non-extractable document types
+  // Generic fallback extractor handles all other types dynamically
   const noOcrTypes: Array<SupportedDocType | 'UNKNOWN'> = [
-    'PASSPORT',           // Photo ID only, no structured data
-    'PROFIT_LOSS_STATEMENT', // Free-form business docs
-    'BUSINESS_LICENSE',   // Varies too much by jurisdiction
-    'EIN_LETTER',         // Simple letter format
-    'RECEIPT',            // Too varied to extract reliably
-    'BIRTH_CERTIFICATE',  // Only for dependent verification
-    'DAYCARE_RECEIPT',    // Varies by provider
-    'OTHER',              // Unknown format
-    'UNKNOWN',            // Unclassified
+    'OTHER',              // Unknown format, no reliable extraction
+    'UNKNOWN',            // Unclassified, skip OCR
   ]
   return !noOcrTypes.includes(docType)
 }

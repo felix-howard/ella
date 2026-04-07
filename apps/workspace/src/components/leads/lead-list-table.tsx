@@ -110,7 +110,7 @@ interface LeadRowProps {
 const LeadRow = memo(function LeadRow({
   lead, selected, onSelect, onRowClick, isLast,
 }: LeadRowProps) {
-  const { i18n, t } = useTranslation()
+  const { i18n } = useTranslation()
   const isConverted = lead.status === 'CONVERTED'
   const avatarColor = useMemo(() => getAvatarColor(`${lead.firstName} ${lead.lastName}`), [lead.firstName, lead.lastName])
 

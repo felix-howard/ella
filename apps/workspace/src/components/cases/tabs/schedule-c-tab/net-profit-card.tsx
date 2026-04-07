@@ -2,7 +2,6 @@
  * Net Profit Card - Subtle display of net profit/loss with brand color
  */
 import { useTranslation } from 'react-i18next'
-import { cn } from '@ella/ui'
 import { formatUSD, parseAmount } from './format-utils'
 import { CopyableValue } from './copyable-value'
 

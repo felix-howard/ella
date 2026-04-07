@@ -174,13 +174,13 @@ describe('validateGenericData', () => {
 
   it('rejects missing documentType', () => {
     const data = createValidGenericData()
-    const { documentType, ...rest } = data
+    const { documentType: _documentType, ...rest } = data
     expect(validateGenericData(rest)).toBe(false)
   })
 
   it('rejects non-string documentType', () => {
     const data = createValidGenericData({
-      documentType: 123 as any,
+      documentType: 123 as unknown as string,
     })
     expect(validateGenericData(data)).toBe(false)
   })
@@ -194,27 +194,27 @@ describe('validateGenericData', () => {
 
   it('rejects missing extractedFields', () => {
     const data = createValidGenericData()
-    const { extractedFields, ...rest } = data
+    const { extractedFields: _extractedFields, ...rest } = data
     expect(validateGenericData(rest)).toBe(false)
   })
 
   it('rejects non-array extractedFields', () => {
     const data = createValidGenericData({
-      extractedFields: {} as any,
+      extractedFields: {} as unknown as GenericExtractedData['extractedFields'],
     })
     expect(validateGenericData(data)).toBe(false)
   })
 
   it('rejects extractedFields with non-object entries', () => {
     const data = createValidGenericData({
-      extractedFields: ['not an object'] as any,
+      extractedFields: ['not an object'] as unknown as GenericExtractedData['extractedFields'],
     })
     expect(validateGenericData(data)).toBe(false)
   })
 
   it('rejects extractedFields with null object entries', () => {
     const data = createValidGenericData({
-      extractedFields: [null] as any,
+      extractedFields: [null] as unknown as GenericExtractedData['extractedFields'],
     })
     expect(validateGenericData(data)).toBe(false)
   })
@@ -225,7 +225,7 @@ describe('validateGenericData', () => {
         {
           fieldValue: 'test',
           fieldType: 'text',
-        } as any,
+        } as unknown as GenericExtractedData['extractedFields'][0],
       ],
     })
     expect(validateGenericData(data)).toBe(false)
@@ -235,7 +235,7 @@ describe('validateGenericData', () => {
     const data = createValidGenericData({
       extractedFields: [
         {
-          fieldName: 123 as any,
+          fieldName: 123 as unknown as string,
           fieldValue: 'test',
           fieldType: 'text',
         },
@@ -250,7 +250,7 @@ describe('validateGenericData', () => {
         {
           fieldName: 'Test Field',
           fieldValue: 'test',
-          fieldType: 'invalid' as any,
+          fieldType: 'invalid' as unknown as GenericExtractedData['extractedFields'][0]['fieldType'],
         },
       ],
     })
@@ -263,7 +263,7 @@ describe('validateGenericData', () => {
         {
           fieldName: 'Test Field',
           fieldValue: 'test',
-        } as any,
+        } as unknown as GenericExtractedData['extractedFields'][0],
       ],
     })
     expect(validateGenericData(data)).toBe(false)
@@ -326,7 +326,7 @@ describe('validateGenericData', () => {
         {
           fieldName: 'Invalid Field',
           fieldValue: 'test',
-          fieldType: 'bad-type' as any,
+          fieldType: 'bad-type' as unknown as GenericExtractedData['extractedFields'][0]['fieldType'],
         },
       ],
     })
@@ -334,7 +334,7 @@ describe('validateGenericData', () => {
   })
 
   it('accepts fieldValue as string, number, boolean, or null', () => {
-    const testCases: Array<[string, any]> = [
+    const testCases: Array<[string, GenericExtractedData['extractedFields'][0]]> = [
       ['string value', { fieldName: 'Test', fieldValue: 'text', fieldType: 'text' }],
       ['number value', { fieldName: 'Test', fieldValue: 123, fieldType: 'amount' }],
       ['boolean value', { fieldName: 'Test', fieldValue: true, fieldType: 'boolean' }],
@@ -352,7 +352,7 @@ describe('validateGenericData', () => {
   it('rejects fieldValue that is an object', () => {
     const data = createValidGenericData({
       extractedFields: [
-        { fieldName: 'Test', fieldValue: { nested: true } as any, fieldType: 'text' },
+        { fieldName: 'Test', fieldValue: { nested: true } as unknown as string, fieldType: 'text' } as GenericExtractedData['extractedFields'][0],
       ],
     })
     expect(validateGenericData(data)).toBe(false)
@@ -361,7 +361,7 @@ describe('validateGenericData', () => {
   it('rejects fieldValue that is an array', () => {
     const data = createValidGenericData({
       extractedFields: [
-        { fieldName: 'Test', fieldValue: [1, 2] as any, fieldType: 'text' },
+        { fieldName: 'Test', fieldValue: [1, 2] as unknown as string, fieldType: 'text' } as GenericExtractedData['extractedFields'][0],
       ],
     })
     expect(validateGenericData(data)).toBe(false)
@@ -648,9 +648,9 @@ describe('GENERIC_EXTRACTOR_FIELD_LABELS_VI', () => {
   })
 
   it('all values are non-empty strings', () => {
-    for (const [key, value] of Object.entries(GENERIC_EXTRACTOR_FIELD_LABELS_VI)) {
+    for (const [, value] of Object.entries(GENERIC_EXTRACTOR_FIELD_LABELS_VI)) {
       expect(typeof value).toBe('string')
-      expect(value.length).toBeGreaterThan(0)
+      expect((value as string).length).toBeGreaterThan(0)
     }
   })
 

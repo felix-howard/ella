@@ -1233,6 +1233,8 @@
   "verificationModal.complete": "Complete verification",
   "verificationModal.noExtractedData": "No data extracted",
   "verificationModal.extractWithAi": "Extract with AI",
+  "verificationModal.viewExtracted": "View extracted data",
+  "verificationModal.extractedData": "Extracted data",
   "field.empty": "Empty",
   "field.unreadable": "Unreadable",
   "profile.info": "Profile Information",

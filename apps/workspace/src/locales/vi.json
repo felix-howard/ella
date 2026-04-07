@@ -1230,6 +1230,8 @@
   "verificationModal.complete": "Hoàn tất xác minh",
   "verificationModal.noExtractedData": "Không có dữ liệu được trích xuất",
   "verificationModal.extractWithAi": "Trích xuất bằng AI",
+  "verificationModal.viewExtracted": "Xem dữ liệu trích xuất",
+  "verificationModal.extractedData": "Dữ liệu trích xuất",
   "field.empty": "Trống",
   "field.unreadable": "Không đọc được",
   "profile.info": "Thông tin cá nhân",

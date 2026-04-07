@@ -1,7 +1,63 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-06 ICT
+> **Last Updated:** 2026-04-07 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-07
+
+### Fix: SMS Delivery Tracking - Lead Status Updates on Confirmed Delivery ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** 0.5h
+
+**Summary:** Moved premature lead status update (NEW→CONTACTED) from bulk SMS send endpoint to Twilio webhook. Status now updates atomically only when SMS delivery is confirmed via Twilio's delivery webhook, ensuring accurate lead engagement tracking.
+
+**What Changed:**
+- **Removed:** Bulk SMS endpoint no longer updates lead status immediately after sending (removed lines 527-530 from `/leads/bulk-sms`)
+- **Added:** Twilio status webhook now updates lead status atomically on confirmed delivery (lines 236-253 in `/webhooks/twilio/status`)
+  - Transaction-atomic: SmsSendLog status update + Lead status transition in single DB transaction
+  - Condition: Lead status only changes NEW→CONTACTED when SmsSendLog.status = 'DELIVERED'
+  - Safety: Condition filters `where: { status: 'NEW' }` to prevent accidental overwrites
+  - Logging: Console log on successful transition for audit trail
+
+**Implementation Details:**
+- **Backend changes:**
+  - `apps/api/src/routes/leads/index.ts`: Removed status update from bulk SMS handler
+  - `apps/api/src/routes/webhooks/twilio.ts`: Enhanced `/webhooks/twilio/status` endpoint (lines 236-253)
+    - Wraps SmsSendLog + Lead updates in `prisma.$transaction()` for atomicity
+    - Reads leadId from SmsSendLog, then updates Lead(status: NEW) → (status: CONTACTED)
+    - Handles error cases: Logs when no SMS log or lead found
+    - Logs transition: "Lead {leadId} marked as CONTACTED on delivery"
+
+**API Behavior Change:**
+- **Before:** `POST /leads/bulk-sms` returned immediately after sending; leads would show CONTACTED status even if delivery failed
+- **After:** `POST /leads/bulk-sms` still sends SMS but does NOT update lead status. Status updates when Twilio confirms delivery via webhook callback.
+- **User Impact:** Lead status now reflects true engagement (only marked CONTACTED after SMS actually reaches recipient phone)
+
+**Data Integrity:**
+- Existing SmsSendLog records retain status ('SENT', 'DELIVERED', 'UNDELIVERED', 'FAILED')
+- Lead status only transitions on confirmed delivery (messageStatus = 'delivered')
+- Failed/undelivered messages do NOT trigger lead status change
+- Multiple messages per lead: Only first delivery triggers status change (NEW→CONTACTED), subsequent messages don't re-trigger
+
+**Testing:**
+- Type-check: All TypeScript errors resolved
+- Compilation: `pnpm -F api build` successful
+- No schema changes required (SmsSendLog.status + Lead.status already exist)
+- Manual validation: Bulk SMS → wait for delivery webhook → verify lead status transitions
+
+**Benefits:**
+- **Accurate tracking:** Lead status now reflects confirmed SMS delivery, not optimistic send
+- **Data integrity:** Atomic transaction prevents race conditions
+- **Audit trail:** Console logs enable monitoring of lead status transitions
+- **Error resilience:** Graceful handling of missing records (logs but doesn't crash)
+
+**Risk Mitigation:**
+- Non-breaking: No schema changes, no API contract changes, only internal behavior
+- Backward compatible: Existing bulk SMS UI still works (just no status update in response)
+- Safe rollback: Can restore premature status update if needed (diff available)
 
 ---
 

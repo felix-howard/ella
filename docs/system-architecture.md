@@ -161,7 +161,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /leads/:id` - Update lead (status, notes, firstName, lastName, email, businessName, tags). All text fields + tags sanitized. Tags support add/remove mutations.
 - `GET /leads/:id/convert-check` - Check for duplicate client by phone (admin required). Returns hasDuplicate + existingClient data
 - `POST /leads/:id/convert` - Convert lead to Client with transaction (create Client + TaxEngagement + TaxCase). Carries over tags to new Client. Optional welcome SMS with magic link. Server enforces phone uniqueness (409 if duplicate)
-- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Supports tag-based filtering + batched concurrency (default 5 concurrent). SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Auto-updates lead status from NEW→CONTACTED on success
+- `POST /leads/bulk-sms` - Send bulk SMS to leads with form link personalization. Supports tag-based filtering + batched concurrency (default 5 concurrent). SMS templates: `{{firstName}}` and `{{formLink}}` replacement. Tracks SmsSendLog per message. Lead status (NEW→CONTACTED) updated atomically on Twilio delivery webhook confirmation, not on send
 - `DELETE /leads/:id` - Delete lead (org-scoped, admin required)
 - Rate limiter on public create (5/min), authMiddleware + requireOrgAdmin on all protected endpoints. Phone normalized to E.164 format. Tags: flexible string array (1-100 chars each), stored with GIN index for fast containment queries. SMS integration via Twilio with optional staff form routing
 
@@ -257,9 +257,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Webhooks:**
 - `POST /webhooks/clerk` - Clerk event sync (user/org/membership lifecycle). Signed with Svix. Handlers: user.updated (sync email/name/avatar), user.deleted (deactivate staff), organization.created/updated (upsert org), organizationMembership.created/updated/deleted (sync staff member, handle out-of-order events). Uses upserts for idempotency. Returns 500 on handler error for Clerk retry.
-- `POST /webhooks/incoming-call` - Twilio incoming call routing
-- `POST /webhooks/voicemail-recording` - Voicemail callback
-- `POST /webhooks/sms-received` - Incoming SMS
+- `POST /webhooks/twilio/sms` - Twilio incoming SMS webhook. Processes inbound messages to staff phone number, creates conversation + message record, publishes realtime events
+- `POST /webhooks/twilio/status` - Twilio SMS delivery status updates (queued, sent, delivered, undelivered, failed). Updates Message.twilioStatus + SmsSendLog.status. **Atomic transaction:** Updates Lead status (NEW→CONTACTED) on confirmed delivery (messageStatus='delivered') if SmsSendLog exists
+- `POST /webhooks/twilio/voice` - Twilio outbound call connection. Returns TwiML for recording setup
+- `POST /webhooks/twilio/voice/recording` - Twilio outbound call recording completion. Stores recording URL + duration in Message
+- `POST /webhooks/twilio/voice/incoming` - Twilio incoming call from customer. Routes to managing staff or all online admins, creates inbound call message, routes to voicemail if no answer
+- `POST /webhooks/twilio/voice/status` - Twilio call status updates (terminal states). Updates Message.callStatus + content
+- `POST /webhooks/twilio/voice/dial-complete` - Twilio dial completion (after ring timeout). Routes to voicemail if unanswered
+- `POST /webhooks/twilio/voice/voicemail-recording` - Twilio voicemail recording completion. Creates voicemail message for known/unknown callers, increments conversation.unreadCount
+- `POST /webhooks/twilio/voice/inbound-recording` - Twilio inbound call recording completion. Stores recording URL + duration for answered inbound calls
 
 ## Multi-Tenancy Architecture
 

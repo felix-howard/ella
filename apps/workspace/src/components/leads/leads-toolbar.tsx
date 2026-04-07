@@ -19,7 +19,7 @@ interface LeadsToolbarProps {
   onBulkSms: () => void
 }
 
-const STATUSES: (LeadStatus | '')[] = ['', 'NEW', 'CONTACTED', 'CONVERTED', 'LOST']
+const STATUSES: (LeadStatus | '')[] = ['', 'NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']
 
 export function LeadsToolbar({
   search, onSearchChange, statusFilter, onStatusFilterChange,

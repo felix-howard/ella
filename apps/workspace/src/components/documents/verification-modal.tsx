@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Loader2, AlertTriangle, ImageOff, RefreshCw, Sparkles, FileCheck, FileText, CheckCircle2, Clock, Download, ChevronLeft, ChevronRight, ClipboardList, ChevronDown } from 'lucide-react'
 import { cn, Badge, Button } from '@ella/ui'
 import { ImageViewer } from '../ui/image-viewer'
 import { FieldVerificationItem } from '../ui/field-verification-item'
@@ -102,6 +102,8 @@ export function VerificationModal({
   const [localVerifications, setLocalVerifications] = useState<Record<string, FieldVerificationStatus>>({})
   // Local state for edited field values (prevents revert on query refetch)
   const [localEditedValues, setLocalEditedValues] = useState<Record<string, string>>({})
+  // Mobile: toggle OCR panel visibility (hidden by default)
+  const [mobileOcrOpen, setMobileOcrOpen] = useState(false)
 
   // Get signed URL for image
   const rawImageId = doc.rawImage?.id || doc.rawImageId
@@ -440,6 +442,7 @@ export function VerificationModal({
       setCurrentFieldIndex(0)
       setLocalVerifications({}) // Clear local optimistic state for fresh doc
       setLocalEditedValues({}) // Clear local edited values for fresh doc
+      setMobileOcrOpen(false) // Reset mobile OCR panel
     }
   }, [isOpen, doc.id])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -554,9 +557,9 @@ export function VerificationModal({
         </div>
 
         {/* Content - Split view (70/30 for maximum document viewing) */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Left: Image Viewer - Larger space for document */}
-          <div className="h-1/2 md:h-full md:w-[70%] border-b md:border-b-0 md:border-r border-border bg-muted/20 relative">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+          {/* Left: Image Viewer - Full height on mobile, 70% on desktop */}
+          <div className="h-full md:w-[70%] md:border-r border-border bg-muted/20 relative">
             {isUrlLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
@@ -629,8 +632,76 @@ export function VerificationModal({
             )}
           </div>
 
-          {/* Right: Verification Panel */}
-          <div className="h-1/2 md:h-full md:w-[30%] flex flex-col overflow-hidden bg-card">
+          {/* Mobile: backdrop when OCR panel is open */}
+          {mobileOcrOpen && (
+            <div
+              className="md:hidden fixed inset-0 bg-black/40 z-[25]"
+              onClick={() => setMobileOcrOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Mobile: Floating button to open OCR panel */}
+          {!mobileOcrOpen && (
+            <button
+              onClick={() => setMobileOcrOpen(true)}
+              className="md:hidden absolute bottom-20 right-4 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all active:scale-95"
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span className="text-sm font-medium">{t('verificationModal.viewExtracted')}</span>
+            </button>
+          )}
+
+          {/* Mobile: Complete verification button when OCR panel is hidden */}
+          {!mobileOcrOpen && (
+            <div className="md:hidden absolute bottom-0 left-0 right-0 z-20 px-4 py-3 border-t border-border bg-card">
+              <Button
+                size="default"
+                onClick={handleComplete}
+                disabled={completeMutation.isPending}
+                className="w-full h-11 text-sm font-semibold gap-2"
+              >
+                {completeMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('common.loading')}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    {t('verificationModal.complete')}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Right: Verification Panel - slide-up overlay on mobile, side panel on desktop */}
+          <div className={cn(
+            'flex flex-col overflow-hidden bg-card',
+            // Desktop: always visible as side panel
+            'md:h-full md:w-[30%] md:relative md:translate-y-0',
+            // Mobile: slide-up overlay
+            'fixed md:static inset-x-0 bottom-0 z-30 rounded-t-2xl md:rounded-none shadow-2xl md:shadow-none',
+            'transition-transform duration-300 ease-out',
+            mobileOcrOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0',
+            // Mobile height: 85% of viewport
+            'h-[85vh] md:h-full',
+          )}>
+            {/* Mobile: drag handle + close button */}
+            <div className="md:hidden flex flex-col items-center pt-2 pb-1 border-b border-border bg-muted/10">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mb-2" />
+              <div className="flex items-center justify-between w-full px-4">
+                <span className="text-sm font-semibold text-foreground">{t('verificationModal.extractedData')}</span>
+                <button
+                  onClick={() => setMobileOcrOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-muted/80 transition-colors"
+                >
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+
             {/* Status bar */}
             <div className="px-4 py-3 border-b border-border bg-muted/10">
               <div className="flex items-center gap-2">

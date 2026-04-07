@@ -43,7 +43,7 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Property Letter */}
-          <span className="w-8 h-8 rounded-lg bg-muted text-muted-foreground text-sm font-semibold flex items-center justify-center flex-shrink-0">
+          <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center flex-shrink-0">
             {property.id}
           </span>
 
@@ -70,7 +70,10 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
           {/* Net Income */}
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('scheduleE.netIncome')}</p>
-            <p className="text-sm font-medium text-foreground tabular-nums">
+            <p className={cn(
+              'text-sm font-medium tabular-nums',
+              property.netIncome >= 0 ? 'text-primary' : 'text-destructive'
+            )}>
               {formatUSD(property.netIncome)}
             </p>
           </div>
@@ -195,9 +198,9 @@ export function PropertyCard({ property, isLocked: _isLocked }: PropertyCardProp
             </div>
           </div>
 
-          {/* Net Income/Loss — subtle, no colored background */}
-          <div className="border-t border-border pt-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground uppercase tracking-wide">
+          {/* Net Income/Loss */}
+          <div className="flex items-center justify-between py-2 border-t border-border mt-1 pt-3">
+            <span className="text-sm font-medium text-foreground">
               {property.netIncome >= 0 ? t('scheduleE.netProfit') : t('scheduleE.netLoss')}
             </span>
             <CopyableValue

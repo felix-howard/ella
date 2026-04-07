@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import type { ScheduleEProperty, ScheduleEPropertyType, ScheduleEPropertyAddress } from '@ella/shared'
 import { PROPERTY_TYPES } from '../lib/rental-categories'
 import { StateCombobox } from './state-combobox'
+import { AddressAutocomplete } from '../../../components/contractor-intake/address-autocomplete'
 
 interface PropertyDetailsStepProps {
   property: ScheduleEProperty
@@ -16,6 +17,14 @@ interface PropertyDetailsStepProps {
   onNext: () => void
   onBack: () => void
   readOnly?: boolean
+}
+
+/** Add thousand separators to a numeric string (e.g. "1000.40" → "1,000.40") */
+function formatMoneyDisplay(value: string): string {
+  if (!value || value === '.') return value
+  const parts = value.split('.')
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return parts.join('.')
 }
 
 export const PropertyDetailsStep = memo(function PropertyDetailsStep({
@@ -101,18 +110,26 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
   }, [onUpdate])
 
   const handleRentsChange = useCallback((value: string) => {
-    // Allow: empty, or any valid decimal number with up to 2 decimal places
-    // Pattern: optional digits, optional decimal point, optional 0-2 digits after decimal
-    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
-      setRentsReceived(value)
-      const num = parseFloat(value)
+    const raw = value.replace(/,/g, '')
+    if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
+      setRentsReceived(raw)
+      const num = parseFloat(raw)
       if (!isNaN(num) && num >= 0) {
         onUpdate({ rentsReceived: num })
-      } else if (value === '' || value === '.') {
+      } else if (raw === '' || raw === '.') {
         onUpdate({ rentsReceived: 0 })
       }
     }
   }, [onUpdate])
+
+  const handleRentsBlur = useCallback(() => {
+    setRentsReceived((prev) => {
+      if (prev !== '' && !isNaN(parseFloat(prev))) {
+        return parseFloat(prev).toFixed(2)
+      }
+      return prev
+    })
+  }, [])
 
   // Calculate fair rental days
   const fairRentalDays = (parseInt(monthsRented, 10) || 0) * 30
@@ -140,6 +157,20 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
     if (hasError) return
     onNext()
   }, [address.state, address.zip, onNext])
+
+  // Handle address autocomplete selection - auto-fill all address fields
+  const handleAddressSelect = useCallback((result: { address: string; city: string; state: string; zip: string }) => {
+    const newAddress = {
+      street: result.address,
+      city: result.city,
+      state: result.state,
+      zip: result.zip,
+    }
+    setAddress(newAddress)
+    onUpdate({ address: newAddress })
+    if (result.state && result.state.length === 2) setShowStateError(false)
+    if (result.zip && result.zip.trim()) setShowZipError(false)
+  }, [onUpdate])
 
   // Clear state error when state is selected
   const handleStateChange = useCallback((value: string) => {
@@ -180,11 +211,11 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
           <label htmlFor="street" className="text-xs font-medium text-muted-foreground mb-1.5 block">
             {t('rental.street')}
           </label>
-          <input
+          <AddressAutocomplete
             id="street"
-            type="text"
             value={address.street}
-            onChange={(e) => handleAddressChange('street', e.target.value)}
+            onChange={(value) => handleAddressChange('street', value)}
+            onSelect={handleAddressSelect}
             disabled={readOnly}
             placeholder={t('rental.streetPlaceholder')}
             className={inputClasses}
@@ -356,8 +387,9 @@ export const PropertyDetailsStep = memo(function PropertyDetailsStep({
             id="rentsReceived"
             type="text"
             inputMode="decimal"
-            value={rentsReceived}
+            value={formatMoneyDisplay(rentsReceived)}
             onChange={(e) => handleRentsChange(e.target.value)}
+            onBlur={handleRentsBlur}
             disabled={readOnly}
             placeholder="0.00"
             className={cn(inputClasses, 'pl-8')}

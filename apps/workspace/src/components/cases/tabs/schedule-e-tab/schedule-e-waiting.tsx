@@ -23,7 +23,10 @@ export function ScheduleEWaiting({ expense, magicLink, caseId }: ScheduleEWaitin
       {/* Header with Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Schedule E</h2>
-        <StatusBadge status="DRAFT" />
+        <div className="flex items-center gap-3">
+          <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+          <StatusBadge status="DRAFT" />
+        </div>
       </div>
 
       {/* Magic Link Timeline */}
@@ -88,8 +91,6 @@ export function ScheduleEWaiting({ expense, magicLink, caseId }: ScheduleEWaitin
         </p>
       </div>
 
-      {/* Actions */}
-      <ScheduleEActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

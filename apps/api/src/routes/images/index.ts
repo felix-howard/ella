@@ -503,7 +503,8 @@ imagesRoute.post(
           client.phone,
           fullMagicLink,
           docTypesForSms,
-          (client.language as Language) || 'VI'
+          (client.language as Language) || 'VI',
+          user.staffId
         )
 
         smsSent = smsResult.smsSent

@@ -23,9 +23,9 @@ describe('Form 1040 OCR Extraction - CPA Enhancement', () => {
       expect(supportsOcrExtraction('FORM_1040')).toBe(true)
     })
 
-    it('supportsOcrExtraction returns false for unsupported types', () => {
-      expect(supportsOcrExtraction('UNKNOWN_TYPE')).toBe(false)
-      expect(supportsOcrExtraction('FORM_1040_INVALID')).toBe(false)
+    it('supportsOcrExtraction returns true for all types (generic fallback)', () => {
+      expect(supportsOcrExtraction('UNKNOWN_TYPE')).toBe(true)
+      expect(supportsOcrExtraction('FORM_1040_INVALID')).toBe(true)
     })
 
     it('getOcrPromptForDocType returns non-null string for FORM_1040', () => {

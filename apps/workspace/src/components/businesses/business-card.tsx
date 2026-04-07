@@ -106,7 +106,7 @@ export function BusinessCard({ business, clientId, clientName, defaultExpanded =
         {/* Contractor/1099 Content */}
         {expanded && (
           <div className="border-t border-border p-4">
-            <Form1099NECTab businessId={business.id} clientName={clientName} />
+            <Form1099NECTab businessId={business.id} clientId={clientId} clientName={clientName} />
           </div>
         )}
       </div>

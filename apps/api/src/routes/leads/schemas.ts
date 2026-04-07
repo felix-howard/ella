@@ -24,14 +24,14 @@ export const leadIdParamSchema = z.object({
 export const listLeadsQuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
-  status: z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
+  status: z.enum(['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
   search: z.string().max(100).optional(),
   tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
 })
 
 /** Update lead */
 export const updateLeadSchema = z.object({
-  status: z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
+  status: z.enum(['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
   notes: z.string().max(5000).optional().nullable(),
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
@@ -47,6 +47,9 @@ export const convertLeadSchema = z.object({
   taxYear: z.number().int().min(2020).max(new Date().getFullYear() + 1),
   sendWelcomeSms: z.boolean().default(true),
   customMessage: z.string().max(500).optional(),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  email: z.string().email().max(254).optional().nullable(),
 })
 
 /** Bulk SMS */

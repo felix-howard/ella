@@ -3,8 +3,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from '@tanstack/react-router'
-import { Mail, ArrowRight, Users } from 'lucide-react'
+import { Mail, Users } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { formatPhone, getInitials, getAvatarColor, formatShortRelativeTime } from '../../lib/formatters'
 import { LeadStatusBadge } from './lead-status-badge'
@@ -18,13 +17,12 @@ interface LeadListTableProps {
   selectedIds: Set<string>
   onSelect: (id: string, selected: boolean) => void
   onSelectAll: (selected: boolean) => void
-  onConvert: (lead: Lead) => void
   onRowClick: (lead: Lead) => void
   isLoading?: boolean
 }
 
 export function LeadListTable({
-  leads, selectedIds, onSelect, onSelectAll, onConvert, onRowClick, isLoading,
+  leads, selectedIds, onSelect, onSelectAll, onRowClick, isLoading,
 }: LeadListTableProps) {
   const { t } = useTranslation()
 
@@ -81,9 +79,6 @@ export function LeadListTable({
               <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
                 {t('leads.created')}
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3">
-                {t('leads.actions')}
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -93,7 +88,6 @@ export function LeadListTable({
                 lead={lead}
                 selected={selectedIds.has(lead.id)}
                 onSelect={onSelect}
-                onConvert={onConvert}
                 onRowClick={onRowClick}
                 isLast={index === leads.length - 1}
               />
@@ -109,15 +103,14 @@ interface LeadRowProps {
   lead: Lead
   selected: boolean
   onSelect: (id: string, selected: boolean) => void
-  onConvert: (lead: Lead) => void
   onRowClick: (lead: Lead) => void
   isLast: boolean
 }
 
 const LeadRow = memo(function LeadRow({
-  lead, selected, onSelect, onConvert, onRowClick, isLast,
+  lead, selected, onSelect, onRowClick, isLast,
 }: LeadRowProps) {
-  const { i18n, t } = useTranslation()
+  const { i18n } = useTranslation()
   const isConverted = lead.status === 'CONVERTED'
   const avatarColor = useMemo(() => getAvatarColor(`${lead.firstName} ${lead.lastName}`), [lead.firstName, lead.lastName])
 
@@ -185,7 +178,7 @@ const LeadRow = memo(function LeadRow({
 
       {/* Status */}
       <td className="px-4 py-3">
-        <LeadStatusBadge status={lead.status} />
+        <LeadStatusBadge status={lead.status} variant="dot" />
       </td>
 
       {/* Tags */}
@@ -216,28 +209,6 @@ const LeadRow = memo(function LeadRow({
         <span className="text-muted-foreground">
           {formatShortRelativeTime(lead.createdAt, i18n.language)}
         </span>
-      </td>
-
-      {/* Actions */}
-      <td className="px-4 py-3">
-        {isConverted && lead.convertedToId ? (
-          <Link
-            to="/clients/$clientId"
-            params={{ clientId: lead.convertedToId }}
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm text-primary hover:underline flex items-center gap-1"
-          >
-            {t('leads.viewClient')}
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        ) : !isConverted ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); onConvert(lead) }}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            {t('leads.convert')}
-          </button>
-        ) : null}
       </td>
     </tr>
   )

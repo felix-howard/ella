@@ -1,12 +1,12 @@
 /**
- * Form Actions Panel - TaxBandits workflow actions
- * Organized into: status counts, workflow steps, bulk downloads
+ * Form Actions Panel - 1099-NEC workflow actions
+ * Two clear sections: Draft forms (needs action) and Transmitted forms (done)
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, FileText, Download, Send, Archive, Users } from 'lucide-react'
+import { Loader2, FileCheck, Send, Download, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import JSZip from 'jszip'
-import { Button } from '@ella/ui'
+import { Button, Modal, ModalHeader, ModalTitle, ModalFooter } from '@ella/ui'
 import { api, type Form1099StatusCounts } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
 
@@ -59,6 +59,9 @@ interface FormActionsPanelProps {
 
 export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   const queryClient = useQueryClient()
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [isDownloadingA, setIsDownloadingA] = useState(false)
+  const [isDownloadingB, setIsDownloadingB] = useState(false)
 
   const { data: statusData, isLoading } = useQuery({
     queryKey: ['form-1099-status', businessId],
@@ -66,97 +69,47 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   })
 
   const status: Form1099StatusCounts = statusData?.data ?? {
-    draft: 0,
-    validated: 0,
-    imported: 0,
-    pdfReady: 0,
-    submitted: 0,
-    accepted: 0,
-    rejected: 0,
-    total: 0,
+    draft: 0, validated: 0, imported: 0, pdfReady: 0,
+    submitted: 0, accepted: 0, rejected: 0, total: 0,
   }
 
-  const refreshStatus = () => {
+  const refreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
     queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+    queryClient.invalidateQueries({ queryKey: ['filing-batches', businessId] })
+    queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
   }
 
-  const createMutation = useMutation({
-    mutationFn: () => api.form1099nec.create(businessId),
+  const prepareMutation = useMutation({
+    mutationFn: () => api.form1099nec.prepare(businessId),
     onSuccess: (data) => {
-      toast.success(`Created ${data.createdCount} forms in TaxBandits`)
-      if (data.errors && data.errors.length > 0) {
-        toast.error(`${data.errors.length} form(s) had errors`)
+      toast.success(`Prepared ${data.createdCount} forms, ${data.pdfCount} PDFs ready for review`)
+      if (data.createErrors && data.createErrors.length > 0) {
+        for (const formErr of data.createErrors) {
+          toast.error(`Form ${formErr.sequence}: ${formErr.errors?.join(', ')}`)
+        }
       }
-      refreshStatus()
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Form creation failed')
-    },
-  })
-
-  const fetchPdfsMutation = useMutation({
-    mutationFn: () => api.form1099nec.fetchPdfs(businessId),
-    onSuccess: (data) => {
-      toast.success(`Fetched ${data.pdfCount} PDFs`)
-      refreshStatus()
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'PDF fetch failed')
-    },
-  })
-
-  const [isDownloading, setIsDownloading] = useState(false)
-
-  const handleDownloadAll = async () => {
-    setIsDownloading(true)
-    try {
-      const { data: pdfs } = await api.form1099nec.getAllPdfs(businessId)
-      await downloadPdfsAsZip(pdfs, '1099-NEC-forms.zip', 'PDFs')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download failed')
-    } finally {
-      setIsDownloading(false)
-    }
-  }
-
-  const fetchRecipientMutation = useMutation({
-    mutationFn: () => api.form1099nec.fetchRecipientPdfs(businessId),
-    onSuccess: (data) => {
-      toast.success(`Fetched ${data.pdfCount} recipient PDFs`)
-      if (data.errors && data.errors.length > 0) {
-        toast.error(`${data.errors.length} record(s) had errors`)
+      if (data.pdfErrors && data.pdfErrors.length > 0) {
+        for (const err of data.pdfErrors) toast.error(err)
       }
-      refreshStatus()
-      queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
+      refreshAll()
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Recipient PDF fetch failed')
+      toast.error(err instanceof Error ? err.message : 'Form preparation failed')
     },
   })
-
-  const [isDownloadingRecipient, setIsDownloadingRecipient] = useState(false)
-
-  const handleDownloadRecipient = async () => {
-    setIsDownloadingRecipient(true)
-    try {
-      const { data: pdfs } = await api.form1099nec.getRecipientPdfs(businessId)
-      await downloadPdfsAsZip(pdfs, '1099-NEC-recipient-copies.zip', 'recipient PDFs')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download failed')
-    } finally {
-      setIsDownloadingRecipient(false)
-    }
-  }
-
-  const [showConfirm, setShowConfirm] = useState(false)
 
   const transmitMutation = useMutation({
     mutationFn: () => api.form1099nec.transmit(businessId),
     onSuccess: (data) => {
-      toast.success(`Transmitted ${data.transmittedCount} forms to IRS`)
-      refreshStatus()
-      queryClient.invalidateQueries({ queryKey: ['filing-batches', businessId] })
+      const msg = data.recipientPdfCount
+        ? `Transmitted ${data.transmittedCount} forms & fetched ${data.recipientPdfCount} recipient PDFs`
+        : `Transmitted ${data.transmittedCount} forms to IRS`
+      toast.success(msg)
+      if (data.recipientErrors && data.recipientErrors.length > 0) {
+        for (const err of data.recipientErrors) toast.error(err)
+      }
+      refreshAll()
       setShowConfirm(false)
     },
     onError: (err) => {
@@ -165,164 +118,182 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
     },
   })
 
+  const handleDownloadCopyA = async () => {
+    setIsDownloadingA(true)
+    try {
+      const { data: pdfs } = await api.form1099nec.getAllPdfs(businessId)
+      await downloadPdfsAsZip(pdfs, '1099-NEC-CopyA.zip', 'Copy A PDFs')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setIsDownloadingA(false)
+    }
+  }
+
+  const handleDownloadCopyB = async () => {
+    setIsDownloadingB(true)
+    try {
+      const { data: pdfs } = await api.form1099nec.getRecipientPdfs(businessId)
+      await downloadPdfsAsZip(pdfs, '1099-NEC-CopyB.zip', 'Copy B PDFs')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setIsDownloadingB(false)
+    }
+  }
+
   if (isLoading || status.total === 0) return null
 
+  const hasDrafts = status.draft > 0
+  const hasReady = status.pdfReady > 0
   const hasTransmitted = status.submitted > 0 || status.accepted > 0
+  const transmittedCount = status.submitted + status.accepted
+  const allDone = !hasDrafts && !hasReady && hasTransmitted
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-      {/* Row 1: Status Counts */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span className="text-xs font-medium text-foreground uppercase tracking-wider">Status</span>
-        <span>
-          <span className="font-medium text-foreground">{status.draft}</span> draft
-        </span>
-        <span>
-          <span className="font-medium text-foreground">{status.imported}</span> created
-        </span>
-        <span>
-          <span className="font-medium text-foreground">{status.pdfReady}</span> ready
-        </span>
-        {status.submitted > 0 && (
-          <span>
-            <span className="font-medium text-foreground">{status.submitted}</span> transmitted
-          </span>
-        )}
-        {status.accepted > 0 && (
-          <span>
-            <span className="font-medium text-foreground">{status.accepted}</span> accepted
-          </span>
-        )}
-      </div>
-
-      {/* Row 2: Workflow Steps */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground mr-1">Workflow</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => createMutation.mutate()}
-          disabled={status.draft === 0 || createMutation.isPending}
-          className="gap-1.5"
-        >
-          {createMutation.isPending ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <FileText className="w-3.5 h-3.5" />
-          )}
-          1. Create
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fetchPdfsMutation.mutate()}
-          disabled={status.imported === 0 || fetchPdfsMutation.isPending}
-          className="gap-1.5"
-        >
-          {fetchPdfsMutation.isPending ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Download className="w-3.5 h-3.5" />
-          )}
-          2. Get PDFs
-        </Button>
-
-        {showConfirm ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Transmit {status.pdfReady} forms?</span>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => transmitMutation.mutate()}
-              disabled={transmitMutation.isPending}
-              className="gap-1.5"
-            >
-              {transmitMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Send className="w-3.5 h-3.5" />
-              )}
-              Confirm
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowConfirm(false)}
-              disabled={transmitMutation.isPending}
-            >
-              Cancel
-            </Button>
+    <div className="bg-card border-t border-border p-4 space-y-3 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+      {/* Section 1: Draft forms needing action */}
+      {(hasDrafts || hasReady) && (
+        <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+          <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {hasDrafts && hasReady
+                ? `${status.draft} draft form${status.draft !== 1 ? 's' : ''} + ${status.pdfReady} ready to submit`
+                : hasDrafts
+                  ? `${status.draft} draft form${status.draft !== 1 ? 's' : ''} need${status.draft === 1 ? 's' : ''} preparation`
+                  : `${status.pdfReady} form${status.pdfReady !== 1 ? 's' : ''} ready to submit to IRS`
+              }
+            </p>
           </div>
-        ) : (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowConfirm(true)}
-            disabled={status.pdfReady === 0}
-            className="gap-1.5"
-          >
-            <Send className="w-3.5 h-3.5" />
-            3. Transmit to IRS
-          </Button>
-        )}
-
-        {hasTransmitted && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchRecipientMutation.mutate()}
-            disabled={fetchRecipientMutation.isPending}
-            className="gap-1.5"
-          >
-            {fetchRecipientMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Users className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 shrink-0">
+            {hasDrafts && (
+              <Button
+                size="sm"
+                onClick={() => prepareMutation.mutate()}
+                disabled={prepareMutation.isPending}
+                className="gap-1.5"
+              >
+                {prepareMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileCheck className="w-3.5 h-3.5" />
+                )}
+                {prepareMutation.isPending ? 'Preparing...' : `Prepare ${status.draft} Form${status.draft !== 1 ? 's' : ''}`}
+              </Button>
             )}
-            4. Get Recipient Copies
-          </Button>
-        )}
-      </div>
-
-      {/* Row 3: Bulk Downloads (only shown when PDFs exist) */}
-      {(status.pdfReady > 0 || status.submitted > 0 || status.accepted > 0) && (
-        <div className="flex items-center gap-2 pt-1 border-t border-border">
-          <span className="text-xs font-medium text-muted-foreground mr-1">Downloads</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadAll}
-            disabled={isDownloading}
-            className="gap-1.5"
-          >
-            {isDownloading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Archive className="w-3.5 h-3.5" />
+            {hasReady && (
+              <Button
+                size="sm"
+                onClick={() => setShowConfirm(true)}
+                disabled={hasDrafts}
+                variant={hasDrafts ? 'outline' : 'default'}
+                className="gap-1.5"
+                title={hasDrafts ? 'Prepare all draft forms first' : undefined}
+              >
+                <Send className="w-3.5 h-3.5" />
+                Submit {status.pdfReady} to IRS
+              </Button>
             )}
-            All Copy A (ZIP)
-          </Button>
+          </div>
+        </div>
+      )}
 
-          {hasTransmitted && (
+      {/* Section 2: Transmitted forms (completed) */}
+      {hasTransmitted && (
+        <div className="flex items-center gap-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+              {transmittedCount} form{transmittedCount !== 1 ? 's' : ''} submitted to IRS
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
-              onClick={handleDownloadRecipient}
-              disabled={isDownloadingRecipient}
+              onClick={handleDownloadCopyA}
+              disabled={isDownloadingA}
               className="gap-1.5"
-              title="Download all Copy B PDFs as ZIP (for contractors)"
             >
-              {isDownloadingRecipient ? (
+              {isDownloadingA ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Archive className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5" />
               )}
-              All Copy B (ZIP)
+              Copy A (ZIP)
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadCopyB}
+              disabled={isDownloadingB}
+              className="gap-1.5"
+            >
+              {isDownloadingB ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              Copy B (ZIP)
+            </Button>
+          </div>
         </div>
       )}
+
+      {/* All done state */}
+      {allDone && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center">
+          All forms have been submitted to the IRS
+        </p>
+      )}
+
+      {/* Transmit Confirmation Modal */}
+      <Modal open={showConfirm} onClose={() => !transmitMutation.isPending && setShowConfirm(false)}>
+        <ModalHeader>
+          <ModalTitle>Submit to IRS</ModalTitle>
+        </ModalHeader>
+        <div className="p-4 space-y-3">
+          <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium">This action cannot be undone</p>
+              <p className="mt-1 text-amber-700 dark:text-amber-300">
+                Once submitted, forms will be filed with the IRS and cannot be recalled.
+                Recipient copies (Copy B) will be fetched automatically.
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You are about to submit <span className="font-semibold text-foreground">{status.pdfReady}</span> form(s).
+            Please confirm you have reviewed all contractor information.
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConfirm(false)}
+            disabled={transmitMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => transmitMutation.mutate()}
+            disabled={transmitMutation.isPending}
+            className="gap-1.5"
+          >
+            {transmitMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            {transmitMutation.isPending ? 'Submitting...' : 'Confirm Submit'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

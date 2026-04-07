@@ -1,5 +1,5 @@
 /**
- * Net Profit Card - Subtle display of net profit/loss
+ * Net Profit Card - Subtle display of net profit/loss with brand color
  */
 import { useTranslation } from 'react-i18next'
 import { formatUSD, parseAmount } from './format-utils'
@@ -16,9 +16,9 @@ export function NetProfitCard({ netProfit }: NetProfitCardProps) {
 
   return (
     <div className="border-t border-border pt-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between py-2">
         <div>
-          <span className="text-sm font-medium text-foreground uppercase tracking-wide">
+          <span className="text-sm font-medium text-foreground">
             {isProfit ? t('scheduleC.netProfit') : t('scheduleC.netLoss')}
           </span>
           <p className="text-xs text-muted-foreground mt-0.5">

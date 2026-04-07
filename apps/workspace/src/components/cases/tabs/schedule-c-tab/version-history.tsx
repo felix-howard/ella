@@ -99,7 +99,7 @@ export function VersionHistory({ history }: VersionHistoryProps) {
             className="flex items-start gap-2 sm:gap-3 text-sm"
           >
             {/* Version badge */}
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex-shrink-0 mt-0.5">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-medium flex-shrink-0 mt-0.5">
               v{entry.version}
             </span>
 

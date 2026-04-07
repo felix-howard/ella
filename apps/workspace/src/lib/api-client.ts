@@ -111,7 +111,7 @@ async function attemptRequest<T>(url: string, fetchOptions: RequestInit, timeout
       throw new ApiError(
         response.status,
         errorData.error || 'UNKNOWN_ERROR',
-        errorData.message || 'An unknown error occurred'
+        errorData.message || errorData.error || 'An unknown error occurred'
       )
     }
 
@@ -351,6 +351,22 @@ export const api = {
       request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
         method: 'DELETE',
       }),
+
+    intakeToken: {
+      get: (clientId: string, businessId: string) =>
+        request<{ data: IntakeToken | null }>(`/clients/${clientId}/businesses/${businessId}/intake-token`),
+
+      create: (clientId: string, businessId: string, taxYear?: number) =>
+        request<{ data: IntakeToken }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
+          method: 'POST',
+          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
+        }),
+
+      deactivate: (clientId: string, businessId: string) =>
+        request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
+          method: 'DELETE',
+        }),
+    },
   },
 
   // Contractors (under businesses — Phase 5 will update components to pass businessId)
@@ -408,6 +424,12 @@ export const api = {
     fetchPdfs: (businessId: string) =>
       request<{ success: boolean; pdfCount: number }>(`/businesses/${businessId}/1099-nec/fetch-pdfs`, {
         method: 'POST',
+      }),
+
+    prepare: (businessId: string) =>
+      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/businesses/${businessId}/1099-nec/prepare`, {
+        method: 'POST',
+        timeout: 120000,
       }),
 
     downloadPdf: (businessId: string, formId: string) =>
@@ -1165,7 +1187,7 @@ export const api = {
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
 
-    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string }) =>
+    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string; firstName?: string; lastName?: string; email?: string | null }) =>
       request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
 
     bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>
@@ -1205,7 +1227,7 @@ export type TaxType = 'FORM_1040' | 'FORM_1120S' | 'FORM_1065'
 
 export type Language = 'VI' | 'EN'
 
-export type LeadStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'LOST'
+export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
 export interface SmsSendLog {
   id: string
@@ -1396,6 +1418,12 @@ export interface ParseResult {
   errors: string[]
 }
 
+export interface IntakeToken {
+  token: string
+  taxYear: number
+  createdAt: string
+}
+
 export interface BulkSaveContractorsInput {
   contractors: {
     firstName: string
@@ -1430,6 +1458,8 @@ export interface TransmitResponse {
   success: boolean
   batchId: string
   transmittedCount: number
+  recipientPdfCount?: number
+  recipientErrors?: string[]
 }
 
 export interface FilingBatch {
@@ -1945,6 +1975,7 @@ export interface Conversation {
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
     createdAt: string
+    attachmentUrls?: string[]
     callStatus?: string
     recordingDuration?: number
   } | null

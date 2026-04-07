@@ -104,6 +104,7 @@ messagesRoute.get(
               channel: true,
               direction: true,
               createdAt: true,
+              attachmentUrls: true,
             },
           },
         },

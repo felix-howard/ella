@@ -1,7 +1,197 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-05 ICT
+> **Last Updated:** 2026-04-07 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-07
+
+### Fix: SMS Delivery Tracking - Lead Status Updates on Confirmed Delivery ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** 0.5h
+
+**Summary:** Moved premature lead status update (NEW→CONTACTED) from bulk SMS send endpoint to Twilio webhook. Status now updates atomically only when SMS delivery is confirmed via Twilio's delivery webhook, ensuring accurate lead engagement tracking.
+
+**What Changed:**
+- **Removed:** Bulk SMS endpoint no longer updates lead status immediately after sending (removed lines 527-530 from `/leads/bulk-sms`)
+- **Added:** Twilio status webhook now updates lead status atomically on confirmed delivery (lines 236-253 in `/webhooks/twilio/status`)
+  - Transaction-atomic: SmsSendLog status update + Lead status transition in single DB transaction
+  - Condition: Lead status only changes NEW→CONTACTED when SmsSendLog.status = 'DELIVERED'
+  - Safety: Condition filters `where: { status: 'NEW' }` to prevent accidental overwrites
+  - Logging: Console log on successful transition for audit trail
+
+**Implementation Details:**
+- **Backend changes:**
+  - `apps/api/src/routes/leads/index.ts`: Removed status update from bulk SMS handler
+  - `apps/api/src/routes/webhooks/twilio.ts`: Enhanced `/webhooks/twilio/status` endpoint (lines 236-253)
+    - Wraps SmsSendLog + Lead updates in `prisma.$transaction()` for atomicity
+    - Reads leadId from SmsSendLog, then updates Lead(status: NEW) → (status: CONTACTED)
+    - Handles error cases: Logs when no SMS log or lead found
+    - Logs transition: "Lead {leadId} marked as CONTACTED on delivery"
+
+**API Behavior Change:**
+- **Before:** `POST /leads/bulk-sms` returned immediately after sending; leads would show CONTACTED status even if delivery failed
+- **After:** `POST /leads/bulk-sms` still sends SMS but does NOT update lead status. Status updates when Twilio confirms delivery via webhook callback.
+- **User Impact:** Lead status now reflects true engagement (only marked CONTACTED after SMS actually reaches recipient phone)
+
+**Data Integrity:**
+- Existing SmsSendLog records retain status ('SENT', 'DELIVERED', 'UNDELIVERED', 'FAILED')
+- Lead status only transitions on confirmed delivery (messageStatus = 'delivered')
+- Failed/undelivered messages do NOT trigger lead status change
+- Multiple messages per lead: Only first delivery triggers status change (NEW→CONTACTED), subsequent messages don't re-trigger
+
+**Testing:**
+- Type-check: All TypeScript errors resolved
+- Compilation: `pnpm -F api build` successful
+- No schema changes required (SmsSendLog.status + Lead.status already exist)
+- Manual validation: Bulk SMS → wait for delivery webhook → verify lead status transitions
+
+**Benefits:**
+- **Accurate tracking:** Lead status now reflects confirmed SMS delivery, not optimistic send
+- **Data integrity:** Atomic transaction prevents race conditions
+- **Audit trail:** Console logs enable monitoring of lead status transitions
+- **Error resilience:** Graceful handling of missing records (logs but doesn't crash)
+
+**Risk Mitigation:**
+- Non-breaking: No schema changes, no API contract changes, only internal behavior
+- Backward compatible: Existing bulk SMS UI still works (just no status update in response)
+- Safe rollback: Can restore premature status update if needed (diff available)
+
+---
+
+## 2026-04-06
+
+### Feature: IRS Schedule OCR Extraction Prompts Phase 3 ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** ~3h
+
+**Summary:** Added OCR extraction prompt templates for 10 missing IRS Form 1040 Schedules. Completes Schedule coverage with form-specific extraction rules, line-number mapping, and Vietnamese labels. Part of comprehensive OCR extraction prompts project (Phase 3 of 10).
+
+**What Changed:**
+- New OCR extraction prompts for 10 IRS Schedules: Schedule 2, 3, A, B, 8812, EIC, F, H, J, R
+- Each file contains: TypeScript interface, extraction prompt function, field validator, Vietnamese translations
+- Line-number-based extraction aligned with official IRS 1040 instructions
+- Multi-part structure support (Part I, Part II) for complex schedules
+- Form 1040 line reference mapping for totals integration
+
+**Files Created:**
+- `apps/api/src/services/ai/prompts/ocr/schedule-2.ts` - Additional Taxes (AMT, SE tax, Medicare)
+- `apps/api/src/services/ai/prompts/ocr/schedule-3.ts` - Additional Credits & Payments
+- `apps/api/src/services/ai/prompts/ocr/schedule-a.ts` - Itemized Deductions (HIGH PRIORITY)
+- `apps/api/src/services/ai/prompts/ocr/schedule-b.ts` - Interest & Dividends
+- `apps/api/src/services/ai/prompts/ocr/schedule-8812.ts` - Child Tax Credits
+- `apps/api/src/services/ai/prompts/ocr/schedule-eic.ts` - Earned Income Credit
+- `apps/api/src/services/ai/prompts/ocr/schedule-f.ts` - Farm Income/Expenses
+- `apps/api/src/services/ai/prompts/ocr/schedule-h.ts` - Household Employment Taxes (nanny tax)
+- `apps/api/src/services/ai/prompts/ocr/schedule-j.ts` - Farm Income Averaging
+- `apps/api/src/services/ai/prompts/ocr/schedule-r.ts` - Credit for Elderly/Disabled
+
+**Integration Points:**
+- OCR extractor auto-selected based on document classification (Schedule type detection)
+- Schedule line numbers validated against 2025 IRS tax year specifications
+- Fallback mechanism maintains compatibility with existing workflows
+
+**Architecture:**
+- Each schedule contains form-specific line extraction with IRS publication alignment
+- Validation ensures extracted data matches expected field types (currency, numbers, booleans)
+- Totals mapped to Form 1040 line references for downstream integration
+- Graceful degradation: If extractor unavailable, fallback to generic fallback extractor
+
+**Testing:**
+- Pattern consistency verified across all 10 files (under 200 lines each)
+- Line number mappings cross-referenced with IRS forms
+- Type safety: All TypeScript definitions compile without errors
+- `pnpm -F api build` passes with zero errors
+
+**Benefits:**
+- Complete Schedule coverage: Enables multi-schedule return processing
+- IRS compliance: Line-number extraction matches official field definitions
+- Reduced manual review: AI extraction handles complex multi-part schedules
+- Extensible architecture: Easy to add future schedule variants
+
+---
+
+## 2026-04-06
+
+### Feature: Comprehensive 1099 Variants OCR Extraction (Phase 2) ✅ COMPLETE
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** ~4h
+
+**Summary:** Added OCR extraction prompt templates for 16 additional 1099 variant forms. Expands document classification beyond core 1099-NEC to support full 1099 ecosystem with form-specific extraction rules and validation.
+
+**What Changed:**
+- New OCR extraction prompts for 14 1099 variants: 1099-A, 1099-B, 1099-C, 1099-H, 1099-LS, 1099-OID, 1099-Q, 1099-QA, 1099-SA, 1099-S, 1099-PATR, 1099-CAP, 1099-LTC, 1099-SB
+- New RRB-specific forms: RRB-1099, RRB-1099-R (railroad retirement benefits)
+- Form-specific extraction templates for each variant with relevant field mappings
+- Validation tests covering extraction accuracy, edge cases, and error handling
+
+**Files Created:**
+- `apps/api/src/services/ai/prompts/ocr/1099-a.ts` - Asset sale gains
+- `apps/api/src/services/ai/prompts/ocr/1099-b.ts` - Proceeds from broker/barter transactions
+- `apps/api/src/services/ai/prompts/ocr/1099-c.ts` - Debt cancellation
+- `apps/api/src/services/ai/prompts/ocr/1099-h.ts` - Household employment taxes
+- `apps/api/src/services/ai/prompts/ocr/1099-ls.ts` - Listed transactions
+- `apps/api/src/services/ai/prompts/ocr/1099-oid.ts` - Debt instrument original issue discount
+- `apps/api/src/services/ai/prompts/ocr/1099-q.ts` - Education savings distributions
+- `apps/api/src/services/ai/prompts/ocr/1099-qa.ts` - QACA distributions
+- `apps/api/src/services/ai/prompts/ocr/1099-sa.ts` - Student loan interest
+- `apps/api/src/services/ai/prompts/ocr/1099-s.ts` - Section 1202 gain exclusion
+- `apps/api/src/services/ai/prompts/ocr/1099-patr.ts` - Patronage dividends
+- `apps/api/src/services/ai/prompts/ocr/1099-cap.ts` - Corporate actions
+- `apps/api/src/services/ai/prompts/ocr/1099-ltc.ts` - Long-term care insurance
+- `apps/api/src/services/ai/prompts/ocr/1099-sb.ts` - Savings bonds
+- `apps/api/src/services/ai/prompts/ocr/rrb-1099.ts` - RRB unemployment insurance
+- `apps/api/src/services/ai/prompts/ocr/rrb-1099-r.ts` - RRB pensions/annuities
+- `apps/api/src/services/ai/prompts/ocr/__tests__/1099-variants.test.ts` - Comprehensive test coverage
+
+**Integration Points:**
+- OCR extractor auto-selected based on document classification (1099 variant type detection)
+- Fallback mechanism maintains compatibility with existing 1099-NEC workflows
+- All prompts follow established patterns from 1099-NEC extractor for consistency
+
+**Architecture:**
+- Each variant contains form-specific field extraction rules aligned with IRS publication
+- Validation ensures extracted data matches expected field types (currency, dates, TINs, counts)
+- Error messaging distinguishes between required field missing vs format validation failure
+- Graceful degradation: If variant extractor unavailable, fallback to generic fallback extractor
+
+**Testing:**
+- Unit tests verify extraction accuracy for each 1099 variant
+- Edge case handling: Missing fields, invalid formats, partial data
+- Error scenarios: Malformed input, hallucinated fields
+- `pnpm -F api build` passes with zero TypeScript errors
+
+**Benefits:**
+- Unified document intake: Single upload handles 20+ 1099 form types
+- IRS compliance: Form-specific extraction rules match official field definitions
+- Reduced manual review: AI extraction handles complex multi-box forms
+- Extensible architecture: Easy to add future 1099 variants without core changes
+
+---
+
+### Enhancement: Business Tab 1099-NEC UX Polish
+**Status:** Complete
+**Branch:** feature/enhance-101
+**Effort:** ~2h
+
+**Summary:** Improved usability of the Business tab's contractor management UI with search, filtering, pagination, sortable columns, sticky workflow bar, and enhanced filing history.
+
+**What Changed:**
+- Search bar filtering by name, SSN, city, address with status filter chips (ordered by workflow progression)
+- Client-side pagination (10 per page) with auto-reset on filter change and safe page guard
+- Sortable table columns (Name, City, State, Status) with global sort applied before pagination
+- Workflow bar (Prepare Forms → Submit to IRS) made sticky at bottom of card container
+- Filing history: alert-style rejection banners, collapsible older batches, relative timestamps, refresh button for REJECTED/PARTIALLY_ACCEPTED statuses
+
+**Files Modified:**
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/index.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/contractor-table.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/form-actions-panel.tsx`
+- `apps/workspace/src/components/cases/tabs/form-1099-nec-tab/filing-status-panel.tsx`
 
 ---
 

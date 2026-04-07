@@ -79,7 +79,8 @@ scheduleERoute.post('/:caseId/send', async (c) => {
     taxCase.client.phone,
     magicLinkUrl,
     smsLanguage,
-    customMessage
+    customMessage,
+    user.staffId
   )
 
   return c.json({
@@ -258,7 +259,9 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      smsLanguage
+      smsLanguage,
+      undefined,
+      user.staffId
     )
 
     return c.json({
@@ -277,7 +280,9 @@ scheduleERoute.post('/:caseId/resend', async (c) => {
       taxCase.client.name,
       taxCase.client.phone,
       magicLinkUrl,
-      smsLanguage
+      smsLanguage,
+      undefined,
+      user.staffId
     )
 
     return c.json({

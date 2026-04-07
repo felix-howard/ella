@@ -35,7 +35,10 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
             {t('scheduleC.lastUpdated', { datetime: formatDateTime(expense.updatedAt, 'DATETIME_FULL'), version: expense.version })}
           </p>
         </div>
-        <StatusBadge status={expense.status} />
+        <div className="flex items-center gap-3">
+            <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+            <StatusBadge status={expense.status} />
+          </div>
       </div>
 
       {/* Locked Notice */}
@@ -77,8 +80,6 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
         <VersionHistory history={expense.versionHistory} />
       )}
 
-      {/* Actions */}
-      <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
     </div>
   )
 }

@@ -30,10 +30,11 @@ describe('getOcrPromptForDocType', () => {
     }
   })
 
-  it('returns null for unsupported doc type', () => {
-    expect(getOcrPromptForDocType('UNKNOWN')).toBeNull()
-    expect(getOcrPromptForDocType('PASSPORT')).toBeNull()
-    expect(getOcrPromptForDocType('RECEIPT')).toBeNull()
+  it('returns generic prompt for unknown doc types (fallback)', () => {
+    const prompt = getOcrPromptForDocType('UNKNOWN')
+    expect(prompt).not.toBeNull()
+    expect(typeof prompt).toBe('string')
+    expect(prompt!.length).toBeGreaterThan(100)
   })
 })
 
@@ -54,12 +55,13 @@ describe('supportsOcrExtraction', () => {
     }
   })
 
-  it('returns false for non-OCR-supported types', () => {
-    expect(supportsOcrExtraction('UNKNOWN')).toBe(false)
-    expect(supportsOcrExtraction('PASSPORT')).toBe(false)
-    expect(supportsOcrExtraction('RECEIPT')).toBe(false)
-    expect(supportsOcrExtraction('OTHER')).toBe(false)
-    expect(supportsOcrExtraction('BUSINESS_LICENSE')).toBe(false)
+  it('returns true for all types (generic fallback handles everything)', () => {
+    // With generic fallback extractor, all types are supported
+    expect(supportsOcrExtraction('UNKNOWN')).toBe(true)
+    expect(supportsOcrExtraction('PASSPORT')).toBe(true)
+    expect(supportsOcrExtraction('RECEIPT')).toBe(true)
+    expect(supportsOcrExtraction('OTHER')).toBe(true)
+    expect(supportsOcrExtraction('BUSINESS_LICENSE')).toBe(true)
   })
 })
 
@@ -99,8 +101,17 @@ describe('validateExtractedData', () => {
     expect(validateExtractedData('FORM_1099_K', valid1099K)).toBe(true)
   })
 
-  it('returns false for unknown doc type', () => {
-    expect(validateExtractedData('UNKNOWN', {})).toBe(false)
+  it('validates with generic fallback for unknown doc types', () => {
+    // Generic validator requires documentType + non-empty extractedFields
+    const validGeneric = {
+      documentType: 'UNKNOWN',
+      extractedFields: [{ fieldName: 'test', fieldValue: 'val', fieldType: 'text' }],
+      rawText: null,
+      taxRelevanceNotes: null,
+      extractedAt: new Date().toISOString(),
+    }
+    expect(validateExtractedData('UNKNOWN', validGeneric)).toBe(true)
+    // Empty/invalid data fails generic validation
     expect(validateExtractedData('INVALID', {})).toBe(false)
   })
 })
@@ -125,8 +136,10 @@ describe('getFieldLabels', () => {
     }
   })
 
-  it('returns empty object for unknown type', () => {
+  it('returns generic labels for unknown type', () => {
     const labels = getFieldLabels('UNKNOWN')
-    expect(labels).toEqual({})
+    expect(labels).toBeDefined()
+    expect(typeof labels).toBe('object')
+    expect(Object.keys(labels).length).toBeGreaterThan(0)
   })
 })

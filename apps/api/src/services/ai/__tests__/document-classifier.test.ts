@@ -240,8 +240,12 @@ describe('requiresOcrExtraction', () => {
     expect(requiresOcrExtraction('UNKNOWN')).toBe(false)
   })
 
-  it('returns false for receipt/other types', () => {
-    expect(requiresOcrExtraction('RECEIPT')).toBe(false)
+  it('returns true for types previously excluded (generic fallback now handles them)', () => {
+    expect(requiresOcrExtraction('RECEIPT')).toBe(true)
+    expect(requiresOcrExtraction('PASSPORT')).toBe(true)
+  })
+
+  it('returns false for OTHER', () => {
     expect(requiresOcrExtraction('OTHER')).toBe(false)
   })
 })

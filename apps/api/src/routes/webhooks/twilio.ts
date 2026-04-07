@@ -242,7 +242,7 @@ twilioWebhookRoute.post('/status', async (c) => {
 
           if (smsLog?.leadId) {
             const leadResult = await tx.lead.updateMany({
-              where: { id: smsLog.leadId, status: 'NEW' },
+              where: { id: smsLog.leadId, status: { in: ['NEW', 'SENT'] } },
               data: { status: 'CONTACTED' },
             })
 

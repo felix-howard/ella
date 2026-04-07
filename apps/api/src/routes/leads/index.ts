@@ -541,6 +541,18 @@ leadsRoute.post(
       }
     }
 
+    // Update all targeted leads to SENT status (regardless of delivery outcome)
+    if (leads.length > 0) {
+      await prisma.lead.updateMany({
+        where: {
+          id: { in: leads.map((l) => l.id) },
+          organizationId: orgId,
+          status: 'NEW',
+        },
+        data: { status: 'SENT' },
+      })
+    }
+
     return c.json({
       success: true,
       sent,

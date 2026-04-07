@@ -1975,6 +1975,7 @@ export interface Conversation {
     channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
     direction: 'INBOUND' | 'OUTBOUND'
     createdAt: string
+    attachmentUrls?: string[]
     callStatus?: string
     recordingDuration?: number
   } | null

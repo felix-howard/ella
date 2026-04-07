@@ -6,10 +6,12 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Loader2, AlertTriangle } from 'lucide-react'
+import { X, Loader2, AlertTriangle, MessageSquare, Info } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
-import type { Lead, Language } from '../../lib/api-client'
+import { formatPhone } from '../../lib/formatters'
+import { DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../clients/confirm-step'
+import type { Lead } from '../../lib/api-client'
 
 interface ConvertLeadDialogProps {
   lead: Lead
@@ -20,8 +22,8 @@ const currentYear = new Date().getFullYear()
 const TAX_YEARS = [currentYear - 1, currentYear - 2, currentYear - 3]
 
 const SMS_TEMPLATES: Record<'EN' | 'VI', string> = {
-  EN: 'Hi {{client_name}}, your document upload link is ready: {{portal_link}}. Please upload your tax documents for {{tax_year}} here.',
-  VI: 'Xin chào {{client_name}}, link tải tài liệu của bạn: {{portal_link}}. Vui lòng tải tài liệu thuế năm {{tax_year}} tại đây.',
+  EN: DEFAULT_SMS_TEMPLATE_EN,
+  VI: DEFAULT_SMS_TEMPLATE_VI,
 }
 
 export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
@@ -30,7 +32,6 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
   const queryClient = useQueryClient()
 
   const [managedById, setManagedById] = useState('')
-  const [language, setLanguage] = useState<Language>('VI')
   const [taxYear, setTaxYear] = useState(currentYear - 1)
   const [sendWelcomeSms, setSendWelcomeSms] = useState(true)
 
@@ -39,9 +40,9 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
   const [editedLastName, setEditedLastName] = useState(lead.lastName)
   const [editedEmail, setEditedEmail] = useState(lead.email || '')
 
-  // SMS customization - sync with client language
-  const [smsLanguage, setSmsLanguage] = useState<'EN' | 'VI'>(language)
-  const [customMessage, setCustomMessage] = useState(SMS_TEMPLATES[language])
+  // SMS customization - default to Vietnamese
+  const [smsLanguage, setSmsLanguage] = useState<'EN' | 'VI'>('VI')
+  const [customMessage, setCustomMessage] = useState(SMS_TEMPLATES['VI'])
 
   // Check for duplicate phone
   const { data: convertCheck } = useQuery({
@@ -59,7 +60,7 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
   const convertMutation = useMutation({
     mutationFn: () => api.leads.convert(lead.id, {
       managedById: managedById || undefined,
-      language,
+      language: smsLanguage,
       taxYear,
       sendWelcomeSms,
       customMessage: sendWelcomeSms && customMessage ? customMessage : undefined,
@@ -85,10 +86,7 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
     }
   }
 
-  const previewMessage = customMessage
-    .replace(/\{\{client_name\}\}/g, `${editedFirstName} ${editedLastName}`)
-    .replace(/\{\{portal_link\}\}/g, '[link]')
-    .replace(/\{\{tax_year\}\}/g, String(taxYear))
+  const clientName = `${editedFirstName} ${editedLastName}`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -152,7 +150,7 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
                 placeholder={t('leads.emailPlaceholder')}
               />
             </div>
-            <div className="text-sm text-muted-foreground">{lead.phone}</div>
+            <div className="text-sm text-muted-foreground">{formatPhone(lead.phone)}</div>
           </section>
 
           {/* Managed By */}
@@ -168,26 +166,6 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
-          </div>
-
-          {/* Language */}
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('leads.language')}</label>
-            <div className="flex gap-2">
-              {(['VI', 'EN'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => { setLanguage(lang); handleSmsLanguageChange(lang) }}
-                  className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                    language === lang ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-                  )}
-                >
-                  {lang === 'VI' ? 'Tiếng Việt' : 'English'}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Tax Year */}
@@ -210,8 +188,8 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
             </div>
           </div>
 
-          {/* Send Upload Link SMS */}
-          <label className="flex items-center gap-2 cursor-pointer">
+          {/* Send Upload Link SMS - Custom Checkbox */}
+          <label className="relative flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={sendWelcomeSms}
@@ -221,30 +199,51 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
                   setCustomMessage(SMS_TEMPLATES[smsLanguage])
                 }
               }}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              className="peer sr-only"
             />
+            <div className="h-4 w-4 rounded border-2 border-muted-foreground/40 peer-checked:border-emerald-500 peer-checked:bg-emerald-500 transition-colors flex items-center justify-center">
+              {sendWelcomeSms && (
+                <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
             <span className="text-sm">{t('leads.sendUploadLinkSms')}</span>
           </label>
 
-          {/* SMS Customization Panel */}
+          {/* SMS Customization Panel - styled like confirm-step */}
           {sendWelcomeSms && (
-            <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+            <div className="bg-muted/50 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">{t('leads.smsCustomization')}</h4>
-                <div className="flex gap-1.5">
-                  {(['VI', 'EN'] as const).map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() => handleSmsLanguageChange(lang)}
-                      className={cn(
-                        'px-3 py-1 text-xs font-medium rounded-lg transition-colors',
-                        smsLanguage === lang ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-                      )}
-                    >
-                      {lang === 'VI' ? 'Tiếng Việt' : 'English'}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">{t('confirmStep.messagePreview')}</span>
+                </div>
+                <div className="flex items-center gap-1 bg-card rounded-lg p-1 border border-border">
+                  <button
+                    type="button"
+                    onClick={() => handleSmsLanguageChange('VI')}
+                    className={cn(
+                      'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                      smsLanguage === 'VI'
+                        ? 'bg-primary text-white'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    VN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSmsLanguageChange('EN')}
+                    className={cn(
+                      'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                      smsLanguage === 'EN'
+                        ? 'bg-primary text-white'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    EN
+                  </button>
                 </div>
               </div>
 
@@ -252,19 +251,26 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className={cn(
+                  'w-full px-3 py-2.5 rounded-lg border bg-card text-sm text-foreground',
+                  'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                  'placeholder:text-muted-foreground resize-none border-border'
+                )}
                 placeholder={t('leads.smsPlaceholder')}
               />
 
-              <div className="text-xs text-muted-foreground">
-                {t('leads.smsVariables')}: {'{{client_name}}'}, {'{{portal_link}}'}, {'{{tax_year}}'}
-              </div>
-
-              {/* Preview */}
-              <div>
-                <h5 className="text-xs font-medium text-muted-foreground mb-1.5">{t('leads.smsPreview')}</h5>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm whitespace-pre-wrap">
-                  {previewMessage}
+              {/* Placeholder Guide */}
+              <div className="p-3 bg-card/50 rounded-lg border border-border/50">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p className="font-medium">{t('confirmStep.placeholderGuide')}</p>
+                    <ul className="space-y-0.5 ml-2">
+                      <li><code className="bg-muted px-1 rounded">{'{{client_name}}'}</code> → {clientName}</li>
+                      <li><code className="bg-muted px-1 rounded">{'{{tax_year}}'}</code> → {taxYear}</li>
+                      <li><code className="bg-muted px-1 rounded">{'{{portal_link}}'}</code> → {t('confirmStep.autoGenerated')}</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>

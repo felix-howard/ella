@@ -46,17 +46,18 @@ export function CustomSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Close dropdown on escape key
+  // Close dropdown on escape key (stop propagation to prevent parent handlers)
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && isOpen) {
+        event.stopPropagation()
         setIsOpen(false)
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [])
+  }, [isOpen])
 
   const selectedOption = options.find((opt) => opt.value === value)
 

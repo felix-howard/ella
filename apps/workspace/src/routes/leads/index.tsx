@@ -172,7 +172,6 @@ function LeadsPage() {
             selectedIds={selectedIds}
             onSelect={handleSelect}
             onSelectAll={handleSelectAll}
-            onConvert={setConvertLead}
             onRowClick={handleRowClick}
             isLoading={isLoading}
           />

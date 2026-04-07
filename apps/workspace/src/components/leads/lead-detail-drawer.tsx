@@ -275,20 +275,14 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                         </div>
                       )}
                       <div className="flex flex-wrap gap-1.5">
-                        {(currentLead.tags ?? []).map((tag) => {
-                          const isCampaignTag = tag === currentLead.campaignTag
+                        {(currentLead.tags ?? []).filter(tag => tag !== currentLead.campaignTag).map((tag) => {
                           return (
                             <span
                               key={tag}
-                              className={cn(
-                                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium',
-                                isCampaignTag
-                                  ? 'bg-primary/10 text-primary border border-primary/20'
-                                  : 'bg-muted text-foreground'
-                              )}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-foreground"
                             >
                               {tag}
-                              {!isConverted && !isCampaignTag && (
+                              {!isConverted && (
                                 <button
                                   onClick={() => handleRemoveTag(tag)}
                                   className="opacity-60 hover:opacity-100 transition-opacity"

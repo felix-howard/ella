@@ -143,6 +143,9 @@ export const MessageBubble = memo(function MessageBubble({ message, showTime = t
     // Extract recording SID from URL (format: .../Recordings/RE.../...)
     const recordingSid = message.recordingUrl?.match(/RE[0-9a-fA-F]{32}/)?.[0]
 
+    // Hide call messages that have no recording (e.g. completed calls without voicemail/recording)
+    if (!hasRecording) return null
+
     return (
       <div className={cn('flex flex-col w-full gap-1', isOutbound ? 'items-end' : 'items-start')}>
         <div

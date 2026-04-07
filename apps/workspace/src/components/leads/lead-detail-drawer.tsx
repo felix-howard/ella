@@ -153,6 +153,7 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
   // Status dropdown options (CONVERTED excluded - set by conversion only)
   const statusOptions: SelectOption[] = [
     { value: 'NEW', label: t('leads.status.NEW') },
+    { value: 'SENT', label: t('leads.status.SENT') },
     { value: 'CONTACTED', label: t('leads.status.CONTACTED') },
     { value: 'LOST', label: t('leads.status.LOST') },
   ]

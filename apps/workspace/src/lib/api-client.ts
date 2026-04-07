@@ -1227,7 +1227,7 @@ export type TaxType = 'FORM_1040' | 'FORM_1120S' | 'FORM_1065'
 
 export type Language = 'VI' | 'EN'
 
-export type LeadStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'LOST'
+export type LeadStatus = 'NEW' | 'SENT' | 'CONTACTED' | 'CONVERTED' | 'LOST'
 
 export interface SmsSendLog {
   id: string

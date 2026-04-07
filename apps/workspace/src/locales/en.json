@@ -1389,6 +1389,7 @@
   "leads.noLeads": "No leads yet",
   "leads.noLeadsDesc": "Share registration link to collect leads",
   "leads.status.NEW": "New",
+  "leads.status.SENT": "Sent",
   "leads.status.CONTACTED": "Contacted",
   "leads.status.CONVERTED": "Converted",
   "leads.status.LOST": "Lost",

@@ -1386,6 +1386,7 @@
   "leads.noLeads": "Chưa có khách tiềm năng",
   "leads.noLeadsDesc": "Chia sẻ link đăng ký để thu thập khách tiềm năng",
   "leads.status.NEW": "Mới",
+  "leads.status.SENT": "Đã gửi",
   "leads.status.CONTACTED": "Đã liên hệ",
   "leads.status.CONVERTED": "Đã chuyển đổi",
   "leads.status.LOST": "Không thành công",

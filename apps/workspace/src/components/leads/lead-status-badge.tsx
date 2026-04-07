@@ -7,6 +7,7 @@ import type { LeadStatus } from '../../lib/api-client'
 
 const STATUS_STYLES: Record<LeadStatus, string> = {
   NEW: 'bg-blue-100 text-blue-700',
+  SENT: 'bg-purple-100 text-purple-700',
   CONTACTED: 'bg-yellow-100 text-yellow-700',
   CONVERTED: 'bg-green-100 text-green-700',
   LOST: 'bg-gray-100 text-gray-600',
@@ -14,6 +15,7 @@ const STATUS_STYLES: Record<LeadStatus, string> = {
 
 const DOT_COLORS: Record<LeadStatus, string> = {
   NEW: 'bg-blue-500',
+  SENT: 'bg-purple-500',
   CONTACTED: 'bg-yellow-500',
   CONVERTED: 'bg-green-500',
   LOST: 'bg-gray-400',

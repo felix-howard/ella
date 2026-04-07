@@ -47,6 +47,9 @@ export const convertLeadSchema = z.object({
   taxYear: z.number().int().min(2020).max(new Date().getFullYear() + 1),
   sendWelcomeSms: z.boolean().default(true),
   customMessage: z.string().max(500).optional(),
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  email: z.string().email().max(254).optional().nullable(),
 })
 
 /** Bulk SMS */

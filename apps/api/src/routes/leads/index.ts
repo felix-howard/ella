@@ -313,7 +313,7 @@ leadsRoute.post(
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { id } = c.req.valid('param')
-    const { managedById, language, taxYear, sendWelcomeSms, customMessage } = c.req.valid('json')
+    const { managedById, language, taxYear, sendWelcomeSms, customMessage, firstName, lastName, email } = c.req.valid('json')
 
     const lead = await prisma.lead.findFirst({
       where: { id, organizationId: orgId },
@@ -327,7 +327,18 @@ leadsRoute.post(
       return c.json({ success: false, error: 'Lead already converted' }, 400)
     }
 
+    // Sanitize and resolve edited fields
+    const sanitizedFirstName = firstName ? sanitizeTextInput(firstName) : undefined
+    const sanitizedLastName = lastName ? sanitizeTextInput(lastName) : undefined
+    const sanitizedEmail = email !== undefined ? (email ? sanitizeTextInput(email) : null) : undefined
+    const sanitizedCustomMessage = customMessage ? sanitizeTextInput(customMessage, 500) : undefined
+
+    const finalFirstName = sanitizedFirstName || lead.firstName
+    const finalLastName = sanitizedLastName || lead.lastName
+    const finalEmail = sanitizedEmail !== undefined ? sanitizedEmail : lead.email
+
     const result = await prisma.$transaction(async (tx) => {
+
       // Duplicate check inside transaction to prevent race conditions
       const existingClient = await tx.client.findFirst({
         where: { phone: lead.phone, organizationId: orgId },
@@ -340,11 +351,11 @@ leadsRoute.post(
 
       const client = await tx.client.create({
         data: {
-          firstName: lead.firstName,
-          lastName: lead.lastName,
-          name: `${lead.firstName} ${lead.lastName}`,
+          firstName: finalFirstName,
+          lastName: finalLastName,
+          name: `${finalFirstName} ${finalLastName}`,
           phone: lead.phone,
-          email: lead.email,
+          email: finalEmail,
           language,
           source: 'CONVERTED',
           tags: lead.tags || [],
@@ -378,6 +389,9 @@ leadsRoute.post(
           status: 'CONVERTED',
           convertedToId: client.id,
           convertedAt: new Date(),
+          ...(sanitizedFirstName && { firstName: sanitizedFirstName }),
+          ...(sanitizedLastName && { lastName: sanitizedLastName }),
+          ...(sanitizedEmail !== undefined && { email: sanitizedEmail }),
         },
       })
 
@@ -403,7 +417,7 @@ leadsRoute.post(
           magicLink,
           taxYear,
           language,
-          customMessage,
+          sanitizedCustomMessage,
           staffId
         )
       } catch (err) {

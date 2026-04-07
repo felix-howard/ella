@@ -1187,7 +1187,7 @@ export const api = {
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
 
-    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string }) =>
+    convert: (id: string, data: { managedById?: string; language: 'VI' | 'EN'; taxYear: number; sendWelcomeSms?: boolean; customMessage?: string; firstName?: string; lastName?: string; email?: string | null }) =>
       request<{ success: boolean; clientId: string; engagementId: string }>(`/leads/${id}/convert`, { method: 'POST', body: JSON.stringify(data) }),
 
     bulkSms: (data: { leadIds: string[]; message: string; formLinkType: 'org' | 'staff'; staffSlug?: string }) =>

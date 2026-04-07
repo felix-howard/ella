@@ -524,10 +524,6 @@ leadsRoute.post(
           })
 
           if (smsResult.success) {
-            await prisma.lead.updateMany({
-              where: { id: lead.id, status: 'NEW' },
-              data: { status: 'CONTACTED' },
-            })
             return { success: true, leadName: lead.firstName }
           }
           return { success: false, leadName: lead.firstName }

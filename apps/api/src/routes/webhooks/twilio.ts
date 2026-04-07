@@ -222,14 +222,36 @@ twilioWebhookRoute.post('/status', async (c) => {
 
     let smsLogUpdated = 0
     if (smsLogStatus) {
-      const smsResult = await prisma.smsSendLog.updateMany({
-        where: { twilioSid: messageSid },
-        data: {
-          status: smsLogStatus,
-          error: errorCode ? `${errorCode}: ${errorMessage || 'Unknown error'}` : undefined,
-        },
+      // Atomic transaction: update SmsSendLog + Lead status on delivery
+      await prisma.$transaction(async (tx) => {
+        const smsResult = await tx.smsSendLog.updateMany({
+          where: { twilioSid: messageSid },
+          data: {
+            status: smsLogStatus,
+            error: errorCode ? `${errorCode}: ${errorMessage || 'Unknown error'}` : undefined,
+          },
+        })
+        smsLogUpdated = smsResult.count
+
+        // Update Lead status to CONTACTED on confirmed delivery
+        if (smsLogStatus === 'DELIVERED' && smsResult.count > 0) {
+          const smsLog = await tx.smsSendLog.findFirst({
+            where: { twilioSid: messageSid },
+            select: { leadId: true },
+          })
+
+          if (smsLog?.leadId) {
+            const leadResult = await tx.lead.updateMany({
+              where: { id: smsLog.leadId, status: 'NEW' },
+              data: { status: 'CONTACTED' },
+            })
+
+            if (leadResult.count > 0) {
+              console.log(`[Twilio Status] Lead ${smsLog.leadId} marked as CONTACTED on delivery`)
+            }
+          }
+        }
       })
-      smsLogUpdated = smsResult.count
     }
 
     if (updateResult.count === 0 && smsLogUpdated === 0) {

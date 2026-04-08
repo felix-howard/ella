@@ -5,7 +5,7 @@
  * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
-import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
+import { useState, useRef, useEffect, memo, useMemo, useCallback, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
@@ -26,10 +26,14 @@ export interface FileCategorySectionProps {
   config: DocCategoryConfig
   images: RawImage[]
   docs: DigitalDoc[]
+  /** Pre-built map of rawImageId → DigitalDoc for O(1) lookups */
+  docsMap?: Map<string, DigitalDoc>
   caseId: string
   onVerify: (doc: DigitalDoc) => void
   onViewImage?: (imageId: string) => void
   onFileDrop?: (imageIds: string | string[], targetCategory: DocCategoryKey) => void
+  /** Start collapsed (for performance with many files) */
+  defaultCollapsed?: boolean
 }
 
 /**
@@ -40,23 +44,35 @@ export function FileCategorySection({
   config,
   images,
   docs,
+  docsMap: externalDocsMap,
   caseId,
   onVerify,
   onViewImage,
   onFileDrop,
+  defaultCollapsed,
 }: FileCategorySectionProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
+
+  // Build docsMap locally if not provided (backward compat)
+  const docsMap = useMemo(() => {
+    if (externalDocsMap) return externalDocsMap
+    const map = new Map<string, DigitalDoc>()
+    for (const d of docs) {
+      if (d.rawImageId) map.set(d.rawImageId, d)
+    }
+    return map
+  }, [externalDocsMap, docs])
 
   // Group multi-page documents
   const { groups, ungrouped } = useMemo(() => groupDocuments(images), [images])
 
-  // Count verified documents
-  const verifiedCount = images.filter((img) => {
-    const doc = docs.find((d) => d.rawImageId === img.id)
+  // Count verified documents using O(1) map lookup
+  const verifiedCount = useMemo(() => images.filter((img) => {
+    const doc = docsMap.get(img.id)
     return doc?.status === 'VERIFIED'
-  }).length
+  }).length, [images, docsMap])
 
   if (images.length === 0) return null
 
@@ -157,10 +173,10 @@ export function FileCategorySection({
             key={group.groupKey}
             group={group}
             renderFileRow={(image, options) => (
-              <FileItemRow
+              <LazyFileItemRow
                 key={image.id}
                 image={image}
-                doc={docs.find((d) => d.rawImageId === image.id)}
+                doc={docsMap.get(image.id)}
                 caseId={caseId}
                 categoryKey={categoryKey}
                 onVerify={onVerify}
@@ -178,10 +194,10 @@ export function FileCategorySection({
 
         {/* Render ungrouped documents */}
         {ungrouped.map((img) => (
-          <FileItemRow
+          <LazyFileItemRow
             key={img.id}
             image={img}
-            doc={docs.find((d) => d.rawImageId === img.id)}
+            doc={docsMap.get(img.id)}
             caseId={caseId}
             categoryKey={categoryKey}
             onVerify={onVerify}
@@ -192,6 +208,40 @@ export function FileCategorySection({
     </div>
   )
 }
+
+/**
+ * LazyFileItemRow - Only renders the full FileItemRow when visible in viewport.
+ * Uses IntersectionObserver to defer thumbnail fetches and event listeners
+ * for off-screen rows, dramatically reducing initial load for large file lists.
+ */
+const LazyFileItemRow = memo(function LazyFileItemRow(props: FileItemRowProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect() // Once visible, stay rendered
+        }
+      },
+      { rootMargin: '200px' } // Pre-load 200px before entering viewport
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  if (!isVisible) {
+    // Placeholder with same height as a real row to prevent layout shift
+    return <div ref={ref} className="flex items-center gap-4 p-3 h-[60px]" />
+  }
+
+  return <FileItemRow {...props} />
+})
 
 interface FileItemRowProps {
   image: RawImage

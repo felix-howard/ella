@@ -5,7 +5,7 @@
  */
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Link2, Search, ExternalLink, Copy } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Search, ExternalLink, Copy } from 'lucide-react'
 import { Button, Modal, ModalHeader, ModalTitle, ModalFooter, cn } from '@ella/ui'
 import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -157,29 +157,28 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
     }
   }
 
-  const handleShareIntakeLink = async () => {
-    if (intakeFormUrl) {
-      setIntakeFormUrl(null)
-      return
-    }
-    setIsShareLoading(true)
-    try {
-      // Check for existing active token
-      let tokenData = await api.businesses.intakeToken.get(clientId, businessId)
-
-      // If no active token, create one
-      if (!tokenData.data) {
-        tokenData = await api.businesses.intakeToken.create(clientId, businessId)
+  // Fetch intake form URL on mount
+  useEffect(() => {
+    let cancelled = false
+    const fetchIntakeUrl = async () => {
+      setIsShareLoading(true)
+      try {
+        let tokenData = await api.businesses.intakeToken.get(clientId, businessId)
+        if (!tokenData.data) {
+          tokenData = await api.businesses.intakeToken.create(clientId, businessId)
+        }
+        if (!cancelled) {
+          setIntakeFormUrl(PORTAL_BASE_URL + '/contractor-intake/' + tokenData.data!.token)
+        }
+      } catch {
+        // Silently fail - link just won't show
+      } finally {
+        if (!cancelled) setIsShareLoading(false)
       }
-
-      const portalUrl = PORTAL_BASE_URL + '/contractor-intake/' + tokenData.data!.token
-      setIntakeFormUrl(portalUrl)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate intake link')
-    } finally {
-      setIsShareLoading(false)
     }
-  }
+    fetchIntakeUrl()
+    return () => { cancelled = true }
+  }, [clientId, businessId])
 
   const handleCopyIntakeLink = async () => {
     if (!intakeFormUrl) return
@@ -316,38 +315,28 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
                 Delete All
               </Button>
             )}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShareIntakeLink}
-                disabled={isShareLoading}
-                className="gap-1.5"
-              >
-                {isShareLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                Intake Form
-              </Button>
-              {intakeFormUrl && (
-                <div className="flex items-center gap-1.5">
-                  <a
-                    href={intakeFormUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-primary hover:underline font-medium"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Open Link
-                  </a>
-                  <button
-                    onClick={handleCopyIntakeLink}
-                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                    title="Copy to clipboard"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
+            {isShareLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : intakeFormUrl ? (
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={intakeFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open Link
+                </a>
+                <button
+                  onClick={handleCopyIntakeLink}
+                  className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            ) : null}
             <Button
               variant="outline"
               size="sm"

@@ -37,7 +37,7 @@ export function BusinessAccordion({
   return (
     <div className="space-y-3">
       {businesses.map((biz, index) => (
-        <div key={biz._key} className="bg-card rounded-xl border border-border overflow-hidden">
+        <div key={biz._key} className="bg-card rounded-xl border border-border">
           <button
             type="button"
             onClick={() => onExpandedChange(expandedIndex === index ? -1 : index)}

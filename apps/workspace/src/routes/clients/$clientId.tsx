@@ -86,6 +86,7 @@ function ClientDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('files')
+  const [prevClientId, setPrevClientId] = useState(clientId)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -351,9 +352,10 @@ function ClientDetailPage() {
   }
 
   // Reset active tab when navigating between clients (prevents stale tab like 'contractors' on INDIVIDUAL)
-  useEffect(() => {
+  if (prevClientId !== clientId) {
+    setPrevClientId(clientId)
     setActiveTab('files')
-  }, [clientId])
+  }
 
   // Close "More" dropdown on outside click or Escape
   useEffect(() => {

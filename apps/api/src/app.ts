@@ -36,6 +36,7 @@ import { contractorsRoute } from './routes/contractors'
 import { businessesRoute } from './routes/businesses'
 import { form1099NecRoute } from './routes/form-1099-nec'
 import { campaignsRoute } from './routes/campaigns'
+import { clientGroupsRoute } from './routes/client-groups'
 
 const app = new OpenAPIHono()
 
@@ -87,6 +88,7 @@ app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/draft-returns/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
+app.use('/client-groups/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -112,6 +114,7 @@ app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
 app.route('/terms', termsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
+app.route('/client-groups', clientGroupsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

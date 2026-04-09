@@ -3,6 +3,7 @@
  * CRUD operations for client management
  */
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
@@ -22,6 +23,7 @@ import {
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
   updateNotesSchema,
+  createWithBusinessSchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -1426,6 +1428,160 @@ clientsRoute.post(
     } catch (error) {
       console.error('[Send Upload Link] Error:', error)
       return c.json({ error: 'Failed to send upload link' }, 500)
+    }
+  }
+)
+
+// ============================================
+// POST /clients/create-with-business — Combo: individual + business + group
+// ============================================
+clientsRoute.post(
+  '/create-with-business',
+  zValidator('json', createWithBusinessSchema),
+  async (c) => {
+    const { individual, business, groupName } = c.req.valid('json')
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.staffId) {
+      throw new HTTPException(403, { message: 'Organization and staff record required' })
+    }
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Create individual client
+        const indivName = computeDisplayName(individual.firstName, individual.lastName)
+        const individualClient = await tx.client.create({
+          data: {
+            firstName: individual.firstName,
+            lastName: individual.lastName || null,
+            name: indivName,
+            phone: individual.phone,
+            email: individual.email || null,
+            language: individual.language as Language,
+            clientType: 'INDIVIDUAL' as ClientType,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+        })
+
+        // Create engagement + tax case for individual
+        const { engagementId: indivEngId } = await findOrCreateEngagement(
+          tx,
+          individualClient.id,
+          individual.profile.taxYear,
+          null
+        )
+        const indivCase = await tx.taxCase.create({
+          data: {
+            clientId: individualClient.id,
+            taxYear: individual.profile.taxYear,
+            engagementId: indivEngId,
+            taxTypes: (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+            status: 'INTAKE',
+          },
+        })
+        await tx.conversation.create({
+          data: { caseId: indivCase.id, lastMessageAt: new Date() },
+        })
+
+        // Create business client
+        const businessClient = await tx.client.create({
+          data: {
+            firstName: business.firstName,
+            lastName: null,
+            name: business.firstName,
+            phone: business.phone,
+            email: business.email || null,
+            language: business.language as Language,
+            clientType: 'BUSINESS' as ClientType,
+            businessType: business.businessType as BusinessType,
+            einEncrypted: business.ein ? encryptSSN(business.ein) : undefined,
+            businessAddress: business.businessAddress,
+            businessCity: business.businessCity,
+            businessState: business.businessState,
+            businessZip: business.businessZip,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+        })
+
+        // Create engagement + tax case for business
+        const { engagementId: bizEngId } = await findOrCreateEngagement(
+          tx,
+          businessClient.id,
+          business.profile.taxYear,
+          null
+        )
+        const bizCase = await tx.taxCase.create({
+          data: {
+            clientId: businessClient.id,
+            taxYear: business.profile.taxYear,
+            engagementId: bizEngId,
+            taxTypes: (business.profile.taxTypes || ['FORM_1120S']) as TaxType[],
+            status: 'INTAKE',
+          },
+        })
+        await tx.conversation.create({
+          data: { caseId: bizCase.id, lastMessageAt: new Date() },
+        })
+
+        // Create client group linking both
+        const name = groupName || `${individual.firstName} + ${business.firstName}`
+        const group = await tx.clientGroup.create({
+          data: {
+            name,
+            organizationId: user.organizationId,
+          },
+        })
+
+        // Link both clients to the group
+        await tx.client.updateMany({
+          where: { id: { in: [individualClient.id, businessClient.id] } },
+          data: { clientGroupId: group.id },
+        })
+
+        return { individualClient, businessClient, group }
+      })
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            individual: {
+              id: result.individualClient.id,
+              name: result.individualClient.name,
+              clientType: result.individualClient.clientType,
+            },
+            business: {
+              id: result.businessClient.id,
+              name: result.businessClient.name,
+              clientType: result.businessClient.clientType,
+            },
+            group: {
+              id: result.group.id,
+              name: result.group.name,
+            },
+          },
+        },
+        201
+      )
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+      }
+      throw error
     }
   }
 )

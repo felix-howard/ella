@@ -120,6 +120,7 @@ export interface MagicLinkValidationResult {
         id: string
         name: string
         language: string
+        clientGroupId: string | null
       }
       checklistItems: Array<{
         id: string
@@ -189,6 +190,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
           id: link.taxCase.client.id,
           name: link.taxCase.client.name,
           language: link.taxCase.client.language,
+          clientGroupId: link.taxCase.client.clientGroupId,
         },
         checklistItems: link.taxCase.checklistItems.map((item) => ({
           id: item.id,

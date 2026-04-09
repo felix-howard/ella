@@ -1,8 +1,46 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-06 ICT
-> **Current Phase:** Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-09 ICT
+> **Current Phase:** Business Entity Separation Approach B IN PROGRESS (Phase 04 of 15) | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Business Entity Separation Approach B Phase 04 COMPLETE + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Business Entity Separation - Approach B (15 Phases) IN PROGRESS
+**Started:** 2026-04-08
+**Status:** In Progress (Phases 01-04 COMPLETE, Phase 04 completed 2026-04-09)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
+**Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema: ClientType enum + ClientGroup model | ✅ DONE | 1.5h | 2026-04-09 |
+| 2 | Schema: Business fields on Client | ✅ DONE | 1.5h | 2026-04-09 |
+| 3 | Schema: Re-parent Contractor/FilingBatch/IntakeToken FKs | ✅ DONE | 2h | 2026-04-09 |
+| 4 | Data migration script: Business → Client records | ✅ DONE | 2h | 2026-04-09 |
+| 5 | API: Org scope + verifyBusinessClient helper | ⏳ PENDING | 1h | - |
+| 6-15 | API & Frontend implementation | ⏳ PENDING | 11h | - |
+
+**Completed Deliverables (Phases 01-04):**
+- ClientType enum (INDIVIDUAL/BUSINESS) on Client model
+- ClientGroup model for linking individual ↔ business clients
+- Business-specific nullable fields on Client (businessType, EIN, address)
+- Re-parented Contractor, FilingBatch, ContractorIntakeToken FKs from Business to Client
+- Data migration script: converts existing Business records → Client(BUSINESS) + creates ClientGroups + backfills FKs
+
+**Architecture:**
+- Current: Business FK'd to Client (nested)
+- Target: Client has `clientType` (INDIVIDUAL/BUSINESS) + ClientGroup links individuals to businesses
+- Each entity: separate TaxCase, contractors, 1099 filings
+- Routes: `/clients/:cid/*` where cid = business client
+
+**Next Steps:**
+- Phase 05: Update org scope helper; add verifyBusinessClient validation
+- Phase 06-09: API CRUD for Client (BUSINESS type creation) + ClientGroup endpoints + re-parent Contractor/1099 routes
+- Phase 10-13: Frontend API client update + client list (grouped display) + creation wizard + adaptive detail tabs
+- Phase 14-15: Portal entity picker + cleanup (deprecate old Business model)
 
 ---
 

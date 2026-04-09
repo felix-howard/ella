@@ -337,6 +337,54 @@ Organization (root entity)
 - DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
 - Messages: conversationId + createdAt (ordering)
 
+## Phase 04: Business Entity Separation — Data Migration
+
+**Overview:**
+Convert existing Business records into top-level Client records with `clientType=BUSINESS`, creating ClientGroups to link individual owners to their businesses. Industry-standard model matching Canopy, TaxDome, Karbon.
+
+**Migration Script:** `apps/api/scripts/migrate-business-to-client.ts`
+
+**Process:**
+1. Query all Business records with owner Client + related Contractor/FilingBatch/ContractorIntakeToken records
+2. For each Business (idempotent check via unique phone):
+   - Create new Client(clientType=BUSINESS) with business fields (name, businessType, EIN, address)
+   - Create/reuse ClientGroup grouping owner + business
+   - Update all Contractor → clientId (new business client)
+   - Update all FilingBatch → clientId (new business client)
+   - Update all ContractorIntakeToken → clientId (new business client)
+3. Transaction-wrapped per business, 30s timeout, per-business error handling
+
+**Idempotency:**
+- Phone field: `biz-{businessId}` placeholder (unique per source business)
+- Existing migrated records skipped via phone lookup
+- Safe to re-run without duplicates
+
+**CLI Flags:**
+- `--dry-run` — Log planned changes without executing
+- `--confirm` — Required for live mode (safety guard)
+- `--org-id <id>` — Optional, migrate single org only (testing)
+
+**Usage:**
+```bash
+cd apps/api
+# Preview changes
+npm run migrate:business-to-client -- --dry-run
+
+# Execute migration (requires confirmation)
+npm run migrate:business-to-client -- --confirm
+
+# Test single org
+npm run migrate:business-to-client -- --dry-run --org-id <orgId>
+```
+
+**Output:** Migration summary (total, migrated, skipped, errors, groups created, records updated)
+
+**Data Integrity:**
+- All Contractor/FilingBatch/ContractorIntakeToken data preserved
+- EIN remains encrypted, no re-encryption needed
+- Org/manager assignments maintained on new business client
+- Backward-compat: Business model still exists (Phase 15 cleanup pending)
+
 ## Authentication Flow
 
 **Request-Time (Read-Only) Pattern:**

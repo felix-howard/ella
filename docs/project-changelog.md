@@ -7,20 +7,26 @@
 
 ## 2026-04-09
 
-### Feature: Business Entity Separation - Phase 02 (Backward-Compat Fields) ✅ IN PROGRESS
-**Status:** In Progress (Phase 02 of 3)
+### Feature: Business Entity Separation - Phase 04 (Data Migration Script) ✅ COMPLETE
+**Status:** Complete (Phase 04 of 15)
 **Branch:** feature/ella-enhance-202
-**Context:** [Entity Separation Research](./docs/entity-separation-research.md)
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
 
-**Summary:** Phase 02 adds backward-compat business fields to Client model. Enables pre-Business entity client creation flow (existing admin forms) while new Business model handles primary multi-business scenarios. 6 new nullable fields on Client for businessType, EIN, and address.
+**Summary:** Data migration script converts existing Business records to Client records with clientType=BUSINESS, creates ClientGroups linking individuals to businesses, backfills clientId FKs on Contractor/FilingBatch/IntakeToken. Idempotent, transaction-wrapped, dry-run capable.
 
 **What Changed:**
-- **Schema:** Added to Client model - businessType (BusinessType enum, nullable), einEncrypted, businessAddress, businessCity, businessState, businessZip (all nullable)
-- **Migration:** `20260409011838_add_business_fields_to_client` - 6 nullable columns on Client table
-- **Purpose:** Backward compatibility for intake forms, lead-to-client conversion, and existing workflows that predate full Business entity separation
-- **Note:** Business model remains primary for multi-business, contractors, 1099-NEC filings. Client fields used only for single-entity or legacy contexts.
+- **Script:** `apps/api/scripts/migrate-business-to-client.ts` - Converts Business → Client(BUSINESS), creates ClientGroup, backfills FKs
+- **Implementation:** Business query with includes; idempotency check; transaction-wrapped per business; phone uniqueness via `biz-{id}` placeholder
+- **Features:** Dry-run mode (--dry-run), org-scoped migration (--org-id <id>), progress logging, error handling
+- **Script command:** `pnpm -F api migrate:business-to-client [--dry-run] [--org-id <id>]`
+- **Data integrity:** All Contractor/FilingBatch/ContractorIntakeToken records backfilled with new business client IDs
+- **Idempotency:** Re-runnable without duplicating; skips already-migrated businesses
 
-**Next Phase:** Phase 03 will migrate API endpoints to populate both Client + Business entities during creation, maintaining consistency.
+**Files Changed:**
+- **New:** `apps/api/scripts/migrate-business-to-client.ts`
+- **Updated:** `apps/api/package.json` - Added script command
+
+**Next Phase:** Phase 05 will update org scope helper + verifyBusinessClient validation for API safety.
 
 ---
 

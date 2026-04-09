@@ -58,6 +58,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
+- `/clients/new` - Multi-path client creation wizard (Phase 12)
 - `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses, Schedule C, Schedule E, Draft Return (Phase 04)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
@@ -1324,6 +1325,288 @@ interface CreateBusinessInput {
 - Icons: Semantic (Building2 for business, Pencil for edit, Trash for delete, ChevronUp/Down for expand)
 - Modal: ModalHeader, ModalTitle, form labels with htmlFor references
 - Delete confirmation: ModalFooter with Cancel/Delete buttons (red delete button)
+
+---
+
+## Phase 12: Frontend Client Creation Wizard - Multi-Path (2026-04-09)
+
+**Location:** `apps/workspace/src/routes/clients/new.tsx` + `apps/workspace/src/components/clients/`
+
+**Overview:**
+Three-path client creation wizard supporting Individual, Individual+Business, and Business-only client types. Path selection drives form complexity and submission strategy. Business-only path submits directly without SMS confirmation step.
+
+**Client Creation Paths:**
+
+1. **Individual Path** (Type: 'INDIVIDUAL')
+   - Steps: Basic Info → Confirm & Send SMS
+   - Form: firstName, lastName, phone, email, language, taxYear
+   - Returning client detection: Phone-based lookup (existing client reuse)
+   - Submission: `POST /clients` with customMessage (SMS template)
+   - No business association
+
+2. **Individual + Business Path** (Type: 'INDIVIDUAL_WITH_BUSINESS')
+   - Steps: Basic Info → Business Info → Confirm & Send SMS
+   - Creates linked records: Individual Client + Business Client + ClientGroup
+   - Individual form: firstName, lastName, phone, email, language
+   - Business form: name, businessType, EIN, phone, email, address, city, state, zip
+   - Submission: `POST /clients/with-business` (combo endpoint)
+   - Returns both individual.id and business.id
+   - Business phone inherits from individual if not provided
+
+3. **Business Only Path** (Type: 'BUSINESS')
+   - Steps: Business Info (single form, no SMS confirm)
+   - Form: name, businessType, EIN, phone (required), email, address, city, state, zip
+   - Submission: Direct `POST /clients` with clientType='BUSINESS'
+   - Phone required (no individual phone fallback)
+   - No SMS confirmation step — form redirect to client detail on success
+   - Tax year selector: 3-button toggle (current year - 1, -2, -3)
+
+**Component Hierarchy:**
+```
+CreateClientPage (new.tsx)
+├── Step: 'type-select'
+│   └── ClientTypeSelector
+│       ├── Card: Individual (User icon, "A person (files 1040)")
+│       ├── Card: Individual + Business (UserPlus icon, "A person who owns a business")
+│       └── Card: Business Only (Building2 icon, "A business entity")
+│
+├── Step: 'individual-form' (paths: INDIVIDUAL, INDIVIDUAL_WITH_BUSINESS)
+│   └── BasicInfoForm
+│       ├── firstName, lastName (required)
+│       ├── phone (required, 10 digits, checked for returning client)
+│       ├── email (optional, email validation)
+│       ├── language (VI/EN select)
+│       ├── taxYear (3-button toggle)
+│       └── ReturningClientSection (if match found)
+│
+├── Step: 'business-form' (paths: INDIVIDUAL_WITH_BUSINESS, BUSINESS)
+│   └── BusinessInfoForm
+│       ├── name (required)
+│       ├── businessType (dropdown: SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+│       ├── EIN (auto-formatted XX-XXXXXXX, optional except for BUSINESS path)
+│       ├── phone (required for BUSINESS, optional for INDIVIDUAL_WITH_BUSINESS)
+│       ├── email (optional)
+│       ├── address (optional, street)
+│       ├── city, state, zip (optional grid layout, state auto-uppercase)
+│       └── Tax Year selector (BUSINESS path only)
+│
+├── Step: 'confirm' (paths: INDIVIDUAL, INDIVIDUAL_WITH_BUSINESS)
+│   └── ConfirmStep
+│       ├── Client summary (name, phone, taxYear, language)
+│       ├── SMS template editor (customizable per language)
+│       └── Create button (submits form + sends SMS)
+```
+
+**Sub-Components:**
+- **client-type-selector.tsx** - 3-card type picker (Individual/Individual+Business/Business)
+- **basic-info-form.tsx** - Individual form fields (firstName, lastName, phone, email, language, taxYear)
+- **business-info-form.tsx** - Business form fields (name, type, EIN, phone, email, address, city, state, zip)
+- **clients/index.ts** - Barrel exports (ClientTypeSelector, BasicInfoForm, BusinessInfoForm, EMPTY_BUSINESS_INFO, EMPTY_BASIC_INFO, type ClientCreationType, type BasicInfoData, type BusinessInfoData)
+
+**Form Data Interfaces:**
+```typescript
+type ClientCreationType = 'INDIVIDUAL' | 'INDIVIDUAL_WITH_BUSINESS' | 'BUSINESS'
+
+interface BasicInfoData {
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  language: 'VI' | 'EN'
+  taxYear: number
+}
+
+interface BusinessInfoData {
+  name: string
+  businessType: BusinessType
+  ein: string
+  phone: string
+  email: string
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+
+type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+```
+
+**Validation Rules:**
+
+*Basic Info (Individual paths):*
+- firstName: required, non-empty trim check
+- lastName: required, non-empty trim check
+- phone: required, exactly 10 digits (after removing non-digits)
+- email: optional, but if provided must match email regex pattern
+- language: VI or EN (default VI)
+- taxYear: valid year from TAX_YEARS list
+
+*Business Info (Business paths):*
+- name: required, non-empty trim check
+- businessType: must be valid enum value
+- EIN: if provided, must match format XX-XXXXXXX (2-digit + hyphen + 7-digit)
+- phone: required for BUSINESS path, optional for INDIVIDUAL_WITH_BUSINESS
+  - If provided, must be 10 digits (after removing non-digits)
+- email: optional, but if provided must match email regex
+- state: optional, but if provided must be 2-letter uppercase code (validated against US_STATES set)
+- zip: optional, but if provided must be 5 digits or 5-4 format (XXXXX or XXXXX-XXXX)
+
+**Data Sanitization:**
+- email: Control characters removed (0x00-0x1F, 0x7F), length limited to 254 chars, trimmed
+- firstName/lastName: Trimmed, sliced to 50 chars max on submission
+- businessName: Trimmed, sliced to 100 chars max on submission
+- phone: Converted to E.164 format (+1XXXXXXXXXX) on submission
+- state: Auto-uppercase, limited to 2 chars
+
+**Returning Client Detection (Individual paths only):**
+- Triggered on phone blur (BasicInfoForm)
+- API call: `GET /clients/search?phone=<formatted>`
+- If match found:
+  - firstName/lastName auto-populate (if not already filled)
+  - ReturningClientSection shows existing engagement + "Copy from previous" option
+  - Submission creates engagement on existing client instead of new client
+- Checked async: isCheckingPhone loading state during API call
+
+**API Submissions:**
+
+*Individual Path:*
+```
+POST /clients
+{
+  firstName: string
+  lastName: string
+  phone: "+1XXXXXXXXXX"    (E.164)
+  email?: string          (sanitized)
+  language: "VI" | "EN"
+  profile: { taxYear: number, taxTypes: ["FORM_1040"] }
+  customMessage: string   (SMS template from confirm step)
+}
+```
+
+*Individual + Business Path:*
+```
+POST /clients/with-business
+{
+  individual: {
+    firstName: string
+    lastName: string
+    phone: "+1XXXXXXXXXX"
+    email?: string
+    language: "VI" | "EN"
+    profile: { taxYear: number, taxTypes: ["FORM_1040"] }
+  }
+  business: {
+    firstName: string            (business name)
+    businessType: BusinessType
+    ein?: string
+    phone: "+1XXXXXXXXXX"        (defaults to individual.phone)
+    email?: string
+    businessAddress?: string
+    businessCity?: string
+    businessState?: string
+    businessZip?: string
+    language: "VI" | "EN"
+    profile: { taxYear: number }
+  }
+  groupName: string             (e.g., "John Doe Group")
+}
+```
+
+*Business Only Path:*
+```
+POST /clients
+{
+  firstName: string            (business name)
+  clientType: "BUSINESS"
+  businessType: BusinessType
+  phone: "+1XXXXXXXXXX"       (required, no fallback)
+  email?: string
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  profile: { taxYear: number }
+}
+```
+
+**Step Navigation:**
+
+*Forward Navigation (handleNext):*
+- 'individual-form' → validate basic info
+  - If INDIVIDUAL: go to 'confirm'
+  - If INDIVIDUAL_WITH_BUSINESS: go to 'business-form'
+- 'business-form' (INDIVIDUAL_WITH_BUSINESS only) → validate business info → go to 'confirm'
+- 'business-form' (BUSINESS only): no next step, submit inline via button
+
+*Backward Navigation (handleBack):*
+- 'individual-form' → 'type-select' (reset type)
+- 'business-form' (INDIVIDUAL_WITH_BUSINESS) → 'individual-form'
+- 'business-form' (BUSINESS only) → 'type-select' (reset type)
+- 'confirm' → 'business-form' (INDIVIDUAL_WITH_BUSINESS) or 'individual-form' (INDIVIDUAL)
+
+*Step Indicator:*
+- Hidden on 'type-select'
+- INDIVIDUAL path: 2 steps (Basic Info, Confirm)
+- BUSINESS path: 1 step (Business Info, no indicator shown)
+- INDIVIDUAL_WITH_BUSINESS path: 3 steps (Basic Info, Business Info, Confirm)
+- Current step highlighted, completed steps show checkmark
+
+**Business-Only Direct Submission (No Confirm Step):**
+- Business form has inline "Create Business Client" button
+- Button validates businessInfo before submission
+- No SMS confirm step (business entities assumed to have secure communication channels)
+- On success: navigate to `/clients/:clientId` (client detail view)
+- On error: submitError displayed, no form reset (user can retry)
+
+**EIN Auto-Formatting:**
+- Input: User types/pastes any text
+- Processing: Digits extracted, limited to 9 chars
+- Format: If > 2 digits, format as XX-XXXXXXX
+- Display: Real-time, as user types
+- Validation: Final format checked before submission (must be XX-XXXXXXX or empty)
+
+**US State Validation:**
+- Hard-coded SET of 50 states + DC + territories (AL, AK, ... VI, GU, AS, MP)
+- Input: Case-insensitive, auto-uppercase to 2 chars
+- Validation error: "Invalid state code" if not in set
+
+**Accessibility Features:**
+- All form fields have htmlFor-linked labels
+- Error messages: aria-describedby linked, role="alert"
+- Required fields: aria-required="true", red asterisk with aria-hidden="true"
+- Invalid fields: aria-invalid="true" when errors present
+- TypeSelector cards: Keyboard navigable, Enter/Space to select
+- StepIndicator: Semantic nav with aria-label="Progress", icon descriptions
+- Focus management: First invalid field focused on validation error
+- Modal/drawer patterns: Escape key, backdrop click, focus trap
+
+**Internationalization (i18n):**
+- SMS template defaults: DEFAULT_SMS_TEMPLATE_VI and DEFAULT_SMS_TEMPLATE_EN
+- Template editable on confirm step (language selector changes active template)
+- Language passed to SMS send endpoint
+- Error messages: t('newClient.errorFirstNameRequired'), etc.
+- UI text: t('newClient.stepBasicInfo'), t('newClient.stepConfirm'), etc.
+
+**Error Handling:**
+- Validation errors: Local state, displayed per-field with aria-describedby
+- Submission errors: Top-level error banner (submitError state)
+- Returning client check: Silent failure (setExistingClient(null)), no error shown
+- Phone blur check: Async (isCheckingPhone flag), debounce recommended by caller
+
+**Performance:**
+- No query caching for type selector (UI-only state)
+- Returning client query: No automatic retry, user can manually blur phone field again
+- Submission: Single request per path, no parallel requests
+- Form re-render optimization: useState for each form data object, onChange callbacks only update that object
+
+**Key Differences from Prior Client Creation:**
+- OLD: Single form with clientType toggle + all business fields (removed in Phase 04)
+- NEW: Path-driven wizard with separate form components per path type
+- NEW: Business phone optional for Individual+Business path (inherits from individual)
+- NEW: Business-only path submits directly (no SMS confirm step)
+- NEW: ClientTypeSelector as first step (three-card UX)
+- NEW: Combo endpoint `POST /clients/with-business` for Individual+Business path
 
 ---
 

@@ -8,7 +8,7 @@
 
 ### Business Entity Separation - Approach B (15 Phases) IN PROGRESS
 **Started:** 2026-04-08
-**Status:** In Progress (Phases 01-11 COMPLETE, 73% done — Phase 11 completed 2026-04-09)
+**Status:** In Progress (Phases 01-12 COMPLETE, 80% done — Phase 12 completed 2026-04-09)
 **Branch:** feature/ella-enhance-202
 **Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
 **Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
@@ -27,7 +27,7 @@
 | 9 | API: 1099-NEC + FilingBatch routes re-parent | ✅ DONE | 1.5h | 2026-04-09 |
 | 10 | Frontend: API client + types update | ✅ DONE | 1.5h | 2026-04-09 |
 | 11 | Frontend: Client list with grouped display | ✅ DONE | 2h | 2026-04-09 |
-| 12 | Frontend: Client creation wizard (individual + business) | ⏳ PENDING | 2h | - |
+| 12 | Frontend: Client creation wizard (individual + business) | ✅ DONE | 2h | 2026-04-09 |
 | 13 | Frontend: Client detail tabs (adaptive per type) | ⏳ PENDING | 1.5h | - |
 | 14 | Frontend: Portal entity picker + role isolation | ⏳ PENDING | 1.5h | - |
 | 15 | Cleanup: Deprecate Business model + remove /businesses routes | ⏳ PENDING | 1.5h | - |

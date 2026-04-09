@@ -5,6 +5,7 @@
 import { cn } from '@ella/ui'
 import type { BusinessType } from '../../lib/api-client'
 import { formatPhoneInput } from '../../lib/formatters'
+import { AddressAutocomplete } from './address-autocomplete'
 
 const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
   { value: 'SOLE_PROPRIETORSHIP', label: 'Sole Proprietorship' },
@@ -170,14 +171,17 @@ export function BusinessInfoForm({ data, onChange, errors, phoneRequired }: Busi
         <label htmlFor="biz-address" className="block text-sm font-medium text-foreground">
           Address
         </label>
-        <input
+        <AddressAutocomplete
           id="biz-address"
-          type="text"
           value={data.address}
-          onChange={(e) => onChange({ address: e.target.value })}
+          onChange={(value) => onChange({ address: value })}
+          onSelect={(result) => onChange({
+            address: result.address,
+            city: result.city,
+            state: result.state,
+            zip: result.zip,
+          })}
           placeholder="123 Main St"
-          aria-invalid={!!errors?.address}
-          aria-describedby={errors?.address ? 'biz-address-error' : undefined}
           className={inputClass('address')}
         />
         {errors?.address && <p id="biz-address-error" className="text-sm text-error" role="alert">{errors.address}</p>}

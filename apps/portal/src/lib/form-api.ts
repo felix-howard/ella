@@ -32,12 +32,25 @@ export interface RegistrationFormData {
 }
 
 export interface SubmitFormData {
-  firstName: string
+  clientType: 'INDIVIDUAL' | 'INDIVIDUAL_WITH_BUSINESS' | 'BUSINESS'
+  // Individual fields
+  firstName?: string
   lastName?: string
-  phone: string
+  phone?: string
+  email?: string
   taxYear: number
   language: 'VI' | 'EN'
   staffSlug?: string
+  // Business fields
+  businessName?: string
+  businessType?: string
+  businessEin?: string
+  businessPhone?: string
+  businessEmail?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
 }
 
 export interface SubmitResponse {

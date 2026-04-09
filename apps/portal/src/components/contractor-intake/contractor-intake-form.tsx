@@ -34,10 +34,17 @@ export interface ContractorEntry extends ContractorFormData {
   ssnDisplay: string
 }
 
+export interface SubmittedContractorInfo {
+  firstName: string
+  lastName: string
+  ssnLast4: string
+}
+
 interface ContractorIntakeFormProps {
   onSubmitAll: (entries: ContractorFormData[]) => Promise<void>
   isSubmitting: boolean
   error?: string
+  submittedContractors?: SubmittedContractorInfo[]
 }
 
 const inputClass =
@@ -206,7 +213,7 @@ function useContractorForm() {
   }
 }
 
-export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: ContractorIntakeFormProps) {
+export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error, submittedContractors = [] }: ContractorIntakeFormProps) {
   const { t } = useTranslation()
   const form = useContractorForm()
   const [queue, setQueue] = useState<ContractorEntry[]>([])
@@ -284,6 +291,36 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
 
   return (
     <form onSubmit={handleSubmitAll} className="px-6 py-6 space-y-4">
+      {/* Previously submitted contractors (read-only) */}
+      {submittedContractors.length > 0 && (
+        <div className="space-y-2 mb-2">
+          <p className="text-xs font-medium text-primary uppercase tracking-wide flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5" />
+            {submittedContractors.length} submitted
+          </p>
+          {submittedContractors.map((c, i) => (
+            <div
+              key={`submitted-${i}`}
+              className="flex items-center px-4 py-3 rounded-xl border border-primary/20 bg-primary/5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {c.firstName} {c.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ***-**-{c.ssnLast4}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Queued contractors list */}
       {queue.length > 0 && (
         <div className="space-y-2 mb-2">

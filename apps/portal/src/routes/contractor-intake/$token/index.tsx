@@ -66,7 +66,7 @@ function ContractorIntakePage() {
         const result = await formApi.submitContractor(token, data)
         results.push(result.contractor)
       }
-      setSubmittedContractors(results)
+      setSubmittedContractors((prev) => [...prev, ...results])
       setState('success')
     } catch (err: unknown) {
       const submitted = results.length
@@ -127,6 +127,7 @@ function ContractorIntakePage() {
         onSubmitAll={handleSubmitAll}
         isSubmitting={isSubmitting}
         error={submitError || undefined}
+        submittedContractors={submittedContractors}
       />
     </div>
   )

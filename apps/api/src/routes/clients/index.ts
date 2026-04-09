@@ -110,11 +110,31 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       const digitsOnly = sanitizedSearch.replace(/\D/g, '')
       const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitizedSearch
 
-      where.OR = [
-        { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+      const namePhoneFilter = [
+        { firstName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { lastName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' as const } },
         { phone: { contains: phoneSearch } },
+      ]
+
+      // Also include linked group members: if search matches a client in a group,
+      // show all members of that group (e.g. searching "john" shows John Wick + his business)
+      const matchingGroupIds = await prisma.client.findMany({
+        where: {
+          ...buildClientScopeFilter(user),
+          clientGroupId: { not: null },
+          OR: namePhoneFilter,
+        },
+        select: { clientGroupId: true },
+        distinct: ['clientGroupId'],
+      })
+      const groupIds = matchingGroupIds
+        .map(c => c.clientGroupId)
+        .filter((id): id is string => id !== null)
+
+      where.OR = [
+        ...namePhoneFilter,
+        ...(groupIds.length > 0 ? [{ clientGroupId: { in: groupIds } }] : []),
       ]
     }
   }

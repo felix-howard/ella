@@ -227,7 +227,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string }) =>
+    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string; clientType?: ClientType }) =>
       request<PaginatedResponse<ClientWithActions> & { attentionSummary: { newUploads: number; needsVerification: number; stale: number; readyForEntry: number } }>('/clients', { params }),
 
     tags: () =>
@@ -1590,10 +1590,11 @@ export interface ClientWithActions {
   phone: string
   email: string | null
   language: 'VI' | 'EN'
-  source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
+  source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED' | 'INCOMING_SMS' | 'INCOMING_CALL'
   tags: string[]
   clientType: ClientType
   clientGroupId?: string | null
+  businessType?: BusinessType | null
   hasUploadLink: boolean
   createdAt: string
   updatedAt: string

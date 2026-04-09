@@ -286,6 +286,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       tags: client.tags,
       clientType: client.clientType,
       clientGroupId: client.clientGroupId,
+      businessType: client.businessType,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,

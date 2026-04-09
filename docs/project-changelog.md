@@ -7,6 +7,75 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 11 (Frontend Client List Grouped Display) ✅ COMPLETE
+**Status:** Complete (Phase 11 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 11](../plans/260408-business-entity-separation/phase-11-frontend-client-list-grouped.md)
+
+**Summary:** Client list page redesigned to display individual clients grouped with their linked businesses. Business clients appear indented under their owner, distinguished by building icon and businessType badge. New clientType filter (All/Individuals/Businesses) added to toolbar. Fully i18n'd for English and Vietnamese.
+
+**What Changed:**
+- **Updated Routes:** `apps/workspace/src/routes/clients/index.tsx` - Added clientType filter buttons, grouped display logic
+- **Updated Components:** `apps/workspace/src/components/clients/client-list-table.tsx` - Grouping logic, building icon for businesses, businessType badge display
+- **Updated API Client:** `apps/workspace/src/lib/api-client.ts` - Added clientType filter param to listClients query, updated ClientWithActions type with businessType field and INCOMING_SMS/INCOMING_CALL source variants
+- **Updated i18n:** `apps/workspace/src/locales/en.json` + `vi.json` - New keys: filter buttons, businessType labels (LLC, S-Corp, C-Corp, etc.), linkedTo label
+- **Updated API:** `apps/api/src/routes/clients/index.ts` - GET /clients now returns businessType field, accepts clientType query filter
+
+**Key Features:**
+- Clients grouped by clientGroupId: individual shown first, businesses indented below
+- Building icon (🏢) replaces avatar initials for business clients
+- businessType badge (LLC, S-Corp, etc.) displayed next to business name with i18n labels
+- Ungrouped clients (no clientGroupId) display normally unchanged
+- Filter buttons: All | Individuals Only | Businesses Only
+- "Linked to: [owner name]" subtitle on grouped business rows for context
+- Click on business row navigates to that business's detail page
+- Mobile responsive (tree connector hidden on small screens)
+
+**Files Changed:**
+- **Modified:** `apps/api/src/routes/clients/index.ts` - Added businessType to list response, clientType filter param
+- **Modified:** `apps/workspace/src/routes/clients/index.tsx` - Filter buttons, grouping function, ~30 LOC
+- **Modified:** `apps/workspace/src/components/clients/client-list-table.tsx` - Grouping logic, building icon, badge, ~40 LOC
+- **Modified:** `apps/workspace/src/lib/api-client.ts` - clientType param, businessType field, source type variants
+- **Modified:** `apps/workspace/src/locales/en.json` - 15+ new keys
+- **Modified:** `apps/workspace/src/locales/vi.json` - 15+ new keys (Vietnamese translations)
+
+**Code Quality Notes:**
+- Grouping logic extracted as pure function, wrapped in `useMemo` for performance
+- ClientRow component wrapped in `memo` to prevent unnecessary re-renders
+- Type coverage: Minor gap in `source` union type (businessType response includes INCOMING_SMS/INCOMING_CALL, type only listed 5 variants)
+- Sort comparator in grouping improved for stability (returns 0 when types match)
+- i18n complete for both locales including label interpolation
+
+**API Changes:**
+- `GET /clients` response now includes `businessType: 'LLC' | 'S-Corp' | 'C-Corp' | 'Sole Prop' | null`
+- `GET /clients` accepts optional query param `clientType?: 'INDIVIDUAL' | 'BUSINESS'` to filter by type
+- No breaking changes; businessType null for INDIVIDUAL clients
+
+**Frontend Changes:**
+- Client list grid displays groups with indented business rows
+- Tree connector (└─) shows grouped relationship on medium+ screens
+- Color-coded badge for each businessType with background styling
+- Filter state managed in page component, passed to table via props
+- Responsive: indent hidden on mobile, icon always visible
+
+**Code Review Findings:**
+- Score: 8/10
+- Critical: None
+- High priority: source type mismatch (quick fix), sort comparator stability (1-line fix)
+- Medium: businessType labels could use i18n-ization (partially addressed in this phase)
+- Edge case: Grouped businesses without INDIVIDUAL sibling show without "Linked to" subtitle (acceptable degradation)
+
+**Testing & Validation:**
+- Type-check: All TypeScript strict mode (source type gap noted)
+- Lint: Zero syntax errors
+- Visual: Grouping, icons, badges, filters tested
+- i18n: English + Vietnamese locale coverage complete
+- Mobile: Responsive behavior verified
+
+**Next Phase:** Phase 12 will add client creation wizard with clientType/businessType selection; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
 ### Feature: Business Entity Separation - Phase 09 (1099-NEC Routes Re-Parent + Shared Helpers) ✅ COMPLETE
 **Status:** Complete (Phase 09 of 15)
 **Branch:** feature/ella-enhance-202

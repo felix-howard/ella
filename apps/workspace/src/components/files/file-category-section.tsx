@@ -5,7 +5,7 @@
  * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
-import { useState, useRef, useEffect, memo, useMemo, useCallback, type KeyboardEvent, type DragEvent } from 'react'
+import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'

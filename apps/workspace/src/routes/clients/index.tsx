@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, Search, AlertCircle, Loader2, RefreshCw, Building2, User } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { ClientListTable } from '../../components/clients'
@@ -15,6 +15,7 @@ import { useDebouncedValue } from '../../hooks'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { UI_TEXT } from '../../lib/constants'
 import { api } from '../../lib/api-client'
+import type { ClientType } from '../../lib/api-client'
 
 export const Route = createFileRoute('/clients/')({
   component: ClientListPage,
@@ -27,6 +28,7 @@ function ClientListPage() {
   const [managedById, setManagedById] = useState<string | undefined>(undefined)
   const [tagFilter, setTagFilter] = useState<string | undefined>(undefined)
   const [attention, setAttention] = useState<string | undefined>(undefined)
+  const [clientTypeFilter, setClientTypeFilter] = useState<ClientType | undefined>(undefined)
 
   // Debounce search query for server-side search (300ms delay)
   const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)
@@ -59,6 +61,7 @@ function ClientListPage() {
       managedById,
       tagFilter,
       attention,
+      clientType: clientTypeFilter,
     }],
     queryFn: () => api.clients.list({
       limit: 100,
@@ -66,6 +69,7 @@ function ClientListPage() {
       managedById,
       tag: tagFilter,
       attention: attention as 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry' | undefined,
+      clientType: clientTypeFilter,
     }),
     placeholderData: keepPreviousData,
   })
@@ -152,6 +156,29 @@ function ClientListPage() {
             className="w-[160px]"
           />
         )}
+
+        {/* Client type filter */}
+        <div className="flex rounded-full bg-card shadow-sm overflow-hidden border border-border/50">
+          {([
+            { key: undefined as ClientType | undefined, label: t('clients.allTypes'), icon: null },
+            { key: 'INDIVIDUAL' as ClientType | undefined, label: t('clients.individuals'), icon: User },
+            { key: 'BUSINESS' as ClientType | undefined, label: t('clients.businesses'), icon: Building2 },
+          ]).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key ?? 'ALL'}
+              onClick={() => setClientTypeFilter(key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors',
+                clientTypeFilter === key
+                  ? 'bg-primary text-white'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5" aria-hidden="true" />}
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Attention chips */}
         {attentionChips

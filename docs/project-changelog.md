@@ -1,7 +1,26 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-07 ICT
+> **Last Updated:** 2026-04-09 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-09
+
+### Feature: Business Entity Separation - Phase 02 (Backward-Compat Fields) ✅ IN PROGRESS
+**Status:** In Progress (Phase 02 of 3)
+**Branch:** feature/ella-enhance-202
+**Context:** [Entity Separation Research](./docs/entity-separation-research.md)
+
+**Summary:** Phase 02 adds backward-compat business fields to Client model. Enables pre-Business entity client creation flow (existing admin forms) while new Business model handles primary multi-business scenarios. 6 new nullable fields on Client for businessType, EIN, and address.
+
+**What Changed:**
+- **Schema:** Added to Client model - businessType (BusinessType enum, nullable), einEncrypted, businessAddress, businessCity, businessState, businessZip (all nullable)
+- **Migration:** `20260409011838_add_business_fields_to_client` - 6 nullable columns on Client table
+- **Purpose:** Backward compatibility for intake forms, lead-to-client conversion, and existing workflows that predate full Business entity separation
+- **Note:** Business model remains primary for multi-business, contractors, 1099-NEC filings. Client fields used only for single-entity or legacy contexts.
+
+**Next Phase:** Phase 03 will migrate API endpoints to populate both Client + Business entities during creation, maintaining consistency.
 
 ---
 

@@ -590,6 +590,11 @@ model Client {
   convertedLeads Lead[]          @relation("ConvertedLead")
   businesses     Business[]
 
+  // Business-type client relations (for clientType = BUSINESS)
+  businessContractors    Contractor[]           @relation("BusinessContractors")
+  businessFilingBatches  FilingBatch[]           @relation("BusinessFilingBatches")
+  businessIntakeTokens   ContractorIntakeToken[] @relation("BusinessIntakeTokens")
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
@@ -1503,6 +1508,8 @@ model Contractor {
   id                  String   @id @default(cuid())
   businessId          String
   business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String?
+  businessClient      Client?  @relation("BusinessContractors", fields: [clientId], references: [id], onDelete: SetNull)
   firstName           String
   lastName            String
   tinType             String   @default("SSN") // "SSN" or "EIN"
@@ -1521,6 +1528,7 @@ model Contractor {
   updatedAt           DateTime @updatedAt
 
   @@index([businessId])
+  @@index([clientId])
 }
 
 // ============================================
@@ -1531,6 +1539,8 @@ model ContractorIntakeToken {
   id         String   @id @default(cuid())
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId   String?
+  businessClient Client? @relation("BusinessIntakeTokens", fields: [clientId], references: [id], onDelete: SetNull)
 
   token      String   @unique @default(cuid())
   taxYear    Int
@@ -1542,6 +1552,7 @@ model ContractorIntakeToken {
 
   @@index([token])
   @@index([businessId, isActive])
+  @@index([clientId, isActive])
 }
 
 // ============================================
@@ -1599,6 +1610,8 @@ model FilingBatch {
   id                  String        @id @default(cuid())
   businessId          String
   business            Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String?
+  businessClient      Client?       @relation("BusinessFilingBatches", fields: [clientId], references: [id], onDelete: SetNull)
   taxYear             Int
   status              FilingStatus  @default(PENDING)
   taxbanditsSubmissionId String?
@@ -1617,6 +1630,7 @@ model FilingBatch {
   updatedAt           DateTime      @updatedAt
 
   @@index([businessId])
+  @@index([clientId])
   @@index([status])
   @@index([taxbanditsSubmissionId])
 }

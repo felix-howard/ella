@@ -7,6 +7,26 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 05 (API Org Scope Helper) ✅ COMPLETE
+**Status:** Complete (Phase 05 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
+
+**Summary:** Added `verifyBusinessClient` helper function to `org-scope.ts` for validating business client access in new entity separation model. Client with clientType=BUSINESS treated as business entity. Maintains backward compatibility with deprecated `verifyBusinessAccess`.
+
+**What Changed:**
+- **New:** `verifyBusinessClient(clientId, user)` function - Verifies client exists with clientType=BUSINESS + belongs to user's org
+- **Updated:** `verifyBusinessAccess` marked @deprecated - Will be removed in Phase 15 cleanup
+- **Security:** Enforces org-scoping via `buildClientScopeFilter()` + clientType validation
+- **Type-safe:** Returns Client | null, no casting needed
+
+**Files Changed:**
+- **Modified:** `apps/api/src/lib/org-scope.ts` - Added verifyBusinessClient + deprecated verifyBusinessAccess
+
+**Next Phase:** Phase 06-09 will update API CRUD for Client(BUSINESS) creation + ClientGroup endpoints + re-parent Contractor/1099 routes.
+
+---
+
 ### Feature: Business Entity Separation - Phase 04 (Data Migration Script) ✅ COMPLETE
 **Status:** Complete (Phase 04 of 15)
 **Branch:** feature/ella-enhance-202

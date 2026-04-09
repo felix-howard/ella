@@ -228,17 +228,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Endpoints for document lifecycle
 
 **1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
-- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessAccess.
+- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessClient.
+- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessClient.
+- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessClient.
+- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessClient.
+- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessClient.
+- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessClient.
+- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessClient.
+- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessClient.
 - Models: Form1099NEC (with status enum, validation errors, eFile tracking, businessId FK), FilingBatch (groups multiple forms by tax year, businessId FK). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
-- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessAccess() helper validates business belongs to user's org, replaces previous clientType guards.
+- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessClient() validates Client with clientType=BUSINESS belongs to user's org. verifyBusinessAccess() deprecated—Phase 15 removal. Replaced clientType guards with org-scoped Client access pattern.
 
 **Messages & Voice (15):**
 - `GET /messages` - List conversations (org-scoped)

@@ -168,13 +168,13 @@
 - `DELETE /clients/:clientId/businesses/:businessId` - Delete business (requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked. Returns 200 on success. Enforces referential integrity.
 
 **Contractor Management (Phase 03: Business Entity Routes):**
-- `GET /businesses/:businessId/contractors` - List contractors for a business (org-scoped, verifyBusinessAccess)
+- `GET /businesses/:businessId/contractors` - List contractors for a business (org-scoped, verifyBusinessClient)
 - `POST /businesses/:businessId/contractors` - Create contractor (firstName, lastName, address, phone, ssn4Encrypted, einEncrypted, businessType, amount1099)
-- `PATCH /businesses/:businessId/contractors/:id` - Update contractor details (org-scoped, verifyBusinessAccess)
-- `DELETE /businesses/:businessId/contractors/:id` - Delete contractor (org-scoped, verifyBusinessAccess)
+- `PATCH /businesses/:businessId/contractors/:id` - Update contractor details (org-scoped, verifyBusinessClient)
+- `DELETE /businesses/:businessId/contractors/:id` - Delete contractor (org-scoped, verifyBusinessClient)
 - `POST /businesses/:businessId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block), with AI address parsing fallback
-- `POST /businesses/:businessId/contractors/bulk-save` - Batch save parsed contractors to database (org-scoped, verifyBusinessAccess)
-- `DELETE /businesses/:businessId/contractors/all` - Delete all contractors for a business (org-scoped, verifyBusinessAccess)
+- `POST /businesses/:businessId/contractors/bulk-save` - Batch save parsed contractors to database (org-scoped, verifyBusinessClient)
+- `DELETE /businesses/:businessId/contractors/all` - Delete all contractors for a business (org-scoped, verifyBusinessClient)
 
 **Excel Parsing with AI Fallback:**
 - Service: `apps/api/src/services/excel-parser.ts`

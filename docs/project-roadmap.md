@@ -8,7 +8,7 @@
 
 ### Business Entity Separation - Approach B (15 Phases) IN PROGRESS
 **Started:** 2026-04-08
-**Status:** In Progress (Phases 01-04 COMPLETE, Phase 04 completed 2026-04-09)
+**Status:** In Progress (Phases 01-05 COMPLETE, Phase 05 completed 2026-04-09)
 **Branch:** feature/ella-enhance-202
 **Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
 **Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
@@ -20,7 +20,7 @@
 | 2 | Schema: Business fields on Client | ✅ DONE | 1.5h | 2026-04-09 |
 | 3 | Schema: Re-parent Contractor/FilingBatch/IntakeToken FKs | ✅ DONE | 2h | 2026-04-09 |
 | 4 | Data migration script: Business → Client records | ✅ DONE | 2h | 2026-04-09 |
-| 5 | API: Org scope + verifyBusinessClient helper | ⏳ PENDING | 1h | - |
+| 5 | API: Org scope + verifyBusinessClient helper | ✅ DONE | 1h | 2026-04-09 |
 | 6-15 | API & Frontend implementation | ⏳ PENDING | 11h | - |
 
 **Completed Deliverables (Phases 01-04):**

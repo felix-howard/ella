@@ -15,7 +15,7 @@ vi.mock('../db', () => ({
   },
 }))
 
-import { buildClientScopeFilter, buildNestedClientScope, verifyClientAccess } from '../org-scope'
+import { buildClientScopeFilter, buildNestedClientScope, verifyClientAccess, verifyBusinessClient } from '../org-scope'
 import { prisma } from '../db'
 
 function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
@@ -158,5 +158,60 @@ describe('verifyClientAccess', () => {
     const result = await verifyClientAccess('client_other', user)
 
     expect(result).toBe(false)
+  })
+})
+
+describe('verifyBusinessClient', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns client when BUSINESS type found in scope', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValue({
+      id: 'client_biz_1',
+      clientType: 'BUSINESS',
+    } as never)
+
+    const user = makeUser()
+    const result = await verifyBusinessClient('client_biz_1', user)
+
+    expect(result).toEqual({ id: 'client_biz_1', clientType: 'BUSINESS' })
+    expect(prisma.client.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'client_biz_1',
+        clientType: 'BUSINESS',
+        organizationId: 'org_1',
+        managedById: 'staff_1',
+      },
+      select: { id: true, clientType: true },
+    })
+  })
+
+  it('returns null when client not found or not BUSINESS type', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValue(null)
+
+    const user = makeUser()
+    const result = await verifyBusinessClient('client_indiv_1', user)
+
+    expect(result).toBeNull()
+  })
+
+  it('enforces org scope for admin users', async () => {
+    vi.mocked(prisma.client.findFirst).mockResolvedValue({
+      id: 'client_biz_1',
+      clientType: 'BUSINESS',
+    } as never)
+
+    const user = makeUser({ orgRole: 'org:admin' })
+    await verifyBusinessClient('client_biz_1', user)
+
+    expect(prisma.client.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'client_biz_1',
+        clientType: 'BUSINESS',
+        organizationId: 'org_1',
+      },
+      select: { id: true, clientType: true },
+    })
   })
 })

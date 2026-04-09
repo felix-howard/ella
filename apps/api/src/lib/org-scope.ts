@@ -4,6 +4,7 @@
  * - Admin: sees all clients in their org
  * - Member/Staff: sees only their managed clients
  */
+import { ClientType } from '@ella/db'
 import type { AuthUser } from '../services/auth'
 import { prisma } from './db'
 
@@ -70,9 +71,25 @@ export async function verifyClientAccess(
 }
 
 /**
- * Verify business exists and caller has org-scoped access via its parent client.
- * Single query using nested where. Returns { id, clientId } or null.
+ * Verify a Client with clientType=BUSINESS exists and caller has org-scoped access.
+ * Returns the verified Client record or null.
  */
+export async function verifyBusinessClient(
+  clientId: string,
+  user: AuthUser
+): Promise<{ id: string; clientType: string } | null> {
+  const client = await prisma.client.findFirst({
+    where: {
+      id: clientId,
+      clientType: ClientType.BUSINESS,
+      ...buildClientScopeFilter(user),
+    },
+    select: { id: true, clientType: true },
+  })
+  return client
+}
+
+/** @deprecated Use verifyBusinessClient instead. Will be removed in Phase 15. */
 export async function verifyBusinessAccess(
   businessId: string,
   user: AuthUser

@@ -36,7 +36,8 @@ import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
-import type { TaxType, Language } from '@ella/db'
+import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
+import { encryptSSN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -91,7 +92,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, managedById, attention, tag } = c.req.valid('query')
+  const { page, limit, search, managedById, attention, tag, clientType } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -122,6 +123,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   if (tag) {
     where.tags = { has: tag }
+  }
+
+  // Filter by client type (entity separation)
+  if (clientType) {
+    where.clientType = clientType
   }
 
   const orderBy = { createdAt: 'desc' as const }
@@ -275,6 +281,8 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       language: client.language as 'VI' | 'EN',
       source: client.source as ClientSource,
       tags: client.tags,
+      clientType: client.clientType,
+      clientGroupId: client.clientGroupId,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
@@ -350,11 +358,13 @@ clientsRoute.get('/tags', async (c) => {
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, customMessage, firstName, lastName, ...clientData } = body
+  const { profile, customMessage, firstName, lastName, clientType, businessType, ein, businessAddress, businessCity, businessState, businessZip, ...clientData } = body
   const user = c.get('user')
 
-  // Compute display name from firstName and lastName
-  const displayName = computeDisplayName(firstName, lastName)
+  // For BUSINESS clients, firstName = business name, ignore lastName
+  const displayName = clientType === 'BUSINESS'
+    ? firstName
+    : computeDisplayName(firstName, lastName)
 
   try {
   // Create client with profile and tax case in transaction
@@ -367,6 +377,16 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         name: displayName,  // Computed for backward compatibility
         ...clientData,
         language: clientData.language as Language,
+        clientType: clientType as ClientType,
+        // Business-specific fields (only set for BUSINESS clients)
+        ...(clientType === 'BUSINESS' ? {
+          businessType: businessType as BusinessType,
+          einEncrypted: ein ? encryptSSN(ein) : undefined,
+          businessAddress,
+          businessCity,
+          businessState,
+          businessZip,
+        } : {}),
         organizationId: user.organizationId,
         managedById: user.staffId,  // Always set creator as manager
         createdById: user.staffId,  // Track who created this client
@@ -470,6 +490,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         phone: result.client.phone,
         email: result.client.email,
         language: result.client.language,
+        clientType: result.client.clientType,
         createdAt: result.client.createdAt.toISOString(),
         updatedAt: result.client.updatedAt.toISOString(),
       },
@@ -511,6 +532,15 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
       managedBy: { select: { id: true, name: true, avatarUrl: true } },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
+      // Include client group with sibling clients for cross-linking (excludes self)
+      clientGroup: {
+        include: {
+          clients: {
+            where: { id: { not: id } },
+            select: { id: true, name: true, clientType: true, phone: true },
+          },
+        },
+      },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
@@ -682,14 +712,21 @@ clientsRoute.patch(
     // Verify access before update (org + assignment scope)
     const existing = await prisma.client.findFirst({
       where: { id, ...buildClientScopeFilter(user) },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, clientType: true },
     })
     if (!existing) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
     }
 
+    // Reject business field updates on INDIVIDUAL clients
+    const businessFields = ['businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
+    const hasBusinessFieldUpdate = businessFields.some((f) => f in body)
+    if (hasBusinessFieldUpdate && existing.clientType !== 'BUSINESS') {
+      return c.json({ error: 'INVALID_UPDATE', message: 'Business fields can only be set on BUSINESS clients' }, 400)
+    }
+
     // Explicitly pick only allowed fields to prevent mass assignment
-    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags'] as const
+    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags', 'businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
     const updateData = pickFields(body, [...allowedFields]) as {
       firstName?: string
       lastName?: string | null
@@ -697,6 +734,12 @@ clientsRoute.patch(
       email?: string | null
       language?: Language
       tags?: string[]
+      businessType?: string
+      ein?: string | null
+      businessAddress?: string | null
+      businessCity?: string | null
+      businessState?: string | null
+      businessZip?: string | null
     }
 
     // Normalize tags (consistent with lead tag handling)
@@ -711,9 +754,19 @@ clientsRoute.patch(
       ;(updateData as Record<string, unknown>).name = computeDisplayName(newFirstName, newLastName)
     }
 
+    // Build Prisma-compatible update data: encrypt EIN, cast enums
+    const prismaUpdateData: Record<string, unknown> = { ...updateData }
+    if (updateData.businessType) {
+      prismaUpdateData.businessType = updateData.businessType as BusinessType
+    }
+    if ('ein' in updateData) {
+      prismaUpdateData.einEncrypted = updateData.ein ? encryptSSN(updateData.ein) : null
+      delete prismaUpdateData.ein
+    }
+
     const client = await prisma.client.update({
       where: { id },
-      data: { ...updateData, updatedById: user.staffId },
+      data: { ...prismaUpdateData, updatedById: user.staffId },
     })
 
     return c.json({

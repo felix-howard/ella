@@ -112,6 +112,9 @@ export const clientProfileSchema = z.object({
     ),
 })
 
+// Shared business type enum (DRY: used in create + update schemas)
+const businessTypeEnum = z.enum(['SOLE_PROPRIETORSHIP', 'LLC', 'PARTNERSHIP', 'S_CORP', 'C_CORP'])
+
 // Create client input
 export const createClientSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
@@ -122,7 +125,18 @@ export const createClientSchema = z.object({
   profile: clientProfileSchema,
   // Custom welcome message (optional) - uses placeholders: {{client_name}}, {{tax_year}}, {{portal_link}}
   customMessage: z.string().max(500).optional(),
-})
+  // Entity separation: client type and business-specific fields
+  clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).default('INDIVIDUAL'),
+  businessType: businessTypeEnum.optional(),
+  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
+  businessAddress: z.string().max(200).optional(),
+  businessCity: z.string().max(100).optional(),
+  businessState: z.string().regex(/^[A-Z]{2}$/, 'Must be 2-letter state code').optional(),
+  businessZip: z.string().regex(/^\d{5}(-\d{4})?$/, 'Must be valid US zip code').optional(),
+}).refine(
+  (data) => data.clientType !== 'BUSINESS' || data.businessType,
+  { message: 'businessType is required for BUSINESS clients', path: ['businessType'] }
+)
 
 // Update client input
 export const updateClientSchema = z.object({
@@ -132,6 +146,13 @@ export const updateClientSchema = z.object({
   email: z.string().email().nullable().optional(),
   language: z.enum(['VI', 'EN']).optional(),
   tags: z.array(z.string().regex(/^[a-z0-9-]+$/).max(50)).max(20).optional(),
+  // Business-specific fields (only relevant for BUSINESS clients)
+  businessType: businessTypeEnum.optional(),
+  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').nullable().optional(),
+  businessAddress: z.string().max(200).nullable().optional(),
+  businessCity: z.string().max(100).nullable().optional(),
+  businessState: z.string().regex(/^[A-Z]{2}$/, 'Must be 2-letter state code').nullable().optional(),
+  businessZip: z.string().regex(/^\d{5}(-\d{4})?$/, 'Must be valid US zip code').nullable().optional(),
 })
 
 // Client ID param validation (CUID format)
@@ -150,6 +171,8 @@ export const listClientsQuerySchema = z.object({
   attention: z.enum(['newUploads', 'needsVerification', 'stale', 'readyForEntry']).optional(),
   // Filter by tag
   tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
+  // Filter by client type (entity separation)
+  clientType: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
 })
 
 // Cascade cleanup input

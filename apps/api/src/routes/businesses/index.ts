@@ -7,7 +7,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
-import { encryptSSN, decryptSSN } from '../../services/crypto'
+import { encryptSSN, maskEIN } from '../../services/crypto'
 import { logProfileChanges } from '../../services/audit-logger'
 import { requireOrgAdmin } from '../../middleware/auth'
 import { z } from 'zod'
@@ -15,16 +15,6 @@ import { createBusinessSchema, updateBusinessSchema } from './schemas'
 import type { AuthVariables } from '../../middleware/auth'
 
 const businessesRoute = new Hono<{ Variables: AuthVariables }>()
-
-/** Mask EIN: decrypt then show only last 4 digits */
-function maskEIN(einEncrypted: string): string {
-  try {
-    const ein = decryptSSN(einEncrypted).replace(/-/g, '')
-    return `XX-XXX${ein.slice(-4)}`
-  } catch {
-    return 'XX-XXX****'
-  }
-}
 
 /**
  * GET /clients/:clientId/businesses - List businesses for a client

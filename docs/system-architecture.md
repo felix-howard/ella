@@ -83,12 +83,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Zustand: UI state (sidebar, toast), session persistence
 - File-based routing: `src/routes/*` (auto-generated tree)
 
-**API Client:**
+**API Client (Phase 10 - Client Type & EIN Masking):**
 - Type-safe endpoint groups (team, clients, cases, messages, etc.)
 - Org context: Bearer JWT includes orgId (workspace)
 - Portal: Token-based public endpoints (no auth, portal app)
 - Retry logic: 3 attempts, exponential backoff
 - Pagination: limit=20, max=100
+- **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
+- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, businesses (deprecated in favor of clientGroups)
 - **Portal API Methods (portalApi):**
   - `getDraft(token)` - Fetch draft return data + signed PDF URL
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
@@ -184,12 +186,13 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PUT /client-assignments/transfer` - Transfer client (app-level, not Clerk-synced)
 - Similar for invitations & staff assignments
 
-**Clients (14+ with Tag Support):**
+**Clients (16+ with Tag Support, Phase 10 Entity Separation):**
 - `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Returns tags + source enum.
 - `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
-- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
-- `GET /clients/:id` - Detail with org verification. Returns tags array + source enum + conversion metadata (convertedLeads)
-- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations
+- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
+- `POST /clients/create-with-business` - Combo endpoint (Phase 10). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
+- `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata.
+- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
@@ -198,7 +201,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
 - `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
-- Status endpoints for action tracking. Client.source expanded to 5 values (vs 2 previously): MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED tracks full origin path
+- Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
 
 **Business CRUD (4 - Phase 02 Client-Business Separation):**
 - `GET /clients/:clientId/businesses` - List all businesses for a client (org-scoped, reads). Returns business name, type (enum), masked EIN (XX-XXX####), address, city, state, zip, contractor count, timestamps. Ordered by createdAt descending.
@@ -207,6 +210,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:clientId/businesses/:businessId` - Update business fields (org-scoped, requireOrgAdmin). All fields optional. EIN re-encrypted + logged if changed. Returns updated business with masked EIN.
 - `DELETE /clients/:clientId/businesses/:businessId` - Delete business (org-scoped, requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked (enforce data integrity). Returns 200 on success.
 - **Security:** All writes (POST/PATCH/DELETE) require requireOrgAdmin middleware. EIN encryption via encryptSSN/decryptSSN. Audit logging for EIN changes via logProfileChanges. Org-scoped access via buildClientScopeFilter. Client existence verified before business operations.
+
+**Client Groups (5 - Phase 10 Entity Separation):**
+- `GET /client-groups` - List org client groups with pagination (limit 1-100, default 20). Supports full-text search by group name. Returns group id, name, client count, timestamps.
+- `GET /client-groups/:id` - Get group detail with nested clients array (id, name, clientType, phone). Returns _count.clients for stats.
+- `POST /client-groups` - Create group. Body: name (required), clientIds (optional array). Org-scoped, no special permissions. Returns 201 with created group.
+- `PATCH /client-groups/:id` - Update group. Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
+- `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
+- **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
+- **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
 
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
@@ -331,9 +343,9 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, Phase 01 Entity Separation - default INDIVIDUAL), clientGroupId FK (optional, Phase 01 - for grouping related clients). Phase 02: Added businessType (BusinessType enum, nullable), einEncrypted (nullable), businessAddress, businessCity, businessState, businessZip (nullable). Backward-compat fields for clientType=BUSINESS clients before Business entity creation. Phase 03: Added reverse relations businessContractors, businessFilingBatches, businessIntakeTokens (all nullable clientId FKs on child tables). Primary business details still on Business model; direct Client relations enable querying contractor/filing/intake data by client during migration.
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, Phase 10 Entity Separation - default INDIVIDUAL), clientGroupId FK (optional, Phase 10 - for grouping related clients). Phase 10: Added businessType (BusinessType enum, nullable), einEncrypted (nullable, encrypted), businessAddress, businessCity, businessState, businessZip (nullable). Database stores einEncrypted; API returns einMasked (XX-XXX####) for GET /clients/:id. Backward-compat fields for clientType=BUSINESS clients before Business entity creation. Phase 03: Added reverse relations businessContractors, businessFilingBatches, businessIntakeTokens (all nullable clientId FKs on child tables). Primary business details still on Business model; direct Client relations enable querying contractor/filing/intake data by client during migration.
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
-- **Business** - clientId FK (one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds business profile, contractors, and filing batches.
+- **Business** - clientId FK (one INDIVIDUAL client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: legacy model holds business profile (EIN, address) for INDIVIDUAL clients. Phase 10 Entity Separation: BUSINESS clients store business fields directly (businessType, einEncrypted, businessAddress, etc.) on Client model; Business model now primarily used for legacy data + old integrations. Contractors/FilingBatches linked to Business.clientId (owner) during transition to client-scoped routes.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history

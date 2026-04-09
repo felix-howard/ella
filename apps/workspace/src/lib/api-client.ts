@@ -252,6 +252,12 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    createWithBusiness: (data: CreateWithBusinessInput) =>
+      request<CreateWithBusinessResponse>('/clients/create-with-business', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
     update: (id: string, data: UpdateClientInput) =>
       request<Client>(`/clients/${id}`, {
         method: 'PATCH',
@@ -330,7 +336,7 @@ export const api = {
 
   },
 
-  // Businesses (nested under clients)
+  /** @deprecated Use clients with clientType=BUSINESS instead. Kept for backward compat during migration. */
   businesses: {
     list: (clientId: string) =>
       request<{ data: Business[] }>(`/clients/${clientId}/businesses`),
@@ -369,100 +375,126 @@ export const api = {
     },
   },
 
-  // Contractors (under businesses — Phase 5 will update components to pass businessId)
+  // Contractors (under clients — entity separation)
   contractors: {
-    list: (businessId: string) =>
-      request<{ data: Contractor[] }>(`/businesses/${businessId}/contractors`),
+    list: (clientId: string) =>
+      request<{ data: Contractor[] }>(`/clients/${clientId}/contractors`),
 
-    create: (businessId: string, data: CreateContractorInput) =>
-      request<{ data: Contractor }>(`/businesses/${businessId}/contractors`, {
+    create: (clientId: string, data: CreateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    update: (businessId: string, id: string, data: UpdateContractorInput) =>
-      request<{ data: Contractor }>(`/businesses/${businessId}/contractors/${id}`, {
+    update: (clientId: string, id: string, data: UpdateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
 
-    delete: (businessId: string, id: string) =>
-      request<{ success: boolean }>(`/businesses/${businessId}/contractors/${id}`, {
+    delete: (clientId: string, id: string) =>
+      request<{ success: boolean }>(`/clients/${clientId}/contractors/${id}`, {
         method: 'DELETE',
       }),
 
-    uploadExcel: (businessId: string, formData: FormData) =>
-      request<{ success: boolean; data: ParseResult }>(`/businesses/${businessId}/contractors/upload-excel`, {
+    uploadExcel: (clientId: string, formData: FormData) =>
+      request<{ success: boolean; data: ParseResult }>(`/clients/${clientId}/contractors/upload-excel`, {
         method: 'POST',
         body: formData,
         timeout: 120000, // 2 min — server does AI address parsing
         retries: 0, // Don't retry file uploads
       }),
 
-    bulkSave: (businessId: string, data: BulkSaveContractorsInput) =>
-      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/bulk-save`, {
+    bulkSave: (clientId: string, data: BulkSaveContractorsInput) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/bulk-save`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    deleteAll: (businessId: string) =>
-      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/all`, {
+    deleteAll: (clientId: string) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/all`, {
         method: 'DELETE',
       }),
   },
 
-  // 1099-NEC Forms (under businesses — Phase 5 will update components to pass businessId)
+  // 1099-NEC Forms (under clients — entity separation)
   form1099nec: {
-    status: (businessId: string) =>
-      request<{ data: Form1099StatusCounts }>(`/businesses/${businessId}/1099-nec/status`),
+    status: (clientId: string) =>
+      request<{ data: Form1099StatusCounts }>(`/clients/${clientId}/1099-nec/status`),
 
-    create: (businessId: string) =>
-      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/businesses/${businessId}/1099-nec/create`, {
+    create: (clientId: string) =>
+      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/clients/${clientId}/1099-nec/create`, {
         method: 'POST',
       }),
 
-    fetchPdfs: (businessId: string) =>
-      request<{ success: boolean; pdfCount: number }>(`/businesses/${businessId}/1099-nec/fetch-pdfs`, {
+    fetchPdfs: (clientId: string) =>
+      request<{ success: boolean; pdfCount: number }>(`/clients/${clientId}/1099-nec/fetch-pdfs`, {
         method: 'POST',
       }),
 
-    prepare: (businessId: string) =>
-      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/businesses/${businessId}/1099-nec/prepare`, {
+    prepare: (clientId: string) =>
+      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/clients/${clientId}/1099-nec/prepare`, {
         method: 'POST',
         timeout: 120000,
       }),
 
-    downloadPdf: (businessId: string, formId: string) =>
-      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
+    downloadPdf: (clientId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
 
-    downloadRecipientPdf: (businessId: string, formId: string) =>
-      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf/recipient`),
+    downloadRecipientPdf: (clientId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf/recipient`),
 
-    getAllPdfs: (businessId: string) =>
-      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
+    getAllPdfs: (clientId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/clients/${clientId}/1099-nec/pdfs`),
 
-    fetchRecipientPdfs: (businessId: string) =>
-      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/businesses/${businessId}/1099-nec/fetch-recipient-pdfs`, {
+    fetchRecipientPdfs: (clientId: string) =>
+      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/clients/${clientId}/1099-nec/fetch-recipient-pdfs`, {
         method: 'POST',
       }),
 
-    getRecipientPdfs: (businessId: string) =>
-      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs/recipient`),
+    getRecipientPdfs: (clientId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/clients/${clientId}/1099-nec/pdfs/recipient`),
 
-    transmit: (businessId: string) =>
-      request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
+    transmit: (clientId: string) =>
+      request<TransmitResponse>(`/clients/${clientId}/1099-nec/transmit`, {
         method: 'POST',
       }),
 
-    getBatches: (businessId: string) =>
-      request<{ data: FilingBatch[] }>(`/businesses/${businessId}/1099-nec/batches`),
+    getBatches: (clientId: string) =>
+      request<{ data: FilingBatch[] }>(`/clients/${clientId}/1099-nec/batches`),
 
-    getBatch: (businessId: string, batchId: string) =>
-      request<{ data: FilingBatchDetail }>(`/businesses/${businessId}/1099-nec/batches/${batchId}`),
+    getBatch: (clientId: string, batchId: string) =>
+      request<{ data: FilingBatchDetail }>(`/clients/${clientId}/1099-nec/batches/${batchId}`),
 
-    refreshBatchStatus: (businessId: string, batchId: string) =>
-      request<{ success: boolean; status: FilingStatusType }>(`/businesses/${businessId}/1099-nec/batches/${batchId}/refresh`, {
+    refreshBatchStatus: (clientId: string, batchId: string) =>
+      request<{ success: boolean; status: FilingStatusType }>(`/clients/${clientId}/1099-nec/batches/${batchId}/refresh`, {
         method: 'POST',
+      }),
+  },
+
+  // Client Groups (entity separation)
+  clientGroups: {
+    list: (params?: { page?: number; limit?: number; search?: string }) =>
+      request<PaginatedResponse<ClientGroup> & { success: boolean }>('/client-groups', { params }),
+
+    get: (id: string) =>
+      request<{ success: boolean; data: ClientGroup }>(`/client-groups/${id}`),
+
+    create: (data: { name: string; clientIds?: string[] }) =>
+      request<{ success: boolean; data: ClientGroup }>('/client-groups', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: string, data: { name?: string; addClientIds?: string[]; removeClientIds?: string[] }) =>
+      request<{ success: boolean; data: ClientGroup }>(`/client-groups/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/client-groups/${id}`, {
+        method: 'DELETE',
       }),
   },
 
@@ -1301,6 +1333,8 @@ export interface OcrTriggerResponse {
 // Client types
 export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
 
+export type ClientType = 'INDIVIDUAL' | 'BUSINESS'
+
 export interface Client {
   id: string
   firstName: string
@@ -1311,9 +1345,35 @@ export interface Client {
   language: Language
   source?: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
   tags: string[]
+  clientType: ClientType
+  clientGroupId?: string | null
+  clientGroup?: ClientGroup & { clients: ClientPreview[] }
+  businessType?: BusinessType
+  einMasked?: string | null
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
+}
+
+export interface ClientGroup {
+  id: string
+  name: string
+  organizationId: string
+  clients: ClientPreview[]
+  _count?: { clients: number }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ClientPreview {
+  id: string
+  name: string
+  clientType: ClientType
+  phone: string
 }
 
 export interface Business {
@@ -1532,6 +1592,8 @@ export interface ClientWithActions {
   language: 'VI' | 'EN'
   source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
   tags: string[]
+  clientType: ClientType
+  clientGroupId?: string | null
   hasUploadLink: boolean
   createdAt: string
   updatedAt: string
@@ -1852,6 +1914,14 @@ export interface CreateClientInput {
   phone: string
   email?: string
   language?: Language
+  clientType?: ClientType
+  // Business-specific fields (only for BUSINESS clientType)
+  businessType?: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
   profile: {
     taxYear: number
     taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend
@@ -1882,6 +1952,42 @@ export interface CreateClientResponse {
   client: Client
   taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
   magicLink: string
+}
+
+// Combo: create individual + business + group in one call
+export interface CreateWithBusinessInput {
+  individual: {
+    firstName: string
+    lastName?: string
+    phone: string
+    email?: string
+    language?: Language
+    profile: { taxYear: number; taxTypes?: TaxType[] }
+  }
+  business: {
+    /** Business name (stored as firstName in Client model) */
+    firstName: string
+    phone: string
+    email?: string
+    language?: Language
+    businessType: BusinessType
+    ein?: string
+    businessAddress?: string
+    businessCity?: string
+    businessState?: string
+    businessZip?: string
+    profile: { taxYear: number; taxTypes?: TaxType[] }
+  }
+  groupName?: string
+}
+
+export interface CreateWithBusinessResponse {
+  success: boolean
+  data: {
+    individual: { id: string; name: string; clientType: ClientType }
+    business: { id: string; name: string; clientType: ClientType }
+    group: { id: string; name: string }
+  }
 }
 
 export interface UpdateClientInput {

@@ -39,7 +39,7 @@ import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
 import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
-import { encryptSSN } from '../../services/crypto'
+import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -54,6 +54,7 @@ const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 function computeDisplayName(firstName: string, lastName?: string | null): string {
   return lastName ? `${firstName} ${lastName}` : firstName
 }
+
 
 // GET /clients/intake-questions - Get intake questions for selected tax types
 // This is used by the client creation form to dynamically load questions
@@ -590,8 +591,12 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Keep top-level portalUrl for backwards compatibility (latest case)
   const portalUrl = taxCasesWithPortal[0]?.portalUrl ?? null
 
+  // Strip encrypted EIN — send masked version only
+  const { einEncrypted, ...clientSafe } = client
+
   return c.json({
-    ...client,
+    ...clientSafe,
+    einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
     managedBy: client.managedBy

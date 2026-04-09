@@ -236,6 +236,26 @@ const comboProfileSchema = z.object({
   taxYear: z.number().int().min(2020).max(2030),
 })
 
+// Shared business fields used across create-with-business and link-business
+const businessFieldsSchema = z.object({
+  firstName: z.string().min(1, 'Business name is required').max(50),
+  phone: phoneSchema,
+  email: z.string().email().optional(),
+  language: z.enum(['VI', 'EN']).default('VI'),
+  businessType: businessTypeEnum,
+  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
+  businessAddress: z.string().max(200).optional(),
+  businessCity: z.string().max(100).optional(),
+  businessState: z.string().regex(/^[A-Z]{2}$/, 'Must be 2-letter state code').optional(),
+  businessZip: z.string().regex(/^\d{5}(-\d{4})?$/, 'Must be valid US zip code').optional(),
+})
+
+const businessItemSchema = businessFieldsSchema.extend({
+  profile: comboProfileSchema.extend({
+    taxTypes: z.array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])).default(['FORM_1120S']),
+  }),
+})
+
 export const createWithBusinessSchema = z.object({
   individual: z.object({
     firstName: z.string().min(1, 'First name is required').max(50),
@@ -245,27 +265,19 @@ export const createWithBusinessSchema = z.object({
     language: z.enum(['VI', 'EN']).default('VI'),
     profile: comboProfileSchema,
   }),
-  business: z.object({
-    firstName: z.string().min(1, 'Business name is required').max(50),
-    phone: phoneSchema,
-    email: z.string().email().optional(),
-    language: z.enum(['VI', 'EN']).default('VI'),
-    businessType: businessTypeEnum,
-    ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
-    businessAddress: z.string().max(200).optional(),
-    businessCity: z.string().max(100).optional(),
-    businessState: z.string().regex(/^[A-Z]{2}$/, 'Must be 2-letter state code').optional(),
-    businessZip: z.string().regex(/^\d{5}(-\d{4})?$/, 'Must be valid US zip code').optional(),
-    profile: comboProfileSchema.extend({
-      taxTypes: z.array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])).default(['FORM_1120S']),
-    }),
-  }),
+  businesses: z.array(businessItemSchema).min(1, 'At least one business required').max(10, 'Maximum 10 businesses per creation'),
   groupName: z.string().max(100).optional(),
   customMessage: z.string().max(500).optional(),
 })
 
+export const linkBusinessSchema = businessFieldsSchema.extend({
+  taxYear: z.number().int().min(2020).max(2030),
+  taxTypes: z.array(z.enum(['FORM_1040', 'FORM_1120S', 'FORM_1065'])).default(['FORM_1120S']),
+})
+
 // Type exports
 export type CreateWithBusinessInput = z.infer<typeof createWithBusinessSchema>
+export type LinkBusinessInput = z.infer<typeof linkBusinessSchema>
 export type CreateClientInput = z.infer<typeof createClientSchema>
 export type UpdateClientInput = z.infer<typeof updateClientSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

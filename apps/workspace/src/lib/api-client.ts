@@ -258,6 +258,12 @@ export const api = {
         body: JSON.stringify(data),
       }),
 
+    linkBusiness: (clientId: string, data: LinkBusinessInput) =>
+      request<LinkBusinessResponse>(`/clients/${clientId}/link-business`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
     update: (id: string, data: UpdateClientInput) =>
       request<Client>(`/clients/${id}`, {
         method: 'PATCH',
@@ -1901,7 +1907,7 @@ export interface CreateClientResponse {
   magicLink: string
 }
 
-// Combo: create individual + business + group in one call
+// Combo: create individual + business(es) + group in one call
 export interface CreateWithBusinessInput {
   individual: {
     firstName: string
@@ -1911,8 +1917,7 @@ export interface CreateWithBusinessInput {
     language?: Language
     profile: { taxYear: number; taxTypes?: TaxType[] }
   }
-  business: {
-    /** Business name (stored as firstName in Client model) */
+  businesses: Array<{
     firstName: string
     phone: string
     email?: string
@@ -1924,7 +1929,7 @@ export interface CreateWithBusinessInput {
     businessState?: string
     businessZip?: string
     profile: { taxYear: number; taxTypes?: TaxType[] }
-  }
+  }>
   groupName?: string
   customMessage?: string
 }
@@ -1933,6 +1938,32 @@ export interface CreateWithBusinessResponse {
   success: boolean
   data: {
     individual: { id: string; name: string; clientType: ClientType }
+    businesses: Array<{ id: string; name: string; clientType: ClientType }>
+    group: { id: string; name: string }
+    magicLink: string
+    smsStatus: { sent: boolean; error?: string }
+  }
+}
+
+// Link a new business to an existing individual client
+export interface LinkBusinessInput {
+  firstName: string
+  phone: string
+  email?: string
+  language?: Language
+  businessType: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  taxYear: number
+  taxTypes?: TaxType[]
+}
+
+export interface LinkBusinessResponse {
+  success: boolean
+  data: {
     business: { id: string; name: string; clientType: ClientType }
     group: { id: string; name: string }
   }

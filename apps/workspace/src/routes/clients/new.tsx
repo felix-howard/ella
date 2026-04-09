@@ -225,7 +225,7 @@ function CreateClientPage() {
             language: basicInfo.language,
             profile: { taxYear: basicInfo.taxYear, taxTypes: ['FORM_1040'] },
           },
-          business: {
+          businesses: [{
             firstName: businessInfo.name.trim().slice(0, 100),
             phone: businessInfo.phone ? toE164Phone(businessInfo.phone) : toE164Phone(basicInfo.phone),
             email: sanitizeEmail(businessInfo.email) || undefined,
@@ -237,7 +237,7 @@ function CreateClientPage() {
             businessState: businessInfo.state.trim() || undefined,
             businessZip: businessInfo.zip.trim() || undefined,
             profile: { taxYear: taxYear },
-          },
+          }],
           groupName: `${basicInfo.firstName.trim()} ${basicInfo.lastName.trim()} Group`,
           customMessage: currentMessage,
         })

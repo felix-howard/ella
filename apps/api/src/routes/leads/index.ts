@@ -289,7 +289,7 @@ leadsRoute.get(
     }
 
     const existingClient = await prisma.client.findFirst({
-      where: { phone: lead.phone, organizationId: orgId },
+      where: { phone: lead.phone, clientType: 'INDIVIDUAL', organizationId: orgId },
       select: { id: true, firstName: true, lastName: true, phone: true },
     })
 
@@ -341,7 +341,7 @@ leadsRoute.post(
 
       // Duplicate check inside transaction to prevent race conditions
       const existingClient = await tx.client.findFirst({
-        where: { phone: lead.phone, organizationId: orgId },
+        where: { phone: lead.phone, clientType: 'INDIVIDUAL', organizationId: orgId },
         select: { id: true, firstName: true, lastName: true },
       })
 

@@ -6,7 +6,7 @@
 import { memo, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Mail, Calendar, ChevronRight, Users, FileText, Building2 } from 'lucide-react'
+import { Mail, Calendar, ChevronRight, Users, FileText } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, maskPhone, getInitials, getAvatarColor, formatShortRelativeTime } from '../../lib/formatters'
@@ -182,22 +182,17 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
           {isGroupedBusiness && (
             <span className="text-muted-foreground/50 text-sm hidden sm:inline" aria-hidden="true">└</span>
           )}
-          {/* Avatar: building icon for business, initials for individual */}
-          {isBusiness ? (
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-500/10 text-blue-600 ring-2 ring-background shadow-sm">
-              <Building2 className="w-4.5 h-4.5" aria-hidden="true" />
-            </div>
-          ) : (
-            <div className={cn(
-              'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
-              avatarColor.bg,
-              avatarColor.text
-            )}>
-              <span className="font-semibold text-sm">
-                {getInitials(client.name)}
-              </span>
-            </div>
-          )}
+          {/* Avatar: rounded-square for business, circle for individual */}
+          <div className={cn(
+            'w-9 h-9 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
+            isBusiness ? 'rounded-lg' : 'rounded-full',
+            avatarColor.bg,
+            avatarColor.text
+          )}>
+            <span className="font-semibold text-sm">
+              {getInitials(client.name)}
+            </span>
+          </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-medium text-foreground truncate">{client.name}</p>
@@ -222,12 +217,12 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       </td>
 
       {/* Phone column */}
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap align-middle">
         <span className="text-muted-foreground">{isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}</span>
       </td>
 
       {/* Tax Year column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-middle">
         {latestCase ? (
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
@@ -239,7 +234,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       </td>
 
       {/* Tags column */}
-      <td className="px-4 py-3 hidden sm:table-cell">
+      <td className="px-4 py-3 hidden sm:table-cell align-middle">
         <div className="flex flex-wrap gap-1">
           {client.tags && client.tags.length > 0 ? (
             client.tags.map((tag) => (
@@ -257,7 +252,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       </td>
 
       {/* Documents column */}
-      <td className="px-4 py-3 hidden lg:table-cell">
+      <td className="px-4 py-3 hidden lg:table-cell align-middle">
         {uploads && uploads.totalCount > 0 ? (
           <div className="flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
@@ -270,7 +265,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
 
       {/* Managed by column (admin only) */}
       {isAdmin && (
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 align-middle">
           {client.managedBy ? (
             <div className="flex items-center gap-2">
               {client.managedBy.avatarUrl ? (
@@ -299,14 +294,14 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       )}
 
       {/* Created column */}
-      <td className="px-4 py-3 hidden lg:table-cell">
+      <td className="px-4 py-3 hidden lg:table-cell align-middle">
         <span className="text-sm text-muted-foreground">
           {formatShortRelativeTime(client.createdAt, i18n.language)}
         </span>
       </td>
 
       {/* Uploads column (combined: new count + last upload time) */}
-      <td className="px-4 py-3 hidden md:table-cell">
+      <td className="px-4 py-3 hidden md:table-cell align-middle">
         {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
           <div className="flex items-center gap-2">
             {uploads.newCount > 0 && (
@@ -327,7 +322,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       </td>
 
       {/* Action badges column */}
-      <td className="px-4 py-3 hidden md:table-cell">
+      <td className="px-4 py-3 hidden md:table-cell align-middle">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
           {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
@@ -351,7 +346,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       </td>
 
       {/* Arrow column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-middle">
         <ChevronRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
       </td>
     </Link>

@@ -549,11 +549,10 @@ function ClientDetailPage() {
         </Link>
 
         {/* Cross-link banner for grouped clients */}
-        {client.clientGroup && client.clientGroup.clients.length > 1 && (
+        {client.clientGroup && client.clientGroup.clients.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
             <span className="text-muted-foreground">Linked:</span>
             {client.clientGroup.clients
-              .filter(c => c.id !== clientId)
               .map(sibling => (
                 <Link
                   key={sibling.id}

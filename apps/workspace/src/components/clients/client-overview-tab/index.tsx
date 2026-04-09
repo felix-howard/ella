@@ -7,6 +7,7 @@ import { Trash2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { type ClientDetail } from '../../../lib/api-client'
 import { ClientProfileCard } from './client-profile-card'
+import { ClientLinkedEntityCard } from './client-linked-entity-card'
 import { ClientMetaInfo } from './client-meta-info'
 import { ClientQuickStats } from './client-quick-stats'
 import { ClientActivityTimeline } from './client-activity-timeline'
@@ -25,6 +26,14 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
     <div className="space-y-6">
       {/* Profile Card - Full width */}
       <ClientProfileCard client={client} />
+
+      {/* Linked Entity Card - Shows linked business or owner */}
+      {client.clientGroup && client.clientGroup.clients.length > 0 && (
+        <ClientLinkedEntityCard
+          currentClientType={client.clientType}
+          linkedClients={client.clientGroup.clients}
+        />
+      )}
 
       {/* Audit metadata: created/updated dates and staff */}
       <ClientMetaInfo

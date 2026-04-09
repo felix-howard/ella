@@ -1351,6 +1351,9 @@ export interface ClientPreview {
   name: string
   clientType: ClientType
   phone: string
+  email?: string | null
+  businessType?: BusinessType | null
+  einMasked?: string | null
 }
 
 export interface Contractor {

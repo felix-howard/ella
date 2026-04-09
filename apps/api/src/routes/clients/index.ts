@@ -561,7 +561,10 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
         include: {
           clients: {
             where: { id: { not: id } },
-            select: { id: true, name: true, clientType: true, phone: true },
+            select: {
+              id: true, name: true, clientType: true, phone: true,
+              email: true, businessType: true, einEncrypted: true,
+            },
           },
         },
       },
@@ -615,11 +618,23 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Strip encrypted EIN — send masked version only
   const { einEncrypted, ...clientSafe } = client
 
+  // Mask EIN for sibling clients in the group
+  const clientGroupSafe = clientSafe.clientGroup
+    ? {
+        ...clientSafe.clientGroup,
+        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, ...sibling }) => ({
+          ...sibling,
+          einMasked: maskEIN(siblingEin),
+        })),
+      }
+    : null
+
   return c.json({
     ...clientSafe,
     einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
+    clientGroup: clientGroupSafe,
     managedBy: client.managedBy
       ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
       : null,

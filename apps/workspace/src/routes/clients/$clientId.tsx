@@ -575,19 +575,16 @@ function ClientDetailPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            {/* Avatar */}
+            {/* Avatar: rounded-lg for business, circle for individual */}
             <div className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
-              isBusiness ? 'bg-primary/10 text-primary' : avatarColor.bg,
-              !isBusiness && avatarColor.text
+              'w-14 h-14 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
+              isBusiness ? 'rounded-lg' : 'rounded-full',
+              avatarColor.bg,
+              avatarColor.text
             )}>
-              {isBusiness ? (
-                <Building2 className="w-7 h-7" />
-              ) : (
-                <span className="font-bold text-lg">
-                  {getInitials(client.name)}
-                </span>
-              )}
+              <span className="font-bold text-lg">
+                {getInitials(client.name)}
+              </span>
             </div>
 
             <div>

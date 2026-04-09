@@ -17,6 +17,7 @@ import {
   DEFAULT_SMS_TEMPLATE_EN,
   ClientTypeSelector,
   BusinessInfoForm,
+  BusinessAccordion,
   BasicInfoForm,
   EMPTY_BUSINESS_INFO,
   type ClientCreationType,
@@ -36,6 +37,7 @@ type Step = 'type-select' | 'individual-form' | 'business-form' | 'confirm'
 interface FormErrors {
   basic?: Partial<Record<keyof BasicInfoData, string>>
   business?: Partial<Record<keyof BusinessInfoData, string>>
+  businesses?: Partial<Record<keyof BusinessInfoData, string>>[]
 }
 
 const currentYear = new Date().getFullYear()
@@ -87,8 +89,30 @@ function CreateClientPage() {
     setBasicInfo(prev => ({ ...prev, taxYear: year }))
   }
 
-  // Business form data
+  // Business form data — single for BUSINESS path, array for INDIVIDUAL_WITH_BUSINESS
   const [businessInfo, setBusinessInfo] = useState<BusinessInfoData>(EMPTY_BUSINESS_INFO)
+
+  type BusinessEntry = BusinessInfoData & { _key: string }
+  const makeBizEntry = (): BusinessEntry => ({ ...EMPTY_BUSINESS_INFO, _key: crypto.randomUUID() })
+
+  const [businesses, setBusinesses] = useState<BusinessEntry[]>(() => [makeBizEntry()])
+  const [expandedBizIndex, setExpandedBizIndex] = useState(0)
+
+  const updateBusiness = (index: number, updates: Partial<BusinessInfoData>) => {
+    setBusinesses(prev => prev.map((b, i) => i === index ? { ...b, ...updates } : b))
+  }
+  const addBusiness = () => {
+    if (businesses.length >= 10) return
+    setBusinesses(prev => {
+      const next = [...prev, makeBizEntry()]
+      setExpandedBizIndex(next.length - 1)
+      return next
+    })
+  }
+  const removeBusiness = (index: number) => {
+    setBusinesses(prev => prev.filter((_, i) => i !== index))
+    setExpandedBizIndex(prev => prev >= index ? Math.max(0, prev - 1) : prev)
+  }
 
   // SMS templates (for individual paths with confirm step)
   const [customMessages, setCustomMessages] = useState({ VI: DEFAULT_SMS_TEMPLATE_VI, EN: DEFAULT_SMS_TEMPLATE_EN })
@@ -140,30 +164,40 @@ function CreateClientPage() {
     return Object.keys(e).length === 0
   }
 
-  const validateBusinessInfo = (): boolean => {
+  const validateSingleBusiness = (biz: BusinessInfoData, phoneRequired: boolean): Partial<Record<keyof BusinessInfoData, string>> => {
     const e: Partial<Record<keyof BusinessInfoData, string>> = {}
-    if (!businessInfo.name.trim()) e.name = t('newClient.errorBusinessNameRequired', 'Business name is required')
-    if (businessInfo.ein && !/^\d{2}-\d{7}$/.test(businessInfo.ein)) {
-      e.ein = t('newClient.errorEinFormat', 'EIN must be XX-XXXXXXX format')
-    }
-    if (businessInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(businessInfo.email)) {
-      e.email = t('newClient.errorEmailInvalid')
-    }
-    // Phone required for business-only (no individual phone to fall back on)
-    if (clientCreationType === 'BUSINESS') {
-      const cleaned = businessInfo.phone.replace(/\D/g, '')
+    if (!biz.name.trim()) e.name = t('newClient.errorBusinessNameRequired', 'Business name is required')
+    if (biz.ein && !/^\d{2}-\d{7}$/.test(biz.ein)) e.ein = t('newClient.errorEinFormat', 'EIN must be XX-XXXXXXX format')
+    if (biz.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(biz.email)) e.email = t('newClient.errorEmailInvalid')
+    if (phoneRequired) {
+      const cleaned = biz.phone.replace(/\D/g, '')
       if (!cleaned) e.phone = t('newClient.errorPhoneRequired')
       else if (cleaned.length !== 10) e.phone = t('newClient.errorPhoneLength', 'Phone must be 10 digits')
-    } else if (businessInfo.phone) {
-      const cleaned = businessInfo.phone.replace(/\D/g, '')
+    } else if (biz.phone) {
+      const cleaned = biz.phone.replace(/\D/g, '')
       if (cleaned.length > 0 && cleaned.length !== 10) e.phone = t('newClient.errorPhoneLength', 'Phone must be 10 digits')
     }
-    if (businessInfo.state && (businessInfo.state.length !== 2 || !US_STATES.has(businessInfo.state))) {
-      e.state = t('newClient.errorStateFormat', 'Invalid state code')
-    }
-    if (businessInfo.zip && !/^\d{5}(-\d{4})?$/.test(businessInfo.zip)) e.zip = t('newClient.errorZipFormat', 'Invalid ZIP')
+    if (biz.state && (biz.state.length !== 2 || !US_STATES.has(biz.state))) e.state = t('newClient.errorStateFormat', 'Invalid state code')
+    if (biz.zip && !/^\d{5}(-\d{4})?$/.test(biz.zip)) e.zip = t('newClient.errorZipFormat', 'Invalid ZIP')
+    return e
+  }
+
+  const validateBusinessInfo = (): boolean => {
+    const e = validateSingleBusiness(businessInfo, clientCreationType === 'BUSINESS')
     setErrors(prev => ({ ...prev, business: e }))
     return Object.keys(e).length === 0
+  }
+
+  const validateAllBusinesses = (): boolean => {
+    let firstErrorIndex = -1
+    const allErrors = businesses.map((biz, index) => {
+      const e = validateSingleBusiness(biz, false)
+      if (Object.keys(e).length > 0 && firstErrorIndex === -1) firstErrorIndex = index
+      return e
+    })
+    setErrors(prev => ({ ...prev, businesses: allErrors }))
+    if (firstErrorIndex >= 0) setExpandedBizIndex(firstErrorIndex)
+    return allErrors.every(e => Object.keys(e).length === 0)
   }
 
   // --- Navigation ---
@@ -173,7 +207,7 @@ function CreateClientPage() {
       setCurrentStep(clientCreationType === 'INDIVIDUAL_WITH_BUSINESS' ? 'business-form' : 'confirm')
     } else if (currentStep === 'business-form') {
       // Only INDIVIDUAL_WITH_BUSINESS reaches here; BUSINESS submits inline
-      if (!validateBusinessInfo()) return
+      if (!validateAllBusinesses()) return
       setCurrentStep('confirm')
     }
   }
@@ -225,19 +259,19 @@ function CreateClientPage() {
             language: basicInfo.language,
             profile: { taxYear: basicInfo.taxYear, taxTypes: ['FORM_1040'] },
           },
-          businesses: [{
-            firstName: businessInfo.name.trim().slice(0, 100),
-            phone: businessInfo.phone ? toE164Phone(businessInfo.phone) : toE164Phone(basicInfo.phone),
-            email: sanitizeEmail(businessInfo.email) || undefined,
+          businesses: businesses.map(biz => ({
+            firstName: biz.name.trim().slice(0, 100),
+            phone: biz.phone ? toE164Phone(biz.phone) : toE164Phone(basicInfo.phone),
+            email: sanitizeEmail(biz.email) || undefined,
             language: basicInfo.language,
-            businessType: businessInfo.businessType,
-            ein: businessInfo.ein || undefined,
-            businessAddress: businessInfo.address.trim() || undefined,
-            businessCity: businessInfo.city.trim() || undefined,
-            businessState: businessInfo.state.trim() || undefined,
-            businessZip: businessInfo.zip.trim() || undefined,
+            businessType: biz.businessType,
+            ein: biz.ein || undefined,
+            businessAddress: biz.address.trim() || undefined,
+            businessCity: biz.city.trim() || undefined,
+            businessState: biz.state.trim() || undefined,
+            businessZip: biz.zip.trim() || undefined,
             profile: { taxYear: taxYear },
-          }],
+          })),
           groupName: `${basicInfo.firstName.trim()} ${basicInfo.lastName.trim()} Group`,
           customMessage: currentMessage,
         })
@@ -344,83 +378,90 @@ function CreateClientPage() {
           </>
         )}
 
-        {/* Business Form */}
-        {currentStep === 'business-form' && (
+        {/* Business Form — single form for BUSINESS path, accordion for INDIVIDUAL_WITH_BUSINESS */}
+        {currentStep === 'business-form' && clientCreationType === 'BUSINESS' && (
           <>
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <BusinessInfoForm
                 data={businessInfo}
                 onChange={(updates) => setBusinessInfo(prev => ({ ...prev, ...updates }))}
                 errors={errors.business}
-                phoneRequired={clientCreationType === 'BUSINESS'}
+                phoneRequired
               />
-              {/* Tax Year selector for business-only path */}
-              {clientCreationType === 'BUSINESS' && (
-                <div className="mt-5 space-y-1.5">
-                  <label className="block text-sm font-medium text-foreground">
-                    {t('newClient.taxYear')}
-                    <span className="text-error ml-1">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    {TAX_YEARS.map((year) => (
-                      <button
-                        key={year}
-                        type="button"
-                        onClick={() => handleTaxYearChange(year)}
-                        className={cn(
-                          'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                          taxYear === year ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-                        )}
-                      >
-                        {year}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Business-only: submit directly (no SMS confirm) */}
-            {clientCreationType === 'BUSINESS' ? (
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => { if (validateBusinessInfo()) handleSubmit() }}
-                  disabled={isSubmitting}
-                  className={cn(
-                    'w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium',
-                    'bg-primary text-white transition-colors',
-                    isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-dark'
-                  )}
-                >
-                  {isSubmitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
-                  ) : (
-                    <><Send className="w-4 h-4" /> Create Business Client</>
-                  )}
-                </button>
-                {submitError && (
-                  <div className="p-4 bg-error-light rounded-lg text-error text-sm">{submitError}</div>
-                )}
-                <div className="flex justify-start">
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    disabled={isSubmitting}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
-                      'border border-border text-foreground hover:bg-muted transition-colors',
-                      isSubmitting && 'opacity-50 cursor-not-allowed'
-                    )}
-                  >
-                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                    {t('newClient.goBack')}
-                  </button>
+              <div className="mt-5 space-y-1.5">
+                <label className="block text-sm font-medium text-foreground">
+                  {t('newClient.taxYear')}
+                  <span className="text-error ml-1">*</span>
+                </label>
+                <div className="flex gap-2">
+                  {TAX_YEARS.map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => handleTaxYearChange(year)}
+                      className={cn(
+                        'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                        taxYear === year ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+                      )}
+                    >
+                      {year}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <WizardNavButtons onBack={handleBack} onNext={handleNext} nextLabel={t('newClient.continue')} backLabel={t('newClient.goBack')} />
-            )}
+            </div>
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={() => { if (validateBusinessInfo()) handleSubmit() }}
+                disabled={isSubmitting}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium',
+                  'bg-primary text-white transition-colors',
+                  isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-dark'
+                )}
+              >
+                {isSubmitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
+                ) : (
+                  <><Send className="w-4 h-4" /> Create Business Client</>
+                )}
+              </button>
+              {submitError && (
+                <div className="p-4 bg-error-light rounded-lg text-error text-sm">{submitError}</div>
+              )}
+              <div className="flex justify-start">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={isSubmitting}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
+                    'border border-border text-foreground hover:bg-muted transition-colors',
+                    isSubmitting && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  {t('newClient.goBack')}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Multi-Business Accordion for INDIVIDUAL_WITH_BUSINESS */}
+        {currentStep === 'business-form' && clientCreationType === 'INDIVIDUAL_WITH_BUSINESS' && (
+          <>
+            <BusinessAccordion
+              businesses={businesses}
+              expandedIndex={expandedBizIndex}
+              onExpandedChange={setExpandedBizIndex}
+              onUpdate={updateBusiness}
+              onAdd={addBusiness}
+              onRemove={removeBusiness}
+              errors={errors.businesses}
+            />
+            <WizardNavButtons onBack={handleBack} onNext={handleNext} nextLabel={t('newClient.continue')} backLabel={t('newClient.goBack')} />
           </>
         )}
 
@@ -432,8 +473,10 @@ function CreateClientPage() {
                 <p className="text-sm font-medium text-foreground mb-2">Creating linked records:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>1. Individual: {basicInfo.firstName} {basicInfo.lastName}</li>
-                  <li>2. Business: {businessInfo.name}</li>
-                  <li>3. Group: {basicInfo.firstName} {basicInfo.lastName} Group</li>
+                  {businesses.map((biz, i) => (
+                    <li key={biz._key}>{i + 2}. Business: {biz.name} ({biz.businessType.replace('_', ' ')})</li>
+                  ))}
+                  <li>{businesses.length + 2}. Group: {basicInfo.firstName} {basicInfo.lastName} Group</li>
                 </ul>
               </div>
             )}

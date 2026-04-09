@@ -5,6 +5,7 @@
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@ella/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { type ClientDetail } from '../../../lib/api-client'
 import { ClientProfileCard } from './client-profile-card'
 import { ClientLinkedEntityCard } from './client-linked-entity-card'
@@ -21,6 +22,7 @@ interface ClientOverviewTabProps {
 
 export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   return (
     <div className="space-y-6">
@@ -28,10 +30,14 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
       <ClientProfileCard client={client} />
 
       {/* Linked Entity Card - Shows linked business or owner */}
-      {client.clientGroup && client.clientGroup.clients.length > 0 && (
+      {(client.clientType === 'INDIVIDUAL' || (client.clientGroup && client.clientGroup.clients.length > 0)) && (
         <ClientLinkedEntityCard
+          clientId={client.id}
+          clientPhone={client.phone}
+          clientEmail={client.email}
           currentClientType={client.clientType}
-          linkedClients={client.clientGroup.clients}
+          linkedClients={client.clientGroup?.clients || []}
+          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}
         />
       )}
 

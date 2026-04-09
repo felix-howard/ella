@@ -7,6 +7,71 @@
 
 ## 2026-04-09
 
+### Feature: Multi-Business Per Client - Phase 2 (Wizard Accordion Multi-Business) ✅ COMPLETE
+**Status:** Complete (Phase 2 of multi-business plan)
+**Branch:** feature/ella-enhance-202
+**Doc:** [Phase 2: Wizard Accordion Multi-Business](./phase-12-wizard-accordion-multi-business.md)
+
+**Summary:** Implemented accordion UI component for managing multiple businesses in INDIVIDUAL_WITH_BUSINESS client creation path. Enables single individual to register up to 10 associated business entities in one wizard flow. Each business independently editable with unique form IDs, per-business error validation, add/remove functionality with max 10 limit, and dynamic confirm summary showing all created entities.
+
+**What Changed:**
+- **New Component:** `BusinessAccordion` for collapsible multi-business management
+- **Component Enhancement:** `BusinessInfoForm` now supports `idPrefix` and `hideTitle` props for reusability
+- **Wizard Logic:** Multi-business state management in CreateClientPage (`businesses[]`, `expandedBizIndex`, `updateBusiness`, `addBusiness`, `removeBusiness`)
+- **Validation:** New `validateAllBusinesses()` for array validation with auto-expand on first error
+- **Rendering:** Accordion replaces single form in INDIVIDUAL_WITH_BUSINESS step
+- **Confirm Step:** Shows preview summary of all created entities + generated group name
+- **API Support:** Form routes updated to accept INDIVIDUAL_WITH_BUSINESS clientType
+
+**Verification:**
+- Accordion functionality: Add/remove/edit businesses, max 10 limit enforced
+- Validation: Per-business errors highlight correctly, first invalid auto-expands
+- Phone handling: Business phone optional, falls back to individual's if omitted
+- Confirm step: Shows formatted list of individual + all businesses + group
+- Type safety: Full TypeScript strict mode pass
+- No breaking changes to INDIVIDUAL or BUSINESS paths
+
+**Files Changed:**
+- **New:** `apps/workspace/src/components/clients/business-accordion.tsx`
+- **Modified:** `apps/workspace/src/components/clients/business-info-form.tsx` (idPrefix, hideTitle props)
+- **Modified:** `apps/workspace/src/components/clients/index.ts` (BusinessAccordion export)
+- **Modified:** `apps/workspace/src/routes/clients/new.tsx` (multi-business state & accordion rendering)
+- **Modified:** `apps/api/src/routes/form/index.ts` (INDIVIDUAL_WITH_BUSINESS support)
+- **Modified:** `apps/api/src/routes/form/schemas.ts` (schema validation for new path)
+
+---
+
+### Feature: Multi-Business Per Client - Phase 3 (Add Business Drawer) ✅ COMPLETE
+**Status:** Complete (Phase 3 of multi-business plan)
+**Branch:** feature/ella-enhance-202
+**Completion Date:** 2026-04-09
+
+**Summary:** Implemented "+ Add Business" drawer on client detail linked entity card. Enables CPAs to add linked businesses to existing individual clients from client detail page. Creates and links business using link-business API endpoint. Shows empty state for individuals without businesses, allowing inline addition without navigation.
+
+**What Changed:**
+- **New Component:** `AddBusinessDrawer` for creating and linking businesses to existing clients
+- **Component Enhancement:** `ClientLinkedEntityCard` updated to show for INDIVIDUAL clients even without linked businesses, displays "+ Add Business" button
+- **Drawer Features:** Uses BusinessInfoForm + tax year selector, handles loading/error states, invalidates cache on success
+- **Linked Entity Card:** Empty state display for individuals with no businesses, CTA button to open drawer
+- **Client Overview:** Shows linked entity card for INDIVIDUAL clients regardless of whether businesses exist (enable add flow)
+
+**Verification:**
+- Drawer opens/closes correctly with overlay click handling
+- BusinessInfoForm renders with all required fields
+- Successful submission creates business + links to client
+- Cache invalidation refreshes client detail with new business
+- BUSINESS clients don't show add button (only INDIVIDUAL)
+- Mobile-responsive drawer width (max-w-md)
+- Loading state prevents double-submit
+- Error display shows submission failures
+
+**Files Changed:**
+- **New:** `apps/workspace/src/components/clients/client-overview-tab/add-business-drawer.tsx`
+- **Modified:** `apps/workspace/src/components/clients/client-overview-tab/client-linked-entity-card.tsx` (empty state, add button, props)
+- **Modified:** `apps/workspace/src/components/clients/client-overview-tab/index.tsx` (pass clientId, show card for INDIVIDUAL)
+
+---
+
 ### Feature: Business Entity Separation - Phase 15 (Cleanup & Deprecate Business Model) ✅ COMPLETE
 **Status:** Complete (Phase 15 of 15 — ALL PHASES DONE)
 **Branch:** feature/ella-enhance-202

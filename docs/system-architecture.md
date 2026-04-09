@@ -58,7 +58,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/new` - Multi-path client creation wizard (Phase 12)
+- `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
 - `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
@@ -917,6 +917,147 @@ overview.notesPlaceholder - Editor placeholder text
 
 ---
 
+## Phase 03: Client Detail Add Business Drawer (COMPLETE)
+
+**Overview:**
+Slide-over drawer enabling CPAs to link additional business entities to existing individual clients directly from the client detail Overview tab. Provides empty state UI for individuals without businesses and persistent add button for those with existing businesses.
+
+**Components:**
+
+1. **AddBusinessDrawer** (`apps/workspace/src/components/clients/client-overview-tab/add-business-drawer.tsx`)
+   - Fixed slide-over drawer: 100% height, max-width 28rem (md breakpoint), positioned right side
+   - Overlay: Semi-transparent backdrop (opacity-50) with click-to-close
+   - Accessibility: role="dialog", aria-modal="true", aria-label, escape-key dismiss
+   - Body scroll lock: Prevents page scroll while drawer open (document.body.style.overflow)
+   - Header: Title "Add Business" + close button (X icon)
+
+   **Form Content:**
+   - Uses existing `BusinessInfoForm` with `idPrefix="add-biz-"` and `hideTitle` props for drawer context
+   - Fields: business name (required), type, EIN, phone, email, address, city, state, zip
+   - Tax year selector: 3-button toggle group (current year, -1, -2 dynamic from `new Date().getFullYear()`)
+   - Error display: Top banner for API errors with red bg/text
+   - Submit button: "Create & Link Business" with loading spinner during submission
+
+   **Mutation Logic:**
+   ```typescript
+   const mutation = useMutation({
+     mutationFn: (data: LinkBusinessInput) =>
+       api.clients.linkBusiness(clientId, data),
+     onSuccess: () => {
+       onSuccess() // Parent callback for cache invalidation
+       onClose()   // Close drawer
+     }
+   })
+   ```
+
+   **Validation:**
+   - Business name required (trim check)
+   - Other fields optional (matching BusinessInfoForm validation)
+   - Submit disabled while mutation pending
+
+   **Data Mapping:**
+   ```typescript
+   const payload: LinkBusinessInput = {
+     firstName: business.name,           // Business name → firstName
+     phone: clientPhone,                 // Client's phone (from parent)
+     email: clientEmail || undefined,    // Client's email (optional)
+     businessType: business.businessType,
+     ein: business.ein || undefined,
+     businessAddress: business.address || undefined,
+     businessCity: business.city || undefined,
+     businessState: business.state || undefined,
+     businessZip: business.zip || undefined,
+     taxYear                              // Selected tax year
+   }
+   ```
+
+2. **ClientLinkedEntityCard** (Enhanced)
+   - Shows differently based on currentClientType and linkedClients array:
+     - Business clients with no owner: Card hidden (returns null)
+     - Individual clients with no businesses: Empty state card with CTA button
+     - Individual/Business with linked entities: List of linked clients
+     - Individual with businesses: Add button persists at bottom
+
+   **Empty State UI:**
+   ```
+   │ Building icon "Linked Business"
+   │ "No businesses linked yet."
+   │ [  + Add Business  ] (dashed border button)
+   ```
+
+   **Linked Entity Cards:**
+   - Avatar: Initials (rounded-full for individuals, rounded-lg for businesses)
+   - Name + business type badge (e.g., "LLC", "S-Corp")
+   - Contact info: Phone + Email + EIN masked
+   - Navigation: Link to linked client detail page
+   - Hover state: Border + background color change
+
+   **Props:**
+   ```typescript
+   interface ClientLinkedEntityCardProps {
+     clientId: string
+     clientPhone: string
+     clientEmail?: string | null
+     currentClientType: ClientType
+     linkedClients: ClientPreview[]
+     onBusinessAdded?: () => void
+   }
+   ```
+
+3. **ClientOverviewTab** (Updated)
+   - Conditional render: Show ClientLinkedEntityCard for INDIVIDUAL clients OR if clientGroup with members exists
+   - Pass `onBusinessAdded` callback: Invalidates `['clients', client.id]` query
+   - Query refresh shows newly linked business on Overview tab
+
+**API Integration:**
+```
+POST /clients/:clientId/link-business
+Body: LinkBusinessInput {
+  firstName: string              // Business name
+  phone: string                  // Client phone (E.164)
+  email?: string                 // Client email
+  businessType: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  taxYear: number
+}
+Response: LinkBusinessResponse
+```
+
+**User Workflow:**
+1. CPA opens individual client detail page
+2. Overview tab shows: "No businesses linked yet" + "+ Add Business" button
+3. Click button → AddBusinessDrawer opens (slide-over from right)
+4. Fill business form + select tax year
+5. Click "Create & Link Business" → Submits LinkBusinessInput
+6. Success: Drawer closes, Overview refreshes with new linked business
+7. Can repeat: "+ Add Business" button remains visible
+
+**Validation & Error Handling:**
+- Client-side: Business name required
+- API errors: Displayed in-drawer red banner with retry
+- Loading state: Button disabled, spinner, "Creating..." text
+- Success: Auto-close drawer + cache invalidation
+
+**Cache Strategy:**
+```typescript
+onBusinessAdded={() =>
+  queryClient.invalidateQueries({ queryKey: ['clients', client.id] })
+}
+```
+Ensures GET /clients/:id re-fetches with updated clientGroup.clients array.
+
+**Mobile Support:**
+- Drawer: 100% width on mobile, right-aligned
+- Overlay: Full coverage
+- Close: Large X button, escape key
+- Form: Mobile-optimized spacing + full-width tax year buttons
+
+---
+
 ## Phase 04: Navigation Integration - Staff Profile Routes
 
 **Overview:**
@@ -1590,6 +1731,50 @@ useEffect(() => {
 ```typescript
 type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
 ```
+
+---
+
+## Phase 3: Multi-Business Per Client - Add Business Drawer (2026-04-09)
+
+**Location:** `apps/workspace/src/components/clients/client-overview-tab/`
+
+**Overview:**
+Enables CPAs to add linked businesses to existing individual clients directly from client detail page. Component hierarchy: ClientOverviewTab → ClientLinkedEntityCard (shows empty state + add button) → AddBusinessDrawer (form submission).
+
+**Components:**
+
+**AddBusinessDrawer** (`add-business-drawer.tsx`):
+- Slide-over drawer from right side (fixed inset-y-0 right-0, max-w-md, z-50)
+- Overlay: fixed inset-0 bg-black/30 z-40 (dismisses on click)
+- Form: BusinessInfoForm + TaxYearSelector
+- States: idle | loading | error | success
+- Submission: POST `/clients/:clientId/link-business` with {businessInfo, taxYear}
+- On success: calls `onSuccess()` callback → invalidates React Query cache → drawer closes
+- Error display: AlertCircle icon + error message
+- Mobile-friendly: Full viewport width on mobile, constrained on desktop
+
+**ClientLinkedEntityCard** (Enhanced):
+- Props: `clientId` (NEW), `currentClientType`, `linkedClients`, `onBusinessAdded` (NEW)
+- Behavior: Shows for INDIVIDUAL clients even when no businesses linked (empty state)
+- Empty State: Card title "Linked Business" + "No businesses linked yet" + "+ Add Business" button
+- Card Button: Dashed border, Lucide Plus icon, hover effects (border-primary, text-primary)
+- Drawer Open: Local state `drawerOpen`, renders AddBusinessDrawer when true
+- Non-empty: Lists existing linked clients with edit/archive icons
+
+**ClientOverviewTab** (Updated):
+- Condition: Shows LinkedEntityCard if `client.clientGroup?.clients.length > 0` OR `client.clientType === 'INDIVIDUAL'`
+- Callback: `onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}`
+- Passes: `clientId`, `currentClientType`, `linkedClients` array, callback
+
+**Data Flow:**
+1. User navigates to INDIVIDUAL client detail
+2. Overview tab renders ClientLinkedEntityCard (shows even if no businesses)
+3. User clicks "+ Add Business" button → drawer opens
+4. User fills BusinessInfoForm + selects tax year
+5. User clicks Submit → loading state
+6. API: POST `/clients/:clientId/link-business` (Phase 1)
+7. Success: onSuccess() → queryClient.invalidateQueries → card refreshes with new business
+8. Error: Error message displayed, form preserved (user can retry)
 
 ---
 

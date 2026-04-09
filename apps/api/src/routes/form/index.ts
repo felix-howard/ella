@@ -5,7 +5,6 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
-import { Prisma } from '@ella/db'
 import type { Language, ClientType, BusinessType, ClientSource } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
@@ -148,7 +147,20 @@ formRoute.post(
     const source: ClientSource = staffId ? 'STAFF_FORM' : 'GENERIC_FORM'
     const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
 
-    try {
+    // Check phone uniqueness for individual clients in same org
+    const phoneToCheck = clientType === 'BUSINESS' ? input.businessPhone : input.phone
+      if (phoneToCheck) {
+        const existingClient = await prisma.client.findFirst({
+          where: { phone: phoneToCheck, clientType: 'INDIVIDUAL', organizationId: org.id },
+        })
+        if (existingClient && clientType !== 'BUSINESS') {
+          return c.json({
+            error: 'PHONE_ALREADY_REGISTERED',
+            message: 'This phone number is already registered. Please contact your CPA.',
+          }, 409)
+        }
+      }
+
       // --- INDIVIDUAL path ---
       if (clientType === 'INDIVIDUAL') {
         const fullName = input.lastName ? `${input.firstName} ${input.lastName}` : input.firstName!
@@ -249,17 +261,8 @@ formRoute.post(
       const smsSent = await trySendWelcomeSms(shouldAutoSend, result.indCase.id, fullName, input.phone!, input.taxYear, input.language, staffId)
       return c.json({ success: true, clientId: result.individual.id, smsSent })
 
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        return c.json({
-          error: 'PHONE_ALREADY_REGISTERED',
-          message: 'This phone number is already registered. Please contact your CPA.',
-        }, 409)
-      }
-      throw error
     }
-  }
-)
+  )
 
 /** Try sending welcome SMS if auto-send is enabled */
 async function trySendWelcomeSms(

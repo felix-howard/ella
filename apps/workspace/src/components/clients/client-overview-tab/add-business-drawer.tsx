@@ -8,7 +8,7 @@ import { useMutation } from '@tanstack/react-query'
 import { api, type LinkBusinessInput, type BusinessType } from '../../../lib/api-client'
 import { BusinessInfoForm, type BusinessInfoData, EMPTY_BUSINESS_INFO } from '../business-info-form'
 
-const currentYear = new Date().getFullYear()
+const currentYear = new Date().getFullYear() - 1
 const TAX_YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
 interface AddBusinessDrawerProps {

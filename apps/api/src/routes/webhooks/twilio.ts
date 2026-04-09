@@ -536,8 +536,8 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
 
   try {
     // 1. Find caller's client and conversation
-    const client = await prisma.client.findUnique({
-      where: { phone: from },
+    const client = await prisma.client.findFirst({
+      where: { phone: from, clientType: 'INDIVIDUAL' },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },
@@ -765,8 +765,8 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   // Twilio provides original caller phone in From field of the action callback
   const callerPhone = formData.From as string
   if (callerPhone) {
-    const callerClient = await prisma.client.findUnique({
-      where: { phone: callerPhone },
+    const callerClient = await prisma.client.findFirst({
+      where: { phone: callerPhone, clientType: 'INDIVIDUAL' },
       select: { organizationId: true },
     })
     sendMissedCallTextBack(callerPhone, callerClient?.organizationId || null).catch(() => {})

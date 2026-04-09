@@ -392,6 +392,20 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
     : computeDisplayName(firstName, lastName)
 
   try {
+  // Check phone uniqueness among INDIVIDUAL clients in same org
+  if (clientType !== 'BUSINESS') {
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        phone: clientData.phone,
+        clientType: 'INDIVIDUAL',
+        organizationId: user.organizationId,
+      },
+    })
+    if (existingClient) {
+      throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+    }
+  }
+
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create client with org scope and managed-by
@@ -1488,7 +1502,18 @@ clientsRoute.post(
       throw new HTTPException(403, { message: 'Organization and staff record required' })
     }
 
-    try {
+    // Check phone uniqueness for individual client in same org
+    const existingClient = await prisma.client.findFirst({
+        where: {
+          phone: individual.phone,
+          clientType: 'INDIVIDUAL',
+          organizationId: user.organizationId,
+        },
+      })
+      if (existingClient) {
+        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+      }
+
       const result = await prisma.$transaction(async (tx) => {
         // Create individual client
         const indivName = computeDisplayName(individual.firstName, individual.lastName)
@@ -1673,14 +1698,8 @@ clientsRoute.post(
         },
         201
       )
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
-      }
-      throw error
     }
-  }
-)
+  )
 
 // ============================================
 // POST /clients/:id/link-business — Link new business to existing individual
@@ -1714,10 +1733,9 @@ clientsRoute.post(
       throw new HTTPException(400, { message: 'Only individual clients can have linked businesses' })
     }
 
-    try {
-      const result = await prisma.$transaction(async (tx) => {
-        // Create business client
-        const businessClient = await tx.client.create({
+    const result = await prisma.$transaction(async (tx) => {
+      // Create business client
+      const businessClient = await tx.client.create({
           data: {
             firstName: body.firstName,
             lastName: null,
@@ -1816,13 +1834,7 @@ clientsRoute.post(
         },
         201
       )
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
-      }
-      throw error
     }
-  }
-)
+  )
 
 export { clientsRoute }

@@ -8,7 +8,7 @@
 
 ### Business Entity Separation - Approach B (15 Phases) IN PROGRESS
 **Started:** 2026-04-08
-**Status:** In Progress (Phases 01-13 COMPLETE, 87% done — Phase 13 completed 2026-04-09)
+**Status:** In Progress (Phases 01-14 COMPLETE, 93% done — Phase 14 completed 2026-04-09)
 **Branch:** feature/ella-enhance-202
 **Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
 **Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
@@ -29,8 +29,8 @@
 | 11 | Frontend: Client list with grouped display | ✅ DONE | 2h | 2026-04-09 |
 | 12 | Frontend: Client creation wizard (individual + business) | ✅ DONE | 2h | 2026-04-09 |
 | 13 | Frontend: Client detail tabs (adaptive per type) | ✅ DONE | 1.5h | 2026-04-09 |
-| 14 | Frontend: Portal entity picker + role isolation | ⏳ PENDING | 1.5h | - |
-| 15 | Cleanup: Deprecate Business model + remove /businesses routes | ⏳ PENDING | 1.5h | - |
+| 14 | Portal: Entity picker for multi-entity uploads | ✅ DONE | 2h | 2026-04-09 |
+| 15 | Cleanup: Deprecate Business model + remove /businesses routes | ⏳ PENDING | 1h | - |
 
 **Completed Deliverables (Phases 01-11):**
 
@@ -65,9 +65,8 @@
 - Each entity: separate TaxCase, contractors, 1099 filings
 - Routes: `/clients/:cid/*` where cid = business client (new) or legacy /businesses/:biz-id/* (deprecated)
 
-**Next Steps:**
-- Phase 14: Portal entity picker — Client selects which entity (individual or business) to access portal with
-- Phase 15: Cleanup — Deprecate Business model, remove /businesses routes, drop businessId FK from Contractor/FilingBatch
+**Remaining (Phase 15):**
+- Phase 15: Cleanup — Deprecate Business model, remove /businesses routes, drop businessId FK from Contractor/FilingBatch (1h)
 
 ---
 

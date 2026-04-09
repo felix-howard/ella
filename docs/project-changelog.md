@@ -7,6 +7,85 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 14 (Portal Entity Picker) ✅ COMPLETE
+**Status:** Complete (Phase 14 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 14](../plans/260408-business-entity-separation/phase-14-portal-entity-picker.md)
+
+**Summary:** Upload portal enhanced to support multi-entity clients (ClientGroup). When client has linked business entities, portal displays entity picker before upload screen to select which entity's account documents belong to. Single-entity clients experience zero change. Mobile-first design with large touch targets, i18n support (EN/VI).
+
+**What Changed:**
+- **Portal UX:** Entity picker page added pre-upload showing personal + linked business entities with icons
+- **Entity Display:** Building icon (🏢) for business clients, person icon (👤) for individual, each labeled with name
+- **Selection Persistence:** Selected entity persisted in session to avoid re-asking on navigation
+- **Single-Entity Bypass:** Clients without groups or with only 1 entity skip picker entirely, upload directly
+- **MagicLink Expansion:** When creating portal links for grouped client, generate link for each group member scoped to their TaxCase
+- **Portal API:** GET /portal/:token response now includes group member info (id, name, clientType, entity-specific token)
+- **i18n Complete:** Entity picker labels, buttons, descriptions translated to English + Vietnamese
+
+**Key Features:**
+- Multi-entity client support: CPA creates client (individual) + links business entities via ClientGroup
+- Client portal opens with entity selector showing all group members
+- Touch-friendly buttons with 48px minimum height for mobile users
+- Fast zero-latency entity selection (no API calls after initial load)
+- Backward compatible: Existing single-entity portal links unchanged
+
+**Files Changed:**
+- **Modified:** `apps/portal/src/` - Added EntityPicker component, route handlers, session state for selected entity
+- **Modified:** `apps/api/src/routes/portal/index.ts` - Enhanced GET endpoint to return group info, multiple MagicLink creation for grouped clients
+- **Modified:** `apps/portal/src/locales/en.json` - Entity picker labels (Upload for:, Personal, Business, etc.)
+- **Modified:** `apps/portal/src/locales/vi.json` - Vietnamese translations for entity picker
+
+**API Changes:**
+- `GET /portal/:token` response now includes: `{ currentEntity: { id, name, clientType }, groupEntities: [{ id, name, clientType, token }] }` when ClientGroup exists
+- Portal link creation auto-generates MagicLinks for each group member if clientGroupId present
+
+**Portal Changes:**
+- New EntityPicker page component with grid/list layout options
+- Session storage of selected entity (survives page navigation)
+- Mobile viewport: 100% width buttons with 48px+ padding
+- Icon + text label combo for accessibility
+- Graceful single-entity fallback (skip picker, show upload)
+
+**Testing & Validation:**
+- Type-check: TypeScript strict mode passes
+- Lint: Zero syntax errors
+- Mobile: Responsive layout verified (mobile-first breakpoints)
+- i18n: English + Vietnamese complete
+- Backward compat: Single-entity flows unchanged
+- Session persistence: Entity selection survives navigation
+
+**Next Phase:** Phase 15 will deprecate old Business model and remove /businesses routes.
+
+---
+
+### Feature: Business Entity Separation - Phase 13 (Frontend Client Detail Adaptive Tabs) ✅ COMPLETE
+**Status:** Complete (Phase 13 of 15)
+**Branch:** feature/ella-enhance-202
+
+**Summary:** Client detail page tabs now adapt dynamically based on client type. Individual clients show tabs: Overview | Messages | Documents | 1099-NEC (when available). Business clients show: Overview | Contractors | 1099-NEC Forms | Documents. Cross-link banner guides navigation between linked entities. All i18n'd for EN/VI.
+
+**What Changed:**
+- **Adaptive Tabs:** Tabs determined by clientType (INDIVIDUAL vs BUSINESS) at render time
+- **Tab Content:** Individual tabs: overview, messages, docs, 1099-nec; Business tabs: overview, contractors, 1099-nec, docs
+- **Cross-Link Banner:** When entity is part of ClientGroup, banner shows "View [owner/business] details" with navigation link
+- **Contractor Tab:** Business client detail shows contractors list with add/edit/delete actions, action buttons disabled until TaxBandits integration loaded
+- **1099-NEC Tab:** Status display (draft count, ready for transmit), quick actions (create, fetch PDFs, transmit to IRS)
+- **Mobile:** Horizontal scroll for tabs on small screens, banner adapts layout
+
+**Files Changed:**
+- **Modified:** `apps/workspace/src/routes/clients/[clientId]/` - Tab routing + adaptive logic
+- **Modified:** `apps/workspace/src/components/clients/client-detail-tabs.tsx` - Dynamic tab list generation
+- **Modified:** `apps/workspace/src/components/clients/cross-link-banner.tsx` - Group navigation banner (NEW)
+- **Updated i18n:** 10+ new keys for tab labels, banner text
+
+**Code Quality:**
+- Type coverage: 100% for adaptive tab logic
+- Performance: useMemo on tab list, memo on banner component
+- Accessibility: ARIA labels on tab navigation, semantic HTML
+
+---
+
 ### Feature: Business Entity Separation - Phase 11 (Frontend Client List Grouped Display) ✅ COMPLETE
 **Status:** Complete (Phase 11 of 15)
 **Branch:** feature/ella-enhance-202

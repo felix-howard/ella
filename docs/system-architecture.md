@@ -1610,6 +1610,126 @@ POST /clients
 
 ---
 
+## Phase 13: Client Detail Page - Type-Based Tab Layout (2026-04-09)
+
+**Location:** `apps/workspace/src/routes/clients/$clientId.tsx`
+
+**Overview:**
+Client detail page now renders different tab layouts based on clientType (INDIVIDUAL vs BUSINESS). INDIVIDUAL clients show Overview, Files, Data Entry, Draft Return, Schedule C, Schedule E. BUSINESS clients show Overview, Files, Contractors, Data Entry, Draft Return, Schedule C. Removed old "Businesses" tab. Added cross-link banner showing linked clients in same ClientGroup. Header adapts with building icon and businessType badge for BUSINESS clients.
+
+**Tab Configuration:**
+
+**BUSINESS Client Tabs:**
+- Overview (Building2 icon)
+- Files (FolderOpen icon)
+- Contractors (UserCircle icon) — new, shows contractor list for business
+- Data Entry (ClipboardList icon)
+- Draft Return (FileText icon)
+- Schedule C (Calculator icon) — conditional, appears if scheduleCExpense data exists
+
+**INDIVIDUAL Client Tabs:**
+- Overview (User icon)
+- Files (FolderOpen icon)
+- Data Entry (ClipboardList icon)
+- Draft Return (FileText icon)
+- Schedule C (Calculator icon) — conditional, appears if scheduleCExpense data exists
+- Schedule E (Home icon) — conditional, appears if scheduleEExpense data exists
+
+**Tab Configuration Logic (`$clientId.tsx` lines 506-534):**
+```typescript
+const isBusiness = client.clientType === 'BUSINESS'
+
+const tabs = isBusiness
+  ? [
+      { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
+      { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+      { id: 'contractors', label: 'Contractors', icon: UserCircle },
+      { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      ...(scheduleCExpense ? [scheduleCTab] : []),
+    ]
+  : [
+      { id: 'overview', label: t('clientOverview.title'), icon: User },
+      { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+      { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      ...(scheduleCExpense ? [scheduleCTab] : []),
+      ...(scheduleEExpense ? [scheduleETab] : []),
+    ]
+
+// Overflow tabs (shown in "More" dropdown)
+const overflowTabs = isBusiness
+  ? [...(!scheduleCExpense ? [scheduleCTab] : [])]
+  : [
+      ...(!scheduleCExpense ? [scheduleCTab] : []),
+      ...(!scheduleEExpense ? [scheduleETab] : []),
+    ]
+```
+
+**Header Adaptations:**
+
+1. **Avatar**
+   - BUSINESS: Building2 icon with primary/10 background
+   - INDIVIDUAL: Initials with color-coded background (getAvatarColor)
+
+2. **Business Type Badge**
+   - BUSINESS only: Displays businessType (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+   - Maps via BUSINESS_TYPE_LABELS (e.g., "S_CORP" → "S-Corp")
+   - Style: px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary
+
+3. **EIN Display**
+   - BUSINESS only: Shows einMasked in header (e.g., "EIN: XX-XXXX567")
+   - INDIVIDUAL: No EIN displayed
+
+**Cross-Link Banner (lines 551-574):**
+
+Shows linked clients in same ClientGroup below back button:
+```typescript
+{client.clientGroup && client.clientGroup.clients.length > 1 && (
+  <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
+    <span className="text-muted-foreground">Linked:</span>
+    {client.clientGroup.clients
+      .filter(c => c.id !== clientId)
+      .map(sibling => (
+        <Link
+          key={sibling.id}
+          to="/clients/$clientId"
+          params={{ clientId: sibling.id }}
+          className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+        >
+          {sibling.clientType === 'BUSINESS' ? (
+            <Building2 className="w-3.5 h-3.5" />
+          ) : (
+            <User className="w-3.5 h-3.5" />
+          )}
+          {sibling.name}
+          <ArrowRight className="w-3 h-3" />
+        </Link>
+      ))}
+  </div>
+)}
+```
+
+**Tab State Management:**
+
+Tab state resets on clientId change via useEffect (prevents stale state when navigating between clients):
+```typescript
+useEffect(() => {
+  setActiveTab('files') // or appropriate default per clientType
+}, [clientId])
+```
+
+**Removed Features:**
+- Old "Businesses" tab (businesses now appear as separate top-level clients)
+- Schedule E support for BUSINESS clients (E-type income is individual-only)
+
+**Tab Type Definition:**
+```typescript
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
+```
+
+---
+
 ## Phase 04: Frontend Profile Toggles - CPA Upload SMS Notifications
 
 **Overview:**
@@ -1933,6 +2053,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.9
-**Last Updated:** 2026-04-05
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging.
+**Version:** 3.0
+**Last Updated:** 2026-04-09
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tab layout) complete - BUSINESS clients show Contractors tab, INDIVIDUAL clients show Schedule E tab. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging + Phase 12 Multi-Path Client Wizard + Phase 13 Type-Based Tabs.

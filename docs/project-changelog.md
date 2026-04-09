@@ -7,6 +7,38 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 08 (API Contractor Routes Re-Parent) ✅ COMPLETE
+**Status:** Complete (Phase 08 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 08](../plans/260408-business-entity-separation/phase-08-api-contractor-reparent.md)
+
+**Summary:** Contractor API routes re-parented from /businesses/:businessId/contractors to /clients/:clientId/contractors with clientId-scoped access control via verifyBusinessClient. All 8 contractor endpoints support new route structure while maintaining backward compatibility with deprecated /businesses routes (Phase 15 cleanup).
+
+**What Changed:**
+- **New Routes:** GET/POST/PATCH/DELETE /clients/:clientId/contractors + upload-excel, bulk-save, all variants
+- **New File:** `apps/api/src/routes/contractors/client-contractors.ts` - New route group with clientId param, verifyBusinessClient auth
+- **New File:** `apps/api/src/routes/contractors/find-business-id.ts` - Transition helper bridging legacy Contractor.businessId requirement
+- **Modified:** `apps/api/src/routes/contractors/index.ts` - Exports clientContractorsRoute, maintains deprecated /businesses routes with @deprecated JSDoc
+- **Modified:** `apps/api/src/app.ts` - Registers both new clientContractorsRoute (/clients) + deprecated contractorsRoute (/businesses)
+- **Auth Pattern:** All routes use verifyBusinessClient(clientId, user) enforcing clientType=BUSINESS + org-scope
+- **Transition Helper:** findBusinessIdForClient(clientId) maps client to legacy Business ID via ClientGroup lookup (exact + fuzzy name matching)
+- **Data Safety:** Contractor.businessId still required during transition; new creates populate both businessId + clientId FKs
+
+**Files Changed:**
+- **New:** `apps/api/src/routes/contractors/client-contractors.ts` - 150+ LOC
+- **New:** `apps/api/src/routes/contractors/find-business-id.ts` - 50 LOC
+- **Modified:** `apps/api/src/routes/contractors/index.ts` - Exports + deprecated routes
+- **Modified:** `apps/api/src/app.ts` - Route registration
+
+**Backward Compatibility:** ✅ Full
+- All /businesses/:businessId/contractors routes remain functional
+- Existing integrations continue without changes
+- @deprecated markers indicate Phase 15 removal timeline
+
+**Next Phase:** Phase 09 will re-parent 1099-NEC + FilingBatch routes; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
 ### Feature: Business Entity Separation - Phase 05 (API Org Scope Helper) ✅ COMPLETE
 **Status:** Complete (Phase 05 of 15)
 **Branch:** feature/ella-enhance-202

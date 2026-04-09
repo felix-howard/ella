@@ -227,6 +227,20 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
 - Endpoints for document lifecycle
 
+**Contractor Management (8 - Phase 08 Client Re-Parent Routes):**
+- `GET /clients/:clientId/contractors` - List contractors for business client. Enforces clientType=BUSINESS + org-scope via verifyBusinessClient. Returns contractor list with latest 1099-NEC form per contractor if available (id, firstName, lastName, ssnLast4, address, city, state, zip, email, phone, formId, formStatus, hasCopyA, hasCopyB).
+- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Internally maps to legacy Contractor.businessId via findBusinessIdForClient bridge during transition. Returns 201 with created contractor.
+- `PATCH /clients/:clientId/contractors/:id` - Update contractor details. Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
+- `DELETE /clients/:clientId/contractors/:id` - Delete contractor. Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block: columns A-C left, E-G right). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
+- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB. Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
+- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client. Org-scoped with verifyBusinessClient. Returns 204.
+- `GET /clients/:clientId/contractors/all` - Alternative list endpoint (same as GET /clients/:clientId/contractors).
+- **DEPRECATED Routes** (Backward Compat, Phase 15 removal): All `/businesses/:businessId/contractors` routes remain functional but marked @deprecated. Existing integrations continue working without changes.
+- **Transition Helper** (`apps/api/src/routes/contractors/find-business-id.ts`): findBusinessIdForClient(clientId) bridges legacy Contractor.businessId requirement. Queries ClientGroup → INDIVIDUAL client → Business by name (exact match first, case-insensitive fallback, single-business shortcut). Returns null if no Business found (for new BUSINESS clients post-migration).
+- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
+- **Data Model**: Contractor has dual FKs during transition—businessId (Cascade, primary parent for now) + clientId (nullable, SetNull, Phase 03). All new creates populate both FKs. Phase 15 will drop businessId FK entirely.
+
 **1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
 - `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessClient.
 - `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessClient.

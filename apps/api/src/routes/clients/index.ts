@@ -1465,7 +1465,7 @@ clientsRoute.post(
   '/create-with-business',
   zValidator('json', createWithBusinessSchema),
   async (c) => {
-    const { individual, business, groupName } = c.req.valid('json')
+    const { individual, business, groupName, customMessage } = c.req.valid('json')
     const user = c.get('user')
 
     if (!user.organizationId || !user.staffId) {
@@ -1494,6 +1494,7 @@ clientsRoute.post(
               },
             },
           },
+          include: { profile: true },
         })
 
         // Create engagement + tax case for individual
@@ -1578,8 +1579,38 @@ clientsRoute.post(
           data: { clientGroupId: group.id },
         })
 
-        return { individualClient, businessClient, group }
+        return { individualClient, businessClient, group, indivCase }
       })
+
+      // Generate checklist for individual's tax case
+      await generateChecklist(
+        result.indivCase.id,
+        (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+        result.individualClient.profile!
+      )
+
+      // Create magic link and send welcome SMS for individual client
+      const magicLink = await createMagicLink(result.indivCase.id)
+
+      let smsStatus: { sent: boolean; error?: string } = { sent: false }
+      if (isSmsEnabled()) {
+        try {
+          const smsResult = await sendWelcomeMessage(
+            result.indivCase.id,
+            result.individualClient.name,
+            result.individualClient.phone,
+            magicLink,
+            result.indivCase.taxYear,
+            result.individualClient.language as 'VI' | 'EN',
+            customMessage,
+            user.staffId
+          )
+          smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
+        } catch (error) {
+          console.error('[Create With Business] Failed to send welcome SMS:', error)
+          smsStatus = { sent: false, error: 'SMS_SEND_FAILED' }
+        }
+      }
 
       return c.json(
         {
@@ -1599,6 +1630,8 @@ clientsRoute.post(
               id: result.group.id,
               name: result.group.name,
             },
+            magicLink,
+            smsStatus,
           },
         },
         201

@@ -1923,6 +1923,7 @@ export interface CreateWithBusinessInput {
     profile: { taxYear: number; taxTypes?: TaxType[] }
   }
   groupName?: string
+  customMessage?: string
 }
 
 export interface CreateWithBusinessResponse {
@@ -2013,6 +2014,9 @@ export interface Conversation {
     name: string
     phone: string
     language: Language
+    clientType?: 'INDIVIDUAL' | 'BUSINESS'
+    clientGroupId?: string | null
+    clientGroupName?: string | null
   }
   taxCase: {
     id: string

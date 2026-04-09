@@ -239,6 +239,7 @@ function CreateClientPage() {
             profile: { taxYear: taxYear },
           },
           groupName: `${basicInfo.firstName.trim()} ${basicInfo.lastName.trim()} Group`,
+          customMessage: currentMessage,
         })
         navigate({ to: '/clients/$clientId', params: { clientId: response.data.individual.id } })
       } else if (clientCreationType === 'BUSINESS') {

@@ -261,6 +261,7 @@ export const createWithBusinessSchema = z.object({
     }),
   }),
   groupName: z.string().max(100).optional(),
+  customMessage: z.string().max(500).optional(),
 })
 
 // Type exports

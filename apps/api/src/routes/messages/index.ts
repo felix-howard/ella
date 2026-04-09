@@ -91,7 +91,20 @@ messagesRoute.get(
           taxCase: {
             include: {
               client: {
-                select: { id: true, name: true, phone: true, language: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  language: true,
+                  clientType: true,
+                  clientGroupId: true,
+                  clientGroup: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
               },
             },
           },
@@ -126,7 +139,15 @@ messagesRoute.get(
         lastMessageAt: conv.lastMessageAt?.toISOString() || null,
         createdAt: conv.createdAt.toISOString(),
         updatedAt: conv.updatedAt.toISOString(),
-        client: conv.taxCase.client,
+        client: {
+          id: conv.taxCase.client.id,
+          name: conv.taxCase.client.name,
+          phone: conv.taxCase.client.phone,
+          language: conv.taxCase.client.language,
+          clientType: conv.taxCase.client.clientType,
+          clientGroupId: conv.taxCase.client.clientGroupId,
+          clientGroupName: conv.taxCase.client.clientGroup?.name ?? null,
+        },
         taxCase: {
           id: conv.taxCase.id,
           taxYear: conv.taxCase.taxYear,

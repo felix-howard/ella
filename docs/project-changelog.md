@@ -7,6 +7,52 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 09 (1099-NEC Routes Re-Parent + Shared Helpers) ✅ COMPLETE
+**Status:** Complete (Phase 09 of 15)
+**Branch:** feature/ella-enhance-202
+
+**Summary:** 1099-NEC form + filing batch endpoints re-parented from /businesses/:businessId/1099-nec/* to /clients/:clientId/1099-nec/*. New routes enforce BUSINESS-type client validation via verifyBusinessClient. Shared TaxBandits helpers (createFormsInTaxBandits, fetchDraftPdfs) extracted for DRY compliance. Contractor intake auto-populates clientId on new records.
+
+**What Changed:**
+- **New Routes:** GET/POST /clients/:clientId/1099-nec/status, /create, /fetch-pdfs, /fetch-recipient-pdfs, /prepare, /transmit
+- **New Routes:** GET/POST /clients/:clientId/1099-nec/pdfs, /pdfs/recipient, /:formId/pdf, /:formId/pdf/recipient
+- **New Routes:** GET /clients/:clientId/1099-nec/batches, /batches/:batchId, POST /batches/:batchId/refresh
+- **New Files:**
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec.ts` - Status, create, fetch-pdfs under /clients/:clientId/1099-nec
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-pdfs.ts` - PDF download endpoints
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-batches.ts` - Transmit, batches endpoints
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-prepare.ts` - One-click prepare (create + fetch PDFs)
+  - `apps/api/src/routes/form-1099-nec/shared-helpers.ts` - Shared TaxBandits helpers (createFormsInTaxBandits, fetchDraftPdfs)
+- **Auth Pattern:** All routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations
+- **Transition Helper:** Uses findBusinessIdForClient(clientId) to locate legacy Business record for TaxBandits submission
+- **Contractor Intake:** Auto-populates clientId from token.clientId on new contractor creation
+- **Backward Compatibility:** All /businesses/:businessId/1099-nec/* routes remain functional (deprecated marker added)
+
+**Files Changed:**
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec.ts` - 150+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-pdfs.ts` - 80+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-batches.ts` - 120+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-prepare.ts` - 100+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/shared-helpers.ts` - 80+ LOC (DRY helpers)
+- **Modified:** `apps/api/src/routes/form-1099-nec/index.ts` - Added deprecated marker, exports shared route
+- **Modified:** `apps/api/src/routes/contractor-intake/index.ts` - Auto-populates clientId from token
+- **Modified:** `apps/api/src/app.ts` - Route registration for new /clients routes + deprecated /businesses routes
+
+**Key Features:**
+- One-click prepare endpoint (/clients/:clientId/1099-nec/prepare) combines form creation + PDF fetch
+- Batch status refresh endpoint auto-updates form + batch statuses from TaxBandits API
+- Auto-fetch recipient PDFs (Copy B + Copy C) after successful transmission
+- Shared helpers reduce code duplication between /clients and /businesses routes during transition
+
+**Backward Compatibility:** ✅ Full
+- All /businesses/:businessId/1099-nec/* routes remain functional and unchanged
+- Existing integrations continue without modifications
+- @deprecated markers indicate Phase 15 removal timeline
+
+**Next Phase:** Phase 10+ will handle remaining entity separation routes; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
 ### Feature: Business Entity Separation - Phase 08 (API Contractor Routes Re-Parent) ✅ COMPLETE
 **Status:** Complete (Phase 08 of 15)
 **Branch:** feature/ella-enhance-202

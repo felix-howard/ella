@@ -35,6 +35,10 @@ import { contractorIntakeRoute } from './routes/contractor-intake'
 import { clientContractorsRoute, contractorsRoute } from './routes/contractors'
 import { businessesRoute } from './routes/businesses'
 import { form1099NecRoute } from './routes/form-1099-nec'
+import { clientForm1099NecRoute } from './routes/form-1099-nec/client-form-1099-nec'
+import { clientForm1099NecPdfsRoute } from './routes/form-1099-nec/client-form-1099-nec-pdfs'
+import { clientForm1099NecBatchesRoute } from './routes/form-1099-nec/client-form-1099-nec-batches'
+import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-form-1099-nec-prepare'
 import { campaignsRoute } from './routes/campaigns'
 import { clientGroupsRoute } from './routes/client-groups'
 
@@ -97,8 +101,12 @@ app.use('/businesses/*', authMiddleware)
 app.route('/clients', clientsRoute)
 app.route('/clients', businessesRoute) // /clients/:clientId/businesses
 app.route('/clients', clientContractorsRoute) // /clients/:clientId/contractors (new)
+app.route('/clients', clientForm1099NecRoute) // /clients/:clientId/1099-nec/* (new)
+app.route('/clients', clientForm1099NecPdfsRoute) // /clients/:clientId/1099-nec/pdfs/* (new)
+app.route('/clients', clientForm1099NecBatchesRoute) // /clients/:clientId/1099-nec/batches/* (new)
+app.route('/clients', clientForm1099NecPrepareRoute) // /clients/:clientId/1099-nec/prepare (new)
 app.route('/businesses', contractorsRoute) // /businesses/:businessId/contractors (deprecated)
-app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/*
+app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/* (deprecated)
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)

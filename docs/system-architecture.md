@@ -241,18 +241,31 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
 - **Data Model**: Contractor has dual FKs during transition—businessId (Cascade, primary parent for now) + clientId (nullable, SetNull, Phase 03). All new creates populate both FKs. Phase 15 will drop businessId FK entirely.
 
-**1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
-- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessClient.
-- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessClient.
-- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessClient.
-- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessClient.
-- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessClient.
-- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessClient.
-- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessClient.
-- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessClient.
-- Models: Form1099NEC (with status enum, validation errors, eFile tracking, businessId FK), FilingBatch (groups multiple forms by tax year, businessId FK). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
+**1099-NEC Tax Form Integration (15 routes - TaxBandits API, Phase 09 Client-Scoped Routes):**
+- **NEW ROUTES** (Phase 09 - Client-Scoped, preferred):
+  - `GET /clients/:clientId/1099-nec/status` - Form status counts (clientType=BUSINESS clients only).
+  - `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Enforces BUSINESS client via verifyBusinessClient + requireOrgAdmin.
+  - `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY).
+  - `POST /clients/:clientId/1099-nec/fetch-recipient-pdfs` - Fetch Copy B + C PDFs after IRS transmission (SUBMITTED/ACCEPTED → stored).
+  - `POST /clients/:clientId/1099-nec/prepare` - One-click: create forms + fetch draft PDFs combined (single API call).
+  - `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Auto-fetches recipient PDFs post-transmission.
+  - `GET /clients/:clientId/1099-nec/pdfs` - Signed URLs for all PDF-ready forms (5-min TTL).
+  - `GET /clients/:clientId/1099-nec/pdfs/recipient` - Signed URLs for Copy B PDFs (contractor copies, 5-min TTL).
+  - `GET /clients/:clientId/1099-nec/:formId/pdf` - Download individual form PDF (signed URL).
+  - `GET /clients/:clientId/1099-nec/:formId/pdf/recipient` - Download Copy B PDF (signed URL).
+  - `GET /clients/:clientId/1099-nec/batches` - List filing batches for client.
+  - `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with form statuses.
+  - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits API.
+- **DEPRECATED ROUTES** (Phase 15 removal - backward compat):
+  - All `/businesses/:businessId/1099-nec/*` routes remain functional. Org-scoped via verifyBusinessAccess (deprecated).
+- **Auth Pattern:** All new client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
+- **Transition Helper:** Routes use findBusinessIdForClient(clientId) to locate legacy Business record for TaxBandits submission details.
+- **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking).
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
-- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessClient() validates Client with clientType=BUSINESS belongs to user's org. verifyBusinessAccess() deprecated—Phase 15 removal. Replaced clientType guards with org-scoped Client access pattern.
+- **Shared Helpers** (`apps/api/src/routes/form-1099-nec/shared-helpers.ts`, Phase 09):
+  - `createFormsInTaxBandits()` - DRY helper for recipient list building + TaxBandits API call + batch creation + form correlation by Sequence ID.
+  - `fetchDraftPdfs()` - DRY helper for parallel PDF fetch from TaxBandits S3 + R2 storage + form status updates.
+  - Reduces code duplication between /clients and /businesses routes during transition.
 
 **Messages & Voice (15):**
 - `GET /messages` - List conversations (org-scoped)

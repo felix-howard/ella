@@ -7,6 +7,43 @@
 
 ## 2026-04-09
 
+### Feature: Business Entity Separation - Phase 15 (Cleanup & Deprecate Business Model) ✅ COMPLETE
+**Status:** Complete (Phase 15 of 15 — ALL PHASES DONE)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 15](../plans/260408-business-entity-separation/phase-15-cleanup-deprecate-business.md)
+
+**Summary:** Final cleanup phase completed. Removed legacy Business model entirely from schema, dropped businessId FK columns, made clientId required on Contractor/FilingBatch/ContractorIntakeToken, deleted all /businesses/* routes and deprecated code, removed verifyBusinessAccess function, cleaned up frontend Business components, and removed businesses namespace from API client. Migration applied and verified with full type-check, build, and test suite passing.
+
+**What Changed:**
+- **Schema Cleanup:** Business model removed entirely from schema.prisma; all 3 child models converted to direct clientId FK with Cascade delete
+- **Column Cleanup:** Dropped businessId FK columns from Contractor, FilingBatch, ContractorIntakeToken; made clientId non-nullable on all 3
+- **API Routes Deleted:** Removed `/businesses/*` route handlers, schema validators, and route registrations
+- **Deprecated Functions Removed:** Deleted verifyBusinessAccess from org-scope.ts; no longer needed
+- **Frontend Cleanup:** Deleted `apps/workspace/src/components/businesses/` directory; removed BusinessesTab imports from client detail; all Business-related UI gone
+- **API Client Update:** Removed businesses namespace from `apps/workspace/src/lib/api-client.ts`
+- **New Endpoints Added:** Intake token CRUD endpoints under `/clients/:clientId/intake-token` for replacements
+- **Code Extraction:** Extracted getBusinessClientForFiling shared helper for DRY code patterns
+- **Migration Applied:** 20260409140000_remove_business_model_cleanup — reviewed and verified for data safety
+
+**Verification & Testing:**
+- Data integrity: All Contractor/FilingBatch/IntakeToken records have valid clientId (no orphans)
+- Type-check: Full TypeScript strict mode passes
+- Build: `pnpm build` succeeded with zero errors
+- Tests: Full test suite passed; no references to removed code
+- Backward compat: All /clients/:clientId/* routes fully functional; no regressions
+
+**Files Changed:**
+- **Modified:** `packages/db/prisma/schema.prisma` - Removed Business model, updated 3 child models
+- **Deleted:** `apps/api/src/routes/businesses/*` - All business route files
+- **Modified:** `apps/api/src/lib/org-scope.ts` - Removed verifyBusinessAccess function
+- **Deleted:** `apps/workspace/src/components/businesses/*` - All business UI components
+- **Modified:** `apps/workspace/src/lib/api-client.ts` - Removed businesses namespace
+- **Applied Migration:** 20260409140000_remove_business_model_cleanup
+
+**Post-Implementation Status:** Entire Business Entity Separation Approach B initiative COMPLETE. All 15 phases delivered, tested, and merged. Schema simplified, codebase cleaned, routes optimized. Production ready.
+
+---
+
 ### Feature: Business Entity Separation - Phase 14 (Portal Entity Picker) ✅ COMPLETE
 **Status:** Complete (Phase 14 of 15)
 **Branch:** feature/ella-enhance-202

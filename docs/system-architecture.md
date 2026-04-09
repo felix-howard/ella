@@ -59,7 +59,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
 - `/clients/new` - Multi-path client creation wizard (Phase 12)
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses, Schedule C, Schedule E, Draft Return (Phase 04)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -220,14 +220,6 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
 
-**Business CRUD (4 - Phase 02 Client-Business Separation):**
-- `GET /clients/:clientId/businesses` - List all businesses for a client (org-scoped, reads). Returns business name, type (enum), masked EIN (XX-XXX####), address, city, state, zip, contractor count, timestamps. Ordered by createdAt descending.
-- `GET /clients/:clientId/businesses/:businessId` - Get single business detail (org-scoped, reads). Includes contractor count + filing batch count for delete validation.
-- `POST /clients/:clientId/businesses` - Create business for client (org-scoped, requireOrgAdmin). EIN encrypted with audit logging. Payload: name, type (SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), ein (XX-XXXXXXX format), address, city, state, zip. Returns 201 with created business (EIN masked).
-- `PATCH /clients/:clientId/businesses/:businessId` - Update business fields (org-scoped, requireOrgAdmin). All fields optional. EIN re-encrypted + logged if changed. Returns updated business with masked EIN.
-- `DELETE /clients/:clientId/businesses/:businessId` - Delete business (org-scoped, requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked (enforce data integrity). Returns 200 on success.
-- **Security:** All writes (POST/PATCH/DELETE) require requireOrgAdmin middleware. EIN encryption via encryptSSN/decryptSSN. Audit logging for EIN changes via logProfileChanges. Org-scoped access via buildClientScopeFilter. Client existence verified before business operations.
-
 **Client Groups (5 - Phase 10 Entity Separation):**
 - `GET /client-groups` - List org client groups with pagination (limit 1-100, default 20). Supports full-text search by group name. Returns group id, name, client count, timestamps.
 - `GET /client-groups/:id` - Get group detail with nested clients array (id, name, clientType, phone). Returns _count.clients for stats.
@@ -258,17 +250,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Contractor Management (8 - Phase 08 Client Re-Parent Routes):**
 - `GET /clients/:clientId/contractors` - List contractors for business client. Enforces clientType=BUSINESS + org-scope via verifyBusinessClient. Returns contractor list with latest 1099-NEC form per contractor if available (id, firstName, lastName, ssnLast4, address, city, state, zip, email, phone, formId, formStatus, hasCopyA, hasCopyB).
-- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Internally maps to legacy Contractor.businessId via findBusinessIdForClient bridge during transition. Returns 201 with created contractor.
+- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
 - `PATCH /clients/:clientId/contractors/:id` - Update contractor details. Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
 - `DELETE /clients/:clientId/contractors/:id` - Delete contractor. Org-scoped with verifyBusinessClient. Returns 204.
 - `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block: columns A-C left, E-G right). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
 - `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB. Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
 - `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client. Org-scoped with verifyBusinessClient. Returns 204.
 - `GET /clients/:clientId/contractors/all` - Alternative list endpoint (same as GET /clients/:clientId/contractors).
-- **DEPRECATED Routes** (Backward Compat, Phase 15 removal): All `/businesses/:businessId/contractors` routes remain functional but marked @deprecated. Existing integrations continue working without changes.
-- **Transition Helper** (`apps/api/src/routes/contractors/find-business-id.ts`): findBusinessIdForClient(clientId) bridges legacy Contractor.businessId requirement. Queries ClientGroup → INDIVIDUAL client → Business by name (exact match first, case-insensitive fallback, single-business shortcut). Returns null if no Business found (for new BUSINESS clients post-migration).
 - **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
-- **Data Model**: Contractor has dual FKs during transition—businessId (Cascade, primary parent for now) + clientId (nullable, SetNull, Phase 03). All new creates populate both FKs. Phase 15 will drop businessId FK entirely.
+- **Data Model** (Phase 15 Complete): Contractor.clientId is now the sole parent FK (Cascade delete). Contractor.businessId FK removed. All contractors directly linked to Client with clientType=BUSINESS.
 
 **1099-NEC Tax Form Integration (15 routes - TaxBandits API, Phase 09 Client-Scoped Routes):**
 - **NEW ROUTES** (Phase 09 - Client-Scoped, preferred):
@@ -285,11 +275,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - `GET /clients/:clientId/1099-nec/batches` - List filing batches for client.
   - `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with form statuses.
   - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits API.
-- **DEPRECATED ROUTES** (Phase 15 removal - backward compat):
-  - All `/businesses/:businessId/1099-nec/*` routes remain functional. Org-scoped via verifyBusinessAccess (deprecated).
-- **Auth Pattern:** All new client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
-- **Transition Helper:** Routes use findBusinessIdForClient(clientId) to locate legacy Business record for TaxBandits submission details.
-- **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking).
+- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
+- **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking, clientId FK, Cascade delete).
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
 - **Shared Helpers** (`apps/api/src/routes/form-1099-nec/shared-helpers.ts`, Phase 09):
   - `createFormsInTaxBandits()` - DRY helper for recipient list building + TaxBandits API call + batch creation + form correlation by Sequence ID.
@@ -360,16 +347,16 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, Phase 10 Entity Separation - default INDIVIDUAL), clientGroupId FK (optional, Phase 10 - for grouping related clients). Phase 10: Added businessType (BusinessType enum, nullable), einEncrypted (nullable, encrypted), businessAddress, businessCity, businessState, businessZip (nullable). Database stores einEncrypted; API returns einMasked (XX-XXX####) for GET /clients/:id. Backward-compat fields for clientType=BUSINESS clients before Business entity creation. Phase 03: Added reverse relations businessContractors, businessFilingBatches, businessIntakeTokens (all nullable clientId FKs on child tables). Primary business details still on Business model; direct Client relations enable querying contractor/filing/intake data by client during migration.
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
-- **Business** - clientId FK (one INDIVIDUAL client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: legacy model holds business profile (EIN, address) for INDIVIDUAL clients. Phase 10 Entity Separation: BUSINESS clients store business fields directly (businessType, einEncrypted, businessAddress, etc.) on Client model; Business model now primarily used for legacy data + old integrations. Contractors/FilingBatches linked to Business.clientId (owner) during transition to client-scoped routes.
+- **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
-- **Contractor** - businessId FK (Cascade, primary parent), clientId FK (nullable, SetNull, Phase 03 re-parent). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone. Phase 03 Schema Re-parent: Added optional clientId FK for direct Client link (backward-compat path during entity separation migration). Business remains primary parent; clientId enables fallback lookups until all contractor queries migrate to businessId scoping.
-- **FilingBatch** - businessId FK (Cascade, primary parent), clientId FK (nullable, SetNull, Phase 03 re-parent). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled). Phase 03 Schema Re-parent: Added optional clientId FK for direct Client link during migration to full Business scoping.
-- **ContractorIntakeToken** - businessId FK (Cascade, primary parent), clientId FK (nullable, SetNull, Phase 03 re-parent). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), businessId+isActive, clientId+isActive. Phase 03 Schema Re-parent: Added optional clientId FK for backward-compat lookups during Business entity migration.
+- **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
+- **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).
+- **ContractorIntakeToken** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), clientId+isActive.
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
@@ -438,8 +425,8 @@ npm run migrate:business-to-client -- --dry-run --org-id <orgId>
 **Data Integrity:**
 - All Contractor/FilingBatch/ContractorIntakeToken data preserved
 - EIN remains encrypted, no re-encryption needed
-- Org/manager assignments maintained on new business client
-- Backward-compat: Business model still exists (Phase 15 cleanup pending)
+- Org/manager assignments maintained on business client
+- Phase 15 Complete: Business model removed, all business data now on Client(clientType=BUSINESS)
 
 ## Authentication Flow
 
@@ -1203,146 +1190,6 @@ ScheduleETab (index.tsx) [4 states]
 - Type: `ScheduleEResponse { expense, magicLink, totals }`
 - Endpoint: `GET /schedule-e/:caseId` (via `api.scheduleE.get(caseId)`)
 - Magic link operations reuse existing POST /send, POST /resend routes
-
-## Businesses Tab Workspace (Phase 05 Frontend - 2026-04-03)
-
-**Location:** `apps/workspace/src/components/businesses/`
-
-**Overview:**
-Client detail tab for managing multiple businesses per client. Each business is an expandable card showing basic info + embedded contractor/1099-NEC management. Supports full CRUD operations on businesses.
-
-**Component Hierarchy:**
-```
-BusinessesTab (index.tsx)
-├── State: isLoading → <Spinner />
-├── State: error → <ErrorCard /> (with Retry button)
-├── State: empty → <EmptyState />
-│   └── Building2 icon, "No businesses yet" message
-│   └── Add Business button
-├── State: with data → <Header /> + <BusinessCard[]>
-│   └── Business count label, Add Business button
-│   └── BusinessCard[0..N]
-│       ├── Business header (clickable, expandable)
-│       │   ├── Building2 icon
-│       │   ├── Name + masked EIN badge
-│       │   ├── Type label (Sole Prop, LLC, etc.)
-│       │   ├── Address, city, state, zip
-│       │   ├── Contractor count (if > 0)
-│       │   ├── Edit button (pencil icon)
-│       │   ├── Delete button (trash icon, red)
-│       │   └── Chevron up/down (expand/collapse)
-│       └── Expanded content: <Form1099NECTab businessId={id} />
-└── <BusinessFormModal /> (create/edit)
-    ├── Name input (required)
-    ├── Type select dropdown
-    ├── EIN input (auto-formatted XX-XXXXXXX)
-    ├── Address input (required)
-    ├── City, State, ZIP (required, grid layout)
-    └── Save/Cancel buttons
-```
-
-**Sub-Components:**
-- **businesses-tab.tsx** - Main tab, data fetching, empty/error states, business list rendering
-- **business-card.tsx** - Expandable card per business, edit/delete triggers, Form1099NECTab embedding
-- **business-form-modal.tsx** - Create/edit form with validation + EIN auto-formatting
-- **index.ts** - Barrel export (BusinessesTab)
-
-**Data Hooks:**
-```typescript
-useQuery({
-  queryKey: ['businesses', clientId],
-  queryFn: () => api.businesses.list(clientId),
-})
-```
-
-**Mutations:**
-```typescript
-api.businesses.create(clientId, data)    // POST /clients/:clientId/businesses
-api.businesses.update(clientId, bizId, data)  // PATCH /clients/:clientId/businesses/:businessId
-api.businesses.delete(clientId, bizId)   // DELETE /clients/:clientId/businesses/:businessId
-```
-
-**Form Validation:**
-- Business name: required, non-empty string
-- Type: enum (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
-- EIN: required on create, optional on edit (auto-formats as XX-XXXXXXX)
-- Address: required, non-empty
-- City: required, non-empty
-- State: required, must be 2-letter code (auto-uppercase)
-- ZIP: required, must be 5 or 9 digits (format: XXXXX or XXXXX-XXXX)
-
-**Error Handling:**
-- List load error: Alert card with "Failed to load businesses" message + Retry button
-- Delete error: Toast notification with error message
-- Create/update error: Toast notification with validation details
-
-**EIN Masking:**
-- Display format: XX-XXX#### (show last 4 digits only)
-- Example: 12-3456789 → 12-345#### (masked from API response)
-
-**API Types:**
-```typescript
-interface Business {
-  id: string
-  clientId: string
-  name: string
-  type: BusinessType          // 'SOLE_PROPRIETORSHIP' | 'LLC' | ...
-  einMasked: string          // 'XX-XXX####'
-  address: string
-  city: string
-  state: string              // 2-letter code
-  zip: string
-  contractorCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
-
-interface CreateBusinessInput {
-  name: string
-  type: BusinessType
-  ein: string                // XX-XXXXXXX format
-  address: string
-  city: string
-  state: string
-  zip: string
-}
-```
-
-**Key Features:**
-- Multi-business per client: Single client can have many businesses
-- Expandable design: Contractors/1099s shown only when expanded (reduces clutter)
-- Contractor count badge: Quick visual indicator of activity per business
-- Cascade delete warning: Modal shows contractor count before deletion
-- Business type labels: Readable names (Sole Prop, LLC, etc.) vs. enum values
-- EIN security: Masked in UI, never shown in plaintext (encrypted at rest)
-
-**Integration Points:**
-- Depends on Phase 02 (Business CRUD API endpoints) and Phase 01 (Prisma model + FKs)
-- Form1099NECTab now scoped to businessId (was clientId in Phase 03)
-- Contractor routes unchanged (already migrated to businessId in Phase 03)
-- Tab navigation: Replaced "1099-NEC" tab with "Businesses" tab in client detail route
-
-**Internationalization:**
-- Placeholder text, labels, buttons, error messages need i18n keys
-- Empty state: "No businesses yet", "Add a business to manage contractors..."
-- Delete confirmation: "Are you sure you want to delete [name]?"
-- Type labels: All business type enums translated (6 keys)
-
-**Performance:**
-- Query key structure: `['businesses', clientId]` — invalidated on CRUD operations
-- Contractors query: `['contractors', businessId]` — scoped per business (loaded only when card expanded)
-- Business count badge: Re-calculated on contractor add/delete (via query invalidation)
-
-**Accessibility:**
-- Business card header: role="button", tabIndex=0, keyboard-accessible (Enter/Space)
-- Buttons: Accessible with hover/focus states
-- Icons: Semantic (Building2 for business, Pencil for edit, Trash for delete, ChevronUp/Down for expand)
-- Modal: ModalHeader, ModalTitle, form labels with htmlFor references
-- Delete confirmation: ModalFooter with Cancel/Delete buttons (red delete button)
-
----
 
 ## Phase 12: Frontend Client Creation Wizard - Multi-Path (2026-04-09)
 

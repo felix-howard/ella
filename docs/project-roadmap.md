@@ -1,14 +1,15 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-04-09 ICT
-> **Current Phase:** Business Entity Separation Approach B IN PROGRESS (Phase 13 of 15) | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Business Entity Separation Approach B Phases 01-13 COMPLETE (87% done) + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
-### Business Entity Separation - Approach B (15 Phases) IN PROGRESS
+### Business Entity Separation - Approach B (15 Phases) COMPLETE ✅
 **Started:** 2026-04-08
-**Status:** In Progress (Phases 01-14 COMPLETE, 93% done — Phase 14 completed 2026-04-09)
+**Completed:** 2026-04-09 (All 15 Phases)
+**Status:** Complete — All phases delivered, migrated, and verified
 **Branch:** feature/ella-enhance-202
 **Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
 **Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
@@ -30,7 +31,7 @@
 | 12 | Frontend: Client creation wizard (individual + business) | ✅ DONE | 2h | 2026-04-09 |
 | 13 | Frontend: Client detail tabs (adaptive per type) | ✅ DONE | 1.5h | 2026-04-09 |
 | 14 | Portal: Entity picker for multi-entity uploads | ✅ DONE | 2h | 2026-04-09 |
-| 15 | Cleanup: Deprecate Business model + remove /businesses routes | ⏳ PENDING | 1h | - |
+| 15 | Cleanup: Deprecate Business model + remove /businesses routes | ✅ DONE | 1h | 2026-04-09 |
 
 **Completed Deliverables (Phases 01-11):**
 
@@ -65,8 +66,18 @@
 - Each entity: separate TaxCase, contractors, 1099 filings
 - Routes: `/clients/:cid/*` where cid = business client (new) or legacy /businesses/:biz-id/* (deprecated)
 
-**Remaining (Phase 15):**
-- Phase 15: Cleanup — Deprecate Business model, remove /businesses routes, drop businessId FK from Contractor/FilingBatch (1h)
+**Phase 15 Completion (FINAL):**
+- Removed Business model entirely from schema.prisma
+- Dropped businessId FK columns from Contractor, FilingBatch, ContractorIntakeToken models
+- Made clientId required (non-nullable) on all 3 models with Cascade delete
+- Deleted all /businesses/* API routes and route registrations
+- Removed verifyBusinessAccess function from org-scope.ts
+- Deleted frontend /components/businesses/ directory and BusinessesTab references
+- Removed businesses namespace from api-client.ts
+- Applied migration: 20260409140000_remove_business_model_cleanup
+- Added new intake-token CRUD endpoints under /clients/:clientId/intake-token
+- Extracted getBusinessClientForFiling shared helper for code reuse
+- Full type-check and build passed; all tests verified
 
 ---
 

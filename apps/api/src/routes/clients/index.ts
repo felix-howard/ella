@@ -1502,9 +1502,8 @@ clientsRoute.post(
       throw new HTTPException(403, { message: 'Organization and staff record required' })
     }
 
-    try {
-      // Check phone uniqueness for individual client in same org
-      const existingClient = await prisma.client.findFirst({
+    // Check phone uniqueness for individual client in same org
+    const existingClient = await prisma.client.findFirst({
         where: {
           phone: individual.phone,
           clientType: 'INDIVIDUAL',
@@ -1699,11 +1698,8 @@ clientsRoute.post(
         },
         201
       )
-    } catch (error) {
-      throw error
     }
-  }
-)
+  )
 
 // ============================================
 // POST /clients/:id/link-business — Link new business to existing individual
@@ -1737,10 +1733,9 @@ clientsRoute.post(
       throw new HTTPException(400, { message: 'Only individual clients can have linked businesses' })
     }
 
-    try {
-      const result = await prisma.$transaction(async (tx) => {
-        // Create business client
-        const businessClient = await tx.client.create({
+    const result = await prisma.$transaction(async (tx) => {
+      // Create business client
+      const businessClient = await tx.client.create({
           data: {
             firstName: body.firstName,
             lastName: null,
@@ -1839,10 +1834,7 @@ clientsRoute.post(
         },
         201
       )
-    } catch (error) {
-      throw error
     }
-  }
-)
+  )
 
 export { clientsRoute }

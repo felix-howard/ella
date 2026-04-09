@@ -147,9 +147,8 @@ formRoute.post(
     const source: ClientSource = staffId ? 'STAFF_FORM' : 'GENERIC_FORM'
     const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
 
-    try {
-      // Check phone uniqueness for individual clients in same org
-      const phoneToCheck = clientType === 'BUSINESS' ? input.businessPhone : input.phone
+    // Check phone uniqueness for individual clients in same org
+    const phoneToCheck = clientType === 'BUSINESS' ? input.businessPhone : input.phone
       if (phoneToCheck) {
         const existingClient = await prisma.client.findFirst({
           where: { phone: phoneToCheck, clientType: 'INDIVIDUAL', organizationId: org.id },
@@ -262,11 +261,8 @@ formRoute.post(
       const smsSent = await trySendWelcomeSms(shouldAutoSend, result.indCase.id, fullName, input.phone!, input.taxYear, input.language, staffId)
       return c.json({ success: true, clientId: result.individual.id, smsSent })
 
-    } catch (error) {
-      throw error
     }
-  }
-)
+  )
 
 /** Try sending welcome SMS if auto-send is enabled */
 async function trySendWelcomeSms(

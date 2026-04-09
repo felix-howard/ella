@@ -336,46 +336,7 @@ export const api = {
 
   },
 
-  /** @deprecated Use clients with clientType=BUSINESS instead. Kept for backward compat during migration. */
-  businesses: {
-    list: (clientId: string) =>
-      request<{ data: Business[] }>(`/clients/${clientId}/businesses`),
-
-    create: (clientId: string, data: CreateBusinessInput) =>
-      request<{ data: Business }>(`/clients/${clientId}/businesses`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
-    update: (clientId: string, businessId: string, data: UpdateBusinessInput) =>
-      request<{ data: Business }>(`/clients/${clientId}/businesses/${businessId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
-
-    delete: (clientId: string, businessId: string) =>
-      request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
-        method: 'DELETE',
-      }),
-
-    intakeToken: {
-      get: (clientId: string, businessId: string) =>
-        request<{ data: IntakeToken | null }>(`/clients/${clientId}/businesses/${businessId}/intake-token`),
-
-      create: (clientId: string, businessId: string, taxYear?: number) =>
-        request<{ data: IntakeToken }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
-          method: 'POST',
-          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
-        }),
-
-      deactivate: (clientId: string, businessId: string) =>
-        request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
-          method: 'DELETE',
-        }),
-    },
-  },
-
-  // Contractors (under clients — entity separation)
+  // Contractors (under clients)
   contractors: {
     list: (clientId: string) =>
       request<{ data: Contractor[] }>(`/clients/${clientId}/contractors`),
@@ -415,6 +376,22 @@ export const api = {
       request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/all`, {
         method: 'DELETE',
       }),
+
+    intakeToken: {
+      get: (clientId: string) =>
+        request<{ data: IntakeToken | null }>(`/clients/${clientId}/intake-token`),
+
+      create: (clientId: string, taxYear?: number) =>
+        request<{ data: IntakeToken }>(`/clients/${clientId}/intake-token`, {
+          method: 'POST',
+          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
+        }),
+
+      deactivate: (clientId: string) =>
+        request<{ success: boolean }>(`/clients/${clientId}/intake-token`, {
+          method: 'DELETE',
+        }),
+    },
   },
 
   // 1099-NEC Forms (under clients — entity separation)
@@ -1374,40 +1351,6 @@ export interface ClientPreview {
   name: string
   clientType: ClientType
   phone: string
-}
-
-export interface Business {
-  id: string
-  name: string
-  type: BusinessType
-  einMasked: string
-  address: string
-  city: string
-  state: string
-  zip: string
-  contractorCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface CreateBusinessInput {
-  name: string
-  type: BusinessType
-  ein: string
-  address: string
-  city: string
-  state: string
-  zip: string
-}
-
-export interface UpdateBusinessInput {
-  name?: string
-  type?: BusinessType
-  ein?: string
-  address?: string
-  city?: string
-  state?: string
-  zip?: string
 }
 
 export interface Contractor {

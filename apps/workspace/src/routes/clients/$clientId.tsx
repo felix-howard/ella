@@ -942,7 +942,7 @@ function ClientDetailPage() {
       {activeTab === 'contractors' && isBusiness && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load Contractors tab</div>}>
           <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-            <Form1099NECTab businessId={clientId} clientId={clientId} clientName={client.name} />
+            <Form1099NECTab clientId={clientId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

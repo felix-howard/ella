@@ -44,20 +44,10 @@ contractorIntakeRoute.get(
       select: {
         taxYear: true,
         clientId: true,
-        businessClient: {
+        client: {
           select: {
             name: true,
             organization: { select: { name: true, logoUrl: true } },
-          },
-        },
-        business: {
-          select: {
-            name: true,
-            client: {
-              select: {
-                organization: { select: { name: true, logoUrl: true } },
-              },
-            },
           },
         },
       },
@@ -67,11 +57,8 @@ contractorIntakeRoute.get(
       return c.json({ error: 'Invalid or expired intake link' }, 404)
     }
 
-    // Prefer new clientId-based lookup, fall back to legacy business
-    const businessName = intakeToken.businessClient?.name ?? intakeToken.business.name
-    const org = intakeToken.businessClient?.organization
-      ?? intakeToken.business.client.organization
-      ?? { name: '', logoUrl: null }
+    const businessName = intakeToken.client.name
+    const org = intakeToken.client.organization ?? { name: '', logoUrl: null }
 
     return c.json({
       business: { name: businessName },
@@ -99,7 +86,7 @@ contractorIntakeRoute.post(
         isActive: true,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
-      select: { businessId: true, clientId: true, taxYear: true },
+      select: { clientId: true, taxYear: true },
     })
 
     if (!intakeToken) {
@@ -114,7 +101,6 @@ contractorIntakeRoute.post(
     const result = await prisma.$transaction(async (tx) => {
       const contractor = await tx.contractor.create({
         data: {
-          businessId: intakeToken.businessId,
           clientId: intakeToken.clientId,
           firstName: input.firstName,
           lastName: input.lastName,
@@ -149,7 +135,7 @@ contractorIntakeRoute.post(
       return contractor
     })
 
-    console.log(`[ContractorIntake] Created contractor + 1099-NEC via token ${token} for client ${intakeToken.clientId ?? intakeToken.businessId}`)
+    console.log(`[ContractorIntake] Created contractor + 1099-NEC via token ${token} for client ${intakeToken.clientId}`)
 
     return c.json({ success: true, contractor: result })
   }

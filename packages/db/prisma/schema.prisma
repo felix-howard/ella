@@ -588,12 +588,11 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
-  businesses     Business[]
 
   // Business-type client relations (for clientType = BUSINESS)
-  businessContractors    Contractor[]           @relation("BusinessContractors")
-  businessFilingBatches  FilingBatch[]           @relation("BusinessFilingBatches")
-  businessIntakeTokens   ContractorIntakeToken[] @relation("BusinessIntakeTokens")
+  contractors    Contractor[]
+  filingBatches  FilingBatch[]
+  intakeTokens   ContractorIntakeToken[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -621,32 +620,6 @@ model Client {
   @@index([clientGroupId])
 }
 
-// ============================================
-// Business entity (linked to Client)
-// ============================================
-
-model Business {
-  id             String       @id @default(cuid())
-  clientId       String
-  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  name           String
-  type           BusinessType
-  einEncrypted   String       // AES-256-GCM encrypted EIN
-  address        String
-  city           String
-  state          String       // 2-char state code
-  zip            String
-
-  contractors    Contractor[]
-  filingBatches  FilingBatch[]
-  intakeTokens   ContractorIntakeToken[]
-
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@index([clientId])
-}
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
 /// Will be removed after all clients migrate to engagement-based queries.
@@ -1506,10 +1479,8 @@ model Campaign {
 
 model Contractor {
   id                  String   @id @default(cuid())
-  businessId          String
-  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  clientId            String?
-  businessClient      Client?  @relation("BusinessContractors", fields: [clientId], references: [id], onDelete: SetNull)
+  clientId            String
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   firstName           String
   lastName            String
   tinType             String   @default("SSN") // "SSN" or "EIN"
@@ -1527,7 +1498,6 @@ model Contractor {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  @@index([businessId])
   @@index([clientId])
 }
 
@@ -1537,10 +1507,8 @@ model Contractor {
 
 model ContractorIntakeToken {
   id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  clientId   String?
-  businessClient Client? @relation("BusinessIntakeTokens", fields: [clientId], references: [id], onDelete: SetNull)
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   token      String   @unique @default(cuid())
   taxYear    Int
@@ -1551,7 +1519,6 @@ model ContractorIntakeToken {
   updatedAt  DateTime @updatedAt
 
   @@index([token])
-  @@index([businessId, isActive])
   @@index([clientId, isActive])
 }
 
@@ -1608,10 +1575,8 @@ enum FilingStatus {
 
 model FilingBatch {
   id                  String        @id @default(cuid())
-  businessId          String
-  business            Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  clientId            String?
-  businessClient      Client?       @relation("BusinessFilingBatches", fields: [clientId], references: [id], onDelete: SetNull)
+  clientId            String
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   taxYear             Int
   status              FilingStatus  @default(PENDING)
   taxbanditsSubmissionId String?
@@ -1629,7 +1594,6 @@ model FilingBatch {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  @@index([businessId])
   @@index([clientId])
   @@index([status])
   @@index([taxbanditsSubmissionId])

@@ -88,18 +88,3 @@ export async function verifyBusinessClient(
   })
   return client
 }
-
-/** @deprecated Use verifyBusinessClient instead. Will be removed in Phase 15. */
-export async function verifyBusinessAccess(
-  businessId: string,
-  user: AuthUser
-): Promise<{ id: string; clientId: string } | null> {
-  const business = await prisma.business.findFirst({
-    where: {
-      id: businessId,
-      client: buildClientScopeFilter(user),
-    },
-    select: { id: true, clientId: true },
-  })
-  return business
-}

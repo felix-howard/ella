@@ -4,14 +4,15 @@
  * All routes require auth via parent middleware
  */
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { verifyBusinessClient } from '../../lib/org-scope'
+import { requireOrgAdmin } from '../../middleware/auth'
 import { encryptSSN } from '../../services/crypto'
 import { logProfileChanges } from '../../services/audit-logger'
 import { parseNailSalonExcel } from '../../services/excel-parser'
 import { createContractorSchema, updateContractorSchema, bulkSaveContractorsSchema } from './validators'
-import { findBusinessIdForClient } from './find-business-id'
 import type { AuthVariables } from '../../middleware/auth'
 
 const clientContractorsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -69,19 +70,13 @@ clientContractorsRoute.post(
       return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
     }
 
-    // During transition, Contractor.businessId is still required
-    const businessId = await findBusinessIdForClient(clientId)
-    if (!businessId) {
-      return c.json({ error: 'TRANSITION_ERROR', message: 'No legacy Business record found for this client. Required during transition.' }, 400)
-    }
-
     const ssnDigits = data.ssn.replace(/\D/g, '')
     const ssnLast4 = ssnDigits.slice(-4)
     const ssnEncrypted = encryptSSN(data.ssn)
 
     const contractor = await prisma.contractor.create({
       data: {
-        clientId, businessId,
+        clientId,
         firstName: data.firstName, lastName: data.lastName, tinType: data.tinType,
         ssnEncrypted, ssnLast4,
         address: data.address, city: data.city, state: data.state, zip: data.zip,
@@ -270,11 +265,6 @@ clientContractorsRoute.post(
       return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
     }
 
-    const businessId = await findBusinessIdForClient(clientId)
-    if (!businessId) {
-      return c.json({ error: 'TRANSITION_ERROR', message: 'No legacy Business record found for this client. Required during transition.' }, 400)
-    }
-
     try {
       const saved = await prisma.$transaction(async (tx) => {
         const results = []
@@ -285,7 +275,7 @@ clientContractorsRoute.post(
 
           const created = await tx.contractor.create({
             data: {
-              clientId, businessId,
+              clientId,
               firstName: contractor.firstName, lastName: contractor.lastName,
               tinType: contractor.tinType, ssnEncrypted, ssnLast4,
               address: contractor.address, city: contractor.city,
@@ -324,5 +314,69 @@ clientContractorsRoute.post(
     }
   }
 )
+
+/** GET /clients/:clientId/intake-token */
+clientContractorsRoute.get('/:clientId/intake-token', async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+
+  const client = await verifyBusinessClient(clientId, user)
+  if (!client) return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
+
+  const intakeToken = await prisma.contractorIntakeToken.findFirst({
+    where: { clientId, isActive: true },
+    orderBy: { createdAt: 'desc' },
+    select: { token: true, taxYear: true, createdAt: true },
+  })
+
+  return c.json({ data: intakeToken ?? null })
+})
+
+/** POST /clients/:clientId/intake-token */
+clientContractorsRoute.post(
+  '/:clientId/intake-token',
+  requireOrgAdmin,
+  zValidator('json', z.object({ taxYear: z.number().int().min(2000).max(2099).optional() })),
+  async (c) => {
+    const user = c.get('user')
+    const { clientId } = c.req.param()
+    const body = c.req.valid('json')
+
+    const client = await verifyBusinessClient(clientId, user)
+    if (!client) return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
+
+    const taxYear = body.taxYear ?? new Date().getFullYear() - 1
+
+    await prisma.contractorIntakeToken.updateMany({
+      where: { clientId, isActive: true },
+      data: { isActive: false },
+    })
+
+    const intakeToken = await prisma.contractorIntakeToken.create({
+      data: { clientId, taxYear },
+      select: { token: true, taxYear: true, createdAt: true },
+    })
+
+    console.log(`[Contractors] Created intake token for client ${clientId} (year ${taxYear}) by staff ${user.staffId}`)
+    return c.json({ data: intakeToken }, 201)
+  }
+)
+
+/** DELETE /clients/:clientId/intake-token */
+clientContractorsRoute.delete('/:clientId/intake-token', requireOrgAdmin, async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+
+  const client = await verifyBusinessClient(clientId, user)
+  if (!client) return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
+
+  await prisma.contractorIntakeToken.updateMany({
+    where: { clientId, isActive: true },
+    data: { isActive: false },
+  })
+
+  console.log(`[Contractors] Deactivated intake tokens for client ${clientId} by staff ${user.staffId}`)
+  return c.json({ success: true })
+})
 
 export { clientContractorsRoute }

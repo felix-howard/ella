@@ -5,10 +5,8 @@
 import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
 import { config } from '../../lib/config'
-import { verifyBusinessClient } from '../../lib/org-scope'
 import { taxbanditsClient } from '../../services/taxbandits-client'
-import { findBusinessIdForClient } from '../contractors/find-business-id'
-import { createFormsInTaxBandits, fetchDraftPdfs } from './shared-helpers'
+import { getBusinessClientForFiling, createFormsInTaxBandits, fetchDraftPdfs } from './shared-helpers'
 import type { AuthVariables } from '../../middleware/auth'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { Form1099Status } from '@ella/db'
@@ -24,17 +22,8 @@ clientForm1099NecPrepareRoute.post('/:clientId/1099-nec/prepare', requireOrgAdmi
     return c.json({ error: 'TaxBandits API is not configured' }, 503)
   }
 
-  const client = await verifyBusinessClient(clientId, user)
-  if (!client) return c.json({ error: 'Business client not found' }, 404)
-
-  const businessId = await findBusinessIdForClient(clientId)
-  if (!businessId) return c.json({ error: 'No linked business record found' }, 404)
-
-  const business = await prisma.business.findUnique({
-    where: { id: businessId },
-    select: { id: true, name: true, einEncrypted: true, address: true, city: true, state: true, zip: true },
-  })
-  if (!business) return c.json({ error: 'Business record not found' }, 404)
+  const business = await getBusinessClientForFiling(clientId, user)
+  if (!business) return c.json({ error: 'Business client not found or missing required fields' }, 404)
 
   const contractors = await prisma.contractor.findMany({
     where: { clientId },

@@ -8,11 +8,11 @@ import { cn } from '@ella/ui'
 import { api, type ParseResult } from '../../../../lib/api-client'
 
 interface ContractorUploadProps {
-  businessId: string
+  clientId: string
   onParsed: (data: ParseResult) => void
 }
 
-export function ContractorUpload({ businessId, onParsed }: ContractorUploadProps) {
+export function ContractorUpload({ clientId, onParsed }: ContractorUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +28,7 @@ export function ContractorUpload({ businessId, onParsed }: ContractorUploadProps
     formData.append('file', file)
 
     try {
-      const result = await api.contractors.uploadExcel(businessId, formData)
+      const result = await api.contractors.uploadExcel(clientId, formData)
       if (result.data.errors.length > 0) {
         setError(result.data.errors.join('. '))
         return

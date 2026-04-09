@@ -3,10 +3,12 @@
  * Extracted to avoid duplication between create, prepare, and batch routes
  */
 import { prisma } from '../../lib/db'
+import { buildClientScopeFilter } from '../../lib/org-scope'
 import { decryptSSN } from '../../services/crypto'
 import { taxbanditsClient } from '../../services/taxbandits-client'
 import { uploadFile } from '../../services/storage'
 import type { Form1099Status, FilingStatus } from '@ella/db'
+import type { AuthUser } from '../../services/auth'
 
 interface ContractorWithForms {
   id: string
@@ -30,6 +32,34 @@ interface BusinessInfo {
   city: string
   state: string
   zip: string
+}
+
+/**
+ * Fetch and validate a BUSINESS-type Client for 1099-NEC filing.
+ * Returns business info (name, EIN, address) or null if not found/unauthorized.
+ */
+export async function getBusinessClientForFiling(
+  clientId: string,
+  user: AuthUser
+): Promise<BusinessInfo | null> {
+  const client = await prisma.client.findFirst({
+    where: {
+      id: clientId,
+      clientType: 'BUSINESS',
+      ...buildClientScopeFilter(user),
+    },
+    select: { id: true, name: true, einEncrypted: true, businessAddress: true, businessCity: true, businessState: true, businessZip: true },
+  })
+  if (!client?.einEncrypted || !client.businessAddress) return null
+  return {
+    id: client.id,
+    name: client.name,
+    einEncrypted: client.einEncrypted,
+    address: client.businessAddress,
+    city: client.businessCity ?? '',
+    state: client.businessState ?? '',
+    zip: client.businessZip ?? '',
+  }
 }
 
 /**
@@ -71,7 +101,7 @@ export async function createFormsInTaxBandits(
 
   const batch = await prisma.filingBatch.create({
     data: {
-      businessId: business.id, clientId,
+      clientId,
       taxYear, status: 'PENDING',
       totalForms: response.Form1099Records.SuccessRecords.length,
       taxbanditsSubmissionId: response.SubmissionId,

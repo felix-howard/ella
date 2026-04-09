@@ -102,6 +102,13 @@ export interface PortalStats {
   missing: number
 }
 
+export interface GroupEntity {
+  id: string
+  name: string
+  clientType: 'INDIVIDUAL' | 'BUSINESS'
+  token: string
+}
+
 export interface PortalData {
   client: PortalClient
   taxCase: PortalTaxCase
@@ -111,6 +118,7 @@ export interface PortalData {
     missing: ChecklistDoc[]
   }
   stats: PortalStats
+  groupEntities?: GroupEntity[]
 }
 
 export interface UploadedImage {

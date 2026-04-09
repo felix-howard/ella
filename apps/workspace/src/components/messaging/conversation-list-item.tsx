@@ -7,18 +7,22 @@ import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
+import { Building2 } from 'lucide-react'
 import { getInitials, formatRelativeTime, sanitizeText, getAvatarColor } from '../../lib/formatters'
 import type { Conversation } from '../../lib/api-client'
 
 export interface ConversationListItemProps {
   conversation: Conversation
   isActive?: boolean
+  /** When true, item is rendered inside a group container — adjusts margins */
+  isGrouped?: boolean
 }
 
 
 export const ConversationListItem = memo(function ConversationListItem({
   conversation,
   isActive,
+  isGrouped,
 }: ConversationListItemProps) {
   const { t, i18n } = useTranslation()
   const { client, taxCase: _taxCase, lastMessage, unreadCount } = conversation
@@ -55,7 +59,9 @@ export const ConversationListItem = memo(function ConversationListItem({
       to="/messages/$caseId"
       params={{ caseId: conversation.caseId }}
       className={cn(
-        'flex items-start gap-3 px-3 py-3 mx-2 my-0.5 rounded-xl transition-all duration-200 cursor-pointer',
+        'flex items-start gap-3 px-3 py-3 transition-all duration-200 cursor-pointer',
+        // When grouped, no outer margins or rounded corners (container handles it)
+        isGrouped ? 'mx-0 my-0 rounded-lg' : 'mx-2 my-0.5 rounded-xl',
         // Active state: primary tint with left accent
         isActive && 'bg-primary/10 shadow-sm ring-1 ring-primary/20',
         // Unread state: subtle highlight
@@ -75,6 +81,12 @@ export const ConversationListItem = memo(function ConversationListItem({
         >
           <span className="text-sm font-medium">{getInitials(client.name)}</span>
         </div>
+        {/* Business indicator */}
+        {client.clientType === 'BUSINESS' && (
+          <span className="absolute -bottom-0.5 -right-0.5 w-[18px] h-[18px] bg-blue-500 rounded-full flex items-center justify-center ring-2 ring-card">
+            <Building2 className="w-2.5 h-2.5 text-white" />
+          </span>
+        )}
         {/* Unread indicator dot */}
         {hasUnread && (
           <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-error rounded-full flex items-center justify-center ring-2 ring-card shadow-sm">

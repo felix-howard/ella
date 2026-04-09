@@ -3,6 +3,7 @@
  * CRUD operations for client management
  */
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
@@ -22,6 +23,8 @@ import {
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
   updateNotesSchema,
+  createWithBusinessSchema,
+  linkBusinessSchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -36,7 +39,8 @@ import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
-import type { TaxType, Language } from '@ella/db'
+import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
+import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
@@ -51,6 +55,7 @@ const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 function computeDisplayName(firstName: string, lastName?: string | null): string {
   return lastName ? `${firstName} ${lastName}` : firstName
 }
+
 
 // GET /clients/intake-questions - Get intake questions for selected tax types
 // This is used by the client creation form to dynamically load questions
@@ -91,7 +96,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, managedById, attention, tag } = c.req.valid('query')
+  const { page, limit, search, managedById, attention, tag, clientType } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -106,11 +111,31 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       const digitsOnly = sanitizedSearch.replace(/\D/g, '')
       const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitizedSearch
 
-      where.OR = [
-        { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+      const namePhoneFilter = [
+        { firstName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { lastName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' as const } },
         { phone: { contains: phoneSearch } },
+      ]
+
+      // Also include linked group members: if search matches a client in a group,
+      // show all members of that group (e.g. searching "john" shows John Wick + his business)
+      const matchingGroupIds = await prisma.client.findMany({
+        where: {
+          ...buildClientScopeFilter(user),
+          clientGroupId: { not: null },
+          OR: namePhoneFilter,
+        },
+        select: { clientGroupId: true },
+        distinct: ['clientGroupId'],
+      })
+      const groupIds = matchingGroupIds
+        .map(c => c.clientGroupId)
+        .filter((id): id is string => id !== null)
+
+      where.OR = [
+        ...namePhoneFilter,
+        ...(groupIds.length > 0 ? [{ clientGroupId: { in: groupIds } }] : []),
       ]
     }
   }
@@ -122,6 +147,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   if (tag) {
     where.tags = { has: tag }
+  }
+
+  // Filter by client type (entity separation)
+  if (clientType) {
+    where.clientType = clientType
   }
 
   const orderBy = { createdAt: 'desc' as const }
@@ -275,6 +305,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       language: client.language as 'VI' | 'EN',
       source: client.source as ClientSource,
       tags: client.tags,
+      clientType: client.clientType,
+      clientGroupId: client.clientGroupId,
+      businessType: client.businessType,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
@@ -350,11 +383,13 @@ clientsRoute.get('/tags', async (c) => {
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, customMessage, firstName, lastName, ...clientData } = body
+  const { profile, customMessage, firstName, lastName, clientType, businessType, ein, businessAddress, businessCity, businessState, businessZip, ...clientData } = body
   const user = c.get('user')
 
-  // Compute display name from firstName and lastName
-  const displayName = computeDisplayName(firstName, lastName)
+  // For BUSINESS clients, firstName = business name, ignore lastName
+  const displayName = clientType === 'BUSINESS'
+    ? firstName
+    : computeDisplayName(firstName, lastName)
 
   try {
   // Create client with profile and tax case in transaction
@@ -367,6 +402,16 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         name: displayName,  // Computed for backward compatibility
         ...clientData,
         language: clientData.language as Language,
+        clientType: clientType as ClientType,
+        // Business-specific fields (only set for BUSINESS clients)
+        ...(clientType === 'BUSINESS' ? {
+          businessType: businessType as BusinessType,
+          einEncrypted: ein ? encryptSSN(ein) : undefined,
+          businessAddress,
+          businessCity,
+          businessState,
+          businessZip,
+        } : {}),
         organizationId: user.organizationId,
         managedById: user.staffId,  // Always set creator as manager
         createdById: user.staffId,  // Track who created this client
@@ -470,6 +515,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         phone: result.client.phone,
         email: result.client.email,
         language: result.client.language,
+        clientType: result.client.clientType,
         createdAt: result.client.createdAt.toISOString(),
         updatedAt: result.client.updatedAt.toISOString(),
       },
@@ -511,6 +557,18 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
       managedBy: { select: { id: true, name: true, avatarUrl: true } },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
+      // Include client group with sibling clients for cross-linking (excludes self)
+      clientGroup: {
+        include: {
+          clients: {
+            where: { id: { not: id } },
+            select: {
+              id: true, name: true, clientType: true, phone: true,
+              email: true, businessType: true, einEncrypted: true,
+            },
+          },
+        },
+      },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
@@ -558,10 +616,26 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Keep top-level portalUrl for backwards compatibility (latest case)
   const portalUrl = taxCasesWithPortal[0]?.portalUrl ?? null
 
+  // Strip encrypted EIN — send masked version only
+  const { einEncrypted, ...clientSafe } = client
+
+  // Mask EIN for sibling clients in the group
+  const clientGroupSafe = clientSafe.clientGroup
+    ? {
+        ...clientSafe.clientGroup,
+        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, ...sibling }) => ({
+          ...sibling,
+          einMasked: maskEIN(siblingEin),
+        })),
+      }
+    : null
+
   return c.json({
-    ...client,
+    ...clientSafe,
+    einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
+    clientGroup: clientGroupSafe,
     managedBy: client.managedBy
       ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
       : null,
@@ -682,14 +756,21 @@ clientsRoute.patch(
     // Verify access before update (org + assignment scope)
     const existing = await prisma.client.findFirst({
       where: { id, ...buildClientScopeFilter(user) },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, clientType: true },
     })
     if (!existing) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
     }
 
+    // Reject business field updates on INDIVIDUAL clients
+    const businessFields = ['businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
+    const hasBusinessFieldUpdate = businessFields.some((f) => f in body)
+    if (hasBusinessFieldUpdate && existing.clientType !== 'BUSINESS') {
+      return c.json({ error: 'INVALID_UPDATE', message: 'Business fields can only be set on BUSINESS clients' }, 400)
+    }
+
     // Explicitly pick only allowed fields to prevent mass assignment
-    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags'] as const
+    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags', 'businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
     const updateData = pickFields(body, [...allowedFields]) as {
       firstName?: string
       lastName?: string | null
@@ -697,6 +778,12 @@ clientsRoute.patch(
       email?: string | null
       language?: Language
       tags?: string[]
+      businessType?: string
+      ein?: string | null
+      businessAddress?: string | null
+      businessCity?: string | null
+      businessState?: string | null
+      businessZip?: string | null
     }
 
     // Normalize tags (consistent with lead tag handling)
@@ -711,9 +798,19 @@ clientsRoute.patch(
       ;(updateData as Record<string, unknown>).name = computeDisplayName(newFirstName, newLastName)
     }
 
+    // Build Prisma-compatible update data: encrypt EIN, cast enums
+    const prismaUpdateData: Record<string, unknown> = { ...updateData }
+    if (updateData.businessType) {
+      prismaUpdateData.businessType = updateData.businessType as BusinessType
+    }
+    if ('ein' in updateData) {
+      prismaUpdateData.einEncrypted = updateData.ein ? encryptSSN(updateData.ein) : null
+      delete prismaUpdateData.ein
+    }
+
     const client = await prisma.client.update({
       where: { id },
-      data: { ...updateData, updatedById: user.staffId },
+      data: { ...prismaUpdateData, updatedById: user.staffId },
     })
 
     return c.json({
@@ -1373,6 +1470,357 @@ clientsRoute.post(
     } catch (error) {
       console.error('[Send Upload Link] Error:', error)
       return c.json({ error: 'Failed to send upload link' }, 500)
+    }
+  }
+)
+
+// ============================================
+// POST /clients/create-with-business — Combo: individual + business + group
+// ============================================
+clientsRoute.post(
+  '/create-with-business',
+  zValidator('json', createWithBusinessSchema),
+  async (c) => {
+    const { individual, businesses, groupName, customMessage } = c.req.valid('json')
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.staffId) {
+      throw new HTTPException(403, { message: 'Organization and staff record required' })
+    }
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Create individual client
+        const indivName = computeDisplayName(individual.firstName, individual.lastName)
+        const individualClient = await tx.client.create({
+          data: {
+            firstName: individual.firstName,
+            lastName: individual.lastName || null,
+            name: indivName,
+            phone: individual.phone,
+            email: individual.email || null,
+            language: individual.language as Language,
+            clientType: 'INDIVIDUAL' as ClientType,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+          include: { profile: true },
+        })
+
+        // Create engagement + tax case for individual
+        const { engagementId: indivEngId } = await findOrCreateEngagement(
+          tx,
+          individualClient.id,
+          individual.profile.taxYear,
+          null
+        )
+        const indivCase = await tx.taxCase.create({
+          data: {
+            clientId: individualClient.id,
+            taxYear: individual.profile.taxYear,
+            engagementId: indivEngId,
+            taxTypes: (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+            status: 'INTAKE',
+          },
+        })
+        await tx.conversation.create({
+          data: { caseId: indivCase.id, lastMessageAt: new Date() },
+        })
+
+        // Create business clients (loop over array)
+        const businessClients: { id: string; name: string; clientType: ClientType }[] = []
+        const bizCaseInfos: { caseId: string; taxTypes: TaxType[]; profileId: string }[] = []
+        for (const biz of businesses) {
+          const businessClient = await tx.client.create({
+            data: {
+              firstName: biz.firstName,
+              lastName: null,
+              name: biz.firstName,
+              phone: biz.phone,
+              email: biz.email || null,
+              language: biz.language as Language,
+              clientType: 'BUSINESS' as ClientType,
+              businessType: biz.businessType as BusinessType,
+              einEncrypted: biz.ein ? encryptSSN(biz.ein) : undefined,
+              businessAddress: biz.businessAddress,
+              businessCity: biz.businessCity,
+              businessState: biz.businessState,
+              businessZip: biz.businessZip,
+              organizationId: user.organizationId,
+              managedById: user.staffId,
+              createdById: user.staffId,
+              profile: {
+                create: {
+                  intakeAnswers: {},
+                },
+              },
+            },
+            include: { profile: true },
+          })
+
+          // Create engagement + tax case for each business
+          const { engagementId: bizEngId } = await findOrCreateEngagement(
+            tx,
+            businessClient.id,
+            biz.profile.taxYear,
+            null
+          )
+          const bizTaxTypes = (biz.profile.taxTypes || ['FORM_1120S']) as TaxType[]
+          const bizCase = await tx.taxCase.create({
+            data: {
+              clientId: businessClient.id,
+              taxYear: biz.profile.taxYear,
+              engagementId: bizEngId,
+              taxTypes: bizTaxTypes,
+              status: 'INTAKE',
+            },
+          })
+          await tx.conversation.create({
+            data: { caseId: bizCase.id, lastMessageAt: new Date() },
+          })
+
+          businessClients.push({
+            id: businessClient.id,
+            name: businessClient.name,
+            clientType: businessClient.clientType as ClientType,
+          })
+          bizCaseInfos.push({
+            caseId: bizCase.id,
+            taxTypes: bizTaxTypes,
+            profileId: businessClient.profile!.id,
+          })
+        }
+
+        // Create client group linking all
+        const bizNames = businesses.map((b) => b.firstName).join(' + ')
+        const name = groupName || `${individual.firstName} + ${bizNames}`
+        const group = await tx.clientGroup.create({
+          data: {
+            name,
+            organizationId: user.organizationId,
+          },
+        })
+
+        // Link all clients to the group
+        const allClientIds = [individualClient.id, ...businessClients.map((b) => b.id)]
+        await tx.client.updateMany({
+          where: { id: { in: allClientIds } },
+          data: { clientGroupId: group.id },
+        })
+
+        return { individualClient, businessClients, bizCaseInfos, group, indivCase }
+      })
+
+      // Generate checklists for individual and all business tax cases
+      await generateChecklist(
+        result.indivCase.id,
+        (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+        result.individualClient.profile!
+      )
+      for (const bizInfo of result.bizCaseInfos) {
+        const bizProfile = await prisma.clientProfile.findUnique({ where: { id: bizInfo.profileId } })
+        if (bizProfile) {
+          await generateChecklist(bizInfo.caseId, bizInfo.taxTypes, bizProfile)
+        }
+      }
+
+      // Create magic link and send welcome SMS for individual client
+      const magicLink = await createMagicLink(result.indivCase.id)
+
+      let smsStatus: { sent: boolean; error?: string } = { sent: false }
+      if (isSmsEnabled()) {
+        try {
+          const smsResult = await sendWelcomeMessage(
+            result.indivCase.id,
+            result.individualClient.name,
+            result.individualClient.phone,
+            magicLink,
+            result.indivCase.taxYear,
+            result.individualClient.language as 'VI' | 'EN',
+            customMessage,
+            user.staffId
+          )
+          smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
+        } catch (error) {
+          console.error('[Create With Business] Failed to send welcome SMS:', error)
+          smsStatus = { sent: false, error: 'SMS_SEND_FAILED' }
+        }
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            individual: {
+              id: result.individualClient.id,
+              name: result.individualClient.name,
+              clientType: result.individualClient.clientType,
+            },
+            businesses: result.businessClients,
+            group: {
+              id: result.group.id,
+              name: result.group.name,
+            },
+            magicLink,
+            smsStatus,
+          },
+        },
+        201
+      )
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+      }
+      throw error
+    }
+  }
+)
+
+// ============================================
+// POST /clients/:id/link-business — Link new business to existing individual
+// ============================================
+clientsRoute.post(
+  '/:id/link-business',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', linkBusinessSchema),
+  async (c) => {
+    const { id: clientId } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.staffId) {
+      throw new HTTPException(403, { message: 'Organization and staff record required' })
+    }
+
+    const scopeFilter = buildClientScopeFilter(user)
+
+    // Verify client exists and belongs to org
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, ...scopeFilter },
+      include: { clientGroup: true },
+    })
+
+    if (!client) {
+      throw new HTTPException(404, { message: 'Client not found' })
+    }
+
+    if (client.clientType !== 'INDIVIDUAL') {
+      throw new HTTPException(400, { message: 'Only individual clients can have linked businesses' })
+    }
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Create business client
+        const businessClient = await tx.client.create({
+          data: {
+            firstName: body.firstName,
+            lastName: null,
+            name: body.firstName,
+            phone: body.phone,
+            email: body.email || null,
+            language: (body.language || 'VI') as Language,
+            clientType: 'BUSINESS' as ClientType,
+            businessType: body.businessType as BusinessType,
+            einEncrypted: body.ein ? encryptSSN(body.ein) : undefined,
+            businessAddress: body.businessAddress,
+            businessCity: body.businessCity,
+            businessState: body.businessState,
+            businessZip: body.businessZip,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+          include: { profile: true },
+        })
+
+        // Create engagement + tax case
+        const bizTaxTypes = (body.taxTypes || ['FORM_1120S']) as TaxType[]
+        const { engagementId } = await findOrCreateEngagement(
+          tx,
+          businessClient.id,
+          body.taxYear,
+          null
+        )
+        const bizCase = await tx.taxCase.create({
+          data: {
+            clientId: businessClient.id,
+            taxYear: body.taxYear,
+            engagementId,
+            taxTypes: bizTaxTypes,
+            status: 'INTAKE',
+          },
+        })
+        await tx.conversation.create({
+          data: { caseId: bizCase.id, lastMessageAt: new Date() },
+        })
+
+        // Get or create client group
+        let group = client.clientGroup
+        if (!group) {
+          group = await tx.clientGroup.create({
+            data: {
+              name: `${client.name} Group`,
+              organizationId: user.organizationId,
+            },
+          })
+          // Link individual to the new group
+          await tx.client.update({
+            where: { id: clientId },
+            data: { clientGroupId: group.id },
+          })
+        }
+
+        // Link business to group
+        await tx.client.update({
+          where: { id: businessClient.id },
+          data: { clientGroupId: group.id },
+        })
+
+        return { businessClient, bizCase, bizTaxTypes, group }
+      })
+
+      // Generate checklist for business tax case
+      if (result.businessClient.profile) {
+        await generateChecklist(
+          result.bizCase.id,
+          result.bizTaxTypes,
+          result.businessClient.profile
+        )
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            business: {
+              id: result.businessClient.id,
+              name: result.businessClient.name,
+              clientType: result.businessClient.clientType,
+            },
+            group: {
+              id: result.group.id,
+              name: result.group.name,
+            },
+          },
+        },
+        201
+      )
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+      }
+      throw error
     }
   }
 )

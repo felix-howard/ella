@@ -28,6 +28,8 @@ import {
   Home,
   Building2,
   ChevronDown,
+  ArrowRight,
+  UserCircle,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, Input } from '@ella/ui'
@@ -36,7 +38,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
 const DraftReturnTab = lazy(() => import('../../components/draft-return').then(m => ({ default: m.DraftReturnTab })))
-const BusinessesTab = lazy(() => import('../../components/businesses').then(m => ({ default: m.BusinessesTab })))
+const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,
   UploadProgress,
@@ -68,7 +70,15 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'businesses'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
+
+const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  SOLE_PROPRIETORSHIP: 'Sole Prop',
+  LLC: 'LLC',
+  PARTNERSHIP: 'Partnership',
+  S_CORP: 'S-Corp',
+  C_CORP: 'C-Corp',
+}
 
 function ClientDetailPage() {
   const { t } = useTranslation()
@@ -76,6 +86,7 @@ function ClientDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('files')
+  const [prevClientId, setPrevClientId] = useState(clientId)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -340,6 +351,12 @@ function ClientDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
   }
 
+  // Reset active tab when navigating between clients (prevents stale tab like 'contractors' on INDIVIDUAL)
+  if (prevClientId !== clientId) {
+    setPrevClientId(clientId)
+    setActiveTab('files')
+  }
+
   // Close "More" dropdown on outside click or Escape
   useEffect(() => {
     if (!isMoreOpen) return
@@ -488,23 +505,35 @@ function ClientDetailPage() {
   // Schedule C/E tabs: promote to primary tabs once a form has been sent
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
+  const isBusiness = client.clientType === 'BUSINESS'
 
-  const tabs: { id: TabType; label: string; icon: typeof User }[] = [
-    { id: 'overview', label: t('clientOverview.title'), icon: User },
-    { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-    { id: 'businesses' as TabType, label: 'Businesses', icon: Building2 },
-    { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-    { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
-    // Promote schedule tabs when form has been sent
-    ...(scheduleCExpense ? [scheduleCTab] : []),
-    ...(scheduleEExpense ? [scheduleETab] : []),
-  ]
+  const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
+    ? [
+        { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
+        { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        { id: 'contractors', label: 'Contractors', icon: UserCircle },
+        { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+        { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+        ...(scheduleCExpense ? [scheduleCTab] : []),
+      ]
+    : [
+        { id: 'overview', label: t('clientOverview.title'), icon: User },
+        { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+        { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+        ...(scheduleCExpense ? [scheduleCTab] : []),
+        ...(scheduleEExpense ? [scheduleETab] : []),
+      ]
 
   // Overflow tabs: only show tabs that haven't been promoted
-  const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = [
-    ...(!scheduleCExpense ? [scheduleCTab] : []),
-    ...(!scheduleEExpense ? [scheduleETab] : []),
-  ]
+  const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
+    ? [
+        ...(!scheduleCExpense ? [scheduleCTab] : []),
+      ]
+    : [
+        ...(!scheduleCExpense ? [scheduleCTab] : []),
+        ...(!scheduleEExpense ? [scheduleETab] : []),
+      ]
 
   const isOverflowActive = overflowTabs.some((t) => t.id === activeTab)
   const activeOverflowLabel = overflowTabs.find((t) => t.id === activeTab)?.label
@@ -521,11 +550,36 @@ function ClientDetailPage() {
           <span>{clientsText.backToList}</span>
         </Link>
 
+        {/* Cross-link banner for grouped clients */}
+        {client.clientGroup && client.clientGroup.clients.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
+            <span className="text-muted-foreground">Linked:</span>
+            {client.clientGroup.clients
+              .map(sibling => (
+                <Link
+                  key={sibling.id}
+                  to="/clients/$clientId"
+                  params={{ clientId: sibling.id }}
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+                >
+                  {sibling.clientType === 'BUSINESS' ? (
+                    <Building2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <User className="w-3.5 h-3.5" />
+                  )}
+                  {sibling.name}
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              ))}
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            {/* Avatar */}
+            {/* Avatar: rounded-lg for business, circle for individual */}
             <div className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
+              'w-14 h-14 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
+              isBusiness ? 'rounded-lg' : 'rounded-full',
               avatarColor.bg,
               avatarColor.text
             )}>
@@ -535,7 +589,14 @@ function ClientDetailPage() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
+                {isBusiness && client.businessType && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {BUSINESS_TYPE_LABELS[client.businessType] || client.businessType}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Phone className="w-4 h-4" aria-hidden="true" />
@@ -545,6 +606,12 @@ function ClientDetailPage() {
                   <span className="flex items-center gap-1.5">
                     <Mail className="w-4 h-4" aria-hidden="true" />
                     {client.email}
+                  </span>
+                )}
+                {isBusiness && client.einMasked && (
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4" aria-hidden="true" />
+                    EIN: ***-**-{client.einMasked}
                   </span>
                 )}
                 {/* Year Switcher - replaces static tax year display */}
@@ -869,11 +936,11 @@ function ClientDetailPage() {
         </ErrorBoundary>
       )}
 
-      {/* Businesses Tab - Business entities with contractors and 1099-NEC (lazy loaded) */}
-      {activeTab === 'businesses' && (
-        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load Businesses tab</div>}>
+      {/* Contractors Tab - 1099-NEC management for BUSINESS clients (lazy loaded) */}
+      {activeTab === 'contractors' && isBusiness && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">Failed to load Contractors tab</div>}>
           <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-            <BusinessesTab clientId={clientId} clientName={client.name} />
+            <Form1099NECTab clientId={clientId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

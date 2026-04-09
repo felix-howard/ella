@@ -73,6 +73,56 @@ portalRoute.get('/:token', async (c) => {
     missing: missing.length,
   }
 
+  // Check if client belongs to a ClientGroup with other members
+  let groupEntities: { id: string; name: string; clientType: string; token: string }[] | undefined
+
+  if (client.clientGroupId) {
+    const groupMembers = await prisma.client.findMany({
+      where: {
+        clientGroupId: client.clientGroupId,
+      },
+      select: {
+        id: true,
+        name: true,
+        clientType: true,
+        taxCases: {
+          where: { taxYear: taxCase.taxYear },
+          select: {
+            id: true,
+            magicLinks: {
+              where: { type: 'PORTAL', isActive: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { token: true },
+            },
+          },
+          take: 1,
+        },
+      },
+    })
+
+    if (groupMembers.length > 1) {
+      const entities: typeof groupEntities = []
+
+      for (const member of groupMembers) {
+        const memberCase = member.taxCases[0]
+        // Skip members without a TaxCase or without an active portal link
+        if (!memberCase || !memberCase.magicLinks[0]) continue
+
+        entities.push({
+          id: member.id,
+          name: member.name,
+          clientType: member.clientType,
+          token: memberCase.magicLinks[0].token,
+        })
+      }
+
+      if (entities.length > 1) {
+        groupEntities = entities
+      }
+    }
+  }
+
   return c.json({
     client: {
       name: client.name,
@@ -89,6 +139,7 @@ portalRoute.get('/:token', async (c) => {
       missing,
     },
     stats,
+    ...(groupEntities ? { groupEntities } : {}),
   })
 })
 

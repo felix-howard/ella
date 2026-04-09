@@ -409,6 +409,11 @@ enum ClientSource {
   INCOMING_CALL
 }
 
+enum ClientType {
+  INDIVIDUAL
+  BUSINESS
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -526,16 +531,29 @@ model Organization {
   missedCallTextBack            Boolean  @default(false)
   autoSendFormClientUploadLink  Boolean  @default(false)
 
-  staff       Staff[]
-  clients     Client[]
-  leads       Lead[]
-  smsSendLogs SmsSendLog[]
-  campaigns   Campaign[]
+  staff        Staff[]
+  clients      Client[]
+  clientGroups ClientGroup[]
+  leads        Lead[]
+  smsSendLogs  SmsSendLog[]
+  campaigns    Campaign[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([clerkOrgId])
+}
+
+model ClientGroup {
+  id              String        @id @default(cuid())
+  name            String
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clients         Client[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([organizationId])
 }
 
 model Client {
@@ -549,6 +567,18 @@ model Client {
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
 
+  clientType     ClientType   @default(INDIVIDUAL)
+  clientGroupId  String?
+  clientGroup    ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
+
+  // Business-specific fields (only for clientType = BUSINESS)
+  businessType     BusinessType?
+  einEncrypted     String?       // AES-256-GCM encrypted EIN
+  businessAddress  String?
+  businessCity     String?
+  businessState    String?       // 2-char state code
+  businessZip      String?
+
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
   notes          String?   @db.Text  // Rich text notes (HTML from Tiptap)
@@ -558,7 +588,11 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
-  businesses     Business[]
+
+  // Business-type client relations (for clientType = BUSINESS)
+  contractors    Contractor[]
+  filingBatches  FilingBatch[]
+  intakeTokens   ContractorIntakeToken[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -582,34 +616,10 @@ model Client {
   @@index([createdById])
   @@index([updatedById])
   @@index([tags], type: Gin)
+  @@index([clientType])
+  @@index([clientGroupId])
 }
 
-// ============================================
-// Business entity (linked to Client)
-// ============================================
-
-model Business {
-  id             String       @id @default(cuid())
-  clientId       String
-  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  name           String
-  type           BusinessType
-  einEncrypted   String       // AES-256-GCM encrypted EIN
-  address        String
-  city           String
-  state          String       // 2-char state code
-  zip            String
-
-  contractors    Contractor[]
-  filingBatches  FilingBatch[]
-  intakeTokens   ContractorIntakeToken[]
-
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@index([clientId])
-}
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
 /// Will be removed after all clients migrate to engagement-based queries.
@@ -1469,8 +1479,8 @@ model Campaign {
 
 model Contractor {
   id                  String   @id @default(cuid())
-  businessId          String
-  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   firstName           String
   lastName            String
   tinType             String   @default("SSN") // "SSN" or "EIN"
@@ -1488,7 +1498,7 @@ model Contractor {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  @@index([businessId])
+  @@index([clientId])
 }
 
 // ============================================
@@ -1497,8 +1507,8 @@ model Contractor {
 
 model ContractorIntakeToken {
   id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   token      String   @unique @default(cuid())
   taxYear    Int
@@ -1509,7 +1519,7 @@ model ContractorIntakeToken {
   updatedAt  DateTime @updatedAt
 
   @@index([token])
-  @@index([businessId, isActive])
+  @@index([clientId, isActive])
 }
 
 // ============================================
@@ -1565,8 +1575,8 @@ enum FilingStatus {
 
 model FilingBatch {
   id                  String        @id @default(cuid())
-  businessId          String
-  business            Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   taxYear             Int
   status              FilingStatus  @default(PENDING)
   taxbanditsSubmissionId String?
@@ -1584,7 +1594,7 @@ model FilingBatch {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  @@index([businessId])
+  @@index([clientId])
   @@index([status])
   @@index([taxbanditsSubmissionId])
 }

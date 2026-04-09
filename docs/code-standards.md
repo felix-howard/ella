@@ -191,6 +191,24 @@ const filter = buildClientScopeFilter(user)
 const clients = await prisma.client.findMany({ where: filter })
 ```
 
+**Business-Type Client Verification (Phase 08+):**
+- Use `verifyBusinessClient(clientId, user)` for endpoints that require clientType=BUSINESS
+- Enforces both org-scope AND clientType=BUSINESS validation
+- Returns Client | null (null if not found or wrong clientType)
+- Example: Contractor management routes (/clients/:clientId/contractors) require BUSINESS clients
+- Pattern:
+```typescript
+app.get('/clients/:clientId/contractors', async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+  const client = await verifyBusinessClient(clientId, user)
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
+  }
+  // Continue with businessClient-scoped logic
+})
+```
+
 ## Frontend Patterns (@ella/workspace & @ella/portal)
 
 **React Query Integration:**

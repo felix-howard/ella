@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Modal, ModalHeader, ModalTitle, ModalFooter, Button, Input } from '@ella/ui'
+import { AddressAutocomplete } from '../../../clients/address-autocomplete'
 import type { Contractor, CreateContractorInput, UpdateContractorInput } from '../../../../lib/api-client'
 
 interface ContractorFormModalProps {
@@ -134,10 +135,22 @@ export function ContractorFormModal({ isOpen, onClose, onSubmit, contractor, isS
             />
           </div>
 
-          {/* Address */}
+          {/* Street (with Google Places autocomplete) */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Address *</label>
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} required />
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Street *</label>
+            <AddressAutocomplete
+              value={address}
+              onChange={setAddress}
+              onSelect={(result) => {
+                setAddress(result.address)
+                setCity(result.city)
+                setState(result.state)
+                setZip(result.zip)
+              }}
+              placeholder="Start typing an address..."
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring pr-9"
+              required
+            />
           </div>
 
           {/* City, State, ZIP */}

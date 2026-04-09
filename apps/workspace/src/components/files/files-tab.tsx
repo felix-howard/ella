@@ -189,6 +189,15 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return { processing, categorized: byCategory }
   }, [images])
 
+  // Build O(1) lookup map: rawImageId → DigitalDoc (avoid O(n²) docs.find per row)
+  const docsMap = useMemo(() => {
+    const map = new Map<string, DigitalDoc>()
+    for (const d of docs) {
+      if (d.rawImageId) map.set(d.rawImageId, d)
+    }
+    return map
+  }, [docs])
+
   // Build flat navigation list for prev/next navigation in modals
   // Order: by category (CATEGORY_ORDER), then by grouped order (groups first, pages sorted)
   // This matches the visual display order in FileCategorySection
@@ -204,19 +213,17 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       // Groups first (each group's pages in order)
       for (const group of groups) {
         for (const img of group.images) {
-          const doc = docs.find((d) => d.rawImageId === img.id)
-          items.push({ imageId: img.id, doc, image: img })
+          items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
         }
       }
 
       // Then ungrouped
       for (const img of ungrouped) {
-        const doc = docs.find((d) => d.rawImageId === img.id)
-        items.push({ imageId: img.id, doc, image: img })
+        items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
       }
     }
     return items
-  }, [categorized, docs])
+  }, [categorized, docsMap])
 
   // Handlers
   const _handleClassify = (image: RawImage) => {
@@ -737,7 +744,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       <UnclassifiedSection images={processing} />
 
       {/* Categorized Sections - Using CATEGORY_ORDER for consistent display */}
-      {CATEGORY_ORDER.map((categoryKey) => {
+      {CATEGORY_ORDER.map((categoryKey, idx) => {
         const config = DOC_CATEGORIES[categoryKey]
         const categoryImages = categorized[categoryKey]
 
@@ -763,10 +770,12 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             config={config}
             images={categoryImages}
             docs={docs}
+            docsMap={docsMap}
             caseId={caseId}
             onVerify={handleVerify}
             onViewImage={handleViewImage}
             onFileDrop={handleFileDrop}
+            defaultCollapsed={images.length > 30 && idx > 0}
           />
         )
       })}

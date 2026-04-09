@@ -54,18 +54,18 @@ async function downloadPdfsAsZip(
 }
 
 interface FormActionsPanelProps {
-  businessId: string
+  clientId: string
 }
 
-export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
+export function FormActionsPanel({ clientId }: FormActionsPanelProps) {
   const queryClient = useQueryClient()
   const [showConfirm, setShowConfirm] = useState(false)
   const [isDownloadingA, setIsDownloadingA] = useState(false)
   const [isDownloadingB, setIsDownloadingB] = useState(false)
 
   const { data: statusData, isLoading } = useQuery({
-    queryKey: ['form-1099-status', businessId],
-    queryFn: () => api.form1099nec.status(businessId),
+    queryKey: ['form-1099-status', clientId],
+    queryFn: () => api.form1099nec.status(clientId),
   })
 
   const status: Form1099StatusCounts = statusData?.data ?? {
@@ -74,14 +74,14 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   }
 
   const refreshAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
-    queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
-    queryClient.invalidateQueries({ queryKey: ['filing-batches', businessId] })
-    queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', businessId] })
+    queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['filing-batches', clientId] })
+    queryClient.invalidateQueries({ queryKey: ['recipient-pdfs', clientId] })
   }
 
   const prepareMutation = useMutation({
-    mutationFn: () => api.form1099nec.prepare(businessId),
+    mutationFn: () => api.form1099nec.prepare(clientId),
     onSuccess: (data) => {
       toast.success(`Prepared ${data.createdCount} forms, ${data.pdfCount} PDFs ready for review`)
       if (data.createErrors && data.createErrors.length > 0) {
@@ -100,7 +100,7 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   })
 
   const transmitMutation = useMutation({
-    mutationFn: () => api.form1099nec.transmit(businessId),
+    mutationFn: () => api.form1099nec.transmit(clientId),
     onSuccess: (data) => {
       const msg = data.recipientPdfCount
         ? `Transmitted ${data.transmittedCount} forms & fetched ${data.recipientPdfCount} recipient PDFs`
@@ -121,7 +121,7 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   const handleDownloadCopyA = async () => {
     setIsDownloadingA(true)
     try {
-      const { data: pdfs } = await api.form1099nec.getAllPdfs(businessId)
+      const { data: pdfs } = await api.form1099nec.getAllPdfs(clientId)
       await downloadPdfsAsZip(pdfs, '1099-NEC-CopyA.zip', 'Copy A PDFs')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Download failed')
@@ -133,7 +133,7 @@ export function FormActionsPanel({ businessId }: FormActionsPanelProps) {
   const handleDownloadCopyB = async () => {
     setIsDownloadingB(true)
     try {
-      const { data: pdfs } = await api.form1099nec.getRecipientPdfs(businessId)
+      const { data: pdfs } = await api.form1099nec.getRecipientPdfs(clientId)
       await downloadPdfsAsZip(pdfs, '1099-NEC-CopyB.zip', 'Copy B PDFs')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Download failed')

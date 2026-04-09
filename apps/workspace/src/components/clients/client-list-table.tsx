@@ -19,8 +19,68 @@ interface ClientListTableProps {
   isAdmin?: boolean
 }
 
+/** Row entry with grouping metadata */
+interface GroupedRow {
+  client: ClientWithActions
+  isGroupedBusiness: boolean
+  ownerName?: string
+}
+
+/**
+ * Group clients by clientGroupId: individual first, then businesses indented below.
+ * Groups appear at the position of their first member in the original API order.
+ */
+function groupClients(clients: ClientWithActions[]): GroupedRow[] {
+  const groups = new Map<string, ClientWithActions[]>()
+  const seen = new Set<string>()
+  const result: GroupedRow[] = []
+
+  // Collect groups
+  for (const client of clients) {
+    if (client.clientGroupId) {
+      const group = groups.get(client.clientGroupId) || []
+      group.push(client)
+      groups.set(client.clientGroupId, group)
+    }
+  }
+
+  // Sort each group: INDIVIDUAL first, then BUSINESS
+  for (const group of groups.values()) {
+    group.sort((a, b) => {
+      if (a.clientType === b.clientType) return 0
+      return a.clientType === 'INDIVIDUAL' ? -1 : 1
+    })
+  }
+
+  // Walk original order; when first member of a group is encountered, emit entire group
+  for (const client of clients) {
+    if (seen.has(client.id)) continue
+
+    if (client.clientGroupId && groups.has(client.clientGroupId)) {
+      const group = groups.get(client.clientGroupId)!
+      const ownerName = group.find(c => c.clientType === 'INDIVIDUAL')?.name
+      for (let i = 0; i < group.length; i++) {
+        const member = group[i]
+        seen.add(member.id)
+        result.push({
+          client: member,
+          isGroupedBusiness: i > 0 && member.clientType === 'BUSINESS',
+          ownerName: i > 0 && member.clientType === 'BUSINESS' ? ownerName : undefined,
+        })
+      }
+    } else {
+      seen.add(client.id)
+      result.push({ client, isGroupedBusiness: false })
+    }
+  }
+
+  return result
+}
+
 export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTableProps) {
   const { t } = useTranslation()
+
+  const groupedRows = useMemo(() => groupClients(clients), [clients])
 
   if (isLoading) {
     return <ClientListTableSkeleton isAdmin={isAdmin} />
@@ -69,8 +129,15 @@ export function ClientListTable({ clients, isLoading, isAdmin }: ClientListTable
             </tr>
           </thead>
           <tbody>
-            {clients.map((client, index) => (
-              <ClientRow key={client.id} client={client} isLast={index === clients.length - 1} isAdmin={isAdmin} />
+            {groupedRows.map((row, index) => (
+              <ClientRow
+                key={row.client.id}
+                client={row.client}
+                isLast={index === groupedRows.length - 1}
+                isAdmin={isAdmin}
+                isGroupedBusiness={row.isGroupedBusiness}
+                ownerName={row.ownerName}
+              />
             ))}
           </tbody>
         </table>
@@ -83,11 +150,14 @@ interface ClientRowProps {
   client: ClientWithActions
   isLast: boolean
   isAdmin?: boolean
+  isGroupedBusiness?: boolean
+  ownerName?: string
 }
 
-const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRowProps) {
+const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBusiness, ownerName }: ClientRowProps) {
   const { t, i18n } = useTranslation()
   const { computedStatus, actionCounts, latestCase, uploads } = client
+  const isBusiness = client.clientType === 'BUSINESS'
   // Memoize avatar colors to prevent recalculation on every render
   const avatarColor = useMemo(() => getAvatarColor(client.name), [client.name])
   const managedByAvatarColor = useMemo(
@@ -101,14 +171,21 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       params={{ clientId: client.id }}
       className={cn(
         'table-row hover:bg-muted/40 transition-colors duration-150 cursor-pointer',
-        !isLast && 'border-b border-border/40'
+        !isLast && 'border-b border-border/40',
+        isGroupedBusiness && 'bg-muted/20'
       )}
     >
       {/* Name column */}
       <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
+        <div className={cn('flex items-center gap-3', isGroupedBusiness && 'sm:pl-8')}>
+          {/* Connector for grouped business */}
+          {isGroupedBusiness && (
+            <span className="text-muted-foreground/50 text-sm hidden sm:inline" aria-hidden="true">└</span>
+          )}
+          {/* Avatar: rounded-square for business, circle for individual */}
           <div className={cn(
-            'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
+            'w-9 h-9 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
+            isBusiness ? 'rounded-lg' : 'rounded-full',
             avatarColor.bg,
             avatarColor.text
           )}>
@@ -116,25 +193,36 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
               {getInitials(client.name)}
             </span>
           </div>
-          <div>
-            <p className="font-medium text-foreground">{client.name}</p>
-            {client.email && (
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-foreground truncate">{client.name}</p>
+              {isBusiness && client.businessType && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-600 whitespace-nowrap">
+                  {t(`clients.businessType.${client.businessType}`, client.businessType)}
+                </span>
+              )}
+            </div>
+            {isGroupedBusiness && ownerName ? (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {t('clients.linkedTo', { name: ownerName })}
+              </p>
+            ) : client.email ? (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Mail className="w-3 h-3" aria-hidden="true" />
                 {client.email}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
       </td>
 
       {/* Phone column */}
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap align-middle">
         <span className="text-muted-foreground">{isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}</span>
       </td>
 
       {/* Tax Year column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-middle">
         {latestCase ? (
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
@@ -146,7 +234,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Tags column */}
-      <td className="px-4 py-3 hidden sm:table-cell">
+      <td className="px-4 py-3 hidden sm:table-cell align-middle">
         <div className="flex flex-wrap gap-1">
           {client.tags && client.tags.length > 0 ? (
             client.tags.map((tag) => (
@@ -164,7 +252,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Documents column */}
-      <td className="px-4 py-3 hidden lg:table-cell">
+      <td className="px-4 py-3 hidden lg:table-cell align-middle">
         {uploads && uploads.totalCount > 0 ? (
           <div className="flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
@@ -177,7 +265,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
 
       {/* Managed by column (admin only) */}
       {isAdmin && (
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 align-middle">
           {client.managedBy ? (
             <div className="flex items-center gap-2">
               {client.managedBy.avatarUrl ? (
@@ -206,14 +294,14 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       )}
 
       {/* Created column */}
-      <td className="px-4 py-3 hidden lg:table-cell">
+      <td className="px-4 py-3 hidden lg:table-cell align-middle">
         <span className="text-sm text-muted-foreground">
           {formatShortRelativeTime(client.createdAt, i18n.language)}
         </span>
       </td>
 
       {/* Uploads column (combined: new count + last upload time) */}
-      <td className="px-4 py-3 hidden md:table-cell">
+      <td className="px-4 py-3 hidden md:table-cell align-middle">
         {uploads && (uploads.newCount > 0 || uploads.latestAt) ? (
           <div className="flex items-center gap-2">
             {uploads.newCount > 0 && (
@@ -234,7 +322,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Action badges column */}
-      <td className="px-4 py-3 hidden md:table-cell">
+      <td className="px-4 py-3 hidden md:table-cell align-middle">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
           {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
@@ -258,7 +346,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin }: ClientRow
       </td>
 
       {/* Arrow column */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-middle">
         <ChevronRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
       </td>
     </Link>

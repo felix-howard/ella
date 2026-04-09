@@ -43,16 +43,11 @@ contractorIntakeRoute.get(
       },
       select: {
         taxYear: true,
-        business: {
+        clientId: true,
+        client: {
           select: {
             name: true,
-            client: {
-              select: {
-                organization: {
-                  select: { name: true, logoUrl: true },
-                },
-              },
-            },
+            organization: { select: { name: true, logoUrl: true } },
           },
         },
       },
@@ -62,9 +57,12 @@ contractorIntakeRoute.get(
       return c.json({ error: 'Invalid or expired intake link' }, 404)
     }
 
+    const businessName = intakeToken.client.name
+    const org = intakeToken.client.organization ?? { name: '', logoUrl: null }
+
     return c.json({
-      business: { name: intakeToken.business.name },
-      org: intakeToken.business.client.organization ?? { name: '', logoUrl: null },
+      business: { name: businessName },
+      org,
       taxYear: intakeToken.taxYear,
     })
   }
@@ -88,7 +86,7 @@ contractorIntakeRoute.post(
         isActive: true,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
-      select: { businessId: true, taxYear: true },
+      select: { clientId: true, taxYear: true },
     })
 
     if (!intakeToken) {
@@ -103,7 +101,7 @@ contractorIntakeRoute.post(
     const result = await prisma.$transaction(async (tx) => {
       const contractor = await tx.contractor.create({
         data: {
-          businessId: intakeToken.businessId,
+          clientId: intakeToken.clientId,
           firstName: input.firstName,
           lastName: input.lastName,
           tinType: input.tinType,
@@ -137,7 +135,7 @@ contractorIntakeRoute.post(
       return contractor
     })
 
-    console.log(`[ContractorIntake] Created contractor + 1099-NEC via token ${token} for business ${intakeToken.businessId}`)
+    console.log(`[ContractorIntake] Created contractor + 1099-NEC via token ${token} for client ${intakeToken.clientId}`)
 
     return c.json({ success: true, contractor: result })
   }

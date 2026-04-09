@@ -102,6 +102,21 @@ export function maskSSN(ssn: string): string {
 }
 
 /**
+ * Mask EIN for display: decrypt then show only last 4 digits
+ * @param einEncrypted - Encrypted EIN string (or null)
+ * @returns Masked EIN (e.g., "XX-XXX1234") or null
+ */
+export function maskEIN(einEncrypted: string | null): string | null {
+  if (!einEncrypted) return null
+  try {
+    const ein = decryptSSN(einEncrypted).replace(/-/g, '')
+    return `XX-XXX${ein.slice(-4)}`
+  } catch {
+    return 'XX-XXX****'
+  }
+}
+
+/**
  * Validate SSN format (basic validation)
  * - Must be 9 digits
  * - Cannot start with 000, 666, or 9XX (invalid SSA prefixes)

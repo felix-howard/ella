@@ -32,10 +32,13 @@ import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
 import { contractorIntakeRoute } from './routes/contractor-intake'
-import { contractorsRoute } from './routes/contractors'
-import { businessesRoute } from './routes/businesses'
-import { form1099NecRoute } from './routes/form-1099-nec'
+import { clientContractorsRoute } from './routes/contractors/client-contractors'
+import { clientForm1099NecRoute } from './routes/form-1099-nec/client-form-1099-nec'
+import { clientForm1099NecPdfsRoute } from './routes/form-1099-nec/client-form-1099-nec-pdfs'
+import { clientForm1099NecBatchesRoute } from './routes/form-1099-nec/client-form-1099-nec-batches'
+import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-form-1099-nec-prepare'
 import { campaignsRoute } from './routes/campaigns'
+import { clientGroupsRoute } from './routes/client-groups'
 
 const app = new OpenAPIHono()
 
@@ -87,15 +90,17 @@ app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/draft-returns/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
+app.use('/client-groups/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
 app.use('/cases/*', deprecationHeadersMiddleware)
-app.use('/businesses/*', authMiddleware)
 app.route('/clients', clientsRoute)
-app.route('/clients', businessesRoute) // /clients/:clientId/businesses
-app.route('/businesses', contractorsRoute) // /businesses/:businessId/contractors
-app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/*
+app.route('/clients', clientContractorsRoute) // /clients/:clientId/contractors
+app.route('/clients', clientForm1099NecRoute) // /clients/:clientId/1099-nec/*
+app.route('/clients', clientForm1099NecPdfsRoute) // /clients/:clientId/1099-nec/pdfs/*
+app.route('/clients', clientForm1099NecBatchesRoute) // /clients/:clientId/1099-nec/batches/*
+app.route('/clients', clientForm1099NecPrepareRoute) // /clients/:clientId/1099-nec/prepare
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)
@@ -112,6 +117,7 @@ app.route('/org-settings', orgSettingsRoute)
 app.route('/draft-returns', draftReturnsRoute)
 app.route('/terms', termsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
+app.route('/client-groups', clientGroupsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

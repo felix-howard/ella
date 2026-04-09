@@ -43,6 +43,7 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@tanstack/router-devtools": "^1.94.0",
     "@tanstack/router-plugin": "^1.94.0",
+    "@types/google.maps": "^3.58.1",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
     "@types/react-signature-canvas": "^1.0.7",

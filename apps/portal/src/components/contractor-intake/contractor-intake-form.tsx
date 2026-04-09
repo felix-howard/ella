@@ -4,7 +4,7 @@
  */
 import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Plus, Trash2, User } from 'lucide-react'
+import { Loader2, Plus, Trash2, User, Pencil, Check } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { AddressAutocomplete } from './address-autocomplete'
 
@@ -34,10 +34,17 @@ export interface ContractorEntry extends ContractorFormData {
   ssnDisplay: string
 }
 
+export interface SubmittedContractorInfo {
+  firstName: string
+  lastName: string
+  ssnLast4: string
+}
+
 interface ContractorIntakeFormProps {
   onSubmitAll: (entries: ContractorFormData[]) => Promise<void>
   isSubmitting: boolean
   error?: string
+  submittedContractors?: SubmittedContractorInfo[]
 }
 
 const inputClass =
@@ -174,6 +181,19 @@ function useContractorForm() {
     setAmountBox4('')
   }
 
+  const loadEntry = (entry: ContractorEntry) => {
+    setFirstName(entry.firstName)
+    setLastName(entry.lastName)
+    setSsnDisplay(entry.ssnDisplay)
+    _setTinType(entry.tinType)
+    setAddress(entry.address)
+    setCity(entry.city)
+    setState(entry.state)
+    setZip(entry.zip)
+    setAmountBox1(entry.amountBox1 ? formatCurrency(entry.amountBox1) : '')
+    setAmountBox4(entry.amountBox4 ? formatCurrency(entry.amountBox4) : '')
+  }
+
   return {
     firstName, setFirstName,
     lastName, setLastName,
@@ -189,25 +209,53 @@ function useContractorForm() {
     toFormData,
     toEntry,
     reset,
+    loadEntry,
   }
 }
 
-export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: ContractorIntakeFormProps) {
+export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error, submittedContractors = [] }: ContractorIntakeFormProps) {
   const { t } = useTranslation()
   const form = useContractorForm()
   const [queue, setQueue] = useState<ContractorEntry[]>([])
   const [formError, setFormError] = useState('')
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const firstNameRef = useRef<HTMLInputElement>(null)
 
   const handleAddToQueue = () => {
     if (!form.isValid) return
-    setQueue((prev) => [...prev, form.toEntry()])
+    if (editingIndex !== null) {
+      // Update existing entry
+      setQueue((prev) => prev.map((e, i) => i === editingIndex ? form.toEntry() : e))
+      setEditingIndex(null)
+    } else {
+      setQueue((prev) => [...prev, form.toEntry()])
+    }
     form.reset()
     setFormError('')
     firstNameRef.current?.focus()
   }
 
+  const handleEditFromQueue = (index: number) => {
+    form.loadEntry(queue[index])
+    setEditingIndex(index)
+    setFormError('')
+    firstNameRef.current?.focus()
+  }
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null)
+    form.reset()
+    firstNameRef.current?.focus()
+  }
+
   const handleRemoveFromQueue = (index: number) => {
+    // If editing the removed entry, cancel edit
+    if (editingIndex === index) {
+      setEditingIndex(null)
+      form.reset()
+    } else if (editingIndex !== null && index < editingIndex) {
+      setEditingIndex(editingIndex - 1)
+    }
     setQueue((prev) => prev.filter((_, i) => i !== index))
   }
 
@@ -243,43 +291,93 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
 
   return (
     <form onSubmit={handleSubmitAll} className="px-6 py-6 space-y-4">
+      {/* Previously submitted contractors (read-only) */}
+      {submittedContractors.length > 0 && (
+        <div className="space-y-2 mb-2">
+          <p className="text-xs font-medium text-primary uppercase tracking-wide flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5" />
+            {submittedContractors.length} submitted
+          </p>
+          {submittedContractors.map((c, i) => (
+            <div
+              key={`submitted-${i}`}
+              className="flex items-center px-4 py-3 rounded-xl border border-primary/20 bg-primary/5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {c.firstName} {c.lastName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ***-**-{c.ssnLast4}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Queued contractors list */}
       {queue.length > 0 && (
         <div className="space-y-2 mb-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             {t('contractorIntake.contractorsAdded', { count: queue.length })}
           </p>
-          {queue.map((entry, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-muted/30"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {entry.firstName} {entry.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.tinType}: {maskSsn(entry.ssn)} &middot; ${parseFloat(entry.amountBox1).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRemoveFromQueue(i)}
-                disabled={isSubmitting}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          {queue.map((entry, i) => {
+            const isEditing = editingIndex === i
+            return (
+              <div
+                key={i}
+                className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                  isEditing
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border bg-muted/30 hover:bg-muted/50 cursor-pointer'
+                }`}
+                onClick={() => !isEditing && !isSubmitting && handleEditFromQueue(i)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && !isEditing && !isSubmitting && handleEditFromQueue(i)}
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isEditing ? 'bg-primary/20' : 'bg-primary/10'
+                  }`}>
+                    {isEditing ? (
+                      <Pencil className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <User className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {entry.firstName} {entry.lastName}
+                      {isEditing && (
+                        <span className="ml-2 text-xs font-normal text-primary">Editing...</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.tinType}: {maskSsn(entry.ssn)} &middot; ${parseFloat(entry.amountBox1).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRemoveFromQueue(i) }}
+                  disabled={isSubmitting}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )
+          })}
           <div className="border-t border-border/50 pt-3">
             <p className="text-xs text-muted-foreground text-center">
-              Add another contractor below or submit all
+              {editingIndex !== null ? 'Editing contractor above — update or cancel below' : 'Tap a contractor to edit, or add another below'}
             </p>
           </div>
         </div>
@@ -473,33 +571,58 @@ export function ContractorIntakeForm({ onSubmitAll, isSubmitting, error }: Contr
 
       {/* Action buttons */}
       <div className="flex gap-3 pt-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleAddToQueue}
-          disabled={!form.isValid || isSubmitting}
-          className="flex-1 py-3 rounded-xl font-medium"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add & Continue
-        </Button>
-        <Button
-          type="submit"
-          disabled={(totalContractors === 0) || isSubmitting}
-          className="flex-1 py-3 rounded-xl font-medium"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {t('contractorIntake.submitting')}
-            </>
-          ) : (
-            <>
-              {t('contractorIntake.submit')}
-              {totalContractors > 0 && ` (${totalContractors})`}
-            </>
-          )}
-        </Button>
+        {editingIndex !== null ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelEdit}
+              disabled={isSubmitting}
+              className="py-3 rounded-xl font-medium px-6"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddToQueue}
+              disabled={!form.isValid || isSubmitting}
+              className="flex-1 py-3 rounded-xl font-medium"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Update Contractor
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddToQueue}
+              disabled={!form.isValid || isSubmitting}
+              className="flex-1 py-3 rounded-xl font-medium"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add & Continue
+            </Button>
+            <Button
+              type="submit"
+              disabled={(totalContractors === 0) || isSubmitting}
+              className="flex-1 py-3 rounded-xl font-medium"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t('contractorIntake.submitting')}
+                </>
+              ) : (
+                <>
+                  {t('contractorIntake.submit')}
+                  {totalContractors > 0 && ` (${totalContractors})`}
+                </>
+              )}
+            </Button>
+          </>
+        )}
       </div>
     </form>
   )

@@ -12,7 +12,7 @@ type SortField = 'name' | 'city' | 'state' | 'status'
 
 interface ContractorTableProps {
   contractors: Contractor[]
-  businessId: string
+  clientId: string
   onEdit: (contractor: Contractor) => void
   onDelete: (id: string) => void
   deletingId: string | null
@@ -30,7 +30,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   REJECTED: { label: 'Rejected', className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
 }
 
-export function ContractorTable({ contractors, businessId, onEdit, onDelete, deletingId, sortField, sortDir, onSort }: ContractorTableProps) {
+export function ContractorTable({ contractors, clientId, onEdit, onDelete, deletingId, sortField, sortDir, onSort }: ContractorTableProps) {
   const [confirmDelete, setConfirmDelete] = useState<Contractor | null>(null)
   const [loadingPdf, setLoadingPdf] = useState<string | null>(null)
 
@@ -38,8 +38,8 @@ export function ContractorTable({ contractors, businessId, onEdit, onDelete, del
     setLoadingPdf(`${formId}-${type}`)
     try {
       const result = type === 'copyA'
-        ? await api.form1099nec.downloadPdf(businessId, formId)
-        : await api.form1099nec.downloadRecipientPdf(businessId, formId)
+        ? await api.form1099nec.downloadPdf(clientId, formId)
+        : await api.form1099nec.downloadRecipientPdf(clientId, formId)
       window.open(result.url, '_blank')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load PDF')

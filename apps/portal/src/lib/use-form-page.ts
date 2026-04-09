@@ -57,9 +57,24 @@ export function useFormPage({ orgSlug, staffSlug }: UseFormPageOptions) {
 
     try {
       const result = await formApi.submit(orgSlug, {
-        ...data,
+        clientType: data.clientType,
+        firstName: data.firstName || undefined,
+        lastName: data.lastName || undefined,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
+        taxYear: data.taxYear,
         language: i18n.language.startsWith('vi') ? 'VI' : 'EN',
         staffSlug,
+        // Business fields
+        businessName: data.businessName,
+        businessType: data.businessType,
+        businessEin: data.businessEin,
+        businessPhone: data.businessPhone,
+        businessEmail: data.businessEmail,
+        businessAddress: data.businessAddress,
+        businessCity: data.businessCity,
+        businessState: data.businessState,
+        businessZip: data.businessZip,
       })
       setSmsSent(result.smsSent)
       setState('success')

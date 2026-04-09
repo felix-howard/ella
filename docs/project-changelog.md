@@ -1,7 +1,380 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-07 ICT
+> **Last Updated:** 2026-04-09 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-09
+
+### Feature: Multi-Business Per Client - Phase 2 (Wizard Accordion Multi-Business) ✅ COMPLETE
+**Status:** Complete (Phase 2 of multi-business plan)
+**Branch:** feature/ella-enhance-202
+**Doc:** [Phase 2: Wizard Accordion Multi-Business](./phase-12-wizard-accordion-multi-business.md)
+
+**Summary:** Implemented accordion UI component for managing multiple businesses in INDIVIDUAL_WITH_BUSINESS client creation path. Enables single individual to register up to 10 associated business entities in one wizard flow. Each business independently editable with unique form IDs, per-business error validation, add/remove functionality with max 10 limit, and dynamic confirm summary showing all created entities.
+
+**What Changed:**
+- **New Component:** `BusinessAccordion` for collapsible multi-business management
+- **Component Enhancement:** `BusinessInfoForm` now supports `idPrefix` and `hideTitle` props for reusability
+- **Wizard Logic:** Multi-business state management in CreateClientPage (`businesses[]`, `expandedBizIndex`, `updateBusiness`, `addBusiness`, `removeBusiness`)
+- **Validation:** New `validateAllBusinesses()` for array validation with auto-expand on first error
+- **Rendering:** Accordion replaces single form in INDIVIDUAL_WITH_BUSINESS step
+- **Confirm Step:** Shows preview summary of all created entities + generated group name
+- **API Support:** Form routes updated to accept INDIVIDUAL_WITH_BUSINESS clientType
+
+**Verification:**
+- Accordion functionality: Add/remove/edit businesses, max 10 limit enforced
+- Validation: Per-business errors highlight correctly, first invalid auto-expands
+- Phone handling: Business phone optional, falls back to individual's if omitted
+- Confirm step: Shows formatted list of individual + all businesses + group
+- Type safety: Full TypeScript strict mode pass
+- No breaking changes to INDIVIDUAL or BUSINESS paths
+
+**Files Changed:**
+- **New:** `apps/workspace/src/components/clients/business-accordion.tsx`
+- **Modified:** `apps/workspace/src/components/clients/business-info-form.tsx` (idPrefix, hideTitle props)
+- **Modified:** `apps/workspace/src/components/clients/index.ts` (BusinessAccordion export)
+- **Modified:** `apps/workspace/src/routes/clients/new.tsx` (multi-business state & accordion rendering)
+- **Modified:** `apps/api/src/routes/form/index.ts` (INDIVIDUAL_WITH_BUSINESS support)
+- **Modified:** `apps/api/src/routes/form/schemas.ts` (schema validation for new path)
+
+---
+
+### Feature: Multi-Business Per Client - Phase 3 (Add Business Drawer) ✅ COMPLETE
+**Status:** Complete (Phase 3 of multi-business plan)
+**Branch:** feature/ella-enhance-202
+**Completion Date:** 2026-04-09
+
+**Summary:** Implemented "+ Add Business" drawer on client detail linked entity card. Enables CPAs to add linked businesses to existing individual clients from client detail page. Creates and links business using link-business API endpoint. Shows empty state for individuals without businesses, allowing inline addition without navigation.
+
+**What Changed:**
+- **New Component:** `AddBusinessDrawer` for creating and linking businesses to existing clients
+- **Component Enhancement:** `ClientLinkedEntityCard` updated to show for INDIVIDUAL clients even without linked businesses, displays "+ Add Business" button
+- **Drawer Features:** Uses BusinessInfoForm + tax year selector, handles loading/error states, invalidates cache on success
+- **Linked Entity Card:** Empty state display for individuals with no businesses, CTA button to open drawer
+- **Client Overview:** Shows linked entity card for INDIVIDUAL clients regardless of whether businesses exist (enable add flow)
+
+**Verification:**
+- Drawer opens/closes correctly with overlay click handling
+- BusinessInfoForm renders with all required fields
+- Successful submission creates business + links to client
+- Cache invalidation refreshes client detail with new business
+- BUSINESS clients don't show add button (only INDIVIDUAL)
+- Mobile-responsive drawer width (max-w-md)
+- Loading state prevents double-submit
+- Error display shows submission failures
+
+**Files Changed:**
+- **New:** `apps/workspace/src/components/clients/client-overview-tab/add-business-drawer.tsx`
+- **Modified:** `apps/workspace/src/components/clients/client-overview-tab/client-linked-entity-card.tsx` (empty state, add button, props)
+- **Modified:** `apps/workspace/src/components/clients/client-overview-tab/index.tsx` (pass clientId, show card for INDIVIDUAL)
+
+---
+
+### Feature: Business Entity Separation - Phase 15 (Cleanup & Deprecate Business Model) ✅ COMPLETE
+**Status:** Complete (Phase 15 of 15 — ALL PHASES DONE)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 15](../plans/260408-business-entity-separation/phase-15-cleanup-deprecate-business.md)
+
+**Summary:** Final cleanup phase completed. Removed legacy Business model entirely from schema, dropped businessId FK columns, made clientId required on Contractor/FilingBatch/ContractorIntakeToken, deleted all /businesses/* routes and deprecated code, removed verifyBusinessAccess function, cleaned up frontend Business components, and removed businesses namespace from API client. Migration applied and verified with full type-check, build, and test suite passing.
+
+**What Changed:**
+- **Schema Cleanup:** Business model removed entirely from schema.prisma; all 3 child models converted to direct clientId FK with Cascade delete
+- **Column Cleanup:** Dropped businessId FK columns from Contractor, FilingBatch, ContractorIntakeToken; made clientId non-nullable on all 3
+- **API Routes Deleted:** Removed `/businesses/*` route handlers, schema validators, and route registrations
+- **Deprecated Functions Removed:** Deleted verifyBusinessAccess from org-scope.ts; no longer needed
+- **Frontend Cleanup:** Deleted `apps/workspace/src/components/businesses/` directory; removed BusinessesTab imports from client detail; all Business-related UI gone
+- **API Client Update:** Removed businesses namespace from `apps/workspace/src/lib/api-client.ts`
+- **New Endpoints Added:** Intake token CRUD endpoints under `/clients/:clientId/intake-token` for replacements
+- **Code Extraction:** Extracted getBusinessClientForFiling shared helper for DRY code patterns
+- **Migration Applied:** 20260409140000_remove_business_model_cleanup — reviewed and verified for data safety
+
+**Verification & Testing:**
+- Data integrity: All Contractor/FilingBatch/IntakeToken records have valid clientId (no orphans)
+- Type-check: Full TypeScript strict mode passes
+- Build: `pnpm build` succeeded with zero errors
+- Tests: Full test suite passed; no references to removed code
+- Backward compat: All /clients/:clientId/* routes fully functional; no regressions
+
+**Files Changed:**
+- **Modified:** `packages/db/prisma/schema.prisma` - Removed Business model, updated 3 child models
+- **Deleted:** `apps/api/src/routes/businesses/*` - All business route files
+- **Modified:** `apps/api/src/lib/org-scope.ts` - Removed verifyBusinessAccess function
+- **Deleted:** `apps/workspace/src/components/businesses/*` - All business UI components
+- **Modified:** `apps/workspace/src/lib/api-client.ts` - Removed businesses namespace
+- **Applied Migration:** 20260409140000_remove_business_model_cleanup
+
+**Post-Implementation Status:** Entire Business Entity Separation Approach B initiative COMPLETE. All 15 phases delivered, tested, and merged. Schema simplified, codebase cleaned, routes optimized. Production ready.
+
+---
+
+### Feature: Business Entity Separation - Phase 14 (Portal Entity Picker) ✅ COMPLETE
+**Status:** Complete (Phase 14 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 14](../plans/260408-business-entity-separation/phase-14-portal-entity-picker.md)
+
+**Summary:** Upload portal enhanced to support multi-entity clients (ClientGroup). When client has linked business entities, portal displays entity picker before upload screen to select which entity's account documents belong to. Single-entity clients experience zero change. Mobile-first design with large touch targets, i18n support (EN/VI).
+
+**What Changed:**
+- **Portal UX:** Entity picker page added pre-upload showing personal + linked business entities with icons
+- **Entity Display:** Building icon (🏢) for business clients, person icon (👤) for individual, each labeled with name
+- **Selection Persistence:** Selected entity persisted in session to avoid re-asking on navigation
+- **Single-Entity Bypass:** Clients without groups or with only 1 entity skip picker entirely, upload directly
+- **MagicLink Expansion:** When creating portal links for grouped client, generate link for each group member scoped to their TaxCase
+- **Portal API:** GET /portal/:token response now includes group member info (id, name, clientType, entity-specific token)
+- **i18n Complete:** Entity picker labels, buttons, descriptions translated to English + Vietnamese
+
+**Key Features:**
+- Multi-entity client support: CPA creates client (individual) + links business entities via ClientGroup
+- Client portal opens with entity selector showing all group members
+- Touch-friendly buttons with 48px minimum height for mobile users
+- Fast zero-latency entity selection (no API calls after initial load)
+- Backward compatible: Existing single-entity portal links unchanged
+
+**Files Changed:**
+- **Modified:** `apps/portal/src/` - Added EntityPicker component, route handlers, session state for selected entity
+- **Modified:** `apps/api/src/routes/portal/index.ts` - Enhanced GET endpoint to return group info, multiple MagicLink creation for grouped clients
+- **Modified:** `apps/portal/src/locales/en.json` - Entity picker labels (Upload for:, Personal, Business, etc.)
+- **Modified:** `apps/portal/src/locales/vi.json` - Vietnamese translations for entity picker
+
+**API Changes:**
+- `GET /portal/:token` response now includes: `{ currentEntity: { id, name, clientType }, groupEntities: [{ id, name, clientType, token }] }` when ClientGroup exists
+- Portal link creation auto-generates MagicLinks for each group member if clientGroupId present
+
+**Portal Changes:**
+- New EntityPicker page component with grid/list layout options
+- Session storage of selected entity (survives page navigation)
+- Mobile viewport: 100% width buttons with 48px+ padding
+- Icon + text label combo for accessibility
+- Graceful single-entity fallback (skip picker, show upload)
+
+**Testing & Validation:**
+- Type-check: TypeScript strict mode passes
+- Lint: Zero syntax errors
+- Mobile: Responsive layout verified (mobile-first breakpoints)
+- i18n: English + Vietnamese complete
+- Backward compat: Single-entity flows unchanged
+- Session persistence: Entity selection survives navigation
+
+**Next Phase:** Phase 15 will deprecate old Business model and remove /businesses routes.
+
+---
+
+### Feature: Business Entity Separation - Phase 13 (Frontend Client Detail Adaptive Tabs) ✅ COMPLETE
+**Status:** Complete (Phase 13 of 15)
+**Branch:** feature/ella-enhance-202
+
+**Summary:** Client detail page tabs now adapt dynamically based on client type. Individual clients show tabs: Overview | Messages | Documents | 1099-NEC (when available). Business clients show: Overview | Contractors | 1099-NEC Forms | Documents. Cross-link banner guides navigation between linked entities. All i18n'd for EN/VI.
+
+**What Changed:**
+- **Adaptive Tabs:** Tabs determined by clientType (INDIVIDUAL vs BUSINESS) at render time
+- **Tab Content:** Individual tabs: overview, messages, docs, 1099-nec; Business tabs: overview, contractors, 1099-nec, docs
+- **Cross-Link Banner:** When entity is part of ClientGroup, banner shows "View [owner/business] details" with navigation link
+- **Contractor Tab:** Business client detail shows contractors list with add/edit/delete actions, action buttons disabled until TaxBandits integration loaded
+- **1099-NEC Tab:** Status display (draft count, ready for transmit), quick actions (create, fetch PDFs, transmit to IRS)
+- **Mobile:** Horizontal scroll for tabs on small screens, banner adapts layout
+
+**Files Changed:**
+- **Modified:** `apps/workspace/src/routes/clients/[clientId]/` - Tab routing + adaptive logic
+- **Modified:** `apps/workspace/src/components/clients/client-detail-tabs.tsx` - Dynamic tab list generation
+- **Modified:** `apps/workspace/src/components/clients/cross-link-banner.tsx` - Group navigation banner (NEW)
+- **Updated i18n:** 10+ new keys for tab labels, banner text
+
+**Code Quality:**
+- Type coverage: 100% for adaptive tab logic
+- Performance: useMemo on tab list, memo on banner component
+- Accessibility: ARIA labels on tab navigation, semantic HTML
+
+---
+
+### Feature: Business Entity Separation - Phase 11 (Frontend Client List Grouped Display) ✅ COMPLETE
+**Status:** Complete (Phase 11 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 11](../plans/260408-business-entity-separation/phase-11-frontend-client-list-grouped.md)
+
+**Summary:** Client list page redesigned to display individual clients grouped with their linked businesses. Business clients appear indented under their owner, distinguished by building icon and businessType badge. New clientType filter (All/Individuals/Businesses) added to toolbar. Fully i18n'd for English and Vietnamese.
+
+**What Changed:**
+- **Updated Routes:** `apps/workspace/src/routes/clients/index.tsx` - Added clientType filter buttons, grouped display logic
+- **Updated Components:** `apps/workspace/src/components/clients/client-list-table.tsx` - Grouping logic, building icon for businesses, businessType badge display
+- **Updated API Client:** `apps/workspace/src/lib/api-client.ts` - Added clientType filter param to listClients query, updated ClientWithActions type with businessType field and INCOMING_SMS/INCOMING_CALL source variants
+- **Updated i18n:** `apps/workspace/src/locales/en.json` + `vi.json` - New keys: filter buttons, businessType labels (LLC, S-Corp, C-Corp, etc.), linkedTo label
+- **Updated API:** `apps/api/src/routes/clients/index.ts` - GET /clients now returns businessType field, accepts clientType query filter
+
+**Key Features:**
+- Clients grouped by clientGroupId: individual shown first, businesses indented below
+- Building icon (🏢) replaces avatar initials for business clients
+- businessType badge (LLC, S-Corp, etc.) displayed next to business name with i18n labels
+- Ungrouped clients (no clientGroupId) display normally unchanged
+- Filter buttons: All | Individuals Only | Businesses Only
+- "Linked to: [owner name]" subtitle on grouped business rows for context
+- Click on business row navigates to that business's detail page
+- Mobile responsive (tree connector hidden on small screens)
+
+**Files Changed:**
+- **Modified:** `apps/api/src/routes/clients/index.ts` - Added businessType to list response, clientType filter param
+- **Modified:** `apps/workspace/src/routes/clients/index.tsx` - Filter buttons, grouping function, ~30 LOC
+- **Modified:** `apps/workspace/src/components/clients/client-list-table.tsx` - Grouping logic, building icon, badge, ~40 LOC
+- **Modified:** `apps/workspace/src/lib/api-client.ts` - clientType param, businessType field, source type variants
+- **Modified:** `apps/workspace/src/locales/en.json` - 15+ new keys
+- **Modified:** `apps/workspace/src/locales/vi.json` - 15+ new keys (Vietnamese translations)
+
+**Code Quality Notes:**
+- Grouping logic extracted as pure function, wrapped in `useMemo` for performance
+- ClientRow component wrapped in `memo` to prevent unnecessary re-renders
+- Type coverage: Minor gap in `source` union type (businessType response includes INCOMING_SMS/INCOMING_CALL, type only listed 5 variants)
+- Sort comparator in grouping improved for stability (returns 0 when types match)
+- i18n complete for both locales including label interpolation
+
+**API Changes:**
+- `GET /clients` response now includes `businessType: 'LLC' | 'S-Corp' | 'C-Corp' | 'Sole Prop' | null`
+- `GET /clients` accepts optional query param `clientType?: 'INDIVIDUAL' | 'BUSINESS'` to filter by type
+- No breaking changes; businessType null for INDIVIDUAL clients
+
+**Frontend Changes:**
+- Client list grid displays groups with indented business rows
+- Tree connector (└─) shows grouped relationship on medium+ screens
+- Color-coded badge for each businessType with background styling
+- Filter state managed in page component, passed to table via props
+- Responsive: indent hidden on mobile, icon always visible
+
+**Code Review Findings:**
+- Score: 8/10
+- Critical: None
+- High priority: source type mismatch (quick fix), sort comparator stability (1-line fix)
+- Medium: businessType labels could use i18n-ization (partially addressed in this phase)
+- Edge case: Grouped businesses without INDIVIDUAL sibling show without "Linked to" subtitle (acceptable degradation)
+
+**Testing & Validation:**
+- Type-check: All TypeScript strict mode (source type gap noted)
+- Lint: Zero syntax errors
+- Visual: Grouping, icons, badges, filters tested
+- i18n: English + Vietnamese locale coverage complete
+- Mobile: Responsive behavior verified
+
+**Next Phase:** Phase 12 will add client creation wizard with clientType/businessType selection; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
+### Feature: Business Entity Separation - Phase 09 (1099-NEC Routes Re-Parent + Shared Helpers) ✅ COMPLETE
+**Status:** Complete (Phase 09 of 15)
+**Branch:** feature/ella-enhance-202
+
+**Summary:** 1099-NEC form + filing batch endpoints re-parented from /businesses/:businessId/1099-nec/* to /clients/:clientId/1099-nec/*. New routes enforce BUSINESS-type client validation via verifyBusinessClient. Shared TaxBandits helpers (createFormsInTaxBandits, fetchDraftPdfs) extracted for DRY compliance. Contractor intake auto-populates clientId on new records.
+
+**What Changed:**
+- **New Routes:** GET/POST /clients/:clientId/1099-nec/status, /create, /fetch-pdfs, /fetch-recipient-pdfs, /prepare, /transmit
+- **New Routes:** GET/POST /clients/:clientId/1099-nec/pdfs, /pdfs/recipient, /:formId/pdf, /:formId/pdf/recipient
+- **New Routes:** GET /clients/:clientId/1099-nec/batches, /batches/:batchId, POST /batches/:batchId/refresh
+- **New Files:**
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec.ts` - Status, create, fetch-pdfs under /clients/:clientId/1099-nec
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-pdfs.ts` - PDF download endpoints
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-batches.ts` - Transmit, batches endpoints
+  - `apps/api/src/routes/form-1099-nec/client-form-1099-nec-prepare.ts` - One-click prepare (create + fetch PDFs)
+  - `apps/api/src/routes/form-1099-nec/shared-helpers.ts` - Shared TaxBandits helpers (createFormsInTaxBandits, fetchDraftPdfs)
+- **Auth Pattern:** All routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations
+- **Transition Helper:** Uses findBusinessIdForClient(clientId) to locate legacy Business record for TaxBandits submission
+- **Contractor Intake:** Auto-populates clientId from token.clientId on new contractor creation
+- **Backward Compatibility:** All /businesses/:businessId/1099-nec/* routes remain functional (deprecated marker added)
+
+**Files Changed:**
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec.ts` - 150+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-pdfs.ts` - 80+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-batches.ts` - 120+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/client-form-1099-nec-prepare.ts` - 100+ LOC
+- **New:** `apps/api/src/routes/form-1099-nec/shared-helpers.ts` - 80+ LOC (DRY helpers)
+- **Modified:** `apps/api/src/routes/form-1099-nec/index.ts` - Added deprecated marker, exports shared route
+- **Modified:** `apps/api/src/routes/contractor-intake/index.ts` - Auto-populates clientId from token
+- **Modified:** `apps/api/src/app.ts` - Route registration for new /clients routes + deprecated /businesses routes
+
+**Key Features:**
+- One-click prepare endpoint (/clients/:clientId/1099-nec/prepare) combines form creation + PDF fetch
+- Batch status refresh endpoint auto-updates form + batch statuses from TaxBandits API
+- Auto-fetch recipient PDFs (Copy B + Copy C) after successful transmission
+- Shared helpers reduce code duplication between /clients and /businesses routes during transition
+
+**Backward Compatibility:** ✅ Full
+- All /businesses/:businessId/1099-nec/* routes remain functional and unchanged
+- Existing integrations continue without modifications
+- @deprecated markers indicate Phase 15 removal timeline
+
+**Next Phase:** Phase 10+ will handle remaining entity separation routes; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
+### Feature: Business Entity Separation - Phase 08 (API Contractor Routes Re-Parent) ✅ COMPLETE
+**Status:** Complete (Phase 08 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Phase 08](../plans/260408-business-entity-separation/phase-08-api-contractor-reparent.md)
+
+**Summary:** Contractor API routes re-parented from /businesses/:businessId/contractors to /clients/:clientId/contractors with clientId-scoped access control via verifyBusinessClient. All 8 contractor endpoints support new route structure while maintaining backward compatibility with deprecated /businesses routes (Phase 15 cleanup).
+
+**What Changed:**
+- **New Routes:** GET/POST/PATCH/DELETE /clients/:clientId/contractors + upload-excel, bulk-save, all variants
+- **New File:** `apps/api/src/routes/contractors/client-contractors.ts` - New route group with clientId param, verifyBusinessClient auth
+- **New File:** `apps/api/src/routes/contractors/find-business-id.ts` - Transition helper bridging legacy Contractor.businessId requirement
+- **Modified:** `apps/api/src/routes/contractors/index.ts` - Exports clientContractorsRoute, maintains deprecated /businesses routes with @deprecated JSDoc
+- **Modified:** `apps/api/src/app.ts` - Registers both new clientContractorsRoute (/clients) + deprecated contractorsRoute (/businesses)
+- **Auth Pattern:** All routes use verifyBusinessClient(clientId, user) enforcing clientType=BUSINESS + org-scope
+- **Transition Helper:** findBusinessIdForClient(clientId) maps client to legacy Business ID via ClientGroup lookup (exact + fuzzy name matching)
+- **Data Safety:** Contractor.businessId still required during transition; new creates populate both businessId + clientId FKs
+
+**Files Changed:**
+- **New:** `apps/api/src/routes/contractors/client-contractors.ts` - 150+ LOC
+- **New:** `apps/api/src/routes/contractors/find-business-id.ts` - 50 LOC
+- **Modified:** `apps/api/src/routes/contractors/index.ts` - Exports + deprecated routes
+- **Modified:** `apps/api/src/app.ts` - Route registration
+
+**Backward Compatibility:** ✅ Full
+- All /businesses/:businessId/contractors routes remain functional
+- Existing integrations continue without changes
+- @deprecated markers indicate Phase 15 removal timeline
+
+**Next Phase:** Phase 09 will re-parent 1099-NEC + FilingBatch routes; Phase 15 will remove /businesses routes + drop businessId FK.
+
+---
+
+### Feature: Business Entity Separation - Phase 05 (API Org Scope Helper) ✅ COMPLETE
+**Status:** Complete (Phase 05 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
+
+**Summary:** Added `verifyBusinessClient` helper function to `org-scope.ts` for validating business client access in new entity separation model. Client with clientType=BUSINESS treated as business entity. Maintains backward compatibility with deprecated `verifyBusinessAccess`.
+
+**What Changed:**
+- **New:** `verifyBusinessClient(clientId, user)` function - Verifies client exists with clientType=BUSINESS + belongs to user's org
+- **Updated:** `verifyBusinessAccess` marked @deprecated - Will be removed in Phase 15 cleanup
+- **Security:** Enforces org-scoping via `buildClientScopeFilter()` + clientType validation
+- **Type-safe:** Returns Client | null, no casting needed
+
+**Files Changed:**
+- **Modified:** `apps/api/src/lib/org-scope.ts` - Added verifyBusinessClient + deprecated verifyBusinessAccess
+
+**Next Phase:** Phase 06-09 will update API CRUD for Client(BUSINESS) creation + ClientGroup endpoints + re-parent Contractor/1099 routes.
+
+---
+
+### Feature: Business Entity Separation - Phase 04 (Data Migration Script) ✅ COMPLETE
+**Status:** Complete (Phase 04 of 15)
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
+
+**Summary:** Data migration script converts existing Business records to Client records with clientType=BUSINESS, creates ClientGroups linking individuals to businesses, backfills clientId FKs on Contractor/FilingBatch/IntakeToken. Idempotent, transaction-wrapped, dry-run capable.
+
+**What Changed:**
+- **Script:** `apps/api/scripts/migrate-business-to-client.ts` - Converts Business → Client(BUSINESS), creates ClientGroup, backfills FKs
+- **Implementation:** Business query with includes; idempotency check; transaction-wrapped per business; phone uniqueness via `biz-{id}` placeholder
+- **Features:** Dry-run mode (--dry-run), org-scoped migration (--org-id <id>), progress logging, error handling
+- **Script command:** `pnpm -F api migrate:business-to-client [--dry-run] [--org-id <id>]`
+- **Data integrity:** All Contractor/FilingBatch/ContractorIntakeToken records backfilled with new business client IDs
+- **Idempotency:** Re-runnable without duplicating; skips already-migrated businesses
+
+**Files Changed:**
+- **New:** `apps/api/scripts/migrate-business-to-client.ts`
+- **Updated:** `apps/api/package.json` - Added script command
+
+**Next Phase:** Phase 05 will update org scope helper + verifyBusinessClient validation for API safety.
 
 ---
 

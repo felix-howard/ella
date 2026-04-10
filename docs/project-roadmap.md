@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-04-10 ICT
-> **Current Phase:** Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
@@ -78,6 +78,39 @@
 - Added new intake-token CRUD endpoints under /clients/:clientId/intake-token
 - Extracted getBusinessClientForFiling shared helper for code reuse
 - Full type-check and build passed; all tests verified
+
+---
+
+### Friendly Upload Link URL (2 Phases) COMPLETE ✅
+**Started:** 2026-04-10
+**Completed:** 2026-04-10 (All 2 Phases)
+**Status:** Complete — All phases delivered and verified
+**Branch:** feature/enhance-business-record
+**Plan:** [Friendly Upload Link URL](../plans/260410-friendly-upload-link-url/plan.md)
+**Objective:** Change magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better client trust and UX. Legacy `/u/` route preserved for backward compatibility.
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: slug token generation | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Portal: new `/upload` route + legacy fallback | ✅ DONE | 1h | 2026-04-10 |
+
+**What Changed:**
+- Token format: `{client-name-slug}-{4-char-random}` instead of 12-char random (e.g., `tuyet-nguyen-7k3m`)
+- New route: `/upload/:token` with friendly URLs
+- Legacy route: `/u/:token` preserved for existing links (backward compatible)
+- `createMagicLink()` and `createMagicLinkWithDeactivation()` now accept optional `clientName` param
+- `getMagicLinkUrl()` PORTAL path changed from `/u/` to `/upload/`
+- Extracted shared `PortalPage` component from `/u/$token/index.tsx` to `components/portal-page.tsx`
+- Both routes (`/u/` and `/upload/`) use shared component, eliminating code duplication
+
+**Deliverables:**
+- New friendly magic link generation in `apps/api/src/services/magic-link.ts`
+- Send-upload-link endpoint now passes clientName when creating links
+- Portal `/upload/:token` route created with shared component
+- Legacy `/u/:token` route refactored to reuse shared component
+- No DB changes required (token column remains String)
+- No schema migration needed (format change transparent to storage layer)
 
 ---
 

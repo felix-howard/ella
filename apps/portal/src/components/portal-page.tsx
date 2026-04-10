@@ -1,0 +1,208 @@
+/**
+ * Shared Portal Page Component
+ * Used by both /upload/$token and /u/$token (legacy) routes
+ */
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Button } from '@ella/ui'
+import { portalApi, type PortalData, type UploadResponse, ApiError } from '../lib/api-client'
+import { WelcomeHeader } from './landing/welcome-header'
+import { SimpleUploader } from './simple-uploader'
+
+type PageState = 'loading' | 'success' | 'error'
+
+interface ErrorState {
+  code: string
+  message: string
+}
+
+export function PortalPage({ token }: { token: string }) {
+  const { t, i18n } = useTranslation()
+
+  const [state, setState] = useState<PageState>('loading')
+  const [data, setData] = useState<PortalData | null>(null)
+  const [error, setError] = useState<ErrorState | null>(null)
+
+  // Ref to track if component is mounted (prevents stale updates)
+  const isMountedRef = useRef(true)
+
+  // Initial data load
+  useEffect(() => {
+    isMountedRef.current = true
+
+    async function fetchData() {
+      setState('loading')
+      setError(null)
+
+      try {
+        const result = await portalApi.getData(token)
+        if (isMountedRef.current) {
+          setData(result)
+          setState('success')
+          // Sync language from client data only if no localStorage preference yet
+          if (!localStorage.getItem('ella-language')) {
+            const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
+            if (i18n.language !== clientLang) {
+              i18n.changeLanguage(clientLang)
+            }
+          }
+        }
+      } catch (err) {
+        if (isMountedRef.current) {
+          setState('error')
+          if (err instanceof ApiError) {
+            setError({ code: err.code, message: err.message })
+          } else {
+            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
+          }
+        }
+      }
+    }
+
+    fetchData()
+    return () => { isMountedRef.current = false }
+  }, [token, i18n, t])
+
+  // Reload handler for retry button
+  const handleReload = useCallback(() => {
+    if (!isMountedRef.current) return
+
+    setState('loading')
+    setError(null)
+    portalApi.getData(token)
+      .then((result) => {
+        if (isMountedRef.current) {
+          setData(result)
+          setState('success')
+        }
+      })
+      .catch((err) => {
+        if (isMountedRef.current) {
+          setState('error')
+          if (err instanceof ApiError) {
+            setError({ code: err.code, message: err.message })
+          } else {
+            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
+          }
+        }
+      })
+  }, [token, t])
+
+  // Upload complete handler - refresh data to update missing docs list
+  const handleUploadComplete = useCallback(
+    (_result: UploadResponse) => {
+      portalApi
+        .getData(token)
+        .then((newData) => {
+          if (isMountedRef.current) {
+            setData(newData)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to refresh data after upload:', err)
+        })
+    },
+    [token]
+  )
+
+  // Upload error handler
+  const handleUploadError = useCallback((message: string) => {
+    console.error('Upload error:', message)
+  }, [])
+
+  // Loading state
+  if (state === 'loading') {
+    return (
+      <div
+        className="flex-1 flex items-center justify-center"
+        role="status"
+        aria-label={t('common.processing')}
+      >
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" aria-hidden="true" />
+          <p className="text-muted-foreground">{t('common.processing')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (state === 'error' || !data) {
+    return <ErrorView error={error} onRetry={handleReload} />
+  }
+
+  // Success state
+  return (
+    <div className="flex-1 flex flex-col">
+      <WelcomeHeader clientName={data.client.name} taxYear={data.taxCase.taxYear} />
+
+      <div className="px-6 py-6">
+        <SimpleUploader
+          token={token}
+          onUploadComplete={handleUploadComplete}
+          onError={handleUploadError}
+        />
+      </div>
+
+      <div className="px-6 py-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">
+            {t('portal.disclaimerTitle')}
+          </p>
+          <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+            <li>{t('portal.disclaimer1')}</li>
+            <li>{t('portal.disclaimer2')}</li>
+          </ol>
+        </div>
+      </div>
+
+      <footer className="px-6 py-4 text-center">
+        <p className="text-xs text-muted-foreground">
+          Ella Tax Document System
+        </p>
+      </footer>
+    </div>
+  )
+}
+
+function ErrorView({
+  error,
+  onRetry,
+}: {
+  error: ErrorState | null
+  onRetry: () => void
+}) {
+  const { t } = useTranslation()
+
+  const isInvalidLink = error?.code === 'INVALID_TOKEN' || error?.code === 'EXPIRED_TOKEN'
+
+  return (
+    <div
+      className="flex-1 flex items-center justify-center p-6"
+      role="alert"
+      aria-live="polite"
+    >
+      <div className="text-center max-w-sm">
+        <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-8 h-8 text-error" aria-hidden="true" />
+        </div>
+
+        <h2 className="text-xl font-semibold text-foreground mb-2">
+          {isInvalidLink ? t('portal.invalidLink') : t('portal.errorLoading')}
+        </h2>
+
+        <p className="text-muted-foreground mb-6">
+          {error?.message || t('portal.contactOffice')}
+        </p>
+
+        {!isInvalidLink && (
+          <Button onClick={onRetry} className="gap-2" aria-label={t('common.tryAgain')}>
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            {t('common.tryAgain')}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}

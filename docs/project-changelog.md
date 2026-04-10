@@ -7,6 +7,48 @@
 
 ## 2026-04-10
 
+### Feature: Friendly Upload Link URL (2 Phases) ✅ COMPLETE
+**Status:** Complete (All 2 Phases)
+**Branch:** feature/enhance-business-record
+
+**Summary:** Changed magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better UX. Token generation now uses client name slug with 4-char random suffix. Extracted shared `PortalPage` component to eliminate duplication. Legacy `/u/` routes preserved for backward compatibility—both old and new links work seamlessly.
+
+**What Changed:**
+- **Backend:** `createMagicLink()` and `createMagicLinkWithDeactivation()` now accept optional `clientName` param. PORTAL links use slug token format; other types unchanged
+- **Token format:** `tuyet-nguyen-7k3m` (name-slug-4chars) instead of 12-char random
+- **URL builder:** `getMagicLinkUrl()` returns `/upload/{token}` for PORTAL type
+- **Send-upload-link endpoint:** Passes `clientName` when creating magic links
+- **Portal routing:** New `/upload/:token` route created; `/u/:token` legacy route kept
+- **Code reuse:** Extracted `PortalPage` + `ErrorView` into `components/portal-page.tsx`; both routes import shared component
+- **No DB changes:** Token column remains String; format change transparent to storage
+
+**Deliverables:**
+- New `generateSlugToken()` helper in magic-link.ts with fallback to random token for empty names
+- Updated `createMagicLink()` signature with optional clientName
+- Updated `createMagicLinkWithDeactivation()` with same pattern
+- New portal layout/page files: `routes/upload/$token.tsx` + `routes/upload/$token/index.tsx`
+- Refactored legacy routes to use shared component (DRY principle)
+- Route tree auto-regenerated; TanStack Router detected new `/upload/` path
+- No schema migration needed (YAGNI)
+
+**Testing:**
+- Existing magic links continue to work (backward compatible)
+- New links generate friendly tokens
+- Both `/u/` and `/upload/` routes render identically
+- Code duplication eliminated via shared component
+
+**Files Changed:**
+- **Modified:** `apps/api/src/services/magic-link.ts` (slug token gen, signature updates)
+- **Modified:** `apps/api/src/routes/clients/index.ts` (send-upload-link passes clientName)
+- **Modified:** `apps/api/src/routes/portal/index.ts` (send-upload-link passes clientName)
+- **NEW:** `apps/portal/src/components/portal-page.tsx` (shared PortalPage + ErrorView)
+- **Modified:** `apps/portal/src/routes/u/$token/index.tsx` (uses shared component)
+- **NEW:** `apps/portal/src/routes/upload/$token.tsx` (new layout)
+- **NEW:** `apps/portal/src/routes/upload/$token/index.tsx` (new page, uses shared component)
+- **Modified:** `apps/portal/src/routeTree.gen.ts` (auto-generated route tree)
+
+---
+
 ### Feature: Unified Conversation & Business UX - Phase 4 (Auto-Propagate managedById) ✅ COMPLETE
 **Status:** Complete (Phase 4 of 5)
 **Branch:** feature/enhance-business-record

@@ -67,7 +67,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
-- `/u/:token` - Document upload portal (magic link auth, direct upload to individual's taxCase)
+- `/upload/:token` - Document upload portal with friendly URLs (e.g., `/upload/tuyet-nguyen-a7k3mz`, magic link auth)
+- `/u/:token` - Legacy document upload portal (backward compatible, deprecated)
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
 - `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
@@ -133,6 +134,9 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns status 401 for invalid/expired token.
 - `POST /portal/:token/upload` - Upload document images via token (public). Validates token, stores images as RawImage records, triggers async Gemini classification + activity tracking. Returns 400 for invalid files, 401 for invalid token.
 - MagicLink generation: Service creates token scoped to individual's taxCaseId (for business clients in groups, routes to individual owner's case via send-upload-link endpoint).
+  - **Friendly Token Format (PORTAL type):** Slugified client name + random 6-char suffix (e.g., `tuyet-nguyen-a7k3mz`). Fallback to 12-char random token if name is empty/invalid.
+  - **Other Types:** Random 12-char alphanumeric tokens (SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN).
+  - **No Expiry:** All magic links now never expire (expiresAt=null) for better UX. Previously Schedule C/E had 7-day TTL.
 
 **Portal PDF Viewer (Phase 02-05 Complete):**
 - Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading
@@ -212,7 +216,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
-- `POST /clients/:id/send-upload-link` - Send upload link SMS to client (Phase 15: For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security).
+- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with friendly URL format (e.g., `/upload/tuyet-nguyen-a7k3mz`). Generates friendly slug token based on client name. Phase 15: For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
@@ -1272,10 +1276,13 @@ apps/api/src/services/ai/
 Magic Link Service:
 ```typescript
 apps/api/src/services/magic-link.ts
-├── getMagicLinkUrl() - Maps link types to URLs
-├── validateScheduleEToken() - Token validation
-├── getScheduleEMagicLink() - Generate link
-└── Support for PORTAL, SCHEDULE_C, SCHEDULE_E types
+├── getMagicLinkUrl() - Maps link types to URLs (/upload, /expense, /rental, /draft)
+├── createMagicLink() - Generate token scoped to caseId, optional clientName for slug generation
+├── generateSlugToken(clientName) - PORTAL-type tokens: "name-random6" (e.g., "tuyet-nguyen-a7k3mz"), fallback to random if invalid
+├── resolveToken(type, clientName) - PORTAL with name → slug token; others → random token
+├── validateMagicLink() - Token validation + usage tracking
+├── validateScheduleEToken() - Schedule E validation + expiry check
+└── Support for PORTAL (friendly URLs), SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN types
 ```
 
 ## Schedule E Workspace Tab (Phase 4 Frontend - 2026-02-06)

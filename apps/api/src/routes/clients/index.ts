@@ -1553,8 +1553,8 @@ clientsRoute.post(
       }
     }
 
-    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
-    const portalUrl = await createMagicLink(targetCaseId)
+    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/upload/tuyet-nguyen-7k3m)
+    const portalUrl = await createMagicLink(targetCaseId, { clientName: smsName })
 
     try {
       const result = await sendWelcomeMessage(

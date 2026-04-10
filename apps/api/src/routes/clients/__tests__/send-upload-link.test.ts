@@ -16,7 +16,7 @@ vi.mock('../../../lib/db', () => ({
 
 // Mock services
 vi.mock('../../../services/magic-link', () => ({
-  createMagicLink: vi.fn().mockResolvedValue('https://portal.ellatax.com/u/test-token'),
+  createMagicLink: vi.fn().mockResolvedValue('https://portal.ellatax.com/upload/test-token'),
 }))
 
 vi.mock('../../../services/sms', () => ({
@@ -129,12 +129,12 @@ describe('POST /clients/:id/send-upload-link', () => {
     const json = await res.json()
     expect(json.success).toBe(true)
 
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND)
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, { clientName: 'Tuyet Nguyen' })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_IND,
       'Tuyet Nguyen',
       '+14155550101',
-      'https://portal.ellatax.com/u/test-token',
+      'https://portal.ellatax.com/upload/test-token',
       2025,
       'VI',
       undefined,
@@ -173,12 +173,12 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND)
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, { clientName: 'Tuyet Nguyen' })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_IND,
       'Tuyet Nguyen',
       '+14155550101',
-      'https://portal.ellatax.com/u/test-token',
+      'https://portal.ellatax.com/upload/test-token',
       2025,
       'VI',
       undefined,
@@ -217,12 +217,12 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ)
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, { clientName: 'Tuyet Nguyen' })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_BIZ,
       'Tuyet Nguyen',
       '+14155550101',
-      'https://portal.ellatax.com/u/test-token',
+      'https://portal.ellatax.com/upload/test-token',
       2025,
       'VI',
       undefined,
@@ -253,12 +253,12 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ)
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, { clientName: 'Landa Nails' })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_BIZ,
       'Landa Nails',
       '+18005551234',
-      'https://portal.ellatax.com/u/test-token',
+      'https://portal.ellatax.com/upload/test-token',
       2025,
       'EN',
       undefined,

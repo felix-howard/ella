@@ -1463,34 +1463,58 @@ clientsRoute.post(
       return c.json({ error: 'SMS not configured' }, 500)
     }
 
-    // Resolve SMS recipient: if business client with group, use individual's phone
+    // Resolve SMS recipient and target taxCase
+    // For business clients with group, redirect to individual's phone + taxCase
     let smsPhone = client.phone
     let smsName = client.name
     let smsLanguage = client.language
+    let targetCaseId = latestCase.id
 
     if (client.clientType === 'BUSINESS' && client.clientGroupId) {
       const individual = await prisma.client.findFirst({
         where: {
           clientGroupId: client.clientGroupId,
           clientType: 'INDIVIDUAL',
+          organizationId: user.organizationId,
         },
-        select: { phone: true, name: true, language: true },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          language: true,
+          taxCases: {
+            where: { taxYear: latestCase.taxYear },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true },
+          },
+        },
       })
       if (individual) {
         smsPhone = individual.phone
         smsName = individual.name
         smsLanguage = individual.language
+
+        // Use individual's taxCase for magic link so portal uploads go to individual
+        const indivCase = individual.taxCases[0]
+        if (indivCase) {
+          targetCaseId = indivCase.id
+          console.log(`[Send Upload Link] Redirected business ${id} → individual case ${indivCase.id}`)
+        } else {
+          console.warn(`[Send Upload Link] Individual ${individual.id} has no taxCase for year ${latestCase.taxYear} — using business case`)
+        }
       } else {
         console.warn(`[Send Upload Link] Business client ${id} in group ${client.clientGroupId} has no individual — falling back to business phone`)
       }
     }
 
     // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
-    const portalUrl = await createMagicLink(latestCase.id)
+    const portalUrl = await createMagicLink(targetCaseId)
 
     try {
       const result = await sendWelcomeMessage(
-        latestCase.id,
+        targetCaseId,
         smsName,
         smsPhone,
         portalUrl,

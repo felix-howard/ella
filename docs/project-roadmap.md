@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-09 ICT
-> **Current Phase:** Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-10 ICT
+> **Current Phase:** Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
@@ -78,6 +78,32 @@
 - Added new intake-token CRUD endpoints under /clients/:clientId/intake-token
 - Extracted getBusinessClientForFiling shared helper for code reuse
 - Full type-check and build passed; all tests verified
+
+---
+
+### Unified Conversation & Business UX (5 Phases) IN PROGRESS
+**Started:** 2026-04-10
+**Current Status:** Phase 1 Complete | Phases 2-5 Pending
+**Status:** In Progress — Phase 1 delivered
+**Branch:** feature/enhance-business-record
+**Plan:** [Unified Conversation & Business UX](../plans/260410-unified-conversation-business-ux/plan.md)
+**Objective:** Redirect business detail buttons to individual owner; remove portal entity selector; auto-sync managedById across ClientGroup. Unified conversation + upload experience for group members.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: send-upload-link creates magic link on individual's taxCase | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Backend: Remove entity selector from portal API | ⏳ PENDING | 45m | — |
+| 3 | Frontend: Business detail buttons redirect to individual | ⏳ PENDING | 1.5h | — |
+| 4 | Backend: Auto-propagate managedById across ClientGroup | ⏳ PENDING | 1.5h | — |
+| 5 | Testing & Verification | ⏳ PENDING | 1h | — |
+
+**Phase 01 Deliverables:**
+- `POST /clients/:id/send-upload-link` now creates magic link on individual's taxCase (not business)
+- SMS still resolves to individual's phone correctly
+- Portal uploads go to individual's case records
+- Fallback to business case with warning if individual has no taxCase for year
+- Modified: `apps/api/src/routes/clients/index.ts`
 
 ---
 

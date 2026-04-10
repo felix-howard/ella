@@ -1,7 +1,33 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-09 ICT
+> **Last Updated:** 2026-04-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-10
+
+### Feature: Unified Conversation & Business UX - Phase 1 (Send Upload Link Redirect) ✅ COMPLETE
+**Status:** Complete (Phase 1 of 5)
+**Branch:** feature/enhance-business-record
+**Plan:** [Plan Overview](../../plans/260410-unified-conversation-business-ux/plan.md)
+
+**Summary:** Magic link creation on send-upload-link now targets individual's taxCase when business client has group. SMS still sent to individual's phone. Uploads via portal go to individual's case, not business. Fallback to business case with logging if individual has no taxCase for year.
+
+**What Changed:**
+- **Endpoint:** `POST /clients/:id/send-upload-link` expanded individual query to include taxCases
+- **Magic Link:** Uses individual's taxCase when available, fallback to business with warning
+- **SMS:** Correctly resolves individual's phone (already working, kept as-is)
+- **Logging:** Warns in logs when individual has no taxCase for year
+
+**Verification:**
+- Magic link created on individual's taxCase (verified in DB)
+- Portal URL opens individual's portal
+- Uploads via portal go to individual's RawImage records
+- SMS sent to individual's phone (not business landline)
+
+**Files Changed:**
+- **Modified:** `apps/api/src/routes/clients/index.ts` (lines 1472-1510)
 
 ---
 

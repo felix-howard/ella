@@ -82,6 +82,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Single-entity clients skip picker, upload behavior unchanged
 - Bilingual i18n keys: `portal.entityPicker.{title,subtitle,business,personal}`
 
+**Send Upload Link (Phase 15 - Business Entity Separation Smart Routing):**
+- `POST /clients/:id/send-upload-link` sends SMS with upload portal link to client (or their designated recipient)
+- **Entity Separation Logic**: When business client has clientGroupId (linked to individual owner), endpoint intelligently routes upload link:
+  - Queries individual client in same group, same taxYear
+  - Creates magic link on individual's taxCase (not business's)—uploads go to owner's document collection
+  - Fallback: If individual has no taxCase for year, uses business case with warning log
+  - Defense-in-depth: organizationId filter ensures cross-org data protection
+- **SMS Recipient Resolution**: For grouped business clients, sends to individual's phone + name
+- **Single-Entity Fallback**: Standalone business clients default to their own phone/case (backward compatible)
+
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
 - `useAutoOrgSelection()` - Auto-selects first org on sign-in
@@ -212,6 +222,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
+- `POST /clients/:id/send-upload-link` - Send upload link SMS to client (Phase 15: For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security).
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)

@@ -204,10 +204,14 @@ engagementsRoute.post('/', strictRateLimit, zValidator('json', createEngagementS
     },
   })
 
-  // Create conversation for the case (for messaging)
-  await prisma.conversation.create({
-    data: { caseId: taxCase.id, lastMessageAt: new Date() },
-  })
+  // Create conversation only for individual/standalone clients
+  // Business clients linked to an individual (via ClientGroup) share the individual's conversation
+  const isBizWithGroup = client.clientType === 'BUSINESS' && client.clientGroupId
+  if (!isBizWithGroup) {
+    await prisma.conversation.create({
+      data: { caseId: taxCase.id, lastMessageAt: new Date() },
+    })
+  }
 
   // Create magic link for portal access (async, non-blocking)
   createMagicLink(taxCase.id).catch(() => {})

@@ -117,9 +117,13 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
       },
     })
 
-    await tx.conversation.create({
-      data: { caseId: newCase.id },
-    })
+    // Only create conversation for individual/standalone clients
+    const isBizWithGroup = client.clientType === 'BUSINESS' && client.clientGroupId
+    if (!isBizWithGroup) {
+      await tx.conversation.create({
+        data: { caseId: newCase.id },
+      })
+    }
 
     return newCase
   })

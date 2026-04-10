@@ -1440,6 +1440,8 @@ clientsRoute.post(
         name: true,
         phone: true,
         language: true,
+        clientType: true,
+        clientGroupId: true,
         taxCases: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -1461,17 +1463,39 @@ clientsRoute.post(
       return c.json({ error: 'SMS not configured' }, 500)
     }
 
+    // Resolve SMS recipient: if business client with group, use individual's phone
+    let smsPhone = client.phone
+    let smsName = client.name
+    let smsLanguage = client.language
+
+    if (client.clientType === 'BUSINESS' && client.clientGroupId) {
+      const individual = await prisma.client.findFirst({
+        where: {
+          clientGroupId: client.clientGroupId,
+          clientType: 'INDIVIDUAL',
+        },
+        select: { phone: true, name: true, language: true },
+      })
+      if (individual) {
+        smsPhone = individual.phone
+        smsName = individual.name
+        smsLanguage = individual.language
+      } else {
+        console.warn(`[Send Upload Link] Business client ${id} in group ${client.clientGroupId} has no individual — falling back to business phone`)
+      }
+    }
+
     // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
     const portalUrl = await createMagicLink(latestCase.id)
 
     try {
       const result = await sendWelcomeMessage(
         latestCase.id,
-        client.name,
-        client.phone,
+        smsName,
+        smsPhone,
         portalUrl,
         latestCase.taxYear,
-        client.language as 'VI' | 'EN',
+        smsLanguage as 'VI' | 'EN',
         customMessage,
         user.staffId,
       )
@@ -1606,10 +1630,7 @@ clientsRoute.post(
               status: 'INTAKE',
             },
           })
-          await tx.conversation.create({
-            data: { caseId: bizCase.id, lastMessageAt: new Date() },
-          })
-
+          // Skip conversation for business clients — only individual gets a conversation
           businessClients.push({
             id: businessClient.id,
             name: businessClient.name,
@@ -1779,9 +1800,7 @@ clientsRoute.post(
             status: 'INTAKE',
           },
         })
-        await tx.conversation.create({
-          data: { caseId: bizCase.id, lastMessageAt: new Date() },
-        })
+        // Skip conversation for linked business — individual already has one
 
         // Get or create client group
         let group = client.clientGroup

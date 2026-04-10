@@ -250,7 +250,7 @@ formRoute.post(
           },
         })
         const { engagementId: bizEngId } = await findOrCreateEngagement(tx, business.id, input.taxYear)
-        const bizCase = await tx.taxCase.create({
+        const _bizCase = await tx.taxCase.create({
           data: { clientId: business.id, taxYear: input.taxYear, engagementId: bizEngId, taxTypes: ['FORM_1120S'], status: 'INTAKE' },
         })
         // Skip conversation for business — individual already has one

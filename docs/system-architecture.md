@@ -67,20 +67,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
-- `/u/:token` - Document upload portal (magic link auth, Phase 14: with entity picker for multi-entity clients)
+- `/u/:token` - Document upload portal (magic link auth, direct upload to individual's taxCase)
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
 - `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
-
-**Portal Entity Picker (Phase 14 - Business Entity Separation):**
-- When client has multiple linked entities (via ClientGroup), portal shows entity selection before upload
-- Mobile-first design: large touch targets (Building/User icons + entity name + clientType badge)
-- Flow: User opens MagicLink token → getData validates token → if groupEntities.length > 1, show EntityPicker → select entity → navigate to upload with selected entity's token
-- Component: `EntityPicker` (apps/portal/src/components/entity-picker.tsx) — displays group members with icons and names
-- Data: GET /portal/:token response includes optional `groupEntities` array (only if client.clientGroupId && >1 member with active PORTAL links)
-- Each entity in group has separate MagicLink token scoped to that entity's TaxCase
-- Single-entity clients skip picker, upload behavior unchanged
-- Bilingual i18n keys: `portal.entityPicker.{title,subtitle,business,personal}`
 
 **Send Upload Link (Phase 15 - Business Entity Separation Smart Routing):**
 - `POST /clients/:id/send-upload-link` sends SMS with upload portal link to client (or their designated recipient)
@@ -113,7 +103,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
 - **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, businesses (deprecated in favor of clientGroups)
 - **Portal API Methods (portalApi):**
-  - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats, optional groupEntities (Phase 14)
+  - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats
   - `getDraft(token)` - Fetch draft return data + signed PDF URL
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
 
@@ -139,10 +129,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
-**Portal Document Upload (Phase 14 - Entity Separation Complete):**
-- `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats) + optional groupEntities array (Phase 14). groupEntities present only if client.clientGroupId with >1 active member. Returns status 401 for invalid/expired token.
-- `POST /portal/:token/upload` - Upload document images via token (public). Validates token, stores images as RawImage records, triggers async Gemini classification + activity tracking. Returns 400 for invalid files, 401 for invalid token. Multi-entity support: token scoped to one TaxCase, no cross-entity access possible.
-- MagicLink generation: Service creates token, scopes to taxCaseId. For grouped clients, one token per group member (separate TaxCase per entity). Portal queries ALL group members' TaxCases with same taxYear to build groupEntities list.
+**Portal Document Upload (Phase 2 - Entity Separation - Simplified):**
+- `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns status 401 for invalid/expired token.
+- `POST /portal/:token/upload` - Upload document images via token (public). Validates token, stores images as RawImage records, triggers async Gemini classification + activity tracking. Returns 400 for invalid files, 401 for invalid token.
+- MagicLink generation: Service creates token scoped to individual's taxCaseId (for business clients in groups, routes to individual owner's case via send-upload-link endpoint).
 
 **Portal PDF Viewer (Phase 02-05 Complete):**
 - Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading

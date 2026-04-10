@@ -7,6 +7,33 @@
 
 ## 2026-04-10
 
+### Feature: Unified Conversation & Business UX - Phase 2 (Remove Entity Selector from Portal) ✅ COMPLETE
+**Status:** Complete (Phase 2 of 5)
+**Branch:** feature/enhance-business-record
+
+**Summary:** Removed portal entity picker that allowed multi-entity selection. Portal now provides direct single-entity upload experience. Business clients in groups receive magic links scoped to individual owner's taxCase (handled by send-upload-link endpoint). Simplified UX—no picker dropdown, direct access to upload form.
+
+**What Changed:**
+- **Removed:** `EntityPicker` component (apps/portal/src/components/entity-picker.tsx) — YAGNI, unused
+- **Removed:** `groupEntities` logic from GET /portal/:token API response
+- **Removed:** GroupEntity type from PortalData interface
+- **Portal Page:** Removed entity picker state management, conditional rendering, navigation logic
+- **Behavior:** When token opens, user sees upload form directly (no entity selection required)
+
+**Verification:**
+- Portal page loads with single upload view (no picker)
+- Removed component no longer imported
+- API response does not include groupEntities field
+- Grouped business clients still receive individual's upload link (handled upstream in send-upload-link)
+
+**Files Changed:**
+- **Deleted:** `apps/portal/src/components/entity-picker.tsx`
+- **Modified:** `apps/api/src/routes/portal/index.ts` (removed groupEntities query logic, 56 lines deleted)
+- **Modified:** `apps/portal/src/routes/u/$token/index.tsx` (removed EntityPicker import and conditional rendering)
+- **Modified:** `apps/portal/src/lib/api-client.ts` (removed GroupEntity type, groupEntities field)
+
+---
+
 ### Feature: Unified Conversation & Business UX - Phase 1 (Send Upload Link Redirect) ✅ COMPLETE
 **Status:** Complete (Phase 1 of 5)
 **Branch:** feature/enhance-business-record

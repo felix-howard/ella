@@ -4,14 +4,13 @@
  * Phase 2: UI components (MissingDocsList + SimpleUploader)
  */
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { portalApi, type PortalData, type UploadResponse, ApiError } from '../../../lib/api-client'
 import { WelcomeHeader } from '../../../components/landing/welcome-header'
 import { SimpleUploader } from '../../../components/simple-uploader'
-import { EntityPicker } from '../../../components/entity-picker'
 
 export const Route = createFileRoute('/u/$token/')({
   component: PortalPage,
@@ -27,12 +26,10 @@ interface ErrorState {
 function PortalPage() {
   const { token } = Route.useParams()
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
 
   const [state, setState] = useState<PageState>('loading')
   const [data, setData] = useState<PortalData | null>(null)
   const [error, setError] = useState<ErrorState | null>(null)
-  const [showEntityPicker, setShowEntityPicker] = useState(false)
 
   // Ref to track if component is mounted (prevents stale updates)
   const isMountedRef = useRef(true)
@@ -50,10 +47,6 @@ function PortalPage() {
         if (isMountedRef.current) {
           setData(result)
           setState('success')
-          // Show entity picker if client has multiple entities and hasn't chosen yet
-          if (result.groupEntities && result.groupEntities.length > 1) {
-            setShowEntityPicker(true)
-          }
           // Sync language from client data only if no localStorage preference yet
           if (!localStorage.getItem('ella-language')) {
             const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
@@ -89,9 +82,6 @@ function PortalPage() {
         if (isMountedRef.current) {
           setData(result)
           setState('success')
-          if (result.groupEntities && result.groupEntities.length > 1) {
-            setShowEntityPicker(true)
-          }
         }
       })
       .catch((err) => {
@@ -131,17 +121,6 @@ function PortalPage() {
     console.error('Upload error:', message)
   }, [])
 
-  // Entity picker selection handler
-  const handleEntitySelect = useCallback((selectedToken: string) => {
-    if (selectedToken === token) {
-      // Same entity selected — just dismiss picker
-      setShowEntityPicker(false)
-    } else {
-      // Navigate to the selected entity's portal
-      navigate({ to: '/u/$token', params: { token: selectedToken } })
-    }
-  }, [token, navigate])
-
   // Loading state
   if (state === 'loading') {
     return (
@@ -163,17 +142,7 @@ function PortalPage() {
     return <ErrorView error={error} onRetry={handleReload} />
   }
 
-  // Show entity picker for multi-entity clients
-  if (showEntityPicker && data.groupEntities && data.groupEntities.length > 1) {
-    return (
-      <div className="flex-1 flex flex-col">
-        <WelcomeHeader clientName={data.client.name} taxYear={data.taxCase.taxYear} />
-        <EntityPicker entities={data.groupEntities} currentToken={token} onSelect={handleEntitySelect} />
-      </div>
-    )
-  }
-
-  // Success state - Phase 3 simplified layout
+  // Success state - single upload view
   return (
     <div className="flex-1 flex flex-col">
       <WelcomeHeader clientName={data.client.name} taxYear={data.taxCase.taxYear} />

@@ -11,15 +11,21 @@
 **Status:** Complete (Phase 4 of 5)
 **Branch:** feature/enhance-business-record
 
-**Summary:** Modified PATCH /clients/:id/managed-by endpoint to propagate managedById to all ClientGroup members using $transaction. When staff assignment changes on any group member, all related clients receive the same managedById. Ensures staff sees unified client list without fragmentation.
+**Summary:** Modified PATCH /clients/:id/managed-by endpoint to propagate managedById to all ClientGroup members using $transaction. Extracted shared client helpers to reduce duplication. Added 13 unit tests for send-upload-link + managed-by propagation. Code review fixes: guarded message routes + webhook handler against creating business conversations, replaced IIFE with useMemo. When staff assignment changes on any group member, all related clients receive the same managedById. Ensures staff sees unified client list without fragmentation.
 
 **What Changed:**
-- **Endpoint:** `PATCH /clients/:id/managed-by` now includes clientGroupId in initial query
-- **Transaction:** Wrapped update in $transaction for atomic group-wide propagation
-- **Propagation:** If client belongs to ClientGroup, updateMany applies managedById to all group members
-- **Logging:** Console logs sync events for debugging (staff assignment count, group ID)
+- **NEW FILE:** `apps/api/src/lib/client-helpers.ts` (44 LOC) - `isBizWithGroup()` helper checks if client is BUSINESS with clientGroupId. `findGroupIndividual()` queries individual sibling from ClientGroup.
+- **Endpoint:** `PATCH /clients/:id/managed-by` includes clientGroupId in initial query, wrapped in $transaction for atomic group-wide propagation
+- **Propagation:** If client belongs to ClientGroup, updateMany applies managedById to all group members atomically
 - **Security:** Added organizationId defense-in-depth filter to prevent cross-org updates
 - **Edge Cases:** Clients without clientGroupId remain unaffected (independent managedById)
+- **Messages Routes:** Guarded conversation creation against business cases (routes/messages/index.ts) using `isBizWithGroup()` helper
+- **SMS Webhook:** Added `isBizWithGroup()` check before creating incoming message conversation (services/sms/webhook-handler.ts)
+- **Frontend:** Replaced IIFE with useMemo in workspace client routes (routes/clients/$clientId.tsx)
+
+**Testing (26 tests across 2 files):**
+- **send-upload-link.test.ts:** Magic link routes to individual's taxCase when business has clientGroupId, SMS sent to individual's phone, fallback to business with warning if individual lacks taxCase for year, standalone business unchanged
+- **managed-by-propagation.test.ts:** Assign staff to individual → business also updated, assign staff to business → individual also updated, unassign → all group members unaffected, orphan clients remain independent
 
 **Verification:**
 - Assign staff to individual → business also assigned
@@ -27,9 +33,21 @@
 - Unassign (managedById = null) → all group members unassigned
 - Staff sees all group members in scoped client list after assignment
 - Non-grouped clients unchanged
+- Conversations created only for individual clients in groups
+- SMS routed to correct phone numbers
 
 **Files Changed:**
-- **Modified:** `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by endpoint, lines 1372-1412)
+- **NEW:** `apps/api/src/lib/client-helpers.ts`
+- **NEW:** `apps/api/src/routes/clients/__tests__/send-upload-link.test.ts`
+- **NEW:** `apps/api/src/routes/clients/__tests__/managed-by-propagation.test.ts`
+- **Modified:** `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by, send-upload-link endpoint)
+- **Modified:** `apps/api/src/routes/messages/index.ts` (guard conversation creation)
+- **Modified:** `apps/api/src/routes/portal/index.ts` (send-upload-link endpoint)
+- **Modified:** `apps/api/src/routes/cases/index.ts` (isBizWithGroup usage)
+- **Modified:** `apps/api/src/routes/engagements/index.ts` (isBizWithGroup usage)
+- **Modified:** `apps/api/src/services/sms/webhook-handler.ts` (guard conversation creation)
+- **Modified:** `apps/workspace/src/routes/clients/$clientId.tsx` (replaced IIFE with useMemo)
+- **Deleted:** `apps/portal/src/components/entity-picker.tsx` (from Phase 2, now cleaned up)
 
 ---
 

@@ -294,6 +294,11 @@ function ClientDetailPage() {
     enabled: !!activeCaseId,
   })
 
+  // Resolve portal URL: prefer individual owner's for business clients
+  const portalUploadUrl = useMemo(() => {
+    return ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
+  }, [ownerIndividual?.portalUrl, selectedCase?.portalUrl, client?.portalUrl])
+
   // Fetch unread count — use individual owner's caseId when redirecting
   const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
   const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
@@ -707,25 +712,21 @@ function ClientDetailPage() {
             )}
 
             {/* Upload Link - redirect to individual's portal for business clients */}
-            {(() => {
-              const uploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client.portalUrl
-              if (!uploadUrl) return null
-              return (
-                <a
-                  href={uploadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-                  title={t('clientDetail.openUpload')}
-                >
-                  <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Upload</span>
-                  {ownerIndividual?.name && (
-                    <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
-                  )}
-                </a>
-              )
-            })()}
+            {portalUploadUrl && (
+              <a
+                href={portalUploadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
+                title={t('clientDetail.openUpload')}
+              >
+                <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Upload</span>
+                {ownerIndividual?.name && (
+                  <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
+                )}
+              </a>
+            )}
 
             {/* Message Button with Unread Badge — redirect to individual's conversation for business */}
             {messageCaseId && (
@@ -749,7 +750,7 @@ function ClientDetailPage() {
               </Link>
             )}
             {/* Show Send Upload Link only when client has no active magic link */}
-            {!(ownerIndividual?.portalUrl || selectedCase?.portalUrl || client.portalUrl) && (
+            {!portalUploadUrl && (
               <button
                 onClick={() => setIsSendUploadLinkOpen(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"

@@ -1513,6 +1513,8 @@ clientsRoute.post(
     let targetCaseId = latestCase.id
 
     if (client.clientType === 'BUSINESS' && client.clientGroupId) {
+      // Each group has exactly one individual in current data model.
+      // orderBy createdAt desc as a safe tiebreaker if multiple exist.
       const individual = await prisma.client.findFirst({
         where: {
           clientGroupId: client.clientGroupId,

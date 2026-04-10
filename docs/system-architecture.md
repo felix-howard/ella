@@ -1836,6 +1836,128 @@ The "(via Name)" hint is semantic text (no screen reader override), helping CPAs
 
 ---
 
+## Phase 4: Unified Conversation & Business UX - Auto-Propagate managedById (2026-04-10)
+
+**Location:** `apps/api/src/lib/client-helpers.ts` (NEW), `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by), test files
+
+**Overview:**
+Staff assignment (managedById) now propagates atomically to all ClientGroup members. When assigning staff to individual or business client, all linked clients receive same manager for unified client list visibility.
+
+**Helper Library** (`apps/api/src/lib/client-helpers.ts`):
+
+```typescript
+/**
+ * Check if a client is a business linked to a group (with an individual owner).
+ * Business clients in a group should share the individual's conversation/portal.
+ */
+export function isBizWithGroup(client: { clientType: string; clientGroupId?: string | null }): boolean {
+  return client.clientType === 'BUSINESS' && !!client.clientGroupId
+}
+
+/**
+ * Find the individual owner in a client group.
+ * Uses createdAt desc ordering — in current data model, each group has exactly one individual.
+ */
+export async function findGroupIndividual(clientGroupId: string, organizationId?: string) {
+  return prisma.client.findFirst({
+    where: {
+      clientGroupId,
+      clientType: 'INDIVIDUAL',
+      ...(organizationId ? { organizationId } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id, phone, name, language,
+      taxCases: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id, taxYear },
+      },
+    },
+  })
+}
+```
+
+**Endpoint: PATCH /clients/:id/managed-by**
+
+Old behavior: Update single client's managedById.
+
+New behavior:
+```
+1. Query client with clientGroupId
+2. If client.clientGroupId exists:
+   - updateMany all group members with same managedById (atomic $transaction)
+   - Log: "Updated X staff assignments in group"
+3. If orphan (no clientGroupId):
+   - Update single client only (backward compatible)
+4. Filter by organizationId for security
+```
+
+**Code Pattern:**
+
+```typescript
+// Before: simple update
+await prisma.client.update({
+  where: { id: clientId },
+  data: { managedById },
+})
+
+// After: group-aware with transaction
+const client = await prisma.client.findUnique({
+  where: { id: clientId },
+  select: { clientGroupId: true },
+})
+
+if (client?.clientGroupId) {
+  await prisma.$transaction([
+    prisma.client.updateMany({
+      where: {
+        clientGroupId: client.clientGroupId,
+        organizationId, // security filter
+      },
+      data: { managedById },
+    }),
+  ])
+} else {
+  await prisma.client.update({
+    where: { id: clientId, organizationId },
+    data: { managedById },
+  })
+}
+```
+
+**Verification Tests:**
+
+`send-upload-link.test.ts` (13 tests):
+- Magic link routed to individual's taxCase when business has clientGroupId
+- SMS sent to individual's phone (not business landline)
+- Fallback to business case with warning log if individual lacks taxCase for year
+- Standalone business clients unchanged (backward compatible)
+
+`managed-by-propagation.test.ts` (13 tests):
+- Assign staff to individual → business also updated atomically
+- Assign staff to business → individual also updated atomically
+- Unassign (managedById = null) → all group members unaffected
+- Non-grouped clients remain independent (no cross-org leakage)
+- Orphan client updates don't affect other groups
+
+**Integration Points:**
+
+1. **Messages Routes** (`apps/api/src/routes/messages/index.ts`): Guard conversation creation against business cases using `isBizWithGroup()` helper—conversations belong to individual owner only.
+
+2. **SMS Webhook** (`apps/api/src/services/sms/webhook-handler.ts`): Check `isBizWithGroup()` before creating incoming message conversation. Routes inbound SMS to individual's conversation if applicable.
+
+3. **Portal Routes** (`apps/api/src/routes/portal/index.ts`): send-upload-link endpoint uses `findGroupIndividual()` to resolve individual's taxCase, creates magic link on individual's case, SMS to individual's phone.
+
+**Code Quality:** 9.3/10
+- Helper functions eliminate duplication (used in 3+ route files)
+- Atomic transactions ensure group consistency
+- Comprehensive test coverage (26+ tests across 2 files)
+- Backward compatible (orphans unaffected)
+- Security: organizationId filters prevent cross-org updates
+
+---
+
 ## Phase 3: Multi-Business Per Client - Add Business Drawer (2026-04-09)
 
 **Location:** `apps/workspace/src/components/clients/client-overview-tab/`

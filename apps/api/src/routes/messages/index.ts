@@ -24,6 +24,7 @@ import {
 import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -296,10 +297,16 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
   // Verify case belongs to user's org before accessing conversation
   const caseCheck = await prisma.taxCase.findFirst({
     where: { id: caseId, client: buildClientScopeFilter(user) },
-    select: { id: true },
+    select: { id: true, client: { select: { clientType: true, clientGroupId: true } } },
   })
   if (!caseCheck) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Prevent conversation creation for business cases linked to an individual via group
+  if (isBizWithGroup(caseCheck.client)) {
+    console.warn(`[Messages] Blocked conversation upsert for business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
   }
 
   // Get or create conversation using upsert to prevent race conditions
@@ -407,6 +414,12 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
 
   if (!taxCase) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Prevent messaging on business cases linked to an individual via group
+  if (isBizWithGroup(taxCase.client)) {
+    console.warn(`[Messages] Blocked send to business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
   }
 
   // Get or create conversation using upsert to prevent race conditions

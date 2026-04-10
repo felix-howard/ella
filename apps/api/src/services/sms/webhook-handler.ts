@@ -4,6 +4,7 @@
  * Supports both known clients and unknown callers (creates placeholder conversation)
  */
 import { prisma } from '../../lib/db'
+import { isBizWithGroup } from '../../lib/client-helpers'
 import { config } from '../../lib/config'
 import type { MessageChannel, MessageDirection, ActionType } from '@ella/db'
 import crypto from 'crypto'
@@ -209,19 +210,31 @@ export async function processIncomingMessage(
     caseId = conversationWithCase!.caseId
   } else {
     // KNOWN CLIENT: Use existing client's latest case
-    const latestCase = client.taxCases[0]
-    if (!latestCase) {
+    let targetCase = client.taxCases[0]
+    if (!targetCase) {
       console.log(`[Webhook] Client ${client.id} has no tax cases`)
       return { success: false, error: 'NO_TAX_CASE' }
     }
 
-    caseId = latestCase.id
+    // If inbound SMS from a business phone in a group, redirect to individual's case
+    if (isBizWithGroup(client)) {
+      const individual = await prisma.client.findFirst({
+        where: { clientGroupId: client.clientGroupId!, clientType: 'INDIVIDUAL' },
+        include: { taxCases: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      })
+      if (individual?.taxCases[0]) {
+        console.log(`[Webhook] Redirected business ${client.id} SMS → individual ${individual.id}`)
+        targetCase = individual.taxCases[0]
+      }
+    }
+
+    caseId = targetCase.id
 
     // Get or create conversation
     const conversation = await prisma.conversation.upsert({
-      where: { caseId: latestCase.id },
+      where: { caseId: targetCase.id },
       update: {},
-      create: { caseId: latestCase.id },
+      create: { caseId: targetCase.id },
     })
     conversationId = conversation.id
   }

@@ -687,8 +687,8 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return <FilesTabSkeleton />
   }
 
-  // Empty state
-  if (images.length === 0) {
+  // Empty state - only when there are truly no files at all
+  if (allImages.length === 0) {
     return (
       <div className="text-center py-12">
         <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -791,6 +791,17 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           onSelect={setSelectedEntityId}
           totalCount={allImages.length}
         />
+      )}
+
+      {/* Empty filtered state - entity selected but no files for it */}
+      {images.length === 0 && selectedEntityId && (
+        <div className="text-center py-12">
+          <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">{t('filesTab.noFiles')}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('filesTab.noFilesDesc')}
+          </p>
+        </div>
       )}
 
       {/* Processing Section - Shows docs still being processed by AI */}

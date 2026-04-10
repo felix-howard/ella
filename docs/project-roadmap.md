@@ -171,6 +171,32 @@
 
 ---
 
+### AI-Powered Entity Document Routing (5 Phases) IN PROGRESS
+**Started:** 2026-04-10
+**Current Status:** Phase 1 of 5 COMPLETE
+**Status:** IN PROGRESS — Schema migration done; AI classification + routing logic next
+**Branch:** feature/enhance-business-record
+**Plan:** [AI-Powered Entity Document Routing](../plans/260410-ai-entity-document-routing/plan.md)
+**Objective:** Auto-classify uploaded docs to correct entity (individual vs business) using Gemini; unified Files tab with entity filter; manual reassignment API. Zero client friction — no entity selector needed.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema: Add entityConfidence, routedFromCaseId to RawImage | ✅ DONE | 30m | 2026-04-10 |
+| 2 | AI Classification Enhancement with Gemini entity detection | pending | 2h | — |
+| 3 | Entity Routing Logic in post-classification Inngest job | pending | 1.5h | — |
+| 4 | Reassignment API: PATCH endpoint to move docs between entities | pending | 1h | — |
+| 5 | Unified Files Tab with entity filter + badge + Move button | pending | 3h | — |
+
+**Phase 01 Completion (DONE):**
+- Added `entityConfidence` Float? field to RawImage model (AI confidence 0-1 in entity routing)
+- Added `routedFromCaseId` String? field to RawImage model (audit trail of original case before re-routing)
+- Migration created: non-destructive, adds optional columns only
+- No data loss; Prisma types updated; type-check verified
+- Deployment: Ready for Phase 2
+
+---
+
 ### Client-Business Entity Separation - All 6 Phases COMPLETE ✅
 **Started:** 2026-04-02
 **Completed:** 2026-04-03 (All 6 Phases)

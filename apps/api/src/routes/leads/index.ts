@@ -409,10 +409,11 @@ leadsRoute.post(
     // Send welcome SMS if requested (outside transaction)
     if (sendWelcomeSms && isTwilioConfigured()) {
       try {
-        const magicLink = await createMagicLink(result.taxCase.id)
+        const clientFullName = `${result.client.firstName} ${result.client.lastName}`
+        const magicLink = await createMagicLink(result.taxCase.id, { clientName: clientFullName })
         await sendWelcomeMessage(
           result.taxCase.id,
-          `${result.client.firstName} ${result.client.lastName}`,
+          clientFullName,
           result.client.phone,
           magicLink,
           taxYear,

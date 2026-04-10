@@ -495,7 +495,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   )
 
   // Create magic link
-  const magicLink = await createMagicLink(result.taxCase.id)
+  const magicLink = await createMagicLink(result.taxCase.id, { clientName: result.client.name })
 
   // Send welcome SMS with magic link (async, non-blocking)
   // Use client's language preference (from form), not org default
@@ -1745,7 +1745,7 @@ clientsRoute.post(
       }
 
       // Create magic link and send welcome SMS for individual client
-      const magicLink = await createMagicLink(result.indivCase.id)
+      const magicLink = await createMagicLink(result.indivCase.id, { clientName: result.individualClient.name })
 
       let smsStatus: { sent: boolean; error?: string } = { sent: false }
       if (isSmsEnabled()) {

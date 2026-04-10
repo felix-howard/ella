@@ -271,7 +271,7 @@ async function trySendWelcomeSms(
 ): Promise<boolean> {
   if (!shouldAutoSend || !isSmsEnabled()) return false
   try {
-    const magicLink = await createMagicLink(caseId)
+    const magicLink = await createMagicLink(caseId, { clientName })
     const result = await sendWelcomeMessage(
       caseId, clientName, phone, magicLink, taxYear,
       language as 'VI' | 'EN', undefined, staffId,

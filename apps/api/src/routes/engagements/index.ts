@@ -214,7 +214,7 @@ engagementsRoute.post('/', strictRateLimit, zValidator('json', createEngagementS
   }
 
   // Create magic link for portal access (async, non-blocking)
-  createMagicLink(taxCase.id).catch(() => {})
+  createMagicLink(taxCase.id, { clientName: client.name }).catch(() => {})
 
   // Audit log: Log creation (async, non-blocking)
   const createChanges: FieldChange[] = [

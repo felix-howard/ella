@@ -8,15 +8,16 @@
 import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone, ArrowRightLeft } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { api, type RawImage, type DigitalDoc, type EntityInfo } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
 import { sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
 import { useMarkDocumentViewed } from '../../hooks'
+import { getEntityColor } from './entity-filter-bar'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
 import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
@@ -34,6 +35,10 @@ export interface FileCategorySectionProps {
   onFileDrop?: (imageIds: string | string[], targetCategory: DocCategoryKey) => void
   /** Start collapsed (for performance with many files) */
   defaultCollapsed?: boolean
+  /** Entity metadata per image (unified mode only) */
+  entityMap?: Map<string, { entityClientId: string; entityName: string; entityIndex: number }>
+  /** All entities in group (unified mode only, for "Move to..." dropdown) */
+  entities?: EntityInfo[]
 }
 
 /**
@@ -50,6 +55,8 @@ export function FileCategorySection({
   onViewImage,
   onFileDrop,
   defaultCollapsed,
+  entityMap,
+  entities,
 }: FileCategorySectionProps) {
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -187,6 +194,8 @@ export function FileCategorySection({
                 pageDisplay={options.pageDisplay}
                 groupKey={group.groupKey}
                 groupImageIds={group.images.map((img) => img.id)}
+                entityInfo={entityMap?.get(image.id)}
+                entities={entities}
               />
             )}
           />
@@ -202,6 +211,8 @@ export function FileCategorySection({
             categoryKey={categoryKey}
             onVerify={onVerify}
             onViewImage={onViewImage}
+            entityInfo={entityMap?.get(img.id)}
+            entities={entities}
           />
         ))}
       </div>
@@ -257,6 +268,9 @@ interface FileItemRowProps {
   pageDisplay?: string | null
   groupKey?: string
   groupImageIds?: string[]
+  // Entity routing props (unified mode)
+  entityInfo?: { entityClientId: string; entityName: string; entityIndex: number }
+  entities?: EntityInfo[]
 }
 
 /**
@@ -277,6 +291,8 @@ const FileItemRow = memo(function FileItemRow({
   pageDisplay,
   groupKey,
   groupImageIds,
+  entityInfo,
+  entities,
 }: FileItemRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -285,6 +301,7 @@ const FileItemRow = memo(function FileItemRow({
   const [isGroupDragging, setIsGroupDragging] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newFilename, setNewFilename] = useState('')
+  const [showMoveMenu, setShowMoveMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const isVerified = doc?.status === 'VERIFIED'
@@ -344,6 +361,22 @@ const FileItemRow = memo(function FileItemRow({
     },
     onError: () => {
       toast.error(t('classify.fileRenameError'))
+    },
+  })
+
+  // Reassign entity mutation ("Move to..." in unified mode)
+  const reassignEntityMutation = useMutation({
+    mutationFn: (targetClientId: string) => api.images.reassignEntity(image.id, targetClientId),
+    onSuccess: (_data, targetClientId) => {
+      const targetEntity = entities?.find(e => e.clientId === targetClientId)
+      toast.success(`Moved to ${targetEntity?.name ?? 'entity'}`)
+      // Invalidate group images query to refresh unified view
+      queryClient.invalidateQueries({ queryKey: ['group-images'] })
+      queryClient.invalidateQueries({ queryKey: ['images'] })
+      setShowMoveMenu(false)
+    },
+    onError: () => {
+      toast.error('Failed to move document')
     },
   })
 
@@ -554,6 +587,7 @@ const FileItemRow = memo(function FileItemRow({
                 {pageDisplay && <PageBadge display={pageDisplay} />}
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
+                {entityInfo && <EntityBadge name={entityInfo.entityName} index={entityInfo.entityIndex} />}
               </div>
             </>
           )}
@@ -598,6 +632,33 @@ const FileItemRow = memo(function FileItemRow({
               <Eye className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t('checklist.viewFile')}</span>
             </button>
+          )}
+
+          {/* Move to entity (unified mode) */}
+          {entityInfo && entities && entities.length > 1 && (
+            <div className="relative">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu) }}
+                disabled={reassignEntityMutation.isPending}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors disabled:opacity-50"
+                title="Move to another entity"
+              >
+                {reassignEntityMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden sm:inline">Move</span>
+              </button>
+              {showMoveMenu && (
+                <MoveToEntityMenu
+                  entities={entities}
+                  currentEntityId={entityInfo.entityClientId}
+                  onSelect={(targetClientId) => reassignEntityMutation.mutate(targetClientId)}
+                  onClose={() => setShowMoveMenu(false)}
+                />
+              )}
+            </div>
           )}
 
           {/* File Actions Dropdown */}
@@ -652,4 +713,80 @@ function UploadSourceBadge({ uploadedVia }: { uploadedVia?: string }) {
   }
 
   return null
+}
+
+/**
+ * Small colored pill showing entity name (unified mode)
+ */
+function EntityBadge({ name, index }: { name: string; index: number }) {
+  const color = getEntityColor(index)
+  return (
+    <span className={cn(
+      'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0',
+      color.bg, color.text
+    )}>
+      {name}
+    </span>
+  )
+}
+
+/**
+ * Dropdown to move doc to another entity in the group
+ */
+function MoveToEntityMenu({
+  entities,
+  currentEntityId,
+  onSelect,
+  onClose,
+}: {
+  entities: EntityInfo[]
+  currentEntityId: string
+  onSelect: (targetClientId: string) => void
+  onClose: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: globalThis.MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose])
+
+  const otherEntities = entities.filter(e => e.clientId !== currentEntityId)
+
+  return (
+    <div
+      ref={menuRef}
+      className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
+    >
+      <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border">
+        Move to...
+      </div>
+      {otherEntities.map((entity) => {
+        const entityIdx = entities.findIndex(e => e.clientId === entity.clientId)
+        const color = getEntityColor(entityIdx >= 0 ? entityIdx : 0)
+        return (
+          <button
+            key={entity.clientId}
+            onClick={(e) => { e.stopPropagation(); onSelect(entity.clientId) }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
+          >
+            <span className={cn('w-2 h-2 rounded-full flex-shrink-0', color.bg)} />
+            <span className="truncate">{entity.name}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }

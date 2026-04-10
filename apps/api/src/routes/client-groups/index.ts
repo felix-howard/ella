@@ -2,6 +2,7 @@
  * ClientGroup API routes
  * CRUD for grouping clients (individual ↔ business linking)
  */
+import { z } from 'zod'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
@@ -269,6 +270,71 @@ clientGroupsRoute.delete(
     })
 
     return c.json({ success: true, message: 'Group deleted' })
+  }
+)
+
+// ============================================
+// GET /client-groups/:id/images — All images across group entities
+// ============================================
+const groupImagesQuerySchema = z.object({
+  taxYear: z.coerce.number().int().min(2000).max(2100).optional(),
+})
+
+clientGroupsRoute.get(
+  '/:id/images',
+  zValidator('param', groupIdParamSchema),
+  zValidator('query', groupImagesQuerySchema),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { taxYear: taxYearParam } = c.req.valid('query')
+    const user = c.get('user')
+    const { orgId } = getVerifiedAuth(user)
+    const taxYear = taxYearParam || new Date().getFullYear()
+
+    // Verify group exists and belongs to org
+    const group = await prisma.clientGroup.findFirst({
+      where: { id, organizationId: orgId },
+      select: { id: true },
+    })
+    if (!group) {
+      throw new HTTPException(404, { message: 'Client group not found' })
+    }
+
+    // Get all cases in group for this tax year with their images
+    const cases = await prisma.taxCase.findMany({
+      where: {
+        client: {
+          clientGroupId: id,
+          organizationId: orgId,
+        },
+        taxYear,
+      },
+      include: {
+        client: { select: { id: true, name: true, clientType: true } },
+        rawImages: { orderBy: { createdAt: 'desc' } },
+      },
+    })
+
+    // Flatten images with entity info
+    const images = cases.flatMap((tc) =>
+      tc.rawImages.map((img) => ({
+        ...img,
+        entityClientId: tc.client.id,
+        entityName: tc.client.name,
+        entityType: tc.client.clientType,
+      }))
+    )
+
+    // Build entity summary
+    const entities = cases.map((tc) => ({
+      clientId: tc.client.id,
+      name: tc.client.name,
+      type: tc.client.clientType,
+      caseId: tc.id,
+      imageCount: tc.rawImages.length,
+    }))
+
+    return c.json({ images, entities })
   }
 )
 

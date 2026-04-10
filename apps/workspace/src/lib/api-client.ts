@@ -479,6 +479,11 @@ export const api = {
       request<{ success: boolean }>(`/client-groups/${id}`, {
         method: 'DELETE',
       }),
+
+    getGroupImages: (groupId: string, taxYear?: number) =>
+      request<GroupImagesResponse>(`/client-groups/${groupId}/images`, {
+        params: { taxYear },
+      }),
   },
 
   // Tax Cases
@@ -1801,6 +1806,19 @@ export interface DigitalDoc {
 
 export interface ImagesResponse {
   images: RawImage[]
+}
+
+export interface EntityInfo {
+  clientId: string
+  name: string
+  type: ClientType
+  caseId: string
+  imageCount: number
+}
+
+export interface GroupImagesResponse {
+  images: (RawImage & { entityClientId: string; entityName: string; entityType: ClientType })[]
+  entities: EntityInfo[]
 }
 
 export interface DocsResponse {

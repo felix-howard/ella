@@ -861,6 +861,8 @@ function ClientDetailPage() {
           caseId={activeCaseId}
           images={rawImages}
           docs={digitalDocs}
+          clientGroupId={!isBusiness && client.clientGroupId ? client.clientGroupId : undefined}
+          taxYear={selectedEngagement?.taxYear}
         />
       )}
 

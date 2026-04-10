@@ -7,6 +7,56 @@
 
 ## 2026-04-10
 
+### Feature: Unified Conversation & Business UX - Phase 4 (Auto-Propagate managedById) ✅ COMPLETE
+**Status:** Complete (Phase 4 of 5)
+**Branch:** feature/enhance-business-record
+
+**Summary:** Modified PATCH /clients/:id/managed-by endpoint to propagate managedById to all ClientGroup members using $transaction. When staff assignment changes on any group member, all related clients receive the same managedById. Ensures staff sees unified client list without fragmentation.
+
+**What Changed:**
+- **Endpoint:** `PATCH /clients/:id/managed-by` now includes clientGroupId in initial query
+- **Transaction:** Wrapped update in $transaction for atomic group-wide propagation
+- **Propagation:** If client belongs to ClientGroup, updateMany applies managedById to all group members
+- **Logging:** Console logs sync events for debugging (staff assignment count, group ID)
+- **Security:** Added organizationId defense-in-depth filter to prevent cross-org updates
+- **Edge Cases:** Clients without clientGroupId remain unaffected (independent managedById)
+
+**Verification:**
+- Assign staff to individual → business also assigned
+- Assign staff to business → individual also assigned
+- Unassign (managedById = null) → all group members unassigned
+- Staff sees all group members in scoped client list after assignment
+- Non-grouped clients unchanged
+
+**Files Changed:**
+- **Modified:** `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by endpoint, lines 1372-1412)
+
+---
+
+### Feature: Unified Conversation & Business UX - Phase 3 (Business Buttons Redirect) ✅ COMPLETE
+**Status:** Complete (Phase 3 of 5)
+**Branch:** feature/enhance-business-record
+
+**Summary:** Business detail page buttons (Messages, Upload, Send Upload Link) now redirect to individual owner's conversation/portal. Unified conversation and upload UX; business phone no longer used for messaging to avoid fragmentation.
+
+**What Changed:**
+- **Messages Button:** Routes to individual's conversation thread instead of business
+- **Upload Button:** Opens individual's portal upload form
+- **Send Upload Link:** Creates magic link on individual's taxCase (handled by Phase 01 endpoint)
+- **Navigation:** Conditional routing based on clientType and group membership
+
+**Verification:**
+- Business detail page shows redirect buttons
+- Clicking Messages opens individual's conversation
+- Clicking Upload redirects to individual's portal upload
+- Send Upload Link creates link on individual's case
+- Group members see unified conversation history
+
+**Files Changed:**
+- **Modified:** `apps/workspace/src/routes/clients/$clientId.tsx`
+
+---
+
 ### Feature: Unified Conversation & Business UX - Phase 2 (Remove Entity Selector from Portal) ✅ COMPLETE
 **Status:** Complete (Phase 2 of 5)
 **Branch:** feature/enhance-business-record

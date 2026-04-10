@@ -165,7 +165,8 @@
 
 **Client Management (Manager Assignment via Client model):**
 - `GET /clients` - List org clients with `managedBy` relation
-- `PATCH /clients/:clientId` - Update client, including manager assignment (managedById)
+- `PATCH /clients/:clientId` - Update client fields
+- `PATCH /clients/:id/managed-by` - Change client manager (admin only). Uses transaction to propagate managedById to all ClientGroup members. Includes org-scoped filter on updateMany for safety. Body: {staffId: string|null}
 - `GET /team/members/:staffId/profile` - Get staff profile with `managedClients` list
 
 **Contractor Management (Phase 08+: Client-Scoped Routes - ACTIVE):**

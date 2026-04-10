@@ -229,6 +229,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
 - **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
 - **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
+- **Manager Propagation:** `PATCH /clients/:id/managed-by` atomically updates client manager (managedById) and syncs to all group members via transaction for consistency.
 
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements

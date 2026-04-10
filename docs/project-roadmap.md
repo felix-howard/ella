@@ -83,8 +83,8 @@
 
 ### Unified Conversation & Business UX (5 Phases) IN PROGRESS
 **Started:** 2026-04-10
-**Current Status:** Phase 1 Complete | Phases 2-5 Pending
-**Status:** In Progress — Phase 1 delivered
+**Current Status:** Phases 1-4 Complete | Phase 5 Pending
+**Status:** In Progress — Phases 1-4 delivered
 **Branch:** feature/enhance-business-record
 **Plan:** [Unified Conversation & Business UX](../plans/260410-unified-conversation-business-ux/plan.md)
 **Objective:** Redirect business detail buttons to individual owner; remove portal entity selector; auto-sync managedById across ClientGroup. Unified conversation + upload experience for group members.
@@ -93,16 +93,37 @@
 | Phase | Component | Status | Effort | Completion |
 |-------|-----------|--------|--------|-----------|
 | 1 | Backend: send-upload-link creates magic link on individual's taxCase | ✅ DONE | 1h | 2026-04-10 |
-| 2 | Backend: Remove entity selector from portal API | ⏳ PENDING | 45m | — |
-| 3 | Frontend: Business detail buttons redirect to individual | ⏳ PENDING | 1.5h | — |
-| 4 | Backend: Auto-propagate managedById across ClientGroup | ⏳ PENDING | 1.5h | — |
+| 2 | Backend: Remove entity selector from portal API | ✅ DONE | 45m | 2026-04-10 |
+| 3 | Frontend: Business detail buttons redirect to individual | ✅ DONE | 1.5h | 2026-04-10 |
+| 4 | Backend: Auto-propagate managedById across ClientGroup | ✅ DONE | 1.5h | 2026-04-10 |
 | 5 | Testing & Verification | ⏳ PENDING | 1h | — |
 
-**Phase 01 Deliverables:**
+**Phases 01-04 Complete Deliverables:**
+
+**Phase 01:**
 - `POST /clients/:id/send-upload-link` now creates magic link on individual's taxCase (not business)
 - SMS still resolves to individual's phone correctly
 - Portal uploads go to individual's case records
 - Fallback to business case with warning if individual has no taxCase for year
+- Modified: `apps/api/src/routes/clients/index.ts`
+
+**Phase 02:**
+- Removed entity selector from portal API endpoints
+- Portal no longer requires/accepts entityId parameter
+- All portal operations default to individual's taxCase
+- Modified: `apps/api/src/routes/portal/index.ts`
+
+**Phase 03:**
+- Business detail page buttons (Messages, Upload, Send Upload Link) redirect to individual owner
+- Conversation/Upload UX unified under individual's record
+- Business phone no longer used for outbound messaging
+- Modified: `apps/workspace/src/routes/clients/$clientId.tsx`
+
+**Phase 04:**
+- `PATCH /clients/:id/managed-by` propagates managedById to all ClientGroup members using $transaction
+- Added organizationId defense-in-depth filter to prevent cross-org updates
+- Staff sees unified client list after assignment (no fragmentation)
+- Clients without clientGroupId unaffected
 - Modified: `apps/api/src/routes/clients/index.ts`
 
 ---

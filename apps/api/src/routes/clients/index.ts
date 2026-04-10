@@ -1403,6 +1403,7 @@ clientsRoute.patch(
     // Verify client belongs to org
     const client = await prisma.client.findFirst({
       where: { id, organizationId: user.organizationId },
+      select: { id: true, clientGroupId: true },
     })
     if (!client) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
@@ -1418,10 +1419,31 @@ clientsRoute.patch(
       }
     }
 
-    const updated = await prisma.client.update({
-      where: { id },
-      data: { managedById: staffId },
-      include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+    // Use transaction for atomic group update
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.client.update({
+        where: { id },
+        data: { managedById: staffId },
+        include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+      })
+
+      // Propagate to all group members if client belongs to a group
+      if (client.clientGroupId) {
+        const propagateResult = await tx.client.updateMany({
+          where: {
+            clientGroupId: client.clientGroupId,
+            id: { not: id },
+            organizationId: user.organizationId,
+          },
+          data: { managedById: staffId },
+        })
+
+        console.log(
+          `[managedById sync] Propagated managedById=${staffId ?? 'null'} to ${propagateResult.count} members (group: ${client.clientGroupId})`
+        )
+      }
+
+      return result
     })
 
     const managedBy = updated.managedBy

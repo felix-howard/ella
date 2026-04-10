@@ -32,7 +32,7 @@ import {
   UserCircle,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
-import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, Input } from '@ella/ui'
+import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
@@ -554,288 +554,299 @@ function ClientDetailPage() {
 
   return (
     <PageContainer>
-      {/* Back Button & Header */}
-      <div className="mb-6">
-        <Link
-          to="/clients"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-        >
-          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          <span>{clientsText.backToList}</span>
-        </Link>
+      {/* Back link */}
+      <Link
+        to="/clients"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+      >
+        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+        <span>{clientsText.backToList}</span>
+      </Link>
 
-        {/* Cross-link banner for grouped clients */}
-        {client.clientGroup && client.clientGroup.clients.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
-            <span className="text-muted-foreground">Linked:</span>
-            {client.clientGroup.clients
-              .map(sibling => (
-                <Link
-                  key={sibling.id}
-                  to="/clients/$clientId"
-                  params={{ clientId: sibling.id }}
-                  className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
-                >
-                  {sibling.clientType === 'BUSINESS' ? (
-                    <Building2 className="w-3.5 h-3.5" />
-                  ) : (
-                    <User className="w-3.5 h-3.5" />
+      {/* Header Card */}
+      <div className="bg-card border border-border/60 rounded-lg shadow-none mb-6">
+        {/* Top section: identity + actions */}
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            {/* Left: Avatar + Identity */}
+            <div className="flex items-start gap-3.5">
+              {/* Avatar */}
+              <div className={cn(
+                'w-12 h-12 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-sm',
+                isBusiness ? 'rounded-lg' : 'rounded-full',
+                avatarColor.bg,
+                avatarColor.text
+              )}>
+                <span className="font-bold text-base">
+                  {getInitials(client.name)}
+                </span>
+              </div>
+
+              <div className="min-w-0">
+                {/* Name row with badge + linked entities inline */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-semibold text-foreground leading-tight">{client.name}</h1>
+                  {isBusiness && client.businessType && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
+                      {BUSINESS_TYPE_LABELS[client.businessType] || client.businessType}
+                    </span>
                   )}
-                  {sibling.name}
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
-              ))}
-          </div>
-        )}
+                  {/* Linked entity chips inline with name */}
+                  {client.clientGroup && client.clientGroup.clients.length > 0 && (
+                    <>
+                      <span className="text-border">|</span>
+                      <span className="text-xs text-muted-foreground">
+                        {isBusiness ? t('clientDetail.linkedOwner', 'Owner') : t('clientDetail.linkedBusinesses', 'Businesses')}:
+                      </span>
+                      {client.clientGroup.clients.map(sibling => {
+                        const siblingIsBusiness = sibling.clientType === 'BUSINESS'
+                        const siblingInitials = sibling.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                        return (
+                          <Link
+                            key={sibling.id}
+                            to="/clients/$clientId"
+                            params={{ clientId: sibling.id }}
+                            className="group inline-flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full bg-muted/60 border border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
+                          >
+                            <span className={cn(
+                              'w-5 h-5 flex items-center justify-center text-[9px] font-bold flex-shrink-0',
+                              siblingIsBusiness ? 'rounded-md bg-primary/10 text-primary' : 'rounded-full bg-accent text-accent-foreground',
+                            )}>
+                              {siblingIsBusiness ? <Building2 className="w-3 h-3" /> : siblingInitials}
+                            </span>
+                            <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                              {sibling.name}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </>
+                  )}
+                </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            {/* Avatar: rounded-lg for business, circle for individual */}
-            <div className={cn(
-              'w-14 h-14 flex items-center justify-center flex-shrink-0 ring-2 ring-background shadow-md',
-              isBusiness ? 'rounded-lg' : 'rounded-full',
-              avatarColor.bg,
-              avatarColor.text
-            )}>
-              <span className="font-bold text-lg">
-                {getInitials(client.name)}
-              </span>
+                {/* Metadata row */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[13px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5" aria-hidden="true" />
+                    {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
+                  </span>
+                  {client.email && (
+                    <span className="flex items-center gap-1">
+                      <Mail className="w-3.5 h-3.5" aria-hidden="true" />
+                      {client.email}
+                    </span>
+                  )}
+                  {isBusiness && client.einMasked && (
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                      EIN: ***-**-{client.einMasked}
+                    </span>
+                  )}
+                  {engagements.length > 0 && (
+                    <YearSwitcher
+                      engagements={engagements}
+                      selectedYear={selectedEngagement?.taxYear ?? activeCase?.taxYear ?? new Date().getFullYear()}
+                      onYearChange={handleYearChange}
+                      onCreateNew={() => setIsCreateEngagementOpen(true)}
+                    />
+                  )}
+                  {engagements.length === 0 && activeCase && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
+                      {UI_TEXT.form.taxYear} {activeCase.taxYear}
+                    </span>
+                  )}
+                  {client.managedBy && (
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                      {client.managedBy.name}
+                    </span>
+                  )}
+                </div>
+
+                {/* Tags */}
+                {client.tags && client.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                    {client.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-muted text-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
-                {isBusiness && client.businessType && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                    {BUSINESS_TYPE_LABELS[client.businessType] || client.businessType}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-4 h-4" aria-hidden="true" />
-                  {isAdmin ? formatPhone(client.phone) : maskPhone(client.phone)}
-                </span>
-                {client.email && (
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="w-4 h-4" aria-hidden="true" />
-                    {client.email}
-                  </span>
-                )}
-                {isBusiness && client.einMasked && (
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="w-4 h-4" aria-hidden="true" />
-                    EIN: ***-**-{client.einMasked}
-                  </span>
-                )}
-                {/* Year Switcher - replaces static tax year display */}
-                {engagements.length > 0 && (
-                  <YearSwitcher
-                    engagements={engagements}
-                    selectedYear={selectedEngagement?.taxYear ?? activeCase?.taxYear ?? new Date().getFullYear()}
-                    onYearChange={handleYearChange}
-                    onCreateNew={() => setIsCreateEngagementOpen(true)}
-                  />
-                )}
-                {engagements.length === 0 && activeCase && (
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4" aria-hidden="true" />
-                    {UI_TEXT.form.taxYear} {activeCase.taxYear}
-                  </span>
-                )}
-                {/* Managed by display */}
-                {client.managedBy && (
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4" aria-hidden="true" />
-                    {client.managedBy.name}
-                  </span>
-                )}
-              </div>
-              {/* Tags */}
-              {client.tags && client.tags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  {client.tags.map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground"
-                    >
-                      {tag}
+            {/* Right: Actions */}
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
+                <Button
+                  onClick={() => sendToReviewMutation.mutate()}
+                  disabled={sendToReviewMutation.isPending}
+                  size="sm"
+                  variant="outline"
+                >
+                  {sendToReviewMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  )}
+                  {t('clientDetail.sendToReview')}
+                </Button>
+              )}
+
+              {isInReview && !isFiled && (
+                <Button
+                  onClick={() => markFiledMutation.mutate()}
+                  disabled={markFiledMutation.isPending}
+                  size="sm"
+                >
+                  {markFiledMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  )}
+                  {t('clientDetail.markFiled')}
+                </Button>
+              )}
+
+              {isFiled && (
+                <Button
+                  onClick={() => reopenMutation.mutate()}
+                  disabled={reopenMutation.isPending}
+                  size="sm"
+                  variant="outline"
+                >
+                  {reopenMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  )}
+                  {t('clientDetail.reopen')}
+                </Button>
+              )}
+
+              {portalUploadUrl && (
+                <a
+                  href={portalUploadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={t('clientDetail.openUpload')}
+                  className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+                >
+                  <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Upload</span>
+                  {ownerIndividual?.name && (
+                    <span className="text-muted-foreground text-xs">(via {ownerIndividual.name.split(' ')[0]})</span>
+                  )}
+                </a>
+              )}
+
+              {messageCaseId && (
+                <Link
+                  to="/messages/$caseId"
+                  params={{ caseId: messageCaseId }}
+                  className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{t('clientDetail.messages')}</span>
+                  {ownerIndividual?.name && (
+                    <span className="text-muted-foreground text-xs">(via {ownerIndividual.name.split(' ')[0]})</span>
+                  )}
+                  {isUnreadLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                  ) : !isUnreadError && unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-destructive text-white rounded-full min-w-[1.25rem] text-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
-                  ))}
-                </div>
+                  )}
+                </Link>
+              )}
+
+              {!portalUploadUrl && (
+                <Button
+                  onClick={() => setIsSendUploadLinkOpen(true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{t('clients.sendUploadLink')}</span>
+                </Button>
               )}
             </div>
-          </div>
-
-          {/* Status & Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Action buttons based on state */}
-            {activeCase && computedStatus === 'ENTRY_COMPLETE' && !isInReview && (
-              <Button
-                onClick={() => sendToReviewMutation.mutate()}
-                disabled={sendToReviewMutation.isPending}
-                size="sm"
-                variant="outline"
-              >
-                {sendToReviewMutation.isPending && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                )}
-                {t('clientDetail.sendToReview')}
-              </Button>
-            )}
-
-            {isInReview && !isFiled && (
-              <Button
-                onClick={() => markFiledMutation.mutate()}
-                disabled={markFiledMutation.isPending}
-                size="sm"
-              >
-                {markFiledMutation.isPending && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                )}
-                {t('clientDetail.markFiled')}
-              </Button>
-            )}
-
-            {isFiled && (
-              <Button
-                onClick={() => reopenMutation.mutate()}
-                disabled={reopenMutation.isPending}
-                size="sm"
-                variant="outline"
-              >
-                {reopenMutation.isPending && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                )}
-                {t('clientDetail.reopen')}
-              </Button>
-            )}
-
-            {/* Upload Link - redirect to individual's portal for business clients */}
-            {portalUploadUrl && (
-              <a
-                href={portalUploadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-                title={t('clientDetail.openUpload')}
-              >
-                <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Upload</span>
-                {ownerIndividual?.name && (
-                  <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
-                )}
-              </a>
-            )}
-
-            {/* Message Button with Unread Badge — redirect to individual's conversation for business */}
-            {messageCaseId && (
-              <Link
-                to="/messages/$caseId"
-                params={{ caseId: messageCaseId }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{t('clientDetail.messages')}</span>
-                {ownerIndividual?.name && (
-                  <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
-                )}
-                {isUnreadLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                ) : !isUnreadError && unreadCount > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs font-medium bg-destructive text-white rounded-full min-w-[1.25rem] text-center">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            )}
-            {/* Show Send Upload Link only when client has no active magic link */}
-            {!portalUploadUrl && (
-              <button
-                onClick={() => setIsSendUploadLinkOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{t('clients.sendUploadLink')}</span>
-              </button>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Tabs - Pill style */}
-      <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1 p-1 bg-muted/40 rounded-xl">
-          <nav className="flex gap-1 overflow-x-auto scrollbar-none" role="tablist">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0',
-                    isActive
-                      ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                >
-                  <Icon className="w-4 h-4" aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </button>
-              )
-            })}
-          </nav>
+        {/* Tabs - attached to card bottom */}
+        <div className="border-t border-border px-4 sm:px-5">
+          <div className="flex gap-0.5 -mb-px">
+            <nav className="flex gap-0.5 overflow-x-auto scrollbar-none" role="tablist">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap flex-shrink-0',
+                      isActive
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                    )}
+                  >
+                    <Icon className="w-4 h-4" aria-hidden="true" />
+                    <span>{tab.label}</span>
+                  </button>
+                )
+              })}
+            </nav>
 
-          {/* More dropdown - outside scrollable nav so dropdown isn't clipped */}
-          {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
-            <button
-              role="tab"
-              aria-selected={isOverflowActive}
-              aria-expanded={isMoreOpen}
-              aria-haspopup="true"
-              onClick={() => setIsMoreOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap',
-                isOverflowActive
-                  ? 'bg-background text-primary shadow-md ring-1 ring-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
+              <button
+                role="tab"
+                aria-selected={isOverflowActive}
+                aria-expanded={isMoreOpen}
+                aria-haspopup="true"
+                onClick={() => setIsMoreOpen((v) => !v)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap',
+                  isOverflowActive
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                )}
+              >
+                <span>{isOverflowActive ? activeOverflowLabel : 'More'}</span>
+                <ChevronDown className={cn('w-4 h-4 transition-transform', isMoreOpen && 'rotate-180')} aria-hidden="true" />
+              </button>
+              {isMoreOpen && (
+                <div role="menu" className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-background border border-border rounded-lg shadow-lg py-1">
+                  {overflowTabs.map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = activeTab === tab.id
+                    return (
+                      <button
+                        key={tab.id}
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveTab(tab.id)
+                          setIsMoreOpen(false)
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
+                          isActive
+                            ? 'text-primary font-medium bg-muted/50'
+                            : 'text-foreground hover:bg-muted/50'
+                        )}
+                      >
+                        <Icon className="w-4 h-4" aria-hidden="true" />
+                        <span>{tab.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               )}
-            >
-              <span>{isOverflowActive ? activeOverflowLabel : 'More'}</span>
-              <ChevronDown className={cn('w-4 h-4 transition-transform', isMoreOpen && 'rotate-180')} aria-hidden="true" />
-            </button>
-            {isMoreOpen && (
-              <div role="menu" className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-background border border-border rounded-lg shadow-lg py-1">
-                {overflowTabs.map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = activeTab === tab.id
-                  return (
-                    <button
-                      key={tab.id}
-                      role="menuitem"
-                      onClick={() => {
-                        setActiveTab(tab.id)
-                        setIsMoreOpen(false)
-                      }}
-                      className={cn(
-                        'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
-                        isActive
-                          ? 'text-primary font-medium bg-muted/50'
-                          : 'text-foreground hover:bg-muted/50'
-                      )}
-                    >
-                      <Icon className="w-4 h-4" aria-hidden="true" />
-                      <span>{tab.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>}
+            </div>}
+          </div>
         </div>
       </div>
 
@@ -1035,7 +1046,8 @@ function ClientDetailPage() {
       )}
 
       {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
-      {activeCaseId && !isUnreadError && (
+      {/* For business clients, chat via individual owner (business phones are often landlines) */}
+      {messageCaseId && !isUnreadError && (
         <ErrorBoundary
           fallback={
             <div className="fixed bottom-6 right-6 z-50 text-xs text-muted-foreground">
@@ -1044,10 +1056,10 @@ function ClientDetailPage() {
           }
         >
           <FloatingChatbox
-            caseId={activeCaseId}
-            clientName={client.name}
-            clientPhone={client.phone}
-            clientId={clientId}
+            caseId={messageCaseId}
+            clientName={ownerIndividual?.name || client.name}
+            clientPhone={ownerIndividual?.phone || client.phone}
+            clientId={ownerIndividual?.id || clientId}
             unreadCount={isUnreadLoading ? 0 : unreadCount}
             onUnreadChange={handleUnreadChange}
           />

@@ -1273,6 +1273,17 @@ apps/api/src/services/ai/
 - Vietnamese name handling: diacritics removed (ă→a, đ→d), PascalCase formatting
 - See: [`phase-02-fallback-smart-rename.md`](./phase-02-fallback-smart-rename.md) for details
 
+**Phase 03 Multi-Entity Document Routing (NEW):**
+- **Inngest Job Step:** route-to-entity (executes after classify, before route-by-confidence)
+- **Activation:** Client has ClientGroup (individual + business entities), AI detected targetEntityId
+- **Validation:** entityConfidence ≥ 0.7, target in same ClientGroup, org-scoped defense-in-depth, target has taxCase for current year
+- **Action:** RawImage.caseId routed from upload entity to intended recipient entity. routedFromCaseId tracks original case (audit trail). entityConfidence stored.
+- **Isolation:** Downstream steps (OCR, rename) use effectiveCaseId (routed destination) for correct entity association
+- **Graceful Degradation:** All routing failures non-fatal—document processing continues with original caseId
+- **Backward Compatible:** Single-entity clients unaffected. Entity routing skipped when conditions not met.
+- **Cross-Group Protection:** targetEntityId must be in current ClientGroup (prevents cross-group document leakage)
+- See: [`phase-02-classification-job.md`](./phase-02-classification-job.md#entity-routing-step-phase-03) for details
+
 Magic Link Service:
 ```typescript
 apps/api/src/services/magic-link.ts

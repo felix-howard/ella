@@ -173,8 +173,8 @@
 
 ### AI-Powered Entity Document Routing (5 Phases) IN PROGRESS
 **Started:** 2026-04-10
-**Current Status:** Phase 1 of 5 COMPLETE
-**Status:** IN PROGRESS — Schema migration done; AI classification + routing logic next
+**Current Status:** Phase 3 of 5 COMPLETE
+**Status:** IN PROGRESS — Schema migration, AI classification, entity routing done; reassignment API + unified Files tab next
 **Branch:** feature/enhance-business-record
 **Plan:** [AI-Powered Entity Document Routing](../plans/260410-ai-entity-document-routing/plan.md)
 **Objective:** Auto-classify uploaded docs to correct entity (individual vs business) using Gemini; unified Files tab with entity filter; manual reassignment API. Zero client friction — no entity selector needed.
@@ -183,8 +183,8 @@
 | Phase | Component | Status | Effort | Completion |
 |-------|-----------|--------|--------|-----------|
 | 1 | Schema: Add entityConfidence, routedFromCaseId to RawImage | ✅ DONE | 30m | 2026-04-10 |
-| 2 | AI Classification Enhancement with Gemini entity detection | pending | 2h | — |
-| 3 | Entity Routing Logic in post-classification Inngest job | pending | 1.5h | — |
+| 2 | AI Classification Enhancement with Gemini entity detection | ✅ DONE | 2h | 2026-04-10 |
+| 3 | Entity Routing Logic in post-classification Inngest job | ✅ DONE | 1.5h | 2026-04-10 |
 | 4 | Reassignment API: PATCH endpoint to move docs between entities | pending | 1h | — |
 | 5 | Unified Files Tab with entity filter + badge + Move button | pending | 3h | — |
 

@@ -245,13 +245,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /cases/:id` - Update case status
 - Actions for compliance tracking
 
-**Documents & Classification (13+):**
+**Documents & Classification (14+):**
 - `POST /documents/upload` - Upload images
 - `POST /documents/classify` - Trigger AI classification
 - `GET /documents/:id` - Document detail
 - `PATCH /documents/:id/verify` - Mark verified with extracted fields
 - `GET /documents/:id/ocr` - Request OCR extraction
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
+- `PATCH /images/:id/reassign-entity` - Move document from one entity to another within same ClientGroup (Phase 04 Entity Routing)
 - Endpoints for document lifecycle
 
 **Contractor Management (8 - Phase 08 Client Re-Parent Routes):**

@@ -695,6 +695,13 @@ export const api = {
         body: JSON.stringify({ rotation }),
         retries: 0, // Non-critical, don't retry
       }),
+
+    // Reassign document to another entity within the same ClientGroup
+    reassignEntity: (imageId: string, targetClientId: string) =>
+      request<{ success: boolean; id: string; caseId: string; routedFromCaseId: string | null }>(`/images/${imageId}/reassign-entity`, {
+        method: 'PATCH',
+        body: JSON.stringify({ targetClientId }),
+      }),
   },
 
   // Messages
@@ -1758,6 +1765,9 @@ export interface RawImage {
   pageNumber?: number | null
   totalPages?: number | null
   groupConfidence?: number | null
+  // Entity routing fields
+  entityConfidence?: number | null
+  routedFromCaseId?: string | null
 }
 
 // Image group for duplicate detection

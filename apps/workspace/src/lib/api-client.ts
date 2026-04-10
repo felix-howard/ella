@@ -1360,6 +1360,8 @@ export interface ClientPreview {
   email?: string | null
   businessType?: BusinessType | null
   einMasked?: string | null
+  latestCaseId?: string | null
+  portalUrl?: string | null
 }
 
 export interface Contractor {

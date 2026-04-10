@@ -579,6 +579,18 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
             select: {
               id: true, name: true, clientType: true, phone: true,
               email: true, businessType: true, einEncrypted: true,
+              taxCases: {
+                orderBy: { taxYear: 'desc' },
+                take: 1,
+                include: {
+                  magicLinks: {
+                    where: { isActive: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { token: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -633,14 +645,22 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Strip encrypted EIN — send masked version only
   const { einEncrypted, ...clientSafe } = client
 
-  // Mask EIN for sibling clients in the group
+  // Mask EIN and build portalUrl/latestCaseId for sibling clients in the group
   const clientGroupSafe = clientSafe.clientGroup
     ? {
         ...clientSafe.clientGroup,
-        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, ...sibling }) => ({
-          ...sibling,
-          einMasked: maskEIN(siblingEin),
-        })),
+        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, taxCases, ...sibling }) => {
+          const siblingCase = taxCases?.[0]
+          const siblingMagicLink = siblingCase?.magicLinks?.[0]
+          return {
+            ...sibling,
+            einMasked: maskEIN(siblingEin),
+            latestCaseId: siblingCase?.id ?? null,
+            portalUrl: siblingMagicLink && portalBaseUrl
+              ? `${portalBaseUrl}/u/${siblingMagicLink.token}`
+              : null,
+          }
+        }),
       }
     : null
 

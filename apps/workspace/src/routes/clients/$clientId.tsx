@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -279,6 +279,14 @@ function ClientDetailPage() {
   // Get the active case ID based on selected engagement
   const activeCaseId = selectedCase?.id
 
+  // Find individual owner for business clients in a group (for button redirects)
+  const ownerIndividual = useMemo(() => {
+    if (client?.clientType !== 'BUSINESS' || !client.clientGroup?.clients) {
+      return null
+    }
+    return client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
+  }, [client?.clientType, client?.clientGroup?.clients])
+
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
     queryKey: ['checklist', activeCaseId],
@@ -286,11 +294,12 @@ function ClientDetailPage() {
     enabled: !!activeCaseId,
   })
 
-  // Fetch unread count for the specific case
+  // Fetch unread count — use individual owner's caseId when redirecting
+  const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
   const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
-    queryKey: ['unread-count', activeCaseId],
-    queryFn: () => api.messages.getUnreadCount(activeCaseId!),
-    enabled: !!activeCaseId,
+    queryKey: ['unread-count', messageCaseId],
+    queryFn: () => api.messages.getUnreadCount(messageCaseId!),
+    enabled: !!messageCaseId,
     staleTime: 30000, // Cache for 30s
   })
   const unreadCount = unreadData?.unreadCount ?? 0
@@ -697,29 +706,39 @@ function ClientDetailPage() {
               </Button>
             )}
 
-            {/* Upload Link - scoped to selected engagement's tax case */}
-            {(selectedCase?.portalUrl || client.portalUrl) && (
-              <a
-                href={selectedCase?.portalUrl || client.portalUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
-                title={t('clientDetail.openUpload')}
-              >
-                <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Upload</span>
-              </a>
-            )}
+            {/* Upload Link - redirect to individual's portal for business clients */}
+            {(() => {
+              const uploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client.portalUrl
+              if (!uploadUrl) return null
+              return (
+                <a
+                  href={uploadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
+                  title={t('clientDetail.openUpload')}
+                >
+                  <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Upload</span>
+                  {ownerIndividual?.name && (
+                    <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
+                  )}
+                </a>
+              )
+            })()}
 
-            {/* Message Button with Unread Badge */}
-            {activeCaseId && (
+            {/* Message Button with Unread Badge — redirect to individual's conversation for business */}
+            {messageCaseId && (
               <Link
                 to="/messages/$caseId"
-                params={{ caseId: activeCaseId }}
+                params={{ caseId: messageCaseId }}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{t('clientDetail.messages')}</span>
+                {ownerIndividual?.name && (
+                  <span className="text-xs text-muted-foreground">(via {ownerIndividual.name.split(' ')[0]})</span>
+                )}
                 {isUnreadLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                 ) : !isUnreadError && unreadCount > 0 && (
@@ -730,7 +749,7 @@ function ClientDetailPage() {
               </Link>
             )}
             {/* Show Send Upload Link only when client has no active magic link */}
-            {!(selectedCase?.portalUrl || client.portalUrl) && (
+            {!(ownerIndividual?.portalUrl || selectedCase?.portalUrl || client.portalUrl) && (
               <button
                 onClick={() => setIsSendUploadLinkOpen(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted border border-border shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:bg-muted/80 hover:shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200"

@@ -5,9 +5,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { PortalPage } from '../../../components/portal-page'
 
+function UploadPortalRoute() {
+  const { token } = Route.useParams()
+  return <PortalPage token={token} />
+}
+
 export const Route = createFileRoute('/upload/$token/')({
-  component: () => {
-    const { token } = Route.useParams()
-    return <PortalPage token={token} />
-  },
+  component: UploadPortalRoute,
 })

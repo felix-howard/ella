@@ -5,9 +5,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { PortalPage } from '../../../components/portal-page'
 
+function LegacyPortalRoute() {
+  const { token } = Route.useParams()
+  return <PortalPage token={token} />
+}
+
 export const Route = createFileRoute('/u/$token/')({
-  component: () => {
-    const { token } = Route.useParams()
-    return <PortalPage token={token} />
-  },
+  component: LegacyPortalRoute,
 })

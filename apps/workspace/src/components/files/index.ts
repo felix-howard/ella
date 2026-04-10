@@ -8,4 +8,5 @@ export { FileCategorySection, type FileCategorySectionProps } from './file-categ
 export { UnclassifiedSection, type UnclassifiedSectionProps } from './unclassified-section'
 export { ImageThumbnail } from './image-thumbnail'
 export { FileActionDropdown, type FileActionDropdownProps } from './file-action-dropdown'
+export { EntityFilterBar, type EntityFilterBarProps, getEntityColor, ENTITY_COLORS } from './entity-filter-bar'
 export { EmptyCategoryDropZone, type EmptyCategoryDropZoneProps } from './empty-category-drop-zone'

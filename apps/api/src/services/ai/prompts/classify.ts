@@ -309,6 +309,19 @@ export interface ExtractedMetadata {
 }
 
 /**
+ * Entity context for multi-entity document routing
+ * Passed to classifier when client belongs to a group with multiple entities
+ */
+export interface EntityContext {
+  entities: Array<{
+    id: string          // Client ID
+    name: string        // "Messi Tran" or "Yenu Nail Spa"
+    type: 'individual' | 'business'
+    businessType?: string // "LLC", "S_CORP", etc.
+  }>
+}
+
+/**
  * Expected classification result structure
  */
 export interface ClassificationResult {
@@ -325,6 +338,9 @@ export interface ClassificationResult {
   recipientName: string | null // Person's name from document (employee, recipient, account holder)
   // Metadata for hierarchical clustering (Phase 1 grouping redesign)
   extractedMetadata?: ExtractedMetadata
+  // Entity routing fields (multi-entity document routing)
+  targetEntityId?: string | null   // Client ID of matched entity
+  entityConfidence?: number        // 0-1 confidence in entity match
 }
 
 /**
@@ -491,9 +507,51 @@ continuationMarker:
 `
 
 /**
+ * Build entity routing block for the classification prompt
+ * Only included when entity context has >1 entity
+ */
+function buildEntityRoutingBlock(entityContext: EntityContext): string {
+  const entityList = entityContext.entities
+    .map((e) => {
+      const label = e.type === 'business'
+        ? `${e.name} (${e.businessType || 'business'})`
+        : `${e.name} (individual person)`
+      return `- ID: ${e.id} — ${label}`
+    })
+    .join('\n')
+
+  return `
+
+ENTITY ROUTING:
+This client belongs to a group with multiple entities. Determine which entity this document belongs to.
+
+Entities:
+${entityList}
+
+Rules:
+- Business bank statements, P&L, EIN letters → match by business name on document
+- W-2, SSN card, driver's license, personal ID → always route to "individual" entity
+- 1099-NEC issued TO a business → match business name
+- If document shows a business name matching one of the entities → route to that entity
+- If unclear or no business name visible → default to "individual" entity
+
+Add to your JSON response:
+"targetEntityId": "<entity ID>" or null (null = default to individual)
+"entityConfidence": 0.0-1.0 (how confident you are in the entity match)
+`
+}
+
+/**
  * Generate the classification prompt with enhanced accuracy features
  */
-export function getClassificationPrompt(): string {
+export function getClassificationPrompt(entityContext?: EntityContext): string {
+  if (entityContext && entityContext.entities.length === 0) {
+    console.warn('[Classify] Entity context provided but entities array is empty')
+  }
+  const entityRoutingBlock = entityContext && entityContext.entities.length > 1
+    ? buildEntityRoutingBlock(entityContext)
+    : ''
+
   return `You are an expert document classifier for US tax preparation, specialized in processing documents for Vietnamese-American clients (nail salon owners, small business operators).
 
 ${FEW_SHOT_EXAMPLES}
@@ -785,7 +843,7 @@ RULES:
 5. If unclear or unreadable, use UNKNOWN with low confidence
 6. Check for "CORRECTED" checkbox on any tax form
 7. taxYear must be a 4-digit year between 2000-2100, or null
-8. source should be clean company/entity name without legal suffixes`
+8. source should be clean company/entity name without legal suffixes${entityRoutingBlock}`
 }
 
 /**
@@ -869,6 +927,14 @@ export function validateClassificationResult(
       if ('parentForm' in cm && cm.parentForm !== null && typeof cm.parentForm !== 'string') return false
       if ('lineNumber' in cm && cm.lineNumber !== null && typeof cm.lineNumber !== 'string') return false
     }
+  }
+
+  // Validate entity routing fields (optional — backward compatible)
+  if ('targetEntityId' in r && r.targetEntityId !== null) {
+    if (typeof r.targetEntityId !== 'string') return false
+  }
+  if ('entityConfidence' in r && r.entityConfidence !== null && r.entityConfidence !== undefined) {
+    if (typeof r.entityConfidence !== 'number' || r.entityConfidence < 0 || r.entityConfidence > 1) return false
   }
 
   return true

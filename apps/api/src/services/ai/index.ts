@@ -27,6 +27,7 @@ export {
   generateSmartFilename,
   analyzeDocumentGrouping,
   type DocumentClassificationResult,
+  type EntityContext,
 } from './document-classifier'
 
 // Blur Detector

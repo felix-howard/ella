@@ -45,6 +45,7 @@ vi.mock('../../../services/sms/message-sender', () => ({
 vi.mock('../../../services/schedule-c/expense-calculator', () => ({
   calculateGrossReceipts: vi.fn(),
   calculateScheduleCTotals: vi.fn(),
+  getGrossReceiptsBreakdown: vi.fn(),
 }))
 
 import { Hono } from 'hono'

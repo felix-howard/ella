@@ -789,6 +789,10 @@ model RawImage {
   totalPages        Int?            // Total pages in group (known or estimated)
   groupConfidence   Float?          // AI confidence in grouping (0-1)
 
+  // Entity routing fields (AI auto-routes docs to correct entity in ClientGroup)
+  entityConfidence    Float?    // AI confidence in entity detection (0-1)
+  routedFromCaseId    String?   // Original caseId before entity re-routing (audit only, no FK)
+
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
   reuploadRequestedAt DateTime?
@@ -816,6 +820,7 @@ model RawImage {
   @@index([reuploadRequested])
   @@index([caseId, reuploadRequested])
   @@index([documentGroupId])          // Multi-page grouping lookup
+  @@index([routedFromCaseId])          // Entity routing audit trail lookups
   @@index([caseId, documentGroupId])  // Find pages in same group
   @@index([aiMetadata])               // AI metadata queries
 }

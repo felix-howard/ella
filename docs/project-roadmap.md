@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-09 ICT
-> **Current Phase:** Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-10 ICT
+> **Current Phase:** Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
@@ -78,6 +78,122 @@
 - Added new intake-token CRUD endpoints under /clients/:clientId/intake-token
 - Extracted getBusinessClientForFiling shared helper for code reuse
 - Full type-check and build passed; all tests verified
+
+---
+
+### Friendly Upload Link URL (2 Phases) COMPLETE ✅
+**Started:** 2026-04-10
+**Completed:** 2026-04-10 (All 2 Phases)
+**Status:** Complete — All phases delivered and verified
+**Branch:** feature/enhance-business-record
+**Plan:** [Friendly Upload Link URL](../plans/260410-friendly-upload-link-url/plan.md)
+**Objective:** Change magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better client trust and UX. Legacy `/u/` route preserved for backward compatibility.
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: slug token generation | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Portal: new `/upload` route + legacy fallback | ✅ DONE | 1h | 2026-04-10 |
+
+**What Changed:**
+- Token format: `{client-name-slug}-{4-char-random}` instead of 12-char random (e.g., `tuyet-nguyen-7k3m`)
+- New route: `/upload/:token` with friendly URLs
+- Legacy route: `/u/:token` preserved for existing links (backward compatible)
+- `createMagicLink()` and `createMagicLinkWithDeactivation()` now accept optional `clientName` param
+- `getMagicLinkUrl()` PORTAL path changed from `/u/` to `/upload/`
+- Extracted shared `PortalPage` component from `/u/$token/index.tsx` to `components/portal-page.tsx`
+- Both routes (`/u/` and `/upload/`) use shared component, eliminating code duplication
+
+**Deliverables:**
+- New friendly magic link generation in `apps/api/src/services/magic-link.ts`
+- Send-upload-link endpoint now passes clientName when creating links
+- Portal `/upload/:token` route created with shared component
+- Legacy `/u/:token` route refactored to reuse shared component
+- No DB changes required (token column remains String)
+- No schema migration needed (format change transparent to storage layer)
+
+---
+
+### Unified Conversation & Business UX (5 Phases) COMPLETE ✅
+**Started:** 2026-04-10
+**Completed:** 2026-04-10 (All 5 Phases)
+**Status:** Complete — All phases delivered and verified
+**Branch:** feature/enhance-business-record
+**Plan:** [Unified Conversation & Business UX](../plans/260410-unified-conversation-business-ux/plan.md)
+**Objective:** Redirect business detail buttons to individual owner; remove portal entity selector; auto-sync managedById across ClientGroup. Unified conversation + upload experience for group members.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: send-upload-link creates magic link on individual's taxCase | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Backend: Remove entity selector from portal API | ✅ DONE | 45m | 2026-04-10 |
+| 3 | Frontend: Business detail buttons redirect to individual | ✅ DONE | 1.5h | 2026-04-10 |
+| 4 | Backend: Auto-propagate managedById across ClientGroup | ✅ DONE | 1.5h | 2026-04-10 |
+| 5 | Testing & Verification | ✅ DONE | 1h | 2026-04-10 |
+
+**All Phases Complete Deliverables:**
+
+**Phase 01:**
+- `POST /clients/:id/send-upload-link` now creates magic link on individual's taxCase (not business)
+- SMS still resolves to individual's phone correctly
+- Portal uploads go to individual's case records
+- Fallback to business case with warning if individual has no taxCase for year
+- Modified: `apps/api/src/routes/clients/index.ts`
+
+**Phase 02:**
+- Removed entity selector from portal API endpoints
+- Portal no longer requires/accepts entityId parameter
+- All portal operations default to individual's taxCase
+- Modified: `apps/api/src/routes/portal/index.ts`
+
+**Phase 03:**
+- Business detail page buttons (Messages, Upload, Send Upload Link) redirect to individual owner
+- Conversation/Upload UX unified under individual's record
+- Business phone no longer used for outbound messaging
+- Modified: `apps/workspace/src/routes/clients/$clientId.tsx`
+
+**Phase 04:**
+- `PATCH /clients/:id/managed-by` propagates managedById to all ClientGroup members using $transaction
+- Added organizationId defense-in-depth filter to prevent cross-org updates
+- Staff sees unified client list after assignment (no fragmentation)
+- Clients without clientGroupId unaffected
+- Modified: `apps/api/src/routes/clients/index.ts`
+
+**Phase 05:**
+- Comprehensive testing: All 5 test cases (TC1-TC5) passed
+- Verified send-upload-link redirects to individual's taxCase with correct MagicLink records
+- Confirmed portal entity selector removed; single upload to individual's case
+- Validated business detail buttons redirect to individual owner
+- Tested managedById auto-propagation across ClientGroup members
+- Tested edge cases: individuals without groups, businesses without groups, missing taxCases
+- No console errors or TypeScript build issues
+- All manual smoke tests passed on development server
+
+---
+
+### AI-Powered Entity Document Routing (5 Phases) IN PROGRESS
+**Started:** 2026-04-10
+**Current Status:** Phase 3 of 5 COMPLETE
+**Status:** IN PROGRESS — Schema migration, AI classification, entity routing done; reassignment API + unified Files tab next
+**Branch:** feature/enhance-business-record
+**Plan:** [AI-Powered Entity Document Routing](../plans/260410-ai-entity-document-routing/plan.md)
+**Objective:** Auto-classify uploaded docs to correct entity (individual vs business) using Gemini; unified Files tab with entity filter; manual reassignment API. Zero client friction — no entity selector needed.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema: Add entityConfidence, routedFromCaseId to RawImage | ✅ DONE | 30m | 2026-04-10 |
+| 2 | AI Classification Enhancement with Gemini entity detection | ✅ DONE | 2h | 2026-04-10 |
+| 3 | Entity Routing Logic in post-classification Inngest job | ✅ DONE | 1.5h | 2026-04-10 |
+| 4 | Reassignment API: PATCH endpoint to move docs between entities | pending | 1h | — |
+| 5 | Unified Files Tab with entity filter + badge + Move button | pending | 3h | — |
+
+**Phase 01 Completion (DONE):**
+- Added `entityConfidence` Float? field to RawImage model (AI confidence 0-1 in entity routing)
+- Added `routedFromCaseId` String? field to RawImage model (audit trail of original case before re-routing)
+- Migration created: non-destructive, adds optional columns only
+- No data loss; Prisma types updated; type-check verified
+- Deployment: Ready for Phase 2
 
 ---
 

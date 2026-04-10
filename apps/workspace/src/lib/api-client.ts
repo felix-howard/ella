@@ -479,6 +479,11 @@ export const api = {
       request<{ success: boolean }>(`/client-groups/${id}`, {
         method: 'DELETE',
       }),
+
+    getGroupImages: (groupId: string, taxYear?: number) =>
+      request<GroupImagesResponse>(`/client-groups/${groupId}/images`, {
+        params: { taxYear },
+      }),
   },
 
   // Tax Cases
@@ -694,6 +699,13 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ rotation }),
         retries: 0, // Non-critical, don't retry
+      }),
+
+    // Reassign document to another entity within the same ClientGroup
+    reassignEntity: (imageId: string, targetClientId: string) =>
+      request<{ success: boolean; id: string; caseId: string; routedFromCaseId: string | null }>(`/images/${imageId}/reassign-entity`, {
+        method: 'PATCH',
+        body: JSON.stringify({ targetClientId }),
       }),
   },
 
@@ -1360,6 +1372,8 @@ export interface ClientPreview {
   email?: string | null
   businessType?: BusinessType | null
   einMasked?: string | null
+  latestCaseId?: string | null
+  portalUrl?: string | null
 }
 
 export interface Contractor {
@@ -1756,6 +1770,9 @@ export interface RawImage {
   pageNumber?: number | null
   totalPages?: number | null
   groupConfidence?: number | null
+  // Entity routing fields
+  entityConfidence?: number | null
+  routedFromCaseId?: string | null
 }
 
 // Image group for duplicate detection
@@ -1789,6 +1806,19 @@ export interface DigitalDoc {
 
 export interface ImagesResponse {
   images: RawImage[]
+}
+
+export interface EntityInfo {
+  clientId: string
+  name: string
+  type: ClientType
+  caseId: string
+  imageCount: number
+}
+
+export interface GroupImagesResponse {
+  images: (RawImage & { entityClientId: string; entityName: string; entityType: ClientType })[]
+  entities: EntityInfo[]
 }
 
 export interface DocsResponse {

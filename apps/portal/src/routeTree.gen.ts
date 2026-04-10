@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UploadTokenRouteImport } from './routes/upload/$token'
 import { Route as UTokenRouteImport } from './routes/u/$token'
 import { Route as RentalTokenRouteImport } from './routes/rental/$token'
 import { Route as ExpenseTokenRouteImport } from './routes/expense/$token'
+import { Route as UploadTokenIndexRouteImport } from './routes/upload/$token/index'
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
 import { Route as RentalTokenIndexRouteImport } from './routes/rental/$token/index'
 import { Route as RegisterOrgSlugIndexRouteImport } from './routes/register/$orgSlug/index'
@@ -26,6 +28,11 @@ import { Route as FormOrgSlugStaffSlugIndexRouteImport } from './routes/form/$or
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UploadTokenRoute = UploadTokenRouteImport.update({
+  id: '/upload/$token',
+  path: '/upload/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UTokenRoute = UTokenRouteImport.update({
@@ -42,6 +49,11 @@ const ExpenseTokenRoute = ExpenseTokenRouteImport.update({
   id: '/expense/$token',
   path: '/expense/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const UploadTokenIndexRoute = UploadTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => UploadTokenRoute,
 } as any)
 const UTokenIndexRoute = UTokenIndexRouteImport.update({
   id: '/',
@@ -97,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/expense/$token': typeof ExpenseTokenRouteWithChildren
   '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
+  '/upload/$token': typeof UploadTokenRouteWithChildren
   '/contractor-intake/$token': typeof ContractorIntakeTokenIndexRoute
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
@@ -104,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
+  '/upload/$token/': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
 }
@@ -116,6 +130,7 @@ export interface FileRoutesByTo {
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
+  '/upload/$token': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
 }
@@ -125,6 +140,7 @@ export interface FileRoutesById {
   '/expense/$token': typeof ExpenseTokenRouteWithChildren
   '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
+  '/upload/$token': typeof UploadTokenRouteWithChildren
   '/contractor-intake/$token/': typeof ContractorIntakeTokenIndexRoute
   '/draft/$token/': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
@@ -132,6 +148,7 @@ export interface FileRoutesById {
   '/register/$orgSlug/': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
+  '/upload/$token/': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug/': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug/': typeof RegisterOrgSlugEventSlugIndexRoute
 }
@@ -142,6 +159,7 @@ export interface FileRouteTypes {
     | '/expense/$token'
     | '/rental/$token'
     | '/u/$token'
+    | '/upload/$token'
     | '/contractor-intake/$token'
     | '/draft/$token'
     | '/expense/$token/'
@@ -149,6 +167,7 @@ export interface FileRouteTypes {
     | '/register/$orgSlug'
     | '/rental/$token/'
     | '/u/$token/'
+    | '/upload/$token/'
     | '/form/$orgSlug/$staffSlug'
     | '/register/$orgSlug/$eventSlug'
   fileRoutesByTo: FileRoutesByTo
@@ -161,6 +180,7 @@ export interface FileRouteTypes {
     | '/register/$orgSlug'
     | '/rental/$token'
     | '/u/$token'
+    | '/upload/$token'
     | '/form/$orgSlug/$staffSlug'
     | '/register/$orgSlug/$eventSlug'
   id:
@@ -169,6 +189,7 @@ export interface FileRouteTypes {
     | '/expense/$token'
     | '/rental/$token'
     | '/u/$token'
+    | '/upload/$token'
     | '/contractor-intake/$token/'
     | '/draft/$token/'
     | '/expense/$token/'
@@ -176,6 +197,7 @@ export interface FileRouteTypes {
     | '/register/$orgSlug/'
     | '/rental/$token/'
     | '/u/$token/'
+    | '/upload/$token/'
     | '/form/$orgSlug/$staffSlug/'
     | '/register/$orgSlug/$eventSlug/'
   fileRoutesById: FileRoutesById
@@ -185,6 +207,7 @@ export interface RootRouteChildren {
   ExpenseTokenRoute: typeof ExpenseTokenRouteWithChildren
   RentalTokenRoute: typeof RentalTokenRouteWithChildren
   UTokenRoute: typeof UTokenRouteWithChildren
+  UploadTokenRoute: typeof UploadTokenRouteWithChildren
   ContractorIntakeTokenIndexRoute: typeof ContractorIntakeTokenIndexRoute
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
   FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
@@ -200,6 +223,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/upload/$token': {
+      id: '/upload/$token'
+      path: '/upload/$token'
+      fullPath: '/upload/$token'
+      preLoaderRoute: typeof UploadTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/u/$token': {
@@ -222,6 +252,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/expense/$token'
       preLoaderRoute: typeof ExpenseTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/upload/$token/': {
+      id: '/upload/$token/'
+      path: '/'
+      fullPath: '/upload/$token/'
+      preLoaderRoute: typeof UploadTokenIndexRouteImport
+      parentRoute: typeof UploadTokenRoute
     }
     '/u/$token/': {
       id: '/u/$token/'
@@ -324,11 +361,24 @@ const UTokenRouteChildren: UTokenRouteChildren = {
 const UTokenRouteWithChildren =
   UTokenRoute._addFileChildren(UTokenRouteChildren)
 
+interface UploadTokenRouteChildren {
+  UploadTokenIndexRoute: typeof UploadTokenIndexRoute
+}
+
+const UploadTokenRouteChildren: UploadTokenRouteChildren = {
+  UploadTokenIndexRoute: UploadTokenIndexRoute,
+}
+
+const UploadTokenRouteWithChildren = UploadTokenRoute._addFileChildren(
+  UploadTokenRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ExpenseTokenRoute: ExpenseTokenRouteWithChildren,
   RentalTokenRoute: RentalTokenRouteWithChildren,
   UTokenRoute: UTokenRouteWithChildren,
+  UploadTokenRoute: UploadTokenRouteWithChildren,
   ContractorIntakeTokenIndexRoute: ContractorIntakeTokenIndexRoute,
   DraftTokenIndexRoute: DraftTokenIndexRoute,
   FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,

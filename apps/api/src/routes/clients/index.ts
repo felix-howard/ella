@@ -495,7 +495,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   )
 
   // Create magic link
-  const magicLink = await createMagicLink(result.taxCase.id)
+  const magicLink = await createMagicLink(result.taxCase.id, { clientName: result.client.name })
 
   // Send welcome SMS with magic link (async, non-blocking)
   // Use client's language preference (from form), not org default
@@ -579,6 +579,18 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
             select: {
               id: true, name: true, clientType: true, phone: true,
               email: true, businessType: true, einEncrypted: true,
+              taxCases: {
+                orderBy: { taxYear: 'desc' },
+                take: 1,
+                include: {
+                  magicLinks: {
+                    where: { isActive: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { token: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -633,14 +645,22 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Strip encrypted EIN — send masked version only
   const { einEncrypted, ...clientSafe } = client
 
-  // Mask EIN for sibling clients in the group
+  // Mask EIN and build portalUrl/latestCaseId for sibling clients in the group
   const clientGroupSafe = clientSafe.clientGroup
     ? {
         ...clientSafe.clientGroup,
-        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, ...sibling }) => ({
-          ...sibling,
-          einMasked: maskEIN(siblingEin),
-        })),
+        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, taxCases, ...sibling }) => {
+          const siblingCase = taxCases?.[0]
+          const siblingMagicLink = siblingCase?.magicLinks?.[0]
+          return {
+            ...sibling,
+            einMasked: maskEIN(siblingEin),
+            latestCaseId: siblingCase?.id ?? null,
+            portalUrl: siblingMagicLink && portalBaseUrl
+              ? `${portalBaseUrl}/u/${siblingMagicLink.token}`
+              : null,
+          }
+        }),
       }
     : null
 
@@ -1383,6 +1403,7 @@ clientsRoute.patch(
     // Verify client belongs to org
     const client = await prisma.client.findFirst({
       where: { id, organizationId: user.organizationId },
+      select: { id: true, clientGroupId: true },
     })
     if (!client) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
@@ -1398,10 +1419,31 @@ clientsRoute.patch(
       }
     }
 
-    const updated = await prisma.client.update({
-      where: { id },
-      data: { managedById: staffId },
-      include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+    // Use transaction for atomic group update
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.client.update({
+        where: { id },
+        data: { managedById: staffId },
+        include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+      })
+
+      // Propagate to all group members if client belongs to a group
+      if (client.clientGroupId) {
+        const propagateResult = await tx.client.updateMany({
+          where: {
+            clientGroupId: client.clientGroupId,
+            id: { not: id },
+            organizationId: user.organizationId,
+          },
+          data: { managedById: staffId },
+        })
+
+        console.log(
+          `[managedById sync] Propagated managedById=${staffId ?? 'null'} to ${propagateResult.count} members (group: ${client.clientGroupId})`
+        )
+      }
+
+      return result
     })
 
     const managedBy = updated.managedBy
@@ -1440,6 +1482,8 @@ clientsRoute.post(
         name: true,
         phone: true,
         language: true,
+        clientType: true,
+        clientGroupId: true,
         taxCases: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -1461,17 +1505,65 @@ clientsRoute.post(
       return c.json({ error: 'SMS not configured' }, 500)
     }
 
-    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
-    const portalUrl = await createMagicLink(latestCase.id)
+    // Resolve SMS recipient and target taxCase
+    // For business clients with group, redirect to individual's phone + taxCase
+    let smsPhone = client.phone
+    let smsName = client.name
+    let smsLanguage = client.language
+    let targetCaseId = latestCase.id
+
+    if (client.clientType === 'BUSINESS' && client.clientGroupId) {
+      // Each group has exactly one individual in current data model.
+      // orderBy createdAt desc as a safe tiebreaker if multiple exist.
+      const individual = await prisma.client.findFirst({
+        where: {
+          clientGroupId: client.clientGroupId,
+          clientType: 'INDIVIDUAL',
+          organizationId: user.organizationId,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          language: true,
+          taxCases: {
+            where: { taxYear: latestCase.taxYear },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      })
+      if (individual) {
+        smsPhone = individual.phone
+        smsName = individual.name
+        smsLanguage = individual.language
+
+        // Use individual's taxCase for magic link so portal uploads go to individual
+        const indivCase = individual.taxCases[0]
+        if (indivCase) {
+          targetCaseId = indivCase.id
+          console.log(`[Send Upload Link] Redirected business ${id} → individual case ${indivCase.id}`)
+        } else {
+          console.warn(`[Send Upload Link] Individual ${individual.id} has no taxCase for year ${latestCase.taxYear} — using business case`)
+        }
+      } else {
+        console.warn(`[Send Upload Link] Business client ${id} in group ${client.clientGroupId} has no individual — falling back to business phone`)
+      }
+    }
+
+    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/upload/tuyet-nguyen-7k3m)
+    const portalUrl = await createMagicLink(targetCaseId, { clientName: smsName })
 
     try {
       const result = await sendWelcomeMessage(
-        latestCase.id,
-        client.name,
-        client.phone,
+        targetCaseId,
+        smsName,
+        smsPhone,
         portalUrl,
         latestCase.taxYear,
-        client.language as 'VI' | 'EN',
+        smsLanguage as 'VI' | 'EN',
         customMessage,
         user.staffId,
       )
@@ -1606,10 +1698,7 @@ clientsRoute.post(
               status: 'INTAKE',
             },
           })
-          await tx.conversation.create({
-            data: { caseId: bizCase.id, lastMessageAt: new Date() },
-          })
-
+          // Skip conversation for business clients — only individual gets a conversation
           businessClients.push({
             id: businessClient.id,
             name: businessClient.name,
@@ -1656,7 +1745,7 @@ clientsRoute.post(
       }
 
       // Create magic link and send welcome SMS for individual client
-      const magicLink = await createMagicLink(result.indivCase.id)
+      const magicLink = await createMagicLink(result.indivCase.id, { clientName: result.individualClient.name })
 
       let smsStatus: { sent: boolean; error?: string } = { sent: false }
       if (isSmsEnabled()) {
@@ -1779,9 +1868,7 @@ clientsRoute.post(
             status: 'INTAKE',
           },
         })
-        await tx.conversation.create({
-          data: { caseId: bizCase.id, lastMessageAt: new Date() },
-        })
+        // Skip conversation for linked business — individual already has one
 
         // Get or create client group
         let group = client.clientGroup

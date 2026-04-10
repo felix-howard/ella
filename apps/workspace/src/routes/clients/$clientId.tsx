@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -28,7 +28,6 @@ import {
   Home,
   Building2,
   ChevronDown,
-  ArrowRight,
   UserCircle,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
@@ -280,12 +279,9 @@ function ClientDetailPage() {
   const activeCaseId = selectedCase?.id
 
   // Find individual owner for business clients in a group (for button redirects)
-  const ownerIndividual = useMemo(() => {
-    if (client?.clientType !== 'BUSINESS' || !client.clientGroup?.clients) {
-      return null
-    }
-    return client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
-  }, [client?.clientType, client?.clientGroup?.clients])
+  const ownerIndividual = client?.clientType === 'BUSINESS' && client.clientGroup?.clients
+    ? client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
+    : null
 
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
@@ -295,9 +291,7 @@ function ClientDetailPage() {
   })
 
   // Resolve portal URL: prefer individual owner's for business clients
-  const portalUploadUrl = useMemo(() => {
-    return ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
-  }, [ownerIndividual?.portalUrl, selectedCase?.portalUrl, client?.portalUrl])
+  const portalUploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
 
   // Fetch unread count — use individual owner's caseId when redirecting
   const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId

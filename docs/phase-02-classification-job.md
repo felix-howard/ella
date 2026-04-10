@@ -495,7 +495,7 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
 
 Enhanced Gemini prompt with few-shot examples, Vietnamese name handling, and confidence calibration.
 
-**Classification Result Format (Phase 02 Update):**
+**Classification Result Format (Phase 02 Update + Entity Routing Enhancement):**
 
 ```typescript
 export interface ClassificationResult {
@@ -506,9 +506,13 @@ export interface ClassificationResult {
     docType: SupportedDocType
     confidence: number
   }>
-  // NEW: Naming components extracted from document
+  // Naming components extracted from document
   taxYear: number | null                  // 4-digit year (2000-2100) or null
   source: string | null                   // Cleaned issuer/employer name or null
+  recipientName?: string | null           // Person's name from document
+  // Entity routing fields (multi-entity document routing - Phase 02 Enhancement)
+  targetEntityId?: string | null          // Client ID of matched entity (null = default to individual)
+  entityConfidence?: number               // 0-1 confidence in entity match (only set when targetEntityId non-null)
 }
 ```
 
@@ -543,6 +547,57 @@ validateClassificationResult(result.data)
 // Category automatically determined
 const category = getCategoryFromDocType(result.data.docType)
 ```
+
+### Entity Routing for Multi-Entity Clients (Phase 02 Enhancement)
+
+**Purpose:** Enables intelligent document assignment to correct entity (individual or business) for ClientGroup clients with multiple entities.
+
+**EntityContext Interface:**
+
+```typescript
+export interface EntityContext {
+  entities: Array<{
+    id: string                   // Client ID
+    name: string                 // "Messi Tran" or "Yenu Nail Spa"
+    type: 'individual' | 'business'
+    businessType?: string        // "LLC", "S_CORP", etc. (optional for business entities)
+  }>
+}
+```
+
+**Usage in Classification:**
+
+```typescript
+// In document-classifier.ts or job context
+const entityContext: EntityContext = {
+  entities: [
+    { id: 'cl_ind123', name: 'John Smith', type: 'individual' },
+    { id: 'cl_biz456', name: 'Smith Consulting LLC', type: 'business', businessType: 'LLC' }
+  ]
+}
+
+// Pass context to classifier (optional, for multi-entity clients)
+const result = await classifyDocument(buffer, mimeType, entityContext)
+
+// Result includes entity routing fields
+console.log(result.targetEntityId)   // 'cl_biz456' if document belongs to business
+console.log(result.entityConfidence) // 0.85 if confident in match
+```
+
+**Routing Rules (Embedded in Gemini Prompt):**
+
+- **Business documents** (bank statements, P&L, EIN letters) → match by business name on document
+- **Personal ID documents** (W-2, SSN card, driver's license) → always route to 'individual' entity
+- **1099-NEC issued to business** → match business name
+- **Unclear document** → default to 'individual' entity (conservative routing)
+
+**Behavior:**
+
+- **Single-entity clients** (no EntityContext) → entity routing section omitted from prompt, routing fields undefined in response (backward compatible)
+- **Multi-entity clients** (EntityContext with 2+ entities) → prompt includes entity routing block, response includes targetEntityId + entityConfidence
+- **Backward compatible** → existing code not providing EntityContext continues to work unchanged
+
+---
 
 ### PDF Conversion Service (Phase 3)
 

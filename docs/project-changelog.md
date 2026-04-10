@@ -7,6 +7,45 @@
 
 ## 2026-04-10
 
+### Feature: AI Classification Enhancement - Phase 02 (Entity Routing) ✅ COMPLETE
+**Status:** Complete (Phase 02 of Feature)
+**Branch:** feature/enhance-business-record
+
+**Summary:** Extended AI document classification system to support multi-entity document routing. Added EntityContext interface to handle clients with multiple entities (individual + business). Enhanced Gemini prompt with entity routing rules that match document names to specific entities. Classifier now returns targetEntityId and entityConfidence fields for intelligent document assignment to the correct entity within a ClientGroup. Fully backward compatible—clients with single entity unaffected.
+
+**What Changed:**
+- **NEW:** EntityContext interface in `classify.ts` (lines 315-322) - defines entities array with id, name, type ('individual'|'business'), businessType
+- **UPDATED:** ClassificationResult interface (lines 327-344) - added targetEntityId?: string|null and entityConfidence?: number for entity routing
+- **NEW:** buildEntityRoutingBlock() function (lines 513-542) - generates Gemini prompt section with entity list and routing rules
+- **UPDATED:** getClassificationPrompt() signature (line 547) - accepts optional EntityContext parameter
+- **PROMPT RULES:** Entity routing logic matches business names on documents to ClientGroup entities, routes personal ID docs to individual, defaults to individual if unclear
+- **UPDATED:** DocumentClassificationResult interface - extended with targetEntityId and entityConfidence fields for persistence
+- **UPDATED:** classifyDocument() signature - accepts optional EntityContext parameter, passes to prompt generator
+- **UPDATED:** batchClassifyDocuments() - forwards entityContext through batch processing
+- **VALIDATION:** Updated validateClassificationResult() to handle new optional routing fields
+
+**Testing (12 entity routing tests added):**
+- Returns entity routing fields when context provided (targetEntityId, entityConfidence)
+- Clears entityConfidence when targetEntityId is null (prevents orphan confidence value)
+- Works without entity context for backward compatibility (routing fields undefined)
+- Forwards entity context through batchClassifyDocuments correctly
+- Prompt does not include entity routing without context
+- Prompt omits routing for single-entity scenarios
+- Prompt includes routing rules for multi-entity scenarios
+
+**Verification:**
+- Single-entity clients (no routing context) behave identically to before
+- Multi-entity clients (ClientGroup) receive targetEntityId in classification result
+- Legacy code not providing EntityContext continues to work without changes
+- Gemini prompt adapts based on entity count (1 entity = no routing section, 2+ = routing rules included)
+
+**Files Changed:**
+- **Modified:** `apps/api/src/services/ai/prompts/classify.ts` (EntityContext interface, buildEntityRoutingBlock, prompt enhancement, validation)
+- **Modified:** `apps/api/src/services/ai/document-classifier.ts` (DocumentClassificationResult interface, classifyDocument/batchClassifyDocuments signatures)
+- **Modified:** `apps/api/src/services/ai/__tests__/document-classifier.test.ts` (12 entity routing tests)
+
+---
+
 ### Feature: Friendly Upload Link URL (2 Phases) ✅ COMPLETE
 **Status:** Complete (All 2 Phases)
 **Branch:** feature/enhance-business-record

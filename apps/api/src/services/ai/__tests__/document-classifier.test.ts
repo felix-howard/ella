@@ -9,6 +9,10 @@ import {
   requiresOcrExtraction,
   getDocTypeLabel,
 } from '../document-classifier'
+import {
+  getClassificationPrompt,
+  validateClassificationResult,
+} from '../prompts/classify'
 
 // Mock gemini-client module
 vi.mock('../gemini-client', () => ({
@@ -259,5 +263,184 @@ describe('getDocTypeLabel', () => {
 
   it('returns default for UNKNOWN', () => {
     expect(getDocTypeLabel('UNKNOWN')).toBe('Chưa xác định')
+  })
+})
+
+describe('entity routing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const entityContext = {
+    entities: [
+      { id: 'cl_ind', name: 'Messi Tran', type: 'individual' as const },
+      { id: 'cl_biz', name: 'Yenu Nail Spa', type: 'business' as const, businessType: 'LLC' },
+    ],
+  }
+
+  it('returns entity routing fields when entity context provided', async () => {
+    mockAnalyzeImage.mockResolvedValueOnce({
+      success: true,
+      data: {
+        docType: 'BANK_STATEMENT',
+        confidence: 0.9,
+        reasoning: 'Business bank statement for Yenu Nail Spa',
+        targetEntityId: 'cl_biz',
+        entityConfidence: 0.85,
+      },
+    })
+
+    const buffer = createTestImageBuffer()
+    const result = await classifyDocument(buffer, 'image/jpeg', entityContext)
+
+    expect(result.success).toBe(true)
+    expect(result.targetEntityId).toBe('cl_biz')
+    expect(result.entityConfidence).toBe(0.85)
+  })
+
+  it('clears entityConfidence when targetEntityId is null', async () => {
+    mockAnalyzeImage.mockResolvedValueOnce({
+      success: true,
+      data: {
+        docType: 'W2',
+        confidence: 0.92,
+        reasoning: 'W2 form',
+        targetEntityId: null,
+        entityConfidence: 0.5,
+      },
+    })
+
+    const buffer = createTestImageBuffer()
+    const result = await classifyDocument(buffer, 'image/jpeg', entityContext)
+
+    expect(result.success).toBe(true)
+    expect(result.targetEntityId).toBeNull()
+    expect(result.entityConfidence).toBeUndefined()
+  })
+
+  it('works without entity context (backward compatible)', async () => {
+    mockAnalyzeImage.mockResolvedValueOnce({
+      success: true,
+      data: {
+        docType: 'W2',
+        confidence: 0.92,
+        reasoning: 'W2 form',
+      },
+    })
+
+    const buffer = createTestImageBuffer()
+    const result = await classifyDocument(buffer, 'image/jpeg')
+
+    expect(result.success).toBe(true)
+    expect(result.targetEntityId).toBeNull()
+    expect(result.entityConfidence).toBeUndefined()
+  })
+
+  it('forwards entity context through batchClassifyDocuments', async () => {
+    mockAnalyzeImage.mockResolvedValue({
+      success: true,
+      data: {
+        docType: 'BANK_STATEMENT',
+        confidence: 0.88,
+        reasoning: 'Bank statement',
+        targetEntityId: 'cl_biz',
+        entityConfidence: 0.8,
+      },
+    })
+
+    const images = [
+      { buffer: createTestImageBuffer(), mimeType: 'image/jpeg', id: 'img-1' },
+    ]
+
+    const results = await batchClassifyDocuments(images, 2, entityContext)
+
+    expect(results[0].result.targetEntityId).toBe('cl_biz')
+    // Verify prompt was called (entity context passed through)
+    expect(mockAnalyzeImage).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getClassificationPrompt - entity routing', () => {
+
+  it('does not include entity routing without context', () => {
+    const prompt = getClassificationPrompt()
+    expect(prompt).not.toContain('ENTITY ROUTING')
+    expect(prompt).not.toContain('targetEntityId')
+  })
+
+  it('does not include entity routing for single entity', () => {
+    const prompt = getClassificationPrompt({
+      entities: [{ id: 'cl_1', name: 'Messi', type: 'individual' }],
+    })
+    expect(prompt).not.toContain('ENTITY ROUTING')
+  })
+
+  it('includes entity routing for multiple entities', () => {
+    const prompt = getClassificationPrompt({
+      entities: [
+        { id: 'cl_ind', name: 'Messi Tran', type: 'individual' },
+        { id: 'cl_biz', name: 'Yenu Nail Spa', type: 'business', businessType: 'LLC' },
+      ],
+    })
+    expect(prompt).toContain('ENTITY ROUTING')
+    expect(prompt).toContain('cl_ind')
+    expect(prompt).toContain('cl_biz')
+    expect(prompt).toContain('Yenu Nail Spa (LLC)')
+    expect(prompt).toContain('targetEntityId')
+    expect(prompt).toContain('entityConfidence')
+  })
+})
+
+describe('validateClassificationResult - entity fields', () => {
+
+  it('accepts valid entity routing fields', () => {
+    const result = {
+      docType: 'W2',
+      confidence: 0.9,
+      reasoning: 'test',
+      targetEntityId: 'cl_123',
+      entityConfidence: 0.85,
+    }
+    expect(validateClassificationResult(result)).toBe(true)
+  })
+
+  it('accepts null targetEntityId', () => {
+    const result = {
+      docType: 'W2',
+      confidence: 0.9,
+      reasoning: 'test',
+      targetEntityId: null,
+      entityConfidence: 0.5,
+    }
+    expect(validateClassificationResult(result)).toBe(true)
+  })
+
+  it('accepts result without entity fields (backward compat)', () => {
+    const result = {
+      docType: 'W2',
+      confidence: 0.9,
+      reasoning: 'test',
+    }
+    expect(validateClassificationResult(result)).toBe(true)
+  })
+
+  it('rejects non-string targetEntityId', () => {
+    const result = {
+      docType: 'W2',
+      confidence: 0.9,
+      reasoning: 'test',
+      targetEntityId: 123,
+    }
+    expect(validateClassificationResult(result)).toBe(false)
+  })
+
+  it('rejects entityConfidence out of range', () => {
+    const result = {
+      docType: 'W2',
+      confidence: 0.9,
+      reasoning: 'test',
+      entityConfidence: 1.5,
+    }
+    expect(validateClassificationResult(result)).toBe(false)
   })
 })

@@ -64,6 +64,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   // Unified mode: filter by entity
   const isUnifiedMode = !!clientGroupId
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
+  const [hasSetDefaultEntity, setHasSetDefaultEntity] = useState(false)
 
   // Fetch group images for unified mode
   const { data: groupImagesData, isPending: groupImagesLoading } = useQuery({
@@ -74,6 +75,17 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
 
   // Entity metadata for filter bar (only in unified mode)
   const entities: EntityInfo[] = groupImagesData?.entities ?? []
+
+  // Set default selected entity to the individual client (first load only)
+  useEffect(() => {
+    if (!hasSetDefaultEntity && entities.length > 0) {
+      const individualEntity = entities.find(e => e.type === 'INDIVIDUAL')
+      if (individualEntity) {
+        setSelectedEntityId(individualEntity.clientId)
+      }
+      setHasSetDefaultEntity(true)
+    }
+  }, [entities, hasSetDefaultEntity])
 
   // Build entity lookup map for entity badges: imageId -> { entityClientId, entityName, entityIndex }
   const entityMap = useMemo(() => {

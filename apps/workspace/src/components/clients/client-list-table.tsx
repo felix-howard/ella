@@ -172,12 +172,12 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       className={cn(
         'table-row hover:bg-muted/40 transition-colors duration-150 cursor-pointer',
         !isLast && 'border-b border-border/40',
-        isGroupedBusiness && 'bg-muted/20'
+        isGroupedBusiness && 'bg-muted/40'
       )}
     >
       {/* Name column */}
       <td className="px-4 py-3">
-        <div className={cn('flex items-center gap-3', isGroupedBusiness && 'sm:pl-8')}>
+        <div className={cn('flex items-center gap-3', isGroupedBusiness && 'pl-4 sm:pl-8')}>
           {/* Connector for grouped business */}
           {isGroupedBusiness && (
             <span className="text-muted-foreground/50 text-sm hidden sm:inline" aria-hidden="true">└</span>

@@ -33,7 +33,7 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
           clientEmail={client.email}
           currentClientType={client.clientType}
           linkedClients={client.clientGroup?.clients || []}
-          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}
+          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['client', client.id] })}
         />
       )}
 

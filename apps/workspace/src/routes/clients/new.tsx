@@ -1,13 +1,13 @@
 /**
- * Create Client Page - Multi-path wizard for adding new clients
- * Paths: Individual | Individual + Business | Business Only
- * Steps vary by path: type-select -> form(s) -> confirm & send
+ * Create Client Page - Simplified wizard for adding new clients
+ * Combined form with inline "owns business" toggle
+ * Steps: form (with optional business accordion) -> confirm & send
  */
 
 import { useState, useCallback } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, User, Building2, Check, Send, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, User, Check } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import {
@@ -15,12 +15,9 @@ import {
   ConfirmStep,
   DEFAULT_SMS_TEMPLATE_VI,
   DEFAULT_SMS_TEMPLATE_EN,
-  ClientTypeSelector,
-  BusinessInfoForm,
   BusinessAccordion,
   BasicInfoForm,
   EMPTY_BUSINESS_INFO,
-  type ClientCreationType,
   type BusinessInfoData,
   type BasicInfoData,
 } from '../../components/clients'
@@ -31,12 +28,10 @@ export const Route = createFileRoute('/clients/new')({
   component: CreateClientPage,
 })
 
-// Business-only has no confirm/SMS step — submits directly
-type Step = 'type-select' | 'individual-form' | 'business-form' | 'confirm'
+type Step = 'form' | 'confirm'
 
 interface FormErrors {
   basic?: Partial<Record<keyof BasicInfoData, string>>
-  business?: Partial<Record<keyof BusinessInfoData, string>>
   businesses?: Partial<Record<keyof BusinessInfoData, string>>[]
 }
 
@@ -63,8 +58,7 @@ function CreateClientPage() {
   const navigate = useNavigate()
 
   // Wizard state
-  const [clientCreationType, setClientCreationType] = useState<ClientCreationType | null>(null)
-  const [currentStep, setCurrentStep] = useState<Step>('type-select')
+  const [currentStep, setCurrentStep] = useState<Step>('form')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -74,23 +68,14 @@ function CreateClientPage() {
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [copyFromEngagementId, setCopyFromEngagementId] = useState<string | null>(null)
 
-  // Shared tax year across all paths
-  const [taxYear, setTaxYear] = useState(currentYear - 1)
-
   // Individual form data
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
     firstName: '', lastName: '', phone: '', email: '',
     language: 'VI', taxYear: currentYear - 1,
+    hasBusiness: null,  // null = not selected
   })
 
-  // Keep taxYear in sync with basicInfo for individual paths
-  const handleTaxYearChange = (year: number) => {
-    setTaxYear(year)
-    setBasicInfo(prev => ({ ...prev, taxYear: year }))
-  }
-
-  // Business form data — single for BUSINESS path, array for INDIVIDUAL_WITH_BUSINESS
-  const [businessInfo, setBusinessInfo] = useState<BusinessInfoData>(EMPTY_BUSINESS_INFO)
+  // Business form data — array for when hasBusiness=true
 
   type BusinessEntry = BusinessInfoData & { _key: string }
   const makeBizEntry = (): BusinessEntry => ({ ...EMPTY_BUSINESS_INFO, _key: crypto.randomUUID() })
@@ -143,12 +128,6 @@ function CreateClientPage() {
     setCopyFromEngagementId(shouldCopy ? engagementId : null)
   }, [])
 
-  // --- Type selection ---
-  const handleTypeSelect = (type: ClientCreationType) => {
-    setClientCreationType(type)
-    setCurrentStep(type === 'BUSINESS' ? 'business-form' : 'individual-form')
-  }
-
   // --- Validation ---
   const validateBasicInfo = (): boolean => {
     const e: Partial<Record<keyof BasicInfoData, string>> = {}
@@ -159,6 +138,10 @@ function CreateClientPage() {
     else if (cleaned.length !== 10) e.phone = t('newClient.errorPhoneLength')
     if (basicInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basicInfo.email)) {
       e.email = t('newClient.errorEmailInvalid')
+    }
+    // Require business selection
+    if (basicInfo.hasBusiness === null) {
+      e.hasBusiness = t('newClient.errorBusinessSelectionRequired', 'Please select Yes or No')
     }
     setErrors(prev => ({ ...prev, basic: e }))
     return Object.keys(e).length === 0
@@ -182,12 +165,6 @@ function CreateClientPage() {
     return e
   }
 
-  const validateBusinessInfo = (): boolean => {
-    const e = validateSingleBusiness(businessInfo, clientCreationType === 'BUSINESS')
-    setErrors(prev => ({ ...prev, business: e }))
-    return Object.keys(e).length === 0
-  }
-
   const validateAllBusinesses = (): boolean => {
     let firstErrorIndex = -1
     const allErrors = businesses.map((biz, index) => {
@@ -202,24 +179,18 @@ function CreateClientPage() {
 
   // --- Navigation ---
   const handleNext = () => {
-    if (currentStep === 'individual-form') {
+    if (currentStep === 'form') {
       if (!validateBasicInfo()) return
-      setCurrentStep(clientCreationType === 'INDIVIDUAL_WITH_BUSINESS' ? 'business-form' : 'confirm')
-    } else if (currentStep === 'business-form') {
-      // Only INDIVIDUAL_WITH_BUSINESS reaches here; BUSINESS submits inline
-      if (!validateAllBusinesses()) return
+      if (basicInfo.hasBusiness && !validateAllBusinesses()) return
       setCurrentStep('confirm')
     }
   }
 
   const handleBack = () => {
-    if (currentStep === 'individual-form' || (currentStep === 'business-form' && clientCreationType === 'BUSINESS')) {
-      setCurrentStep('type-select')
-      setClientCreationType(null)
-    } else if (currentStep === 'business-form') {
-      setCurrentStep('individual-form')
+    if (currentStep === 'form') {
+      navigate({ to: '/clients' })
     } else if (currentStep === 'confirm') {
-      setCurrentStep(clientCreationType === 'INDIVIDUAL' ? 'individual-form' : 'business-form')
+      setCurrentStep('form')
     }
   }
 
@@ -229,27 +200,8 @@ function CreateClientPage() {
     setIsSubmitting(true)
     setSubmitError(null)
     try {
-      if (clientCreationType === 'INDIVIDUAL') {
-        if (existingClient) {
-          await api.engagements.create({
-            clientId: existingClient.id,
-            taxYear: basicInfo.taxYear,
-            copyFromEngagementId: copyFromEngagementId ?? undefined,
-          })
-          navigate({ to: '/clients/$clientId', params: { clientId: existingClient.id } })
-        } else {
-          const response = await api.clients.create({
-            firstName: basicInfo.firstName.trim().slice(0, 50),
-            lastName: basicInfo.lastName.trim().slice(0, 50),
-            phone: toE164Phone(basicInfo.phone),
-            email: sanitizeEmail(basicInfo.email) || undefined,
-            language: basicInfo.language,
-            profile: { taxYear: basicInfo.taxYear, taxTypes: ['FORM_1040'] },
-            customMessage: currentMessage,
-          })
-          navigate({ to: '/clients/$clientId', params: { clientId: response.client.id } })
-        }
-      } else if (clientCreationType === 'INDIVIDUAL_WITH_BUSINESS') {
+      if (basicInfo.hasBusiness) {
+        // Create individual + businesses
         const response = await api.clients.createWithBusiness({
           individual: {
             firstName: basicInfo.firstName.trim().slice(0, 50),
@@ -270,27 +222,33 @@ function CreateClientPage() {
             businessCity: biz.city.trim() || undefined,
             businessState: biz.state.trim() || undefined,
             businessZip: biz.zip.trim() || undefined,
-            profile: { taxYear: taxYear },
+            profile: { taxYear: basicInfo.taxYear },
           })),
           groupName: `${basicInfo.firstName.trim()} ${basicInfo.lastName.trim()} Group`,
           customMessage: currentMessage,
         })
         navigate({ to: '/clients/$clientId', params: { clientId: response.data.individual.id } })
-      } else if (clientCreationType === 'BUSINESS') {
-        const response = await api.clients.create({
-          firstName: businessInfo.name.trim().slice(0, 100),
-          phone: toE164Phone(businessInfo.phone),
-          email: sanitizeEmail(businessInfo.email) || undefined,
-          clientType: 'BUSINESS',
-          businessType: businessInfo.businessType,
-          ein: businessInfo.ein || undefined,
-          businessAddress: businessInfo.address.trim() || undefined,
-          businessCity: businessInfo.city.trim() || undefined,
-          businessState: businessInfo.state.trim() || undefined,
-          businessZip: businessInfo.zip.trim() || undefined,
-          profile: { taxYear: taxYear },
-        })
-        navigate({ to: '/clients/$clientId', params: { clientId: response.client.id } })
+      } else {
+        // Individual only
+        if (existingClient) {
+          await api.engagements.create({
+            clientId: existingClient.id,
+            taxYear: basicInfo.taxYear,
+            copyFromEngagementId: copyFromEngagementId ?? undefined,
+          })
+          navigate({ to: '/clients/$clientId', params: { clientId: existingClient.id } })
+        } else {
+          const response = await api.clients.create({
+            firstName: basicInfo.firstName.trim().slice(0, 50),
+            lastName: basicInfo.lastName.trim().slice(0, 50),
+            phone: toE164Phone(basicInfo.phone),
+            email: sanitizeEmail(basicInfo.email) || undefined,
+            language: basicInfo.language,
+            profile: { taxYear: basicInfo.taxYear, taxTypes: ['FORM_1040'] },
+            customMessage: currentMessage,
+          })
+          navigate({ to: '/clients/$clientId', params: { clientId: response.client.id } })
+        }
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Failed to create client:', error)
@@ -301,28 +259,13 @@ function CreateClientPage() {
   }
 
   // --- Step indicator ---
-  const getSteps = () => {
-    if (!clientCreationType || clientCreationType === 'INDIVIDUAL') {
-      return [
-        { id: 'individual-form', label: t('newClient.stepBasicInfo'), icon: User },
-        { id: 'confirm', label: t('newClient.stepConfirm'), icon: Check },
-      ]
-    }
-    if (clientCreationType === 'BUSINESS') {
-      return [{ id: 'business-form', label: 'Business Info', icon: Building2 }]
-    }
-    return [
-      { id: 'individual-form', label: t('newClient.stepBasicInfo'), icon: User },
-      { id: 'business-form', label: 'Business Info', icon: Building2 },
-      { id: 'confirm', label: t('newClient.stepConfirm'), icon: Check },
-    ]
-  }
-  const steps = getSteps()
+  const steps = [
+    { id: 'form', label: t('newClient.stepBasicInfo'), icon: User },
+    { id: 'confirm', label: t('newClient.stepConfirm'), icon: Check },
+  ]
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
 
-  const clientName = clientCreationType === 'BUSINESS'
-    ? businessInfo.name
-    : (basicInfo.lastName ? `${basicInfo.firstName} ${basicInfo.lastName}` : basicInfo.firstName)
+  const clientName = basicInfo.lastName ? `${basicInfo.firstName} ${basicInfo.lastName}` : basicInfo.firstName
 
   return (
     <PageContainer>
@@ -338,22 +281,13 @@ function CreateClientPage() {
         <h1 className="text-2xl font-semibold text-foreground">{UI_TEXT.clients.newClient}</h1>
       </div>
 
-      {/* Step Indicator (hidden on type-select) */}
-      {currentStep !== 'type-select' && steps.length > 1 && (
-        <StepIndicator steps={steps} currentStep={currentStep} currentStepIndex={currentStepIndex} />
-      )}
+      {/* Step Indicator */}
+      <StepIndicator steps={steps} currentStep={currentStep} currentStepIndex={currentStepIndex} />
 
       {/* Form Content */}
       <div className="max-w-2xl mx-auto">
-        {/* Type Select */}
-        {currentStep === 'type-select' && (
-          <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-            <ClientTypeSelector onSelect={handleTypeSelect} />
-          </div>
-        )}
-
-        {/* Individual Form */}
-        {currentStep === 'individual-form' && (
+        {/* Combined Form Step */}
+        {currentStep === 'form' && (
           <>
             <div className="space-y-4">
               <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
@@ -364,111 +298,48 @@ function CreateClientPage() {
                   onPhoneBlur={checkExistingClient}
                   isCheckingPhone={isCheckingPhone}
                   taxYears={TAX_YEARS}
+                  showBusinessToggle
                 />
               </div>
-              {existingClient && (
+
+              {/* Returning client section - only show when no business (individual only creates engagement) */}
+              {existingClient && basicInfo.hasBusiness === false && (
                 <ReturningClientSection
                   client={existingClient}
                   selectedTaxYear={basicInfo.taxYear}
                   onCopyFromPrevious={handleCopyFromPrevious}
                 />
               )}
-            </div>
-            <WizardNavButtons onBack={handleBack} onNext={handleNext} nextLabel={t('newClient.continue')} backLabel={t('newClient.goBack')} />
-          </>
-        )}
 
-        {/* Business Form — single form for BUSINESS path, accordion for INDIVIDUAL_WITH_BUSINESS */}
-        {currentStep === 'business-form' && clientCreationType === 'BUSINESS' && (
-          <>
-            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-              <BusinessInfoForm
-                data={businessInfo}
-                onChange={(updates) => setBusinessInfo(prev => ({ ...prev, ...updates }))}
-                errors={errors.business}
-                phoneRequired
-              />
-              <div className="mt-5 space-y-1.5">
-                <label className="block text-sm font-medium text-foreground">
-                  {t('newClient.taxYear')}
-                  <span className="text-error ml-1">*</span>
-                </label>
-                <div className="flex gap-2">
-                  {TAX_YEARS.map((year) => (
-                    <button
-                      key={year}
-                      type="button"
-                      onClick={() => handleTaxYearChange(year)}
-                      className={cn(
-                        'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                        taxYear === year ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-                      )}
-                    >
-                      {year}
-                    </button>
-                  ))}
+              {/* Business accordion - inline expand when Yes */}
+              {basicInfo.hasBusiness && (
+                <div className="animate-in slide-in-from-top-2 duration-200">
+                  <BusinessAccordion
+                    businesses={businesses}
+                    expandedIndex={expandedBizIndex}
+                    onExpandedChange={setExpandedBizIndex}
+                    onUpdate={updateBusiness}
+                    onAdd={addBusiness}
+                    onRemove={removeBusiness}
+                    errors={errors.businesses}
+                  />
                 </div>
-              </div>
-            </div>
-            <div className="mt-6 space-y-3">
-              <button
-                type="button"
-                onClick={() => { if (validateBusinessInfo()) handleSubmit() }}
-                disabled={isSubmitting}
-                className={cn(
-                  'w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium',
-                  'bg-primary text-white transition-colors',
-                  isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary-dark'
-                )}
-              >
-                {isSubmitting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
-                ) : (
-                  <><Send className="w-4 h-4" /> Create Business Client</>
-                )}
-              </button>
-              {submitError && (
-                <div className="p-4 bg-error-light rounded-lg text-error text-sm">{submitError}</div>
               )}
-              <div className="flex justify-start">
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  disabled={isSubmitting}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium',
-                    'border border-border text-foreground hover:bg-muted transition-colors',
-                    isSubmitting && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                  {t('newClient.goBack')}
-                </button>
-              </div>
             </div>
-          </>
-        )}
 
-        {/* Multi-Business Accordion for INDIVIDUAL_WITH_BUSINESS */}
-        {currentStep === 'business-form' && clientCreationType === 'INDIVIDUAL_WITH_BUSINESS' && (
-          <>
-            <BusinessAccordion
-              businesses={businesses}
-              expandedIndex={expandedBizIndex}
-              onExpandedChange={setExpandedBizIndex}
-              onUpdate={updateBusiness}
-              onAdd={addBusiness}
-              onRemove={removeBusiness}
-              errors={errors.businesses}
+            <WizardNavButtons
+              onBack={handleBack}
+              onNext={handleNext}
+              nextLabel={t('newClient.continue')}
+              backLabel={t('newClient.cancel')}
             />
-            <WizardNavButtons onBack={handleBack} onNext={handleNext} nextLabel={t('newClient.continue')} backLabel={t('newClient.goBack')} />
           </>
         )}
 
-        {/* Confirm Step (Individual and Individual+Business paths only) */}
+        {/* Confirm Step */}
         {currentStep === 'confirm' && (
           <>
-            {clientCreationType === 'INDIVIDUAL_WITH_BUSINESS' && (
+            {basicInfo.hasBusiness && (
               <div className="mb-4 p-4 bg-primary/5 rounded-xl border border-primary/20">
                 <p className="text-sm font-medium text-foreground mb-2">Creating linked records:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">

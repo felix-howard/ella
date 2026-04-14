@@ -29,6 +29,9 @@ import {
   Building2,
   ChevronDown,
   UserCircle,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react'
 import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
@@ -60,7 +63,7 @@ import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { UI_TEXT } from '../../lib/constants'
-import { formatPhone, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
+import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 
@@ -102,6 +105,14 @@ function ClientDetailPage() {
   // "More" dropdown state (must be before early returns for Rules of Hooks)
   const [isMoreOpen, setIsMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
+  // Edit client modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editData, setEditData] = useState<{
+    firstName: string
+    lastName: string
+    phone: string
+    email: string
+  } | null>(null)
 
   // Mutation for adding checklist item
   const addChecklistItemMutation = useMutation({
@@ -188,6 +199,21 @@ function ClientDetailPage() {
     },
     onError: () => {
       toast.error(t('clientDetail.reopenError'))
+    },
+  })
+
+  // Update client profile mutation
+  const updateClientMutation = useMutation({
+    mutationFn: (data: { firstName?: string; lastName?: string | null; phone?: string; email?: string | null }) =>
+      api.clients.update(clientId, data),
+    onSuccess: () => {
+      toast.success(t('clientOverview.profileUpdated'))
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      setIsEditModalOpen(false)
+      setEditData(null)
+    },
+    onError: () => {
+      toast.error(t('clientOverview.profileUpdateFailed'))
     },
   })
 
@@ -507,6 +533,35 @@ function ClientDetailPage() {
     setTimeout(() => setVerifyDoc(null), 200)
   }
 
+  const handleOpenEditModal = () => {
+    setEditData({
+      firstName: client.firstName,
+      lastName: client.lastName || '',
+      phone: formatPhone(client.phone),
+      email: client.email || '',
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveClientProfile = () => {
+    if (!editData) return
+    // Convert formatted phone (XXX) XXX-XXXX back to E.164 format +1XXXXXXXXXX
+    const cleanedPhone = editData.phone.replace(/\D/g, '')
+    const formattedPhone = cleanedPhone.length === 10 ? `+1${cleanedPhone}` : `+1${cleanedPhone.slice(-10)}`
+
+    updateClientMutation.mutate({
+      firstName: editData.firstName,
+      lastName: editData.lastName || null,
+      phone: formattedPhone,
+      email: editData.email || null,
+    })
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false)
+    setEditData(null)
+  }
+
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
 
@@ -580,6 +635,13 @@ function ClientDetailPage() {
                 {/* Name row with badge + linked entities inline */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-semibold text-foreground leading-tight">{client.name}</h1>
+                  <button
+                    onClick={handleOpenEditModal}
+                    className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title={t('clientOverview.editProfile')}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                   {isBusiness && client.businessType && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
                       {BUSINESS_TYPE_LABELS[client.businessType] || client.businessType}
@@ -1040,6 +1102,84 @@ function ClientDetailPage() {
           taxYear={activeCase.taxYear}
         />
       )}
+
+      {/* Edit Client Profile Modal */}
+      <Modal open={isEditModalOpen} onClose={handleCancelEdit}>
+        <ModalHeader>
+          <ModalTitle>{t('clientOverview.editProfile')}</ModalTitle>
+          <ModalDescription>{t('clientOverview.editProfileDesc', 'Update client contact information')}</ModalDescription>
+        </ModalHeader>
+        {editData && (
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('clientOverview.firstName')}
+                </label>
+                <Input
+                  value={editData.firstName}
+                  onChange={(e) => setEditData({ ...editData, firstName: e.target.value })}
+                  disabled={updateClientMutation.isPending}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('clientOverview.lastName')}
+                </label>
+                <Input
+                  value={editData.lastName}
+                  onChange={(e) => setEditData({ ...editData, lastName: e.target.value })}
+                  placeholder={t('clientOverview.lastNameOptional')}
+                  disabled={updateClientMutation.isPending}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('clientOverview.phone')}
+                </label>
+                <Input
+                  type="tel"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: formatPhoneInput(e.target.value) })}
+                  disabled={updateClientMutation.isPending}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('clientOverview.email')}
+                </label>
+                <Input
+                  type="email"
+                  value={editData.email}
+                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  placeholder={t('clientOverview.emailOptional')}
+                  disabled={updateClientMutation.isPending}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <ModalFooter>
+          <Button variant="outline" onClick={handleCancelEdit} disabled={updateClientMutation.isPending}>
+            <X className="w-4 h-4 mr-1.5" />
+            {t('clientOverview.cancelEdit')}
+          </Button>
+          <Button
+            onClick={handleSaveClientProfile}
+            disabled={updateClientMutation.isPending || !editData?.firstName || !editData?.phone}
+          >
+            {updateClientMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+            ) : (
+              <Check className="w-4 h-4 mr-1.5" />
+            )}
+            {t('clientOverview.saveProfile')}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Floating Chatbox - Facebook Messenger-style with error boundary */}
       {/* For business clients, chat via individual owner (business phones are often landlines) */}

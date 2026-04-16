@@ -775,6 +775,9 @@ function MoveToEntityMenu({
   }, [triggerRef])
 
   useLayoutEffect(() => {
+    // Intentional: useLayoutEffect is designed for synchronous DOM measurements
+    // and position updates before paint to prevent visual flicker
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     updatePosition()
   }, [updatePosition])
 

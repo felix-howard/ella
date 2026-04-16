@@ -5,7 +5,8 @@
  * Shows NEW badge for unviewed documents (per-CPA tracking)
  */
 
-import { useState, useRef, useEffect, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, useMemo, type KeyboardEvent, type DragEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Clock, GripVertical, Check, X, Loader2, Eye, Globe, Phone, ArrowRightLeft } from 'lucide-react'
@@ -303,6 +304,7 @@ const FileItemRow = memo(function FileItemRow({
   const [newFilename, setNewFilename] = useState('')
   const [showMoveMenu, setShowMoveMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const moveTriggerRef = useRef<HTMLButtonElement>(null)
 
   const isVerified = doc?.status === 'VERIFIED'
   const needsVerification = doc && doc.status !== 'VERIFIED'
@@ -638,6 +640,7 @@ const FileItemRow = memo(function FileItemRow({
           {entityInfo && entities && entities.length > 1 && (
             <div className="relative">
               <button
+                ref={moveTriggerRef}
                 onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu) }}
                 disabled={reassignEntityMutation.isPending}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1 transition-colors disabled:opacity-50"
@@ -656,6 +659,7 @@ const FileItemRow = memo(function FileItemRow({
                   currentEntityId={entityInfo.entityClientId}
                   onSelect={(targetClientId) => reassignEntityMutation.mutate(targetClientId)}
                   onClose={() => setShowMoveMenu(false)}
+                  triggerRef={moveTriggerRef}
                 />
               )}
             </div>
@@ -738,13 +742,44 @@ function MoveToEntityMenu({
   currentEntityId,
   onSelect,
   onClose,
+  triggerRef,
 }: {
   entities: EntityInfo[]
   currentEntityId: string
   onSelect: (targetClientId: string) => void
   onClose: () => void
+  triggerRef: React.RefObject<HTMLButtonElement | null>
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const menuWidth = 192 // w-48
+    const menuHeight = 150 // approximate
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let top = rect.bottom + 4
+    let left = rect.right - menuWidth
+
+    if (left < 8) left = 8
+    if (left + menuWidth > viewportWidth - 8) left = viewportWidth - menuWidth - 8
+    if (top + menuHeight > viewportHeight - 8) {
+      top = rect.top - menuHeight - 4
+      if (top < 8) top = 8
+    }
+
+    setPosition({ top, left })
+  }, [triggerRef])
+
+  useLayoutEffect(() => {
+    // Intentional: useLayoutEffect is designed for synchronous DOM measurements
+    // and position updates before paint to prevent visual flicker
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    updatePosition()
+  }, [updatePosition])
 
   useEffect(() => {
     function handleClickOutside(event: globalThis.MouseEvent) {
@@ -765,10 +800,16 @@ function MoveToEntityMenu({
 
   const otherEntities = entities.filter(e => e.clientId !== currentEntityId)
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
-      className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
+      style={{
+        position: 'fixed',
+        top: position.top,
+        left: position.left,
+        zIndex: 9999,
+      }}
+      className="w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
     >
       <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border">
         Move to...
@@ -787,6 +828,7 @@ function MoveToEntityMenu({
           </button>
         )
       })}
-    </div>
+    </div>,
+    document.body
   )
 }

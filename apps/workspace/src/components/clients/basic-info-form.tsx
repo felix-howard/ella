@@ -15,6 +15,7 @@ export interface BasicInfoData {
   email: string
   language: Language
   taxYear: number
+  hasBusiness: boolean | null  // null = not selected (force choice)
 }
 
 interface BasicInfoFormProps {
@@ -24,9 +25,10 @@ interface BasicInfoFormProps {
   onPhoneBlur?: (phone: string) => void
   isCheckingPhone?: boolean
   taxYears: number[]
+  showBusinessToggle?: boolean  // Only show on combined form
 }
 
-export function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone, taxYears }: BasicInfoFormProps) {
+export function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingPhone, taxYears, showBusinessToggle }: BasicInfoFormProps) {
   const { t } = useTranslation()
   const handlePhoneChange = (value: string) => {
     onChange({ phone: formatPhoneInput(value) })
@@ -164,6 +166,59 @@ export function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingP
           ))}
         </div>
       </div>
+
+      {/* Business Toggle */}
+      {showBusinessToggle && (
+        <div className="space-y-2 pt-4 border-t border-border mt-4">
+          <label id="business-toggle-label" className="block text-sm font-medium text-foreground">
+            {t('newClient.ownsBusiness', 'Do you own a business?')}
+            <span className="text-error ml-1">*</span>
+          </label>
+          <div className="flex gap-4" role="radiogroup" aria-labelledby="business-toggle-label">
+            <label className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors',
+              data.hasBusiness === false ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+            )}>
+              <input
+                type="radio"
+                name="hasBusiness"
+                checked={data.hasBusiness === false}
+                onChange={() => onChange({ hasBusiness: false })}
+                className="sr-only"
+              />
+              <span className={cn(
+                'w-4 h-4 rounded-full border-2 flex items-center justify-center',
+                data.hasBusiness === false ? 'border-primary' : 'border-muted-foreground'
+              )}>
+                {data.hasBusiness === false && <span className="w-2 h-2 rounded-full bg-primary" />}
+              </span>
+              <span className="text-sm font-medium">No</span>
+            </label>
+            <label className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors',
+              data.hasBusiness === true ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+            )}>
+              <input
+                type="radio"
+                name="hasBusiness"
+                checked={data.hasBusiness === true}
+                onChange={() => onChange({ hasBusiness: true })}
+                className="sr-only"
+              />
+              <span className={cn(
+                'w-4 h-4 rounded-full border-2 flex items-center justify-center',
+                data.hasBusiness === true ? 'border-primary' : 'border-muted-foreground'
+              )}>
+                {data.hasBusiness === true && <span className="w-2 h-2 rounded-full bg-primary" />}
+              </span>
+              <span className="text-sm font-medium">Yes</span>
+            </label>
+          </div>
+          {errors?.hasBusiness && (
+            <p className="text-sm text-error" role="alert">{errors.hasBusiness}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

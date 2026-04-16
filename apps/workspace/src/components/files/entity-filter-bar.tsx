@@ -31,27 +31,20 @@ export function EntityFilterBar({ entities, selectedEntityId, onSelect, totalCou
   const { t } = useTranslation()
   if (entities.length <= 1) return null
 
+  // Sort entities: INDIVIDUAL first, then BUSINESS entities
+  const sortedEntities = [...entities].sort((a, b) => {
+    if (a.type === 'INDIVIDUAL' && b.type !== 'INDIVIDUAL') return -1
+    if (a.type !== 'INDIVIDUAL' && b.type === 'INDIVIDUAL') return 1
+    return 0
+  })
+
   return (
     <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('filesTab.entityFilter', 'Filter by entity')}>
-      {/* All button */}
-      <button
-        role="tab"
-        aria-selected={selectedEntityId === null}
-        onClick={() => onSelect(null)}
-        className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border',
-          selectedEntityId === null
-            ? 'bg-foreground text-background border-foreground'
-            : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-        )}
-      >
-        {t('common.all', 'All')}
-        <span className="text-xs opacity-70">({totalCount})</span>
-      </button>
-
-      {/* Entity buttons */}
-      {entities.map((entity, idx) => {
-        const color = getEntityColor(idx)
+      {/* Entity buttons - Individual first, then businesses */}
+      {sortedEntities.map((entity) => {
+        // Find original index for consistent coloring
+        const originalIdx = entities.findIndex(e => e.clientId === entity.clientId)
+        const color = getEntityColor(originalIdx)
         const isSelected = selectedEntityId === entity.clientId
 
         return (
@@ -72,6 +65,22 @@ export function EntityFilterBar({ entities, selectedEntityId, onSelect, totalCou
           </button>
         )
       })}
+
+      {/* All button - last */}
+      <button
+        role="tab"
+        aria-selected={selectedEntityId === null}
+        onClick={() => onSelect(null)}
+        className={cn(
+          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border',
+          selectedEntityId === null
+            ? 'bg-foreground text-background border-foreground'
+            : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+        )}
+      >
+        {t('common.all', 'All')}
+        <span className="text-xs opacity-70">({totalCount})</span>
+      </button>
     </div>
   )
 }

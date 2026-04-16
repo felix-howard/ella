@@ -80,9 +80,6 @@ function ClientListPage() {
   const { clients: clientsText } = UI_TEXT
 
   const attentionChips = [
-    { key: 'newUploads', label: t('clients.newUploads'), count: attentionSummary?.newUploads ?? 0 },
-    { key: 'needsVerification', label: t('clients.needsVerification'), count: attentionSummary?.needsVerification ?? 0 },
-    { key: 'stale', label: t('clients.stale'), count: attentionSummary?.stale ?? 0 },
     { key: 'readyForEntry', label: t('clients.readyForEntry'), count: attentionSummary?.readyForEntry ?? 0 },
   ]
 

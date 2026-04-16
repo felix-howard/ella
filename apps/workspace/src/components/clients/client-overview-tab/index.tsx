@@ -7,7 +7,6 @@ import { Trash2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { type ClientDetail } from '../../../lib/api-client'
-import { ClientProfileCard } from './client-profile-card'
 import { ClientLinkedEntityCard } from './client-linked-entity-card'
 import { ClientMetaInfo } from './client-meta-info'
 import { ClientQuickStats } from './client-quick-stats'
@@ -26,9 +25,6 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
 
   return (
     <div className="space-y-6">
-      {/* Profile Card - Full width */}
-      <ClientProfileCard client={client} />
-
       {/* Linked Entity Card - Shows linked business or owner */}
       {(client.clientType === 'INDIVIDUAL' || (client.clientGroup && client.clientGroup.clients.length > 0)) && (
         <ClientLinkedEntityCard
@@ -37,7 +33,7 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
           clientEmail={client.email}
           currentClientType={client.clientType}
           linkedClients={client.clientGroup?.clients || []}
-          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}
+          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['client', client.id] })}
         />
       )}
 
@@ -93,7 +89,6 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
 }
 
 // Re-export sub-components for direct imports if needed
-export { ClientProfileCard } from './client-profile-card'
 export { ClientQuickStats } from './client-quick-stats'
 export { ClientActivityTimeline } from './client-activity-timeline'
 export { ClientAssignedStaff } from './client-assigned-staff'

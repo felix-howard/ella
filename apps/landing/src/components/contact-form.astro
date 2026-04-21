@@ -3,18 +3,35 @@
  * Demo request form with name, email, and company fields.
  * Styled for dark aurora backgrounds with glassmorphism inputs.
  * On submit, opens Facebook contact page.
+ *
+ * Props:
+ *  - `prefillMessage` — default value for the message textarea (e.g. price breakdown from calculator).
+ *  - `idPrefix` — allows multiple instances on one page without DOM id collisions
+ *    (e.g. pricing page has both <CTASection> and <ConsultationModal> rendering this form).
  */
+
+interface Props {
+  prefillMessage?: string;
+  idPrefix?: string;
+}
+
+const { prefillMessage = "", idPrefix = "demo" } = Astro.props;
+const formId = `${idPrefix}-form`;
+const nameId = `${idPrefix}-name`;
+const emailId = `${idPrefix}-email`;
+const companyId = `${idPrefix}-company`;
+const messageId = `${idPrefix}-message`;
 ---
 
-<form id="demo-form" class="space-y-5">
+<form id={formId} class="space-y-5">
   <div class="grid gap-4 sm:grid-cols-2">
     <div>
-      <label for="demo-name" class="mb-1.5 block text-sm font-medium text-white/90">
+      <label for={nameId} class="mb-1.5 block text-sm font-medium text-white/90">
         Full Name
       </label>
       <input
         type="text"
-        id="demo-name"
+        id={nameId}
         name="name"
         placeholder="John Smith"
         required
@@ -22,12 +39,12 @@
       />
     </div>
     <div>
-      <label for="demo-email" class="mb-1.5 block text-sm font-medium text-white/90">
+      <label for={emailId} class="mb-1.5 block text-sm font-medium text-white/90">
         Work Email
       </label>
       <input
         type="email"
-        id="demo-email"
+        id={emailId}
         name="email"
         placeholder="john@yourfirm.com"
         required
@@ -37,12 +54,12 @@
   </div>
 
   <div>
-    <label for="demo-company" class="mb-1.5 block text-sm font-medium text-white/90">
+    <label for={companyId} class="mb-1.5 block text-sm font-medium text-white/90">
       Company / Firm Name
     </label>
     <input
       type="text"
-      id="demo-company"
+      id={companyId}
       name="company"
       placeholder="Smith & Associates CPA"
       class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -50,16 +67,16 @@
   </div>
 
   <div>
-    <label for="demo-message" class="mb-1.5 block text-sm font-medium text-white/90">
+    <label for={messageId} class="mb-1.5 block text-sm font-medium text-white/90">
       Message <span class="text-white/40">(optional)</span>
     </label>
     <textarea
-      id="demo-message"
+      id={messageId}
       name="message"
       rows="3"
       placeholder="Tell us about your firm and what you're looking for..."
       class="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 backdrop-blur-sm transition-all duration-200 focus:border-white/30 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
-    ></textarea>
+    >{prefillMessage}</textarea>
   </div>
 
   <button
@@ -79,8 +96,8 @@
   </p>
 </form>
 
-<script>
-  document.getElementById('demo-form')?.addEventListener('submit', (e) => {
+<script is:inline define:vars={{ formId }}>
+  document.getElementById(formId)?.addEventListener('submit', (e) => {
     e.preventDefault();
     window.open('https://www.facebook.com/my.ella.tax/', '_blank', 'noopener,noreferrer');
   });

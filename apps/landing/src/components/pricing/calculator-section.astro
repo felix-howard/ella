@@ -1,0 +1,13 @@
+---
+/**
+ * Two-column grid wrapping the calculator form (left) + summary panel (right).
+ * Phase 04: summary panel mounted; phase 05 wires live calc → DOM updates.
+ */
+import CalculatorForm from "./calculator-form.astro";
+import SummaryPanel from "./summary-panel.astro";
+---
+
+<div class="grid gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
+  <CalculatorForm />
+  <SummaryPanel />
+</div>

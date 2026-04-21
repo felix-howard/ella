@@ -1,7 +1,129 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-10 ICT
+> **Last Updated:** 2026-04-21 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-21
+
+### Feature: Landing Pricing Calculator - Phase 07 (Polish: Responsive, A11y, FAQ) ✅ COMPLETE
+**Status:** Complete (Phase 07 of 07 — Final)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit protection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
+
+**Files Changed:**
+- **UPDATED:** `apps/landing/src/components/pricing/summary-panel.astro` — mobile `<details>` bottom bar + content partial reference
+- **NEW:** `apps/landing/src/components/pricing/summary-panel-content.astro` — shared panel content fragment (prevents duplication drift)
+- **UPDATED:** `apps/landing/src/components/pricing/calculator-form.astro` — all form inputs now have `aria-describedby` linking to help text
+- **UPDATED:** `apps/landing/src/scripts/pricing-calculator.ts` — `renderResult()` changed from `querySelector()` to `querySelectorAll()` for multi-output updates
+- **UPDATED:** `apps/landing/src/pages/pricing.astro` — 8 FAQ items rewritten with tax-service focus, faqSchema updated
+
+**Validation:** Mobile drawer expands/collapses correctly, desktop panel sticks unchanged, keyboard nav works via Tab/Space/Enter/Esc, screen readers announce updates, FAQ schema validates, all files <200 LOC, no visual regressions on other pages.
+
+**Deferred (Out of Scope):** Analytics event tracking; Lighthouse headless audit run (browser infra limitation); iOS Safari device testing (fallback approach documented).
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 06 (Consultation CTA Integration) ✅ COMPLETE
+**Status:** Complete (Phase 06 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Wired "Book Free Consultation" CTA to open native `<dialog>` modal with pre-filled price breakdown and contact form. Breakdown auto-generates from current calculator state and displays tier, monthly cost itemization, setup cost itemization. Modal includes $300 refundable deposit note. ContactForm component enhanced with `prefillMessage` prop for textarea pre-population. Enterprise state shows enterprise-specific message instead of breakdown.
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/components/pricing/consultation-modal.astro` (modal markup + inline event listener)
+- **UPDATED:** `apps/landing/src/scripts/pricing-calculator.ts` — added `formatBreakdown()`, module-scope `lastResult` tracking, CTA click event dispatch
+- **UPDATED:** `apps/landing/src/components/contact-form.astro` — added optional `prefillMessage` prop, textarea default value
+- **UPDATED:** `apps/landing/src/pages/pricing.astro` — mounted `<ConsultationModal />`
+
+**Validation:** Modal opens/closes correctly, breakdown text matches summary panel, ESC/backdrop/X button close, form submit routes to Facebook, enterprise variant shows enterprise message, all modified files <200 LOC, accessibility verified.
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 05 (Calculator Logic Wiring) ✅ COMPLETE
+**Status:** Complete (Phase 05 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Client-side TypeScript wiring reads `[data-calc-input]` form nodes, runs pure `calculatePrice()`, and mutates `[data-calc-output]`/`[data-calc-state]` nodes in summary panel. Debounced 150ms on `input`/`change`. XSS-safe (textContent + cloneNode only, no innerHTML). Strict TS, no `any`, no third-party deps. Enterprise tier (>20 1099) disables CTA and shows contact state; empty state when no add-ons selected.
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/scripts/pricing-calculator.ts` (193 LOC)
+- **UPDATED:** `apps/landing/src/pages/pricing.astro` — added `<script>import "@/scripts/pricing-calculator";</script>`
+
+**Validation:** `astro build` passes; script bundle 5.69 kB / 2.15 kB gz (target <10 kB); code review 9/10, no critical issues. Phase 07 will surface validation messages + fix enterprise "20+" copy tier boundary.
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 04 (Summary Panel UI) ✅ COMPLETE
+**Status:** Complete (Phase 04 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Right-side sticky summary panel with `data-calc-output` and `data-calc-state` DOM contract for phase 05 population. Displays tier badge, monthly/setup sections, enterprise state, empty state with "Fill in form" prompt, and disabled CTA button. Accessibility: `aria-live="polite"` on result region. Light theme matches pricing cards. File <200 LOC.
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/components/pricing/summary-panel.astro` (122 LOC)
+- **UPDATED:** `apps/landing/src/components/pricing/calculator-section.astro` — mounts panel in right column
+
+**DOM Contract (phase 05 writes to these):** `data-calc-output="tierLabel|monthlyItems|monthlyTotal|setupItems|setupTotal"` + `data-calc-state="empty|result|enterprise"` + `data-calc-cta` button.
+
+**Validation:** Visual verified at `/pricing`, sticky behavior confirmed, all accessibility hooks in place, file <200 LOC.
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 03 (Calculator Form UI) ✅ COMPLETE
+**Status:** Complete (Phase 03 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Static HTML calculator form renders under `#calculator` on `/pricing`. Five sections (business basics, cash plan, audit protection, one-time services, sales tax monitoring) expose a stable `data-calc-input="<key>"` DOM contract that phase 05 will hydrate. No JS logic yet — pure markup + Tailwind.
+
+**What Changed:**
+- **NEW:** `calculator-section.astro` — 2-col grid wrapping form (left) + summary panel placeholder (right).
+- **NEW:** `calculator-form.astro` — orchestrator composing business + services sub-panels inside a single `<form id="pricing-calculator-form">` with `onsubmit="return false"` guard.
+- **NEW:** `calculator-form-business.astro` — Section A: 1099 count, W-2 payroll count, payroll-mode radio cards.
+- **NEW:** `calculator-form-services.astro` — Sections B-E: Cash Plan (collapsible), Audit Protection toggle, One-time services (collapsible list), sales-tax shops.
+- **NEW:** `calculator-form-styles.ts` — shared Tailwind class constants (DRY across sub-panels).
+- **UPDATED:** `pricing.astro` — imports + mounts `<CalculatorSection />` inside `#calculator-root`, replacing the coming-soon placeholder.
+
+**DOM Contract (13 keys — consumed by phase 05):**
+`nec1099Count`, `payrollEmployees`, `payrollMode` (×2 radios), `cashPlan.enabled`, `cashPlan.employees`, `cashPlan.owners`, `auditProtection`, `oneTime.startLlc`, `oneTime.holdingLlcNew`, `oneTime.holdingLlcModify`, `oneTime.personalTaxReturn`, `oneTime.businessTaxReturn`, `salesTaxShops`.
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/components/pricing/calculator-section.astro` (23 LOC)
+- **NEW:** `apps/landing/src/components/pricing/calculator-form.astro` (22 LOC)
+- **NEW:** `apps/landing/src/components/pricing/calculator-form-business.astro` (94 LOC)
+- **NEW:** `apps/landing/src/components/pricing/calculator-form-services.astro` (170 LOC)
+- **NEW:** `apps/landing/src/components/pricing/calculator-form-styles.ts` (18 LOC)
+- **UPDATED:** `apps/landing/src/pages/pricing.astro`
+
+**Validation:** `pnpm build` succeeds, all files <200 LOC, code-review 9/10 (all warnings resolved).
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 02 (Tier Cards + Page Shell) ✅ COMPLETE
+**Status:** Complete (Phase 02 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Full rewrite of `apps/landing/src/pages/pricing.astro` with Ella-specific 3-tier marketing cards (Basic $125, Pro $135, VIP $425) replacing generic SaaS pricing ($99/$299/Custom). Added reusable TierCard component. Scaffolded placeholder sections for interactive calculator (phases 03-05) and tax-themed FAQ (phase 07 copy pass).
+
+**What Changed:**
+- **NEW:** `tier-card.astro` (108 LOC) — reusable card: name, monthly price, fixed setup fee or free-form setup note, tagline, bullets, CTA anchor to `#calculator`. `popular` prop renders "Most Popular" badge + emphasis.
+- **REWRITE:** `pricing.astro` (184 LOC, down from 477) — hero, 3-card responsive grid, `#calculator` placeholder, 5-item tax-themed FAQ, CTA section.
+- **UPDATED:** `pricing-constants.ts` — added `tagline` on BASIC/PRO/ENTERPRISE; added `marketingLabel: "VIP"` on ENTERPRISE; tweaked bullet copy for marketing parity.
+
+**Key Features:**
+- 3-tier pricing cards: Basic (≤10 workers), Pro (11-20, popular), VIP (Pro + Audit Protection bundle)
+- Taglines: "For small shops starting out" / "For growing salons" / "Complete peace of mind"
+- Anchors preserved: `#pricing`, `#calculator`, `#faq`
+- SEO updated: title, breadcrumb schema, faq schema
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/components/pricing/tier-card.astro` (108 LOC)
+- **REWRITE:** `apps/landing/src/pages/pricing.astro` (184 LOC)
+- **UPDATED:** `apps/landing/src/config/pricing-constants.ts`
+
+**Status:** PHASE 02 COMPLETE — calculator UI + logic in phases 03-05
 
 ---
 

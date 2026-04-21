@@ -1,0 +1,77 @@
+---
+/**
+ * Pricing summary — dual-surface shell:
+ *  - Desktop (≥lg): sticky right-column card with full breakdown (existing UX).
+ *  - Mobile (<lg): fixed bottom `<details>` bar showing the monthly total at
+ *    a glance; expanding reveals the same breakdown + CTA.
+ *
+ * Both surfaces include a copy of `<SummaryPanelContent />`. Every
+ * `[data-calc-state]` / `[data-calc-output]` node is updated by
+ * `pricing-calculator-render.ts` via `querySelectorAll`, so N copies stay
+ * in sync. The line-item `<template>` lives once here (cloned by script).
+ *
+ * Accessibility:
+ *  - Summary-panel has `aria-label` and live regions on state containers.
+ *  - Mobile bar uses native `<details>/<summary>` → keyboard + SR friendly.
+ */
+import SummaryPanelContent from "./summary-panel-content.astro";
+---
+
+<aside
+  id="pricing-summary-panel"
+  class="lg:sticky lg:top-24"
+  aria-label="Pricing summary"
+>
+  <!-- Desktop: right column card (sticky via aside above — aside's parent
+       grid container is taller than the aside, giving sticky headroom). -->
+  <div class="hidden rounded-2xl bg-white p-6 ring-1 ring-gray-200 lg:block lg:p-8">
+    <SummaryPanelContent />
+  </div>
+
+  <!-- Mobile: fixed bottom bar + expandable drawer.
+       `pb-[env(safe-area-inset-bottom)]` honors iOS home-indicator inset. -->
+  <details
+    class="group fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.08)] lg:hidden"
+  >
+    <summary
+      class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
+    >
+      <span class="text-sm font-medium text-gray-900">
+        <span data-calc-state="empty" class="text-gray-500">
+          Fill form to see estimate
+        </span>
+        <span data-calc-state="result" hidden>
+          Monthly: <span class="font-bold tabular-nums">$<span data-calc-output="monthlyTotal">0</span></span>
+          <span class="text-gray-500">/mo</span>
+        </span>
+        <span data-calc-state="enterprise" hidden class="text-primary-700">
+          Enterprise — contact us
+        </span>
+      </span>
+      <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        See breakdown
+        <svg
+          class="h-4 w-4 transition-transform group-open:rotate-180"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+        </svg>
+      </span>
+    </summary>
+    <div class="max-h-[70vh] overflow-y-auto px-4 pb-6 pt-2">
+      <SummaryPanelContent />
+    </div>
+  </details>
+
+  <!-- Line item template (cloned by pricing-calculator-render.ts for each copy) -->
+  <template id="calc-line-item-template">
+    <li class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+      <span class="text-gray-600" data-slot="label"></span>
+      <span class="font-medium tabular-nums text-gray-900" data-slot="amount"></span>
+    </li>
+  </template>
+</aside>

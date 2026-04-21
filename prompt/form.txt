@@ -1,0 +1,23 @@
+Flow hiện tại:
+Admin/Staff vào trang Client List. Nhấn Create. Sau đó Admin/Staff nhập First Name và Last Name của Client, và sau đó nhập số điện thoại của Client, sau đó nhấn Create. Sau đó sẽ hiện ra screen cho staff/admin customize tin nhắn sẽ gửi cho client đó. Nhấn Sent => Tạo ra client mới trong Client List, đồng thời gửi tin nhắn cho client đó với link để client đó upload tài liệu
+
+Cách làm trên Ổn. Bây giờ tôi muốn thêm 1 cách khác để thêm client.
+Đó là, tôi muốn có 1 trang là cái Form, Form này gồm các trường First Name, Last Name, Phone Number.
+Tôi muốn form này tạo trong project apps/portal (để không cần phải đăng nhập mới access được form này)
+Form đó sẽ nói rõ ra tên của CPA luôn (Tôi sẽ bàn về chuyện này sau)
+Mỗi Admin/Staff sẽ có 1 link tới form này khác nhau. Giả sử Admin A, trong trang profile của Admin A, sẽ có 1 đường link được tạo ra,
+Admin A chỉ việc gửi link này khắp nơi, để chạy quảng cáo chẳng hạn. Khi ai đó bấm vào link này từ admin A, họ sẽ thấy kiểu như:
+Đăng ký khai thuế Online với CPA: tên A
+Bên dưới là các trường First Name, Last Name, Phone Number để cho client đó điền vào
+Sau đó, ở màn hình Client List, sẽ tự động tạo thêm 1 Client mới
+Client này có các thông tin được điền ở trên, còn ở cột Managed By thì giá trị của cột này là tên admin A
+Trong trang client List, row này sẽ có gì đó khác biệt, chẳng hạn có 1 badge ghi là New Client (để cho Users nhìn vào là biết client này được tạo ra từ cách họ tự điền form chứ không phải do admin/staff tạo ra bằng trang create client)
+Đối với client này, tin nhắn tự động sẽ không được gửi. Admin/Staff phải vào trang client detail của client này, trong trang này sẽ có nút để admin/staff click vào và nó sẽ tự động gửi link để client đó upload. Tôi không muốn tính năng tự động gửi ngay khi tạo ra client này đó là vì tôi muốn admin/staff vào xem client này và quyết định có muốn gửi link cho họ upload hay không.
+Tôi nghĩ có thể thêm 1 mục trong setting để toggle đó là: Tự động gửi tin nhắn link upload kể cả cho client tự điền form. Nếu Toggle On thì sẽ tự động gửi link upload, còn nếu không thì sẽ không tự động gửi. Setting này chỉ áp dụng với các client được tạo ra thông qua việc họ tự điền form
+Mỗi admin/staff sẽ có 1 link khác nhau để  ra form này
+ví dụ Staff C sẽ có 1 link khác, khi staff C rải link này ở đâu đó và ai đó click vào, thì trong form đó sẽ có chữ: đăng ký khai thuế với CPA C. Bên dưới là các field first name, last name, phone bình thường. 
+Khi form này được submit thì cột Managed By sẽ là tên của Staff C. Tôi muốn row này sẽ có gì đó để mark cho user thấy là client này được tạo thông qua form, chẳng hạn hiện thêm 1 badge, hoặc tô màu background khác, hoặc thêm UI nào đó thể hiện điều đó
+Staff/Admin vào trang client list sẽ nhìn thấy và nhận ra ngay những client nào được tạo ra từ link điền form ở trên, và sau đó họ sẽ vào client detail và quyết định có gửi link để client đó upload hay không (tự động gửi link upload hoặc manually click vào button để gửi link upload, tùy thuộc vào setting)
+
+tôi cũng muốn tạo ra 1 link form mà không có tên của bất kỳ CPA nào, khi client điền vào form này, thì trong trang client list, row của client này không có giá trị nào trong cột Managed By
+Điều này yêu cầu bạn sửa lại database ở chỗ, cột Managed By có thể null (không có giá trị).

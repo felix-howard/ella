@@ -1,0 +1,205 @@
+# Scout Report: SMS/Welcome Message Flow
+Date: 2026-03-30
+
+## BACKEND SMS SENDING FLOW
+
+Core Files:
+1. apps/api/src/services/sms/message-sender.ts (line 58-104: sendWelcomeMessage function)
+2. apps/api/src/services/sms/twilio-client.ts (sendSms with retry logic)
+3. apps/api/src/routes/clients/index.ts (line 446: triggers welcome SMS on client creation)
+4. apps/api/src/routes/messages/index.ts (message API endpoints)
+5. apps/api/src/routes/webhooks/twilio.ts (line 166-225: SMS status webhook)
+
+Key Flow:
+- sendWelcomeMessage() formats message
+- sendAndRecordMessage() sends SMS FIRST via Twilio
+- ONLY creates DB message record if SMS succeeds (prevents false "sent" status)
+- Updates conversation.lastMessageAt and taxCase.lastContactAt
+- Twilio returns SID and status ("queued")
+- Returns { success, messageId, smsSent, error }
+
+Database Model (Message table):
+- twilioSid (unique) - Twilio message ID
+- twilioStatus - Delivery status
+- channel - SMS/PORTAL/SYSTEM/CALL
+- direction - OUTBOUND/INBOUND
+- templateUsed - "welcome", "missing_docs", etc
+- sentById - Staff sender
+
+Status Values:
+- Success: queued, sent, delivered
+- Failure: failed, undelivered
+- Error format: "failed:21612:Invalid phone number"
+
+Twilio Retries:
+- 2 retries on transient failures
+- Exponential backoff: 500ms, 1000ms
+- Non-retryable errors: invalid phone, landline, permission denied, unsubscribed
+
+## FRONTEND MESSAGE DISPLAY
+
+Display Files:
+1. apps/workspace/src/components/messaging/message-bubble.tsx - Status icons/labels
+2. apps/workspace/src/components/messaging/message-thread.tsx - Conversation history
+3. apps/workspace/src/components/messaging/conversation-list-item.tsx - Inbox item
+
+Status Icons (SMS_STATUS_CONFIG in message-bubble.tsx):
+- Clock: queued/sent (muted-foreground/60)
+- Check: sent (muted-foreground/60)
+- Double check: delivered (blue-500)
+- Alert: undelivered (orange-500)
+- X circle: failed (destructive red)
+
+Display Behavior:
+- Outbound messages show status icon + label below bubble
+- Failed messages show expandable error details (line 374-384)
+- NO filtering of failed messages - all visible in thread
+- Relative time display (e.g., "2m ago")
+
+Inbox Sorting:
+- Backend orders by: lastMessageAt DESC, createdAt DESC
+- Frontend polls every 30 seconds
+- Shows last message preview (60 chars truncated)
+- Unread badge (red circle, max "9+")
+- No filtering applied
+
+## WELCOME MESSAGE CREATION
+
+Trigger: POST /clients (apps/api/src/routes/clients/index.ts line 350-499)
+
+Transaction:
+1. Create Client record
+2. Create Profile record
+3. Create Engagement (find or create)
+4. Create TaxCase with status INTAKE
+5. Create Conversation (with lastMessageAt=now to ensure inbox visibility)
+
+Outside transaction:
+1. Generate checklist based on intake answers
+2. Create magic link for portal
+3. Send welcome SMS (async, non-blocking)
+
+Template Priority:
+1. Custom message from form (replaces {{client_name}}, {{tax_year}}, {{portal_link}})
+2. Database template (category='PORTAL_LINK', if exists)
+3. Hardcoded template (VI or EN from apps/api/src/services/sms/templates/welcome.ts)
+
+Response includes:
+- client object
+- taxCase object (status='INTAKE')
+- magicLink URL
+- smsStatus: { sent: boolean, error?: string }
+
+## TWILIO STATUS WEBHOOK
+
+Endpoint: POST /webhooks/twilio/status (apps/api/src/routes/webhooks/twilio.ts line 166-225)
+
+Receives from Twilio:
+- MessageSid
+- MessageStatus (queued, sent, delivered, failed, undelivered)
+- ErrorCode (if failure)
+- ErrorMessage (if failure)
+
+Processing:
+1. Validate Twilio signature
+2. Find Message by twilioSid
+3. Update twilioStatus field
+4. Format: "{status}:{errorCode}:{errorMessage}" if error
+5. Return 200 OK to prevent Twilio retry
+
+## FAILURE SCENARIOS
+
+Scenario A: SMS Send Fails Before Recording
+- sendSms() fails (invalid phone, no permission, etc)
+- Message record NOT created
+- Response: { success: true, smsSent: false, error: 'TWILIO_ERROR_21612:...' }
+- Conversation exists but shows "No messages"
+- User sees conversation in inbox but can't open it with content
+
+Scenario B: SMS Sent But Delivery Fails
+- Message sent to Twilio, returns SID
+- Message recorded with status='queued'
+- Twilio attempts delivery, fails
+- Webhook updates: twilioStatus='failed:21612:Invalid phone'
+- Frontend displays: X icon + "Sending failed" + expandable error details
+- Message remains visible in conversation
+
+Scenario C: SMS Success
+- Message sent, SMS recorded with status='queued'
+- Twilio webhook updates: queued → sent → delivered
+- Frontend shows status progression
+- Message visible with "Delivered" status
+
+## IMPLEMENTATION DETAILS
+
+Race Condition Prevention:
+- Conversation created with lastMessageAt=new Date() at client creation
+- Ensures conversation visible in inbox immediately
+- When SMS succeeds, lastMessageAt updated to actual message timestamp
+- Code comment: "SMS will overwrite lastMessageAt with correct timestamp"
+
+Unique Constraint:
+- twilioSid is unique on Message table
+- Prevents duplicate records from webhook retries
+
+Phone Formatting (formatPhoneToE164):
+- Strips all non-digits except leading +
+- Assumes US (+1) if no country code
+- Removes leading 1 from 11-digit US numbers
+- Examples:
+  * "5551234567" → "+15551234567"
+  * "+1-555-123-4567" → "+15551234567"
+  * "+84912345678" → "+84912345678" (Vietnam preserved)
+
+Twilio Configuration:
+- isTwilioConfigured() checks TWILIO_* env vars
+- If not configured: SMS disabled, no error
+- Conversation still created
+- Response: smsStatus: { sent: false }
+
+## RELATED MESSAGE TYPES
+
+Automated SMS Templates:
+- welcome - Client onboarding link
+- missing_docs - Missing document reminder
+- complete - All docs received notification
+- blurry_resend - Resend blurry image request
+- schedule_c - Schedule C form link
+- schedule_e - Schedule E form link
+
+All follow pattern: format message → sendAndRecordMessage()
+
+## ABSOLUTE FILE PATHS
+
+Backend:
+- /c/Users/Admin/Desktop/ella/apps/api/src/services/sms/message-sender.ts
+- /c/Users/Admin/Desktop/ella/apps/api/src/services/sms/twilio-client.ts
+- /c/Users/Admin/Desktop/ella/apps/api/src/services/sms/templates/welcome.ts
+- /c/Users/Admin/Desktop/ella/apps/api/src/routes/messages/index.ts
+- /c/Users/Admin/Desktop/ella/apps/api/src/routes/webhooks/twilio.ts
+- /c/Users/Admin/Desktop/ella/apps/api/src/routes/clients/index.ts
+- /c/Users/Admin/Desktop/ella/packages/db/prisma/schema.prisma
+
+Frontend:
+- /c/Users/Admin/Desktop/ella/apps/workspace/src/components/messaging/message-bubble.tsx
+- /c/Users/Admin/Desktop/ella/apps/workspace/src/components/messaging/message-thread.tsx
+- /c/Users/Admin/Desktop/ella/apps/workspace/src/components/messaging/conversation-list-item.tsx
+- /c/Users/Admin/Desktop/ella/apps/workspace/src/routes/messages.tsx
+
+## KNOWN ISSUES
+
+Issue 1: Empty Conversation on Send Failure
+- Conversation appears in inbox but no message content if SMS send fails before recording
+- User confused why empty conversation visible
+- Only affects immediate send failures
+
+Issue 2: Failed Message Not Obviously Failed
+- X icon on message easily missed
+- Error details only visible if expanded
+- Could appear successfully sent to casual user
+
+Issue 3: Message Attachment Persistence
+- SMS attachments (MMS) stored as URLs in DB
+- Proxied through API endpoint
+- R2 keys may not persist reliably after file classification renames
+

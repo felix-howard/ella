@@ -1,0 +1,22 @@
+---
+/**
+ * Left-panel calculator form — static HTML only, composed of section
+ * sub-components. All inputs expose `data-calc-input="<key>"` matching
+ * `CalcInput` from `@/config/pricing`; phase 05 hydrates these without
+ * brittle id selectors.
+ *
+ * Light theme, matches tier-card visual language.
+ */
+import CalculatorFormBusiness from "./calculator-form-business.astro";
+import CalculatorFormServices from "./calculator-form-services.astro";
+---
+
+<form
+  id="pricing-calculator-form"
+  class="space-y-6"
+  novalidate
+  onsubmit="return false;"
+>
+  <CalculatorFormBusiness />
+  <CalculatorFormServices />
+</form>

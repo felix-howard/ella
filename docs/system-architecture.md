@@ -656,6 +656,7 @@ apps/portal/src/components/pdf-viewer/ (modular structure)
 - `INVALID_TOKEN` - Token not found in database
 - `LINK_REVOKED` - Staff revoked the draft access
 - `LINK_EXPIRED` - Token expiresAt date passed
+- `DOC_DELETED` - Document soft-deleted by CPA (HTTP 410 from Phase 02 API) - Phase 05 addition, suppresses retry button
 - `PDF_UNAVAILABLE` - R2 signed URL generation failed
 - Browser unsupported - iFrame load error, fallback to download/open buttons
 
@@ -670,7 +671,7 @@ export interface ShareableDocumentData {
   clientLanguage: 'EN' | 'VI'  // Auto-sync language
   taxYear: number              // Tax year
   version: number              // Document version
-  title: string                // Section title (custom or "Draft Return" default)
+  title: string                // Section title (custom or "Draft Return" default) - Phase 05 addition
   filename: string             // Original filename
   uploadedAt: string           // ISO8601
   pdfUrl: string              // Signed R2 URL (15min expiry)
@@ -687,7 +688,8 @@ portalApi.trackSharedDocView(token: string) → Promise<void>
 
 **Localization Keys:**
 ```
-draft.title              → "Draft Tax Return for Review"
+draft.title              → "Draft Tax Return for Review" (fallback if title missing - Phase 05)
+draft.titleFormat        → "{{title}} for Review" (dynamic title per section - Phase 05, pending i18n)
 draft.loading            → "Loading your draft tax return..."
 draft.taxYear            → "Tax Year"
 draft.version            → "Version"
@@ -697,6 +699,7 @@ draft.errorLoading       → "Could not load the draft tax return. Please try ag
 draft.errorInvalidLink   → "This link is not valid. Please contact your CPA for a new link."
 draft.errorRevoked       → "This link has been revoked. Please contact your CPA."
 draft.errorExpired       → "This link has expired. Please contact your CPA for a new link."
+draft.errorDeleted       → "This document has been removed by your CPA." (Phase 05, pending i18n)
 draft.linkInvalid        → "Link Invalid"
 draft.viewerUnsupported  → "PDF Viewer Unavailable"
 draft.viewerFallback     → "Your browser cannot display PDFs directly. Please use the buttons below."
@@ -819,6 +822,79 @@ Mobile-optimized UI:
 - Pinch detection: Native touch events (no library needed)
 - Swipe detection: Distance + velocity calculation
 - Fallback: Native PDF controls still available if gestures fail
+
+---
+
+## Phase 05: Portal Viewer - Header UI Updates (Dynamic Title + Ella Logo) (COMPLETE)
+
+**Overview:**
+Portal draft viewer header redesign to display dynamic document titles and Ella branding. Each section can have a custom title (e.g., "2024 Tax Return" vs "Draft Financials") rendered as `{title} for Review`. Ella logo added to header (top-left) with light/dark mode support. New error state for soft-deleted documents (HTTP 410 DOC_DELETED).
+
+**Files Changed:**
+- `apps/portal/src/lib/api-client.ts` — Added `title: string` to `ShareableDocumentData` interface (Phase 02 API addition)
+- `apps/portal/src/routes/draft/$token/index.tsx` — Logo imports, header layout redesign, dynamic title rendering, DOC_DELETED error handling
+
+**Header Layout (Phase 05 Update):**
+```tsx
+// New 3-column header with logo + centered title
+<div className="flex items-center justify-between mb-2">
+  <img src={EllaLogoLight} alt="Ella" className="h-6 w-auto dark:hidden" />
+  <img src={EllaLogoDark} alt="Ella" className="h-6 w-auto hidden dark:block" />
+  <div /> {/* spacer for center alignment */}
+</div>
+<h1 className="text-base font-semibold text-foreground text-center">
+  {t('draft.titleFormat', { title: data.title })}
+</h1>
+```
+
+**Logo Implementation:**
+- Import: `import { EllaLogoLight, EllaLogoDark } from '@ella/ui'`
+- Size: 24px height, auto width (aspect ratio preserved)
+- Variants: `EllaLogoLight` (light mode, black text), `EllaLogoDark` (dark mode, white text)
+- Dark mode: Conditional render via Tailwind `dark:` utilities
+- No layout shift: Dimensions reserved via aspect-ratio
+
+**Title Rendering (Phase 05):**
+- Source: `data.title` from API (custom title set by CPA in workspace)
+- Format key: `draft.titleFormat` with placeholder `{{title}}` (values: "...for Review" en, "...để Xem Xét" vi)
+- Fallback: `draft.title` key if title field missing (defensive degradation, though atomic deploy ensures presence)
+- XSS safe: React text node auto-escapes user-provided title
+
+**Error Handling (Phase 05):**
+```typescript
+// Added DOC_DELETED case
+switch (error?.code) {
+  case 'INVALID_TOKEN': return t('draft.errorInvalidLink')
+  case 'LINK_REVOKED': return t('draft.errorRevoked')
+  case 'LINK_EXPIRED': return t('draft.errorExpired')
+  case 'DOC_DELETED': return t('draft.errorDeleted')   // NEW (Phase 05)
+}
+// Suppress retry button for permanent errors
+const isInvalidLink = ['INVALID_TOKEN', 'LINK_REVOKED', 'LINK_EXPIRED', 'DOC_DELETED'].includes(error?.code)
+```
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Message key, not yet in locale files
+- `draft.errorDeleted` — Message key, not yet in locale files
+
+**API Compatibility (Phase 02 Dependency):**
+```typescript
+// Portal API response includes title field (added in Phase 02)
+ShareableDocumentData {
+  title: string  // "Draft Return", "2024 Tax Return", etc.
+  ...other fields
+}
+```
+
+**Mobile Layout:**
+- Logo + title stay on single line on portrait (headroom reserved)
+- Logo doesn't wrap; spacer adapts to available width
+- Existing metadata chips (year/version/client) unchanged below title
+
+**Security:**
+- No new CSP impact (logo is static asset from workspace)
+- Title value rendered as text node → HTML-escaped automatically
+- 410 response doesn't leak internal state ("removed by CPA" only)
 
 ---
 

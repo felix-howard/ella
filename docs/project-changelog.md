@@ -7,6 +7,33 @@
 
 ## 2026-04-21
 
+### Frontend: Shared Docs Rework - Phase 05 (Portal Viewer Updates) ✅ COMPLETE
+**Status:** Complete (Phase 05 of multi-phase rework — Portal Viewer UI)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Updated portal draft viewer to display dynamic document titles and Ella logo in header. Portal now fetches title from API response and renders `{title} for Review` via i18n key `draft.titleFormat`. Added Ella logo (light/dark variants) in top-left of header. Implemented new `DOC_DELETED` (410 HTTP) error code handling with user-friendly message "This document has been removed by your CPA." Defensive fallback to `draft.title` i18n key if title field missing (graceful degradation). All error states (invalid/revoked/expired) preserved. Mobile layout tested to prevent header wrapping. Depends on Phase 02 (API returns title field).
+
+**Files Changed:**
+- **UPDATED:** `apps/portal/src/lib/api-client.ts` — added `title: string` to `ShareableDocumentData` interface
+- **UPDATED:** `apps/portal/src/routes/draft/$token/index.tsx` — logo imports (EllaLogoLight, EllaLogoDark), header layout redesign, dynamic title rendering, DOC_DELETED (410) error case + suppress retry button, defensive fallback
+
+**Key Changes:**
+- Header layout: 3-col flex (logo | spacer | spacer) then centered title below
+- Logo height: 24px with `w-auto` to preserve aspect ratio, no layout shift
+- Title source: `data.title ?? t('draft.title')` with message format key `draft.titleFormat`
+- Error handling: Case `'DOC_DELETED'` → message key `draft.errorDeleted` + suppress retry (added to isInvalidLink array)
+- Dark mode: Conditional logo variant via Tailwind `dark:` utilities
+- Backward compat: Fallback to hardcoded title if title missing (phase 02 atomic deploy ensures title present)
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Message key with `{{title}}` placeholder (values: "...for Review" en, "...để Xem Xét" vi)
+- `draft.errorDeleted` — Error message key (value: "This document has been removed by your CPA.")
+- Fallback: `draft.title` remains as defensive fallback
+
+**Testing:** Mobile viewport (portrait/landscape) layout verified, dark mode toggle tested, existing error flows (invalid/revoked/expired) regression-checked, portal typecheck passes.
+
+---
+
 ### Database: Shared Docs Rework - Phase 01 (Schema Rename & Soft-Delete) ✅ COMPLETE
 **Status:** Complete (Phase 01 of multi-phase rework — Database-Only)
 **Branch:** feature/fuocy-bidi

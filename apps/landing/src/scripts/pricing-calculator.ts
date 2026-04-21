@@ -45,7 +45,7 @@ function readElementValue(el: HTMLElement): unknown {
   if (el instanceof HTMLInputElement) {
     if (el.type === "checkbox") return el.checked;
     if (el.type === "radio") return el.checked ? el.value : undefined;
-    if (el.type === "number") return clampInt(el.value);
+    if (el.type === "number" || el.inputMode === "numeric") return clampInt(el.value);
     return el.value;
   }
   if (el instanceof HTMLSelectElement) return el.value;

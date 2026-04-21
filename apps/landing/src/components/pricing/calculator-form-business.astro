@@ -22,12 +22,11 @@ import {
       <label for="calc-nec1099" class={labelCls}>How many 1099 workers?</label>
       <input
         id="calc-nec1099"
-        type="number"
+        type="text"
         name="nec1099Count"
         inputmode="numeric"
-        min="0"
-        max="200"
-        step="1"
+        pattern="\d*"
+        maxlength="3"
         placeholder="e.g. 8"
         aria-describedby="calc-nec1099-hint"
         data-calc-input="nec1099Count"
@@ -41,13 +40,12 @@ import {
       <label for="calc-payroll-emp" class={labelCls}>W-2 payroll employees</label>
       <input
         id="calc-payroll-emp"
-        type="number"
+        type="text"
         name="payrollEmployees"
         inputmode="numeric"
-        min="0"
-        max="200"
-        step="1"
-        value="0"
+        pattern="\d*"
+        maxlength="3"
+        placeholder="0"
         aria-describedby="calc-payroll-emp-hint"
         data-calc-input="payrollEmployees"
         class={inputCls}

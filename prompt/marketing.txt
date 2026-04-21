@@ -1,0 +1,17 @@
+tôi muốn làm thêm trang Lead để cho việc marketing
+
+Ý tưởng của tôi là vầy, sắp tới CPA của tôi sẽ tổ chức 1 buổi meeting miễn phí cho các chủ tiệm nail cần khai thuế ở Mỹ, ai muốn tham gia thì sẽ điền vào 1 cái form, tôi sẽ tạo ra 1 form như vậy ở apps/portal. để cho những người này điền form để tham gia meeting.
+tôi muốn sau khi họ điền, sẽ thu thập thông tin của những người này và lưu vào hệ thống
+tôi đang suy nghĩ thay vì lưu trong trang Clients thì không nên, vì client chỉ lưu những người đã thực sự là khách của các CPAs
+tôi đang suy nghĩ sẽ tạo ra tab Leads, và lưu trữ những thông tin của những người khách này, như vậy sẽ tách biệt với tab clients, để đỡ bị lẫn lộn
+tôi đang nghĩ, ở trang lead này, sẽ có nút select all, rồi sau đó sẽ có nút send SMS
+tôi sẽ dùng nó để gửi tin nhắn customize, có placeholder như {{client.name}} hoặc {{formClientCreation}} (bạn có thể thay đổi wording lại)
+Mục đích, sau buổi meeting đó, tôi sẽ gửi 1 tin nhắn tự động đến cho mỗi người, kèm theo link form để khi khách điền vào, họ tự trở thành Client 
+Ở link form mà tôi đính kèm tôi có thể chọn link form generic hoặc link form của 1 staff/member cụ thể.
+Tin nhắn sms bulk của tôi kiểu như: "xin chào Nancy, nếu bạn muốn làm khai thuế online với chúng tôi, hãy đăng ký trong form sau: http://localhost:5173/form/ella-teama"
+ai điền vào, sẽ tự động xuất hiện trong tab Client của tôi và trở thành client thật sự
+Đó chỉ là suy nghĩ ban đầu của tôi thôi, có thể chưa tối ưu, tôi muốn nghe ý kiến của bạn
+Tôi đang nghĩ tới việc, ở tab Lead, tôi vào từng client rồi bấm nút 'convert to clients'. Kiểu như, giả sử trong các lead của tôi, có người nói muốn làm client, tôi sẽ hỏi họ số điện thoại của họ, rồi tôi vào tab lead, rồi search tên của họ, rồi bấm nút convert to client, như vậy ở tab client sẽ xuất hiện record cho lead này
+Tôi đang phân vân nên làm theo cách 'convert to client' này, hay là gửi form để họ tự nhập thông tin vào và trở thành client như cách ban đầu tôi nói, cách nào sẽ tối ưu hơn.
+Và giả sử dùng các convert to client, thì ở tab Lead, tôi có cần loại bỏ record của họ ra không, vì họ đã trở thành client rồi?? hay là nên giữ lại ở cả tab lead và tab client để tôi có thể xem conversation rate?? 
+ở trên chỉ là những suy nghĩ tạm thời của tôi hình dung mơ hồ về tính năng này, tôi chưa có chốt phương án nào cả, bạn cũng ko cần phải 100% theo ý tôi, dựa vào mong muốn mơ hồ của tôi, tôi muốn nghe ý kiến của bạn, cho tôi lời khuyên về  cách làm tối ưu để giúp cho việc marketing, tạo form hút lead, bulk sms để convert lead thành client, mục tiêu là tạo ra module marketing, giúp cho Ella của tôi có khách, tôi muốn nghe suggestion và recommendation của bạn về cách tốt nhất để làm tính năng này

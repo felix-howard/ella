@@ -1,0 +1,51 @@
+tôi muốn sửa lại logic một chút về cái cột 'assigned' này
+hiện tại bạn nhìn vào screenshot của tôi bạn sẽ thấy
+Giả sử A là admin
+A nhìn thấy tất cả các client trong Org. 
+Hiện tại, điều này có nghĩa là
+số Client assigned cho A = tất cả các client
+Do đó, trong cột assigned to, những hàng nào không  có giá trị, thì ngầm hiểu là client của admin,
+nhưng giả sử có thêm A cũng là admin
+như vậy thì B cũng nhìn thấy tất cả client
+và cũng ngầm hiểu tất cả client được assigned cho B
+những hàng nào không có giá trị ở cột Assigned (tức là không assign cho member nào) thì là client của admin
+vậy những client nào không có giá trị trong cột assigned hiện tại đang ... của chung các admin. Khách hàng riêng của admin A và khách hàng riêng của admin B hiện tại không được phân biệt rõ ràng, hiện tại đang xem admin A và admin B có chung danh sách khách hàng trong khi thực tế không phải vậy
+Tôi có làm tính năng assign. Tính năng này, khi admin vào, sẽ có thể chọn tài khoản role Member để assign. Tài khoản Member khi đăng nhập vào, trang clients chỉ hiện thị những client được assigned mà thôi.
+
+Vấn đề là: hiện tại role admin với role member khác nhau ở chỗ. Member thì được assigned client nào thì nhìn thấy client đó
+còn Admin thì nhìn thấy tất cả client, có nghĩa là tất cả client được assigned cho Admin, đây là chỗ không ổn, giả sử có nhiều admin thì tất cả các client đó đều được phân chung cho các admin hay sao
+
+tôi muốn thay đổi gần như hoàn toàn lại về tính năng xung quanh việc 'assigned' này vì cơ chế hiện tại rất bất cập
+
+tôi muốn khách hàng của ai (tức là assigned hoặc người staff tự tạo khách hàng) và sự nhìn thấy là riêng biệt
+
+nghĩa là
+Khi tài khoản nào tạo client nào
+thì client đó là của tài khoản đó
+trong trang Client List, thêm 1 cột, là kiểu như client này là CỦA AI
+ví dụ A là member, A tạo client tên Andy, thì trong bảng Clients list, sẽ có thêm 1 cột, để biết Andy này là khách của A vì A là người tạo ra client này
+Mặc định khi tài khoản nào tạo khách hàng nào thì khách hàng đó là của tài khoản đó
+Điều này cũng áp dụng cho Admin, ví dụ khi A (role Admin) tạo ra khách hàng tên Nancy, thì Nancy này là khách hàng của A. Trong trang client list, cột khách hàng của Ai thì hiện tên admin A vào đó. Trong trang client Detail cũng hiện mục khách hàng này của ai, thì hiện là của A
+Mặc định ai tạo khách hàng, dù admin tạo khách hàng, hay member tạo khách hàng, khi khách hàng tạo ra là của người đó
+Như vậy thì giả sử có 2 admin A và B, và member C
+A tạo 2 client, thì 2 client đó sẽ có thêm cột của ai, thì sẽ hiện tên A
+B tạo 3 client,  thì 3 client đó sẽ có thêm cột của ai, thì sẽ hiện tên B
+C tạo 1 client,  thì 1 client đó sẽ có thêm cột của ai, thì sẽ hiện tên C
+
+Nhưng Admin và role Member khác nhau ở chỗ: View
+Tức là nếu role là admin, thì trang Client List sẽ hiện tất cả client, cả những client của A, và cả những client của B (cũng là admin, sẽ có cột ghi rõ giá trị là tên của B để biết client này của B), và cả những client của C (Member, những client do C tạo)
+Còn role Member thì chỉ nhìn thấy những client của mình mà thôi, không thể thấy các client của người khác, dù người đó là admin hay là member khác
+
+Nhưng có thể thay đổi mục client của ai.
+VÍ dụ, Admin A tạo ra client tên Jessie
+Jessie mặc định có field là client của A (do A tạo ra)
+nhưng A có thể vào profile của Jessie. Sẽ có field client của ai
+Giá trị mặc định được select là account của A.
+A có thể thay đổi thành tên của C
+Như vậy thì client này trở thành của C
+C sẽ nhìn thấy client này trong client list
+Tương tự, A cũng có thể vào profile 1 client của mình và thay đổi thành là  client của B (một admin khác)
+Chỉ có Admin mới có thể thay đổi field client của ai, còn member thì không thể
+
+Như vậy thì, khách hàng của admin A = những client do admin A tạo ra
+nhưng: do A là admin, trang client list của A show ra tất cả các client, kể cả của những người khác

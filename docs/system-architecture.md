@@ -170,15 +170,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Bilingual: Auto-syncs language from client preference (EN/VI)
 - Error handling: Invalid token, expired link, revoked link, PDF unavailable, browser unsupported
 
-**Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
-- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page (references ShareableDocument model)
-- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (draft summary + actions)
-- Upload: Drag-drop or file picker, PDF validation (50MB max), upload progress
-- Link display: Filename, fileSize, status badge, shareable link with copy button
-- Actions: Extend link (14 days), Revoke link (with confirmation), Upload new version
-- Version history: Track all drafts, display uploadedBy + timestamp, mark current version
-- View tracking: Display viewCount + lastViewedAt
-- i18n: 26 keys (EN/VI) for all UI strings
+**Workspace Shared Docs Tab (Phase 04 - Workspace UI Complete):**
+- Component: `SharedDocsTab` - Main tab in `/clients/:id` page, manages multi-section ShareableDocument uploads
+- Sub-components: `SharedDocCard` (per-doc display), `SharedDocUploadZone` (drag-drop/file picker), `SharedDocLinkBar` (section link display), `SharedDocVersionHistory` (version list), `AddSectionInlineForm`, `RenameSectionInline`, `DeleteSectionConfirm`, `ExtendLinkModal`, `RevokeLinkModal`
+- Hooks: `useSharedDocs()` (CRUD), `useSharedDocSignedUrl()` (R2 URL generation)
+- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (multi-section list + actions)
+- Upload: Drag-drop/file picker, PDF validation (50MB max), automatic multi-section parsing, progress tracking
+- Link mgmt: Per-section links (14-day TTL), copy-to-clipboard (Phase 04 clipboard utility), extend/revoke modals, status badges
+- Version history: All document versions per taxCase, uploadedBy + timestamp tracking, current version highlight
+- View tracking: Display viewCount + lastViewedAt per document
+- Quick actions: `quick-actions-bar.tsx` lists all active section links with copy buttons
+- i18n: 26+ keys (EN/VI) for all UI strings, multi-section naming conventions
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
@@ -658,24 +660,29 @@ apps/portal/src/components/pdf-viewer/ (modular structure)
 - Browser unsupported - iFrame load error, fallback to download/open buttons
 
 **API Endpoints:**
-- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData (ShareableDocument public view)
-- `POST /portal/draft/:token/viewed` - Public, fire & forget, updates view tracking
+- `GET /shared-docs/:token` - Public, no auth, returns ShareableDocumentData (multi-section portal view)
+- `POST /shared-docs/:token/viewed` - Public, fire & forget, updates view tracking per section
 
 **Portal API Client (apps/portal/src/lib/api-client.ts):**
 ```typescript
-export interface DraftReturnData {
+export interface ShareableDocumentData {
   clientName: string           // Display name
   clientLanguage: 'EN' | 'VI'  // Auto-sync language
   taxYear: number              // Tax year
-  version: number              // Draft version
-  title: string                // Section title (default: "Draft Return")
+  version: number              // Document version
+  title: string                // Section title (custom or "Draft Return" default)
   filename: string             // Original filename
   uploadedAt: string           // ISO8601
   pdfUrl: string              // Signed R2 URL (15min expiry)
+  sections?: Array<{           // Multi-section support (Phase 04)
+    id: string                 // Section identifier
+    title: string              // Section title
+    status: 'ACTIVE' | 'REVOKED' // Section-level status
+  }>
 }
 
-portalApi.getDraft(token: string) → Promise<DraftReturnData>
-portalApi.trackDraftView(token: string) → Promise<void>
+portalApi.getSharedDoc(token: string) → Promise<ShareableDocumentData>
+portalApi.trackSharedDocView(token: string) → Promise<void>
 ```
 
 **Localization Keys:**
@@ -1692,14 +1699,14 @@ const tabs = isBusiness
       { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
       { id: 'contractors', label: 'Contractors', icon: UserCircle },
       { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
       ...(scheduleCExpense ? [scheduleCTab] : []),
     ]
   : [
       { id: 'overview', label: t('clientOverview.title'), icon: User },
       { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
       { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
       ...(scheduleCExpense ? [scheduleCTab] : []),
       ...(scheduleEExpense ? [scheduleETab] : []),
     ]
@@ -1772,7 +1779,7 @@ useEffect(() => {
 
 **Tab Type Definition:**
 ```typescript
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
 ```
 
 ---
@@ -2368,4 +2375,4 @@ All avatar/notes UI will need i18n keys in workspace:
 
 **Version:** 3.0
 **Last Updated:** 2026-04-10
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tab layout) complete - BUSINESS clients show Contractors tab, INDIVIDUAL clients show Schedule E tab. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging + Phase 12 Multi-Path Client Wizard + Phase 13 Type-Based Tabs.
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete. Supabase Realtime Broadcast integrated for 100-500ms message updates. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tabs) complete. Phase 02 ShareableDocument (multi-section) API + Phase 04 Workspace UI complete: SharedDocsTab + 10 sub-components, useSharedDocs/useSharedDocSignedUrl hooks, legacy DraftReturn components removed. Draft Return tab renamed to Shared Docs tab across UI and i18n keys.

@@ -39,7 +39,7 @@ import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
-const DraftReturnTab = lazy(() => import('../../components/draft-return').then(m => ({ default: m.DraftReturnTab })))
+const SharedDocsTab = lazy(() => import('../../components/shared-docs').then(m => ({ default: m.SharedDocsTab })))
 const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,
@@ -72,7 +72,7 @@ export const Route = createFileRoute('/clients/$clientId')({
   parseParams: (params) => ({ clientId: params.clientId }),
 })
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   SOLE_PROPRIETORSHIP: 'Sole Prop',
@@ -576,14 +576,14 @@ function ClientDetailPage() {
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-        { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+        { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
         ...(scheduleCExpense ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-        { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+        { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
         ...(scheduleCExpense ? [scheduleCTab] : []),
         ...(scheduleEExpense ? [scheduleETab] : []),
       ]
@@ -1016,11 +1016,11 @@ function ClientDetailPage() {
         />
       )}
 
-      {/* Draft Return Tab - For sharing draft tax returns with clients */}
-      {activeTab === 'draft-return' && activeCaseId && (
-        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.draftReturnError')}</div>}>
+      {/* Shared Docs Tab - Multi-section document sharing per case */}
+      {activeTab === 'shared-docs' && activeCaseId && (
+        <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.sharedDocsError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <DraftReturnTab caseId={activeCaseId} clientName={client.name} />
+            <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
           </Suspense>
         </ErrorBoundary>
       )}

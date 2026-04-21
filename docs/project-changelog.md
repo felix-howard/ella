@@ -45,6 +45,32 @@
 
 ---
 
+### Frontend: Shared Docs Rework - Phase 04 (Workspace UI Multi-Section Tab) ✅ COMPLETE
+**Status:** Complete (Phase 04 of multi-phase rework — Workspace UI Layer)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Replaced single `draft-return/` tab with flexible `shared-docs/` multi-section UI. New container renders list of section cards with full CRUD support: create (inline form), read (card display + version history), update (rename inline), delete (confirmation modal). Each section independent: custom title, upload new version, copy/extend/revoke shareable link. Integrated clipboard utility from Phase 03. Deleted legacy `draft-return/` folder + hooks; renamed `use-draft-return-signed-url` → `use-shared-doc-signed-url`. Route updated: tab id `draft-return` → `shared-docs`; label key updated. Code split into 10 components (each <200 lines). Typecheck + linting pass; 9.5/10 code review (minor style feedback only).
+
+**Files Changed:**
+- **NEW:** 10 components under `apps/workspace/src/components/shared-docs/` (index, card, upload-zone, add-form, rename-inline, delete-confirm, link-bar, version-history, extend-modal, revoke-modal)
+- **NEW:** `apps/workspace/src/hooks/use-shared-docs.ts` — list + mutations (create/rename/delete)
+- **RENAMED:** `apps/workspace/src/hooks/use-draft-return-signed-url.ts` → `use-shared-doc-signed-url.ts`
+- **UPDATED:** `apps/workspace/src/routes/clients/$clientId.tsx` — tab id + label key + import
+- **DELETED:** `apps/workspace/src/components/draft-return/` folder (entire) + `use-draft-return.ts` hook
+
+**UI Features:**
+- Multi-section card list with empty state
+- Add Section: inline form (title input + file drop zone)
+- Per-section: Copy link, Open link, Extend, Revoke, Upload v2, Rename (pencil), Delete (trash)
+- Rename: inline edit → blur/Enter to save
+- Delete: confirmation modal → soft-delete + revoke link
+- Version history: collapsible per-section
+- Loading skeleton; error boundary; React Query cache management
+
+**Code Quality:** TypeScript clean; all 10 components <200 lines; clipboard utility reuse; composition pattern; minimal breaking changes (soft delete only; no hard deletes).
+
+---
+
 ### Backend: Shared Docs Rework - Phase 02 (API Refactor & Multi-Section Support) ✅ COMPLETE
 **Status:** Complete (Phase 02 of multi-phase rework — API Layer)
 **Branch:** feature/fuocy-bidi

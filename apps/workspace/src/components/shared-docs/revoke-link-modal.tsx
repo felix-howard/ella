@@ -1,6 +1,6 @@
 /**
- * RevokeLinkModal - Confirmation modal for revoking draft return link
- * Shows warning about consequences of revoking the link
+ * RevokeLinkModal - Confirmation modal for revoking shared doc link
+ * Shows warning about consequences of revoking the link.
  */
 
 import { useTranslation } from 'react-i18next'
@@ -54,78 +54,62 @@ export function RevokeLinkModal({
       <ModalHeader>
         <ModalTitle className="text-destructive flex items-center gap-2">
           <Link2Off className="w-5 h-5" />
-          {t('draftReturn.revokeModalTitle')}
+          {t('sharedDocs.revokeModalTitle')}
         </ModalTitle>
-        <ModalDescription>
-          {t('draftReturn.revokeModalDesc')}
-        </ModalDescription>
+        <ModalDescription>{t('sharedDocs.revokeModalDesc')}</ModalDescription>
       </ModalHeader>
 
       <ModalBody>
         <div className="space-y-4">
-          {/* Warning box */}
           <div className="flex items-start gap-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
             <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-destructive">
-                {t('draftReturn.revokeWarning')}
+                {t('sharedDocs.revokeWarning')}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {t('draftReturn.revokeWarningDetail')}
+                {t('sharedDocs.revokeWarningDetail')}
               </p>
             </div>
           </div>
 
-          {/* Current link info */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
             <p className="text-sm font-medium text-foreground">
-              {t('draftReturn.linkInfo')}
+              {t('sharedDocs.linkInfo')}
             </p>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-muted-foreground">{t('draftReturn.totalViews')}:</span>
+                <span className="text-muted-foreground">{t('sharedDocs.totalViews')}:</span>
                 <span className="ml-2 font-medium text-foreground">{viewCount}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">{t('draftReturn.expiryDate')}:</span>
+                <span className="text-muted-foreground">{t('sharedDocs.expiryDate')}:</span>
                 <span className="ml-2 font-medium text-foreground">
                   {daysUntilExpiry > 0
-                    ? t('draftReturn.expiresIn', { days: daysUntilExpiry })
-                    : t('draftReturn.expiringToday')}
+                    ? t('sharedDocs.expiresIn', { days: daysUntilExpiry })
+                    : t('sharedDocs.expiringToday')}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {formatDate(currentExpiryDate)}
-            </p>
+            <p className="text-xs text-muted-foreground">{formatDate(currentExpiryDate)}</p>
           </div>
         </div>
       </ModalBody>
 
       <ModalFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={onClose}
-          disabled={isLoading}
-        >
+        <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
           {t('common.cancel')}
         </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={onConfirm}
-          disabled={isLoading}
-        >
+        <Button type="button" variant="destructive" onClick={onConfirm} disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {t('draftReturn.revoking')}
+              {t('sharedDocs.revoking')}
             </>
           ) : (
             <>
               <Link2Off className="w-4 h-4 mr-2" />
-              {t('draftReturn.revokeConfirmBtn')}
+              {t('sharedDocs.revokeConfirmBtn')}
             </>
           )}
         </Button>

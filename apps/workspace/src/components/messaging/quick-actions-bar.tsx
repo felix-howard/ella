@@ -1,7 +1,7 @@
 /**
  * Quick Actions Bar - Message composer with quick action buttons
  * Provides text input, template picker, and common actions
- * Includes dropdown for inserting various client links (portal, schedule E/C, draft return)
+ * Includes dropdown for inserting various client links (portal, schedule E/C, shared docs)
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react'
@@ -13,7 +13,7 @@ import { stripHtmlTags } from '../../lib/formatters'
 import { api } from '../../lib/api-client'
 import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useScheduleC } from '../../hooks/use-schedule-c'
-import { useDraftReturn } from '../../hooks/use-draft-return'
+import { useSharedDocs } from '../../hooks/use-shared-docs'
 
 
 export interface QuickActionsBarProps {
@@ -48,15 +48,17 @@ export function QuickActionsBar({
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch schedule E, C, and draft return data for link availability
+  // Fetch schedule E, C, and shared docs data for link availability
   const { magicLink: scheduleELink } = useScheduleE({ caseId, enabled: !!caseId })
   const { magicLink: scheduleCLink } = useScheduleC({ caseId, enabled: !!caseId })
-  const { magicLink: draftReturnLink } = useDraftReturn({ caseId, enabled: !!caseId })
+  const { documents: sharedDocs } = useSharedDocs({ caseId, enabled: !!caseId })
 
   // Get URLs from API responses (URL is built server-side with correct PORTAL_URL)
   const scheduleEUrl = scheduleELink?.url && scheduleELink?.isActive ? scheduleELink.url : null
   const scheduleCUrl = scheduleCLink?.url && scheduleCLink?.isActive ? scheduleCLink.url : null
-  const draftReturnUrl = draftReturnLink?.url && draftReturnLink?.isActive ? draftReturnLink.url : null
+  const sharedDocLinks = sharedDocs
+    .filter((doc) => doc.magicLink?.url && doc.magicLink?.isActive)
+    .map((doc) => ({ id: doc.id, title: doc.title, url: doc.magicLink!.url }))
 
   // Auto-resize textarea
   useEffect(() => {
@@ -165,7 +167,7 @@ export function QuickActionsBar({
   }
 
   // Check if any links are available (for showing dropdown vs single button)
-  const hasAdditionalLinks = scheduleEUrl || scheduleCUrl || draftReturnUrl
+  const hasAdditionalLinks = scheduleEUrl || scheduleCUrl || sharedDocLinks.length > 0
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -226,16 +228,17 @@ export function QuickActionsBar({
         </button>
       )}
 
-      {/* Draft Return Link - only if available and active */}
-      {draftReturnUrl && (
+      {/* Shared Doc Links - one entry per active section */}
+      {sharedDocLinks.map((doc) => (
         <button
-          onClick={() => insertLink(draftReturnUrl)}
+          key={doc.id}
+          onClick={() => insertLink(doc.url)}
           className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors"
         >
           <FileText className="w-4 h-4 text-muted-foreground" />
-          {t('messages.linkDraftReturn')}
+          <span className="truncate">{doc.title}</span>
         </button>
-      )}
+      ))}
     </div>,
     document.body
   )

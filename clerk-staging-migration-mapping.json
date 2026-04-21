@@ -1,0 +1,19 @@
+{
+  "environment": "staging (App #1 Production)",
+  "orgMapping": {
+    "org_399XloJ11DlisEIVSBJQ2HPGgAP": "org_3BJ32Pfglv2OJ4pIHNuUorfc4Th"
+  },
+  "userMapping": {
+    "user_39G1cfeehXmaHmq1jw5q1m2uCRe": "user_3BJ32V6NOMsy2KxctOk4G5sX6Ye",
+    "user_3B8Cv0BHvU0DBiWwlmLEB20LiyR": "user_3BJ32U0Vc6x0Khum3LC2azucO8K",
+    "user_38FGglKpXJCh81RrrtMYMd0DT5Z": "user_3BJ32bi2MwUqAqhIsYZS1IYPJaS",
+    "user_3B946expuZVtG7e1vMfHzSgbeH2": "user_3BJ32h7ohIlO1YpR7EMiO33q6uM",
+    "user_39KBePDpwb65M6XdJgAKqtoJYo4": "user_3BJ32t4ogQuar3TZjMAYEDYwwUA",
+    "user_3B9508aIdRoy91zxn77RJ4PzopN": "user_3BJ32uNibkfchksL6TMtrQ1Dk4g",
+    "user_39FzM8f9eyjDBUZmFP0zO5CdAPk": "user_3BJ32yipZPbYqE2v7bxHmPjzW2D",
+    "user_3B94kJ5Qtk33f6SuoB7XqKBiRvo": "user_3BJ339yrNQSuCfhlMCKM4wuVMbk",
+    "user_3B96agVgGJqjHYOgZP7YunaQjyf": "user_3BJ33FumqABiyVLldcule4p40m8",
+    "user_3B88536FbvuGinHHuKoAyjwKkje": "user_3BJ33DBZwRk1cSZvKH72MWO0Vp1"
+  },
+  "timestamp": "2026-03-22T15:25:45.303Z"
+}

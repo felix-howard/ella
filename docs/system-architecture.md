@@ -102,10 +102,15 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Retry logic: 3 attempts, exponential backoff
 - Pagination: limit=20, max=100
 - **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
-- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, businesses (deprecated in favor of clientGroups)
+- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, sharedDocs (Phase 02, replaces draftReturns), businesses (deprecated in favor of clientGroups)
+- **Phase 02 API Client Changes (workspace):**
+  - `api.draftReturns.*` renamed to `api.sharedDocs.*`
+  - `DraftReturnData` → `ShareableDocumentData` (includes title field)
+  - New types: `SharedDocListItem`, `ListSharedDocsResponse`, `SectionDetailResponse`, `CreateSectionResponse`
+  - Error code: `DOC_DELETED` (410) for soft-deleted documents
 - **Portal API Methods (portalApi):**
   - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats
-  - `getDraft(token)` - Fetch draft return data + signed PDF URL
+  - `getDraft(token)` - Fetch document data + signed PDF URL (includes title)
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
 
 ## Backend Layer
@@ -122,12 +127,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Draft Return Sharing (6 - Phase 02 Backend + Phase 04 Frontend Complete):**
-- `POST /draft-returns/:caseId/upload` - Upload PDF, create ShareableDocument + MagicLink (14-day TTL)
-- `GET /draft-returns/:caseId` - Get current draft + link status + version history
-- `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
-- `POST /draft-returns/:id/extend` - Extend expiry by 14 days
-- `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
+**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete):**
+- `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
+- `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
+- `GET /shared-docs/:id` - Get section detail (title, status, version count, link status)
+- `PATCH /shared-docs/:id` - Rename section; updates title across all versions
+- `DELETE /shared-docs/:id` - Soft-delete section (deletedAt set, hides from UI)
+- `POST /shared-docs/:id/version` - Upload new version PDF (increments version counter, soft-deletes old)
+- `POST /shared-docs/:id/revoke` - Disable magic link (section visible, link inactive)
+- `POST /shared-docs/:id/extend` - Extend link expiry by 14 days
+- `GET /shared-docs/:id/signed-url` - Fetch current version PDF from R2 (24h TTL)
+- `GET /shared-docs/:id/version/:version/signed-url` - Fetch specific version PDF from R2
+- `GET /portal/draft/:token` - Validate token, return section data + PDF signed URL (public). Returns 410 DOC_DELETED if soft-deleted.
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
 **Portal Document Upload (Phase 2 - Entity Separation - Simplified):**
@@ -368,8 +379,8 @@ Organization (root entity)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
-- **ShareableDocument** (formerly DraftReturn) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return"), version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (mapped to DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt soft-delete field, magicLinks array relation (1-to-many document-to-links). Indexes: taxCaseId (single), taxCaseId+status+deletedAt (compound), unique(taxCaseId, version)
-- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
+- **ShareableDocument** (Prisma model name; table preserved as `DraftReturn` via `@@map`) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return", min 1 / max 100 chars, unique per case+ACTIVE+non-deleted), version tracking (auto-increment per section via (taxCaseId, title) grouping; rename propagates title across all versions to keep grouping stable), uploadedById FK to Staff, status (DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete — single source of truth for "removed"), magicLinks relation. Indexes: taxCaseId, (taxCaseId, status, deletedAt)
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 - **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
@@ -647,6 +658,7 @@ export interface DraftReturnData {
   clientLanguage: 'EN' | 'VI'  // Auto-sync language
   taxYear: number              // Tax year
   version: number              // Draft version
+  title: string                // Section title (default: "Draft Return")
   filename: string             // Original filename
   uploadedAt: string           // ISO8601
   pdfUrl: string              // Signed R2 URL (15min expiry)

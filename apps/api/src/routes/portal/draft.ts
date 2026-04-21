@@ -1,6 +1,7 @@
 /**
  * Portal Draft Routes (Public)
- * Client access to view draft tax returns
+ * Client access to view shared documents via magic link token.
+ * URL path `/portal/draft/:token` preserved for backward compatibility with existing links.
  */
 import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
@@ -10,12 +11,11 @@ const portalDraftRoute = new Hono()
 
 /**
  * GET /portal/draft/:token
- * Validate token and return draft data with signed PDF URL
+ * Validate token and return document metadata with signed PDF URL.
  */
 portalDraftRoute.get('/:token', async (c) => {
   const token = c.req.param('token')
 
-  // Find magic link
   const magicLink = await prisma.magicLink.findUnique({
     where: { token },
     include: {
@@ -43,17 +43,19 @@ portalDraftRoute.get('/:token', async (c) => {
   }
 
   if (!magicLink.draftReturn) {
-    return c.json({ error: 'DRAFT_NOT_FOUND', message: 'Draft return not found' }, 404)
+    return c.json({ error: 'DRAFT_NOT_FOUND', message: 'Document not found' }, 404)
   }
 
-  // Generate signed URL (15 min expiry)
-  const pdfUrl = await getSignedDownloadUrl(magicLink.draftReturn.r2Key, 900)
+  // Section soft-deleted by CPA — signal "gone" semantics to viewer.
+  if (magicLink.draftReturn.deletedAt !== null) {
+    return c.json({ error: 'DOC_DELETED', message: 'This document has been removed by the CPA.' }, 410)
+  }
 
+  const pdfUrl = await getSignedDownloadUrl(magicLink.draftReturn.r2Key, 900)
   if (!pdfUrl) {
     return c.json({ error: 'PDF_UNAVAILABLE', message: 'Could not load PDF' }, 500)
   }
 
-  // Update usage stats on magic link
   await prisma.magicLink.update({
     where: { id: magicLink.id },
     data: {
@@ -63,6 +65,7 @@ portalDraftRoute.get('/:token', async (c) => {
   })
 
   return c.json({
+    title: magicLink.draftReturn.title,
     clientName: magicLink.taxCase.client.name,
     clientLanguage: magicLink.taxCase.client.language,
     taxYear: magicLink.taxCase.taxYear,
@@ -75,7 +78,7 @@ portalDraftRoute.get('/:token', async (c) => {
 
 /**
  * POST /portal/draft/:token/viewed
- * Track when client views the PDF
+ * Track when the client views the PDF (increments viewCount on the document).
  */
 portalDraftRoute.post('/:token/viewed', async (c) => {
   const token = c.req.param('token')
@@ -89,7 +92,7 @@ portalDraftRoute.post('/:token/viewed', async (c) => {
     return c.json({ success: false }, 400)
   }
 
-  await prisma.draftReturn.update({
+  await prisma.shareableDocument.update({
     where: { id: magicLink.draftReturnId },
     data: {
       viewCount: { increment: 1 },

@@ -25,6 +25,35 @@
 
 ---
 
+### Backend: Shared Docs Rework - Phase 02 (API Refactor & Multi-Section Support) ✅ COMPLETE
+**Status:** Complete (Phase 02 of multi-phase rework — API Layer)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Replaced `/draft-returns/*` REST routes with `/shared-docs/*` route group supporting multi-section document sharing per tax case. Each section has independent title, version history, and magic link. New 11-endpoint API enables document creation, section management, version uploads, and link lifecycle control. Portal endpoint returns 410 DOC_DELETED for soft-deleted documents. Workspace API client renamed `draftReturns` → `sharedDocs`; types renamed (DraftReturnData → ShareableDocumentData) with added title field. Soft-delete semantics: revoke disables magic link (section visible); soft-delete hides section + deactivates link. Rename propagates title across versions (taxCaseId, title) as stable version-grouping key.
+
+**Files Changed:**
+- **NEW:** `apps/api/src/routes/shared-docs/` (8 files) — index, crud-handlers, version-handlers, link-handlers, validators, schemas, response-builders, scope
+- **UPDATED:** `apps/api/src/routes/` (index.ts) — mounted sharedDocsRoute at `/shared-docs`
+- **UPDATED:** `apps/workspace/src/lib/api-client.ts` — renamed namespace + type definitions
+- **UPDATED:** `docs/system-architecture.md` — new endpoint documentation + API type changes
+- **UPDATED:** `docs/codebase-summary.md` — API endpoints section
+
+**API Endpoints (11 Total):**
+- POST/GET/PATCH/DELETE operations on sections
+- Version upload + signed URL retrieval (current + specific version)
+- Magic link revoke/extend lifecycle
+- 410 DOC_DELETED response for soft-deleted documents on public portal
+
+**Key Changes:**
+- Route group: `/shared-docs/:caseId` (create), `/shared-docs/case/:caseId` (list), `/shared-docs/:id/*` (detail/version/link)
+- Error codes: DUPLICATE_TITLE (section name already exists in case), DOC_DELETED (soft-deleted on public access)
+- Title field: immutable section identifier; rename updates all versions atomically
+- Version tracking: auto-increment per case, soft-delete old on upload
+
+**Backward Compatibility:** Partial — `/draft-returns/*` routes removed; portal endpoint unchanged (returns DraftReturnData with new title field).
+
+---
+
 ### Feature: Landing Pricing Calculator - Phase 07 (Polish: Responsive, A11y, FAQ) ✅ COMPLETE
 **Status:** Complete (Phase 07 of 07 — Final)
 **Branch:** feature/more-work-on-ella

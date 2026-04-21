@@ -1120,25 +1120,26 @@ export const api = {
       }),
   },
 
-  // Draft Returns - Sharing draft tax returns with clients
-  draftReturns: {
-    get: (caseId: string) =>
-      request<GetDraftReturnResponse>(`/draft-returns/${caseId}`),
+  // Shared Docs - Multi-section document sharing per tax case
+  sharedDocs: {
+    list: (caseId: string) =>
+      request<ListSharedDocsResponse>(`/shared-docs/case/${caseId}`),
 
-    upload: async (caseId: string, file: File): Promise<UploadDraftReturnResponse> => {
+    get: (id: string) =>
+      request<SectionDetailResponse>(`/shared-docs/${id}`),
+
+    create: async (caseId: string, title: string, file: File): Promise<CreateSectionResponse> => {
       const formData = new FormData()
+      formData.append('title', title)
       formData.append('file', file)
 
-      // Get auth token
       let authHeaders: Record<string, string> = {}
       if (getAuthToken) {
         const token = await getAuthToken()
-        if (token) {
-          authHeaders = { Authorization: `Bearer ${token}` }
-        }
+        if (token) authHeaders = { Authorization: `Bearer ${token}` }
       }
 
-      const response = await fetch(`${API_BASE_URL}/draft-returns/${caseId}/upload`, {
+      const response = await fetch(`${API_BASE_URL}/shared-docs/${caseId}`, {
         method: 'POST',
         body: formData,
         headers: authHeaders,
@@ -1149,28 +1150,67 @@ export const api = {
         throw new ApiError(
           response.status,
           (errorData as { error?: string }).error || 'UPLOAD_FAILED',
-          (errorData as { message?: string }).message || 'Failed to upload draft return'
+          (errorData as { message?: string }).message || 'Failed to create section'
         )
       }
 
       return response.json()
     },
 
-    revoke: (draftId: string) =>
-      request<{ success: boolean }>(`/draft-returns/${draftId}/revoke`, {
+    uploadVersion: async (sectionId: string, file: File): Promise<CreateSectionResponse> => {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      let authHeaders: Record<string, string> = {}
+      if (getAuthToken) {
+        const token = await getAuthToken()
+        if (token) authHeaders = { Authorization: `Bearer ${token}` }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/shared-docs/${sectionId}/version`, {
+        method: 'POST',
+        body: formData,
+        headers: authHeaders,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new ApiError(
+          response.status,
+          (errorData as { error?: string }).error || 'UPLOAD_FAILED',
+          (errorData as { message?: string }).message || 'Failed to upload version'
+        )
+      }
+
+      return response.json()
+    },
+
+    rename: (sectionId: string, title: string) =>
+      request<{ document: ShareableDocumentData }>(`/shared-docs/${sectionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      }),
+
+    remove: (sectionId: string) =>
+      request<{ success: boolean }>(`/shared-docs/${sectionId}`, {
+        method: 'DELETE',
+      }),
+
+    revoke: (sectionId: string) =>
+      request<{ success: boolean }>(`/shared-docs/${sectionId}/revoke`, {
         method: 'POST',
       }),
 
-    extend: (draftId: string) =>
-      request<{ success: boolean; expiresAt: string }>(`/draft-returns/${draftId}/extend`, {
+    extend: (sectionId: string) =>
+      request<{ success: boolean; expiresAt: string }>(`/shared-docs/${sectionId}/extend`, {
         method: 'POST',
       }),
 
-    getSignedUrl: (draftId: string) =>
-      request<{ url: string; filename: string }>(`/draft-returns/${draftId}/signed-url`),
+    getSignedUrl: (sectionId: string) =>
+      request<{ url: string; filename: string }>(`/shared-docs/${sectionId}/signed-url`),
 
-    getVersionSignedUrl: (caseId: string, version: number) =>
-      request<{ url: string; filename: string }>(`/draft-returns/version/${caseId}/${version}/signed-url`),
+    getVersionSignedUrl: (sectionId: string, version: number) =>
+      request<{ url: string; filename: string }>(`/shared-docs/${sectionId}/version/${version}/signed-url`),
   },
 
   // Terms & Conditions
@@ -2689,15 +2729,16 @@ export interface AvatarPresignedUrlResponse {
   expiresIn: number
 }
 
-// Draft Return types for sharing draft tax returns with clients
-export type DraftReturnStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
+// Shared Docs types — multi-section document sharing per tax case
+export type SharedDocStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
 
-export interface DraftReturnData {
+export interface ShareableDocumentData {
   id: string
+  title: string
   version: number
   filename: string
   fileSize: number
-  status: DraftReturnStatus
+  status: SharedDocStatus
   viewCount: number
   lastViewedAt: string | null
   uploadedAt: string
@@ -2707,7 +2748,7 @@ export interface DraftReturnData {
   }
 }
 
-export interface DraftMagicLinkData {
+export interface SharedDocMagicLinkData {
   token: string
   url: string
   expiresAt: string | null
@@ -2716,22 +2757,34 @@ export interface DraftMagicLinkData {
   lastUsedAt: string | null
 }
 
-export interface DraftVersionData {
+export interface SharedDocVersionData {
   version: number
   uploadedAt: string
-  status: string
+  status: SharedDocStatus
 }
 
-export interface GetDraftReturnResponse {
-  draftReturn: DraftReturnData | null
-  magicLink: DraftMagicLinkData | null
-  versions: DraftVersionData[]
+export interface SharedDocListItem extends ShareableDocumentData {
+  magicLink: SharedDocMagicLinkData | null
 }
 
-export interface UploadDraftReturnResponse {
-  draftReturn: DraftReturnData
-  magicLink: DraftMagicLinkData
+export interface ListSharedDocsResponse {
+  documents: SharedDocListItem[]
+}
+
+export interface SectionDetailResponse {
+  document: ShareableDocumentData
+  magicLink: SharedDocMagicLinkData | null
+  versions: SharedDocVersionData[]
+}
+
+export interface CreateSectionResponse {
+  document: ShareableDocumentData
+  magicLink: SharedDocMagicLinkData
   portalUrl: string
+}
+
+export interface RenameSectionRequest {
+  title: string
 }
 
 // Group documents response (manual document grouping)

@@ -1,87 +1,48 @@
 ---
 /**
- * Pricing page — 3 tiers (Starter, Professional, Enterprise) with comparison table and FAQ.
- * Professional tier elevated with "Most Popular" badge and visual emphasis.
- * Responsive: cards stack on mobile, table scrolls horizontally.
+ * Pricing page — Ella Tax-specific 3-tier marketing cards + interactive calculator.
+ * Phase 02 scope: hero, tier cards row, calculator placeholder, FAQ placeholder, CTA.
+ * Calculator UI + logic wired in subsequent phases (03-05).
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
 import SectionHeading from "@/components/section-heading.astro";
 import CTASection from "@/components/cta-section.astro";
-import {
-  breadcrumbSchema,
-  faqSchema,
-} from "@/components/seo/structured-data";
+import TierCard from "@/components/pricing/tier-card.astro";
+import CalculatorSection from "@/components/pricing/calculator-section.astro";
+import { breadcrumbSchema, faqSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
+import { TIER_BASIC, TIER_PRO, TIER_ENTERPRISE } from "@/config/pricing";
 
-/* ---------- Structured Data ---------- */
+/* ---------- Tax-themed FAQ placeholders (phase 07 refines copy) ---------- */
 
 const faqItems = [
   {
-    question: "Do you offer a free trial?",
+    question: "Do I need to sign a contract?",
     answer:
-      "Yes, all plans come with a 14-day free trial. No credit card required.",
+      "No long-term contract. Month-to-month service; cancel anytime with 30 days notice.",
   },
   {
-    question: "Can I change plans later?",
+    question: "What's included in the setup fee?",
     answer:
-      "Absolutely. Upgrade or downgrade anytime. Changes take effect on your next billing cycle.",
+      "Onboarding your books, importing prior-year records, configuring payroll, and one kick-off consult with our accountant.",
   },
   {
-    question: "What counts as an \u201Cactive client\u201D?",
+    question: "How is my tier decided?",
     answer:
-      "An active client is anyone with an open tax case during the current year. Archived clients don\u2019t count.",
+      "Tier is based on the number of 1099 workers you file annually: Basic up to 10 workers, Pro 11-20 workers, custom quote for 21+ workers.",
   },
   {
-    question: "What happens if I exceed my document limit?",
+    question: "Can I add Audit Protection later?",
     answer:
-      "You\u2019ll be notified at 80% usage. Overages are billed at $0.10/document. Upgrade anytime to increase your limit.",
+      "Yes. Add or remove Audit Protection any time; monthly fee prorates on your next billing cycle.",
   },
   {
-    question: "Is there a setup fee?",
+    question: "Do you file my personal + business taxes?",
     answer:
-      "No setup fees. Start using Ella immediately after signup.",
-  },
-  {
-    question: "What payment methods do you accept?",
-    answer:
-      "We accept all major credit cards (Visa, Mastercard, Amex) and ACH for annual plans.",
-  },
-  {
-    question: "Can I cancel anytime?",
-    answer:
-      "Yes, cancel anytime with no penalties. You\u2019ll retain access until the end of your billing period.",
-  },
-  {
-    question: "Do you offer discounts for annual billing?",
-    answer:
-      "Yes, save 20% with annual billing. Contact us for a custom quote.",
+      "Yes — personal and business returns are available as one-time add-ons (see calculator below).",
   },
 ];
-
-/** Product schema for each pricing tier (schema.org Offer) */
-function productOfferSchema(
-  name: string,
-  description: string,
-  price: string,
-  priceCurrency: string
-) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: `${siteConfig.name} ${name}`,
-    description,
-    brand: { "@type": "Brand", name: siteConfig.name },
-    offers: {
-      "@type": "Offer",
-      price,
-      priceCurrency,
-      priceValidUntil: `${new Date().getFullYear() + 1}-12-31`,
-      availability: "https://schema.org/InStock",
-      url: `${siteConfig.url}/pricing`,
-    },
-  };
-}
 
 const structuredData = [
   breadcrumbSchema([
@@ -89,139 +50,52 @@ const structuredData = [
     { name: "Pricing", url: `${siteConfig.url}/pricing` },
   ]),
   faqSchema(faqItems),
-  productOfferSchema(
-    "Starter",
-    "AI tax document management for solo practitioners. Up to 5 active clients.",
-    "99",
-    "USD"
-  ),
-  productOfferSchema(
-    "Professional",
-    "AI tax document management for growing firms. Up to 50 active clients with team collaboration.",
-    "299",
-    "USD"
-  ),
-  productOfferSchema(
-    "Enterprise",
-    "AI tax document management for large firms. Unlimited clients, custom integrations, dedicated support.",
-    "0",
-    "USD"
-  ),
 ];
 
-/* ---------- Pricing Tiers Data ---------- */
+/* ---------- Marketing tier card data (display only, sourced from constants) ---------- */
 
-import { checkPath, xPath } from "@/lib/icons";
-
-interface TierFeature {
-  text: string;
-  /** True for "Everything in X, plus:" label rows (no checkmark icon) */
-  isLabel?: boolean;
-}
-
-interface Tier {
-  name: string;
-  target: string;
-  price: string;
-  billing: string;
-  features: TierFeature[];
-  cta: string;
-  ctaHref: string;
-  popular?: boolean;
-  outline?: boolean;
-}
-
-const tiers: Tier[] = [
+const tierCards = [
   {
-    name: "Starter",
-    target: "For solo practitioners",
-    price: "$99",
-    billing: "/month",
-    features: [
-      { text: "Up to 5 active clients" },
-      { text: "AI document classification" },
-      { text: "OCR data extraction" },
-      { text: "Client magic link portal" },
-      { text: "500 documents/month" },
-      { text: "Email support" },
-    ],
-    cta: "Start Free Trial",
-    ctaHref: "/#contact",
+    id: "basic" as const,
+    name: TIER_BASIC.label,
+    tagline: TIER_BASIC.tagline,
+    monthlyPrice: TIER_BASIC.marketingMonthly,
+    setupFee: TIER_BASIC.setup,
+    bullets: TIER_BASIC.bullets,
+    popular: false,
   },
   {
-    name: "Professional",
-    target: "For growing firms",
-    price: "$299",
-    billing: "/month",
+    id: "pro" as const,
+    name: TIER_PRO.label,
+    tagline: TIER_PRO.tagline,
+    monthlyPrice: TIER_PRO.marketingMonthly,
+    setupFee: TIER_PRO.setup,
+    bullets: TIER_PRO.bullets,
     popular: true,
-    features: [
-      { text: "Up to 50 active clients" },
-      { text: "Everything in Starter, plus:", isLabel: true },
-      { text: "Team collaboration (5 staff)" },
-      { text: "Voice & SMS communication" },
-      { text: "Multi-year engagements" },
-      { text: "2,000 documents/month" },
-      { text: "Priority email support" },
-    ],
-    cta: "Start Free Trial",
-    ctaHref: "/#contact",
   },
   {
-    name: "Enterprise",
-    target: "For large firms",
-    price: "Custom",
-    billing: "",
-    outline: true,
-    features: [
-      { text: "Unlimited clients" },
-      { text: "Everything in Professional, plus:", isLabel: true },
-      { text: "Unlimited staff members" },
-      { text: "Custom integrations" },
-      { text: "Dedicated account manager" },
-      { text: "SLA & uptime guarantee" },
-      { text: "Unlimited documents" },
-      { text: "Phone & Slack support" },
-    ],
-    cta: "Request Demo",
-    ctaHref: "/#contact",
+    id: "vip" as const,
+    name: TIER_ENTERPRISE.marketingLabel,
+    tagline: TIER_ENTERPRISE.tagline,
+    monthlyPrice: TIER_ENTERPRISE.marketingMonthly,
+    // Setup fee varies per VIP engagement — shown as custom note in TierCard.
+    setupNote: "Custom setup quote",
+    bullets: TIER_ENTERPRISE.bullets,
+    popular: false,
   },
-];
-
-/* ---------- Feature Comparison Data ---------- */
-
-interface ComparisonRow {
-  feature: string;
-  starter: string;
-  professional: string;
-  enterprise: string;
-}
-
-const comparisonRows: ComparisonRow[] = [
-  { feature: "Active clients", starter: "5", professional: "50", enterprise: "Unlimited" },
-  { feature: "Staff members", starter: "1", professional: "5", enterprise: "Unlimited" },
-  { feature: "Documents/month", starter: "500", professional: "2,000", enterprise: "Unlimited" },
-  { feature: "AI classification", starter: "check", professional: "check", enterprise: "check" },
-  { feature: "OCR extraction", starter: "check", professional: "check", enterprise: "check" },
-  { feature: "Client portal", starter: "check", professional: "check", enterprise: "check" },
-  { feature: "Team collaboration", starter: "x", professional: "check", enterprise: "check" },
-  { feature: "Voice & SMS", starter: "x", professional: "check", enterprise: "check" },
-  { feature: "Multi-year engagements", starter: "x", professional: "check", enterprise: "check" },
-  { feature: "Priority support", starter: "x", professional: "check", enterprise: "check" },
-  { feature: "Custom integrations", starter: "x", professional: "x", enterprise: "check" },
-  { feature: "Dedicated account manager", starter: "x", professional: "x", enterprise: "check" },
 ];
 ---
 
 <BaseLayout>
   <HeadSEO
     slot="head"
-    title="Pricing - Ella Tax Document Management | Plans Starting at $99/mo"
-    description="Transparent pricing for tax professionals. Plans start at $99/month for solo practitioners. 14-day free trial, no credit card required. Compare Starter, Professional, and Enterprise tiers."
+    title="Pricing — Ella Tax | Transparent Plans for Salons & Small Businesses"
+    description="Transparent pricing for nail salons, small shops, and LLCs. Pick a tier, then use our calculator to get an exact monthly + setup quote."
     structuredData={structuredData}
   />
 
   <main>
-    <!-- Hero Section -->
+    <!-- Hero -->
     <section class="pt-32 pb-16">
       <div class="mx-auto max-w-3xl px-6 text-center">
         <p
@@ -234,244 +108,76 @@ const comparisonRows: ComparisonRow[] = [
           class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-5xl"
           data-animate="fade-up"
         >
-          Simple, <span class="text-primary-600">transparent</span> pricing
+          Packages designed to fit your business
         </h1>
         <p
           class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600"
           data-animate="fade-up"
         >
-          Choose the plan that fits your firm. All plans include AI
-          classification, OCR extraction, and client portals.
+          Transparent pricing built for nail salons, small shops, and LLCs.
+          Start with a tier, then dial in your exact monthly + setup with the
+          calculator below.
         </p>
       </div>
     </section>
 
-    <!-- Pricing Tiers -->
-    <section class="pb-24" aria-label="Pricing plans">
+    <!-- Tier cards -->
+    <section id="pricing" class="pb-24" aria-label="Pricing tiers">
       <div class="mx-auto max-w-6xl px-6">
-        <div class="grid gap-8 lg:grid-cols-3" data-stagger>
-          {
-            tiers.map((tier) => (
-              <div
-                class:list={[
-                  "relative flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
-                  tier.popular
-                    ? "ring-2 ring-primary-600 shadow-xl lg:scale-105"
-                    : "ring-gray-200",
-                ]}
-                data-animate="fade-up"
-              >
-                {/* Most Popular badge */}
-                {tier.popular && (
-                  <span class="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary-600 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-                    Most Popular
-                  </span>
-                )}
-
-                {/* Tier header */}
-                <div class="mb-6">
-                  <h3 class="text-lg font-semibold text-gray-900">
-                    {tier.name}
-                  </h3>
-                  <p class="mt-1 text-sm text-gray-500">{tier.target}</p>
-                </div>
-
-                {/* Price */}
-                <div class="mb-6">
-                  <span class="text-4xl font-extrabold text-gray-900">
-                    {tier.price}
-                  </span>
-                  {tier.billing && (
-                    <span class="text-base text-gray-500">{tier.billing}</span>
-                  )}
-                </div>
-
-                {/* CTA button */}
-                <a
-                  href={tier.ctaHref}
-                  class:list={[
-                    "mb-8 block rounded-full py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
-                    tier.outline
-                      ? "border border-primary-600 text-primary-600 hover:bg-primary-50"
-                      : "bg-primary-600 text-white hover:bg-primary-700",
-                  ]}
-                >
-                  {tier.cta}
-                </a>
-
-                {/* Feature list */}
-                <ul class="flex-1 space-y-3" role="list">
-                  {tier.features.map((feat) => (
-                    <li class="flex items-start gap-3">
-                      {feat.isLabel ? (
-                        <span class="mt-0.5 h-5 w-5 flex-shrink-0" />
-                      ) : (
-                        <svg
-                          class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          aria-hidden="true"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d={checkPath}
-                          />
-                        </svg>
-                      )}
-                      <span
-                        class:list={[
-                          "text-sm",
-                          feat.isLabel
-                            ? "font-medium text-gray-900"
-                            : "text-gray-600",
-                        ]}
-                      >
-                        {feat.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          }
+        <div class="grid gap-8 md:grid-cols-3" data-stagger>
+          {tierCards.map((t) => <TierCard {...t} />)}
         </div>
       </div>
     </section>
 
-    <!-- Feature Comparison Table -->
-    <section class="bg-gray-50 py-24" aria-label="Feature comparison">
-      <div class="mx-auto max-w-6xl px-6">
+    <!-- Calculator placeholder (phases 03-05 fill this) -->
+    <section
+      id="calculator"
+      class="bg-gray-50 py-24"
+      aria-label="Pricing calculator"
+    >
+      <div class="mx-auto max-w-5xl px-6">
         <SectionHeading
-          eyebrow="Compare Plans"
-          title="Feature comparison"
-          subtitle="See exactly what's included in each plan."
+          eyebrow="Calculator"
+          title="Calculate Your Exact Price"
+          subtitle="Enter your business details and we'll compute monthly + one-time setup instantly."
         />
-
-        <p class="mt-12 mb-2 text-xs text-gray-400 md:hidden" aria-hidden="true">
-          Scroll sideways to see all plans &rarr;
-        </p>
-        <div class="overflow-x-auto rounded-xl" data-animate="fade-up">
-          <table class="w-full min-w-[600px] border-collapse text-sm">
-            <thead>
-              <tr class="border-b border-gray-200 bg-white">
-                <th class="sticky left-0 z-10 bg-white px-6 py-4 text-left font-semibold text-gray-900">
-                  Feature
-                </th>
-                <th class="px-6 py-4 text-center font-semibold text-gray-900">
-                  Starter
-                </th>
-                <th class="px-6 py-4 text-center font-semibold text-primary-600">
-                  Professional
-                </th>
-                <th class="px-6 py-4 text-center font-semibold text-gray-900">
-                  Enterprise
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {
-                comparisonRows.map((row, i) => (
-                  <tr
-                    class:list={[
-                      "border-b border-gray-100",
-                      i % 2 === 0 ? "bg-white" : "bg-gray-50",
-                    ]}
-                  >
-                    <td
-                      class:list={[
-                        "sticky left-0 z-10 px-6 py-3 font-medium text-gray-700",
-                        i % 2 === 0 ? "bg-white" : "bg-gray-50",
-                      ]}
-                    >
-                      {row.feature}
-                    </td>
-                    {[row.starter, row.professional, row.enterprise].map(
-                      (val) => (
-                        <td class="px-6 py-3 text-center">
-                          {val === "check" ? (
-                            <svg
-                              class="mx-auto h-5 w-5 text-primary-600"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              role="img"
-                              aria-label="Included"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d={checkPath}
-                              />
-                            </svg>
-                          ) : val === "x" ? (
-                            <svg
-                              class="mx-auto h-5 w-5 text-gray-300"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              role="img"
-                              aria-label="Not included"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d={xPath}
-                              />
-                            </svg>
-                          ) : (
-                            <span class="font-medium text-gray-700">
-                              {val}
-                            </span>
-                          )}
-                        </td>
-                      )
-                    )}
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+        <div id="calculator-root" class="mt-12" data-animate="fade-up">
+          <CalculatorSection />
         </div>
       </div>
     </section>
 
-    <!-- FAQ Section -->
-    <section class="py-24" aria-label="Frequently asked questions">
+    <!-- FAQ -->
+    <section id="faq" class="py-24" aria-label="Frequently asked questions">
       <div class="mx-auto max-w-5xl px-6">
         <SectionHeading
           eyebrow="FAQ"
           title="Frequently asked questions"
-          subtitle="Everything you need to know about Ella's pricing and plans."
+          subtitle="Common questions about Ella Tax's pricing and services."
         />
-
         <div class="mt-12 grid gap-8 md:grid-cols-2" data-stagger>
-          {
-            faqItems.map((item) => (
-              <div data-animate="fade-up">
-                <h3 class="text-base font-semibold text-gray-900">
-                  {item.question}
-                </h3>
-                <p class="mt-2 text-sm leading-relaxed text-gray-600">
-                  {item.answer}
-                </p>
-              </div>
-            ))
-          }
+          {faqItems.map((item) => (
+            <div data-animate="fade-up">
+              <h3 class="text-base font-semibold text-gray-900">
+                {item.question}
+              </h3>
+              <p class="mt-2 text-sm leading-relaxed text-gray-600">
+                {item.answer}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
 
-    <!-- Bottom CTA -->
     <CTASection
       title="Still have questions?"
-      description="Schedule a demo with our team to discuss your firm's needs and find the perfect plan."
-      buttonText="Request a Demo"
-      buttonHref="/#contact"
+      description="Book a free 15-minute consult with our accountant to walk through your numbers."
     />
   </main>
+
+  <script>
+    import "@/scripts/pricing-calculator";
+  </script>
 </BaseLayout>

@@ -25,6 +25,26 @@
 
 ---
 
+### Frontend: Shared Docs Rework - Phase 03 (Clipboard Utility + Auto-Copy Bug Fix) ✅ COMPLETE
+**Status:** Complete (Phase 03 of multi-phase rework — Clipboard + UX Bug Fix)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Created reusable clipboard utility (`apps/workspace/src/lib/clipboard.ts`) wrapping `navigator.clipboard.writeText()` in try/catch with toast feedback. Fixed "Document is not focused" error that occurred when auto-copy fired after file picker closed (file input change event fires outside user-gesture context). Solution: removed auto-copy entirely; manual copy button (Phase 04) remains safe because user click always has document focus. Utility supports optional i18n success/error messages and returns Promise<boolean> for caller state tracking. Secure-context check added (HTTPS/localhost required). All clipboard operations now centralized in single source of truth.
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/lib/clipboard.ts` — reusable `copyToClipboard(text, options)` utility
+- **UPDATED:** `apps/workspace/src/components/draft-return/draft-return-empty-state.tsx` — removed auto-copy call after file upload (lines 38-40)
+
+**Key Changes:**
+- Utility signature: `copyToClipboard(text: string, options?: CopyOptions): Promise<boolean>`
+- Options: `successMsg` (i18n key), `errorMsg` (i18n key), `showToast` (bool, default true)
+- Error handling: `console.warn()` on clipboard failure, no data leaks
+- Secure-context guard: `!navigator.clipboard` → graceful fallback with error toast
+
+**UX Impact:** Eliminates console errors post-upload. Manual copy workflow: user clicks button → toast feedback → visual confirmation (copied state).
+
+---
+
 ### Backend: Shared Docs Rework - Phase 02 (API Refactor & Multi-Section Support) ✅ COMPLETE
 **Status:** Complete (Phase 02 of multi-phase rework — API Layer)
 **Branch:** feature/fuocy-bidi

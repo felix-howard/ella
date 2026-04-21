@@ -113,6 +113,16 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - `getDraft(token)` - Fetch document data + signed PDF URL (includes title)
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
 
+**Frontend Utilities (Phase 03 - Shared Docs Rework):**
+- **Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
+  - `copyToClipboard(text, options?)` → `Promise<boolean>`
+  - Wraps `navigator.clipboard.writeText` with try/catch + automatic toast feedback
+  - Validates secure context (HTTPS/localhost) before API call
+  - Returns `true` on success, `false` on failure (no exception thrown)
+  - Options: `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
+  - **Safety:** Only safe to call from user gesture context (click, keypress). Auto-copy after async operations (e.g., file upload) risks `NotAllowedError: Document is not focused`. Always use manual copy buttons for user-initiated UI actions.
+  - Used in: Shared Docs card copy-link button (Phase 04+), any text-to-clipboard flow
+
 ## Backend Layer
 
 **Technology:** Hono 4.6+, Node.js, @hono/zod-openapi, Prisma

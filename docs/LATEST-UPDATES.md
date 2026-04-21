@@ -1,5 +1,36 @@
 # Latest Documentation Updates
 
+**Date:** 2026-04-21 | **Feature:** Shared Docs Rework Phase 03 (Clipboard Utility) COMPLETE | **Status:** Complete
+
+---
+
+## Shared Docs Rework - Phase 03: Clipboard Utility
+
+**Date:** 2026-04-21 | **Status:** Complete
+
+**In One Sentence:** Created reusable `copyToClipboard()` utility in `apps/workspace/src/lib/clipboard.ts` with automatic toast feedback + i18n, removed unsafe auto-copy from upload flow.
+
+**Implementation Details:**
+
+**New Utility (`apps/workspace/src/lib/clipboard.ts`):**
+- `copyToClipboard(text, options?)` → `Promise<boolean>`
+- Wraps `navigator.clipboard.writeText` with try/catch
+- Auto-shows toast on success (i18n: `common.linkCopied`) / failure (i18n: `common.copyFailed`)
+- Detects secure context + clipboard API availability
+- Options: `successMsg`, `errorMsg`, `showToast` (default: true)
+- Safe-guards: Only call from user gesture context (clicks, keypresses)
+
+**Bug Fix:**
+- Removed auto-copy after file upload in `draft-return-empty-state.tsx`
+- Root cause: File input `change` event fires outside gesture context → `NotAllowedError: Document is not focused`
+- Manual copy via user click = always safe (has focus)
+
+**File Changes:**
+- Created: `apps/workspace/src/lib/clipboard.ts` (49 lines)
+- Modified: `apps/workspace/src/components/draft-return/draft-return-empty-state.tsx` (removed auto-copy block after upload success)
+
+---
+
 **Date:** 2026-04-02 | **Feature:** TaxBandits API Migration Phase 3 (OAuth JWT, 3-Step Workflow, PDF + IRS Transmission) COMPLETE | **Status:** Complete
 
 ---

@@ -33,11 +33,8 @@ export function DraftReturnEmptyState({ caseId, clientName, onUploadSuccess }: D
 
     setIsUploading(true)
     try {
-      const result = await api.draftReturns.upload(caseId, file)
+      await api.draftReturns.upload(caseId, file)
       toast.success(t('draftReturn.uploadSuccess'))
-      // Copy link to clipboard
-      await navigator.clipboard.writeText(result.portalUrl)
-      toast.success(t('draftReturn.linkCopied'))
       onUploadSuccess()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('draftReturn.uploadError'))

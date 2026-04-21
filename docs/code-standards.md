@@ -233,6 +233,29 @@ app.get('/clients/:clientId/contractors', async (c) => {
 - Dark mode support via `dark:` prefix
 - Component variants via `class-variance-authority`
 
+## Frontend Utilities (@ella/workspace)
+
+**Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
+- `copyToClipboard(text, options?)` → `Promise<boolean>`
+- Wraps `navigator.clipboard.writeText` with try/catch + automatic toast feedback
+- Detects secure context (HTTPS/localhost) before attempting write
+- **Options:** `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
+- **Usage:** Always call from user gesture context (click, keypress) to avoid `NotAllowedError: Document is not focused`
+```typescript
+import { copyToClipboard } from '@lib/clipboard'
+
+const handleCopy = async () => {
+  const ok = await copyToClipboard(magicLink.url, {
+    successMsg: t('sharedDocs.linkCopied'),
+    errorMsg: t('sharedDocs.copyFailed'),
+  })
+  if (ok) {
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+}
+```
+
 ## Realtime Messaging (Supabase Broadcast)
 
 **Backend Pattern:**

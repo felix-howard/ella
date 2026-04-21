@@ -45,7 +45,7 @@ export const TIER_ENTERPRISE = {
   tagline: "Complete peace of mind",
   monthly: null,
   setup: null,
-  marketingMonthly: 425,
+  marketingMonthly: 435,
   bullets: [
     "Everything in Pro",
     "Audit Protection included",

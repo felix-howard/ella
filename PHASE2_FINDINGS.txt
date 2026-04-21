@@ -1,0 +1,171 @@
+================================================================================
+PHASE 2: 1099-NEC EXCEL UPLOAD - FILE INVENTORY
+================================================================================
+
+ABSOLUTE FILE PATHS (All Located)
+
+1. Backend Contractor Routes
+   Path: C:\Users\Admin\Desktop\ella\apps\api\src\routes\contractors\index.ts
+   Lines: 249
+   Contains: GET list, POST create, PATCH update, DELETE delete
+   Auth: buildClientScopeFilter(user) for org-scoped access
+   SSN: encryptSSN() called before storage
+   Returns: Masked ssnLast4 only (no ssnEncrypted)
+
+2. Contractor Validators  
+   Path: C:\Users\Admin\Desktop\ella\apps\api\src\routes\contractors\validators.ts
+   Lines: 33
+   Schemas: createContractorSchema, updateContractorSchema
+   Validation: isValidSSN() checks 9 digits, no invalid prefixes
+
+3. 1099-NEC Tab Component
+   Path: C:\Users\Admin\Desktop\ella\apps\workspace\src\components\cases\tabs\form-1099-nec-tab\index.tsx
+   Lines: 164
+   State: React Query useQuery(['contractors', clientId])
+   Mutations: create, update, delete with cache invalidation
+   Note: Empty state mentions "Excel upload coming in next phase"
+
+4. Contractor Form Modal
+   Path: C:\Users\Admin\Desktop\ella\apps\workspace\src\components\cases\tabs\form-1099-nec-tab\contractor-form-modal.tsx
+   Lines: 193
+   Features: Form validation, masked SSN on edit, US state dropdown
+
+5. Contractor Table
+   Path: C:\Users\Admin\Desktop\ella\apps\workspace\src\components\cases\tabs\form-1099-nec-tab\contractor-table.tsx
+   Lines: 118
+   Features: Responsive columns, masked SSN display, edit/delete actions
+
+6. Crypto Service
+   Path: C:\Users\Admin\Desktop\ella\apps\api\src\services\crypto\index.ts
+   Lines: 265
+   Functions: encryptSSN, decryptSSN, isValidSSN, maskSSN, formatSSN
+   Algorithm: AES-256-GCM (IV:12 bytes, AuthTag:16 bytes)
+   Key: SSN_ENCRYPTION_KEY env var (64 hex chars)
+
+7. Storage Service
+   Path: C:\Users\Admin\Desktop\ella\apps\api\src\services\storage.ts
+   Lines: 452
+   Functions: uploadFile, getSignedUploadUrl, getSignedDownloadUrl, deleteFile
+   Provider: Cloudflare R2
+   Key pattern: cases/{caseId}/{prefix}/{timestamp}-{random}.{ext}
+
+8. API Client
+   Path: C:\Users\Admin\Desktop\ella\apps\workspace\src\lib\api-client.ts
+   Lines: ~2000
+   Methods: api.contractors.list, .create, .update, .delete
+   Auth: Token getter via setAuthTokenGetter()
+   Retry: 3 retries with exponential backoff
+
+9. Main API App
+   Path: C:\Users\Admin\Desktop\ella\apps\api\src\app.ts
+   Lines: 136
+   Import: Line 34 imports contractorsRoute
+   Route: Line 90 registers contractorsRoute under /clients
+
+10. Prisma Schema
+    Path: C:\Users\Admin\Desktop\ella\packages\db\prisma\schema.prisma
+    Model: Contractor (lines 1428-1448)
+    Fields: ssnEncrypted, ssnLast4, tax1099RecipientId, createdAt, updatedAt
+
+================================================================================
+PHASE 2 IMPLEMENTATION NEEDS
+================================================================================
+
+Backend (contractors/index.ts):
+  - New POST /clients/:clientId/contractors/import endpoint
+  - Excel parsing (xlsx library)
+  - Row validation for each field
+  - Duplicate detection: ssnLast4 + firstName + lastName comparison
+  - Batch insert with transaction rollback
+  - Detailed error report with row numbers
+  - Upload Excel to R2 for audit trail
+
+Frontend (form-1099-nec-tab/index.tsx):
+  - "Upload Excel" button in header
+  - File input/drag-drop zone
+  - Upload progress bar
+  - Import results modal (success/error counts)
+  - Error correction UI for failed rows
+  - Query invalidation after successful import
+
+Database (schema.prisma):
+  - Optional: Add importedAt, importBatchId, importSource fields
+  - Optional: Add unique index on (clientId, ssnLast4)
+  - Migration: prisma migrate dev --name add-contractor-import-tracking
+
+================================================================================
+KEY TECHNICAL DETAILS
+================================================================================
+
+SSN Encryption:
+  - Algorithm: AES-256-GCM
+  - Storage: ssnEncrypted (base64) + ssnLast4 (unencrypted)
+  - Key: 64 hex chars from SSN_ENCRYPTION_KEY env var
+  - Format: Base64[IV(12) + AuthTag(16) + Ciphertext]
+
+Validation:
+  - SSN: 9 digits, no 000/666/9xx prefixes, groups/serials not 00/0000
+  - ZIP: 5 or 9 digits
+  - State: 2-letter code
+  - Email: Standard email format
+
+Auth:
+  - ClerkMiddleware: Parses JWT
+  - AuthMiddleware: Verifies Staff record
+  - Org Scoping: buildClientScopeFilter(user)
+  - Client validation: clientType must be "BUSINESS"
+
+File Storage:
+  - Provider: Cloudflare R2
+  - Config: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+  - Bucket: R2_BUCKET_NAME (default: ella-documents)
+  - Pattern: cases/{caseId}/imports/{timestamp}-{random}.xlsx
+
+================================================================================
+TYPES & INTERFACES
+================================================================================
+
+interface Contractor {
+  id: string
+  firstName: string
+  lastName: string
+  ssnLast4: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string | null
+  phone?: string | null
+  tax1099RecipientId?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface CreateContractorInput {
+  firstName: string
+  lastName: string
+  ssn: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  email?: string
+  phone?: string
+}
+
+================================================================================
+ENVIRONMENT VARIABLES
+================================================================================
+
+SSN_ENCRYPTION_KEY - 64 hex chars for AES-256-GCM key
+R2_ACCOUNT_ID - Cloudflare R2 account ID
+R2_ACCESS_KEY_ID - R2 API key
+R2_SECRET_ACCESS_KEY - R2 API secret
+R2_BUCKET_NAME - R2 bucket (default: ella-documents)
+DATABASE_URL - Postgres connection
+VITE_API_URL - API base URL (default: http://localhost:3002)
+
+================================================================================
+REPORT: 2026-04-01
+All files located. All interfaces documented. Ready for Phase 2 planning.
+================================================================================

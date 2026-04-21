@@ -1,14 +1,12 @@
 /**
  * Pricing calculator — client wiring for /pricing page. Reads form state
  * via [data-calc-input="<path>"] selectors, runs pure calculatePrice(),
- * and mutates summary panel via textContent + cloneNode (XSS-safe).
+ * and delegates to the render module to mutate the summary panel.
+ * XSS-safe: all DOM writes go through `textContent` / cloned templates.
  */
-import {
-  calculatePrice,
-  type CalcInput,
-  type CalcResult,
-  type LineItem,
-} from "@/config/pricing";
+import { calculatePrice, type CalcInput, type CalcResult } from "@/config/pricing";
+import { formatBreakdown } from "./pricing-calculator-format";
+import { renderResult, resolveRefs } from "./pricing-calculator-render";
 
 const DEFAULT_INPUT: CalcInput = {
   nec1099Count: 0,
@@ -25,16 +23,6 @@ const DEFAULT_INPUT: CalcInput = {
   },
   salesTaxShops: 0,
 };
-
-const usdFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-
-const formatUsd = (n: number): string => usdFormatter.format(n);
-const formatNumber = (n: number): string => numberFormatter.format(n);
 
 function clampInt(raw: string): number {
   const n = parseInt(raw, 10);
@@ -65,7 +53,7 @@ function readElementValue(el: HTMLElement): unknown {
 }
 
 function readInputs(form: HTMLFormElement): CalcInput {
-  const draft = JSON.parse(JSON.stringify(DEFAULT_INPUT)) as CalcInput;
+  const draft = structuredClone(DEFAULT_INPUT);
   const store = draft as unknown as Record<string, unknown>;
   form.querySelectorAll<HTMLElement>("[data-calc-input]").forEach((el) => {
     const path = el.dataset.calcInput;
@@ -77,85 +65,10 @@ function readInputs(form: HTMLFormElement): CalcInput {
   return draft;
 }
 
-function validate(input: CalcInput): string[] {
-  const errs: string[] = [];
-  if (input.nec1099Count > 200) errs.push("Unrealistic 1099 count (>200).");
-  if (input.payrollEmployees > 200) errs.push("Unrealistic payroll employees (>200).");
-  return errs;
-}
-
-interface PanelRefs {
-  tierBadge: HTMLElement;
-  tierLabel: HTMLElement;
-  empty: HTMLElement;
-  result: HTMLElement;
-  enterprise: HTMLElement;
-  monthlyList: HTMLElement;
-  setupList: HTMLElement;
-  monthlyTotal: HTMLElement;
-  setupTotal: HTMLElement;
-  template: HTMLTemplateElement;
-  cta: HTMLButtonElement;
-}
-
-function resolveRefs(panel: HTMLElement): PanelRefs | null {
-  const template = document.getElementById("calc-line-item-template");
-  if (!(template instanceof HTMLTemplateElement)) return null;
-  const q = <T extends HTMLElement>(sel: string): T | null => panel.querySelector<T>(sel);
-  const refs = {
-    tierBadge: q('[data-calc-state="tierBadge"]'),
-    tierLabel: q('[data-calc-output="tierLabel"]'),
-    empty: q('[data-calc-state="empty"]'),
-    result: q('[data-calc-state="result"]'),
-    enterprise: q('[data-calc-state="enterprise"]'),
-    monthlyList: q('[data-calc-output="monthlyItems"]'),
-    setupList: q('[data-calc-output="setupItems"]'),
-    monthlyTotal: q('[data-calc-output="monthlyTotal"]'),
-    setupTotal: q('[data-calc-output="setupTotal"]'),
-    cta: q<HTMLButtonElement>("[data-calc-cta]"),
-    template,
-  };
-  return Object.values(refs).every((v) => v !== null) ? (refs as PanelRefs) : null;
-}
-
-function populateList(list: HTMLElement, template: HTMLTemplateElement, items: LineItem[]): void {
-  list.replaceChildren();
-  items.forEach((item) => {
-    const frag = template.content.cloneNode(true) as DocumentFragment;
-    const label = frag.querySelector<HTMLElement>('[data-slot="label"]');
-    const amount = frag.querySelector<HTMLElement>('[data-slot="amount"]');
-    if (label) label.textContent = item.label;
-    if (amount) amount.textContent = formatUsd(item.amount);
-    list.appendChild(frag);
-  });
-}
-
-function toggleState(refs: PanelRefs, mode: "empty" | "result" | "enterprise"): void {
-  refs.empty.hidden = mode !== "empty";
-  refs.result.hidden = mode !== "result";
-  refs.enterprise.hidden = mode !== "enterprise";
-  refs.tierBadge.hidden = mode !== "result";
-}
-
-function renderResult(refs: PanelRefs, result: CalcResult): void {
-  if (result.isEnterprise) {
-    toggleState(refs, "enterprise");
-    refs.cta.disabled = true;
-    return;
-  }
-  if (!result.hasAnySelection) {
-    toggleState(refs, "empty");
-    refs.cta.disabled = true;
-    return;
-  }
-  toggleState(refs, "result");
-  refs.tierLabel.textContent = result.tierLabel;
-  populateList(refs.monthlyList, refs.template, result.monthlyItems);
-  populateList(refs.setupList, refs.template, result.setupItems);
-  // Totals use formatNumber (no "$"): summary-panel.astro renders a literal "$" outside the span.
-  refs.monthlyTotal.textContent = formatNumber(result.monthlyTotal);
-  refs.setupTotal.textContent = formatNumber(result.setupTotal);
-  refs.cta.disabled = false;
+// Sanity caps: real businesses using this calculator are salons/small shops.
+// A value >200 is almost certainly a typo or abuse — skip recalc silently.
+function isInputSane(input: CalcInput): boolean {
+  return input.nec1099Count <= 200 && input.payrollEmployees <= 200;
 }
 
 function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number): (...args: A) => void {
@@ -174,15 +87,35 @@ function init(): void {
   const refs = resolveRefs(panel);
   if (!refs) return;
 
+  let lastResult: CalcResult | null = null;
+
   const recalc = (): void => {
     const input = readInputs(form);
-    if (validate(input).length > 0) return; // silent skip; UI constraints prevent most bad states
-    renderResult(refs, calculatePrice(input));
+    if (!isInputSane(input)) return; // silent skip; UI constraints prevent most bad states
+    const result = calculatePrice(input);
+    lastResult = result;
+    renderResult(refs, result);
   };
 
   const debounced = debounce(recalc, 150);
   form.addEventListener("input", debounced);
   form.addEventListener("change", debounced);
+
+  const onCtaClick = (): void => {
+    if (!lastResult) return;
+    document.dispatchEvent(
+      new CustomEvent("calc:open-consultation", {
+        detail: {
+          breakdownText: formatBreakdown(lastResult),
+          // Explicit flag instead of sniffing the text — keeps the modal
+          // decoupled from breakdown string content (W2 from review).
+          showBreakdown: !lastResult.isEnterprise && lastResult.hasAnySelection,
+        },
+      }),
+    );
+  };
+  // Desktop + mobile drawer each have their own CTA button.
+  for (const btn of refs.cta) btn.addEventListener("click", onCtaClick);
 
   recalc();
 }

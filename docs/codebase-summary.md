@@ -93,7 +93,7 @@
 | **Landing Page Phase 08: Animations Polish** | **Scroll-based animations (IntersectionObserver), counter animations with NaN validation, fade-up & slide-in effects, stagger timing (12 items, 0.04s increments), prefers-reduced-motion accessibility, micro-interactions (hover/focus states), data-animate & data-stagger attributes, global.css animation utilities & keyframes.** | **2026-02-05** |
 | **Landing Page Killer Features - Phase 01** | **SMS-first positioning: Hero eyebrow "SMS-First Document Collection", headline "Clients text docs to your Ella number. No app. No friction." Features prioritized: SMS Direct Upload, AI Auto-Rename (first two), then Classification & OCR. How It Works flow: Client Texts Photo → AI Classifies & Renames → Review & Prepare. SEO description updated. Messaging emphasizes zero-friction SMS intake over portal upload.** | **2026-02-05** |
 | **Landing Page Phase 03: Why Ella Updates** | **Expanded Why Ella page (why-ella.astro): problems (6 cards), solutions (6 cards), before/after comparison (7 items each), differentiators (6 cards). Grid layout updated: 3-col desktop (even row distribution). Enhanced data file (why-ella-data.ts) with 2 new problems (Clients Never Use Portal, File Names Are Garbage), 2 new solutions (SMS Upload, AI Auto-Rename), 2 new before/after items each, 2 new differentiators (SMS-First, Auto-Rename Intelligence). Maintained pain-solution narrative.** | **2026-02-05** |
-| **Landing Page Phase 05: Pricing Page** | **Pricing page with 3 tiers (Starter $99, Professional $299, Enterprise Custom), "Most Popular" badge, feature comparison table (12 rows), FAQ (8 items, 2-col), bottom CTA. SEO: BreadcrumbList, FAQPage, Product schemas. Mobile responsive with scroll hints.** | **2026-02-04** |
+| **Landing Page Pricing: Phase 02 Rewrite** | **Phase 02 (2026-04-21): Marketing cards rewrite with new pricing structure. 3-tier cards (Basic $125, Pro $135, VIP $425) via tier-card.astro component. Calculator placeholder added. Tax-themed FAQ. tier-card.astro (108 LOC, reusable), pricing.astro (184 LOC, complete rewrite), pricing-constants.ts updated with tagline/marketingLabel fields. Mobile responsive grid layout.** | **2026-04-21** |
 | **Landing Page Phase 03: Full Home Page** | **Home page (index.astro) rebuilt with 7 sections: Hero (outcome-focused), Stats (1M docs, 500 firms, 99% accuracy, 80% time saved), Features (AI Classification, Smart OCR, Client Portal, Team Collaboration), How It Works (3-step process), Testimonials (3 quotes), CTA section, Contact Form. Structured data schemas added (aggregateRatingSchema). Brand color updated to emerald. OG image (1200x630px gradient). Astro + accessibility complete.** | **2026-02-04** |
 | **Landing Page Phase 02: Shared Components** | **8 Astro components (Navbar, Footer, SectionHeading, CTASection, FeatureCard, TestimonialCard, StatsBar, ContactForm), shared nav config, base layout with skip-to-content, site config (formspreeId, linkedIn)** | **2026-02-04** |
 | **Phase 3: Multi-Tenancy & Permission System** | **Database schema (Org models), org-scoped filtering, frontend Team page, Clerk JWT auth, RBAC via roles, 26 tests, i18n 821 keys. Phase 3 UI: Client.managedById FK (1-to-1 manager), removed N:N ClientAssignment, updated team/client UIs** | **2026-03-25** |
@@ -216,12 +216,20 @@
   - How It Works: 3-step SMS-focused process. (1) Client Texts Photo, (2) AI Classifies & Renames, (3) Review & Prepare
   - Testimonials: 3 CPA/EA quotes with 5-star implied rating
   - Contact Form: Formspree integration for lead capture
-- **Pricing Page (Phase 05):** 3-tier pricing (Starter $99, Professional $299, Enterprise Custom)
-  - "Most Popular" badge on Professional tier with elevated styling
-  - Feature comparison table (12 rows, horizontal scroll on mobile)
-  - FAQ section (8 items, 2-column grid)
-  - Bottom CTA "Still have questions?"
-  - SEO: BreadcrumbList, FAQPage, Product schema for each tier
+- **Pricing Page (Phase 02 Rewrite, 2026-04-21):** 3-tier marketing cards (Basic $125, Pro $135, VIP $425)
+  - tier-card.astro (108 LOC): Reusable card — name, monthly price, setup fee or note, tagline, bullets, CTA
+  - Taglines: "For small shops starting out" (Basic), "For growing salons" (Pro, popular), "Complete peace of mind" (VIP)
+  - pricing.astro rewrite (184 LOC): hero, 3-card grid, `#calculator` placeholder for phases 03-05, tax-themed FAQ, CTA
+  - pricing-constants.ts: added `tagline` on all tiers + `marketingLabel: "VIP"` on ENTERPRISE
+  - Responsive grid `md:grid-cols-3`; anchors `#pricing`, `#calculator`, `#faq` preserved
+- **Pricing Calculator (Phase 03–07 Rollout, 2026-04-21):** Two-column form + summary layout
+  - calculator-form.astro (phase 03): Worker count input, 1099 toggles, rate inputs; `[data-calc-input]` hooks for phase 05; `aria-describedby` on inputs (phase 07)
+  - calculator-section.astro: Grid wrapper (`lg:grid-cols-[1fr_380px]`) holding form + summary side-by-side; `lg:items-start` sticky alignment
+  - summary-panel.astro (phase 04): Dual-surface shell — desktop sticky right column + mobile fixed bottom `<details>` bar (phase 07). Imports reusable `SummaryPanelContent` partial.
+  - summary-panel-content.astro (NEW, phase 07): Shared inner content (tier badge, empty/result/enterprise states, CTA, line-item template). Eliminates markup duplication; `pricing-calculator-render.ts` updates all copies via `querySelectorAll` arrays (phase 07).
+  - pricing-calculator.ts: Wires form inputs to `calculatePrice()` pure function; emits `renderResult()` DOM updates via single `.querySelector` resolver (phase 05).
+  - pricing-calculator-render.ts (phase 07): Multi-copy aware rendering — `PanelRefs` contains arrays for desktop/mobile versions. All DOM writes via `textContent` (XSS-safe). `resolveRefs()` queries all markers, loops over arrays in `setText/populateList/toggleState`.
+  - pricing-faq.ts (NEW, phase 07): Centralized 8-item FAQ data (How price calculated, tier differences, upgrade/downgrade, 1099 definition, audit protection, cash plan, deposit refundability, multistate service). Consumed by pricing.astro + `faqSchema()` JSON-LD.
 - **Why Ella Page (Phase 03 Updates):** Problem-solution narrative with proof points
   - Pain Points: 6 cards (Endless Document Collection, Manual Classification Chaos, Data Entry Drudgery, Team Communication Gaps, Clients Never Use Your Portal, File Names Are Garbage)
   - Solutions: 6 cards (Automated Document Collection, AI-Powered Classification, Smart OCR Extraction, Built-In Team Collaboration, SMS Upload, AI Auto-Rename)

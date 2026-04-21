@@ -7,6 +7,41 @@
 
 ## 2026-04-21
 
+### Feature: Landing Pricing Calculator - Phase 07 (Polish: Responsive, A11y, FAQ) ✅ COMPLETE
+**Status:** Complete (Phase 07 of 07 — Final)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Landing pricing page polish finalized. Mobile UX enhanced with fixed-position bottom-bar summary panel (CSS-only `<details>` toggle, no JS overhead). Panel content duplicated in mobile drawer with `renderResult()` using `querySelectorAll()` for multi-source updates. All form inputs now have `aria-describedby` attributes linking to help-text paragraphs for screen-reader clarity. Tab order verified end-to-end across tier cards, form sections, and CTA. 8 tax-focused FAQ items integrated (pricing calculation, tier differences, upgrade/downgrade, 1099 definition, audit protection details, cash plan mechanics, deposit refund policy, service geography). JSON-LD faqSchema updated for SEO. iOS safe-area inset applied to mobile bar; sticky behavior preserved on desktop panel. All files verified <200 LOC; summary-panel content extracted to partial to prevent drift.
+
+**Files Changed:**
+- **UPDATED:** `apps/landing/src/components/pricing/summary-panel.astro` — mobile `<details>` bottom bar + content partial reference
+- **NEW:** `apps/landing/src/components/pricing/summary-panel-content.astro` — shared panel content fragment (prevents duplication drift)
+- **UPDATED:** `apps/landing/src/components/pricing/calculator-form.astro` — all form inputs now have `aria-describedby` linking to help text
+- **UPDATED:** `apps/landing/src/scripts/pricing-calculator.ts` — `renderResult()` changed from `querySelector()` to `querySelectorAll()` for multi-output updates
+- **UPDATED:** `apps/landing/src/pages/pricing.astro` — 8 FAQ items rewritten with tax-service focus, faqSchema updated
+
+**Validation:** Mobile drawer expands/collapses correctly, desktop panel sticks unchanged, keyboard nav works via Tab/Space/Enter/Esc, screen readers announce updates, FAQ schema validates, all files <200 LOC, no visual regressions on other pages.
+
+**Deferred (Out of Scope):** Analytics event tracking; Lighthouse headless audit run (browser infra limitation); iOS Safari device testing (fallback approach documented).
+
+---
+
+### Feature: Landing Pricing Calculator - Phase 06 (Consultation CTA Integration) ✅ COMPLETE
+**Status:** Complete (Phase 06 of 07)
+**Branch:** feature/more-work-on-ella
+
+**Summary:** Wired "Book Free Consultation" CTA to open native `<dialog>` modal with pre-filled price breakdown and contact form. Breakdown auto-generates from current calculator state and displays tier, monthly cost itemization, setup cost itemization. Modal includes $300 refundable deposit note. ContactForm component enhanced with `prefillMessage` prop for textarea pre-population. Enterprise state shows enterprise-specific message instead of breakdown.
+
+**Files Changed:**
+- **NEW:** `apps/landing/src/components/pricing/consultation-modal.astro` (modal markup + inline event listener)
+- **UPDATED:** `apps/landing/src/scripts/pricing-calculator.ts` — added `formatBreakdown()`, module-scope `lastResult` tracking, CTA click event dispatch
+- **UPDATED:** `apps/landing/src/components/contact-form.astro` — added optional `prefillMessage` prop, textarea default value
+- **UPDATED:** `apps/landing/src/pages/pricing.astro` — mounted `<ConsultationModal />`
+
+**Validation:** Modal opens/closes correctly, breakdown text matches summary panel, ESC/backdrop/X button close, form submit routes to Facebook, enterprise variant shows enterprise message, all modified files <200 LOC, accessibility verified.
+
+---
+
 ### Feature: Landing Pricing Calculator - Phase 05 (Calculator Logic Wiring) ✅ COMPLETE
 **Status:** Complete (Phase 05 of 07)
 **Branch:** feature/more-work-on-ella

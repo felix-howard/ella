@@ -10,46 +10,18 @@ import SectionHeading from "@/components/section-heading.astro";
 import CTASection from "@/components/cta-section.astro";
 import TierCard from "@/components/pricing/tier-card.astro";
 import CalculatorSection from "@/components/pricing/calculator-section.astro";
+import ConsultationModal from "@/components/pricing/consultation-modal.astro";
 import { breadcrumbSchema, faqSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
 import { TIER_BASIC, TIER_PRO, TIER_ENTERPRISE } from "@/config/pricing";
-
-/* ---------- Tax-themed FAQ placeholders (phase 07 refines copy) ---------- */
-
-const faqItems = [
-  {
-    question: "Do I need to sign a contract?",
-    answer:
-      "No long-term contract. Month-to-month service; cancel anytime with 30 days notice.",
-  },
-  {
-    question: "What's included in the setup fee?",
-    answer:
-      "Onboarding your books, importing prior-year records, configuring payroll, and one kick-off consult with our accountant.",
-  },
-  {
-    question: "How is my tier decided?",
-    answer:
-      "Tier is based on the number of 1099 workers you file annually: Basic up to 10 workers, Pro 11-20 workers, custom quote for 21+ workers.",
-  },
-  {
-    question: "Can I add Audit Protection later?",
-    answer:
-      "Yes. Add or remove Audit Protection any time; monthly fee prorates on your next billing cycle.",
-  },
-  {
-    question: "Do you file my personal + business taxes?",
-    answer:
-      "Yes — personal and business returns are available as one-time add-ons (see calculator below).",
-  },
-];
+import { pricingFaqItems } from "@/config/pricing-faq";
 
 const structuredData = [
   breadcrumbSchema([
     { name: "Home", url: siteConfig.url },
     { name: "Pricing", url: `${siteConfig.url}/pricing` },
   ]),
-  faqSchema(faqItems),
+  faqSchema(pricingFaqItems),
 ];
 
 /* ---------- Marketing tier card data (display only, sourced from constants) ---------- */
@@ -86,7 +58,7 @@ const tierCards = [
 ];
 ---
 
-<BaseLayout>
+<BaseLayout class="pb-20 lg:pb-0">
   <HeadSEO
     slot="head"
     title="Pricing — Ella Tax | Transparent Plans for Salons & Small Businesses"
@@ -157,7 +129,7 @@ const tierCards = [
           subtitle="Common questions about Ella Tax's pricing and services."
         />
         <div class="mt-12 grid gap-8 md:grid-cols-2" data-stagger>
-          {faqItems.map((item) => (
+          {pricingFaqItems.map((item) => (
             <div data-animate="fade-up">
               <h3 class="text-base font-semibold text-gray-900">
                 {item.question}
@@ -176,6 +148,9 @@ const tierCards = [
       description="Book a free 15-minute consult with our accountant to walk through your numbers."
     />
   </main>
+
+  <ConsultationModal />
+
 
   <script>
     import "@/scripts/pricing-calculator";

@@ -1,11 +1,27 @@
 ---
 /**
- * Pricing tier card — display-only marketing card for Basic/Pro/VIP tiers.
- * Prices shown here are bundled reference prices (see pricing-constants.ts
- * `marketingMonthly`); exact cost is computed by the calculator below.
+ * Pricing tier card — marketing card for Basic/Pro/VIP tiers.
+ *
+ * Displays:
+ *  - Headline price = typical bundle (marketingMonthly from pricing-constants).
+ *  - Optional `breakdown` list revealing how the bundle adds up, so users
+ *    can mentally reconcile it against the interactive calculator below.
+ *    Basic/Pro show strict sums (tier base + payroll base).
+ *    VIP uses softer "includes" copy since $425 isn't a clean sum.
+ *  - Optional `priceNote` subtitle under the price (e.g. "typical salon setup").
+ *
  * Pro tier gets `popular=true` for the "Most Popular" badge + emphasis.
  */
 import { checkPath } from "@/lib/icons";
+
+export interface BreakdownRow {
+  /** Item label, e.g. "Basic tier (≤10 workers)". */
+  label: string;
+  /** Optional dollar amount; when omitted we render label only (VIP case). */
+  amount?: number;
+  /** Rate unit, defaults to `/mo`. */
+  unit?: string;
+}
 
 interface Props {
   id: "basic" | "pro" | "vip";
@@ -13,10 +29,16 @@ interface Props {
   tagline: string;
   /** Display-only marketing price (USD/month). */
   monthlyPrice: number;
+  /** Short caption under the headline price, e.g. "typical salon setup". */
+  priceNote?: string;
   /** Fixed setup fee in USD; omit if custom (use setupNote instead). */
   setupFee?: number;
   /** Free-form setup copy, used when no fixed fee (e.g. VIP custom quote). */
   setupNote?: string;
+  /** Optional formula rows shown under price — explains how `monthlyPrice` adds up. */
+  breakdown?: BreakdownRow[];
+  /** Heading above breakdown rows ("How it adds up" / "What's included"). */
+  breakdownHeading?: string;
   bullets: readonly string[];
   popular?: boolean;
   ctaLabel?: string;
@@ -28,8 +50,11 @@ const {
   name,
   tagline,
   monthlyPrice,
+  priceNote,
   setupFee,
   setupNote,
+  breakdown,
+  breakdownHeading = "How it adds up",
   bullets,
   popular = false,
   ctaLabel = "Calculate my price",
@@ -64,13 +89,53 @@ const setupLine =
     <p class="mt-1 text-sm text-gray-500">{tagline}</p>
   </div>
 
-  <div class="mb-6">
-    <span class="text-4xl font-extrabold text-gray-900">${monthlyPrice}</span>
-    <span class="text-base text-gray-500">/mo</span>
+  <div class="mb-5">
+    <div class="flex items-baseline gap-1">
+      <span class="text-4xl font-extrabold tabular-nums text-gray-900">
+        ${monthlyPrice}
+      </span>
+      <span class="text-base text-gray-500">/mo</span>
+    </div>
+    {priceNote && (
+      <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+        {priceNote}
+      </p>
+    )}
     {setupLine && (
       <p class="mt-1 text-xs text-gray-500">{setupLine}</p>
     )}
   </div>
+
+  {breakdown && breakdown.length > 0 && (
+    <div
+      class:list={[
+        "mb-6 rounded-xl px-4 py-3 text-sm",
+        popular
+          ? "bg-primary-50/70 ring-1 ring-primary-100"
+          : "bg-gray-50 ring-1 ring-gray-100",
+      ]}
+      aria-label={breakdownHeading}
+    >
+      <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        {breakdownHeading}
+      </p>
+      <ul class="space-y-1.5" role="list">
+        {breakdown.map((row) => (
+          <li class="flex items-baseline justify-between gap-3">
+            <span class="text-gray-600">{row.label}</span>
+            {row.amount !== undefined && (
+              <span class="whitespace-nowrap font-medium tabular-nums text-gray-900">
+                ${row.amount}
+                <span class="ml-0.5 text-xs font-normal text-gray-400">
+                  {row.unit ?? "/mo"}
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
 
   <a
     href={ctaHref}

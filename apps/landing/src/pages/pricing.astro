@@ -13,7 +13,13 @@ import CalculatorSection from "@/components/pricing/calculator-section.astro";
 import ConsultationModal from "@/components/pricing/consultation-modal.astro";
 import { breadcrumbSchema, faqSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
-import { TIER_BASIC, TIER_PRO, TIER_ENTERPRISE } from "@/config/pricing";
+import {
+  TIER_BASIC,
+  TIER_PRO,
+  TIER_ENTERPRISE,
+  PAYROLL,
+  AUDIT_PROTECTION,
+} from "@/config/pricing";
 import { pricingFaqItems } from "@/config/pricing-faq";
 
 const structuredData = [
@@ -26,14 +32,31 @@ const structuredData = [
 
 /* ---------- Marketing tier card data (display only, sourced from constants) ---------- */
 
+/*
+ * Marketing price = bundle of tier-base + typical add-ons.
+ * `breakdown` lets users see the exact math (matches the calculator below).
+ * Basic/Pro sums reconcile exactly; VIP uses "what's included" copy since
+ * Pro-base ($85) + Payroll ($50) + Audit Protection ($300) = $435, which
+ * we soften to the headline $425 "from" price.
+ */
+
 const tierCards = [
   {
     id: "basic" as const,
     name: TIER_BASIC.label,
     tagline: TIER_BASIC.tagline,
     monthlyPrice: TIER_BASIC.marketingMonthly,
+    priceNote: "typical salon setup",
     setupFee: TIER_BASIC.setup,
     bullets: TIER_BASIC.bullets,
+    breakdownHeading: "How it adds up",
+    breakdown: [
+      {
+        label: `Basic tier (\u2264${TIER_BASIC.maxNec1099} workers)`,
+        amount: TIER_BASIC.monthly,
+      },
+      { label: "+ Payroll base", amount: PAYROLL.baseMonthly },
+    ],
     popular: false,
   },
   {
@@ -41,8 +64,17 @@ const tierCards = [
     name: TIER_PRO.label,
     tagline: TIER_PRO.tagline,
     monthlyPrice: TIER_PRO.marketingMonthly,
+    priceNote: "typical salon setup",
     setupFee: TIER_PRO.setup,
     bullets: TIER_PRO.bullets,
+    breakdownHeading: "How it adds up",
+    breakdown: [
+      {
+        label: `Pro tier (${TIER_BASIC.maxNec1099 + 1}\u2013${TIER_PRO.maxNec1099} workers)`,
+        amount: TIER_PRO.monthly,
+      },
+      { label: "+ Payroll base", amount: PAYROLL.baseMonthly },
+    ],
     popular: true,
   },
   {
@@ -50,9 +82,16 @@ const tierCards = [
     name: TIER_ENTERPRISE.marketingLabel,
     tagline: TIER_ENTERPRISE.tagline,
     monthlyPrice: TIER_ENTERPRISE.marketingMonthly,
+    priceNote: "from \u2014 premium bundle",
     // Setup fee varies per VIP engagement — shown as custom note in TierCard.
     setupNote: "Custom setup quote",
     bullets: TIER_ENTERPRISE.bullets,
+    breakdownHeading: "What's included",
+    breakdown: [
+      { label: "Pro tier + Payroll base" },
+      { label: "+ Audit Protection", amount: AUDIT_PROTECTION.monthly },
+      { label: "+ Dedicated accountant" },
+    ],
     popular: false,
   },
 ];
@@ -87,8 +126,8 @@ const tierCards = [
           data-animate="fade-up"
         >
           Transparent pricing built for nail salons, small shops, and LLCs.
-          Start with a tier, then dial in your exact monthly + setup with the
-          calculator below.
+          Each tier shows the typical monthly bundle with the exact formula —
+          then dial in your numbers with the calculator below.
         </p>
       </div>
     </section>

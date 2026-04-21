@@ -7,6 +7,24 @@
 
 ## 2026-04-21
 
+### Database: Shared Docs Rework - Phase 01 (Schema Rename & Soft-Delete) ✅ COMPLETE
+**Status:** Complete (Phase 01 of multi-phase rework — Database-Only)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Renamed `DraftReturn` model to `ShareableDocument` to reflect broader future use beyond tax returns. Database table `DraftReturn` retained via `@@map` for backward compatibility. Added `title` field (default: "Draft Return") for document customization and `deletedAt` field for soft-delete support. Renamed `DraftReturnStatus` enum to `DocumentStatus`. Updated compound index from `(taxCaseId, status)` to `(taxCaseId, status, deletedAt)` to optimize soft-delete queries. Relation field names (`uploadedDraftReturns`, `draftReturns`, `draftReturn`) on Staff, TaxCase, and MagicLink models remain unchanged pending Phase 02 UI migration to avoid breaking frontend prematurely.
+
+**Files Changed:**
+- **UPDATED:** `packages/db/prisma/schema.prisma` — model rename, enum rename, new fields, updated indexes
+- **NEW:** `packages/db/prisma/migrations/20260421185535_rename_draft_return_to_shareable_document/migration.sql` — idempotent migration with table-level backward compat
+- **UPDATED:** `docs/system-architecture.md` — schema documentation reflects ShareableDocument + DocumentStatus
+- **UPDATED:** `docs/codebase-summary.md` — model overview updated with new fields and soft-delete support
+
+**Database Compatibility:** Table name `DraftReturn` unchanged via `@@map`. All existing queries continue to work. Migration safe for production (no data loss, no breaking schema changes).
+
+**Next Steps (Phase 02):** Rename relation fields on Staff, TaxCase, and MagicLink; update API response types; rename frontend DraftReturnTab component.
+
+---
+
 ### Feature: Landing Pricing Calculator - Phase 07 (Polish: Responsive, A11y, FAQ) ✅ COMPLETE
 **Status:** Complete (Phase 07 of 07 — Final)
 **Branch:** feature/more-work-on-ella

@@ -123,7 +123,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Endpoints (80+ total):**
 
 **Draft Return Sharing (6 - Phase 02 Backend + Phase 04 Frontend Complete):**
-- `POST /draft-returns/:caseId/upload` - Upload PDF, create DraftReturn + MagicLink (14-day TTL)
+- `POST /draft-returns/:caseId/upload` - Upload PDF, create ShareableDocument + MagicLink (14-day TTL)
 - `GET /draft-returns/:caseId` - Get current draft + link status + version history
 - `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
 - `POST /draft-returns/:id/extend` - Extend expiry by 14 days
@@ -150,7 +150,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Error handling: Invalid token, expired link, revoked link, PDF unavailable, browser unsupported
 
 **Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
-- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page
+- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page (references ShareableDocument model)
 - States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (draft summary + actions)
 - Upload: Drag-drop or file picker, PDF validation (50MB max), upload progress
 - Link display: Filename, fileSize, status badge, shareable link with copy button
@@ -368,7 +368,7 @@ Organization (root entity)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
-- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links). Indexes: taxCaseId (single), taxCaseId+status (compound), unique(taxCaseId, version)
+- **ShareableDocument** (formerly DraftReturn) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return"), version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (mapped to DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt soft-delete field, magicLinks array relation (1-to-many document-to-links). Indexes: taxCaseId (single), taxCaseId+status+deletedAt (compound), unique(taxCaseId, version)
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
@@ -384,7 +384,7 @@ Organization (root entity)
 - Organization: clerkOrgId (unique), name
 - Staff: organizationId + clerkId (compound unique)
 - Client: organizationId + status, managedById (FK index)
-- DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
+- ShareableDocument: taxCaseId (single), taxCaseId + status + deletedAt (compound), status (single) - optimize case-to-documents + status filtering with soft-delete awareness
 - Messages: conversationId + createdAt (ordering)
 
 ## Phase 04: Business Entity Separation — Data Migration
@@ -637,7 +637,7 @@ apps/portal/src/components/pdf-viewer/ (modular structure)
 - Browser unsupported - iFrame load error, fallback to download/open buttons
 
 **API Endpoints:**
-- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData
+- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData (ShareableDocument public view)
 - `POST /portal/draft/:token/viewed` - Public, fire & forget, updates view tracking
 
 **Portal API Client (apps/portal/src/lib/api-client.ts):**
@@ -684,7 +684,7 @@ draft.download           → "Download PDF"
 
 **View Tracking:**
 - Called on successful PDF load (fire & forget pattern)
-- Updates `DraftReturn.viewCount` and `lastViewedAt`
+- Updates `ShareableDocument.viewCount` and `lastViewedAt`
 - Staff can monitor engagement in workspace dashboard
 - No sensitive data logged (token only)
 

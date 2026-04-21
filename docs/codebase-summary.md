@@ -138,7 +138,7 @@
 - **ContractorIntakeToken**: clientId FK (Cascade delete, sole parent). Public intake form token. Links to Client(clientType=BUSINESS). token (unique), taxYear, isActive, expiresAt (optional). Index: clientId+isActive.
 - **FilingBatch**: clientId FK (Cascade delete, sole parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking, form counts.
 - **DigitalDoc**: Extracted OCR fields, source reference, AI confidence
-- **DraftReturn**: taxCaseId FK (Cascade), r2Key (unique), filename, fileSize, version, uploadedById FK, status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks relation, Cascade delete with TaxCase, Restrict delete with Staff
+- **ShareableDocument** (formerly DraftReturn): taxCaseId FK (Cascade), r2Key (unique), filename, fileSize, title (default: "Draft Return"), version, uploadedById FK, status (mapped to DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete), magicLinks relation, Cascade delete with TaxCase, Restrict delete with Staff
 - **MagicLink**: type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token, caseId/type, draftReturnId FK optional (SetNull), isActive, expiresAt
 - **Message**: conversationId, channel (SMS|PORTAL|SYSTEM|CALL), content, callSid/recordingUrl
 - **AuditLog**: entityType, entityId, field, oldValue, newValue, changedById, timestamp (complete trail)

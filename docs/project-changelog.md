@@ -5,6 +5,23 @@
 
 ---
 
+## [Unreleased] — Shared Docs Actions Rework (Phase 1)
+
+**Status:** In Progress (Phase 1 of Actions Rework — Link State Management)
+
+**Added:**
+- `POST /shared-docs/:id/pause` — Disable magic link (section remains visible, link inactive; reversible)
+- `POST /shared-docs/:id/resume` — Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` — Create magic link for sections without active link
+
+**Changed:**
+- `POST /shared-docs/:id/extend` — Now accepts request body `{ duration: '7d'|'14d'|'30d'|'never' }` (default: '14d'); previously only supported hardcoded 14-day extension
+
+**Deprecated:**
+- `POST /shared-docs/:id/revoke` — Use `/pause` instead (endpoint alias retained for backward compatibility through Phase 2)
+
+---
+
 ## 2026-04-22
 
 ### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE

@@ -137,15 +137,18 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete):**
+**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework In Progress):**
 - `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
 - `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
 - `GET /shared-docs/:id` - Get section detail (title, status, version count, link status)
 - `PATCH /shared-docs/:id` - Rename section; updates title across all versions
 - `DELETE /shared-docs/:id` - Soft-delete section (deletedAt set, hides from UI)
 - `POST /shared-docs/:id/version` - Upload new version PDF (increments version counter, soft-deletes old)
-- `POST /shared-docs/:id/revoke` - Disable magic link (section visible, link inactive)
-- `POST /shared-docs/:id/extend` - Extend link expiry by 14 days
+- `POST /shared-docs/:id/pause` - Disable magic link (section visible, link inactive; reversible)
+- `POST /shared-docs/:id/resume` - Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` - Create magic link for sections without one
+- `POST /shared-docs/:id/extend` - Extend link expiry; accepts body { duration: '7d'|'14d'|'30d'|'never' }, default '14d'
+- `POST /shared-docs/:id/revoke` - **DEPRECATED** — use `/pause` (alias kept for backward compat)
 - `GET /shared-docs/:id/signed-url` - Fetch current version PDF from R2 (24h TTL)
 - `GET /shared-docs/:id/version/:version/signed-url` - Fetch specific version PDF from R2
 - `GET /portal/draft/:token` - Validate token, return section data + PDF signed URL (public). Returns 410 DOC_DELETED if soft-deleted.

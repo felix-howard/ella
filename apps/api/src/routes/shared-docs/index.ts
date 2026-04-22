@@ -17,7 +17,13 @@ import {
   getSignedUrl,
   getVersionSignedUrl,
 } from './version-handlers'
-import { revokeSection, extendSection } from './link-handlers'
+import {
+  pauseSection,
+  resumeSection,
+  revokeSection,
+  extendSection,
+  generateLink,
+} from './link-handlers'
 
 const sharedDocsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -38,7 +44,11 @@ sharedDocsRoute.get('/:id/signed-url', getSignedUrl)
 sharedDocsRoute.get('/:id/version/:version/signed-url', getVersionSignedUrl)
 
 // Magic link lifecycle
-sharedDocsRoute.post('/:id/revoke', revokeSection)
+sharedDocsRoute.post('/:id/pause', pauseSection)
+sharedDocsRoute.post('/:id/resume', resumeSection)
 sharedDocsRoute.post('/:id/extend', extendSection)
+sharedDocsRoute.post('/:id/generate-link', generateLink)
+// Backward-compat alias — /revoke logs deprecation and defers to /pause
+sharedDocsRoute.post('/:id/revoke', revokeSection)
 
 export { sharedDocsRoute }

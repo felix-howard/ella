@@ -7,6 +7,32 @@
 
 ## 2026-04-22
 
+### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE
+**Status:** Complete (Phase 07 of multi-phase rework — Test Suite + Migration Validation)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Comprehensive automated test suite green across API + workspace + portal packages. Created `shared-docs-routes.test.ts` (34 tests) covering CRUD, validation (title boundaries 1-100 chars, SQL-injection guard), duplicate rejection, non-PDF file rejection, soft-delete cascade with MagicLink revocation, version upload token reuse, section isolation on sibling version upload, org-scoping assertion (cross-org 404), revoke/extend workflows, and signed URL integrity (current + prior version). Created `draft-routes.test.ts` (13 tests) covering happy path, DOC_DELETED 410 response, legacy backfilled "Draft Return" rows, auth errors (INVALID_TOKEN/REVOKED/EXPIRED), view tracking, and draftReturnId-null guards. Total: 47/47 tests passing. Code review completed: 8/10 initial → all warnings + high-value suggestions addressed. Manual staging checklist (25 items) deferred to deploy step per plan.
+
+**Files Changed:**
+- **NEW:** `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — 34 integration tests
+- **NEW:** `apps/api/src/routes/portal/__tests__/draft-routes.test.ts` — 13 integration tests
+
+**Test Coverage:**
+- **Shared Docs API:** POST create + validation, GET list (soft-delete filter, org-scope), PATCH rename, DELETE cascade, version upload, magic link extend/revoke, signed URL generation
+- **Portal Draft Route:** Happy path, DOC_DELETED error, legacy rows, auth validation, view tracking
+- **Quality:** Mocked Prisma + storage (matches existing `schedule-c-routes.test.ts` convention — fast, deterministic); cross-org scope where-clause verified; DELETE transaction payload asserted; sibling-section isolation guarded
+
+**Quality Assurance:**
+- Test suite: 47/47 passing, zero flakes
+- Code review: functional completeness ✓, error handling ✓, security checks ✓, transaction integrity ✓
+- Coverage: ≥70% for new endpoints
+
+**Backward Compatibility:** Legacy "Draft Return" rows tested with backfilled title; old magic link tokens continue to work; existing portal routes (non-draft) unaffected.
+
+**Next Phase:** Ready for staging deploy. Manual checklist (migration verification, backward compat, happy path, clipboard verification, portal branding, regression) to be executed during deploy window.
+
+---
+
 ### Frontend: Shared Docs Rework - Phase 06 (i18n Updates) ✅ COMPLETE
 **Status:** Complete (Phase 06 of multi-phase rework — Internationalization)
 **Branch:** feature/fuocy-bidi

@@ -1,11 +1,12 @@
 /**
- * SharedDocVersionHistory - Collapsible per-section version list
+ * SharedDocVersionHistory - Inline timeline of prior versions
+ * Renders as a collapsible list at the bottom of the doc card.
  * Fetches versions on-demand via section detail endpoint when expanded.
  */
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Clock, ChevronDown, ChevronUp, Loader2, Download } from 'lucide-react'
+import { ChevronDown, Loader2, ExternalLink } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { toast } from '../../stores/toast-store'
 import { api } from '../../lib/api-client'
@@ -45,76 +46,86 @@ export function SharedDocVersionHistory({ sectionId, currentVersion }: SharedDoc
     [sectionId, t]
   )
 
-  if (currentVersion <= 1 && !isOpen) {
-    return null
-  }
+  if (currentVersion <= 1) return null
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] overflow-hidden">
+    <div>
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-foreground hover:bg-muted/30 transition-all duration-200"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
-        <span className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          {t('sharedDocs.versionHistory')} ({currentVersion})
-        </span>
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        )}
+        <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', isOpen && 'rotate-180')} />
+        {t('sharedDocs.versionHistory')} · {currentVersion}
       </button>
 
       {isOpen && (
-        <div className="px-5 pb-4 space-y-2">
-          {isLoading && (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <div className="mt-3">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
             </div>
+          ) : (
+            <ol className="relative ml-1.5 border-l border-border/60 space-y-3 py-1">
+              {versions.map((v) => {
+                const isActive = v.status === 'ACTIVE'
+                const isRevoked = v.status === 'REVOKED'
+                const isLoadingThis = loadingVersion === v.version
+
+                return (
+                  <li key={v.version} className="relative pl-4">
+                    {/* Timeline dot */}
+                    <span
+                      className={cn(
+                        'absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-card',
+                        isActive && 'bg-primary',
+                        isRevoked && 'bg-destructive/70',
+                        !isActive && !isRevoked && 'bg-muted-foreground/40'
+                      )}
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span
+                          className={cn(
+                            'text-sm font-semibold tabular-nums',
+                            isActive ? 'text-foreground' : 'text-muted-foreground'
+                          )}
+                        >
+                          v{v.version}
+                        </span>
+                        {isActive && (
+                          <span className="text-[10px] uppercase tracking-wide font-medium text-primary">
+                            {t('sharedDocs.current')}
+                          </span>
+                        )}
+                        {isRevoked && (
+                          <span className="text-[10px] uppercase tracking-wide font-medium text-destructive/80">
+                            {t('sharedDocs.revoked')}
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground truncate">
+                          · {formatRelativeTime(v.uploadedAt, i18n.language)}
+                        </span>
+                      </div>
+                      {!isActive && (
+                        <button
+                          onClick={() => handleViewVersion(v.version)}
+                          disabled={isLoadingThis}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 disabled:opacity-50"
+                        >
+                          {isLoadingThis ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <ExternalLink className="w-3 h-3" />
+                          )}
+                          {t('sharedDocs.view', 'View')}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
           )}
-          {!isLoading &&
-            versions.map((v) => (
-              <button
-                key={v.version}
-                onClick={() => handleViewVersion(v.version)}
-                disabled={loadingVersion === v.version}
-                className={cn(
-                  'w-full flex items-center justify-between py-3 px-4 rounded-lg text-sm transition-colors',
-                  'hover:bg-muted/50 cursor-pointer',
-                  v.status === 'ACTIVE'
-                    ? 'bg-primary/5 border border-primary/20'
-                    : 'bg-muted/30 border border-transparent'
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  {loadingVersion === v.version ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4 text-muted-foreground" />
-                  )}
-                  <span className="font-medium">v{v.version}</span>
-                  {v.status === 'ACTIVE' && (
-                    <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
-                      {t('sharedDocs.current')}
-                    </span>
-                  )}
-                  {v.status === 'SUPERSEDED' && (
-                    <span className="px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded-full">
-                      {t('sharedDocs.superseded')}
-                    </span>
-                  )}
-                  {v.status === 'REVOKED' && (
-                    <span className="px-2 py-0.5 text-xs bg-destructive/10 text-destructive rounded-full">
-                      {t('sharedDocs.revoked')}
-                    </span>
-                  )}
-                </span>
-                <span className="text-muted-foreground">
-                  {formatRelativeTime(v.uploadedAt, i18n.language)}
-                </span>
-              </button>
-            ))}
         </div>
       )}
     </div>

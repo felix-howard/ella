@@ -1334,6 +1334,7 @@
   "sharedDocs.shareableLink": "Shareable Link",
   "sharedDocs.active": "Active",
   "sharedDocs.views": "views",
+  "sharedDocs.view": "View",
   "sharedDocs.expiresIn": "Expires in {{days}} days",
   "sharedDocs.expiringToday": "Expiring today",
   "sharedDocs.extend": "Extend",

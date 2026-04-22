@@ -1,6 +1,6 @@
 /**
  * SharedDocCard - Per-section card: thumbnail, rename, link bar, version history, delete
- * Orchestrates sub-components. Upload new version via footer input.
+ * Orchestrates sub-components. Upload/delete via compact icon actions.
  */
 import { useState, useCallback, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -74,75 +74,82 @@ export function SharedDocCard({ document, caseId }: SharedDocCardProps) {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="bg-card rounded-2xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] overflow-hidden">
-        <div className="flex flex-col lg:flex-row">
-          <div className="lg:w-48 flex-shrink-0 bg-gradient-to-br from-muted/40 to-muted/20 border-b lg:border-b-0 lg:border-r border-border/50">
-            <div className="aspect-[3/4] max-h-[200px] lg:max-h-none mx-auto lg:mx-0 w-auto lg:w-full relative flex items-center justify-center p-4">
-              {isLoadingUrl ? (
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
-                  <span className="text-xs text-muted-foreground">
-                    {t('sharedDocs.loadingPreview')}
-                  </span>
+    <div className="space-y-3">
+      <div className="bg-card rounded-xl shadow-sm dark:shadow-none dark:border dark:border-white/[0.06] p-4">
+        <div className="flex gap-4">
+          {/* Compact thumbnail */}
+          <div className="w-20 h-24 flex-shrink-0 rounded-md overflow-hidden bg-muted/40 border border-border/50 flex items-center justify-center">
+            {isLoadingUrl ? (
+              <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+            ) : signedUrlData?.url ? (
+              <Suspense
+                fallback={<Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />}
+              >
+                <div className="w-full h-full bg-white">
+                  <PdfThumbnail url={signedUrlData.url} width={80} />
                 </div>
-              ) : signedUrlData?.url ? (
-                <Suspense
-                  fallback={
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-                    </div>
-                  }
-                >
-                  <div className="w-full h-full rounded-lg overflow-hidden shadow-sm bg-white">
-                    <PdfThumbnail url={signedUrlData.url} width={160} />
-                  </div>
-                </Suspense>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <FileText className="w-12 h-12" />
-                  <span className="text-xs font-medium">PDF</span>
-                </div>
-              )}
-            </div>
+              </Suspense>
+            ) : (
+              <FileText className="w-8 h-8 text-muted-foreground" />
+            )}
           </div>
 
-          <div className="flex-1 p-6">
-            <div className="flex flex-col h-full">
-              <div className="mb-4">
-                <div className="flex items-start justify-between gap-3 mb-1">
-                  <RenameSectionInline
-                    title={document.title}
-                    onSave={handleRename}
-                    isSaving={isRenaming}
-                    className="flex-1 min-w-0"
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <RenameSectionInline
+                title={document.title}
+                onSave={handleRename}
+                isSaving={isRenaming}
+                className="flex-1 min-w-0"
+              />
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <label
+                  className={cn(
+                    'inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors',
+                    isUploadingVersion && 'opacity-50 pointer-events-none'
+                  )}
+                  title={t('sharedDocs.uploadNewVersion')}
+                >
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleUploadNew}
+                    className="sr-only"
+                    disabled={isUploadingVersion}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                    aria-label={t('sharedDocs.deleteSection')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground truncate">{document.filename}</p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                    v{document.version}
-                  </span>
-                  <span>{formatBytes(document.fileSize)}</span>
-                  <span>&middot;</span>
-                  <span>
-                    {t('sharedDocs.uploadedBy')} {document.uploadedBy.name}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatRelativeTime(document.uploadedAt, i18n.language)}
-                </p>
+                  {isUploadingVersion ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 w-8 h-8 p-0"
+                  aria-label={t('sharedDocs.deleteSection')}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
+            </div>
 
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{document.filename}</p>
+
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1.5">
+              <span className="inline-flex items-center px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-semibold">
+                v{document.version}
+              </span>
+              <span>{formatBytes(document.fileSize)}</span>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="truncate">{document.uploadedBy.name}</span>
+              <span className="text-muted-foreground/50">·</span>
+              <span>{formatRelativeTime(document.uploadedAt, i18n.language)}</span>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-border/50">
               <SharedDocLinkBar
                 sectionId={document.id}
                 caseId={caseId}
@@ -153,33 +160,12 @@ export function SharedDocCard({ document, caseId }: SharedDocCardProps) {
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-muted/20 border-t border-border/50">
-          <label
-            className={cn(
-              'inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
-              isUploadingVersion && 'opacity-50 pointer-events-none'
-            )}
-          >
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={handleUploadNew}
-              className="sr-only"
-              disabled={isUploadingVersion}
-            />
-            {isUploadingVersion ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            {t('sharedDocs.uploadNewVersion')}
-          </label>
-        </div>
+        {document.version > 1 && (
+          <div className="mt-4 pt-3 border-t border-border/50">
+            <SharedDocVersionHistory sectionId={document.id} currentVersion={document.version} />
+          </div>
+        )}
       </div>
-
-      {document.version > 1 && (
-        <SharedDocVersionHistory sectionId={document.id} currentVersion={document.version} />
-      )}
 
       <DeleteSectionConfirm
         isOpen={showDeleteModal}

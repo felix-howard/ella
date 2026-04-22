@@ -1331,6 +1331,7 @@
   "sharedDocs.shareableLink": "Link chia sẻ",
   "sharedDocs.active": "Hoạt động",
   "sharedDocs.views": "lượt xem",
+  "sharedDocs.view": "Xem",
   "sharedDocs.expiresIn": "Hết hạn trong {{days}} ngày",
   "sharedDocs.expiringToday": "Hết hạn hôm nay",
   "sharedDocs.extend": "Gia hạn",

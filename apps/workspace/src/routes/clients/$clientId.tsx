@@ -602,7 +602,7 @@ function ClientDetailPage() {
   const activeOverflowLabel = overflowTabs.find((t) => t.id === activeTab)?.label
 
   return (
-    <PageContainer>
+    <PageContainer className="pb-28">
       {/* Back link */}
       <Link
         to="/clients"

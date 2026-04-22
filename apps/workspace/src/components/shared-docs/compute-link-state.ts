@@ -54,10 +54,11 @@ export function computeLinkState(input: ComputeLinkStateInput): LinkStateResult 
     return { state: 'active', daysUntilExpiry: null, isNearExpiry: false, expiresAt: null }
   }
 
-  // Math.floor → "days remaining" under-reports (2.9d → 2), matches UX intent ("at least N days left")
-  // and keeps the "≤ 3 days" near-expiry test stable at exact-day boundaries.
+  // Math.round → nearest-day display. Avoids the "extend by 14d shows 13 days" bug:
+  // backend sets expiresAt = now + 14d, client sees ~13.9998d by refetch, which floor'd to 13.
+  // Near-expiry test still uses rawDays (unrounded) so the 3-day threshold stays precise.
   const rawDays = (expiresAt.getTime() - now.getTime()) / MS_PER_DAY
-  const daysUntilExpiry = Math.floor(rawDays)
+  const daysUntilExpiry = Math.round(rawDays)
   const isNearExpiry = rawDays <= NEAR_EXPIRY_THRESHOLD_DAYS
 
   return { state: 'active', daysUntilExpiry, isNearExpiry, expiresAt }

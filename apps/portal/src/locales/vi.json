@@ -284,6 +284,8 @@
   "form.successMessage": "Thông tin của bạn đã được nhận. Đội ngũ của chúng tôi sẽ liên hệ với bạn sớm.",
   "form.successMessageWithSms": "Thông tin của bạn đã được nhận. Kiểm tra điện thoại để tải tài liệu lên.",
   "draft.title": "Bản nháp tờ khai thuế để xem xét",
+  "draft.titleFormat": "{{title}} để xem xét",
+  "draft.errorDeleted": "Tài liệu này đã bị CPA gỡ bỏ. Vui lòng liên hệ CPA để được hỗ trợ.",
   "draft.loading": "Đang tải bản nháp tờ khai thuế...",
   "draft.taxYear": "Năm thuế",
   "draft.version": "Phiên bản",

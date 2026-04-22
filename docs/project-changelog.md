@@ -1,7 +1,38 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-21 ICT
+> **Last Updated:** 2026-04-22 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-04-22
+
+### Frontend: Shared Docs Rework - Phase 06 (i18n Updates) ✅ COMPLETE
+**Status:** Complete (Phase 06 of multi-phase rework — Internationalization)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Added comprehensive i18n namespace `sharedDocs.*` (73 keys) to workspace locales for multi-section shared documents UI. Added `draft.titleFormat` + `draft.errorDeleted` keys to portal locales for dynamic document titles + soft-delete error messaging. Maintains 100% parity between English and Vietnamese translations. All keys validated against component usage via grep audit. Zero i18next missingKey warnings in dev console.
+
+**Files Changed:**
+- **UPDATED:** `apps/workspace/src/locales/en.json` — added `sharedDocs.*` namespace (73 keys) + `clientDetail.tabSharedDocs`, `clientDetail.sharedDocsError`
+- **UPDATED:** `apps/workspace/src/locales/vi.json` — matching Vietnamese translations for all workspace keys (flag provisional for native review)
+- **UPDATED:** `apps/portal/src/locales/en.json` — added `draft.titleFormat` (message with `{{title}}` interpolation), `draft.errorDeleted`
+- **UPDATED:** `apps/portal/src/locales/vi.json` — matching Vietnamese translations for portal keys
+
+**Key Additions:**
+- **Workspace:** Full CRUD label set (Add Section, Upload, Rename, Delete), upload states (Uploading, Success, Error), link states (Active, Expired, Revoked), modal confirmations, inline edit labels, version history labels, extend/revoke workflows
+- **Portal:** `draft.titleFormat` = "{{title}} for Review" (en) / "{{title}} để Xem Xét" (vi); `draft.errorDeleted` = "This document has been removed by your CPA..." (en) / Vietnamese equivalent (vi)
+
+**Quality Assurance:**
+- Grep audit: cross-referenced all component `t()` calls against new key list; 100% coverage
+- Locale parity: en.json key count matches vi.json; alphabetical ordering maintained
+- Interpolation: `{{title}}`, `{{name}}`, `{{days}}` format consistent with i18next v21+ defaults
+- Dev check: zero missingKey warnings in browser console
+- Typecheck: clean JSON syntax; no parsing errors
+
+**Backward Compatibility:** Old `draftReturn.*` keys untouched; remain valid for orphaned references. Scheduled for removal after code audit sprint.
+
+**Next Phase:** Unblocks Phase 07 (Testing + Verification) — all i18n strings now available for UI test assertions.
 
 ---
 

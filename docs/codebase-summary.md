@@ -312,14 +312,21 @@
 
 ## Localization (i18n)
 
-**Coverage:** 821 keys across English (en.json) + Vietnamese (vi.json)
+**Coverage:** 821+ keys across English (en.json) + Vietnamese (vi.json)
 
 **Team Management Keys:**
 - team.members, team.inviteDialog, team.roles, team.assignments
 - org.name, org.noOrg, org.noOrgDesc (zero-org fallback)
 
+**Shared Documents Keys (Phase 06):**
+- sharedDocs.* (heading, addSection, emptyTitle, emptyDesc, sectionNamePlaceholder, sectionNameLabel, submitCreate, cancel, dropHere, selectFile, uploadFile, deleteSection, errorTitle, errorMessage, linkCopied, copyFailed, etc.)
+- clientDetail.tabSharedDocs, clientDetail.sharedDocsError (workspace UI integration)
+
 **Schedule C Keys:**
 - expenseForm.categories, expenseForm.vehicle, expenseForm.autoSave, schedule.lockForm
+
+**Draft Return Keys (Portal):**
+- draft.titleFormat, draft.errorDeleted (Phase 06 string updates)
 
 ## Auth Flow (Clerk JWT)
 

@@ -329,7 +329,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
       {/* Action badges column */}
       <td className="px-4 py-3 hidden md:table-cell align-middle">
         <div className="flex flex-wrap gap-1 max-w-[200px]">
-          {!client.hasUploadLink && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
+          {!client.hasUploadLink && client.clientType === 'INDIVIDUAL' && ['FORM', 'GENERIC_FORM', 'STAFF_FORM', 'INCOMING_SMS', 'INCOMING_CALL'].includes(client.source) && (
             <ActionBadge type="need-upload-link" />
           )}
           {actionCounts?.hasNewActivity && (

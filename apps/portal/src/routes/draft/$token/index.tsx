@@ -123,7 +123,7 @@ function DraftViewerPage() {
     <div className="h-dvh flex flex-col">
       {/* Header - compact */}
       <div className="px-4 py-3 border-b border-border bg-card shrink-0">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-center mb-2">
           <img
             src={EllaLogoLight}
             alt="Ella"
@@ -138,7 +138,6 @@ function DraftViewerPage() {
             height={24}
             className="h-6 w-auto hidden dark:block"
           />
-          <div className="w-6" aria-hidden="true" />
         </div>
         <h1 className="text-base font-semibold text-foreground text-center mb-1">
           {t('draft.titleFormat', { title: data.title || t('draft.title') })}

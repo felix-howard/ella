@@ -171,7 +171,7 @@ export function BasicInfoForm({ data, onChange, errors, onPhoneBlur, isCheckingP
       {showBusinessToggle && (
         <div className="space-y-2 pt-4 border-t border-border mt-4">
           <label id="business-toggle-label" className="block text-sm font-medium text-foreground">
-            {t('newClient.ownsBusiness', 'Do you own a business?')}
+            {t('newClient.ownsBusiness', 'Do you want to file taxes for your business too?')}
             <span className="text-error ml-1">*</span>
           </label>
           <div className="flex gap-4" role="radiogroup" aria-labelledby="business-toggle-label">

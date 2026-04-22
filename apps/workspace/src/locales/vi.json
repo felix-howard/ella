@@ -807,7 +807,7 @@
   "newClient.errorPhoneLength": "Số điện thoại phải có 10 chữ số",
   "newClient.errorPhoneRequired": "Vui lòng nhập số điện thoại",
   "newClient.errorBusinessSelectionRequired": "Vui lòng chọn Có hoặc Không",
-  "newClient.ownsBusiness": "Bạn có sở hữu doanh nghiệp không?",
+  "newClient.ownsBusiness": "Bạn có muốn khai thuế cho business luôn không?",
   "newClient.cancel": "Hủy",
   "newClient.goBack": "Quay lại",
   "newClient.optional": "không bắt buộc",

@@ -66,6 +66,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // Draft return data type
 export interface DraftReturnData {
+  title: string
   clientName: string
   clientLanguage: 'EN' | 'VI'
   taxYear: number

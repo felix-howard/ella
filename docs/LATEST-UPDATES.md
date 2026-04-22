@@ -1,5 +1,77 @@
 # Latest Documentation Updates
 
+**Date:** 2026-04-21 | **Feature:** Shared Docs Rework Phase 05 (Portal Viewer Updates) COMPLETE | **Status:** Complete
+
+---
+
+## Shared Docs Rework - Phase 05: Portal Viewer Updates (Dynamic Title + Ella Logo)
+
+**Date:** 2026-04-21 | **Status:** Complete
+
+**In One Sentence:** Updated portal draft viewer to display dynamic document titles and Ella logo in header, added DOC_DELETED (410) error handling, with i18n keys pending Phase 06.
+
+**Implementation Details:**
+
+**Files Changed:**
+- `apps/portal/src/lib/api-client.ts` — Added `title: string` to `ShareableDocumentData` interface
+- `apps/portal/src/routes/draft/$token/index.tsx` — Logo imports, header redesign, dynamic title, DOC_DELETED error case
+
+**Key Features:**
+- Header layout: Logo (top-left) + centered title showing `{title} for Review`
+- Logo: EllaLogoLight/EllaLogoDark with dark mode support (24px height)
+- Title source: `data.title` from API with fallback to `draft.title` key
+- Error handling: New `DOC_DELETED` (410) case + suppresses retry button
+- XSS safe: Title rendered as text node (auto-escaped)
+- Mobile: Logo + title stay on single line, no wrapping
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Format key: `"{{title}} for Review"` (en), `"{{title}} để Xem Xét"` (vi)
+- `draft.errorDeleted` — Error message: `"This document has been removed by your CPA."`
+
+**Backward Compatibility:**
+- Title field added to API in Phase 02 (atomic deploy ensures presence)
+- Existing links work with backfilled title = "Draft Return"
+- Fallback to `draft.title` key if title missing (defensive degradation)
+
+**Testing:**
+- Mobile viewport (portrait/landscape) layout verified
+- Dark mode toggle tested
+- Error flows (invalid/revoked/expired/deleted) regression-checked
+- Portal typecheck passes
+
+---
+
+**Date:** 2026-04-21 | **Feature:** Shared Docs Rework Phase 03 (Clipboard Utility) COMPLETE | **Status:** Complete
+
+---
+
+## Shared Docs Rework - Phase 03: Clipboard Utility
+
+**Date:** 2026-04-21 | **Status:** Complete
+
+**In One Sentence:** Created reusable `copyToClipboard()` utility in `apps/workspace/src/lib/clipboard.ts` with automatic toast feedback + i18n, removed unsafe auto-copy from upload flow.
+
+**Implementation Details:**
+
+**New Utility (`apps/workspace/src/lib/clipboard.ts`):**
+- `copyToClipboard(text, options?)` → `Promise<boolean>`
+- Wraps `navigator.clipboard.writeText` with try/catch
+- Auto-shows toast on success (i18n: `common.linkCopied`) / failure (i18n: `common.copyFailed`)
+- Detects secure context + clipboard API availability
+- Options: `successMsg`, `errorMsg`, `showToast` (default: true)
+- Safe-guards: Only call from user gesture context (clicks, keypresses)
+
+**Bug Fix:**
+- Removed auto-copy after file upload in `draft-return-empty-state.tsx`
+- Root cause: File input `change` event fires outside gesture context → `NotAllowedError: Document is not focused`
+- Manual copy via user click = always safe (has focus)
+
+**File Changes:**
+- Created: `apps/workspace/src/lib/clipboard.ts` (49 lines)
+- Modified: `apps/workspace/src/components/draft-return/draft-return-empty-state.tsx` (removed auto-copy block after upload success)
+
+---
+
 **Date:** 2026-04-02 | **Feature:** TaxBandits API Migration Phase 3 (OAuth JWT, 3-Step Workflow, PDF + IRS Transmission) COMPLETE | **Status:** Complete
 
 ---

@@ -4,7 +4,13 @@
  * and delegates to the render module to mutate the summary panel.
  * XSS-safe: all DOM writes go through `textContent` / cloned templates.
  */
-import { calculatePrice, type CalcInput, type CalcResult } from "@/config/pricing";
+import {
+  AUDIT_PROTECTION,
+  CASH_PLAN,
+  calculatePrice,
+  type CalcInput,
+  type CalcResult,
+} from "@/config/pricing";
 import { formatBreakdown } from "./pricing-calculator-format";
 import { renderResult, resolveRefs } from "./pricing-calculator-render";
 
@@ -22,6 +28,17 @@ const DEFAULT_INPUT: CalcInput = {
     businessTaxReturn: 0,
   },
   salesTaxShops: 0,
+  rates: {
+    cashPlan: {
+      setup: CASH_PLAN.setup,
+      perEmployeeMonthly: CASH_PLAN.perEmployeeMonthly,
+      perOwnerMonthly: CASH_PLAN.perOwnerMonthly,
+    },
+    auditProtection: {
+      monthly: AUDIT_PROTECTION.monthly,
+      setup: AUDIT_PROTECTION.setup,
+    },
+  },
 };
 
 function clampInt(raw: string): number {

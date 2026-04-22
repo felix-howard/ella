@@ -45,7 +45,7 @@ interface IntakeBusinessFormProps {
 }
 
 const inputClass =
-  'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
+  'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
 
 export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusinessFormProps) {
   const { t } = useTranslation()

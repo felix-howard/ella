@@ -1,5 +1,5 @@
 /**
- * Leads List Page - Table view with search, filter, multi-select, and convert
+ * Leads List Page - Table view with search, filter, multi-select
  */
 import { useState, useMemo, useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -10,7 +10,6 @@ import { PageContainer } from '../../components/layout'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
 import { LeadListTable } from '../../components/leads/lead-list-table'
 import { LeadDetailDrawer } from '../../components/leads/lead-detail-drawer'
-import { ConvertLeadDialog } from '../../components/leads/convert-lead-dialog'
 import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { CampaignsTab } from '../../components/leads/campaigns-tab'
 import { api } from '../../lib/api-client'
@@ -29,7 +28,6 @@ function LeadsPage() {
   const [tagFilter, setTagFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
-  const [convertLead, setConvertLead] = useState<Lead | null>(null)
   const [showBulkSms, setShowBulkSms] = useState(false)
   const [page, setPage] = useState(1)
 
@@ -203,12 +201,7 @@ function LeadsPage() {
             lead={selectedLead}
             open={selectedLead !== null}
             onClose={() => setSelectedLead(null)}
-            onConvert={(lead) => { setSelectedLead(null); setConvertLead(lead) }}
           />
-
-          {convertLead && (
-            <ConvertLeadDialog lead={convertLead} onClose={() => setConvertLead(null)} />
-          )}
 
           {showBulkSms && (
             <BulkSmsDialog

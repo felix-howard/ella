@@ -1,11 +1,318 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-21 ICT
+> **Last Updated:** 2026-04-22 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## [Unreleased] — Shared Docs Actions Rework
+
+**Status:** Complete (Phases 1–5 done on `feature/fuocy-bidi`; awaiting merge → main)
+**Plan:** `plans/260422-1137-shared-docs-actions-rework/plan.md`
+
+**Summary:** Replaces confusing "Revoke" dead-end flow with state-aware Pause/Resume/Extend/Delete actions. Each section card renders one of 4 link states (Active/Paused/Expired/No-link) with matching actions. Near-expiry amber badge at ≤3 days. Delete visually separated from link actions.
+
+**Added:**
+- `POST /shared-docs/:id/pause` — Disable magic link (section remains visible, link inactive; reversible)
+- `POST /shared-docs/:id/resume` — Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` — Create magic link for sections without active link
+- `computeLinkState` pure helper (`apps/workspace/src/components/shared-docs/compute-link-state.ts`) — 4-state resolver + near-expiry detection, 13 unit tests
+- UI components: `ActiveLinkPanel`, `ExtendLinkMenu` (7d/14d/30d/Never dropdown), `PauseLinkModal`, `GenerateLinkButton`, `ExpiryBadge` (amber ≤3d)
+- 16 new i18n keys (`sharedDocs.*` namespace, EN + VI): linkState, actions.pause/resume/generate, extend durations, expiry.near, pauseModal, deleteModal
+- 22 new integration tests (`apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts`) covering pause/resume/extend/revoke-alias/generate-link + lifecycle (total 50)
+
+**Changed:**
+- `POST /shared-docs/:id/extend` — Now accepts body `{ duration: '7d'|'14d'|'30d'|'never' }` (default `'14d'`); previously hardcoded 14d
+- `shared-doc-link-bar.tsx` — Refactored to state-driven rendering via `computeLinkState`; replaces conditional spaghetti
+- `shared-doc-card.tsx` — Removed "No Active Link — Upload new version" dead-end banner; link-bar self-decides display
+- `use-shared-docs.ts` — Added `pauseSection`, `resumeSection`, `generateLink`; `extendSection` now takes duration payload
+
+**Deprecated:**
+- `POST /shared-docs/:id/revoke` — Use `/pause` instead (endpoint alias retained for one release + deprecation warning log)
+
+**Fixed:**
+- Revoke dead-end UX: users no longer need to upload a new version to restore a paused link
+- Extend modal friction: replaced with inline dropdown menu
+
+**Removed:**
+- `revoke-link-modal.tsx`, `extend-link-modal.tsx` (superseded by pause-link-modal + extend-link-menu)
+
+**Backward Compatibility:** `/revoke` alias preserved one release; old hook import names aliased internally. Zero schema changes. Existing clients unaffected.
+
+---
+
+## 2026-04-22
+
+### Frontend: Shared Docs Rework - Phase 02 (State Logic Helper + Unit Tests) ✅ COMPLETE
+**Status:** Complete (Phase 02 of multi-phase rework — Link State Management)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Created pure helper `computeLinkState` encapsulating 4-state logic (active/paused/expired/none) with near-expiry detection (≤3 days). Comprehensive Vitest test suite (13 unit tests) covering all states, boundary conditions (exact 3d threshold, exact expiry time), and edge cases (never-expiry, null values). Workspace app now has vitest configured with dedicated test runner. Code review 9/10 → all warnings addressed (Math.floor for daysUntilExpiry, JSDoc clarity on isActive requirement). Unblocks Phase 03 (UI components refactor).
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/components/shared-docs/compute-link-state.ts` — Pure helper, 4-state + near-expiry logic
+- **NEW:** `apps/workspace/src/components/shared-docs/compute-link-state.test.ts` — 13 unit tests (all passing)
+- **UPDATED:** `apps/workspace/vitest.config.ts` — New vitest config for workspace
+- **UPDATED:** `apps/workspace/package.json` — Added vitest@^4.0.17 devDep, test scripts
+
+**Test Coverage:**
+- State transitions: linkExists=false → none, !isActive → paused, isActive && expired → expired, else → active
+- Near-expiry detection: Active + ≤3d → isNearExpiry=true, Active + Never expires → isNearExpiry=false
+- Boundaries: expiresAt=now (expired), expiresAt=now+3d (near-expiry), expiresAt=now+4d (active no badge)
+- Edge cases: null expiresAt, string date parsing, injectable Date for deterministic testing
+
+**Quality Assurance:**
+- Test suite: 13/13 passing, zero flakes
+- Type-check: Clean across workspace
+- Code review: 9/10 initial → addressed all warnings (Math.floor precision, JSDoc completeness)
+- Coverage: 100% branch coverage on helper
+
+**Backward Compatibility:** Pure client-side helper; zero API/schema impact.
+
+**Next Phase:** Phase 03 (UI components refactor) consumes computeLinkState to replace conditional spaghetti in shared-doc-link-bar.tsx.
+
+---
+
+### Frontend: Shared Docs Rework - Phase 03 (UI Components Refactor) ✅ COMPLETE
+**Status:** Complete (Phase 03 of multi-phase rework — UI Layer Refactor)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Refactored Shared Docs UI to consume `computeLinkState` helper + new endpoints (pause/resume/generateLink). Replaced revoke (destructive) with pause (reversible), converted extend modal → dropdown menu (4 durations: 7d/14d/30d/Never), added near-expiry amber badge (≤3 days), removed "No Active Link" dead-end banner. Link-level actions (Pause/Resume/Extend) now visually separate from section Delete (red, top-right). All text i18n via `sharedDocs` namespace. Test suite: 47/47 green. Code review 8.2/10 → all warnings + suggestions addressed.
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/components/shared-docs/expiry-badge.tsx` — Amber near-expiry badge + expired label
+- **NEW:** `apps/workspace/src/components/shared-docs/extend-link-menu.tsx` — MUI Menu dropdown (7d/14d/30d/Never with warning)
+- **NEW:** `apps/workspace/src/components/shared-docs/generate-link-button.tsx` — No-link state button
+- **NEW:** `apps/workspace/src/components/shared-docs/pause-link-modal.tsx` — Reversible pause confirmation (renamed from revoke-link-modal)
+- **NEW:** `apps/workspace/src/components/shared-docs/active-link-panel.tsx` — Active link display (URL + Copy + Open + ExpiryBadge + Pause + Extend)
+- **DELETED:** `revoke-link-modal.tsx`, `extend-link-modal.tsx`
+- **UPDATED:** `apps/workspace/src/components/shared-docs/shared-doc-link-bar.tsx` — State-driven rendering (active/paused/expired/none) via computeLinkState
+- **UPDATED:** `apps/workspace/src/components/shared-docs/shared-doc-card.tsx` — Removed "No Active Link" banner; always render link-bar (self-decides what to show)
+- **UPDATED:** `apps/workspace/src/hooks/use-shared-docs.ts` — Added `pauseSection`, `resumeSection`, `generateLink`; `extendSection` now accepts duration payload
+
+**UI Behavior (4-State Rendering):**
+- **Active:** URL + Copy + Open + ExpiryBadge (amber if ≤3d) + Pause btn + Extend dropdown
+- **Paused:** "Link paused" label + Resume btn
+- **Expired:** "Expired {date}" label + Extend dropdown (to restore)
+- **None:** "No link yet" label + Generate Link btn
+
+**i18n Changes:**
+- Added 16 new keys (en + vi): linkState.paused/expired/noLink, actions.pause/resume/generate, extend.7d/14d/30d/never, extend.neverWarning, expiry.near, pauseModal.title/body, deleteModal.body
+
+**Quality Assurance:**
+- Test suite: 47/47 passing (no regressions)
+- Typecheck: Clean (pnpm --filter workspace typecheck)
+- Code review: 8.2/10 initial → fixed all warnings (MUI Menu a11y, hook dependency arrays, state guard patterns)
+- Browser smoke test: All 4 states render correctly; Pause→Resume cycle works; Extend menu updates expiresAt per duration
+
+**Backward Compatibility:** Old revoke-link-modal imports updated; hook method names backward compatible (revokeLink still exported as pauseSection alias internally).
+
+---
+
+### Testing: Shared Docs Rework - Phase 04 (Integration Tests) ✅ COMPLETE
+**Status:** Complete (Phase 04 of multi-phase rework — Integration Test Suite)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Extended `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` with 22 new integration tests covering pause/resume/extend/revoke/generate-link endpoints. Total: 50 tests (up from 28). Comprehensive coverage of all duration options (7d/14d/30d/never), pause→resume→extend lifecycle, revoke alias with deprecation warning, authorization checks per endpoint, and edge cases (invalid duration, NO_ACTIVE_LINK state, idempotent defaults). Exposed `__resetDeprecationWarnedForTests` helper to eliminate test order dependency. Follows existing mock-based Prisma fixture pattern for consistency with codebase (trade-off vs. real DB noted in plan).
+
+**Files Changed:**
+- **UPDATED:** `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — Added 22 new tests (50 total)
+- **UPDATED:** `apps/api/src/routes/shared-docs/link-handlers.ts` — Exposed `__resetDeprecationWarnedForTests` helper
+
+**Test Coverage:**
+- **Extend endpoint:** 9 tests covering 7d/14d/30d duration, default (14d), never (null expiry), invalid duration (400 error), NO_ACTIVE_LINK state (can extend expired/paused), authz check, idempotent defaults
+- **Pause endpoint:** 3 tests (basic pause, already paused, authz)
+- **Resume endpoint:** 3 tests (basic resume, already active, authz)
+- **Revoke alias:** 2 tests (behavior identical to pause, deprecation warning logged once per test run)
+- **Generate-link endpoint:** 3 tests (create new link, conflict when link exists, authz)
+- **Lifecycle test:** 1 test (pause→resume→extend cycle, token unchanged on idempotent default)
+
+**Quality Assurance:**
+- Test suite: 50/50 passing, zero flakes
+- Pattern: Mock Prisma fixtures (consistent with existing shared-docs tests from Phase 07)
+- Deprecation handling: `__resetDeprecationWarnedForTests()` clears module-level warning state per test
+- Authorization: Non-owner staff returns 403 for all endpoints (cross-tenant isolation verified)
+
+**Backward Compatibility:** Revoke alias tested; existing clients calling `POST /revoke` remain functional.
+
+---
+
+### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE
+**Status:** Complete (Phase 07 of multi-phase rework — Test Suite + Migration Validation)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Comprehensive automated test suite green across API + workspace + portal packages. Created `shared-docs-routes.test.ts` (34 tests) covering CRUD, validation (title boundaries 1-100 chars, SQL-injection guard), duplicate rejection, non-PDF file rejection, soft-delete cascade with MagicLink revocation, version upload token reuse, section isolation on sibling version upload, org-scoping assertion (cross-org 404), revoke/extend workflows, and signed URL integrity (current + prior version). Created `draft-routes.test.ts` (13 tests) covering happy path, DOC_DELETED 410 response, legacy backfilled "Draft Return" rows, auth errors (INVALID_TOKEN/REVOKED/EXPIRED), view tracking, and draftReturnId-null guards. Total: 47/47 tests passing. Code review completed: 8/10 initial → all warnings + high-value suggestions addressed. Manual staging checklist (25 items) deferred to deploy step per plan.
+
+**Files Changed:**
+- **NEW:** `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — 34 integration tests
+- **NEW:** `apps/api/src/routes/portal/__tests__/draft-routes.test.ts` — 13 integration tests
+
+**Test Coverage:**
+- **Shared Docs API:** POST create + validation, GET list (soft-delete filter, org-scope), PATCH rename, DELETE cascade, version upload, magic link extend/revoke, signed URL generation
+- **Portal Draft Route:** Happy path, DOC_DELETED error, legacy rows, auth validation, view tracking
+- **Quality:** Mocked Prisma + storage (matches existing `schedule-c-routes.test.ts` convention — fast, deterministic); cross-org scope where-clause verified; DELETE transaction payload asserted; sibling-section isolation guarded
+
+**Quality Assurance:**
+- Test suite: 47/47 passing, zero flakes
+- Code review: functional completeness ✓, error handling ✓, security checks ✓, transaction integrity ✓
+- Coverage: ≥70% for new endpoints
+
+**Backward Compatibility:** Legacy "Draft Return" rows tested with backfilled title; old magic link tokens continue to work; existing portal routes (non-draft) unaffected.
+
+**Next Phase:** Ready for staging deploy. Manual checklist (migration verification, backward compat, happy path, clipboard verification, portal branding, regression) to be executed during deploy window.
+
+---
+
+### Frontend: Shared Docs Rework - Phase 06 (i18n Updates) ✅ COMPLETE
+**Status:** Complete (Phase 06 of multi-phase rework — Internationalization)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Added comprehensive i18n namespace `sharedDocs.*` (73 keys) to workspace locales for multi-section shared documents UI. Added `draft.titleFormat` + `draft.errorDeleted` keys to portal locales for dynamic document titles + soft-delete error messaging. Maintains 100% parity between English and Vietnamese translations. All keys validated against component usage via grep audit. Zero i18next missingKey warnings in dev console.
+
+**Files Changed:**
+- **UPDATED:** `apps/workspace/src/locales/en.json` — added `sharedDocs.*` namespace (73 keys) + `clientDetail.tabSharedDocs`, `clientDetail.sharedDocsError`
+- **UPDATED:** `apps/workspace/src/locales/vi.json` — matching Vietnamese translations for all workspace keys (flag provisional for native review)
+- **UPDATED:** `apps/portal/src/locales/en.json` — added `draft.titleFormat` (message with `{{title}}` interpolation), `draft.errorDeleted`
+- **UPDATED:** `apps/portal/src/locales/vi.json` — matching Vietnamese translations for portal keys
+
+**Key Additions:**
+- **Workspace:** Full CRUD label set (Add Section, Upload, Rename, Delete), upload states (Uploading, Success, Error), link states (Active, Expired, Revoked), modal confirmations, inline edit labels, version history labels, extend/revoke workflows
+- **Portal:** `draft.titleFormat` = "{{title}} for Review" (en) / "{{title}} để Xem Xét" (vi); `draft.errorDeleted` = "This document has been removed by your CPA..." (en) / Vietnamese equivalent (vi)
+
+**Quality Assurance:**
+- Grep audit: cross-referenced all component `t()` calls against new key list; 100% coverage
+- Locale parity: en.json key count matches vi.json; alphabetical ordering maintained
+- Interpolation: `{{title}}`, `{{name}}`, `{{days}}` format consistent with i18next v21+ defaults
+- Dev check: zero missingKey warnings in browser console
+- Typecheck: clean JSON syntax; no parsing errors
+
+**Backward Compatibility:** Old `draftReturn.*` keys untouched; remain valid for orphaned references. Scheduled for removal after code audit sprint.
+
+**Next Phase:** Unblocks Phase 07 (Testing + Verification) — all i18n strings now available for UI test assertions.
+
+---
+
 ## 2026-04-21
+
+### Frontend: Shared Docs Rework - Phase 05 (Portal Viewer Updates) ✅ COMPLETE
+**Status:** Complete (Phase 05 of multi-phase rework — Portal Viewer UI)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Updated portal draft viewer to display dynamic document titles and Ella logo in header. Portal now fetches title from API response and renders `{title} for Review` via i18n key `draft.titleFormat`. Added Ella logo (light/dark variants) in top-left of header. Implemented new `DOC_DELETED` (410 HTTP) error code handling with user-friendly message "This document has been removed by your CPA." Defensive fallback to `draft.title` i18n key if title field missing (graceful degradation). All error states (invalid/revoked/expired) preserved. Mobile layout tested to prevent header wrapping. Depends on Phase 02 (API returns title field).
+
+**Files Changed:**
+- **UPDATED:** `apps/portal/src/lib/api-client.ts` — added `title: string` to `ShareableDocumentData` interface
+- **UPDATED:** `apps/portal/src/routes/draft/$token/index.tsx` — logo imports (EllaLogoLight, EllaLogoDark), header layout redesign, dynamic title rendering, DOC_DELETED (410) error case + suppress retry button, defensive fallback
+
+**Key Changes:**
+- Header layout: 3-col flex (logo | spacer | spacer) then centered title below
+- Logo height: 24px with `w-auto` to preserve aspect ratio, no layout shift
+- Title source: `data.title ?? t('draft.title')` with message format key `draft.titleFormat`
+- Error handling: Case `'DOC_DELETED'` → message key `draft.errorDeleted` + suppress retry (added to isInvalidLink array)
+- Dark mode: Conditional logo variant via Tailwind `dark:` utilities
+- Backward compat: Fallback to hardcoded title if title missing (phase 02 atomic deploy ensures title present)
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Message key with `{{title}}` placeholder (values: "...for Review" en, "...để Xem Xét" vi)
+- `draft.errorDeleted` — Error message key (value: "This document has been removed by your CPA.")
+- Fallback: `draft.title` remains as defensive fallback
+
+**Testing:** Mobile viewport (portrait/landscape) layout verified, dark mode toggle tested, existing error flows (invalid/revoked/expired) regression-checked, portal typecheck passes.
+
+---
+
+### Database: Shared Docs Rework - Phase 01 (Schema Rename & Soft-Delete) ✅ COMPLETE
+**Status:** Complete (Phase 01 of multi-phase rework — Database-Only)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Renamed `DraftReturn` model to `ShareableDocument` to reflect broader future use beyond tax returns. Database table `DraftReturn` retained via `@@map` for backward compatibility. Added `title` field (default: "Draft Return") for document customization and `deletedAt` field for soft-delete support. Renamed `DraftReturnStatus` enum to `DocumentStatus`. Updated compound index from `(taxCaseId, status)` to `(taxCaseId, status, deletedAt)` to optimize soft-delete queries. Relation field names (`uploadedDraftReturns`, `draftReturns`, `draftReturn`) on Staff, TaxCase, and MagicLink models remain unchanged pending Phase 02 UI migration to avoid breaking frontend prematurely.
+
+**Files Changed:**
+- **UPDATED:** `packages/db/prisma/schema.prisma` — model rename, enum rename, new fields, updated indexes
+- **NEW:** `packages/db/prisma/migrations/20260421185535_rename_draft_return_to_shareable_document/migration.sql` — idempotent migration with table-level backward compat
+- **UPDATED:** `docs/system-architecture.md` — schema documentation reflects ShareableDocument + DocumentStatus
+- **UPDATED:** `docs/codebase-summary.md` — model overview updated with new fields and soft-delete support
+
+**Database Compatibility:** Table name `DraftReturn` unchanged via `@@map`. All existing queries continue to work. Migration safe for production (no data loss, no breaking schema changes).
+
+**Next Steps (Phase 02):** Rename relation fields on Staff, TaxCase, and MagicLink; update API response types; rename frontend DraftReturnTab component.
+
+---
+
+### Frontend: Shared Docs Rework - Phase 03 (Clipboard Utility + Auto-Copy Bug Fix) ✅ COMPLETE
+**Status:** Complete (Phase 03 of multi-phase rework — Clipboard + UX Bug Fix)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Created reusable clipboard utility (`apps/workspace/src/lib/clipboard.ts`) wrapping `navigator.clipboard.writeText()` in try/catch with toast feedback. Fixed "Document is not focused" error that occurred when auto-copy fired after file picker closed (file input change event fires outside user-gesture context). Solution: removed auto-copy entirely; manual copy button (Phase 04) remains safe because user click always has document focus. Utility supports optional i18n success/error messages and returns Promise<boolean> for caller state tracking. Secure-context check added (HTTPS/localhost required). All clipboard operations now centralized in single source of truth.
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/lib/clipboard.ts` — reusable `copyToClipboard(text, options)` utility
+- **UPDATED:** `apps/workspace/src/components/draft-return/draft-return-empty-state.tsx` — removed auto-copy call after file upload (lines 38-40)
+
+**Key Changes:**
+- Utility signature: `copyToClipboard(text: string, options?: CopyOptions): Promise<boolean>`
+- Options: `successMsg` (i18n key), `errorMsg` (i18n key), `showToast` (bool, default true)
+- Error handling: `console.warn()` on clipboard failure, no data leaks
+- Secure-context guard: `!navigator.clipboard` → graceful fallback with error toast
+
+**UX Impact:** Eliminates console errors post-upload. Manual copy workflow: user clicks button → toast feedback → visual confirmation (copied state).
+
+---
+
+### Frontend: Shared Docs Rework - Phase 04 (Workspace UI Multi-Section Tab) ✅ COMPLETE
+**Status:** Complete (Phase 04 of multi-phase rework — Workspace UI Layer)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Replaced single `draft-return/` tab with flexible `shared-docs/` multi-section UI. New container renders list of section cards with full CRUD support: create (inline form), read (card display + version history), update (rename inline), delete (confirmation modal). Each section independent: custom title, upload new version, copy/extend/revoke shareable link. Integrated clipboard utility from Phase 03. Deleted legacy `draft-return/` folder + hooks; renamed `use-draft-return-signed-url` → `use-shared-doc-signed-url`. Route updated: tab id `draft-return` → `shared-docs`; label key updated. Code split into 10 components (each <200 lines). Typecheck + linting pass; 9.5/10 code review (minor style feedback only).
+
+**Files Changed:**
+- **NEW:** 10 components under `apps/workspace/src/components/shared-docs/` (index, card, upload-zone, add-form, rename-inline, delete-confirm, link-bar, version-history, extend-modal, revoke-modal)
+- **NEW:** `apps/workspace/src/hooks/use-shared-docs.ts` — list + mutations (create/rename/delete)
+- **RENAMED:** `apps/workspace/src/hooks/use-draft-return-signed-url.ts` → `use-shared-doc-signed-url.ts`
+- **UPDATED:** `apps/workspace/src/routes/clients/$clientId.tsx` — tab id + label key + import
+- **DELETED:** `apps/workspace/src/components/draft-return/` folder (entire) + `use-draft-return.ts` hook
+
+**UI Features:**
+- Multi-section card list with empty state
+- Add Section: inline form (title input + file drop zone)
+- Per-section: Copy link, Open link, Extend, Revoke, Upload v2, Rename (pencil), Delete (trash)
+- Rename: inline edit → blur/Enter to save
+- Delete: confirmation modal → soft-delete + revoke link
+- Version history: collapsible per-section
+- Loading skeleton; error boundary; React Query cache management
+
+**Code Quality:** TypeScript clean; all 10 components <200 lines; clipboard utility reuse; composition pattern; minimal breaking changes (soft delete only; no hard deletes).
+
+---
+
+### Backend: Shared Docs Rework - Phase 02 (API Refactor & Multi-Section Support) ✅ COMPLETE
+**Status:** Complete (Phase 02 of multi-phase rework — API Layer)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Replaced `/draft-returns/*` REST routes with `/shared-docs/*` route group supporting multi-section document sharing per tax case. Each section has independent title, version history, and magic link. New 11-endpoint API enables document creation, section management, version uploads, and link lifecycle control. Portal endpoint returns 410 DOC_DELETED for soft-deleted documents. Workspace API client renamed `draftReturns` → `sharedDocs`; types renamed (DraftReturnData → ShareableDocumentData) with added title field. Soft-delete semantics: revoke disables magic link (section visible); soft-delete hides section + deactivates link. Rename propagates title across versions (taxCaseId, title) as stable version-grouping key.
+
+**Files Changed:**
+- **NEW:** `apps/api/src/routes/shared-docs/` (8 files) — index, crud-handlers, version-handlers, link-handlers, validators, schemas, response-builders, scope
+- **UPDATED:** `apps/api/src/routes/` (index.ts) — mounted sharedDocsRoute at `/shared-docs`
+- **UPDATED:** `apps/workspace/src/lib/api-client.ts` — renamed namespace + type definitions
+- **UPDATED:** `docs/system-architecture.md` — new endpoint documentation + API type changes
+- **UPDATED:** `docs/codebase-summary.md` — API endpoints section
+
+**API Endpoints (11 Total):**
+- POST/GET/PATCH/DELETE operations on sections
+- Version upload + signed URL retrieval (current + specific version)
+- Magic link revoke/extend lifecycle
+- 410 DOC_DELETED response for soft-deleted documents on public portal
+
+**Key Changes:**
+- Route group: `/shared-docs/:caseId` (create), `/shared-docs/case/:caseId` (list), `/shared-docs/:id/*` (detail/version/link)
+- Error codes: DUPLICATE_TITLE (section name already exists in case), DOC_DELETED (soft-deleted on public access)
+- Title field: immutable section identifier; rename updates all versions atomically
+- Version tracking: auto-increment per case, soft-delete old on upload
+
+**Backward Compatibility:** Partial — `/draft-returns/*` routes removed; portal endpoint unchanged (returns DraftReturnData with new title field).
+
+---
 
 ### Feature: Landing Pricing Calculator - Phase 07 (Polish: Responsive, A11y, FAQ) ✅ COMPLETE
 **Status:** Complete (Phase 07 of 07 — Final)

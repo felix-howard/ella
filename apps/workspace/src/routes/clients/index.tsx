@@ -28,7 +28,7 @@ function ClientListPage() {
   const [managedById, setManagedById] = useState<string | undefined>(undefined)
   const [tagFilter, setTagFilter] = useState<string | undefined>(undefined)
   const [attention, setAttention] = useState<string | undefined>(undefined)
-  const [clientTypeFilter, setClientTypeFilter] = useState<ClientType | undefined>(undefined)
+  const [clientTypeFilter, setClientTypeFilter] = useState<ClientType | undefined>('INDIVIDUAL')
 
   // Debounce search query for server-side search (300ms delay)
   const [debouncedSearch, isSearchPending] = useDebouncedValue(searchQuery, 300)

@@ -451,7 +451,7 @@ model Staff {
   createdClients    Client[]  @relation("CreatedClients")
   updatedClients    Client[]  @relation("UpdatedClients")
   documentViews     DocumentView[]
-  uploadedDraftReturns DraftReturn[]
+  uploadedDraftReturns ShareableDocument[]
   sentMessages  Message[] @relation("SentMessages")
 
   // Notification subscriptions (admin subscribes to other staff's client uploads)
@@ -719,7 +719,7 @@ model TaxCase {
   documentGroups    DocumentGroup[]
   scheduleCExpense  ScheduleCExpense?
   scheduleEExpense  ScheduleEExpense?
-  draftReturns      DraftReturn[]
+  draftReturns      ShareableDocument[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -1032,7 +1032,7 @@ model MagicLink {
 
   // Optional reference for DRAFT_RETURN type
   draftReturnId String?
-  draftReturn   DraftReturn? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
+  draftReturn   ShareableDocument? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
 
   lastUsedAt DateTime?
   usageCount Int      @default(0)
@@ -1192,7 +1192,7 @@ enum ScheduleEStatus {
   LOCKED      // CPA locked, no more edits
 }
 
-enum DraftReturnStatus {
+enum DocumentStatus {
   ACTIVE      // Current version, link valid
   REVOKED     // Link manually revoked
   EXPIRED     // Link expired
@@ -1339,11 +1339,15 @@ model ScheduleEExpense {
 // DRAFT RETURN SHARING
 // ============================================
 
-// Draft tax return sharing - CPAs upload PDF for client review via portal
-model DraftReturn {
+// Shareable document sharing - CPAs upload PDFs (draft returns, tax analyses, etc.) for client review via portal
+// Table name preserved as `draft_returns` via @@map to avoid data movement during rename
+model ShareableDocument {
   id            String   @id @default(cuid())
   taxCaseId     String
   taxCase       TaxCase  @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  // Display title shown to client (e.g. "Draft Return", "Tax Analysis")
+  title         String   @default("Draft Return")
 
   // PDF storage
   r2Key         String   @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
@@ -1358,11 +1362,14 @@ model DraftReturn {
   uploadedBy    Staff    @relation(fields: [uploadedById], references: [id])
 
   // Status
-  status        DraftReturnStatus @default(ACTIVE)
+  status        DocumentStatus @default(ACTIVE)
 
   // View tracking
   viewCount     Int      @default(0)
   lastViewedAt  DateTime?
+
+  // Soft delete — set when CPA removes the section
+  deletedAt     DateTime?
 
   // Magic link for portal access
   magicLinks    MagicLink[]
@@ -1372,8 +1379,9 @@ model DraftReturn {
   updatedAt     DateTime @updatedAt
 
   @@index([taxCaseId])
-  @@index([taxCaseId, status])
+  @@index([taxCaseId, status, deletedAt])
   @@index([status])
+  @@map("DraftReturn")
 }
 
 // ============================================

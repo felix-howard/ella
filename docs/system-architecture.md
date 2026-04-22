@@ -102,11 +102,26 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Retry logic: 3 attempts, exponential backoff
 - Pagination: limit=20, max=100
 - **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
-- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, businesses (deprecated in favor of clientGroups)
+- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, sharedDocs (Phase 02, replaces draftReturns), businesses (deprecated in favor of clientGroups)
+- **Phase 02 API Client Changes (workspace):**
+  - `api.draftReturns.*` renamed to `api.sharedDocs.*`
+  - `DraftReturnData` → `ShareableDocumentData` (includes title field)
+  - New types: `SharedDocListItem`, `ListSharedDocsResponse`, `SectionDetailResponse`, `CreateSectionResponse`
+  - Error code: `DOC_DELETED` (410) for soft-deleted documents
 - **Portal API Methods (portalApi):**
   - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats
-  - `getDraft(token)` - Fetch draft return data + signed PDF URL
+  - `getDraft(token)` - Fetch document data + signed PDF URL (includes title)
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
+
+**Frontend Utilities (Phase 03 - Shared Docs Rework):**
+- **Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
+  - `copyToClipboard(text, options?)` → `Promise<boolean>`
+  - Wraps `navigator.clipboard.writeText` with try/catch + automatic toast feedback
+  - Validates secure context (HTTPS/localhost) before API call
+  - Returns `true` on success, `false` on failure (no exception thrown)
+  - Options: `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
+  - **Safety:** Only safe to call from user gesture context (click, keypress). Auto-copy after async operations (e.g., file upload) risks `NotAllowedError: Document is not focused`. Always use manual copy buttons for user-initiated UI actions.
+  - Used in: Shared Docs card copy-link button (Phase 04+), any text-to-clipboard flow
 
 ## Backend Layer
 
@@ -122,12 +137,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Draft Return Sharing (6 - Phase 02 Backend + Phase 04 Frontend Complete):**
-- `POST /draft-returns/:caseId/upload` - Upload PDF, create DraftReturn + MagicLink (14-day TTL)
-- `GET /draft-returns/:caseId` - Get current draft + link status + version history
-- `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
-- `POST /draft-returns/:id/extend` - Extend expiry by 14 days
-- `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
+**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework Complete, Phase 03 UI Refactor Complete):**
+- `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
+- `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
+- `GET /shared-docs/:id` - Get section detail (title, status, version count, link status)
+- `PATCH /shared-docs/:id` - Rename section; updates title across all versions
+- `DELETE /shared-docs/:id` - Soft-delete section (deletedAt set, hides from UI)
+- `POST /shared-docs/:id/version` - Upload new version PDF (increments version counter, soft-deletes old)
+- `POST /shared-docs/:id/pause` - Disable magic link (section visible, link inactive; reversible)
+- `POST /shared-docs/:id/resume` - Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` - Create magic link for sections without one
+- `POST /shared-docs/:id/extend` - Extend link expiry; accepts body { duration: '7d'|'14d'|'30d'|'never' }, default '14d'
+- `POST /shared-docs/:id/revoke` - **DEPRECATED** — use `/pause` (alias kept for backward compat)
+- `GET /shared-docs/:id/signed-url` - Fetch current version PDF from R2 (24h TTL)
+- `GET /shared-docs/:id/version/:version/signed-url` - Fetch specific version PDF from R2
+- `GET /portal/draft/:token` - Validate token, return section data + PDF signed URL (public). Returns 410 DOC_DELETED if soft-deleted.
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
 **Portal Document Upload (Phase 2 - Entity Separation - Simplified):**
@@ -149,15 +173,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Bilingual: Auto-syncs language from client preference (EN/VI)
 - Error handling: Invalid token, expired link, revoked link, PDF unavailable, browser unsupported
 
-**Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
-- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page
-- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (draft summary + actions)
-- Upload: Drag-drop or file picker, PDF validation (50MB max), upload progress
-- Link display: Filename, fileSize, status badge, shareable link with copy button
-- Actions: Extend link (14 days), Revoke link (with confirmation), Upload new version
-- Version history: Track all drafts, display uploadedBy + timestamp, mark current version
-- View tracking: Display viewCount + lastViewedAt
-- i18n: 26 keys (EN/VI) for all UI strings
+**Workspace Shared Docs Tab (Phase 04 - Workspace UI Complete):**
+- Component: `SharedDocsTab` - Main tab in `/clients/:id` page, manages multi-section ShareableDocument uploads
+- Sub-components: `SharedDocCard` (per-doc display), `SharedDocUploadZone` (drag-drop/file picker), `SharedDocLinkBar` (state-driven link display: active/paused/expired/none), `SharedDocVersionHistory` (version list), `AddSectionInlineForm`, `RenameSectionInline`, `DeleteSectionConfirm`, `ActiveLinkPanel`, `ExtendLinkMenu` (7d/14d/30d/Never dropdown), `PauseLinkModal`, `GenerateLinkButton`, `ExpiryBadge` (amber if ≤3 days)
+- Hooks: `useSharedDocs()` (CRUD + pauseSection/resumeSection/generateLink + extendSection with duration), `useSharedDocSignedUrl()` (R2 URL generation), `computeLinkState` helper (pure 4-state resolver)
+- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (multi-section list + actions)
+- Upload: Drag-drop/file picker, PDF validation (50MB max), automatic multi-section parsing, progress tracking
+- Link mgmt: Per-section links (14-day default TTL), copy-to-clipboard (Phase 04 clipboard utility), Pause/Resume (reversible), Extend menu (7d/14d/30d/Never), Generate Link for no-link state, near-expiry amber badge (≤3 days), status badges
+- Version history: All document versions per taxCase, uploadedBy + timestamp tracking, current version highlight
+- View tracking: Display viewCount + lastViewedAt per document
+- Quick actions: `quick-actions-bar.tsx` lists all active section links with copy buttons
+- i18n: 26+ keys (EN/VI) for all UI strings, multi-section naming conventions
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
@@ -368,8 +394,8 @@ Organization (root entity)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
-- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links). Indexes: taxCaseId (single), taxCaseId+status (compound), unique(taxCaseId, version)
-- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
+- **ShareableDocument** (Prisma model name; table preserved as `DraftReturn` via `@@map`) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return", min 1 / max 100 chars, unique per case+ACTIVE+non-deleted), version tracking (auto-increment per section via (taxCaseId, title) grouping; rename propagates title across all versions to keep grouping stable), uploadedById FK to Staff, status (DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete — single source of truth for "removed"), magicLinks relation. Indexes: taxCaseId, (taxCaseId, status, deletedAt)
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 - **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
@@ -384,7 +410,7 @@ Organization (root entity)
 - Organization: clerkOrgId (unique), name
 - Staff: organizationId + clerkId (compound unique)
 - Client: organizationId + status, managedById (FK index)
-- DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
+- ShareableDocument: taxCaseId (single), taxCaseId + status + deletedAt (compound), status (single) - optimize case-to-documents + status filtering with soft-delete awareness
 - Messages: conversationId + createdAt (ordering)
 
 ## Phase 04: Business Entity Separation — Data Migration
@@ -633,32 +659,40 @@ apps/portal/src/components/pdf-viewer/ (modular structure)
 - `INVALID_TOKEN` - Token not found in database
 - `LINK_REVOKED` - Staff revoked the draft access
 - `LINK_EXPIRED` - Token expiresAt date passed
+- `DOC_DELETED` - Document soft-deleted by CPA (HTTP 410 from Phase 02 API) - Phase 05 addition, suppresses retry button
 - `PDF_UNAVAILABLE` - R2 signed URL generation failed
 - Browser unsupported - iFrame load error, fallback to download/open buttons
 
 **API Endpoints:**
-- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData
-- `POST /portal/draft/:token/viewed` - Public, fire & forget, updates view tracking
+- `GET /shared-docs/:token` - Public, no auth, returns ShareableDocumentData (multi-section portal view)
+- `POST /shared-docs/:token/viewed` - Public, fire & forget, updates view tracking per section
 
 **Portal API Client (apps/portal/src/lib/api-client.ts):**
 ```typescript
-export interface DraftReturnData {
+export interface ShareableDocumentData {
   clientName: string           // Display name
   clientLanguage: 'EN' | 'VI'  // Auto-sync language
   taxYear: number              // Tax year
-  version: number              // Draft version
+  version: number              // Document version
+  title: string                // Section title (custom or "Draft Return" default) - Phase 05 addition
   filename: string             // Original filename
   uploadedAt: string           // ISO8601
   pdfUrl: string              // Signed R2 URL (15min expiry)
+  sections?: Array<{           // Multi-section support (Phase 04)
+    id: string                 // Section identifier
+    title: string              // Section title
+    status: 'ACTIVE' | 'REVOKED' // Section-level status
+  }>
 }
 
-portalApi.getDraft(token: string) → Promise<DraftReturnData>
-portalApi.trackDraftView(token: string) → Promise<void>
+portalApi.getSharedDoc(token: string) → Promise<ShareableDocumentData>
+portalApi.trackSharedDocView(token: string) → Promise<void>
 ```
 
 **Localization Keys:**
 ```
-draft.title              → "Draft Tax Return for Review"
+draft.title              → "Draft Tax Return for Review" (fallback if title missing - Phase 05)
+draft.titleFormat        → "{{title}} for Review" (dynamic title per section - Phase 05, pending i18n)
 draft.loading            → "Loading your draft tax return..."
 draft.taxYear            → "Tax Year"
 draft.version            → "Version"
@@ -668,6 +702,7 @@ draft.errorLoading       → "Could not load the draft tax return. Please try ag
 draft.errorInvalidLink   → "This link is not valid. Please contact your CPA for a new link."
 draft.errorRevoked       → "This link has been revoked. Please contact your CPA."
 draft.errorExpired       → "This link has expired. Please contact your CPA for a new link."
+draft.errorDeleted       → "This document has been removed by your CPA." (Phase 05, pending i18n)
 draft.linkInvalid        → "Link Invalid"
 draft.viewerUnsupported  → "PDF Viewer Unavailable"
 draft.viewerFallback     → "Your browser cannot display PDFs directly. Please use the buttons below."
@@ -684,7 +719,7 @@ draft.download           → "Download PDF"
 
 **View Tracking:**
 - Called on successful PDF load (fire & forget pattern)
-- Updates `DraftReturn.viewCount` and `lastViewedAt`
+- Updates `ShareableDocument.viewCount` and `lastViewedAt`
 - Staff can monitor engagement in workspace dashboard
 - No sensitive data logged (token only)
 
@@ -790,6 +825,79 @@ Mobile-optimized UI:
 - Pinch detection: Native touch events (no library needed)
 - Swipe detection: Distance + velocity calculation
 - Fallback: Native PDF controls still available if gestures fail
+
+---
+
+## Phase 05: Portal Viewer - Header UI Updates (Dynamic Title + Ella Logo) (COMPLETE)
+
+**Overview:**
+Portal draft viewer header redesign to display dynamic document titles and Ella branding. Each section can have a custom title (e.g., "2024 Tax Return" vs "Draft Financials") rendered as `{title} for Review`. Ella logo added to header (top-left) with light/dark mode support. New error state for soft-deleted documents (HTTP 410 DOC_DELETED).
+
+**Files Changed:**
+- `apps/portal/src/lib/api-client.ts` — Added `title: string` to `ShareableDocumentData` interface (Phase 02 API addition)
+- `apps/portal/src/routes/draft/$token/index.tsx` — Logo imports, header layout redesign, dynamic title rendering, DOC_DELETED error handling
+
+**Header Layout (Phase 05 Update):**
+```tsx
+// New 3-column header with logo + centered title
+<div className="flex items-center justify-between mb-2">
+  <img src={EllaLogoLight} alt="Ella" className="h-6 w-auto dark:hidden" />
+  <img src={EllaLogoDark} alt="Ella" className="h-6 w-auto hidden dark:block" />
+  <div /> {/* spacer for center alignment */}
+</div>
+<h1 className="text-base font-semibold text-foreground text-center">
+  {t('draft.titleFormat', { title: data.title })}
+</h1>
+```
+
+**Logo Implementation:**
+- Import: `import { EllaLogoLight, EllaLogoDark } from '@ella/ui'`
+- Size: 24px height, auto width (aspect ratio preserved)
+- Variants: `EllaLogoLight` (light mode, black text), `EllaLogoDark` (dark mode, white text)
+- Dark mode: Conditional render via Tailwind `dark:` utilities
+- No layout shift: Dimensions reserved via aspect-ratio
+
+**Title Rendering (Phase 05):**
+- Source: `data.title` from API (custom title set by CPA in workspace)
+- Format key: `draft.titleFormat` with placeholder `{{title}}` (values: "...for Review" en, "...để Xem Xét" vi)
+- Fallback: `draft.title` key if title field missing (defensive degradation, though atomic deploy ensures presence)
+- XSS safe: React text node auto-escapes user-provided title
+
+**Error Handling (Phase 05):**
+```typescript
+// Added DOC_DELETED case
+switch (error?.code) {
+  case 'INVALID_TOKEN': return t('draft.errorInvalidLink')
+  case 'LINK_REVOKED': return t('draft.errorRevoked')
+  case 'LINK_EXPIRED': return t('draft.errorExpired')
+  case 'DOC_DELETED': return t('draft.errorDeleted')   // NEW (Phase 05)
+}
+// Suppress retry button for permanent errors
+const isInvalidLink = ['INVALID_TOKEN', 'LINK_REVOKED', 'LINK_EXPIRED', 'DOC_DELETED'].includes(error?.code)
+```
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Message key, not yet in locale files
+- `draft.errorDeleted` — Message key, not yet in locale files
+
+**API Compatibility (Phase 02 Dependency):**
+```typescript
+// Portal API response includes title field (added in Phase 02)
+ShareableDocumentData {
+  title: string  // "Draft Return", "2024 Tax Return", etc.
+  ...other fields
+}
+```
+
+**Mobile Layout:**
+- Logo + title stay on single line on portrait (headroom reserved)
+- Logo doesn't wrap; spacer adapts to available width
+- Existing metadata chips (year/version/client) unchanged below title
+
+**Security:**
+- No new CSP impact (logo is static asset from workspace)
+- Title value rendered as text node → HTML-escaped automatically
+- 410 response doesn't leak internal state ("removed by CPA" only)
 
 ---
 
@@ -1670,14 +1778,14 @@ const tabs = isBusiness
       { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
       { id: 'contractors', label: 'Contractors', icon: UserCircle },
       { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
       ...(scheduleCExpense ? [scheduleCTab] : []),
     ]
   : [
       { id: 'overview', label: t('clientOverview.title'), icon: User },
       { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
       { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
-      { id: 'draft-return', label: t('clientDetail.tabDraftReturn'), icon: FileText },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
       ...(scheduleCExpense ? [scheduleCTab] : []),
       ...(scheduleEExpense ? [scheduleETab] : []),
     ]
@@ -1750,7 +1858,7 @@ useEffect(() => {
 
 **Tab Type Definition:**
 ```typescript
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'draft-return' | 'contractors'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
 ```
 
 ---
@@ -2346,4 +2454,4 @@ All avatar/notes UI will need i18n keys in workspace:
 
 **Version:** 3.0
 **Last Updated:** 2026-04-10
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tab layout) complete - BUSINESS clients show Contractors tab, INDIVIDUAL clients show Schedule E tab. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging + Phase 12 Multi-Path Client Wizard + Phase 13 Type-Based Tabs.
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete. Supabase Realtime Broadcast integrated for 100-500ms message updates. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tabs) complete. Phase 02 ShareableDocument (multi-section) API + Phase 04 Workspace UI complete: SharedDocsTab + 10 sub-components, useSharedDocs/useSharedDocSignedUrl hooks, legacy DraftReturn components removed. Draft Return tab renamed to Shared Docs tab across UI and i18n keys.

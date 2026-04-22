@@ -98,13 +98,64 @@ const tierCards = [
 ];
 ---
 
-<BaseLayout class="pb-20 lg:pb-0">
+<BaseLayout>
   <HeadSEO
     slot="head"
     title="Pricing — Ella Tax | Transparent Plans for Salons & Small Businesses"
     description="Transparent pricing for nail salons, small shops, and LLCs. Pick a tier, then use our calculator to get an exact monthly + setup quote."
     structuredData={structuredData}
   />
+
+  {/* Internal-only password gate (sessionStorage-backed). Runs before body
+      paints to avoid flash of gated content. Not a security boundary — just
+      friction for public visitors. */}
+  <script is:inline slot="head">
+    (function () {
+      try {
+        if (sessionStorage.getItem("ellaPricingAuth") === "1") {
+          document.documentElement.setAttribute("data-pricing-auth", "ok");
+        }
+      } catch (_e) { /* sessionStorage unavailable — gate stays visible */ }
+    })();
+  </script>
+  <style is:global slot="head">
+    html[data-pricing-auth="ok"] #pricing-gate { display: none; }
+  </style>
+
+  <!-- Password gate overlay -->
+  <div
+    id="pricing-gate"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-white px-6"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pricing-gate-title"
+  >
+    <form id="pricing-gate-form" class="w-full max-w-sm">
+      <h2 id="pricing-gate-title" class="mb-2 text-center text-xl font-semibold text-gray-900">
+        Internal access
+      </h2>
+      <p class="mb-5 text-center text-sm text-gray-600">
+        Enter the password to view this page.
+      </p>
+      <input
+        id="pricing-gate-input"
+        type="password"
+        autocomplete="off"
+        autofocus
+        placeholder="Password"
+        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+      />
+      <p id="pricing-gate-error" hidden class="mt-2 text-sm text-red-600">
+        Incorrect password.
+      </p>
+      <button
+        type="submit"
+        class="mt-4 w-full rounded-full bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      >
+        Continue
+      </button>
+    </form>
+  </div>
 
   <main>
     <!-- Hero -->
@@ -194,5 +245,26 @@ const tierCards = [
 
   <script>
     import "@/scripts/pricing-calculator";
+  </script>
+
+  <script is:inline>
+    (function () {
+      const form = document.getElementById("pricing-gate-form");
+      if (!form) return;
+      const input = document.getElementById("pricing-gate-input");
+      const err = document.getElementById("pricing-gate-error");
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        if (!input || !err) return;
+        if (input.value === "1233") {
+          try { sessionStorage.setItem("ellaPricingAuth", "1"); } catch (_e) { /* ignore */ }
+          document.documentElement.setAttribute("data-pricing-auth", "ok");
+        } else {
+          err.hidden = false;
+          input.value = "";
+          input.focus();
+        }
+      });
+    })();
   </script>
 </BaseLayout>

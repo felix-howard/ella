@@ -2,6 +2,7 @@
  * Lead Detail Drawer - Right-side 900px drawer showing lead details, notes, status, actions
  */
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -22,12 +23,11 @@ interface LeadDetailDrawerProps {
   lead: Lead | null
   open: boolean
   onClose: () => void
-  onConvert: (lead: Lead) => void
 }
 
 type DrawerTab = 'details' | 'messages'
 
-export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailDrawerProps) {
+export function LeadDetailDrawer({ lead, open, onClose }: LeadDetailDrawerProps) {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
 
@@ -352,7 +352,7 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                     </div>
                     <div className="p-4">
                       <div className="flex flex-wrap gap-3">
-                        {isConverted && currentLead.convertedToId ? (
+                        {isConverted && currentLead.convertedToId && (
                           <Link
                             to="/clients/$clientId"
                             params={{ clientId: currentLead.convertedToId }}
@@ -361,47 +361,16 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
                             {t('leads.viewClient')}
                             <ArrowRight className="w-4 h-4" />
                           </Link>
-                        ) : !isConverted ? (
-                          <button
-                            onClick={() => onConvert(currentLead)}
-                            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                          >
-                            <ArrowRight className="w-4 h-4" />
-                            {t('leads.convert')}
-                          </button>
-                        ) : null}
+                        )}
 
                         {!isConverted && (
-                          <>
-                            {showDeleteConfirm ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-destructive">{t('leads.deleteConfirm')}</span>
-                                <button
-                                  onClick={() => deleteMutation.mutate(currentLead.id)}
-                                  disabled={deleteMutation.isPending}
-                                  className="px-3 py-1.5 text-sm font-medium text-white bg-destructive rounded-lg hover:bg-destructive/90 transition-colors"
-                                >
-                                  {deleteMutation.isPending ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : t('common.confirm')}
-                                </button>
-                                <button
-                                  onClick={() => setShowDeleteConfirm(false)}
-                                  className="px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                                >
-                                  {t('common.cancel')}
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setShowDeleteConfirm(true)}
-                                className="px-4 py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                {t('leads.deleteLead')}
-                              </button>
-                            )}
-                          </>
+                          <button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="px-4 py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {t('leads.deleteLead')}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -464,6 +433,49 @@ export function LeadDetailDrawer({ lead, open, onClose, onConvert }: LeadDetailD
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && currentLead && createPortal(
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-[10000]"
+            onClick={() => !deleteMutation.isPending && setShowDeleteConfirm(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-full bg-destructive/10">
+                <Trash2 className="w-6 h-6 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground">
+                  {t('leads.deleteLead')}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t('leads.deleteConfirm')}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(currentLead.id)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </>
   )
 }

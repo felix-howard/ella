@@ -25,7 +25,7 @@ import { rentalRoute } from './routes/rental'
 import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { orgSettingsRoute } from './routes/org-settings'
-import { draftReturnsRoute } from './routes/draft-returns'
+import { sharedDocsRoute } from './routes/shared-docs'
 import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
@@ -88,7 +88,7 @@ app.use('/schedule-e/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
-app.use('/draft-returns/*', authMiddleware)
+app.use('/shared-docs/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
 
@@ -114,7 +114,7 @@ app.route('/schedule-e', scheduleERoute)
 app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
-app.route('/draft-returns', draftReturnsRoute)
+app.route('/shared-docs', sharedDocsRoute)
 app.route('/terms', termsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 app.route('/client-groups', clientGroupsRoute)

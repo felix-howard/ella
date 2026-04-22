@@ -11,8 +11,6 @@
  */
 
 import {
-  AUDIT_PROTECTION,
-  CASH_PLAN,
   ONE_TIME,
   PAYROLL,
   SALES_TAX_MONITORING_MONTHLY,
@@ -51,6 +49,21 @@ export interface CalcInput {
   };
   /** Shops to monitor for sales tax ($25/mo each). */
   salesTaxShops: number;
+  /**
+   * Editable rate overrides — internal pricing page only.
+   * Defaults to the constants in `pricing-constants.ts` unless operator edits inputs.
+   */
+  rates: {
+    cashPlan: {
+      setup: number;
+      perEmployeeMonthly: number;
+      perOwnerMonthly: number;
+    };
+    auditProtection: {
+      monthly: number;
+      setup: number;
+    };
+  };
 }
 
 export interface LineItem {
@@ -99,20 +112,14 @@ const ONE_TIME_LABELS: Record<keyof CalcInput["oneTime"], string> = {
 export function calculatePrice(input: CalcInput): CalcResult {
   const tier = detectTier(input.nec1099Count);
 
-  if (tier === "enterprise") {
-    return {
-      tier,
-      tierLabel: TIER_ENTERPRISE.label,
-      isEnterprise: true,
-      monthlyItems: [],
-      setupItems: [],
-      monthlyTotal: 0,
-      setupTotal: 0,
-      hasAnySelection: true,
-    };
-  }
-
-  const tierDef = tier === "basic" ? TIER_BASIC : TIER_PRO;
+  // VIP (21+) has no bare monthly/setup rates defined — reuse Pro's numeric
+  // rates but surface the "VIP" marketing label so the estimate still computes.
+  const tierDef =
+    tier === "basic"
+      ? TIER_BASIC
+      : tier === "pro"
+        ? TIER_PRO
+        : { ...TIER_PRO, label: TIER_ENTERPRISE.marketingLabel };
   const monthly: LineItem[] = [];
   const setup: LineItem[] = [];
 
@@ -132,21 +139,24 @@ export function calculatePrice(input: CalcInput): CalcResult {
     });
   }
 
+  const cashRates = input.rates.cashPlan;
+  const auditRates = input.rates.auditProtection;
+
   if (input.cashPlan.enabled) {
     const cashMonthly =
-      CASH_PLAN.perEmployeeMonthly * input.cashPlan.employees +
-      CASH_PLAN.perOwnerMonthly * input.cashPlan.owners;
+      cashRates.perEmployeeMonthly * input.cashPlan.employees +
+      cashRates.perOwnerMonthly * input.cashPlan.owners;
     monthly.push({
-      label: `Cash Plan (${input.cashPlan.employees} emp × $${CASH_PLAN.perEmployeeMonthly} + ${input.cashPlan.owners} owner × $${CASH_PLAN.perOwnerMonthly})`,
+      label: `Cash Plan (${input.cashPlan.employees} emp × $${cashRates.perEmployeeMonthly} + ${input.cashPlan.owners} owner × $${cashRates.perOwnerMonthly})`,
       amount: cashMonthly,
       kind: "monthly",
     });
-    setup.push({ label: "Cash Plan setup", amount: CASH_PLAN.setup, kind: "setup" });
+    setup.push({ label: "Cash Plan setup", amount: cashRates.setup, kind: "setup" });
   }
 
   if (input.auditProtection) {
-    monthly.push({ label: "Audit Protection", amount: AUDIT_PROTECTION.monthly, kind: "monthly" });
-    setup.push({ label: "Audit Protection setup", amount: AUDIT_PROTECTION.setup, kind: "setup" });
+    monthly.push({ label: "Audit Protection", amount: auditRates.monthly, kind: "monthly" });
+    setup.push({ label: "Audit Protection setup", amount: auditRates.setup, kind: "setup" });
   }
 
   (Object.keys(ONE_TIME_LABELS) as Array<keyof CalcInput["oneTime"]>).forEach((key) => {

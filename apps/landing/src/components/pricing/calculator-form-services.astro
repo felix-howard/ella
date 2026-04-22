@@ -16,6 +16,7 @@ import {
   hintCls,
   inputCls,
   labelCls,
+  rateInputCls,
   sectionCls,
 } from "./calculator-form-styles";
 
@@ -39,7 +40,37 @@ const oneTimeRows: Array<{
     <div>
       <span class={headingCls}>Cash Plan</span>
       <p class={hintCls}>
-        ${CASH_PLAN.setup} setup · ${CASH_PLAN.perEmployeeMonthly}/emp + ${CASH_PLAN.perOwnerMonthly}/owner monthly
+        $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="6"
+          value={CASH_PLAN.setup}
+          data-calc-input="rates.cashPlan.setup"
+          class={rateInputCls}
+          aria-label="Cash Plan setup fee"
+          onclick="event.stopPropagation()"
+        /> setup · $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="4"
+          value={CASH_PLAN.perEmployeeMonthly}
+          data-calc-input="rates.cashPlan.perEmployeeMonthly"
+          class={rateInputCls}
+          aria-label="Cash Plan per employee monthly"
+          onclick="event.stopPropagation()"
+        />/emp + $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="4"
+          value={CASH_PLAN.perOwnerMonthly}
+          data-calc-input="rates.cashPlan.perOwnerMonthly"
+          class={rateInputCls}
+          aria-label="Cash Plan per owner monthly"
+          onclick="event.stopPropagation()"
+        />/owner monthly
       </p>
     </div>
     <svg class={chevronSvgCls} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -101,7 +132,27 @@ const oneTimeRows: Array<{
     <span>
       <span class={headingCls}>Add Audit Protection</span>
       <span class="mt-0.5 block text-sm text-gray-500">
-        +${AUDIT_PROTECTION.monthly}/mo · ${AUDIT_PROTECTION.setup} one-time setup
+        +$<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="5"
+          value={AUDIT_PROTECTION.monthly}
+          data-calc-input="rates.auditProtection.monthly"
+          class={rateInputCls}
+          aria-label="Audit Protection monthly"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        />/mo · $<input
+          type="text"
+          inputmode="numeric"
+          pattern="\d*"
+          maxlength="6"
+          value={AUDIT_PROTECTION.setup}
+          data-calc-input="rates.auditProtection.setup"
+          class={rateInputCls}
+          aria-label="Audit Protection setup"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        /> one-time setup
       </span>
     </span>
   </label>

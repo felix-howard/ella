@@ -18,3 +18,8 @@ export const hintCls = "mt-1 text-xs text-gray-500";
 
 export const chevronSvgCls =
   "h-5 w-5 text-gray-400 transition-transform [details[open]_&]:rotate-180";
+
+// Small inline number input for editable rate values (internal pricing page).
+// `align-middle` keeps it baseline-aligned with surrounding hint text.
+export const rateInputCls =
+  "inline-block w-14 rounded border border-dashed border-gray-300 bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-900 align-middle focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/30";

@@ -22,16 +22,19 @@ export function ChatboxButton({ unreadCount, isOpen, onClick, className }: Chatb
       onClick={onClick}
       className={cn(
         'w-14 h-14 rounded-full flex items-center justify-center',
-        'bg-primary text-white shadow-lg hover:bg-primary-dark',
-        'transition-all duration-200 hover:scale-105',
-        'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2',
+        'bg-gradient-to-br from-emerald-400 to-primary text-white',
+        'shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50',
+        'ring-4 ring-white/80 dark:ring-background',
+        'hover:from-emerald-500 hover:to-primary-dark',
+        'transition-all duration-200 hover:scale-110',
+        'focus:outline-none focus:ring-offset-2 focus:ring-primary/60',
         isOpen && 'rotate-0',
         className
       )}
       aria-label={isOpen ? t('chat.closeChat') : t('chat.openChat')}
       title={isOpen ? t('chat.closeChat') : t('chat.openChat')}
     >
-      <MessageCircle className="w-6 h-6" />
+      <MessageCircle className="w-6 h-6 drop-shadow-sm" />
 
       {/* Unread badge */}
       {!isOpen && unreadCount > 0 && (

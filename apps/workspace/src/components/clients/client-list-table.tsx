@@ -59,13 +59,18 @@ function groupClients(clients: ClientWithActions[]): GroupedRow[] {
     if (client.clientGroupId && groups.has(client.clientGroupId)) {
       const group = groups.get(client.clientGroupId)!
       const ownerName = group.find(c => c.clientType === 'INDIVIDUAL')?.name
+      // Only treat as a parent/child group if an INDIVIDUAL anchor is present.
+      // When individuals are filtered out (e.g. "Businesses" tab), render all
+      // businesses as peers instead of nesting the 2nd+ under the 1st.
+      const hasIndividualAnchor = !!ownerName
       for (let i = 0; i < group.length; i++) {
         const member = group[i]
         seen.add(member.id)
+        const isNested = hasIndividualAnchor && i > 0 && member.clientType === 'BUSINESS'
         result.push({
           client: member,
-          isGroupedBusiness: i > 0 && member.clientType === 'BUSINESS',
-          ownerName: i > 0 && member.clientType === 'BUSINESS' ? ownerName : undefined,
+          isGroupedBusiness: isNested,
+          ownerName: isNested ? ownerName : undefined,
         })
       }
     } else {
@@ -197,7 +202,7 @@ const ClientRow = memo(function ClientRow({ client, isLast, isAdmin, isGroupedBu
             <div className="flex items-center gap-2">
               <p className="font-medium text-foreground truncate">{client.name}</p>
               {isBusiness && client.businessType && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-600 whitespace-nowrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide bg-muted text-muted-foreground border border-border/60 whitespace-nowrap">
                   {t(`clients.businessType.${client.businessType}`, client.businessType)}
                 </span>
               )}

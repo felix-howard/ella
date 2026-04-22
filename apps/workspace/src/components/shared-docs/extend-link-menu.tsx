@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Clock, AlertTriangle, Loader2 } from 'lucide-react'
+import { ChevronDown, Clock, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import type { ExtendDuration } from '../../hooks/use-shared-docs'
 
@@ -85,31 +85,20 @@ export function ExtendLinkMenu({
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
-          {DURATION_ORDER.map((duration) => {
-            const isNever = duration === 'never'
-            return (
-              <button
-                key={duration}
-                type="button"
-                role="menuitem"
-                disabled={isLoading}
-                onClick={() => handleSelect(duration)}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center justify-between gap-2 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <span className="text-foreground">
-                  {t(`sharedDocs.extend.${duration}`)}
-                </span>
-                {isNever && (
-                  <span
-                    className="inline-flex items-center text-amber-600 dark:text-amber-400"
-                    title={t('sharedDocs.extend.neverWarning')}
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </button>
-            )
-          })}
+          {DURATION_ORDER.map((duration) => (
+            <button
+              key={duration}
+              type="button"
+              role="menuitem"
+              disabled={isLoading}
+              onClick={() => handleSelect(duration)}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <span className="text-foreground">
+                {t(`sharedDocs.extend.${duration}`)}
+              </span>
+            </button>
+          ))}
         </div>
       )}
     </div>

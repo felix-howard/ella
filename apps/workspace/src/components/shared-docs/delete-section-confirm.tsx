@@ -39,21 +39,16 @@ export function DeleteSectionConfirm({
           {t('sharedDocs.deleteConfirmTitle', { title })}
         </ModalTitle>
         <ModalDescription>
-          {t('sharedDocs.deleteConfirmDesc')}
+          {t('sharedDocs.deleteModal.body')}
         </ModalDescription>
       </ModalHeader>
 
       <ModalBody>
         <div className="flex items-start gap-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
           <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-destructive">
-              {t('sharedDocs.revokeWarning')}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t('sharedDocs.revokeWarningDetail')}
-            </p>
-          </div>
+          <p className="text-sm font-medium text-destructive">
+            {t('sharedDocs.deleteModal.irreversibleHint')}
+          </p>
         </div>
       </ModalBody>
 

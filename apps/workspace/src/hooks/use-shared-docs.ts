@@ -1,9 +1,12 @@
 /**
  * useSharedDocs - Fetch list + mutations for multi-section shared docs per case
- * Supports create, rename, delete. Invalidates list cache on success.
+ * Supports create, rename, delete, and magic-link lifecycle (pause/resume/extend/generate).
+ * Invalidates list cache on every mutation success.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
+
+export type ExtendDuration = '7d' | '14d' | '30d' | 'never'
 
 interface UseSharedDocsOptions {
   caseId: string | undefined
@@ -45,12 +48,23 @@ export function useSharedDocs({ caseId, enabled = true }: UseSharedDocsOptions) 
   })
 
   const extendMutation = useMutation({
-    mutationFn: (id: string) => api.sharedDocs.extend(id),
+    mutationFn: ({ id, duration }: { id: string; duration: ExtendDuration }) =>
+      api.sharedDocs.extend(id, duration),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   })
 
-  const revokeMutation = useMutation({
-    mutationFn: (id: string) => api.sharedDocs.revoke(id),
+  const pauseMutation = useMutation({
+    mutationFn: (id: string) => api.sharedDocs.pause(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (id: string) => api.sharedDocs.resume(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  })
+
+  const generateLinkMutation = useMutation({
+    mutationFn: (id: string) => api.sharedDocs.generateLink(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   })
 
@@ -67,9 +81,13 @@ export function useSharedDocs({ caseId, enabled = true }: UseSharedDocsOptions) 
     isDeleting: deleteMutation.isPending,
     uploadVersion: uploadVersionMutation.mutateAsync,
     isUploadingVersion: uploadVersionMutation.isPending,
-    extendLink: extendMutation.mutateAsync,
+    extendSection: extendMutation.mutateAsync,
     isExtending: extendMutation.isPending,
-    revokeLink: revokeMutation.mutateAsync,
-    isRevoking: revokeMutation.isPending,
+    pauseSection: pauseMutation.mutateAsync,
+    isPausing: pauseMutation.isPending,
+    resumeSection: resumeMutation.mutateAsync,
+    isResuming: resumeMutation.isPending,
+    generateLink: generateLinkMutation.mutateAsync,
+    isGeneratingLink: generateLinkMutation.isPending,
   }
 }

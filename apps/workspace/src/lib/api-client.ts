@@ -1196,15 +1196,31 @@ export const api = {
         method: 'DELETE',
       }),
 
-    revoke: (sectionId: string) =>
-      request<{ success: boolean }>(`/shared-docs/${sectionId}/revoke`, {
+    pause: (sectionId: string) =>
+      request<{ success: boolean }>(`/shared-docs/${sectionId}/pause`, {
         method: 'POST',
       }),
 
-    extend: (sectionId: string) =>
-      request<{ success: boolean; expiresAt: string }>(`/shared-docs/${sectionId}/extend`, {
-        method: 'POST',
-      }),
+    resume: (sectionId: string) =>
+      request<{ success: boolean; expiresAt: string; magicLink: SharedDocMagicLinkData }>(
+        `/shared-docs/${sectionId}/resume`,
+        { method: 'POST' }
+      ),
+
+    generateLink: (sectionId: string) =>
+      request<{ success: boolean; expiresAt: string; magicLink: SharedDocMagicLinkData }>(
+        `/shared-docs/${sectionId}/generate-link`,
+        { method: 'POST' }
+      ),
+
+    extend: (sectionId: string, duration: '7d' | '14d' | '30d' | 'never' = '14d') =>
+      request<{ success: boolean; expiresAt: string | null }>(
+        `/shared-docs/${sectionId}/extend`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ duration }),
+        }
+      ),
 
     getSignedUrl: (sectionId: string) =>
       request<{ url: string; filename: string }>(`/shared-docs/${sectionId}/signed-url`),

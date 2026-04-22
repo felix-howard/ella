@@ -54,6 +54,42 @@
 
 ---
 
+### Frontend: Shared Docs Rework - Phase 03 (UI Components Refactor) ✅ COMPLETE
+**Status:** Complete (Phase 03 of multi-phase rework — UI Layer Refactor)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Refactored Shared Docs UI to consume `computeLinkState` helper + new endpoints (pause/resume/generateLink). Replaced revoke (destructive) with pause (reversible), converted extend modal → dropdown menu (4 durations: 7d/14d/30d/Never), added near-expiry amber badge (≤3 days), removed "No Active Link" dead-end banner. Link-level actions (Pause/Resume/Extend) now visually separate from section Delete (red, top-right). All text i18n via `sharedDocs` namespace. Test suite: 47/47 green. Code review 8.2/10 → all warnings + suggestions addressed.
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/components/shared-docs/expiry-badge.tsx` — Amber near-expiry badge + expired label
+- **NEW:** `apps/workspace/src/components/shared-docs/extend-link-menu.tsx` — MUI Menu dropdown (7d/14d/30d/Never with warning)
+- **NEW:** `apps/workspace/src/components/shared-docs/generate-link-button.tsx` — No-link state button
+- **NEW:** `apps/workspace/src/components/shared-docs/pause-link-modal.tsx` — Reversible pause confirmation (renamed from revoke-link-modal)
+- **NEW:** `apps/workspace/src/components/shared-docs/active-link-panel.tsx` — Active link display (URL + Copy + Open + ExpiryBadge + Pause + Extend)
+- **DELETED:** `revoke-link-modal.tsx`, `extend-link-modal.tsx`
+- **UPDATED:** `apps/workspace/src/components/shared-docs/shared-doc-link-bar.tsx` — State-driven rendering (active/paused/expired/none) via computeLinkState
+- **UPDATED:** `apps/workspace/src/components/shared-docs/shared-doc-card.tsx` — Removed "No Active Link" banner; always render link-bar (self-decides what to show)
+- **UPDATED:** `apps/workspace/src/hooks/use-shared-docs.ts` — Added `pauseSection`, `resumeSection`, `generateLink`; `extendSection` now accepts duration payload
+
+**UI Behavior (4-State Rendering):**
+- **Active:** URL + Copy + Open + ExpiryBadge (amber if ≤3d) + Pause btn + Extend dropdown
+- **Paused:** "Link paused" label + Resume btn
+- **Expired:** "Expired {date}" label + Extend dropdown (to restore)
+- **None:** "No link yet" label + Generate Link btn
+
+**i18n Changes:**
+- Added 16 new keys (en + vi): linkState.paused/expired/noLink, actions.pause/resume/generate, extend.7d/14d/30d/never, extend.neverWarning, expiry.near, pauseModal.title/body, deleteModal.body
+
+**Quality Assurance:**
+- Test suite: 47/47 passing (no regressions)
+- Typecheck: Clean (pnpm --filter workspace typecheck)
+- Code review: 8.2/10 initial → fixed all warnings (MUI Menu a11y, hook dependency arrays, state guard patterns)
+- Browser smoke test: All 4 states render correctly; Pause→Resume cycle works; Extend menu updates expiresAt per duration
+
+**Backward Compatibility:** Old revoke-link-modal imports updated; hook method names backward compatible (revokeLink still exported as pauseSection alias internally).
+
+---
+
 ### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE
 **Status:** Complete (Phase 07 of multi-phase rework — Test Suite + Migration Validation)
 **Branch:** feature/fuocy-bidi

@@ -137,7 +137,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework In Progress):**
+**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework Complete, Phase 03 UI Refactor Complete):**
 - `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
 - `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
 - `GET /shared-docs/:id` - Get section detail (title, status, version count, link status)

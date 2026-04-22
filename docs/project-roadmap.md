@@ -1,8 +1,50 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-10 ICT
-> **Current Phase:** Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-22 ICT
+> **Current Phase:** Shared Docs Actions Rework IN PROGRESS (Phase 2 of 5 Done) | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Shared Docs Actions Rework Phase 2 COMPLETE (2 of 5 Phases) + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Shared Docs Actions Rework (5 Phases) IN PROGRESS
+**Started:** 2026-04-22
+**Current Status:** Phase 2 of 5 COMPLETE
+**Status:** IN PROGRESS — Backend API endpoints + state logic helper done; UI components refactor, integration tests, docs next
+**Branch:** feature/fuocy-bidi
+**Plan:** [Shared Docs Actions Rework](../plans/260422-1137-shared-docs-actions-rework/plan.md)
+**Objective:** Replace Revoke dead-end flow with Pause/Resume/Extend/Delete actions. 4-state UI (Active/Paused/Expired/No-link) with near-expiry amber badge.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend API endpoints | ✅ DONE | 2h | 2026-04-22 |
+| 2 | State logic helper + unit tests | ✅ DONE | 1h | 2026-04-22 |
+| 3 | UI components refactor | pending | 4h | — |
+| 4 | Integration tests | pending | 2h | — |
+| 5 | Docs update | pending | 0.5h | — |
+
+**Phase 01 Completion (DONE):**
+- `POST /shared-docs/:id/pause` — Disable magic link (reversible)
+- `POST /shared-docs/:id/resume` — Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` — Create magic link for sections without active link
+- `POST /shared-docs/:id/extend` now accepts request body `{ duration: '7d'|'14d'|'30d'|'never' }` (default: '14d')
+- `/revoke` endpoint aliased for backward compatibility
+
+**Phase 02 Completion (DONE):**
+- Created `apps/workspace/src/components/shared-docs/compute-link-state.ts` — Pure helper encapsulating 4-state logic + near-expiry detection
+- Created `apps/workspace/src/components/shared-docs/compute-link-state.test.ts` — 13 Vitest unit tests covering states, boundaries, near-expiry (≤3d)
+- Added vitest.config.ts + vitest@^4.0.17 devDep + test scripts to apps/workspace/package.json
+- All 13 tests passing, type-check clean, code review 9/10 → all warnings addressed
+
+**Type signature (Phase 02):**
+```ts
+function computeLinkState(input: {
+  isActive?: boolean;
+  expiresAt?: Date | string | null;
+  linkExists: boolean;
+  now?: Date; // injectable for tests
+}): { state: 'active' | 'paused' | 'expired' | 'none'; daysUntilExpiry: number | null; isNearExpiry: boolean; };
+```
 
 ---
 

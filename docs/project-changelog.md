@@ -24,6 +24,36 @@
 
 ## 2026-04-22
 
+### Frontend: Shared Docs Rework - Phase 02 (State Logic Helper + Unit Tests) ✅ COMPLETE
+**Status:** Complete (Phase 02 of multi-phase rework — Link State Management)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Created pure helper `computeLinkState` encapsulating 4-state logic (active/paused/expired/none) with near-expiry detection (≤3 days). Comprehensive Vitest test suite (13 unit tests) covering all states, boundary conditions (exact 3d threshold, exact expiry time), and edge cases (never-expiry, null values). Workspace app now has vitest configured with dedicated test runner. Code review 9/10 → all warnings addressed (Math.floor for daysUntilExpiry, JSDoc clarity on isActive requirement). Unblocks Phase 03 (UI components refactor).
+
+**Files Changed:**
+- **NEW:** `apps/workspace/src/components/shared-docs/compute-link-state.ts` — Pure helper, 4-state + near-expiry logic
+- **NEW:** `apps/workspace/src/components/shared-docs/compute-link-state.test.ts` — 13 unit tests (all passing)
+- **UPDATED:** `apps/workspace/vitest.config.ts` — New vitest config for workspace
+- **UPDATED:** `apps/workspace/package.json` — Added vitest@^4.0.17 devDep, test scripts
+
+**Test Coverage:**
+- State transitions: linkExists=false → none, !isActive → paused, isActive && expired → expired, else → active
+- Near-expiry detection: Active + ≤3d → isNearExpiry=true, Active + Never expires → isNearExpiry=false
+- Boundaries: expiresAt=now (expired), expiresAt=now+3d (near-expiry), expiresAt=now+4d (active no badge)
+- Edge cases: null expiresAt, string date parsing, injectable Date for deterministic testing
+
+**Quality Assurance:**
+- Test suite: 13/13 passing, zero flakes
+- Type-check: Clean across workspace
+- Code review: 9/10 initial → addressed all warnings (Math.floor precision, JSDoc completeness)
+- Coverage: 100% branch coverage on helper
+
+**Backward Compatibility:** Pure client-side helper; zero API/schema impact.
+
+**Next Phase:** Phase 03 (UI components refactor) consumes computeLinkState to replace conditional spaghetti in shared-doc-link-bar.tsx.
+
+---
+
 ### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE
 **Status:** Complete (Phase 07 of multi-phase rework — Test Suite + Migration Validation)
 **Branch:** feature/fuocy-bidi

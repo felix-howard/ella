@@ -395,6 +395,9 @@ export function MyComponent() {
 ## Testing Patterns
 
 **Unit Tests (Vitest):**
+- Workspace app (`@ella/workspace`) has vitest configured for unit testing pure utility helpers (e.g., `compute-link-state.test.ts`)
+- Configuration: `vitest.config.ts` with node environment, matches `src/**/*.test.ts` pattern
+- Test scripts: `pnpm test` (run), `pnpm test:watch` (watch mode)
 ```typescript
 // Test file naming: feature.test.ts
 describe('Feature', () => {

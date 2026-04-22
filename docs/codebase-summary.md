@@ -382,8 +382,8 @@
 ## Testing & Quality
 
 - **API Tests:** 26+ comprehensive team/org tests, Clerk Backend SDK mocking
-- **Frontend Tests:** Component integration tests, hook testing
-- **Total Test Coverage:** 578+ tests across portal form, schedule C, voice calls
+- **Frontend Tests:** Component integration tests, hook testing; workspace unit tests (vitest) for pure helpers
+- **Total Test Coverage:** 578+ tests across portal form, schedule C, voice calls; workspace vitest configured for unit test discovery
 - **Type Check:** 100% TypeScript strict mode, zero errors
 - **Build:** Success with no warnings
 - **Code Review Avg:** 9/10 quality score

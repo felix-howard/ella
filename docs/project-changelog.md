@@ -5,20 +5,39 @@
 
 ---
 
-## [Unreleased] — Shared Docs Actions Rework (Phase 1)
+## [Unreleased] — Shared Docs Actions Rework
 
-**Status:** In Progress (Phase 1 of Actions Rework — Link State Management)
+**Status:** Complete (Phases 1–5 done on `feature/fuocy-bidi`; awaiting merge → main)
+**Plan:** `plans/260422-1137-shared-docs-actions-rework/plan.md`
+
+**Summary:** Replaces confusing "Revoke" dead-end flow with state-aware Pause/Resume/Extend/Delete actions. Each section card renders one of 4 link states (Active/Paused/Expired/No-link) with matching actions. Near-expiry amber badge at ≤3 days. Delete visually separated from link actions.
 
 **Added:**
 - `POST /shared-docs/:id/pause` — Disable magic link (section remains visible, link inactive; reversible)
 - `POST /shared-docs/:id/resume` — Reactivate paused link with fresh 14-day expiry
 - `POST /shared-docs/:id/generate-link` — Create magic link for sections without active link
+- `computeLinkState` pure helper (`apps/workspace/src/components/shared-docs/compute-link-state.ts`) — 4-state resolver + near-expiry detection, 13 unit tests
+- UI components: `ActiveLinkPanel`, `ExtendLinkMenu` (7d/14d/30d/Never dropdown), `PauseLinkModal`, `GenerateLinkButton`, `ExpiryBadge` (amber ≤3d)
+- 16 new i18n keys (`sharedDocs.*` namespace, EN + VI): linkState, actions.pause/resume/generate, extend durations, expiry.near, pauseModal, deleteModal
+- 22 new integration tests (`apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts`) covering pause/resume/extend/revoke-alias/generate-link + lifecycle (total 50)
 
 **Changed:**
-- `POST /shared-docs/:id/extend` — Now accepts request body `{ duration: '7d'|'14d'|'30d'|'never' }` (default: '14d'); previously only supported hardcoded 14-day extension
+- `POST /shared-docs/:id/extend` — Now accepts body `{ duration: '7d'|'14d'|'30d'|'never' }` (default `'14d'`); previously hardcoded 14d
+- `shared-doc-link-bar.tsx` — Refactored to state-driven rendering via `computeLinkState`; replaces conditional spaghetti
+- `shared-doc-card.tsx` — Removed "No Active Link — Upload new version" dead-end banner; link-bar self-decides display
+- `use-shared-docs.ts` — Added `pauseSection`, `resumeSection`, `generateLink`; `extendSection` now takes duration payload
 
 **Deprecated:**
-- `POST /shared-docs/:id/revoke` — Use `/pause` instead (endpoint alias retained for backward compatibility through Phase 2)
+- `POST /shared-docs/:id/revoke` — Use `/pause` instead (endpoint alias retained for one release + deprecation warning log)
+
+**Fixed:**
+- Revoke dead-end UX: users no longer need to upload a new version to restore a paused link
+- Extend modal friction: replaced with inline dropdown menu
+
+**Removed:**
+- `revoke-link-modal.tsx`, `extend-link-modal.tsx` (superseded by pause-link-modal + extend-link-menu)
+
+**Backward Compatibility:** `/revoke` alias preserved one release; old hook import names aliased internally. Zero schema changes. Existing clients unaffected.
 
 ---
 

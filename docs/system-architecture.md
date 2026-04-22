@@ -175,11 +175,11 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Workspace Shared Docs Tab (Phase 04 - Workspace UI Complete):**
 - Component: `SharedDocsTab` - Main tab in `/clients/:id` page, manages multi-section ShareableDocument uploads
-- Sub-components: `SharedDocCard` (per-doc display), `SharedDocUploadZone` (drag-drop/file picker), `SharedDocLinkBar` (section link display), `SharedDocVersionHistory` (version list), `AddSectionInlineForm`, `RenameSectionInline`, `DeleteSectionConfirm`, `ExtendLinkModal`, `RevokeLinkModal`
-- Hooks: `useSharedDocs()` (CRUD), `useSharedDocSignedUrl()` (R2 URL generation)
+- Sub-components: `SharedDocCard` (per-doc display), `SharedDocUploadZone` (drag-drop/file picker), `SharedDocLinkBar` (state-driven link display: active/paused/expired/none), `SharedDocVersionHistory` (version list), `AddSectionInlineForm`, `RenameSectionInline`, `DeleteSectionConfirm`, `ActiveLinkPanel`, `ExtendLinkMenu` (7d/14d/30d/Never dropdown), `PauseLinkModal`, `GenerateLinkButton`, `ExpiryBadge` (amber if ≤3 days)
+- Hooks: `useSharedDocs()` (CRUD + pauseSection/resumeSection/generateLink + extendSection with duration), `useSharedDocSignedUrl()` (R2 URL generation), `computeLinkState` helper (pure 4-state resolver)
 - States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (multi-section list + actions)
 - Upload: Drag-drop/file picker, PDF validation (50MB max), automatic multi-section parsing, progress tracking
-- Link mgmt: Per-section links (14-day TTL), copy-to-clipboard (Phase 04 clipboard utility), extend/revoke modals, status badges
+- Link mgmt: Per-section links (14-day default TTL), copy-to-clipboard (Phase 04 clipboard utility), Pause/Resume (reversible), Extend menu (7d/14d/30d/Never), Generate Link for no-link state, near-expiry amber badge (≤3 days), status badges
 - Version history: All document versions per taxCase, uploadedBy + timestamp tracking, current version highlight
 - View tracking: Display viewCount + lastViewedAt per document
 - Quick actions: `quick-actions-bar.tsx` lists all active section links with copy buttons

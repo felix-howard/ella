@@ -81,6 +81,11 @@ export async function revokeSection(c: AuthContext) {
   return pauseSection(c)
 }
 
+// Test-only: resets the once-per-process deprecation flag so tests don't depend on file execution order.
+export function __resetDeprecationWarnedForTests() {
+  deprecationWarned = false
+}
+
 /**
  * POST /shared-docs/:id/resume
  * Reactivate a paused link. Sets isActive=true and resets expiresAt to now + 14 days.

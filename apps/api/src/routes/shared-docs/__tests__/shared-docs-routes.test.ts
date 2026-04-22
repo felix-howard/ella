@@ -44,6 +44,7 @@ import { prisma } from '../../../lib/db'
 import { uploadFile, getSignedDownloadUrl } from '../../../services/storage'
 import { buildNestedClientScope } from '../../../lib/org-scope'
 import { sharedDocsRoute } from '../index'
+import { __resetDeprecationWarnedForTests } from '../link-handlers'
 
 const mockTaxCaseFindFirst = vi.mocked(prisma.taxCase.findFirst)
 const mockDocFindFirst = vi.mocked(prisma.shareableDocument.findFirst)
@@ -51,6 +52,7 @@ const mockDocFindMany = vi.mocked(prisma.shareableDocument.findMany)
 const mockDocFindUniqueOrThrow = vi.mocked(prisma.shareableDocument.findUniqueOrThrow)
 const mockDocUpdateMany = vi.mocked(prisma.shareableDocument.updateMany)
 const mockMagicLinkFindFirst = vi.mocked(prisma.magicLink.findFirst)
+const mockMagicLinkCreate = vi.mocked(prisma.magicLink.create)
 const mockMagicLinkUpdateMany = vi.mocked(prisma.magicLink.updateMany)
 const mockTransaction = vi.mocked(prisma.$transaction)
 const mockDocUpdate = vi.mocked(prisma.shareableDocument.update)
@@ -558,12 +560,12 @@ describe('Shared Docs Routes', () => {
     })
   })
 
-  describe('POST /shared-docs/:id/revoke', () => {
-    it('deactivates active magic link for section (idempotent)', async () => {
+  describe('POST /shared-docs/:id/pause', () => {
+    it('deactivates active magic link (idempotent)', async () => {
       mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
       mockMagicLinkUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
 
-      const res = await app.request('/shared-docs/doc-1/revoke', { method: 'POST' })
+      const res = await app.request('/shared-docs/doc-1/pause', { method: 'POST' })
       const json = await res.json()
 
       expect(res.status).toBe(200)
@@ -574,7 +576,59 @@ describe('Shared Docs Routes', () => {
       })
     })
 
-    it('returns 404 when section not in org', async () => {
+    it('succeeds idempotently when no active link exists (count=0)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      mockMagicLinkUpdateMany.mockResolvedValueOnce({ count: 0 } as any)
+
+      const res = await app.request('/shared-docs/doc-1/pause', { method: 'POST' })
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+    })
+
+    it('returns 404 when section not in caller org (authz)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce(null)
+
+      const res = await app.request('/shared-docs/foreign/pause', { method: 'POST' })
+      expect(res.status).toBe(404)
+      expect(mockMagicLinkUpdateMany).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /shared-docs/:id/revoke (deprecated alias for /pause)', () => {
+    beforeEach(() => {
+      // Reset once-per-process deprecation flag so this describe block
+      // is not order-dependent on prior test file execution.
+      __resetDeprecationWarnedForTests()
+    })
+
+    it('behaves like /pause AND emits deprecation warning exactly once per process', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockDocFindFirst.mockResolvedValue({ id: 'doc-1' } as any)
+      mockMagicLinkUpdateMany.mockResolvedValue({ count: 1 } as any)
+
+      const res1 = await app.request('/shared-docs/doc-1/revoke', { method: 'POST' })
+      const res2 = await app.request('/shared-docs/doc-1/revoke', { method: 'POST' })
+
+      expect(res1.status).toBe(200)
+      expect(res2.status).toBe(200)
+      // Both calls hit updateMany with pause-equivalent args
+      expect(mockMagicLinkUpdateMany).toHaveBeenCalledWith({
+        where: { draftReturnId: 'doc-1', isActive: true },
+        data: { isActive: false },
+      })
+      expect(mockMagicLinkUpdateMany).toHaveBeenCalledTimes(2)
+      // Deprecation warning emitted ONCE across both calls (once-per-process)
+      const deprecationCalls = warnSpy.mock.calls.filter(
+        (args) => typeof args[0] === 'string' && args[0].includes('DEPRECATED')
+      )
+      expect(deprecationCalls).toHaveLength(1)
+      expect(deprecationCalls[0][0]).toMatch(/\/revoke/)
+      expect(deprecationCalls[0][0]).toMatch(/\/pause/)
+    })
+
+    it('returns 404 when section not in caller org (authz)', async () => {
       mockDocFindFirst.mockResolvedValueOnce(null)
 
       const res = await app.request('/shared-docs/foreign/revoke', { method: 'POST' })
@@ -582,27 +636,149 @@ describe('Shared Docs Routes', () => {
     })
   })
 
-  describe('POST /shared-docs/:id/extend', () => {
-    it('extends expiry of active link +14 days', async () => {
-      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+  describe('POST /shared-docs/:id/resume', () => {
+    function setResumeTx(link: any | null) {
       mockTransaction.mockImplementationOnce(async (fn: any) =>
         fn({
           magicLink: {
-            findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }),
-            update: vi.fn().mockResolvedValue(mockMagicLink()),
+            findFirst: vi.fn().mockResolvedValue(link ? { id: 'link-1' } : null),
+            update: vi.fn().mockResolvedValue(link),
           },
         })
       )
+    }
 
-      const res = await app.request('/shared-docs/doc-1/extend', { method: 'POST' })
+    it('reactivates paused link with fresh 14d expiry and preserves token', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      setResumeTx(mockMagicLink({ isActive: true, token: 'tok-abc' }))
+
+      const before = Date.now()
+      const res = await app.request('/shared-docs/doc-1/resume', { method: 'POST' })
+      const after = Date.now()
       const json = await res.json()
 
       expect(res.status).toBe(200)
       expect(json.success).toBe(true)
-      expect(json.expiresAt).toBeDefined()
+      expect(json.magicLink.token).toBe('tok-abc')
+      // expiresAt ≈ now + 14 days (tolerance: the two Date.now() snapshots)
+      const returned = new Date(json.expiresAt).getTime()
+      const minExpected = before + 14 * 24 * 60 * 60 * 1000
+      const maxExpected = after + 14 * 24 * 60 * 60 * 1000
+      expect(returned).toBeGreaterThanOrEqual(minExpected)
+      expect(returned).toBeLessThanOrEqual(maxExpected)
     })
 
-    it('returns 400 NO_ACTIVE_LINK when no active link', async () => {
+    it('returns 404 LINK_NOT_FOUND when section never had a link', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      setResumeTx(null)
+
+      const res = await app.request('/shared-docs/doc-1/resume', { method: 'POST' })
+      const json = await res.json()
+
+      expect(res.status).toBe(404)
+      expect(json.error).toBe('LINK_NOT_FOUND')
+    })
+
+    it('returns 404 when section not in caller org (authz)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce(null)
+
+      const res = await app.request('/shared-docs/foreign/resume', { method: 'POST' })
+      expect(res.status).toBe(404)
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /shared-docs/:id/extend (duration param)', () => {
+    // Capture the data arg to tx.magicLink.update so we can assert expiresAt
+    function setExtendTx(capture: { data?: any }) {
+      mockTransaction.mockImplementationOnce(async (fn: any) => {
+        const update = vi.fn().mockImplementation(({ data }: any) => {
+          capture.data = data
+          return Promise.resolve(mockMagicLink({ expiresAt: data.expiresAt }))
+        })
+        return fn({
+          magicLink: {
+            findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }),
+            update,
+          },
+        })
+      })
+    }
+
+    function msFromNow(days: number) {
+      return Date.now() + days * 24 * 60 * 60 * 1000
+    }
+
+    async function extend(body?: unknown) {
+      return app.request('/shared-docs/doc-1/extend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+    }
+
+    it.each([
+      ['7d', 7],
+      ['14d', 14],
+      ['30d', 30],
+    ])('applies %s duration (expiresAt ≈ now + %s days)', async (duration, days) => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      const cap: { data?: any } = {}
+      setExtendTx(cap)
+
+      const before = msFromNow(days)
+      const res = await extend({ duration })
+      const after = msFromNow(days)
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+      // Persisted expiresAt is a Date within tolerance window
+      expect(cap.data.expiresAt).toBeInstanceOf(Date)
+      const persisted = (cap.data.expiresAt as Date).getTime()
+      expect(persisted).toBeGreaterThanOrEqual(before)
+      expect(persisted).toBeLessThanOrEqual(after)
+    })
+
+    it('defaults to 14d when body omitted', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      const cap: { data?: any } = {}
+      setExtendTx(cap)
+
+      const before = msFromNow(14)
+      const res = await extend() // no body → default 14d
+      const after = msFromNow(14)
+      expect(res.status).toBe(200)
+      const persisted = (cap.data.expiresAt as Date).getTime()
+      expect(persisted).toBeGreaterThanOrEqual(before)
+      expect(persisted).toBeLessThanOrEqual(after)
+    })
+
+    it('applies never duration (persists expiresAt=null)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      const cap: { data?: any } = {}
+      setExtendTx(cap)
+
+      const res = await extend({ duration: 'never' })
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.expiresAt).toBeNull()
+      expect(cap.data.expiresAt).toBeNull()
+    })
+
+    it('rejects invalid duration with 400 INVALID_DURATION (no DB write)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+
+      const res = await extend({ duration: '90d' })
+      const json = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(json.error).toBe('INVALID_DURATION')
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    it('returns 400 NO_ACTIVE_LINK when no active link exists', async () => {
       mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
       mockTransaction.mockImplementationOnce(async (fn: any) =>
         fn({
@@ -613,11 +789,128 @@ describe('Shared Docs Routes', () => {
         })
       )
 
-      const res = await app.request('/shared-docs/doc-1/extend', { method: 'POST' })
+      const res = await extend({ duration: '7d' })
       const json = await res.json()
 
       expect(res.status).toBe(400)
       expect(json.error).toBe('NO_ACTIVE_LINK')
+    })
+
+    it('returns 404 when section not in caller org (authz)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce(null)
+
+      const res = await extend({ duration: '7d' })
+      expect(res.status).toBe(404)
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /shared-docs/:id/generate-link', () => {
+    it('creates magic link when section has none', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1', taxCaseId: 'case-1' } as any)
+      mockMagicLinkFindFirst.mockResolvedValueOnce(null) // no existing link
+      mockMagicLinkCreate.mockResolvedValueOnce(mockMagicLink({ token: 'tok-new' }) as any)
+
+      const res = await app.request('/shared-docs/doc-1/generate-link', { method: 'POST' })
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+      expect(json.magicLink.token).toBe('tok-new')
+      // Create called with draft-return type + section binding + active flag
+      expect(mockMagicLinkCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            caseId: 'case-1',
+            type: 'DRAFT_RETURN',
+            draftReturnId: 'doc-1',
+            isActive: true,
+            expiresAt: expect.any(Date),
+          }),
+        })
+      )
+    })
+
+    it('returns 400 LINK_EXISTS when any link (active or paused) already exists', async () => {
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1', taxCaseId: 'case-1' } as any)
+      mockMagicLinkFindFirst.mockResolvedValueOnce({ id: 'link-1' } as any)
+
+      const res = await app.request('/shared-docs/doc-1/generate-link', { method: 'POST' })
+      const json = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(json.error).toBe('LINK_EXISTS')
+      expect(mockMagicLinkCreate).not.toHaveBeenCalled()
+    })
+
+    it('returns 404 when section not in caller org (authz)', async () => {
+      mockDocFindFirst.mockResolvedValueOnce(null)
+
+      const res = await app.request('/shared-docs/foreign/generate-link', { method: 'POST' })
+      expect(res.status).toBe(404)
+      expect(mockMagicLinkCreate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Pause → Resume → Extend lifecycle (token preservation)', () => {
+    it('preserves magic link token across full cycle and applies fresh 30d on extend', async () => {
+      // PAUSE
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      mockMagicLinkUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+      const pauseRes = await app.request('/shared-docs/doc-1/pause', { method: 'POST' })
+      expect(pauseRes.status).toBe(200)
+      expect(mockMagicLinkUpdateMany).toHaveBeenLastCalledWith({
+        where: { draftReturnId: 'doc-1', isActive: true },
+        data: { isActive: false },
+      })
+
+      // RESUME — capture update data to prove handler does NOT rotate token
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      const resumeCapture: { data?: any } = {}
+      mockTransaction.mockImplementationOnce(async (fn: any) =>
+        fn({
+          magicLink: {
+            findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }),
+            update: vi.fn().mockImplementation(({ data }: any) => {
+              resumeCapture.data = data
+              return Promise.resolve(mockMagicLink({ token: 'tok-abc', isActive: true }))
+            }),
+          },
+        })
+      )
+      const resumeRes = await app.request('/shared-docs/doc-1/resume', { method: 'POST' })
+      expect(resumeRes.status).toBe(200)
+      // Handler never writes `token` — only flips isActive + refreshes expiresAt.
+      expect(resumeCapture.data).not.toHaveProperty('token')
+      expect(resumeCapture.data.isActive).toBe(true)
+      expect(resumeCapture.data.expiresAt).toBeInstanceOf(Date)
+
+      // EXTEND(30d) — same link id, expiresAt bumped to +30d, token must not be written
+      mockDocFindFirst.mockResolvedValueOnce({ id: 'doc-1' } as any)
+      const capturedData: { data?: any } = {}
+      mockTransaction.mockImplementationOnce(async (fn: any) =>
+        fn({
+          magicLink: {
+            findFirst: vi.fn().mockResolvedValue({ id: 'link-1' }),
+            update: vi.fn().mockImplementation(({ data }: any) => {
+              capturedData.data = data
+              return Promise.resolve(mockMagicLink({ token: 'tok-abc', expiresAt: data.expiresAt }))
+            }),
+          },
+        })
+      )
+      const before30 = Date.now() + 30 * 24 * 60 * 60 * 1000
+      const extendRes = await app.request('/shared-docs/doc-1/extend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: '30d' }),
+      })
+      const after30 = Date.now() + 30 * 24 * 60 * 60 * 1000
+      expect(extendRes.status).toBe(200)
+      expect(capturedData.data).not.toHaveProperty('token')
+      const persisted = (capturedData.data.expiresAt as Date).getTime()
+      expect(persisted).toBeGreaterThanOrEqual(before30)
+      expect(persisted).toBeLessThanOrEqual(after30)
     })
   })
 

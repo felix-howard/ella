@@ -90,6 +90,34 @@
 
 ---
 
+### Testing: Shared Docs Rework - Phase 04 (Integration Tests) ✅ COMPLETE
+**Status:** Complete (Phase 04 of multi-phase rework — Integration Test Suite)
+**Branch:** feature/fuocy-bidi
+
+**Summary:** Extended `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` with 22 new integration tests covering pause/resume/extend/revoke/generate-link endpoints. Total: 50 tests (up from 28). Comprehensive coverage of all duration options (7d/14d/30d/never), pause→resume→extend lifecycle, revoke alias with deprecation warning, authorization checks per endpoint, and edge cases (invalid duration, NO_ACTIVE_LINK state, idempotent defaults). Exposed `__resetDeprecationWarnedForTests` helper to eliminate test order dependency. Follows existing mock-based Prisma fixture pattern for consistency with codebase (trade-off vs. real DB noted in plan).
+
+**Files Changed:**
+- **UPDATED:** `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — Added 22 new tests (50 total)
+- **UPDATED:** `apps/api/src/routes/shared-docs/link-handlers.ts` — Exposed `__resetDeprecationWarnedForTests` helper
+
+**Test Coverage:**
+- **Extend endpoint:** 9 tests covering 7d/14d/30d duration, default (14d), never (null expiry), invalid duration (400 error), NO_ACTIVE_LINK state (can extend expired/paused), authz check, idempotent defaults
+- **Pause endpoint:** 3 tests (basic pause, already paused, authz)
+- **Resume endpoint:** 3 tests (basic resume, already active, authz)
+- **Revoke alias:** 2 tests (behavior identical to pause, deprecation warning logged once per test run)
+- **Generate-link endpoint:** 3 tests (create new link, conflict when link exists, authz)
+- **Lifecycle test:** 1 test (pause→resume→extend cycle, token unchanged on idempotent default)
+
+**Quality Assurance:**
+- Test suite: 50/50 passing, zero flakes
+- Pattern: Mock Prisma fixtures (consistent with existing shared-docs tests from Phase 07)
+- Deprecation handling: `__resetDeprecationWarnedForTests()` clears module-level warning state per test
+- Authorization: Non-owner staff returns 403 for all endpoints (cross-tenant isolation verified)
+
+**Backward Compatibility:** Revoke alias tested; existing clients calling `POST /revoke` remain functional.
+
+---
+
 ### Testing: Shared Docs Rework - Phase 07 (Testing + Verification) ✅ COMPLETE
 **Status:** Complete (Phase 07 of multi-phase rework — Test Suite + Migration Validation)
 **Branch:** feature/fuocy-bidi

@@ -8,8 +8,8 @@
 
 ### Shared Docs Actions Rework (5 Phases) IN PROGRESS
 **Started:** 2026-04-22
-**Current Status:** Phase 3 of 5 COMPLETE
-**Status:** IN PROGRESS — Backend API endpoints + state logic helper + UI components refactor done; integration tests, docs next
+**Current Status:** Phase 4 of 5 COMPLETE
+**Status:** IN PROGRESS — Backend API endpoints + state logic helper + UI components refactor + integration tests done; docs next
 **Branch:** feature/fuocy-bidi
 **Plan:** [Shared Docs Actions Rework](../plans/260422-1137-shared-docs-actions-rework/plan.md)
 **Objective:** Replace Revoke dead-end flow with Pause/Resume/Extend/Delete actions. 4-state UI (Active/Paused/Expired/No-link) with near-expiry amber badge.
@@ -20,7 +20,7 @@
 | 1 | Backend API endpoints | ✅ DONE | 2h | 2026-04-22 |
 | 2 | State logic helper + unit tests | ✅ DONE | 1h | 2026-04-22 |
 | 3 | UI components refactor | ✅ DONE | 4h | 2026-04-22 |
-| 4 | Integration tests | pending | 2h | — |
+| 4 | Integration tests | ✅ DONE | 2h | 2026-04-22 |
 | 5 | Docs update | pending | 0.5h | — |
 
 **Phase 01 Completion (DONE):**
@@ -57,6 +57,13 @@ function computeLinkState(input: {
 - Added 16 i18n keys to `en` + `vi` locales (linkState, actions, extend options, modals, badges)
 - Removed "No Active Link — Upload new version" banner from UI entirely
 - All 47/47 tests passing, typecheck clean, code review 9/10 after addressing duplicated modal copy, stale i18n keys, error logging, aria-labels, file-size extraction
+
+**Phase 04 Completion (DONE):**
+- Created `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — 22 new integration tests added (total: 50 tests, up from 28)
+- Test coverage: pause (3 tests), revoke-alias (2 tests incl. deprecation-warning-once assertion), resume (3 tests), extend with duration param (9 tests covering 7d/14d/30d + default + never + invalid + NO_ACTIVE_LINK state + authz + idempotent defaults), generate-link (3 tests), pause→resume→extend lifecycle (1 test asserting no `token` write on idempotent default extend)
+- Exposed `__resetDeprecationWarnedForTests` helper in `link-handlers.ts` to eliminate test order dependency
+- All 50 shared-docs integration tests passing locally
+- Pattern: mock-based Prisma fixtures (consistent with existing codebase pattern, trade-off vs. "real DB" approach noted in phase plan)
 
 ---
 

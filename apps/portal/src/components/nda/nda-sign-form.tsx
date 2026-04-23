@@ -54,7 +54,9 @@ export function NdaSignForm({ canSubmit, submitting, onSubmit }: NdaSignFormProp
       setHasStroke(false)
       return
     }
-    const dataUrl = canvas.getTrimmedCanvas().toDataURL('image/png')
+    // react-signature-canvas@1.1.0-alpha.2 removed getTrimmedCanvas(); calling
+    // it throws and kills the click silently. Use toDataURL() directly.
+    const dataUrl = canvas.toDataURL('image/png')
     onSubmit({
       signerName: trimmedName,
       signaturePngDataUrl: dataUrl,

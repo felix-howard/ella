@@ -71,6 +71,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.11.3)(zod@3.25.76)
+      '@react-pdf/renderer':
+        specifier: ^4.3.2
+        version: 4.3.2(react@19.2.3)
       hono:
         specifier: ^4.6.15
         version: 4.11.3
@@ -83,6 +86,9 @@ importers:
       node-cron:
         specifier: ^4.2.1
         version: 4.2.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.3
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
@@ -108,6 +114,9 @@ importers:
       '@types/node-cron':
         specifier: ^3.0.11
         version: 3.0.11
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.8
       '@types/sharp':
         specifier: ^0.32.0
         version: 0.32.0
@@ -202,6 +211,9 @@ importers:
       react-pdf:
         specifier: ^10.3.0
         version: 10.3.0(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react-signature-canvas:
+        specifier: 1.1.0-alpha.2
+        version: 1.1.0-alpha.2(@types/react@19.2.8)(prop-types@15.8.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.0.0
@@ -221,6 +233,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.2.8)
+      '@types/react-signature-canvas':
+        specifier: ^1.0.7
+        version: 1.0.7
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@6.4.1(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))

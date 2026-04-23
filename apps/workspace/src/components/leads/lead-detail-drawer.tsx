@@ -18,6 +18,7 @@ import { LeadStatusBadge } from './lead-status-badge'
 import { CustomSelect } from '../ui/custom-select'
 import type { SelectOption } from '../ui/custom-select'
 import type { Lead, LeadStatus } from '../../lib/api-client'
+import { AgreementsTab } from './nda/agreements-tab'
 
 interface LeadDetailDrawerProps {
   lead: Lead | null
@@ -25,7 +26,7 @@ interface LeadDetailDrawerProps {
   onClose: () => void
 }
 
-type DrawerTab = 'details' | 'messages'
+type DrawerTab = 'details' | 'messages' | 'agreements'
 
 export function LeadDetailDrawer({ lead, open, onClose }: LeadDetailDrawerProps) {
   const { t, i18n } = useTranslation()
@@ -225,6 +226,18 @@ export function LeadDetailDrawer({ lead, open, onClose }: LeadDetailDrawerProps)
               >
                 {t('leads.tabMessages')}
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('agreements')}
+                className={cn(
+                  'px-4 py-2.5 text-sm font-medium transition-colors relative',
+                  activeTab === 'agreements'
+                    ? 'text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t('nda.tabTitle')}
+              </button>
             </div>
 
             {/* Content */}
@@ -376,6 +389,11 @@ export function LeadDetailDrawer({ lead, open, onClose }: LeadDetailDrawerProps)
                     </div>
                   </section>
                 </>
+              )}
+
+              {/* Agreements Tab */}
+              {activeTab === 'agreements' && (
+                <AgreementsTab lead={currentLead} enabled={open && activeTab === 'agreements'} />
               )}
 
               {/* Messages Tab */}

@@ -270,6 +270,15 @@ const oneTimeRows: OneTimeRow[] = [
     class={inputCls}
   />
   <p id="calc-sales-tax-hint" class={hintCls}>
-    +${SALES_TAX_MONITORING_MONTHLY}/mo per shop monitored.
+    +$<input
+      type="text"
+      inputmode="numeric"
+      pattern="\d*"
+      maxlength="4"
+      value={SALES_TAX_MONITORING_MONTHLY}
+      data-calc-input="rates.salesTaxMonitoringMonthly"
+      class={rateInputCls}
+      aria-label="Sales tax monitoring monthly rate per shop"
+    />/mo per shop monitored.
   </p>
 </div>

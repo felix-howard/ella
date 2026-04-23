@@ -12,7 +12,6 @@
 
 import {
   PAYROLL,
-  SALES_TAX_MONITORING_MONTHLY,
   TIER_BASIC,
   TIER_ENTERPRISE,
   TIER_PRO,
@@ -71,6 +70,8 @@ export interface CalcInput {
       businessTaxReturnFederal: number;
       businessTaxReturnState: number;
     };
+    /** Per-shop monthly rate for sales tax monitoring. */
+    salesTaxMonitoringMonthly: number;
   };
 }
 
@@ -187,7 +188,7 @@ export function calculatePrice(input: CalcInput): CalcResult {
   if (input.salesTaxShops > 0) {
     monthly.push({
       label: `Sales tax monitoring (${input.salesTaxShops} shop${input.salesTaxShops > 1 ? "s" : ""})`,
-      amount: SALES_TAX_MONITORING_MONTHLY * input.salesTaxShops,
+      amount: input.rates.salesTaxMonitoringMonthly * input.salesTaxShops,
       kind: "monthly",
     });
   }

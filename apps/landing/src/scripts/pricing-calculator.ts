@@ -8,6 +8,7 @@ import {
   AUDIT_PROTECTION,
   CASH_PLAN,
   ONE_TIME,
+  SALES_TAX_MONITORING_MONTHLY,
   calculatePrice,
   type CalcInput,
 } from "@/config/pricing";
@@ -45,6 +46,7 @@ const DEFAULT_INPUT: CalcInput = {
       businessTaxReturnFederal: ONE_TIME.businessTaxReturnFederal,
       businessTaxReturnState: ONE_TIME.businessTaxReturnState,
     },
+    salesTaxMonitoringMonthly: SALES_TAX_MONITORING_MONTHLY,
   },
 };
 

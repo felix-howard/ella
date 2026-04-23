@@ -1258,6 +1258,9 @@ export const api = {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
 
+    create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
+      request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
+
     get: (id: string) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`),
 

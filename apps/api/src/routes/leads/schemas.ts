@@ -15,6 +15,15 @@ export const createLeadSchema = z.object({
   eventSlug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional().or(z.literal('')).transform(v => v || undefined),
 })
 
+/** Admin-create lead (authenticated endpoint from workspace) */
+export const adminCreateLeadSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  phone: z.string().regex(/^\+?[\d\s\-()]{10,15}$/, 'Invalid phone number format'),
+  email: z.string().email().max(254).optional().nullable(),
+  notes: z.string().max(5000).optional().nullable(),
+})
+
 /** Lead ID param */
 export const leadIdParamSchema = z.object({
   id: z.string().cuid(),

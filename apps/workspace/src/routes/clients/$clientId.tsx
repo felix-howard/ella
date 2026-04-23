@@ -37,9 +37,13 @@ import { toast } from '../../stores/toast-store'
 import { cn, Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, Button, buttonVariants, Input } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
+// SharedDocsTab is imported directly (not lazy) because its heavy deps
+// (react-pdf) are already lazy-loaded one level deeper inside SharedDocCard.
+// Lazy-loading this wrapper caused full-page Suspense fallbacks that hid
+// the client header during tab switches.
+import { SharedDocsTab } from '../../components/shared-docs'
 const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
-const SharedDocsTab = lazy(() => import('../../components/shared-docs').then(m => ({ default: m.SharedDocsTab })))
 const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
   ManualClassificationModal,
@@ -1026,9 +1030,7 @@ function ClientDetailPage() {
       {/* Shared Docs Tab - Multi-section document sharing per case */}
       {activeTab === 'shared-docs' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.sharedDocsError')}</div>}>
-          <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
-          </Suspense>
+          <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
         </ErrorBoundary>
       )}
 

@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, useTransition, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -88,6 +88,13 @@ function ClientDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabType>('files')
+  // Use transition so switching to lazy-loaded tabs (e.g. Shared Docs)
+  // keeps the header card visible while the chunk loads instead of
+  // flashing the Suspense fallback across the whole content area.
+  const [, startTabTransition] = useTransition()
+  const switchTab = useCallback((tab: TabType) => {
+    startTabTransition(() => setActiveTab(tab))
+  }, [])
   const [prevClientId, setPrevClientId] = useState(clientId)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -842,7 +849,7 @@ function ClientDetailPage() {
                     key={tab.id}
                     role="tab"
                     aria-selected={isActive}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => switchTab(tab.id)}
                     className={cn(
                       'flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap flex-shrink-0',
                       isActive
@@ -884,7 +891,7 @@ function ClientDetailPage() {
                         key={tab.id}
                         role="menuitem"
                         onClick={() => {
-                          setActiveTab(tab.id)
+                          switchTab(tab.id)
                           setIsMoreOpen(false)
                         }}
                         className={cn(

@@ -130,7 +130,7 @@ function NdaSignPage() {
   const handleReachBottom = useCallback(() => setReachedBottom(true), [])
 
   return (
-    <div className="h-dvh flex flex-col bg-background">
+    <div className="min-h-dvh flex flex-col bg-background">
       <header className="px-4 py-3 border-b border-border bg-card shrink-0">
         <div className="flex items-center justify-center">
           <img
@@ -150,7 +150,7 @@ function NdaSignPage() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 flex flex-col max-w-2xl w-full mx-auto p-4 gap-4">
+      <main className="flex-1 flex flex-col max-w-2xl w-full mx-auto p-4 gap-4">
         {state === 'loading' && (
           <div
             className="flex-1 flex items-center justify-center"

@@ -13,5 +13,7 @@ export default defineConfig({
     'sharp',
     '@prisma/client',
     'prisma',
+    '@react-pdf/renderer',
+    'react',
   ],
 })

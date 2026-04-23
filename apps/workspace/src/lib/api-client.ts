@@ -1258,6 +1258,9 @@ export const api = {
     list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
 
+    create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
+      request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
+
     get: (id: string) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`),
 
@@ -1278,6 +1281,27 @@ export const api = {
 
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
+
+    nda: {
+      create: (leadId: string) =>
+        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, { method: 'POST' }),
+
+      list: (leadId: string) =>
+        request<{ success: boolean; data: NdaAgreement[] }>(`/leads/${leadId}/nda`),
+
+      resend: (leadId: string, ndaId: string) =>
+        request<{ success: boolean; data: NdaAgreement; url: string; rotated: boolean }>(`/leads/${leadId}/nda/${ndaId}/resend`, { method: 'POST' }),
+
+      updateDeposit: (
+        leadId: string,
+        ndaId: string,
+        data: { depositStatus: NdaDepositStatus; depositNote?: string | null; depositPaidAt?: string | null },
+      ) =>
+        request<{ success: boolean; data: NdaAgreement }>(`/leads/${leadId}/nda/${ndaId}/deposit`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+      getPdfUrl: (leadId: string, ndaId: string) =>
+        request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+    },
   },
 
   // Campaign management (admin-only)
@@ -1334,6 +1358,36 @@ export interface Lead {
   convertedToId: string | null
   createdAt: string
   smsSendLogs?: SmsSendLog[]
+}
+
+export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'EXPIRED' | 'VOIDED'
+export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
+
+export interface NdaAgreement {
+  id: string
+  leadId: string
+  organizationId: string
+  templateVersion: string
+  status: NdaStatus
+  depositStatus: NdaDepositStatus
+  depositAmount: string
+  depositPaidAt: string | null
+  depositResolvedAt: string | null
+  depositNote: string | null
+  token: string
+  expiresAt: string | null
+  isActive: boolean
+  lastUsedAt: string | null
+  usageCount: number
+  signedAt: string | null
+  signerName: string | null
+  signerEmail: string | null
+  signedPdfKey: string | null
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+  /** Present on list + create/resend responses. Use this instead of deriving from token client-side. */
+  url?: string
 }
 
 export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'

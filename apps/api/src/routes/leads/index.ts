@@ -17,6 +17,7 @@ import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
 import {
   createLeadSchema,
+  adminCreateLeadSchema,
   leadIdParamSchema,
   listLeadsQuerySchema,
   updateLeadSchema,
@@ -91,6 +92,44 @@ leadsRoute.post(
       // Handle duplicate phone+org unique constraint violation
       if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
         return c.json({ success: true, message: 'Registration received' })
+      }
+      throw err
+    }
+  }
+)
+
+// ============================================
+// PROTECTED+ADMIN: Create Lead (from workspace)
+// ============================================
+leadsRoute.post(
+  '/admin',
+  authMiddleware,
+  requireOrgAdmin,
+  zValidator('json', adminCreateLeadSchema),
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { firstName, lastName, phone, email, notes } = c.req.valid('json')
+
+    const normalizedPhone = formatPhoneToE164(phone)
+
+    try {
+      const lead = await prisma.lead.create({
+        data: {
+          firstName: sanitizeTextInput(firstName),
+          lastName: sanitizeTextInput(lastName),
+          phone: normalizedPhone,
+          email: email ? sanitizeTextInput(email) : null,
+          notes: notes ? sanitizeTextInput(notes, 5000) : null,
+          status: 'NEW',
+          organizationId: orgId,
+        },
+      })
+
+      return c.json({ success: true, data: lead })
+    } catch (err: unknown) {
+      // Handle duplicate phone+org unique constraint violation
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
+        return c.json({ success: false, error: 'A lead with this phone already exists' }, 409)
       }
       throw err
     }

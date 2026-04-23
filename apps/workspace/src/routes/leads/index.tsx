@@ -5,6 +5,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Plus } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
@@ -12,6 +13,7 @@ import { LeadListTable } from '../../components/leads/lead-list-table'
 import { LeadDetailDrawer } from '../../components/leads/lead-detail-drawer'
 import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { CampaignsTab } from '../../components/leads/campaigns-tab'
+import { AddLeadModal } from '../../components/leads/add-lead-modal'
 import { api } from '../../lib/api-client'
 import type { Lead, LeadStatus } from '../../lib/api-client'
 import { useDebouncedValue } from '../../hooks'
@@ -29,6 +31,7 @@ function LeadsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [showBulkSms, setShowBulkSms] = useState(false)
+  const [showAddLead, setShowAddLead] = useState(false)
   const [page, setPage] = useState(1)
 
   const [debouncedSearch] = useDebouncedValue(search, 300)
@@ -118,11 +121,23 @@ function LeadsPage() {
   return (
     <PageContainer>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold text-foreground">{t('leads.title')}</h1>
-        {activeTab === 'leads' && newCount > 0 && (
-          <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-            {t('leads.newCount', { count: newCount })}
-          </span>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-foreground">{t('leads.title')}</h1>
+          {activeTab === 'leads' && newCount > 0 && (
+            <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+              {t('leads.newCount', { count: newCount })}
+            </span>
+          )}
+        </div>
+        {activeTab === 'leads' && (
+          <button
+            type="button"
+            onClick={() => setShowAddLead(true)}
+            className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-full font-medium hover:bg-primary-dark transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" aria-hidden="true" />
+            <span>{t('leads.addLead', 'Add Lead')}</span>
+          </button>
         )}
       </div>
 
@@ -209,6 +224,11 @@ function LeadsPage() {
               onClose={() => { setShowBulkSms(false); setSelectedIds(new Set()) }}
             />
           )}
+
+          <AddLeadModal
+            isOpen={showAddLead}
+            onClose={() => setShowAddLead(false)}
+          />
         </>
       ) : (
         <CampaignsTab

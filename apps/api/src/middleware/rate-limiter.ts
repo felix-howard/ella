@@ -73,6 +73,14 @@ setInterval(() => {
 }, 60000)
 
 /**
+ * Testing hook — clears the in-memory bucket so per-test state does not leak
+ * across tests that share a token key. Only for use inside `__tests__/` files.
+ */
+export function __resetRateLimitMapForTests(): void {
+  rateLimitMap.clear()
+}
+
+/**
  * Pre-configured rate limiters for common use cases
  */
 

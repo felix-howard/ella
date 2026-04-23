@@ -74,12 +74,29 @@
     </h4>
     <ul data-calc-output="setupItems" class="mt-2 divide-y divide-gray-100"></ul>
     <div class="mt-3 flex items-baseline justify-between border-t border-gray-200 pt-3">
-      <span class="text-sm font-medium text-gray-700">Setup total</span>
+      <span class="text-sm font-medium text-gray-700">Setup one-time total</span>
       <span class="text-xl font-bold tabular-nums text-gray-900">
         $<span data-calc-output="setupTotal">0</span>
       </span>
     </div>
   </section>
+
+  <!-- Due today + next-month clarifier -->
+  <div class="rounded-xl bg-primary-50 p-4 ring-1 ring-primary-100">
+    <div class="flex items-baseline justify-between">
+      <span class="text-sm font-semibold text-primary-900">Due today</span>
+      <span class="text-lg font-bold tabular-nums text-primary-900">
+        $<span data-calc-output="dueToday">0</span>
+      </span>
+    </div>
+    <div class="mt-2 flex items-baseline justify-between">
+      <span class="text-sm font-medium text-primary-900/80">Next month onward</span>
+      <span class="text-lg font-bold tabular-nums text-primary-900">
+        $<span data-calc-output="nextMonthTotal">0</span>
+        <span class="text-sm font-medium text-primary-900/70">/month</span>
+      </span>
+    </div>
+  </div>
 </div>
 
 <!-- Enterprise state (hidden initially; phase 05 unhides when isEnterprise===true) -->
@@ -119,7 +136,4 @@
   >
     Book Free Consultation
   </button>
-  <p class="mt-2 text-center text-xs text-gray-500">
-    $300 deposit, refundable if you proceed with us.
-  </p>
 </div>

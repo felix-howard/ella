@@ -26,6 +26,8 @@ export interface PanelRefs {
   setupList: HTMLElement[];
   monthlyTotal: HTMLElement[];
   setupTotal: HTMLElement[];
+  dueToday: HTMLElement[];
+  nextMonthTotal: HTMLElement[];
   template: HTMLTemplateElement;
   cta: HTMLButtonElement[];
 }
@@ -49,6 +51,8 @@ export function resolveRefs(panel: HTMLElement): PanelRefs | null {
     setupList: qa(panel, '[data-calc-output="setupItems"]'),
     monthlyTotal: qa(panel, '[data-calc-output="monthlyTotal"]'),
     setupTotal: qa(panel, '[data-calc-output="setupTotal"]'),
+    dueToday: qa(panel, '[data-calc-output="dueToday"]'),
+    nextMonthTotal: qa(panel, '[data-calc-output="nextMonthTotal"]'),
     cta: qa<HTMLButtonElement>(panel, "[data-calc-cta]"),
     template,
   };
@@ -119,6 +123,8 @@ export function renderResult(refs: PanelRefs, result: CalcResult): void {
   // Totals use formatNumber (no "$"): summary-panel.astro renders a literal "$" outside the span.
   setText(refs.monthlyTotal, formatNumber(result.monthlyTotal));
   setText(refs.setupTotal, formatNumber(result.setupTotal));
+  setText(refs.dueToday, formatNumber(result.monthlyTotal + result.setupTotal));
+  setText(refs.nextMonthTotal, formatNumber(result.monthlyTotal));
   for (const btn of refs.cta) {
     btn.disabled = false;
     btn.textContent = CTA_LABEL_DEFAULT;

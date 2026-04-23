@@ -461,6 +461,7 @@ model Staff {
   termsAcceptances TermsAcceptance[]
   sentSmsLogs      SmsSendLog[]     @relation("SentSmsLogs")
   createdCampaigns Campaign[]       @relation("CreatedCampaigns")
+  ndaAgreementsCreated NdaAgreement[] @relation("NdaCreatedBy")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -531,12 +532,13 @@ model Organization {
   missedCallTextBack            Boolean  @default(false)
   autoSendFormClientUploadLink  Boolean  @default(false)
 
-  staff        Staff[]
-  clients      Client[]
-  clientGroups ClientGroup[]
-  leads        Lead[]
-  smsSendLogs  SmsSendLog[]
-  campaigns    Campaign[]
+  staff         Staff[]
+  clients       Client[]
+  clientGroups  ClientGroup[]
+  leads         Lead[]
+  smsSendLogs   SmsSendLog[]
+  campaigns     Campaign[]
+  ndaAgreements NdaAgreement[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1180,6 +1182,21 @@ enum MagicLinkType {
   DRAFT_RETURN // Draft tax return PDF viewing
 }
 
+enum NdaStatus {
+  DRAFT
+  SENT
+  SIGNED
+  EXPIRED
+  VOIDED
+}
+
+enum NdaDepositStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FORFEITED
+}
+
 enum ScheduleCStatus {
   DRAFT       // Client editing
   SUBMITTED   // Client submitted, CPA can review
@@ -1430,6 +1447,7 @@ model Lead {
 
   // Relations
   smsSendLogs    SmsSendLog[]
+  ndaAgreements  NdaAgreement[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -1462,6 +1480,56 @@ model SmsSendLog {
   @@index([organizationId])
   @@index([sentById])
   @@index([twilioSid])
+}
+
+model NdaAgreement {
+  id                  String           @id @default(cuid())
+
+  // Tenancy
+  leadId              String
+  lead                Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Template snapshot
+  templateVersion     String
+
+  // Status
+  status              NdaStatus        @default(DRAFT)
+  depositStatus       NdaDepositStatus @default(PENDING)
+  depositAmount       Decimal          @default(300.00) @db.Decimal(10, 2)
+  depositPaidAt       DateTime?
+  depositResolvedAt   DateTime?
+  depositNote         String?          @db.Text
+
+  // Public access token (replaces MagicLink for NDA)
+  token               String           @unique
+  expiresAt           DateTime?
+  isActive            Boolean          @default(true)
+  lastUsedAt          DateTime?
+  usageCount          Int              @default(0)
+
+  // Signing snapshot (PII — never emit to general application logs)
+  signedAt            DateTime?
+  signerName          String?          // PII
+  signerEmail         String?          // PII
+  signerIpAddress     String?          // PII
+  signerUserAgent     String?          @db.Text // PII
+  signaturePngKey     String?
+  signedPdfKey        String?
+
+  // Audit
+  createdByUserId     String
+  createdBy           Staff            @relation("NdaCreatedBy", fields: [createdByUserId], references: [id])
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([leadId])
+  @@index([organizationId])
+  @@index([token])
+  @@index([status])
+  @@index([leadId, status])
 }
 
 model Campaign {

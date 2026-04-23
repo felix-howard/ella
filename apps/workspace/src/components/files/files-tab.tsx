@@ -74,7 +74,10 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   })
 
   // Entity metadata for filter bar (only in unified mode)
-  const entities: EntityInfo[] = groupImagesData?.entities ?? []
+  const entities = useMemo<EntityInfo[]>(
+    () => groupImagesData?.entities ?? [],
+    [groupImagesData?.entities]
+  )
 
   // Set default selected entity to the individual client (first load only)
   useEffect(() => {

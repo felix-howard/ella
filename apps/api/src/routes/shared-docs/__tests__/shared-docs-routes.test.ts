@@ -81,7 +81,7 @@ function makeFormData(title: string | null, fileBuffer: Buffer | null, fileType 
   const form = new FormData()
   if (title !== null) form.append('title', title)
   if (fileBuffer) {
-    const blob = new Blob([fileBuffer], { type: fileType })
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: fileType })
     form.append('file', blob, filename)
   }
   return form
@@ -442,7 +442,7 @@ describe('Shared Docs Routes', () => {
         data: { isActive: false },
       })
       // And both statements reached $transaction as a 2-element array
-      const txArg = mockTransaction.mock.calls[0][0] as any[]
+      const txArg = mockTransaction.mock.calls[0][0] as unknown as any[]
       expect(Array.isArray(txArg)).toBe(true)
       expect(txArg).toHaveLength(2)
     })

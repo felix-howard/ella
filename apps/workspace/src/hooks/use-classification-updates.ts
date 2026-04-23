@@ -282,6 +282,9 @@ export function useClassificationUpdates({
     initialPendingDocIdsRef.current = null
     isInitialLoadRef.current = true
     isInitialDocsLoadRef.current = true
+    // Reset counts on caseId change — intentional sync of external key to internal state.
+    // Deps only include caseId, so no cascade loop risk.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveProcessingCount(0)
     setActiveExtractingCount(0)
   }, [caseId])

@@ -13,9 +13,6 @@
 import type { CalcResult, LineItem } from "@/config/pricing";
 import { formatNumber, formatUsd } from "./pricing-calculator-format";
 
-export const CTA_LABEL_DEFAULT = "Book Free Consultation";
-export const CTA_LABEL_ENTERPRISE = "Contact us for enterprise quote";
-
 export interface PanelRefs {
   tierBadge: HTMLElement[];
   tierLabel: HTMLElement[];
@@ -29,7 +26,6 @@ export interface PanelRefs {
   dueToday: HTMLElement[];
   nextMonthTotal: HTMLElement[];
   template: HTMLTemplateElement;
-  cta: HTMLButtonElement[];
 }
 
 function qa<T extends HTMLElement>(root: HTMLElement, sel: string): T[] {
@@ -53,7 +49,6 @@ export function resolveRefs(panel: HTMLElement): PanelRefs | null {
     setupTotal: qa(panel, '[data-calc-output="setupTotal"]'),
     dueToday: qa(panel, '[data-calc-output="dueToday"]'),
     nextMonthTotal: qa(panel, '[data-calc-output="nextMonthTotal"]'),
-    cta: qa<HTMLButtonElement>(panel, "[data-calc-cta]"),
     template,
   };
   // Required refs — bail out if any are missing (malformed template).
@@ -66,7 +61,6 @@ export function resolveRefs(panel: HTMLElement): PanelRefs | null {
     refs.setupTotal,
     refs.monthlyList,
     refs.setupList,
-    refs.cta,
   ];
   if (required.some((arr) => arr.length === 0)) return null;
   return refs;
@@ -102,18 +96,10 @@ function toggleState(refs: PanelRefs, mode: "empty" | "result" | "enterprise"): 
 export function renderResult(refs: PanelRefs, result: CalcResult): void {
   if (result.isEnterprise) {
     toggleState(refs, "enterprise");
-    for (const btn of refs.cta) {
-      btn.disabled = false;
-      btn.textContent = CTA_LABEL_ENTERPRISE;
-    }
     return;
   }
   if (!result.hasAnySelection) {
     toggleState(refs, "empty");
-    for (const btn of refs.cta) {
-      btn.disabled = true;
-      btn.textContent = CTA_LABEL_DEFAULT;
-    }
     return;
   }
   toggleState(refs, "result");
@@ -125,8 +111,4 @@ export function renderResult(refs: PanelRefs, result: CalcResult): void {
   setText(refs.setupTotal, formatNumber(result.setupTotal));
   setText(refs.dueToday, formatNumber(result.monthlyTotal + result.setupTotal));
   setText(refs.nextMonthTotal, formatNumber(result.monthlyTotal));
-  for (const btn of refs.cta) {
-    btn.disabled = false;
-    btn.textContent = CTA_LABEL_DEFAULT;
-  }
 }

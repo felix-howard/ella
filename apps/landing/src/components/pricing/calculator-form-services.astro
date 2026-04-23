@@ -20,17 +20,37 @@ import {
   sectionCls,
 } from "./calculator-form-styles";
 
-const oneTimeRows: Array<{
-  key: keyof typeof ONE_TIME;
+/**
+ * One-time services form rows. Single-rate rows render one editable rate
+ * input; the business tax return row is special-cased (`splitRate`) and
+ * renders two inputs — Federal + State — both operator-editable.
+ */
+type SingleRateRow = {
+  kind: "single";
+  qtyKey: "startLlc" | "holdingLlcNew" | "holdingLlcModify" | "personalTaxReturn";
   label: string;
-  price: number;
+  rateKey: keyof typeof ONE_TIME;
   hint?: string;
-}> = [
-  { key: "startLlc", label: "Start LLC", price: ONE_TIME.startLlc, hint: "Excludes state filing fee (paid separately)" },
-  { key: "holdingLlcNew", label: "Holding LLC (new)", price: ONE_TIME.holdingLlcNew },
-  { key: "holdingLlcModify", label: "Holding LLC (modify)", price: ONE_TIME.holdingLlcModify },
-  { key: "personalTaxReturn", label: "Personal tax return", price: ONE_TIME.personalTaxReturn },
-  { key: "businessTaxReturn", label: "Business tax return", price: ONE_TIME.businessTaxReturn },
+};
+type SplitRateRow = {
+  kind: "split";
+  qtyKey: "businessTaxReturn";
+  label: string;
+};
+type OneTimeRow = SingleRateRow | SplitRateRow;
+
+const oneTimeRows: OneTimeRow[] = [
+  {
+    kind: "single",
+    qtyKey: "startLlc",
+    label: "Start LLC",
+    rateKey: "startLlc",
+    hint: "Excludes state filing fee (paid separately)",
+  },
+  { kind: "single", qtyKey: "holdingLlcNew", label: "Holding LLC (new)", rateKey: "holdingLlcNew" },
+  { kind: "single", qtyKey: "holdingLlcModify", label: "Holding LLC (modify)", rateKey: "holdingLlcModify" },
+  { kind: "single", qtyKey: "personalTaxReturn", label: "Personal tax return", rateKey: "personalTaxReturn" },
+  { kind: "split", qtyKey: "businessTaxReturn", label: "Business tax return" },
 ];
 ---
 
@@ -173,22 +193,60 @@ const oneTimeRows: Array<{
     {oneTimeRows.map((row) => (
       <li class="grid gap-2 sm:grid-cols-[1fr_120px] sm:items-center">
         <div>
-          <label for={`calc-onetime-${row.key}`} class="text-sm font-medium text-gray-900">
+          <label for={`calc-onetime-${row.qtyKey}`} class="text-sm font-medium text-gray-900">
             {row.label}
-            <span class="ml-2 text-xs text-gray-500">${row.price.toLocaleString()} each</span>
+            {row.kind === "single" && (
+              <span class="ml-2 text-xs text-gray-500">
+                $<input
+                  type="text"
+                  inputmode="numeric"
+                  pattern="\d*"
+                  maxlength="6"
+                  value={ONE_TIME[row.rateKey]}
+                  data-calc-input={`rates.oneTime.${row.rateKey}`}
+                  class={rateInputCls}
+                  aria-label={`${row.label} rate`}
+                /> each
+              </span>
+            )}
+            {row.kind === "split" && (
+              <span class="ml-2 text-xs text-gray-500">
+                $<input
+                  type="text"
+                  inputmode="numeric"
+                  pattern="\d*"
+                  maxlength="6"
+                  value={ONE_TIME.businessTaxReturnFederal}
+                  data-calc-input="rates.oneTime.businessTaxReturnFederal"
+                  class={rateInputCls}
+                  aria-label="Business tax return federal rate"
+                /> Federal + $<input
+                  type="text"
+                  inputmode="numeric"
+                  pattern="\d*"
+                  maxlength="6"
+                  value={ONE_TIME.businessTaxReturnState}
+                  data-calc-input="rates.oneTime.businessTaxReturnState"
+                  class={rateInputCls}
+                  aria-label="Business tax return state rate"
+                /> State
+              </span>
+            )}
           </label>
-          {row.hint && <p class="text-xs text-gray-500">{row.hint}</p>}
+          {row.kind === "single" && row.hint && (
+            <p class="text-xs text-gray-500">{row.hint}</p>
+          )}
         </div>
         <input
-          id={`calc-onetime-${row.key}`}
+          id={`calc-onetime-${row.qtyKey}`}
           type="text"
-          name={`oneTime_${row.key}`}
+          name={`oneTime_${row.qtyKey}`}
           inputmode="numeric"
           pattern="\d*"
           maxlength="2"
           placeholder="0"
           aria-label={`${row.label} quantity`}
-          data-calc-input={`oneTime.${row.key}`}
+          data-calc-input={`oneTime.${row.qtyKey}`}
           class={inputCls}
         />
       </li>
@@ -212,6 +270,15 @@ const oneTimeRows: Array<{
     class={inputCls}
   />
   <p id="calc-sales-tax-hint" class={hintCls}>
-    +${SALES_TAX_MONITORING_MONTHLY}/mo per shop monitored.
+    +$<input
+      type="text"
+      inputmode="numeric"
+      pattern="\d*"
+      maxlength="4"
+      value={SALES_TAX_MONITORING_MONTHLY}
+      data-calc-input="rates.salesTaxMonitoringMonthly"
+      class={rateInputCls}
+      aria-label="Sales tax monitoring monthly rate per shop"
+    />/mo per shop monitored.
   </p>
 </div>

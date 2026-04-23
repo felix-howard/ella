@@ -11,9 +11,7 @@
  */
 
 import {
-  ONE_TIME,
   PAYROLL,
-  SALES_TAX_MONITORING_MONTHLY,
   TIER_BASIC,
   TIER_ENTERPRISE,
   TIER_PRO,
@@ -63,6 +61,17 @@ export interface CalcInput {
       monthly: number;
       setup: number;
     };
+    oneTime: {
+      startLlc: number;
+      holdingLlcNew: number;
+      holdingLlcModify: number;
+      personalTaxReturn: number;
+      // Business tax return priced as Federal + State (user-editable components).
+      businessTaxReturnFederal: number;
+      businessTaxReturnState: number;
+    };
+    /** Per-shop monthly rate for sales tax monitoring. */
+    salesTaxMonitoringMonthly: number;
   };
 }
 
@@ -162,9 +171,14 @@ export function calculatePrice(input: CalcInput): CalcResult {
   (Object.keys(ONE_TIME_LABELS) as Array<keyof CalcInput["oneTime"]>).forEach((key) => {
     const qty = input.oneTime[key];
     if (qty > 0) {
+      const unit =
+        key === "businessTaxReturn"
+          ? input.rates.oneTime.businessTaxReturnFederal +
+            input.rates.oneTime.businessTaxReturnState
+          : input.rates.oneTime[key];
       setup.push({
         label: qty > 1 ? `${ONE_TIME_LABELS[key]} × ${qty}` : ONE_TIME_LABELS[key],
-        amount: ONE_TIME[key] * qty,
+        amount: unit * qty,
         kind: "setup",
         note: key === "startLlc" ? "Excludes state filing fee" : undefined,
       });
@@ -174,7 +188,7 @@ export function calculatePrice(input: CalcInput): CalcResult {
   if (input.salesTaxShops > 0) {
     monthly.push({
       label: `Sales tax monitoring (${input.salesTaxShops} shop${input.salesTaxShops > 1 ? "s" : ""})`,
-      amount: SALES_TAX_MONITORING_MONTHLY * input.salesTaxShops,
+      amount: input.rates.salesTaxMonitoringMonthly * input.salesTaxShops,
       kind: "monthly",
     });
   }

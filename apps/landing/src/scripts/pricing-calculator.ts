@@ -7,11 +7,11 @@
 import {
   AUDIT_PROTECTION,
   CASH_PLAN,
+  ONE_TIME,
+  SALES_TAX_MONITORING_MONTHLY,
   calculatePrice,
   type CalcInput,
-  type CalcResult,
 } from "@/config/pricing";
-import { formatBreakdown } from "./pricing-calculator-format";
 import { renderResult, resolveRefs } from "./pricing-calculator-render";
 
 const DEFAULT_INPUT: CalcInput = {
@@ -38,6 +38,15 @@ const DEFAULT_INPUT: CalcInput = {
       monthly: AUDIT_PROTECTION.monthly,
       setup: AUDIT_PROTECTION.setup,
     },
+    oneTime: {
+      startLlc: ONE_TIME.startLlc,
+      holdingLlcNew: ONE_TIME.holdingLlcNew,
+      holdingLlcModify: ONE_TIME.holdingLlcModify,
+      personalTaxReturn: ONE_TIME.personalTaxReturn,
+      businessTaxReturnFederal: ONE_TIME.businessTaxReturnFederal,
+      businessTaxReturnState: ONE_TIME.businessTaxReturnState,
+    },
+    salesTaxMonitoringMonthly: SALES_TAX_MONITORING_MONTHLY,
   },
 };
 
@@ -104,35 +113,15 @@ function init(): void {
   const refs = resolveRefs(panel);
   if (!refs) return;
 
-  let lastResult: CalcResult | null = null;
-
   const recalc = (): void => {
     const input = readInputs(form);
     if (!isInputSane(input)) return; // silent skip; UI constraints prevent most bad states
-    const result = calculatePrice(input);
-    lastResult = result;
-    renderResult(refs, result);
+    renderResult(refs, calculatePrice(input));
   };
 
   const debounced = debounce(recalc, 150);
   form.addEventListener("input", debounced);
   form.addEventListener("change", debounced);
-
-  const onCtaClick = (): void => {
-    if (!lastResult) return;
-    document.dispatchEvent(
-      new CustomEvent("calc:open-consultation", {
-        detail: {
-          breakdownText: formatBreakdown(lastResult),
-          // Explicit flag instead of sniffing the text — keeps the modal
-          // decoupled from breakdown string content (W2 from review).
-          showBreakdown: !lastResult.isEnterprise && lastResult.hasAnySelection,
-        },
-      }),
-    );
-  };
-  // Desktop + mobile drawer each have their own CTA button.
-  for (const btn of refs.cta) btn.addEventListener("click", onCtaClick);
 
   recalc();
 }

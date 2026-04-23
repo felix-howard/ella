@@ -18,6 +18,7 @@ import { Route as UploadTokenIndexRouteImport } from './routes/upload/$token/ind
 import { Route as UTokenIndexRouteImport } from './routes/u/$token/index'
 import { Route as RentalTokenIndexRouteImport } from './routes/rental/$token/index'
 import { Route as RegisterOrgSlugIndexRouteImport } from './routes/register/$orgSlug/index'
+import { Route as NdaTokenIndexRouteImport } from './routes/nda/$token/index'
 import { Route as FormOrgSlugIndexRouteImport } from './routes/form/$orgSlug/index'
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
 import { Route as DraftTokenIndexRouteImport } from './routes/draft/$token/index'
@@ -70,6 +71,11 @@ const RegisterOrgSlugIndexRoute = RegisterOrgSlugIndexRouteImport.update({
   path: '/register/$orgSlug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NdaTokenIndexRoute = NdaTokenIndexRouteImport.update({
+  id: '/nda/$token/',
+  path: '/nda/$token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FormOrgSlugIndexRoute = FormOrgSlugIndexRouteImport.update({
   id: '/form/$orgSlug/',
   path: '/form/$orgSlug/',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug': typeof FormOrgSlugIndexRoute
+  '/nda/$token': typeof NdaTokenIndexRoute
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug': typeof FormOrgSlugIndexRoute
+  '/nda/$token': typeof NdaTokenIndexRoute
   '/register/$orgSlug': typeof RegisterOrgSlugIndexRoute
   '/rental/$token': typeof RentalTokenIndexRoute
   '/u/$token': typeof UTokenIndexRoute
@@ -145,6 +153,7 @@ export interface FileRoutesById {
   '/draft/$token/': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
   '/form/$orgSlug/': typeof FormOrgSlugIndexRoute
+  '/nda/$token/': typeof NdaTokenIndexRoute
   '/register/$orgSlug/': typeof RegisterOrgSlugIndexRoute
   '/rental/$token/': typeof RentalTokenIndexRoute
   '/u/$token/': typeof UTokenIndexRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/draft/$token'
     | '/expense/$token/'
     | '/form/$orgSlug'
+    | '/nda/$token'
     | '/register/$orgSlug'
     | '/rental/$token/'
     | '/u/$token/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/draft/$token'
     | '/expense/$token'
     | '/form/$orgSlug'
+    | '/nda/$token'
     | '/register/$orgSlug'
     | '/rental/$token'
     | '/u/$token'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/draft/$token/'
     | '/expense/$token/'
     | '/form/$orgSlug/'
+    | '/nda/$token/'
     | '/register/$orgSlug/'
     | '/rental/$token/'
     | '/u/$token/'
@@ -211,6 +223,7 @@ export interface RootRouteChildren {
   ContractorIntakeTokenIndexRoute: typeof ContractorIntakeTokenIndexRoute
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
   FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
+  NdaTokenIndexRoute: typeof NdaTokenIndexRoute
   RegisterOrgSlugIndexRoute: typeof RegisterOrgSlugIndexRoute
   FormOrgSlugStaffSlugIndexRoute: typeof FormOrgSlugStaffSlugIndexRoute
   RegisterOrgSlugEventSlugIndexRoute: typeof RegisterOrgSlugEventSlugIndexRoute
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/register/$orgSlug'
       fullPath: '/register/$orgSlug'
       preLoaderRoute: typeof RegisterOrgSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nda/$token/': {
+      id: '/nda/$token/'
+      path: '/nda/$token'
+      fullPath: '/nda/$token'
+      preLoaderRoute: typeof NdaTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/form/$orgSlug/': {
@@ -382,6 +402,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContractorIntakeTokenIndexRoute: ContractorIntakeTokenIndexRoute,
   DraftTokenIndexRoute: DraftTokenIndexRoute,
   FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,
+  NdaTokenIndexRoute: NdaTokenIndexRoute,
   RegisterOrgSlugIndexRoute: RegisterOrgSlugIndexRoute,
   FormOrgSlugStaffSlugIndexRoute: FormOrgSlugStaffSlugIndexRoute,
   RegisterOrgSlugEventSlugIndexRoute: RegisterOrgSlugEventSlugIndexRoute,

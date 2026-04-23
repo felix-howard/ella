@@ -64,6 +64,43 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
+// NDA types
+export interface NdaTemplateSection {
+  heading: string
+  paragraphs: string[]
+}
+
+export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'VOIDED'
+
+export interface NdaPublicView {
+  status: NdaStatus
+  expiresAt: string | null
+  expired: boolean
+  templateVersion: string
+  templateTitle: string
+  templateSections: NdaTemplateSection[]
+  depositAmount: string
+  orgName: string
+  leadFirstName: string
+}
+
+export interface NdaSignPayload {
+  signerName: string
+  signaturePngDataUrl: string
+  agreementChecked: true
+}
+
+export interface NdaSignResult {
+  status: 'SIGNED'
+  signedAt: string
+  downloadUrl: string
+}
+
+interface ApiEnvelope<T> {
+  success: boolean
+  data: T
+}
+
 // Draft return data type
 export interface DraftReturnData {
   title: string
@@ -240,5 +277,25 @@ export const portalApi = {
     await fetch(`${API_BASE_URL}/portal/draft/${token}/viewed`, {
       method: 'POST',
     })
+  },
+
+  // Load NDA agreement by public token
+  getNda: async (token: string): Promise<NdaPublicView> => {
+    const envelope = await request<ApiEnvelope<NdaPublicView>>(
+      `/public/nda/${token}`,
+    )
+    return envelope.data
+  },
+
+  // Submit NDA signature
+  signNda: async (token: string, payload: NdaSignPayload): Promise<NdaSignResult> => {
+    const envelope = await request<ApiEnvelope<NdaSignResult>>(
+      `/public/nda/${token}/sign`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    )
+    return envelope.data
   },
 }

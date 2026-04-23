@@ -1,17 +1,16 @@
 ---
 /**
  * Pricing page — Ella Tax-specific 3-tier marketing cards + interactive calculator.
- * Phase 02 scope: hero, tier cards row, calculator placeholder, FAQ placeholder, CTA.
+ * Phase 02 scope: hero, tier cards row, calculator.
  * Calculator UI + logic wired in subsequent phases (03-05).
  */
 import BaseLayout from "@/layouts/base-layout.astro";
 import HeadSEO from "@/components/seo/head-seo.astro";
 import SectionHeading from "@/components/section-heading.astro";
-import CTASection from "@/components/cta-section.astro";
 import TierCard from "@/components/pricing/tier-card.astro";
 import CalculatorSection from "@/components/pricing/calculator-section.astro";
-import ConsultationModal from "@/components/pricing/consultation-modal.astro";
-import { breadcrumbSchema, faqSchema } from "@/components/seo/structured-data";
+import OneTimeServicesSection from "@/components/pricing/one-time-services-section.astro";
+import { breadcrumbSchema } from "@/components/seo/structured-data";
 import { siteConfig } from "@/config/site";
 import {
   TIER_BASIC,
@@ -20,14 +19,12 @@ import {
   PAYROLL,
   AUDIT_PROTECTION,
 } from "@/config/pricing";
-import { pricingFaqItems } from "@/config/pricing-faq";
 
 const structuredData = [
   breadcrumbSchema([
     { name: "Home", url: siteConfig.url },
     { name: "Pricing", url: `${siteConfig.url}/pricing` },
   ]),
-  faqSchema(pricingFaqItems),
 ];
 
 /* ---------- Marketing tier card data (display only, sourced from constants) ---------- */
@@ -193,6 +190,9 @@ const tierCards = [
       </div>
     </section>
 
+    <!-- One-time services (tax returns + LLC formation) -->
+    <OneTimeServicesSection />
+
     <!-- Calculator placeholder (phases 03-05 fill this) -->
     <section
       id="calculator"
@@ -211,37 +211,7 @@ const tierCards = [
       </div>
     </section>
 
-    <!-- FAQ -->
-    <section id="faq" class="py-24" aria-label="Frequently asked questions">
-      <div class="mx-auto max-w-5xl px-6">
-        <SectionHeading
-          eyebrow="FAQ"
-          title="Frequently asked questions"
-          subtitle="Common questions about Ella Tax's pricing and services."
-        />
-        <div class="mt-12 grid gap-8 md:grid-cols-2" data-stagger>
-          {pricingFaqItems.map((item) => (
-            <div data-animate="fade-up">
-              <h3 class="text-base font-semibold text-gray-900">
-                {item.question}
-              </h3>
-              <p class="mt-2 text-sm leading-relaxed text-gray-600">
-                {item.answer}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <CTASection
-      title="Still have questions?"
-      description="Book a free 15-minute consult with our accountant to walk through your numbers."
-    />
   </main>
-
-  <ConsultationModal />
-
 
   <script>
     import "@/scripts/pricing-calculator";

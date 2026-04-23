@@ -72,12 +72,21 @@ export const AUDIT_PROTECTION = {
   setup: 500,
 };
 
+/**
+ * Per-unit rate defaults for one-time services. Used as both calculator
+ * defaults and marketing display prices.
+ *
+ * Business tax return is split into federal + state components so operators
+ * can price them independently on the internal calculator. The displayed
+ * total is `businessTaxReturnFederal + businessTaxReturnState`.
+ */
 export const ONE_TIME = {
   startLlc: 1200,
   holdingLlcNew: 3000,
   holdingLlcModify: 1000,
   personalTaxReturn: 150,
-  businessTaxReturn: 700,
+  businessTaxReturnFederal: 600,
+  businessTaxReturnState: 100,
 };
 
 export const SALES_TAX_MONITORING_MONTHLY = 25;

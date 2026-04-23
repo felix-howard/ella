@@ -6,7 +6,7 @@
  * phase 07 extracts it here. `pricing-calculator-render.ts` updates every
  * `[data-calc-*]` node via `querySelectorAll`, so rendering works for N copies.
  *
- * Tier badge, empty / result / enterprise states, CTA.
+ * Tier badge, empty / result / enterprise states.
  * Money formatting stays in `pricing-calculator-render.ts` via `textContent`
  * (XSS-safe by construction).
  */
@@ -126,14 +126,3 @@
   </p>
 </div>
 
-<!-- CTA — disabled by default; phase 05 enables when hasAnySelection=true, phase 06 wires submit -->
-<div class="mt-6 border-t border-gray-100 pt-6">
-  <button
-    type="button"
-    data-calc-cta
-    disabled
-    class="block w-full rounded-full bg-primary-600 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:hover:bg-gray-300"
-  >
-    Book Free Consultation
-  </button>
-</div>

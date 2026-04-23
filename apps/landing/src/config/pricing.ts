@@ -11,7 +11,6 @@
  */
 
 import {
-  ONE_TIME,
   PAYROLL,
   SALES_TAX_MONITORING_MONTHLY,
   TIER_BASIC,
@@ -62,6 +61,15 @@ export interface CalcInput {
     auditProtection: {
       monthly: number;
       setup: number;
+    };
+    oneTime: {
+      startLlc: number;
+      holdingLlcNew: number;
+      holdingLlcModify: number;
+      personalTaxReturn: number;
+      // Business tax return priced as Federal + State (user-editable components).
+      businessTaxReturnFederal: number;
+      businessTaxReturnState: number;
     };
   };
 }
@@ -162,9 +170,14 @@ export function calculatePrice(input: CalcInput): CalcResult {
   (Object.keys(ONE_TIME_LABELS) as Array<keyof CalcInput["oneTime"]>).forEach((key) => {
     const qty = input.oneTime[key];
     if (qty > 0) {
+      const unit =
+        key === "businessTaxReturn"
+          ? input.rates.oneTime.businessTaxReturnFederal +
+            input.rates.oneTime.businessTaxReturnState
+          : input.rates.oneTime[key];
       setup.push({
         label: qty > 1 ? `${ONE_TIME_LABELS[key]} × ${qty}` : ONE_TIME_LABELS[key],
-        amount: ONE_TIME[key] * qty,
+        amount: unit * qty,
         kind: "setup",
         note: key === "startLlc" ? "Excludes state filing fee" : undefined,
       });

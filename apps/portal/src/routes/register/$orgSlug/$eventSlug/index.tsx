@@ -52,7 +52,7 @@ function RegisterPage() {
 
       {formIntroContent && (
         <div
-          className="form-intro-content px-6 pt-4 text-foreground"
+          className="form-intro-content px-6 pt-4 text-center text-foreground"
           dangerouslySetInnerHTML={{ __html: formIntroContent }}
         />
       )}

@@ -989,8 +989,12 @@ model Conversation {
 
 model Message {
   id             String           @id @default(cuid())
-  conversationId String
-  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null (enforced via DB CHECK).
+  conversationId String?
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  leadId         String?
+  lead           Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   channel        MessageChannel
   direction      MessageDirection
@@ -1019,6 +1023,7 @@ model Message {
   updatedAt DateTime @updatedAt
 
   @@index([conversationId])
+  @@index([leadId, createdAt])
   @@index([createdAt])
   @@index([callSid])
   @@index([sentById])
@@ -1448,6 +1453,10 @@ model Lead {
   // Relations
   smsSendLogs    SmsSendLog[]
   ndaAgreements  NdaAgreement[]
+  messages       Message[]
+
+  // Staff-side "last read" marker for inbound SMS unread count
+  messagesLastReadAt DateTime?
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

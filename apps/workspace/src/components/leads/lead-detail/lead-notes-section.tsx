@@ -18,7 +18,7 @@ export function LeadNotesSection({ lead }: Props) {
   })
 
   return (
-    <section className="rounded-xl border border-border/60 bg-card shadow-sm">
+    <section className="rounded-lg border border-border/60 bg-card shadow-none">
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-foreground">{t('leads.editNotes')}</h3>

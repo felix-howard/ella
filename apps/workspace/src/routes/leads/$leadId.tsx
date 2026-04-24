@@ -48,15 +48,20 @@ function LeadDetailRoute() {
   if (!lead) {
     return (
       <PageContainer>
-        <div className="max-w-5xl mx-auto w-full animate-pulse">
+        <div className="max-w-6xl mx-auto w-full animate-pulse">
           <div className="h-5 w-32 bg-muted rounded mb-4" />
-          <div className="h-20 bg-muted rounded-xl mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-muted rounded-xl" />
-            ))}
+          <div className="h-24 bg-muted rounded-lg mb-6" />
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="xl:col-span-2 space-y-4">
+              <div className="h-48 bg-muted rounded-lg" />
+              <div className="h-32 bg-muted rounded-lg" />
+              <div className="h-28 bg-muted rounded-lg" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-32 bg-muted rounded-lg" />
+              <div className="h-24 bg-muted rounded-lg" />
+            </div>
           </div>
-          <div className="h-40 bg-muted rounded-xl" />
         </div>
       </PageContainer>
     )

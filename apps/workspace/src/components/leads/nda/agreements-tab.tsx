@@ -20,7 +20,7 @@ export function AgreementsTab({ lead, enabled }: Props) {
   const ndas = query.data?.data ?? []
 
   return (
-    <section className="rounded-xl border border-border/60 bg-card shadow-sm">
+    <section className="rounded-lg border border-border/60 bg-card shadow-none">
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">{t('nda.tabTitle')}</h3>
         <SendNdaButton lead={lead} ndas={ndas} />

@@ -33,7 +33,7 @@ export function LeadDangerZone({ lead }: Props) {
   if (lead.status === 'CONVERTED') return null
 
   return (
-    <section className="rounded-xl border border-destructive/30 bg-card shadow-sm">
+    <section className="rounded-lg border border-destructive/30 bg-card shadow-none">
       <div className="px-4 py-3 border-b border-destructive/20">
         <h3 className="text-sm font-semibold text-destructive">{t('leads.actions')}</h3>
       </div>

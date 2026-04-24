@@ -1,6 +1,7 @@
 /**
- * Lead detail top-level layout — composes header, info grid, activity timeline,
- * notes, agreements, danger zone, and floating chatbox for two-way SMS.
+ * Lead detail top-level layout — unified header (matches client detail)
+ * with a 2-column content grid: main (activity, agreements, notes) +
+ * sidebar (status, tags, danger zone). Includes floating chatbox for SMS.
  */
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,16 +36,22 @@ export function LeadDetailPage({ lead }: Props) {
   const fullName = `${lead.firstName} ${lead.lastName}`.trim()
 
   return (
-    <div className="max-w-5xl mx-auto w-full">
+    <div className="max-w-6xl mx-auto w-full">
       <LeadDetailHeader lead={lead} />
-      <div className="space-y-6">
-        <LeadInfoGrid lead={lead} />
-        <LeadActivityTimeline lead={lead} />
-        <LeadNotesSection lead={lead} />
-        <section className="rounded-xl border border-border/60 bg-card shadow-sm p-4">
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Main column */}
+        <div className="xl:col-span-2 space-y-4 min-w-0">
+          <LeadActivityTimeline lead={lead} />
           <AgreementsTab lead={lead} enabled={true} />
-        </section>
-        <LeadDangerZone lead={lead} />
+          <LeadNotesSection lead={lead} />
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-4 min-w-0">
+          <LeadInfoGrid lead={lead} />
+          <LeadDangerZone lead={lead} />
+        </div>
       </div>
 
       <ErrorBoundary

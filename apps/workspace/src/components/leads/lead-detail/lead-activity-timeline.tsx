@@ -38,7 +38,7 @@ export function LeadActivityTimeline({ lead }: Props) {
   return (
     <section
       aria-labelledby={titleId}
-      className="rounded-xl border border-border/60 bg-card shadow-sm"
+      className="rounded-lg border border-border/60 bg-card shadow-none"
     >
       <div className="px-4 py-3 border-b border-border/40">
         <h3 id={titleId} className="text-sm font-semibold text-foreground">

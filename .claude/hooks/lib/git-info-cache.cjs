@@ -30,7 +30,11 @@ function execIn(cmd, cwd) {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
-      cwd: cwd || undefined
+      cwd: cwd || undefined,
+      // Prevent index.lock contention: tells git not to acquire .git/index.lock
+      // for read-only ops (skips index stat refresh). Otherwise statusline races
+      // with user-initiated git add/commit and causes "lock file exists" errors.
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }
     }).trim();
   } catch {
     return '';

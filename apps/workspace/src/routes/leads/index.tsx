@@ -2,15 +2,17 @@
  * Leads List Page - Table view with search, filter, multi-select
  */
 import { useState, useMemo, useCallback } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
+import { LeadListStatsBar } from '../../components/leads/lead-list-stats-bar'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
 import { LeadListTable } from '../../components/leads/lead-list-table'
-import { LeadDetailDrawer } from '../../components/leads/lead-detail-drawer'
+import { FloatingBulkBar } from '../../components/leads/floating-bulk-bar'
+import { LeadListPagination } from '../../components/leads/lead-list-pagination'
 import { BulkSmsDialog } from '../../components/leads/bulk-sms-dialog'
 import { CampaignsTab } from '../../components/leads/campaigns-tab'
 import { AddLeadModal } from '../../components/leads/add-lead-modal'
@@ -24,12 +26,12 @@ export const Route = createFileRoute('/leads/')({
 
 function LeadsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'leads' | 'campaigns'>('leads')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [tagFilter, setTagFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [showBulkSms, setShowBulkSms] = useState(false)
   const [showAddLead, setShowAddLead] = useState(false)
   const [page, setPage] = useState(1)
@@ -54,26 +56,21 @@ function LeadsPage() {
     placeholderData: keepPreviousData,
   })
 
-  const leads = useMemo(
-    () => data?.data ?? [],
-    [data?.data]
-  )
+  const leads = useMemo(() => data?.data ?? [], [data?.data])
   const pagination = data?.pagination
   const totalPages = pagination?.totalPages ?? 1
 
   const selectableLeads = useMemo(
     () => leads.filter((l) => l.status !== 'CONVERTED'),
-    [leads]
+    [leads],
   )
+
+  const hasActiveFilters = Boolean(debouncedSearch || statusFilter || tagFilter)
 
   const handleSelect = useCallback((id: string, selected: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (selected) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
+      if (selected) next.add(id); else next.delete(id)
       return next
     })
   }, [])
@@ -82,53 +79,28 @@ function LeadsPage() {
     setSelectedIds(selected ? new Set(selectableLeads.map((l) => l.id)) : new Set())
   }, [selectableLeads])
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value)
-    setPage(1)
-    setSelectedIds(new Set())
-  }
+  // Reset selection + page whenever filters mutate
+  const resetPagingAndSelection = () => { setPage(1); setSelectedIds(new Set()) }
 
-  const handleStatusChange = (status: LeadStatus | '') => {
-    setStatusFilter(status)
-    setPage(1)
-    setSelectedIds(new Set())
+  const handleSearchChange = (value: string) => { setSearch(value); resetPagingAndSelection() }
+  const handleStatusChange = (status: LeadStatus | '') => { setStatusFilter(status); resetPagingAndSelection() }
+  const handleTagChange = (tag: string) => { setTagFilter(tag); resetPagingAndSelection() }
+  const handleClearFilters = () => {
+    setSearch(''); setStatusFilter(''); setTagFilter(''); resetPagingAndSelection()
   }
-
-  const handleTagChange = (tag: string) => {
-    setTagFilter(tag)
-    setPage(1)
-    setSelectedIds(new Set())
-  }
-
+  const handlePageChange = (newPage: number) => { setPage(newPage); setSelectedIds(new Set()) }
   const handleRowClick = (lead: Lead) => {
-    setSelectedLead(lead)
-  }
-
-  const newCount = useMemo(() => leads.filter((l) => l.status === 'NEW').length, [leads])
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage)
-    setSelectedIds(new Set())
+    navigate({ to: '/leads/$leadId', params: { leadId: lead.id } })
   }
 
   const handleViewCampaignLeads = useCallback((tag: string) => {
-    setTagFilter(tag)
-    setPage(1)
-    setSelectedIds(new Set())
-    setActiveTab('leads')
+    setTagFilter(tag); setPage(1); setSelectedIds(new Set()); setActiveTab('leads')
   }, [])
 
   return (
     <PageContainer>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">{t('leads.title')}</h1>
-          {activeTab === 'leads' && newCount > 0 && (
-            <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-              {t('leads.newCount', { count: newCount })}
-            </span>
-          )}
-        </div>
+        <h1 className="text-2xl font-semibold text-foreground">{t('leads.title')}</h1>
         {activeTab === 'leads' && (
           <button
             type="button"
@@ -149,7 +121,7 @@ function LeadsPage() {
             'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'leads'
               ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground',
           )}
         >
           {t('leads.allLeads')}
@@ -160,7 +132,7 @@ function LeadsPage() {
             'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'campaigns'
               ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground',
           )}
         >
           {t('leads.campaigns')}
@@ -169,6 +141,8 @@ function LeadsPage() {
 
       {activeTab === 'leads' ? (
         <>
+          <LeadListStatsBar />
+
           <LeadsToolbar
             search={search}
             onSearchChange={handleSearchChange}
@@ -176,8 +150,6 @@ function LeadsPage() {
             onStatusFilterChange={handleStatusChange}
             tagFilter={tagFilter}
             onTagFilterChange={handleTagChange}
-            selectedCount={selectedIds.size}
-            onBulkSms={() => setShowBulkSms(true)}
           />
 
           <LeadListTable
@@ -187,35 +159,19 @@ function LeadsPage() {
             onSelectAll={handleSelectAll}
             onRowClick={handleRowClick}
             isLoading={isLoading}
+            hasActiveFilters={hasActiveFilters}
+            onAddLead={() => setShowAddLead(true)}
+            onClearFilters={handleClearFilters}
           />
 
-          {/* Pagination */}
-          {!isLoading && totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button
-                onClick={() => handlePageChange(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-50"
-              >
-                {t('common.previous')}
-              </button>
-              <span className="text-sm text-muted-foreground">
-                {t('leads.pageOf', { current: page, total: totalPages })}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-50"
-              >
-                {t('common.next')}
-              </button>
-            </div>
+          {!isLoading && (
+            <LeadListPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} />
           )}
 
-          <LeadDetailDrawer
-            lead={selectedLead}
-            open={selectedLead !== null}
-            onClose={() => setSelectedLead(null)}
+          <FloatingBulkBar
+            selectedCount={selectedIds.size}
+            onSendSms={() => setShowBulkSms(true)}
+            onClear={() => setSelectedIds(new Set())}
           />
 
           {showBulkSms && (

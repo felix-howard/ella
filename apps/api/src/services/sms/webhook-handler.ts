@@ -17,6 +17,7 @@ import {
   findDefaultOrganizationId,
   sanitizePhone,
 } from '../voice/voicemail-helpers'
+import { findLeadByPhone, processLeadInbound } from './lead-inbound-handler'
 
 export interface TwilioIncomingMessage {
   MessageSid: string
@@ -52,6 +53,7 @@ export interface ProcessIncomingResult {
   success: boolean
   messageId?: string
   caseId?: string
+  leadId?: string // Set when inbound routed to a Lead (non-CONVERTED match)
   actionCreated?: boolean
   error?: string
   isUnknownCaller?: boolean // True if message is from a number not in our client list
@@ -163,22 +165,49 @@ export async function processIncomingMessage(
   const normalizedPhone = normalizePhoneForLookup(fromPhone)
   const e164Phone = '+1' + normalizedPhone // US format
 
-  // Find client by phone - use indexed exact matches
-  const client = await prisma.client.findFirst({
-    where: {
-      OR: [
-        { phone: fromPhone },        // Exact match original
-        { phone: e164Phone },        // E.164 format
-        { phone: normalizedPhone },  // Digits only
-      ],
-    },
-    include: {
-      taxCases: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+  // Find client and lead in parallel (phone may belong to either)
+  const [client, lead] = await Promise.all([
+    prisma.client.findFirst({
+      where: {
+        OR: [
+          { phone: fromPhone },        // Exact match original
+          { phone: e164Phone },        // E.164 format
+          { phone: normalizedPhone },  // Digits only
+        ],
       },
-    },
-  })
+      include: {
+        taxCases: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    }),
+    findLeadByPhone(fromPhone),
+  ])
+
+  // Schema has no Client.status ARCHIVED or TaxCase archival state, so "active case"
+  // per brainstorm §5.3 resolves to "client has any tax case" in this codebase.
+  const hasClientCase = Boolean(client?.taxCases[0])
+
+  // Phone collision: matches both a client case AND a non-converted lead.
+  // Rare: converted-lead phone reuse or data entry mistake. Client case wins (brainstorm §5.3).
+  // Mask phone to last 4 — spec §Security requires no full-phone PII in logs.
+  if (hasClientCase && lead) {
+    const phoneLast4 = sanitizePhone(fromPhone).slice(-4)
+    console.warn('[InboundCollision]', {
+      phone: `****${phoneLast4}`,
+      clientId: client!.id,
+      leadId: lead.id,
+      sid: twilioSid,
+    })
+  }
+
+  // Priority 2 routing: no client case, but a lead matches → Lead branch.
+  // Client case takes priority (handled below in existing flow).
+  if (!hasClientCase && lead) {
+    const numMedia = parseInt(incomingMsg.NumMedia || '0', 10)
+    return await processLeadInbound(lead, content, twilioSid, numMedia)
+  }
 
   // Track whether this is an unknown caller (new number not in our system)
   let isUnknownCaller = false

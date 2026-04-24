@@ -40,6 +40,7 @@ import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-for
 import { campaignsRoute } from './routes/campaigns'
 import { clientGroupsRoute } from './routes/client-groups'
 import { ndaStaffRoute, ndaPublicRoute } from './routes/nda'
+import { leadMessagesRoute } from './routes/leads/messages'
 
 const app = new OpenAPIHono()
 
@@ -73,6 +74,7 @@ app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
 app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
 app.route('/leads', ndaStaffRoute) // NDA staff endpoints: /leads/:leadId/nda/* (inline auth+requireOrgAdmin)
+app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (inline auth+requireOrgAdmin)
 app.route('/public/nda', ndaPublicRoute) // NDA public endpoints: token-based, no auth
 app.route('/contractor-intake', contractorIntakeRoute)
 

@@ -1270,6 +1270,20 @@ export const api = {
     tags: () =>
       request<{ success: boolean; data: string[] }>('/leads/tags'),
 
+    stats: () =>
+      request<{
+        success: boolean
+        data: {
+          total: number
+          new: number
+          sent: number
+          contacted: number
+          converted: number
+          lost: number
+          conversionRate: number
+        }
+      }>('/leads/stats'),
+
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
 
@@ -1301,6 +1315,31 @@ export const api = {
 
       getPdfUrl: (leadId: string, ndaId: string) =>
         request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+    },
+
+    // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
+    messages: {
+      list: (leadId: string, params?: { page?: number; limit?: number }) =>
+        request<LeadMessagesResponse>(`/leads/${leadId}/messages`, { params }),
+
+      send: (leadId: string, data: { content: string; channel?: 'SMS' }) =>
+        request<LeadMessageSendResponse>(`/leads/${leadId}/messages/send`, {
+          method: 'POST',
+          body: JSON.stringify({ channel: 'SMS', ...data }),
+          retries: 0, // Avoid duplicate SMS on server error
+        }),
+
+      getUnread: (leadId: string) =>
+        request<{ leadId: string; unreadCount: number }>(`/leads/${leadId}/messages/unread`),
+
+      // Pass `upTo` = the ISO createdAt of the newest message the UI has rendered.
+      // Server clamps watermark to min(upTo, now()) so inbound during round-trip
+      // is not silently marked read.
+      markRead: (leadId: string, data?: { upTo?: string }) =>
+        request<{ leadId: string; unreadCount: number; readAt: string }>(`/leads/${leadId}/messages/read`, {
+          method: 'POST',
+          body: JSON.stringify(data ?? {}),
+        }),
     },
   },
 
@@ -1356,7 +1395,9 @@ export interface Lead {
   tags: string[]
   notes: string | null
   convertedToId: string | null
+  convertedAt: string | null
   createdAt: string
+  updatedAt: string
   smsSendLogs?: SmsSendLog[]
 }
 
@@ -1978,7 +2019,9 @@ export interface ActionsGroupedResponse {
 // Message types
 export interface Message {
   id: string
-  conversationId: string
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null
+  conversationId?: string | null
+  leadId?: string | null
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
@@ -2169,6 +2212,24 @@ export interface MessagesResponse {
 }
 
 export interface SendMessageResponse {
+  message: Message
+  sent: boolean
+  smsEnabled: boolean
+  error?: string
+}
+
+// Lead-scoped message list (polymorphic Message.leadId)
+export interface LeadMessagesResponse {
+  messages: Message[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface LeadMessageSendResponse {
   message: Message
   sent: boolean
   smsEnabled: boolean

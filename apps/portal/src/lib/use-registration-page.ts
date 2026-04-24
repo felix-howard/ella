@@ -18,6 +18,7 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
   const { t } = useTranslation()
   const [state, setState] = useState<PageState>('loading')
   const [org, setOrg] = useState<OrgInfo | null>(null)
+  const [formIntroContent, setFormIntroContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,6 +44,7 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
             setState('error')
             return
           }
+          setFormIntroContent(result.formIntroContent ?? null)
         }
 
         setState('form')
@@ -54,7 +56,7 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
       })
 
     return () => controller.abort()
-  }, [orgSlug, t])
+  }, [orgSlug, eventSlug, t])
 
   const handleSubmit = useCallback(
     async (data: RegistrationFormData) => {
@@ -86,5 +88,5 @@ export function useRegistrationPage({ orgSlug, eventSlug }: UseRegistrationPageP
     [orgSlug, eventSlug, t]
   )
 
-  return { state, org, error, submitError, isSubmitting, handleSubmit }
+  return { state, org, formIntroContent, error, submitError, isSubmitting, handleSubmit }
 }

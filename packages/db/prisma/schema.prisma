@@ -1548,6 +1548,7 @@ model Campaign {
   tag            String
   status         CampaignStatus @default(ACTIVE)
   description    String?        @db.Text
+  formIntroContent String?      @db.Text
 
   // Relations
   organizationId String

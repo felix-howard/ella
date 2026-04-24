@@ -20,7 +20,7 @@ export const Route = createFileRoute('/register/$orgSlug/$eventSlug/')({
 function RegisterPage() {
   const { orgSlug, eventSlug } = Route.useParams()
   const { t } = useTranslation()
-  const { state, org, error, submitError, isSubmitting, handleSubmit } =
+  const { state, org, formIntroContent, error, submitError, isSubmitting, handleSubmit } =
     useRegistrationPage({ orgSlug, eventSlug })
 
   if (state === 'loading') {
@@ -49,6 +49,13 @@ function RegisterPage() {
   return (
     <div className="flex-1 flex flex-col">
       <FormHeader orgName={org!.name} showDescription={false} />
+
+      {formIntroContent && (
+        <div
+          className="form-intro-content px-6 pt-4 text-foreground"
+          dangerouslySetInnerHTML={{ __html: formIntroContent }}
+        />
+      )}
 
       {/* Registration subtitle */}
       <div className="px-6 py-4 text-center">

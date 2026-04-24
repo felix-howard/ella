@@ -86,7 +86,10 @@ export const formApi = {
     return res.json()
   },
 
-  async validateCampaign(orgSlug: string, campaignSlug: string): Promise<{ valid: boolean; campaignName?: string }> {
+  async validateCampaign(
+    orgSlug: string,
+    campaignSlug: string,
+  ): Promise<{ valid: boolean; campaignName?: string; formIntroContent?: string | null }> {
     const res = await fetch(`${API_BASE}/form/${orgSlug}/campaign/${campaignSlug}`)
     if (!res.ok) {
       return { valid: false }

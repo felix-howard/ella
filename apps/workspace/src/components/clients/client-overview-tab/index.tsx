@@ -13,6 +13,7 @@ import { ClientQuickStats } from './client-quick-stats'
 import { ClientActivityTimeline } from './client-activity-timeline'
 import { ClientAssignedStaff } from './client-assigned-staff'
 import { ClientNotesEditor } from './client-notes-editor'
+import { ClientNdaSection } from './client-nda-section'
 
 interface ClientOverviewTabProps {
   client: ClientDetail
@@ -47,6 +48,9 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
 
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
+
+      {/* NDA & Agreement - read-only history transferred from source lead */}
+      <ClientNdaSection client={client} />
 
       {/* Two column layout: Notes (wider) + Assigned Staff (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -134,13 +134,15 @@ leadsRoute.get(
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
-    const { page, limit, status, search, tag } = c.req.valid('query')
+    const { page, limit, status, search, tag, includeConverted } = c.req.valid('query')
     const { skip } = getPaginationParams(page, limit)
 
     const where: Record<string, unknown> = { organizationId: orgId }
 
     if (status) {
       where.status = status
+    } else if (!includeConverted) {
+      where.status = { not: 'CONVERTED' }
     }
 
     if (tag) {
@@ -425,6 +427,7 @@ leadsRoute.post(
           language,
           source: 'CONVERTED',
           tags: lead.tags || [],
+          notes: lead.notes,
           organizationId: orgId,
           managedById: managedById || null,
           createdById: staffId,
@@ -462,6 +465,14 @@ leadsRoute.post(
         data: { conversationId: conversation.id, leadId: null },
       })
 
+      // Link all NDAs from this lead to the new client. organizationId filter is
+      // defense-in-depth (leadId is already org-scoped). Pending SENT NDAs remain
+      // signable via their token; once signed they auto-surface on the Client.
+      const ndaMigrated = await tx.ndaAgreement.updateMany({
+        where: { leadId: id, organizationId: orgId },
+        data: { clientId: client.id },
+      })
+
       await tx.lead.update({
         where: { id },
         data: {
@@ -474,7 +485,15 @@ leadsRoute.post(
         },
       })
 
-      return { duplicate: false as const, client, engagement, taxCase, conversation, migratedCount: migrated.count }
+      return {
+        duplicate: false as const,
+        client,
+        engagement,
+        taxCase,
+        conversation,
+        migratedCount: migrated.count,
+        ndaMigratedCount: ndaMigrated.count,
+      }
     })
 
     if (result.duplicate) {
@@ -485,9 +504,10 @@ leadsRoute.post(
       }, 409)
     }
 
-    console.info('[LeadConvert] messages migrated', {
+    console.info('[LeadConvert] migration counts', {
       leadId: id,
-      count: result.migratedCount,
+      messages: result.migratedCount,
+      ndas: result.ndaMigratedCount,
       conversationId: result.conversation.id,
     })
 

@@ -590,6 +590,7 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
+  ndaAgreements  NdaAgreement[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors    Contractor[]
@@ -1497,6 +1498,8 @@ model NdaAgreement {
   // Tenancy
   leadId              String
   lead                Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId            String?
+  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   organizationId      String
   organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1535,6 +1538,7 @@ model NdaAgreement {
   updatedAt           DateTime         @updatedAt
 
   @@index([leadId])
+  @@index([clientId])
   @@index([organizationId])
   @@index([token])
   @@index([status])

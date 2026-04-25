@@ -4,6 +4,7 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
+import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import type { LeadStatus } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
@@ -15,13 +16,15 @@ interface LeadsToolbarProps {
   onStatusFilterChange: (status: LeadStatus | '') => void
   tagFilter: string
   onTagFilterChange: (tag: string) => void
+  showConverted: boolean
+  onShowConvertedChange: (next: boolean) => void
 }
 
 const STATUSES: LeadStatus[] = ['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']
 
 export function LeadsToolbar({
   search, onSearchChange, statusFilter, onStatusFilterChange,
-  tagFilter, onTagFilterChange,
+  tagFilter, onTagFilterChange, showConverted, onShowConvertedChange,
 }: LeadsToolbarProps) {
   const { t } = useTranslation()
 
@@ -32,7 +35,7 @@ export function LeadsToolbar({
   })
 
   const tags = tagsData?.data ?? []
-  const hasFilters = Boolean(statusFilter || tagFilter || search)
+  const hasFilters = Boolean(statusFilter || tagFilter || search || showConverted)
 
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-4">
@@ -79,6 +82,20 @@ export function LeadsToolbar({
           />
         )}
 
+        <button
+          type="button"
+          onClick={() => onShowConvertedChange(!showConverted)}
+          aria-pressed={showConverted}
+          className={cn(
+            'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
+            showConverted
+              ? 'bg-primary/10 border-primary/30 text-primary'
+              : 'bg-card border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {t('leads.showConverted', 'Show converted')}
+        </button>
+
         {hasFilters && (
           <button
             type="button"
@@ -86,6 +103,7 @@ export function LeadsToolbar({
               onSearchChange('')
               onStatusFilterChange('')
               onTagFilterChange('')
+              onShowConvertedChange(false)
             }}
             className="inline-flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >

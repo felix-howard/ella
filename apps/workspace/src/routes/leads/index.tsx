@@ -31,6 +31,7 @@ function LeadsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [tagFilter, setTagFilter] = useState('')
+  const [showConverted, setShowConverted] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkSms, setShowBulkSms] = useState(false)
   const [showAddLead, setShowAddLead] = useState(false)
@@ -45,13 +46,14 @@ function LeadsPage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', page, debouncedSearch, statusFilter, tagFilter],
+    queryKey: ['leads', page, debouncedSearch, statusFilter, tagFilter, showConverted],
     queryFn: () => api.leads.list({
       page,
       limit: 20,
       search: debouncedSearch || undefined,
       status: statusFilter || undefined,
       tag: tagFilter || undefined,
+      includeConverted: showConverted || undefined,
     }),
     placeholderData: keepPreviousData,
   })
@@ -85,8 +87,9 @@ function LeadsPage() {
   const handleSearchChange = (value: string) => { setSearch(value); resetPagingAndSelection() }
   const handleStatusChange = (status: LeadStatus | '') => { setStatusFilter(status); resetPagingAndSelection() }
   const handleTagChange = (tag: string) => { setTagFilter(tag); resetPagingAndSelection() }
+  const handleShowConvertedChange = (next: boolean) => { setShowConverted(next); resetPagingAndSelection() }
   const handleClearFilters = () => {
-    setSearch(''); setStatusFilter(''); setTagFilter(''); resetPagingAndSelection()
+    setSearch(''); setStatusFilter(''); setTagFilter(''); setShowConverted(false); resetPagingAndSelection()
   }
   const handlePageChange = (newPage: number) => { setPage(newPage); setSelectedIds(new Set()) }
   const handleRowClick = (lead: Lead) => {
@@ -150,6 +153,8 @@ function LeadsPage() {
             onStatusFilterChange={handleStatusChange}
             tagFilter={tagFilter}
             onTagFilterChange={handleTagChange}
+            showConverted={showConverted}
+            onShowConvertedChange={handleShowConvertedChange}
           />
 
           <LeadListTable

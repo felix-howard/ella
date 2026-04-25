@@ -1469,6 +1469,7 @@
   "leads.searchPlaceholder": "Search by name, phone...",
   "leads.filterByStatus": "Filter by status",
   "leads.allStatuses": "All",
+  "leads.showConverted": "Show converted",
   "leads.newCount": "{{count}} new",
   "leads.selected": "{{count}} selected",
   "leads.selectAll": "Select all",
@@ -1514,8 +1515,7 @@
   "leads.viewClient": "View Client",
   "leads.source": "Source",
   "leads.createdAt": "Registered",
-  "leads.duplicateWarning": "Client with this phone already exists: {{name}}",
-  "leads.duplicateConfirm": "Continue converting anyway?",
+  "leads.duplicateError": "A client with this phone already exists: {{name}}. Cannot convert.",
   "leads.pageOf": "Page {{current}} / {{total}}",
   "leads.formLink": "Registration Form Link",
   "leads.formLinkDesc": "Share this link to collect lead registrations",
@@ -1673,5 +1673,12 @@
   "nda.toast.depositUpdateFailed": "Failed to update deposit",
   "nda.toast.linkCopied": "NDA link copied",
   "nda.toast.linkUnavailable": "Link not available for this NDA",
-  "nda.toast.pdfFailed": "Failed to open PDF"
+  "nda.toast.pdfFailed": "Failed to open PDF",
+  "clientOverview.nda.title": "NDA & Agreement",
+  "clientOverview.nda.empty": "No NDA on file.",
+  "clientOverview.nda.loadError": "Failed to load NDAs.",
+  "clientOverview.nda.manageOnLead": "Manage on lead page",
+  "clientOverview.nda.sendViaLead": "Send via lead page",
+  "clientOverview.nda.viewAll": "View all ({{count}})",
+  "clientOverview.nda.collapse": "Collapse"
 }

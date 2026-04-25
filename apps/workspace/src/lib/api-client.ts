@@ -340,6 +340,12 @@ export const api = {
         method: 'DELETE',
       }),
 
+    // Read-only NDA listing for client overview tab (org-scoped)
+    nda: {
+      list: (clientId: string) =>
+        request<{ success: boolean; data: NdaAgreement[] }>(`/clients/${clientId}/nda`),
+    },
+
   },
 
   // Contractors (under clients)
@@ -1255,7 +1261,7 @@ export const api = {
 
   // Leads management (admin-only)
   leads: {
-    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
+    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
@@ -1766,6 +1772,8 @@ export interface ClientDetail extends Client {
   managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
   createdBy?: { id: string; name: string } | null
   updatedBy?: { id: string; name: string } | null
+  /** Source leads that converted INTO this client (newest first). */
+  convertedLeads?: { id: string }[]
 }
 
 export interface ClientStats {

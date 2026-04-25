@@ -1466,6 +1466,7 @@
   "leads.searchPlaceholder": "Tìm theo tên, SĐT...",
   "leads.filterByStatus": "Lọc theo trạng thái",
   "leads.allStatuses": "Tất cả",
+  "leads.showConverted": "Hiển thị đã chuyển đổi",
   "leads.newCount": "{{count}} mới",
   "leads.selected": "{{count}} đã chọn",
   "leads.selectAll": "Chọn tất cả",
@@ -1511,8 +1512,7 @@
   "leads.viewClient": "Xem khách hàng",
   "leads.source": "Nguồn",
   "leads.createdAt": "Ngày đăng ký",
-  "leads.duplicateWarning": "Khách hàng với SĐT này đã tồn tại: {{name}}",
-  "leads.duplicateConfirm": "Vẫn tiếp tục chuyển đổi?",
+  "leads.duplicateError": "Khách hàng với SĐT này đã tồn tại: {{name}}. Không thể chuyển đổi.",
   "leads.pageOf": "Trang {{current}} / {{total}}",
   "leads.formLink": "Link Form Đăng Ký",
   "leads.formLinkDesc": "Chia sẻ link này để thu thập đăng ký khách tiềm năng",
@@ -1670,5 +1670,12 @@
   "nda.toast.depositUpdateFailed": "Không thể cập nhật đặt cọc",
   "nda.toast.linkCopied": "Đã sao chép liên kết NDA",
   "nda.toast.linkUnavailable": "Không có liên kết cho NDA này",
-  "nda.toast.pdfFailed": "Không thể mở PDF"
+  "nda.toast.pdfFailed": "Không thể mở PDF",
+  "clientOverview.nda.title": "NDA & Thỏa thuận",
+  "clientOverview.nda.empty": "Chưa có NDA nào.",
+  "clientOverview.nda.loadError": "Không thể tải NDA.",
+  "clientOverview.nda.manageOnLead": "Quản lý trên trang Lead",
+  "clientOverview.nda.sendViaLead": "Gửi qua trang Lead",
+  "clientOverview.nda.viewAll": "Xem tất cả ({{count}})",
+  "clientOverview.nda.collapse": "Thu gọn"
 }

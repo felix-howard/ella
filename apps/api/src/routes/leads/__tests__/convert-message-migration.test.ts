@@ -1,34 +1,34 @@
 /**
- * Lead → Client conversion: message-history preservation (Phase 10 / matrix row #6)
+ * Lead → Client conversion tests.
  *
- * Verifies that converting a lead with N messages:
- *   1. Calls tx.message.updateMany with { where:{leadId}, data:{conversationId, leadId:null} }
- *      — UPDATE (not copy) preserves message IDs and createdAt.
- *   2. Returns successful conversion response with clientId/engagementId.
- *
- * We're not testing the entire convert flow here (covered by integration/manual E2E);
- * we're pinning the critical migration semantics so a future refactor cannot silently
- * regress to "copy + delete" (which would break message IDs and break WS clients).
+ * Pins critical migration semantics so future refactors cannot silently regress:
+ *   - Messages are REASSIGNED via UPDATE (preserves IDs + createdAt for WS clients).
+ *   - Lead.notes is carried over to Client.notes.
+ *   - All NDAs are linked to the new Client via clientId.
+ *   - Phone duplicate is a HARD block (409) — no Client/NDA mutation persists.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { updateManyMock, messageCreateMock } = vi.hoisted(() => ({
+const {
+  updateManyMock,
+  messageCreateMock,
+  ndaUpdateManyMock,
+  clientCreateMock,
+  clientFindFirstMock,
+} = vi.hoisted(() => ({
   updateManyMock: vi.fn(),
   messageCreateMock: vi.fn(),
+  ndaUpdateManyMock: vi.fn(),
+  clientCreateMock: vi.fn(),
+  clientFindFirstMock: vi.fn(),
 }))
 
 vi.mock('../../../lib/db', () => {
-  // Build the tx object once so tests can reach into it from `updateManyMock`.
   const tx = {
     client: {
-      findFirst: vi.fn().mockResolvedValue(null),
-      create: vi.fn().mockResolvedValue({
-        id: 'client_new',
-        firstName: 'Jane',
-        lastName: 'Doe',
-        phone: '+15551234567',
-      }),
+      findFirst: clientFindFirstMock,
+      create: clientCreateMock,
     },
     taxEngagement: {
       create: vi.fn().mockResolvedValue({ id: 'eng_1' }),
@@ -41,9 +41,12 @@ vi.mock('../../../lib/db', () => {
     },
     message: {
       updateMany: updateManyMock,
-      // Exposed so we can assert it is NOT called — preserves "zero duplicates"
+      // Exposed to assert it is NOT called — preserves "zero duplicates"
       // invariant: conversion must REASSIGN messages, never copy.
       create: messageCreateMock,
+    },
+    ndaAgreement: {
+      updateMany: ndaUpdateManyMock,
     },
     lead: {
       update: vi.fn().mockResolvedValue({ id: 'lead_1' }),
@@ -65,7 +68,7 @@ vi.mock('../../../lib/db', () => {
 vi.mock('../../../services/sms', () => ({
   formatPhoneToE164: (p: string) => p,
   sendSmsOnly: vi.fn(),
-  isTwilioConfigured: vi.fn().mockReturnValue(false), // skip welcome SMS path
+  isTwilioConfigured: vi.fn().mockReturnValue(false),
   sendWelcomeMessage: vi.fn(),
 }))
 
@@ -115,33 +118,46 @@ function buildApp() {
   return app
 }
 
+function mockLead(overrides: Record<string, unknown> = {}) {
+  vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
+    id: VALID_LEAD_CUID,
+    organizationId: 'org_1',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    phone: '+15551234567',
+    email: null,
+    status: 'CONTACTED',
+    tags: [],
+    notes: null,
+    ...overrides,
+  } as never)
+}
+
 beforeEach(() => {
   updateManyMock.mockReset()
   updateManyMock.mockResolvedValue({ count: 3 })
+  ndaUpdateManyMock.mockReset()
+  ndaUpdateManyMock.mockResolvedValue({ count: 0 })
   messageCreateMock.mockReset()
+  clientCreateMock.mockReset()
+  clientCreateMock.mockResolvedValue({
+    id: 'client_new',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    phone: '+15551234567',
+  })
+  clientFindFirstMock.mockReset()
+  clientFindFirstMock.mockResolvedValue(null)
 })
 
 describe('POST /leads/:id/convert — message history migration', () => {
   it('reassigns lead messages to new conversation via UPDATE (not copy)', async () => {
-    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
-      id: VALID_LEAD_CUID,
-      organizationId: 'org_1',
-      firstName: 'Jane',
-      lastName: 'Doe',
-      phone: '+15551234567',
-      email: null,
-      status: 'CONTACTED',
-      tags: [],
-    } as never)
+    mockLead()
 
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        language: 'EN',
-        taxYear: 2025,
-        sendWelcomeSms: false,
-      }),
+      body: JSON.stringify({ language: 'EN', taxYear: 2025, sendWelcomeSms: false }),
     })
 
     expect(res.status).toBe(200)
@@ -164,16 +180,7 @@ describe('POST /leads/:id/convert — message history migration', () => {
   })
 
   it('rejects converting an already-CONVERTED lead', async () => {
-    vi.mocked(prisma.lead.findFirst).mockResolvedValueOnce({
-      id: VALID_LEAD_CUID,
-      organizationId: 'org_1',
-      firstName: 'Jane',
-      lastName: 'Doe',
-      phone: '+15551234567',
-      email: null,
-      status: 'CONVERTED',
-      tags: [],
-    } as never)
+    mockLead({ status: 'CONVERTED' })
 
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
       method: 'POST',
@@ -183,5 +190,83 @@ describe('POST /leads/:id/convert — message history migration', () => {
 
     expect(res.status).toBe(400)
     expect(updateManyMock).not.toHaveBeenCalled()
+    expect(ndaUpdateManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /leads/:id/convert — notes carry-over', () => {
+  it('copies Lead.notes into Client.notes', async () => {
+    const notes = 'Prefers SMS contact. Spouse is a CPA.'
+    mockLead({ notes })
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'EN', taxYear: 2025, sendWelcomeSms: false }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(clientCreateMock).toHaveBeenCalledTimes(1)
+    expect(clientCreateMock.mock.calls[0][0].data).toMatchObject({ notes })
+  })
+
+  it('handles null notes without error', async () => {
+    mockLead({ notes: null })
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'EN', taxYear: 2025, sendWelcomeSms: false }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(clientCreateMock.mock.calls[0][0].data.notes).toBeNull()
+  })
+})
+
+describe('POST /leads/:id/convert — NDA migration', () => {
+  it('links all lead NDAs to the new client via updateMany', async () => {
+    mockLead()
+    ndaUpdateManyMock.mockResolvedValueOnce({ count: 2 })
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'EN', taxYear: 2025, sendWelcomeSms: false }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(ndaUpdateManyMock).toHaveBeenCalledTimes(1)
+    expect(ndaUpdateManyMock).toHaveBeenCalledWith({
+      where: { leadId: VALID_LEAD_CUID, organizationId: 'org_1' },
+      data: { clientId: 'client_new' },
+    })
+  })
+})
+
+describe('POST /leads/:id/convert — duplicate phone hard-block', () => {
+  it('returns 409 and does not migrate NDAs or create client', async () => {
+    mockLead()
+    clientFindFirstMock.mockResolvedValueOnce({
+      id: 'client_existing',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    })
+
+    const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'EN', taxYear: 2025, sendWelcomeSms: false }),
+    })
+
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { success: boolean; existingClient: { id: string } }
+    expect(body.success).toBe(false)
+    expect(body.existingClient.id).toBe('client_existing')
+
+    // No mutations persisted on duplicate path.
+    expect(clientCreateMock).not.toHaveBeenCalled()
+    expect(updateManyMock).not.toHaveBeenCalled()
+    expect(ndaUpdateManyMock).not.toHaveBeenCalled()
   })
 })

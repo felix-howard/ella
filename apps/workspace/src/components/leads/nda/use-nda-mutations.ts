@@ -25,6 +25,10 @@ function useInvalidateNda(leadId: string) {
   return () => {
     qc.invalidateQueries({ queryKey: ndaListKey(leadId) })
     qc.invalidateQueries({ queryKey: ['lead', leadId] })
+    // Lead NDA mutations transfer to Client after conversion — keep the
+    // Client Overview NDA section in sync. Broad match across all clients
+    // since we don't track the converted clientId here.
+    qc.invalidateQueries({ queryKey: ['client-nda'] })
   }
 }
 

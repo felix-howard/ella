@@ -45,7 +45,7 @@ export const LeadListRow = memo(function LeadListRow({
         'h-16 cursor-pointer transition-all duration-150',
         'hover:bg-muted/40 hover:shadow-sm',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset',
-        !isLast && 'border-b border-border/40',
+        !isLast && 'border-b border-border/50',
         selected && 'bg-primary/5',
       )}
     >

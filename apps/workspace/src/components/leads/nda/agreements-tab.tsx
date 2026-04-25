@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { SendNdaButton } from './send-nda-button'
 import { NdaList } from './nda-list'
 import { useNdaList } from './use-nda-mutations'
+import { CardSection } from '../../shared/card-section'
 import type { Lead } from '../../../lib/api-client'
 
 interface Props {
@@ -20,19 +21,16 @@ export function AgreementsTab({ lead, enabled }: Props) {
   const ndas = query.data?.data ?? []
 
   return (
-    <section className="rounded-lg border border-border/60 bg-card shadow-none">
-      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-foreground">{t('nda.tabTitle')}</h3>
-        <SendNdaButton lead={lead} ndas={ndas} />
-      </div>
-      <div className="p-4">
-        <NdaList
-          leadId={lead.id}
-          ndas={ndas}
-          isLoading={query.isLoading}
-          isError={query.isError}
-        />
-      </div>
-    </section>
+    <CardSection
+      title={t('nda.tabTitle')}
+      action={<SendNdaButton lead={lead} ndas={ndas} />}
+    >
+      <NdaList
+        leadId={lead.id}
+        ndas={ndas}
+        isLoading={query.isLoading}
+        isError={query.isError}
+      />
+    </CardSection>
   )
 }

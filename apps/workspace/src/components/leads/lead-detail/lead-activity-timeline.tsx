@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { UserPlus, FileText, Eye, CheckCircle2, Award, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useNdaList } from '../nda/use-nda-mutations'
+import { CardSection } from '../../shared/card-section'
 import type { Lead } from '../../../lib/api-client'
 import {
   deriveLeadActivityEvents,
@@ -29,51 +30,40 @@ interface Props {
 
 export function LeadActivityTimeline({ lead }: Props) {
   const { t } = useTranslation()
-  const titleId = `lead-activity-${lead.id}`
 
   const { data } = useNdaList(lead.id)
 
   const events = deriveLeadActivityEvents(lead, data?.data ?? [])
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className="rounded-lg border border-border/60 bg-card shadow-none"
-    >
-      <div className="px-4 py-3 border-b border-border/40">
-        <h3 id={titleId} className="text-sm font-semibold text-foreground">
-          {t('leads.activity.title')}
-        </h3>
-      </div>
-      <div className="p-4">
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('leads.activity.empty')}</p>
-        ) : (
-          <ol className="relative">
-            {events.map((e, idx) => {
-              const values = e.titleValues
-                ? Object.fromEntries(
-                    Object.entries(e.titleValues).map(([k, v]) =>
-                      k === 'status' ? [k, t(`leads.status.${v}`, v)] : [k, v]
-                    )
+    <CardSection title={t('leads.activity.title')}>
+      {events.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('leads.activity.empty')}</p>
+      ) : (
+        <ol className="relative">
+          {events.map((e, idx) => {
+            const values = e.titleValues
+              ? Object.fromEntries(
+                  Object.entries(e.titleValues).map(([k, v]) =>
+                    k === 'status' ? [k, t(`leads.status.${v}`, v)] : [k, v]
                   )
-                : undefined
-              const title = values ? t(e.titleKey, values) : t(e.titleKey)
-              return (
-                <TimelineRow
-                  key={e.id}
-                  icon={ICON_BY_TYPE[e.type]}
-                  color={e.color}
-                  title={title}
-                  subtitle={e.subtitle}
-                  timestamp={e.timestamp}
-                  showConnector={idx < events.length - 1}
-                />
-              )
-            })}
-          </ol>
-        )}
-      </div>
-    </section>
+                )
+              : undefined
+            const title = values ? t(e.titleKey, values) : t(e.titleKey)
+            return (
+              <TimelineRow
+                key={e.id}
+                icon={ICON_BY_TYPE[e.type]}
+                color={e.color}
+                title={title}
+                subtitle={e.subtitle}
+                timestamp={e.timestamp}
+                showConnector={idx < events.length - 1}
+              />
+            )
+          })}
+        </ol>
+      )}
+    </CardSection>
   )
 }

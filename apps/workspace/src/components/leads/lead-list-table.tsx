@@ -45,11 +45,11 @@ export function LeadListTable({
     leads.filter((l) => l.status !== 'CONVERTED').every((l) => selectedIds.has(l.id))
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border/40 overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm overflow-visible">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-[1]">
-            <tr className="border-b border-border/40 bg-muted/40 backdrop-blur-sm">
+            <tr className="border-b border-border/50 bg-muted/50 backdrop-blur-sm">
               <th className="px-4 py-3 w-10">
                 <label className="relative flex items-center cursor-pointer">
                   <input

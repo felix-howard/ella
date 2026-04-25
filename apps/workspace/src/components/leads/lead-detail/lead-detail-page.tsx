@@ -39,16 +39,16 @@ export function LeadDetailPage({ lead }: Props) {
     <div className="max-w-6xl mx-auto w-full">
       <LeadDetailHeader lead={lead} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main column */}
-        <div className="xl:col-span-2 space-y-4 min-w-0">
+        <div className="xl:col-span-2 space-y-6 min-w-0">
           <LeadActivityTimeline lead={lead} />
           <AgreementsTab lead={lead} enabled={true} />
           <LeadNotesSection lead={lead} />
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4 min-w-0">
+        <div className="space-y-6 min-w-0">
           <LeadInfoGrid lead={lead} />
           <LeadDangerZone lead={lead} />
         </div>

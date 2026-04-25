@@ -8,6 +8,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Trash2 } from 'lucide-react'
 import { api } from '../../../lib/api-client'
+import { CardSection } from '../../shared/card-section'
 import type { Lead } from '../../../lib/api-client'
 
 interface Props {
@@ -33,22 +34,17 @@ export function LeadDangerZone({ lead }: Props) {
   if (lead.status === 'CONVERTED') return null
 
   return (
-    <section className="rounded-lg border border-destructive/30 bg-card shadow-none">
-      <div className="px-4 py-3 border-b border-destructive/20">
-        <h3 className="text-sm font-semibold text-destructive">{t('leads.actions')}</h3>
-      </div>
-      <div className="p-4">
-        {error && (
-          <div className="mb-3 p-2 rounded-lg bg-destructive/10 text-destructive text-xs">{error}</div>
-        )}
-        <button
-          onClick={() => setOpen(true)}
-          className="px-4 py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors flex items-center gap-2"
-        >
-          <Trash2 className="w-4 h-4" />
-          {t('leads.deleteLead')}
-        </button>
-      </div>
+    <CardSection tone="destructive" title={t('leads.actions')}>
+      {error && (
+        <div className="mb-3 p-2 rounded-lg bg-destructive/10 text-destructive text-xs">{error}</div>
+      )}
+      <button
+        onClick={() => setOpen(true)}
+        className="px-4 py-2 text-sm font-medium text-destructive border border-destructive/30 rounded-lg hover:bg-destructive/10 transition-colors flex items-center gap-2"
+      >
+        <Trash2 className="w-4 h-4" />
+        {t('leads.deleteLead')}
+      </button>
 
       {open && createPortal(
         <>
@@ -87,6 +83,6 @@ export function LeadDangerZone({ lead }: Props) {
         </>,
         document.body
       )}
-    </section>
+    </CardSection>
   )
 }

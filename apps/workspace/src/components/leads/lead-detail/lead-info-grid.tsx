@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Loader2, Lock, X } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { api } from '../../../lib/api-client'
+import { CardSection } from '../../shared/card-section'
 import { LeadStatusBadge } from '../lead-status-badge'
 import type { Lead, LeadStatus } from '../../../lib/api-client'
 
@@ -104,7 +105,7 @@ export function LeadInfoGrid({ lead }: Props) {
   const customTags = (lead.tags ?? []).filter((tag) => tag !== lead.campaignTag)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {error && (
         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
           {error}
@@ -112,7 +113,7 @@ export function LeadInfoGrid({ lead }: Props) {
       )}
 
       {/* Change Status */}
-      <Card title={t('leads.changeStatus')}>
+      <CardSection title={t('leads.changeStatus')}>
         {isConverted ? (
           <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50/70 px-3 py-2.5">
             <Lock className="h-3.5 w-3.5 text-green-700" />
@@ -169,10 +170,10 @@ export function LeadInfoGrid({ lead }: Props) {
             })}
           </div>
         )}
-      </Card>
+      </CardSection>
 
       {/* Tags */}
-      <Card title={t('leads.tags')}>
+      <CardSection title={t('leads.tags')}>
         {customTags.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             {t('leads.tagsEmpty', '—')}
@@ -198,18 +199,7 @@ export function LeadInfoGrid({ lead }: Props) {
             ))}
           </div>
         )}
-      </Card>
+      </CardSection>
     </div>
-  )
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-lg border border-border/60 bg-card shadow-none">
-      <div className="px-4 py-3 border-b border-border/40">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
   )
 }

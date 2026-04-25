@@ -21,7 +21,10 @@
       "Bash(npm run typecheck:*)",
       "Bash(npm run type-check:*)",
       "Bash(git restore *)",
-      "Bash(rm .claude/hooks/bash-git-cache-invalidate.cjs)"
+      "Bash(rm .claude/hooks/bash-git-cache-invalidate.cjs)",
+      "Bash([ -d \"$HOME/.claude/skills/chrome-devtools/scripts\" ])",
+      "Bash(mkdir -p .claude/chrome-devtools/screenshots)",
+      "Bash(node __TRACKED_VAR__/navigate.js --url http://localhost:5174/leads --headless false)"
     ]
   }
 }

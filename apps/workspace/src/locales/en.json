@@ -1557,6 +1557,7 @@
   "leads.smsFailed": "Failed",
   "leads.deleteLead": "Delete Lead",
   "leads.deleteConfirm": "Are you sure?",
+  "leads.deleteConvertedConfirm": "This lead has been converted to a client. Deleting it will remove its messages and SMS history. The signed NDA and the linked client will be preserved.",
   "leads.updateError": "Failed to update lead",
   "leads.deleteError": "Failed to delete lead",
   "leads.addLead": "Add Lead",

@@ -1450,7 +1450,8 @@ export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
 
 export interface NdaAgreement {
   id: string
-  leadId: string
+  // Null after the originating Lead is deleted; clientId still pins the NDA to its Client.
+  leadId: string | null
   organizationId: string
   templateVersion: string
   status: NdaStatus

@@ -25,21 +25,31 @@ import type { TemplateSection } from '../../lib/nda/types'
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
 
-export type LoadedNda = Prisma.NdaAgreementGetPayload<{
+type RawLoadedNda = Prisma.NdaAgreementGetPayload<{
   include: {
     lead: { select: { id: true; firstName: true; lastName: true } }
     organization: { select: { id: true; name: true } }
   }
 }>
 
+// `lead` and `leadId` are nullable on the schema (SetNull on lead delete) but
+// the public signing flow requires them — so the loader narrows them away.
+export type LoadedNda = Omit<RawLoadedNda, 'lead' | 'leadId'> & {
+  lead: NonNullable<RawLoadedNda['lead']>
+  leadId: string
+}
+
 export async function loadNdaByToken(token: string): Promise<LoadedNda | null> {
-  return prisma.ndaAgreement.findUnique({
+  const nda = await prisma.ndaAgreement.findUnique({
     where: { token },
     include: {
       lead: { select: { id: true, firstName: true, lastName: true } },
       organization: { select: { id: true, name: true } },
     },
   })
+  // Treat NDAs whose originating Lead has been deleted as "link not found".
+  if (!nda || !nda.lead || !nda.leadId) return null
+  return nda as LoadedNda
 }
 
 export interface PublicNdaView {

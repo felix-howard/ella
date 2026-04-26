@@ -1554,6 +1554,7 @@
   "leads.smsFailed": "Thất bại",
   "leads.deleteLead": "Xóa khách tiềm năng",
   "leads.deleteConfirm": "Bạn có chắc chắn?",
+  "leads.deleteConvertedConfirm": "Khách tiềm năng này đã được chuyển thành khách hàng. Xóa sẽ mất lịch sử tin nhắn và SMS. NDA đã ký và khách hàng liên kết vẫn được giữ lại.",
   "leads.updateError": "Không thể cập nhật khách tiềm năng",
   "leads.deleteError": "Không thể xóa khách tiềm năng",
   "leads.addLead": "Thêm Lead",

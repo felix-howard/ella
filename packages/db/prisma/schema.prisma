@@ -1496,8 +1496,9 @@ model NdaAgreement {
   id                  String           @id @default(cuid())
 
   // Tenancy
-  leadId              String
-  lead                Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // leadId is nullable + SetNull so NDAs are preserved (linked to clientId) when a converted Lead is deleted.
+  leadId              String?
+  lead                Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
   clientId            String?
   client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   organizationId      String

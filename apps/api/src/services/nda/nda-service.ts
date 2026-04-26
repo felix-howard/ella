@@ -235,13 +235,17 @@ export async function resendNda(input: {
     include: { lead: { select: { id: true, firstName: true, phone: true } } },
   })
   if (!nda) throw new HTTPException(404, { message: 'NDA not found' })
+  // `lead` is nullable since leadId became SetNull-on-delete; resend needs a live lead.
+  if (!nda.lead) throw new HTTPException(404, { message: 'Lead not found' })
   if (nda.status === 'SIGNED') throw new HTTPException(409, { message: 'NDA already signed' })
   if (nda.status === 'VOIDED') throw new HTTPException(409, { message: 'NDA is voided' })
 
+  // Snapshot `lead` from the initial guard so we don't have to re-narrow after the rotation update.
+  const lead = nda.lead
   const needsRotation = !nda.isActive || isExpired(nda.expiresAt)
   let current = nda
   if (needsRotation) {
-    current = await prisma.ndaAgreement.update({
+    current = (await prisma.ndaAgreement.update({
       where: { id: nda.id },
       data: {
         token: generateNdaToken(),
@@ -250,12 +254,12 @@ export async function resendNda(input: {
         isActive: true,
       },
       include: { lead: { select: { id: true, firstName: true, phone: true } } },
-    })
+    })) as typeof nda
   }
 
   const url = buildNdaUrl(current.token)
   await sendNdaInviteSms({
-    lead: current.lead,
+    lead,
     orgId: input.orgId,
     staffId: input.staffId,
     url,

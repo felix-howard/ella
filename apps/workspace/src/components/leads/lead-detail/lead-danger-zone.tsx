@@ -31,7 +31,9 @@ export function LeadDangerZone({ lead }: Props) {
     onError: () => setError(t('leads.deleteError')),
   })
 
-  if (lead.status === 'CONVERTED') return null
+  // Converted leads use a stronger confirmation copy that calls out what gets removed
+  // (messages + SMS history) vs preserved (linked Client and signed NDAs).
+  const confirmKey = lead.status === 'CONVERTED' ? 'leads.deleteConvertedConfirm' : 'leads.deleteConfirm'
 
   return (
     <CardSection tone="destructive" title={t('leads.actions')}>
@@ -59,7 +61,7 @@ export function LeadDangerZone({ lead }: Props) {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-foreground">{t('leads.deleteLead')}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{t('leads.deleteConfirm')}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t(confirmKey)}</p>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">

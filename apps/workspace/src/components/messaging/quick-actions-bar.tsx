@@ -14,6 +14,9 @@ import { api } from '../../lib/api-client'
 import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useScheduleC } from '../../hooks/use-schedule-c'
 import { useSharedDocs } from '../../hooks/use-shared-docs'
+import type { ChatContext } from '../../types/chat-context'
+import { getQuickTemplates } from '../../lib/chat-quick-templates'
+import { ChatTemplateDropdown } from './chat-template-dropdown'
 
 
 export interface QuickActionsBarProps {
@@ -26,6 +29,12 @@ export interface QuickActionsBarProps {
   caseId?: string
   defaultChannel?: 'SMS' | 'PORTAL'
   autoFocus?: boolean
+  /**
+   * Optional chat context. When `type === 'lead'`, the case-specific link
+   * dropdown is replaced by lead templates (NDA link, follow-up).
+   * Absent → behaves identically to legacy case-only callers.
+   */
+  context?: ChatContext
 }
 
 export function QuickActionsBar({
@@ -38,7 +47,10 @@ export function QuickActionsBar({
   caseId,
   defaultChannel: _defaultChannel = 'SMS',
   autoFocus,
+  context,
 }: QuickActionsBarProps) {
+  const isLeadContext = context?.type === 'lead'
+  const leadTemplates = isLeadContext ? getQuickTemplates(context) : []
   const { t } = useTranslation()
   const [message, setMessage] = useState('')
   const [isLoadingPortalLink, setIsLoadingPortalLink] = useState(false)
@@ -180,8 +192,14 @@ export function QuickActionsBar({
 
   const canSend = message.trim().length > 0 && !isSending && !disabled
 
-  // Dropdown content for link options
-  const dropdownContent = isDropdownOpen && createPortal(
+  // Insert text from a chat template into the composer.
+  const handleTemplateInsert = (text: string) => {
+    setMessage((prev) => prev ? `${prev}\n${text}` : text)
+    textareaRef.current?.focus()
+  }
+
+  // Case context: link dropdown (portal + schedule E/C + shared docs).
+  const caseDropdown = !isLeadContext && isDropdownOpen && createPortal(
     <div
       ref={dropdownRef}
       style={{
@@ -243,12 +261,22 @@ export function QuickActionsBar({
     document.body
   )
 
+  const dropdownContent = caseDropdown
+
   return (
     <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
-          {/* Link dropdown button */}
-          {clientId && (
+          {/* Lead context: templates dropdown */}
+          {isLeadContext && (
+            <ChatTemplateDropdown
+              templates={leadTemplates}
+              onInsert={handleTemplateInsert}
+            />
+          )}
+
+          {/* Case context: link dropdown button */}
+          {!isLeadContext && clientId && (
             hasAdditionalLinks ? (
               // Dropdown button when additional links are available
               <button

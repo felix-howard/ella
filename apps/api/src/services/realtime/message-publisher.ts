@@ -7,8 +7,10 @@ import { getSupabaseUrl, getSupabaseHeaders, isSupabaseConfigured } from '../../
 import { prisma } from '../../lib/db'
 
 export interface MessageEventPayload {
-  conversationId: string
-  caseId: string
+  // Owner is polymorphic: either conversation (Client case) or lead.
+  conversationId?: string
+  caseId?: string
+  leadId?: string
   messageId: string
   direction: 'INBOUND' | 'OUTBOUND'
   channel: 'SMS' | 'PORTAL' | 'CALL'
@@ -98,5 +100,43 @@ export async function publishMessageEventFromConversation(
     })
   } catch (error) {
     console.error('[Realtime] Failed to publish from conversation:', error)
+  }
+}
+
+/**
+ * Publish message event for a Lead-owned message.
+ * Resolves orgId (clerkOrgId) from leadId and broadcasts on `org:{orgId}:messages`.
+ */
+export async function publishMessageEventFromLead(
+  leadId: string,
+  message: {
+    id: string
+    direction: 'INBOUND' | 'OUTBOUND'
+    channel: 'SMS' | 'PORTAL' | 'CALL'
+  }
+): Promise<void> {
+  try {
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      include: {
+        organization: { select: { clerkOrgId: true } },
+      },
+    })
+
+    const clerkOrgId = lead?.organization?.clerkOrgId
+    if (!clerkOrgId) {
+      console.log(`[Realtime] No org found for lead ${leadId}`)
+      return
+    }
+
+    await publishMessageEvent(clerkOrgId, {
+      leadId,
+      messageId: message.id,
+      direction: message.direction,
+      channel: message.channel,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('[Realtime] Failed to publish from lead:', error)
   }
 }

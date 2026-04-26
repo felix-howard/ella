@@ -22,6 +22,7 @@ import { Route as LeadsIndexRouteImport } from './routes/leads/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ActionsIndexRouteImport } from './routes/actions/index'
 import { Route as MessagesCaseIdRouteImport } from './routes/messages/$caseId'
+import { Route as LeadsLeadIdRouteImport } from './routes/leads/$leadId'
 import { Route as ClientsNewRouteImport } from './routes/clients/new'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as TeamProfileStaffIdRouteImport } from './routes/team/profile/$staffId'
@@ -93,6 +94,11 @@ const MessagesCaseIdRoute = MessagesCaseIdRouteImport.update({
   path: '/$caseId',
   getParentRoute: () => MessagesRoute,
 } as any)
+const LeadsLeadIdRoute = LeadsLeadIdRouteImport.update({
+  id: '/leads/$leadId',
+  path: '/leads/$leadId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsNewRoute = ClientsNewRouteImport.update({
   id: '/clients/new',
   path: '/clients/new',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions': typeof ActionsIndexRoute
   '/clients': typeof ClientsIndexRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/team': typeof TeamRouteWithChildren
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/clients/new': typeof ClientsNewRoute
+  '/leads/$leadId': typeof LeadsLeadIdRoute
   '/messages/$caseId': typeof MessagesCaseIdRoute
   '/actions/': typeof ActionsIndexRoute
   '/clients/': typeof ClientsIndexRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions'
     | '/clients'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions'
     | '/clients'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/clients/$clientId'
     | '/clients/new'
+    | '/leads/$leadId'
     | '/messages/$caseId'
     | '/actions/'
     | '/clients/'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   TeamRoute: typeof TeamRouteWithChildren
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ClientsNewRoute: typeof ClientsNewRoute
+  LeadsLeadIdRoute: typeof LeadsLeadIdRoute
   ActionsIndexRoute: typeof ActionsIndexRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
   LeadsIndexRoute: typeof LeadsIndexRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesCaseIdRouteImport
       parentRoute: typeof MessagesRoute
     }
+    '/leads/$leadId': {
+      id: '/leads/$leadId'
+      path: '/leads/$leadId'
+      fullPath: '/leads/$leadId'
+      preLoaderRoute: typeof LeadsLeadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clients/new': {
       id: '/clients/new'
       path: '/clients/new'
@@ -423,6 +443,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeamRoute: TeamRouteWithChildren,
   ClientsClientIdRoute: ClientsClientIdRoute,
   ClientsNewRoute: ClientsNewRoute,
+  LeadsLeadIdRoute: LeadsLeadIdRoute,
   ActionsIndexRoute: ActionsIndexRoute,
   ClientsIndexRoute: ClientsIndexRoute,
   LeadsIndexRoute: LeadsIndexRoute,

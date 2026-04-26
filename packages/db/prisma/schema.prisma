@@ -590,6 +590,7 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
+  ndaAgreements  NdaAgreement[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors    Contractor[]
@@ -989,8 +990,12 @@ model Conversation {
 
 model Message {
   id             String           @id @default(cuid())
-  conversationId String
-  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null (enforced via DB CHECK).
+  conversationId String?
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  leadId         String?
+  lead           Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   channel        MessageChannel
   direction      MessageDirection
@@ -1019,6 +1024,7 @@ model Message {
   updatedAt DateTime @updatedAt
 
   @@index([conversationId])
+  @@index([leadId, createdAt])
   @@index([createdAt])
   @@index([callSid])
   @@index([sentById])
@@ -1448,6 +1454,10 @@ model Lead {
   // Relations
   smsSendLogs    SmsSendLog[]
   ndaAgreements  NdaAgreement[]
+  messages       Message[]
+
+  // Staff-side "last read" marker for inbound SMS unread count
+  messagesLastReadAt DateTime?
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -1486,13 +1496,17 @@ model NdaAgreement {
   id                  String           @id @default(cuid())
 
   // Tenancy
-  leadId              String
-  lead                Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // leadId is nullable + SetNull so NDAs are preserved (linked to clientId) when a converted Lead is deleted.
+  leadId              String?
+  lead                Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  clientId            String?
+  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   organizationId      String
   organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Template snapshot
   templateVersion     String
+  customContentHtml   String?          @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
 
   // Status
   status              NdaStatus        @default(DRAFT)
@@ -1526,6 +1540,7 @@ model NdaAgreement {
   updatedAt           DateTime         @updatedAt
 
   @@index([leadId])
+  @@index([clientId])
   @@index([organizationId])
   @@index([token])
   @@index([status])
@@ -1539,6 +1554,7 @@ model Campaign {
   tag            String
   status         CampaignStatus @default(ACTIVE)
   description    String?        @db.Text
+  formIntroContent String?      @db.Text
 
   // Relations
   organizationId String

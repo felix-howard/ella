@@ -46,8 +46,12 @@ import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
+import { clientsNdaRoute } from './nda'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
+
+// Sub-routes (paths relative to /clients, e.g. /:clientId/nda)
+clientsRoute.route('/', clientsNdaRoute)
 
 /**
  * Compute display name from firstName and lastName
@@ -611,6 +615,12 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
             },
           },
         },
+      },
+      // Source leads that converted INTO this client — used by Overview to link
+      // back to the original Lead page for NDA management.
+      convertedLeads: {
+        select: { id: true },
+        orderBy: { convertedAt: 'desc' },
       },
     },
   })

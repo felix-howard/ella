@@ -1,153 +1,120 @@
 /**
- * Floating Chatbox - Facebook Messenger-style popup chat window
- * Positioned fixed at bottom-right, reuses existing messaging components
- * Includes voice calling integration via Twilio SDK
+ * Floating Chatbox - Facebook Messenger-style popup chat window.
+ * Polymorphic: drives case or lead chat via a ChatContext discriminated union.
+ * Positioned fixed at bottom-right, reuses existing messaging components.
+ * Voice calling (Twilio SDK) available for case context only.
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { ChatboxButton } from './chatbox-button'
 import { ChatboxHeader } from './chatbox-header'
 import { MessageThread } from '../messaging/message-thread'
 import { QuickActionsBar } from '../messaging/quick-actions-bar'
 import { ActiveCallModal } from '../messaging/active-call-modal'
-import { api } from '../../lib/api-client'
-import { toast } from '../../stores/toast-store'
 import { useVoiceCall } from '../../hooks/use-voice-call'
 import { formatPhone, maskPhone } from '../../lib/formatters'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useRealtimeMessages } from '../../hooks/use-realtime-messages'
+import { useChatMessages } from '../../hooks/use-chat-messages'
+import { useSendChatMessage } from '../../hooks/use-send-chat-message'
+import { api } from '../../lib/api-client'
+import type { ChatContext } from '../../types/chat-context'
 
-// Fallback polling interval (60 seconds — realtime handles instant updates)
-const FALLBACK_POLLING_MS = 60000
+export interface ChatboxHeaderDescriptor {
+  /** Primary line, e.g., client or lead full name. */
+  title: string
+  /** Optional phone number to display (masked for non-admins). */
+  phone?: string
+  /** Optional free-form subtitle; takes precedence over `phone` when provided. */
+  subtitle?: string
+}
 
 export interface FloatingChatboxProps {
-  caseId: string
-  clientName: string
-  clientPhone?: string
-  clientId: string
+  context: ChatContext
+  headerProps: ChatboxHeaderDescriptor
   unreadCount: number
   onUnreadChange?: () => void
 }
 
 export function FloatingChatbox({
-  caseId,
-  clientName,
-  clientPhone,
-  clientId,
+  context,
+  headerProps,
   unreadCount,
   onUnreadChange,
 }: FloatingChatboxProps) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
   const { isAdmin } = useOrgRole()
   const [isOpen, setIsOpen] = useState(false)
 
-  useRealtimeMessages({ caseId, enabled: isOpen }) // Subscribe when chatbox is open
+  // Subscribe to realtime events scoped to this context.
+  useRealtimeMessages({ context, enabled: isOpen })
 
-  // Voice call state
+  // Voice call state — only meaningful for case context; keep hook mounted so
+  // the call modal can render for both types without violating hook ordering.
   const [voiceState, voiceActions] = useVoiceCall()
   const [showCallModal, setShowCallModal] = useState(false)
 
-  // Fetch messages using consistent query key with full messages page
-  const {
-    data: messagesData,
-    isLoading: isLoadingMessages,
-  } = useQuery({
-    queryKey: ['messages', caseId],
-    queryFn: () => api.messages.list(caseId),
-    enabled: isOpen && !!caseId,
-    refetchInterval: isOpen ? FALLBACK_POLLING_MS : false,
+  const { messages, isLoading: isLoadingMessages } = useChatMessages(context, isOpen)
+
+  const sendMessageMutation = useSendChatMessage(context, {
+    onSent: () => onUnreadChange?.(),
   })
 
-  // Send message mutation with optimistic update
-  const sendMessageMutation = useMutation({
-    mutationFn: (data: { content: string; channel: 'SMS' | 'PORTAL' }) =>
-      api.messages.send({ caseId, ...data }),
-    onMutate: async (data) => {
-      // Cancel outgoing refetches so they don't overwrite optimistic update
-      await queryClient.cancelQueries({ queryKey: ['messages', caseId] })
-
-      const previous = queryClient.getQueryData(['messages', caseId])
-
-      // Optimistically add the new message
-      const tempMessage = {
-        id: `temp-${Date.now()}`,
-        conversationId: caseId,
-        channel: data.channel,
-        direction: 'OUTBOUND' as const,
-        content: data.content,
-        createdAt: new Date().toISOString(),
-        _optimistic: 'sending' as const,
-      }
-
-      queryClient.setQueryData(['messages', caseId], (old: { messages: unknown[] } | undefined) => ({
-        ...old,
-        messages: [...(old?.messages ?? []), tempMessage],
-      }))
-
-      return { previous }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', caseId] })
-      onUnreadChange?.()
-    },
-    onError: (_err, _data, context) => {
-      // Rollback on error
-      if (context?.previous) {
-        queryClient.setQueryData(['messages', caseId], context.previous)
-      }
-      toast.error(t('chat.sendError'))
-    },
-  })
-
-  // Handle send message
   const handleSend = (content: string, channel: 'SMS' | 'PORTAL') => {
     sendMessageMutation.mutate({ content, channel })
   }
 
-  // Handle open/close - simplified without minimize state
   const handleToggle = () => setIsOpen(!isOpen)
   const handleClose = () => setIsOpen(false)
 
-  // Handle call button click - uses Twilio voice calling
+  const phone = headerProps.phone
+  const canCall = context.type === 'case' && !!phone && voiceState.isAvailable
+
   const handleCallClick = useCallback(() => {
-    if (clientPhone) {
-      setShowCallModal(true)
-      voiceActions.initiateCall(clientPhone, caseId)
-    }
-  }, [clientPhone, caseId, voiceActions])
+    if (context.type !== 'case' || !phone) return
+    setShowCallModal(true)
+    voiceActions.initiateCall(phone, context.caseId)
+  }, [context, phone, voiceActions])
 
   // Auto-close call modal when call ends
   useEffect(() => {
     if (voiceState.callState === 'idle' && showCallModal) {
-      // Delay close to show completion state
       const timer = setTimeout(() => setShowCallModal(false), 1500)
       return () => clearTimeout(timer)
     }
   }, [voiceState.callState, showCallModal])
 
-  // When chatbox opens, trigger unread count refresh
+  // When chatbox opens on a lead, mark all inbound messages read server-side
+  // then refresh the badge. Case context resets unread server-side on list fetch.
+  // Clamp via `upTo` = newest rendered message's createdAt so inbound arriving
+  // during the round-trip is not silently swallowed.
+  const contextType = context.type
+  const contextId = context.type === 'lead' ? context.leadId : context.caseId
+  const latestMessageAt = messages.length > 0 ? messages[messages.length - 1].createdAt : undefined
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return
+    if (contextType === 'lead') {
+      api.leads.messages
+        .markRead(contextId, latestMessageAt ? { upTo: latestMessageAt } : undefined)
+        .catch((err) => console.debug('[chatbox] markRead failed', err))
+        .finally(() => onUnreadChange?.())
+    } else {
       onUnreadChange?.()
     }
-  }, [isOpen, onUnreadChange])
+  }, [isOpen, contextType, contextId, latestMessageAt, onUnreadChange])
 
-  // Escape key handler for accessibility
+  // Escape key closes chatbox
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        handleClose()
-      }
+      if (e.key === 'Escape' && isOpen) handleClose()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen])
 
-  const messages = messagesData?.messages ?? []
+  // Case-only props for QuickActionsBar's link dropdown.
+  const caseClientId = context.type === 'case' ? context.clientId : undefined
+  const caseId = context.type === 'case' ? context.caseId : undefined
 
   return (
     <div className="fixed bottom-6 right-6 z-[150] flex flex-col items-end gap-3">
@@ -160,29 +127,28 @@ export function FloatingChatbox({
             'animate-in slide-in-from-bottom-4 fade-in duration-200'
           )}
         >
-          {/* Header with call and close buttons */}
           <ChatboxHeader
-            clientName={clientName}
-            clientPhone={clientPhone}
+            title={headerProps.title}
+            phone={phone}
+            subtitle={headerProps.subtitle}
             onClose={handleClose}
-            onCall={clientPhone && voiceState.isAvailable ? handleCallClick : undefined}
+            onCall={canCall ? handleCallClick : undefined}
           />
 
-          {/* Message thread */}
           <MessageThread
             messages={messages}
             isLoading={isLoadingMessages}
             className="flex-1 min-h-[320px] bg-background"
           />
 
-          {/* Quick actions / composer */}
           <QuickActionsBar
             onSend={handleSend}
             isSending={sendMessageMutation.isPending}
-            clientName={clientName}
-            clientPhone={clientPhone}
-            clientId={clientId}
+            clientName={headerProps.title}
+            clientPhone={phone}
+            clientId={caseClientId}
             caseId={caseId}
+            context={context}
             autoFocus
           />
         </div>
@@ -196,15 +162,15 @@ export function FloatingChatbox({
         className="relative"
       />
 
-      {/* Active Call Modal */}
-      {showCallModal && clientPhone && (
+      {/* Active Call Modal - case context only */}
+      {showCallModal && context.type === 'case' && phone && (
         <ActiveCallModal
           isOpen={showCallModal}
           callState={voiceState.callState}
           isMuted={voiceState.isMuted}
           duration={voiceState.duration}
-          clientName={clientName}
-          clientPhone={isAdmin ? formatPhone(clientPhone) : maskPhone(clientPhone)}
+          clientName={headerProps.title}
+          clientPhone={isAdmin ? formatPhone(phone) : maskPhone(phone)}
           error={voiceState.error}
           onEndCall={voiceActions.endCall}
           onToggleMute={voiceActions.toggleMute}

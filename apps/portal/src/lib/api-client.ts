@@ -79,6 +79,7 @@ export interface NdaPublicView {
   templateVersion: string
   templateTitle: string
   templateSections: NdaTemplateSection[]
+  templateHtml: string | null
   depositAmount: string
   orgName: string
   leadFirstName: string

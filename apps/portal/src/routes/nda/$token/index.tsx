@@ -19,6 +19,7 @@ import {
   type NdaSignResult,
 } from '../../../lib/api-client'
 import { NdaTemplateView } from '../../../components/nda/nda-template-view'
+import { NdaCustomHtmlView } from '../../../components/nda/nda-custom-html-view'
 import { NdaSignForm, type NdaSignSubmission } from '../../../components/nda/nda-sign-form'
 import { NdaConfirmationPanel } from '../../../components/nda/nda-confirmation-panel'
 import { NdaErrorPanel, type NdaErrorCode } from '../../../components/nda/nda-error-panel'
@@ -183,11 +184,19 @@ function NdaSignPage() {
                 })}
               </p>
             </div>
-            <NdaTemplateView
-              title={view.templateTitle}
-              sections={view.templateSections}
-              onReachBottom={handleReachBottom}
-            />
+            {view.templateHtml ? (
+              <NdaCustomHtmlView
+                title={view.templateTitle}
+                html={view.templateHtml}
+                onReachBottom={handleReachBottom}
+              />
+            ) : (
+              <NdaTemplateView
+                title={view.templateTitle}
+                sections={view.templateSections}
+                onReachBottom={handleReachBottom}
+              />
+            )}
             <div className="shrink-0">
               <NdaSignForm
                 canSubmit={reachedBottom}

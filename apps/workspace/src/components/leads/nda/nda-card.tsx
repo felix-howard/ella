@@ -1,19 +1,16 @@
 /**
- * Single NDA row card:
- *   - Two badges (status + deposit)
- *   - Metadata (template version, created, signed)
- *   - Per-status action buttons: copy link, resend SMS, view signed PDF, update deposit
- *   - Inline UpdateDepositPanel toggle
+ * Lead-page NDA row: wraps the shared <NdaReadonlyCard /> for presentation
+ * (status badges, metadata, View PDF) and adds the lead-only interactive
+ * actions: copy link, resend SMS, deposit update.
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, RefreshCw, FileText, Loader2, Pencil } from 'lucide-react'
 import { useResendNda } from './use-nda-mutations'
-import { NdaStatusBadge, DepositStatusBadge } from './nda-status-badges'
 import { UpdateDepositPanel } from './update-deposit-panel'
+import { NdaReadonlyCard } from '../../nda/nda-readonly-card'
 import { toast } from '../../../stores/toast-store'
 import { copyToClipboard } from '../../../lib/clipboard'
-import { formatShortRelativeTime, formatFullDateTime } from '../../../lib/formatters'
 import { api } from '../../../lib/api-client'
 import type { NdaAgreement } from '../../../lib/api-client'
 
@@ -23,7 +20,7 @@ interface Props {
 }
 
 export function NdaCard({ leadId, nda }: Props) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const resendMutation = useResendNda(leadId)
@@ -55,41 +52,11 @@ export function NdaCard({ leadId, nda }: Props) {
   const canCopyOrResend = nda.status === 'SENT' && nda.isActive
   const canViewPdf = nda.status === 'SIGNED' && !!nda.signedPdfKey
 
+  // View PDF rendered here (not via shared card) so it lines up with the
+  // other lead-page actions on a single flex row.
   return (
-    <div className="rounded-xl border border-border/60 bg-card shadow-sm p-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <NdaStatusBadge status={nda.status} />
-        <DepositStatusBadge status={nda.depositStatus} />
-        <span className="text-xs text-muted-foreground ml-auto">
-          {t('nda.card.template', { version: nda.templateVersion })}
-        </span>
-      </div>
-
-      <div className="text-xs text-muted-foreground space-y-0.5">
-        <div>
-          {t('nda.card.created')}:{' '}
-          <span className="text-foreground">
-            {formatShortRelativeTime(nda.createdAt, i18n.language)}
-          </span>
-        </div>
-        {nda.signedAt && (
-          <div>
-            {t('nda.card.signed')}:{' '}
-            <span className="text-foreground">{formatFullDateTime(nda.signedAt)}</span>
-          </div>
-        )}
-        {nda.depositPaidAt && (
-          <div>
-            {t('nda.card.depositPaid')}:{' '}
-            <span className="text-foreground">{formatFullDateTime(nda.depositPaidAt)}</span>
-          </div>
-        )}
-        {nda.depositNote && (
-          <div className="mt-1 p-2 rounded bg-muted/30 text-foreground whitespace-pre-wrap break-words">
-            {nda.depositNote}
-          </div>
-        )}
-      </div>
+    <div className="space-y-2">
+      <NdaReadonlyCard nda={nda} />
 
       <div className="flex flex-wrap gap-2">
         {canCopyOrResend && (

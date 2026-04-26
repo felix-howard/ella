@@ -71,14 +71,18 @@ formRoute.get(
       where: {
         slug_organizationId: { slug: campaignSlug, organizationId: org.id },
       },
-      select: { id: true, name: true, status: true },
+      select: { id: true, name: true, status: true, formIntroContent: true },
     })
 
     if (!campaign || campaign.status !== 'ACTIVE') {
       return c.json({ error: 'Campaign not found' }, 404)
     }
 
-    return c.json({ valid: true, campaignName: campaign.name })
+    return c.json({
+      valid: true,
+      campaignName: campaign.name,
+      formIntroContent: campaign.formIntroContent,
+    })
   }
 )
 

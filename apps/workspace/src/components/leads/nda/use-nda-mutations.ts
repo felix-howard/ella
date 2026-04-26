@@ -25,20 +25,43 @@ function useInvalidateNda(leadId: string) {
   return () => {
     qc.invalidateQueries({ queryKey: ndaListKey(leadId) })
     qc.invalidateQueries({ queryKey: ['lead', leadId] })
+    // NDA invite SMS is dual-written into Message — refresh chat panel so the
+    // outbound message appears immediately (don't rely solely on realtime).
+    qc.invalidateQueries({ queryKey: ['messages', 'lead', leadId] })
+    // Lead NDA mutations transfer to Client after conversion — keep the
+    // Client Overview NDA section in sync. Broad match across all clients
+    // since we don't track the converted clientId here.
+    qc.invalidateQueries({ queryKey: ['client-nda'] })
   }
+}
+
+export interface CreateNdaPayload {
+  contentHtml?: string
 }
 
 export function useCreateNda(leadId: string) {
   const { t } = useTranslation()
   const invalidate = useInvalidateNda(leadId)
   return useMutation({
-    mutationFn: () => api.leads.nda.create(leadId),
+    mutationFn: (payload: CreateNdaPayload = {}) =>
+      api.leads.nda.create(leadId, payload),
     onSuccess: () => {
       toast.success(t('nda.toast.sent'))
       invalidate()
     },
     onError: (err: Error) => {
       toast.error(err.message || t('nda.toast.sendFailed'))
+    },
+  })
+}
+
+export function useNdaPreview(leadId: string) {
+  const { t } = useTranslation()
+  return useMutation({
+    mutationFn: (payload: { contentHtml?: string }) =>
+      api.leads.nda.previewPdf(leadId, payload),
+    onError: (err: Error) => {
+      toast.error(err.message || t('nda.toast.previewFailed'))
     },
   })
 }

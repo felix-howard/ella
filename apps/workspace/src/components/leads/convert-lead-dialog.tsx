@@ -8,8 +8,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Loader2, AlertTriangle, MessageSquare, Info } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api } from '../../lib/api-client'
+import { api, ApiError } from '../../lib/api-client'
 import { formatPhone } from '../../lib/formatters'
+import { toast } from '../../stores/toast-store'
 import { DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../clients/confirm-step'
 import type { Lead } from '../../lib/api-client'
 
@@ -70,8 +71,25 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
     }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      toast.success(t('leads.convertSuccess'))
       onClose()
       navigate({ to: '/clients/$clientId', params: { clientId: data.clientId } })
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        const existing = convertCheck?.existingClient
+        const name = existing ? `${existing.firstName} ${existing.lastName}` : ''
+        toast.error(
+          name
+            ? t('leads.duplicateError', { name })
+            : t('leads.convertError'),
+        )
+        return
+      }
+      const message = error instanceof Error && error.message
+        ? `${t('leads.convertError')}: ${error.message}`
+        : t('leads.convertError')
+      toast.error(message)
     },
   })
 
@@ -104,17 +122,16 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
         </div>
 
         <div className="px-6 py-4 space-y-4">
-          {/* Duplicate Phone Warning */}
+          {/* Duplicate Phone Error - hard block */}
           {convertCheck?.hasDuplicate && convertCheck.existingClient && (
-            <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-              <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-yellow-800">
-                  {t('leads.duplicateWarning', {
+                <p className="font-medium text-destructive">
+                  {t('leads.duplicateError', {
                     name: `${convertCheck.existingClient.firstName} ${convertCheck.existingClient.lastName}`
                   })}
                 </p>
-                <p className="text-yellow-600 mt-0.5">{t('leads.duplicateConfirm')}</p>
               </div>
             </div>
           )}
@@ -276,12 +293,6 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
             </div>
           )}
 
-          {/* Error */}
-          {convertMutation.error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-              {t('leads.convertError')}
-            </div>
-          )}
         </div>
 
         {/* Actions */}
@@ -291,10 +302,18 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
           </button>
           <button
             onClick={() => convertMutation.mutate()}
-            disabled={convertMutation.isPending || !editedFirstName.trim() || !editedLastName.trim()}
+            disabled={
+              convertMutation.isPending ||
+              !editedFirstName.trim() ||
+              !editedLastName.trim() ||
+              !!convertCheck?.hasDuplicate
+            }
             className={cn(
               'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors',
-              convertMutation.isPending || !editedFirstName.trim() || !editedLastName.trim()
+              convertMutation.isPending ||
+                !editedFirstName.trim() ||
+                !editedLastName.trim() ||
+                convertCheck?.hasDuplicate
                 ? 'bg-primary/70 cursor-not-allowed'
                 : 'bg-primary hover:bg-primary/90'
             )}

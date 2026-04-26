@@ -7,6 +7,7 @@ import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { sanitizeTextInput } from '../../lib/validation'
+import { sanitizeFormIntroContent } from '../../lib/sanitize-html'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
@@ -88,7 +89,7 @@ campaignsRoute.post(
   zValidator('json', createCampaignSchema),
   async (c) => {
     const { orgId, staffId } = getVerifiedAuth(c.get('user'))
-    const { name, slug, tag, description } = c.req.valid('json')
+    const { name, slug, tag, description, formIntroContent } = c.req.valid('json')
 
     try {
       const campaign = await prisma.campaign.create({
@@ -97,6 +98,7 @@ campaignsRoute.post(
           slug,
           tag: sanitizeTextInput(tag),
           description: description ? sanitizeTextInput(description, 500) : null,
+          formIntroContent: formIntroContent ? sanitizeFormIntroContent(formIntroContent) : null,
           organizationId: orgId,
           createdById: staffId,
         },
@@ -145,6 +147,11 @@ campaignsRoute.patch(
       data.description = updates.description ? sanitizeTextInput(updates.description, 500) : null
     }
     if (updates.status) data.status = updates.status
+    if (updates.formIntroContent !== undefined) {
+      data.formIntroContent = updates.formIntroContent
+        ? sanitizeFormIntroContent(updates.formIntroContent)
+        : null
+    }
 
     const updated = await prisma.campaign.update({
       where: { id },

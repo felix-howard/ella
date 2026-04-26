@@ -36,6 +36,16 @@ export const listLeadsQuerySchema = z.object({
   status: z.enum(['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']).optional(),
   search: z.string().max(100).optional(),
   tag: z.string().max(50).regex(/^[a-z0-9-]+$/).optional(),
+  // Treat the literal string "false" (and "0") as false; only "true"/"1"/boolean-true count as true.
+  // z.coerce.boolean() naively coerces any non-empty string to true, which is unsafe for query params.
+  includeConverted: z
+    .preprocess((v) => {
+      if (typeof v === 'boolean') return v
+      if (typeof v === 'string') return v === 'true' || v === '1'
+      return false
+    }, z.boolean())
+    .optional()
+    .default(false),
 })
 
 /** Update lead */

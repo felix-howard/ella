@@ -112,6 +112,31 @@ describe('toPublicView', () => {
     // Shouldn't contain a stray trailing space-only token
     expect(body).not.toContain('Jane  ')
   })
+
+  it('exposes templateHtml when customContentHtml is set', () => {
+    const view = toPublicView(
+      activeNda({ customContentHtml: '<p>Custom NDA content</p>' }) as any,
+    )
+    expect(view.templateHtml).toBe('<p>Custom NDA content</p>')
+    // Legacy field still populated for back-compat
+    expect(view.templateSections.length).toBeGreaterThan(0)
+  })
+
+  it('returns templateHtml=null when customContentHtml is null', () => {
+    const view = toPublicView(activeNda({ customContentHtml: null }) as any)
+    expect(view.templateHtml).toBeNull()
+    expect(view.templateSections.length).toBeGreaterThan(0)
+  })
+
+  it('coerces empty-string customContentHtml to null (legacy render branch)', () => {
+    const view = toPublicView(activeNda({ customContentHtml: '' }) as any)
+    expect(view.templateHtml).toBeNull()
+  })
+
+  it('coerces undefined customContentHtml to null', () => {
+    const view = toPublicView(activeNda({ customContentHtml: undefined }) as any)
+    expect(view.templateHtml).toBeNull()
+  })
 })
 
 describe('signNda', () => {

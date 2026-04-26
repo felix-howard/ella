@@ -3,7 +3,6 @@
  * CRUD operations for lead management + bulk SMS + convert-to-client
  */
 import { Hono } from 'hono'
-import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
@@ -14,7 +13,6 @@ import { sendWelcomeMessage } from '../../services/sms'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
-import type { AuthUser } from '../../services/auth'
 import {
   createLeadSchema,
   adminCreateLeadSchema,
@@ -24,19 +22,9 @@ import {
   convertLeadSchema,
   bulkSmsSchema,
 } from './schemas'
+import { getVerifiedAuth } from './auth-helpers'
 
 const leadsRoute = new Hono<{ Variables: AuthVariables }>()
-
-/** Extract verified orgId and staffId from auth user (requireOrgAdmin guarantees these) */
-function getVerifiedAuth(user: AuthUser): { orgId: string; staffId: string } {
-  if (!user.organizationId) {
-    throw new HTTPException(403, { message: 'Organization required' })
-  }
-  if (!user.staffId) {
-    throw new HTTPException(403, { message: 'Staff record required' })
-  }
-  return { orgId: user.organizationId, staffId: user.staffId }
-}
 
 // ============================================
 // PUBLIC: Create Lead (from registration form)
@@ -146,13 +134,15 @@ leadsRoute.get(
   zValidator('query', listLeadsQuerySchema),
   async (c) => {
     const { orgId } = getVerifiedAuth(c.get('user'))
-    const { page, limit, status, search, tag } = c.req.valid('query')
+    const { page, limit, status, search, tag, includeConverted } = c.req.valid('query')
     const { skip } = getPaginationParams(page, limit)
 
     const where: Record<string, unknown> = { organizationId: orgId }
 
     if (status) {
       where.status = status
+    } else if (!includeConverted) {
+      where.status = { not: 'CONVERTED' }
     }
 
     if (tag) {
@@ -217,6 +207,45 @@ leadsRoute.get(
       ORDER BY tag
     `
     return c.json({ success: true, data: result.map((r) => r.tag) })
+  }
+)
+
+// ============================================
+// PROTECTED+ADMIN: Aggregate Stats (KPI bar)
+// ============================================
+leadsRoute.get(
+  '/stats',
+  authMiddleware,
+  requireOrgAdmin,
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const grouped = await prisma.lead.groupBy({
+      by: ['status'],
+      where: { organizationId: orgId },
+      _count: { _all: true },
+    })
+
+    const counts: Record<string, number> = { NEW: 0, SENT: 0, CONTACTED: 0, CONVERTED: 0, LOST: 0 }
+    let total = 0
+    for (const g of grouped) {
+      counts[g.status] = g._count._all
+      total += g._count._all
+    }
+
+    const conversionRate = total > 0 ? Math.round((counts.CONVERTED / total) * 100) : 0
+
+    return c.json({
+      success: true,
+      data: {
+        total,
+        new: counts.NEW,
+        sent: counts.SENT,
+        contacted: counts.CONTACTED,
+        converted: counts.CONVERTED,
+        lost: counts.LOST,
+        conversionRate,
+      },
+    })
   }
 )
 
@@ -398,6 +427,7 @@ leadsRoute.post(
           language,
           source: 'CONVERTED',
           tags: lead.tags || [],
+          notes: lead.notes,
           organizationId: orgId,
           managedById: managedById || null,
           createdById: staffId,
@@ -422,6 +452,27 @@ leadsRoute.post(
         },
       })
 
+      // Lead → Client conversion always produces a standalone INDIVIDUAL client,
+      // so we always create a conversation to host reassigned lead messages.
+      const conversation = await tx.conversation.create({
+        data: { caseId: taxCase.id, lastMessageAt: new Date() },
+      })
+
+      // Reassign pre-conversion lead messages to the new conversation.
+      // UPDATE (not copy) preserves message IDs and createdAt for continuous thread history.
+      const migrated = await tx.message.updateMany({
+        where: { leadId: id },
+        data: { conversationId: conversation.id, leadId: null },
+      })
+
+      // Link all NDAs from this lead to the new client. organizationId filter is
+      // defense-in-depth (leadId is already org-scoped). Pending SENT NDAs remain
+      // signable via their token; once signed they auto-surface on the Client.
+      const ndaMigrated = await tx.ndaAgreement.updateMany({
+        where: { leadId: id, organizationId: orgId },
+        data: { clientId: client.id },
+      })
+
       await tx.lead.update({
         where: { id },
         data: {
@@ -434,7 +485,15 @@ leadsRoute.post(
         },
       })
 
-      return { duplicate: false as const, client, engagement, taxCase }
+      return {
+        duplicate: false as const,
+        client,
+        engagement,
+        taxCase,
+        conversation,
+        migratedCount: migrated.count,
+        ndaMigratedCount: ndaMigrated.count,
+      }
     })
 
     if (result.duplicate) {
@@ -444,6 +503,13 @@ leadsRoute.post(
         existingClient: result.existingClient,
       }, 409)
     }
+
+    console.info('[LeadConvert] migration counts', {
+      leadId: id,
+      messages: result.migratedCount,
+      ndas: result.ndaMigratedCount,
+      conversationId: result.conversation.id,
+    })
 
     // Send welcome SMS if requested (outside transaction)
     if (sendWelcomeSms && isTwilioConfigured()) {

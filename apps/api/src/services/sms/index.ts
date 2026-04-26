@@ -37,6 +37,13 @@ export {
   type SignatureValidationResult,
 } from './webhook-handler'
 
+// Lead inbound handler (polymorphic Message routing)
+export {
+  findLeadByPhone,
+  processLeadInbound,
+  type LeadInboundResult,
+} from './lead-inbound-handler'
+
 // Templates
 export * from './templates'
 

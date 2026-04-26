@@ -340,6 +340,12 @@ export const api = {
         method: 'DELETE',
       }),
 
+    // Read-only NDA listing for client overview tab (org-scoped)
+    nda: {
+      list: (clientId: string) =>
+        request<{ success: boolean; data: NdaAgreement[] }>(`/clients/${clientId}/nda`),
+    },
+
   },
 
   // Contractors (under clients)
@@ -1255,7 +1261,7 @@ export const api = {
 
   // Leads management (admin-only)
   leads: {
-    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
+    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
 
     create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
@@ -1270,6 +1276,20 @@ export const api = {
     tags: () =>
       request<{ success: boolean; data: string[] }>('/leads/tags'),
 
+    stats: () =>
+      request<{
+        success: boolean
+        data: {
+          total: number
+          new: number
+          sent: number
+          contacted: number
+          converted: number
+          lost: number
+          conversionRate: number
+        }
+      }>('/leads/stats'),
+
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
 
@@ -1283,8 +1303,11 @@ export const api = {
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
 
     nda: {
-      create: (leadId: string) =>
-        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, { method: 'POST' }),
+      create: (leadId: string, body: { contentHtml?: string } = {}) =>
+        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
 
       list: (leadId: string) =>
         request<{ success: boolean; data: NdaAgreement[] }>(`/leads/${leadId}/nda`),
@@ -1301,6 +1324,66 @@ export const api = {
 
       getPdfUrl: (leadId: string, ndaId: string) =>
         request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+
+      // Default HTML used to seed the Tiptap editor.
+      getDefaultHtml: (leadId: string) =>
+        request<{ success: boolean; data: { contentHtml: string } }>(
+          `/leads/${leadId}/nda/default-html`,
+        ),
+
+      // Streams `application/pdf` bytes — frontend renders inside an iframe via
+      // a blob URL. Bypasses the `request<>` helper because the response isn't
+      // JSON; mirrors the auth-header logic from `fetchMediaBlob`.
+      previewPdf: async (leadId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        const tokenGetter = getAuthToken
+        if (tokenGetter) {
+          const token = await tokenGetter()
+          if (token) headers.Authorization = `Bearer ${token}`
+        }
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}/nda/preview-pdf`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (!response.ok) {
+          // Try to surface server JSON error details; fall back to status text.
+          let message = `Preview failed (${response.status})`
+          try {
+            const data = (await response.json()) as { error?: string; message?: string }
+            if (data?.message || data?.error) message = data.message || data.error || message
+          } catch {
+            // Body wasn't JSON — keep generic message
+          }
+          throw new ApiError(response.status, 'PREVIEW_FAILED', message)
+        }
+        return response.blob()
+      },
+    },
+
+    // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
+    messages: {
+      list: (leadId: string, params?: { page?: number; limit?: number }) =>
+        request<LeadMessagesResponse>(`/leads/${leadId}/messages`, { params }),
+
+      send: (leadId: string, data: { content: string; channel?: 'SMS' }) =>
+        request<LeadMessageSendResponse>(`/leads/${leadId}/messages/send`, {
+          method: 'POST',
+          body: JSON.stringify({ channel: 'SMS', ...data }),
+          retries: 0, // Avoid duplicate SMS on server error
+        }),
+
+      getUnread: (leadId: string) =>
+        request<{ leadId: string; unreadCount: number }>(`/leads/${leadId}/messages/unread`),
+
+      // Pass `upTo` = the ISO createdAt of the newest message the UI has rendered.
+      // Server clamps watermark to min(upTo, now()) so inbound during round-trip
+      // is not silently marked read.
+      markRead: (leadId: string, data?: { upTo?: string }) =>
+        request<{ leadId: string; unreadCount: number; readAt: string }>(`/leads/${leadId}/messages/read`, {
+          method: 'POST',
+          body: JSON.stringify(data ?? {}),
+        }),
     },
   },
 
@@ -1309,10 +1392,10 @@ export const api = {
     list: () =>
       request<{ success: boolean; data: Campaign[] }>('/campaigns'),
 
-    create: (data: { name: string; slug: string; tag: string; description?: string }) =>
+    create: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null }) =>
       request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED' }) =>
+    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED'; formIntroContent?: string | null }) =>
       request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
     delete: (id: string) =>
@@ -1356,7 +1439,9 @@ export interface Lead {
   tags: string[]
   notes: string | null
   convertedToId: string | null
+  convertedAt: string | null
   createdAt: string
+  updatedAt: string
   smsSendLogs?: SmsSendLog[]
 }
 
@@ -1365,7 +1450,8 @@ export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
 
 export interface NdaAgreement {
   id: string
-  leadId: string
+  // Null after the originating Lead is deleted; clientId still pins the NDA to its Client.
+  leadId: string | null
   organizationId: string
   templateVersion: string
   status: NdaStatus
@@ -1399,6 +1485,7 @@ export interface Campaign {
   tag: string
   status: CampaignStatus
   description: string | null
+  formIntroContent: string | null
   createdById: string
   createdBy: { name: string }
   createdAt: string
@@ -1724,6 +1811,8 @@ export interface ClientDetail extends Client {
   managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
   createdBy?: { id: string; name: string } | null
   updatedBy?: { id: string; name: string } | null
+  /** Source leads that converted INTO this client (newest first). */
+  convertedLeads?: { id: string }[]
 }
 
 export interface ClientStats {
@@ -1978,7 +2067,9 @@ export interface ActionsGroupedResponse {
 // Message types
 export interface Message {
   id: string
-  conversationId: string
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null
+  conversationId?: string | null
+  leadId?: string | null
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
@@ -2169,6 +2260,24 @@ export interface MessagesResponse {
 }
 
 export interface SendMessageResponse {
+  message: Message
+  sent: boolean
+  smsEnabled: boolean
+  error?: string
+}
+
+// Lead-scoped message list (polymorphic Message.leadId)
+export interface LeadMessagesResponse {
+  messages: Message[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface LeadMessageSendResponse {
   message: Message
   sent: boolean
   smsEnabled: boolean

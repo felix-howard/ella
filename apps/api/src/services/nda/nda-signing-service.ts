@@ -25,21 +25,31 @@ import type { TemplateSection } from '../../lib/nda/types'
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
 
-export type LoadedNda = Prisma.NdaAgreementGetPayload<{
+type RawLoadedNda = Prisma.NdaAgreementGetPayload<{
   include: {
     lead: { select: { id: true; firstName: true; lastName: true } }
     organization: { select: { id: true; name: true } }
   }
 }>
 
+// `lead` and `leadId` are nullable on the schema (SetNull on lead delete) but
+// the public signing flow requires them — so the loader narrows them away.
+export type LoadedNda = Omit<RawLoadedNda, 'lead' | 'leadId'> & {
+  lead: NonNullable<RawLoadedNda['lead']>
+  leadId: string
+}
+
 export async function loadNdaByToken(token: string): Promise<LoadedNda | null> {
-  return prisma.ndaAgreement.findUnique({
+  const nda = await prisma.ndaAgreement.findUnique({
     where: { token },
     include: {
       lead: { select: { id: true, firstName: true, lastName: true } },
       organization: { select: { id: true, name: true } },
     },
   })
+  // Treat NDAs whose originating Lead has been deleted as "link not found".
+  if (!nda || !nda.lead || !nda.leadId) return null
+  return nda as LoadedNda
 }
 
 export interface PublicNdaView {
@@ -49,6 +59,7 @@ export interface PublicNdaView {
   templateVersion: string
   templateTitle: string
   templateSections: TemplateSection[]
+  templateHtml: string | null
   depositAmount: string
   orgName: string
   leadFirstName: string
@@ -72,6 +83,11 @@ export function toPublicView(nda: LoadedNda): PublicNdaView {
     templateVersion: nda.templateVersion,
     templateTitle: template.title,
     templateSections: sections,
+    // Sanitized at write time (sanitizeNdaHtml). Legacy templateSections kept
+    // for back-compat with portal builds that don't yet read templateHtml.
+    // `|| null` (not `??`) so empty strings collapse to null and the portal
+    // takes the legacy render branch instead of an empty custom HTML block.
+    templateHtml: nda.customContentHtml || null,
     depositAmount,
     orgName: nda.organization.name,
     leadFirstName: nda.lead.firstName,
@@ -110,6 +126,7 @@ export async function signNda(input: {
     ndaAgreement: {
       templateVersion: nda.templateVersion,
       depositAmount: nda.depositAmount,
+      customContentHtml: nda.customContentHtml,
     },
     lead: { firstName: nda.lead.firstName, lastName: nda.lead.lastName },
     organization: { name: nda.organization.name },

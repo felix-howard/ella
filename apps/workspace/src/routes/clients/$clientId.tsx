@@ -66,6 +66,7 @@ import { useScheduleC } from '../../hooks/use-schedule-c'
 import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
+import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
@@ -237,10 +238,13 @@ function ClientDetailPage() {
 
       if (!activeCaseId) return
 
-      // Cancel outgoing refetches so they don't overwrite optimistic update
-      await queryClient.cancelQueries({ queryKey: ['messages', activeCaseId] })
+      // Query key aligned with useChatMessages hook — ['messages', 'case', caseId].
+      const messagesKey = ['messages', 'case', activeCaseId] as const
 
-      const previous = queryClient.getQueryData(['messages', activeCaseId])
+      // Cancel outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: messagesKey })
+
+      const previous = queryClient.getQueryData(messagesKey)
 
       // Build preview content from the template message
       const previewContent = (customMessage || '')
@@ -258,7 +262,7 @@ function ClientDetailPage() {
         _optimistic: 'sending' as const,
       }
 
-      queryClient.setQueryData(['messages', activeCaseId], (old: { messages: unknown[] } | undefined) => ({
+      queryClient.setQueryData(messagesKey, (old: { messages: unknown[] } | undefined) => ({
         ...old,
         messages: [...(old?.messages ?? []), tempMessage],
       }))
@@ -269,13 +273,13 @@ function ClientDetailPage() {
       toast.success(t('clients.uploadLinkSent'))
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
       if (activeCaseId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', activeCaseId] })
+        queryClient.invalidateQueries({ queryKey: ['messages', 'case', activeCaseId] })
       }
     },
     onError: (err: Error, _data, context) => {
       // Rollback optimistic update on error
       if (context?.previous && activeCaseId) {
-        queryClient.setQueryData(['messages', activeCaseId], context.previous)
+        queryClient.setQueryData(['messages', 'case', activeCaseId], context.previous)
       }
       toast.error(err.message || t('clients.uploadLinkFailed'))
     },
@@ -330,15 +334,20 @@ function ClientDetailPage() {
   // Resolve portal URL: prefer individual owner's for business clients
   const portalUploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
 
-  // Fetch unread count — use individual owner's caseId when redirecting
+  // Fetch unread count — use individual owner's caseId when redirecting.
+  // Query key owned by useChatUnread: ['unread-count', 'case', caseId].
   const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
-  const { data: unreadData, isLoading: isUnreadLoading, isError: isUnreadError, refetch: refetchUnread } = useQuery({
-    queryKey: ['unread-count', messageCaseId],
-    queryFn: () => api.messages.getUnreadCount(messageCaseId!),
-    enabled: !!messageCaseId,
-    staleTime: 30000, // Cache for 30s
-  })
-  const unreadCount = unreadData?.unreadCount ?? 0
+  const {
+    unreadCount,
+    isLoading: isUnreadLoading,
+    isError: isUnreadError,
+    refetch: refetchUnread,
+  } = useChatUnread(
+    messageCaseId
+      ? { type: 'case', caseId: messageCaseId, clientId: ownerIndividual?.id || clientId }
+      : { type: 'case', caseId: '', clientId: '' },
+    !!messageCaseId,
+  )
 
   // Callback to refetch unread count when chatbox sends/receives messages
   // Memoized and debounced to prevent race conditions
@@ -1201,10 +1210,15 @@ function ClientDetailPage() {
           }
         >
           <FloatingChatbox
-            caseId={messageCaseId}
-            clientName={ownerIndividual?.name || client.name}
-            clientPhone={ownerIndividual?.phone || client.phone}
-            clientId={ownerIndividual?.id || clientId}
+            context={{
+              type: 'case',
+              caseId: messageCaseId,
+              clientId: ownerIndividual?.id || clientId,
+            }}
+            headerProps={{
+              title: ownerIndividual?.name || client.name,
+              phone: ownerIndividual?.phone || client.phone,
+            }}
             unreadCount={isUnreadLoading ? 0 : unreadCount}
             onUnreadChange={handleUnreadChange}
           />

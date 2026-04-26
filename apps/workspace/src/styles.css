@@ -58,8 +58,9 @@ button:focus-visible,
 
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: hsl(var(--muted-foreground) / 0.5);
-  font-style: italic;
+  color: color-mix(in srgb, var(--color-muted-foreground) 45%, transparent);
+  font-style: normal;
+  font-weight: 400;
   pointer-events: none;
   height: 0;
   float: left;

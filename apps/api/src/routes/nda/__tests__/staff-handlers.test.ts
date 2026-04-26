@@ -87,11 +87,19 @@ describe('Staff NDA handlers', () => {
   beforeEach(() => vi.clearAllMocks())
 
   describe('POST /leads/:leadId/nda', () => {
+    async function createReq(body: unknown = {}) {
+      return app.request('/leads/lead-1/nda', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
     it('creates NDA, sends SMS, returns 201 with url', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
       mockNdaCreate.mockResolvedValueOnce(nda() as any)
 
-      const res = await app.request('/leads/lead-1/nda', { method: 'POST' })
+      const res = await createReq()
       const json = await res.json()
 
       expect(res.status).toBe(201)
@@ -99,13 +107,144 @@ describe('Staff NDA handlers', () => {
       expect(json.data.id).toBe('nda-1')
       expect(json.url).toMatch(/\/nda\/[A-Za-z0-9]{28}$/)
       expect(mockSendSms).toHaveBeenCalledTimes(1)
+      // Legacy path: contentHtml absent → row stores customContentHtml: null
+      const created = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(created.customContentHtml).toBeNull()
+    })
+
+    it('persists sanitized contentHtml when provided', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+      mockNdaCreate.mockResolvedValueOnce(nda() as any)
+
+      const res = await createReq({ contentHtml: '<p>Custom <strong>terms</strong></p>' })
+      expect(res.status).toBe(201)
+      const created = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(created.customContentHtml).toBe('<p>Custom <strong>terms</strong></p>')
+    })
+
+    it('strips disallowed tags via sanitizer (script removed)', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+      mockNdaCreate.mockResolvedValueOnce(nda() as any)
+
+      await createReq({ contentHtml: '<p>safe</p><script>alert(1)</script>' })
+      const created = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(created.customContentHtml).toBe('<p>safe</p>')
+    })
+
+    it('all-script payload collapses to null (legacy fallback)', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(lead() as any)
+      mockNdaCreate.mockResolvedValueOnce(nda() as any)
+
+      await createReq({ contentHtml: '<script>alert(1)</script>' })
+      const created = (mockNdaCreate.mock.calls[0][0] as any).data
+      expect(created.customContentHtml).toBeNull()
+    })
+
+    it('rejects oversized payload with 400 (zod cap)', async () => {
+      const big = 'a'.repeat(60_000)
+      const res = await createReq({ contentHtml: big })
+      expect(res.status).toBe(400)
+      expect(mockNdaCreate).not.toHaveBeenCalled()
+    })
+
+    it('rejects extra body keys (strict schema)', async () => {
+      const res = await createReq({ contentHtml: '<p>x</p>', extra: 'nope' })
+      expect(res.status).toBe(400)
     })
 
     it('returns 404 when lead not found / not in caller org', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(null)
-      const res = await app.request('/leads/bad-lead/nda', { method: 'POST' })
+      const res = await app.request('/leads/bad-lead/nda', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
       expect(res.status).toBe(404)
       expect(mockNdaCreate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('GET /leads/:leadId/nda/default-html', () => {
+    function leadWithOrg(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'lead-1',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        phone: '+15551234567',
+        organization: { name: 'Acme Tax LLC' },
+        ...overrides,
+      }
+    }
+
+    it('returns rendered HTML containing template-v1 headings', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      const res = await app.request('/leads/lead-1/nda/default-html')
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+      expect(typeof json.data.contentHtml).toBe('string')
+      expect(json.data.contentHtml).toMatch(/<h2>/)
+      expect(json.data.contentHtml).toContain('Jane Doe')
+      expect(json.data.contentHtml).toContain('Acme Tax LLC')
+    })
+
+    it('returns 404 when lead not in caller org', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(null)
+      const res = await app.request('/leads/foreign/nda/default-html')
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('POST /leads/:leadId/nda/preview-pdf', () => {
+    function leadWithOrg(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'lead-1',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        phone: '+15551234567',
+        organization: { name: 'Acme Tax LLC' },
+        ...overrides,
+      }
+    }
+
+    async function previewReq(body: unknown = {}) {
+      return app.request('/leads/lead-1/nda/preview-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('streams application/pdf bytes for legacy preview', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      const res = await previewReq()
+
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('application/pdf')
+      expect(res.headers.get('Cache-Control')).toBe('no-store')
+      const buf = Buffer.from(await res.arrayBuffer())
+      expect(buf.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    }, 15_000)
+
+    it('renders custom HTML when provided', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      const res = await previewReq({ contentHtml: '<p>Hello custom</p>' })
+      expect(res.status).toBe(200)
+      const buf = Buffer.from(await res.arrayBuffer())
+      expect(buf.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    }, 15_000)
+
+    it('returns 400 for oversized payload', async () => {
+      const big = 'a'.repeat(60_000)
+      const res = await previewReq({ contentHtml: big })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 404 for unknown lead', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(null)
+      const res = await previewReq()
+      expect(res.status).toBe(404)
     })
   })
 

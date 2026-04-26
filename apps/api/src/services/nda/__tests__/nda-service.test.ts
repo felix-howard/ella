@@ -334,6 +334,27 @@ describe('NDA service', () => {
       expect(result.rotated).toBe(true)
     })
 
+    it('does not touch customContentHtml on rotate (post-create immutability)', async () => {
+      mockNdaFindFirst.mockResolvedValueOnce(
+        nda({
+          customContentHtml: '<p>Original custom</p>',
+          expiresAt: new Date('2020-01-01T00:00:00Z'),
+          lead: lead(),
+        }) as any,
+      )
+      mockNdaUpdate.mockResolvedValueOnce(nda({ lead: lead() }) as any)
+
+      await resendNda({
+        ndaId: 'nda-1',
+        leadId: 'lead-1',
+        orgId: 'org-1',
+        staffId: 'staff-1',
+      })
+
+      const data = (mockNdaUpdate.mock.calls[0][0] as any).data
+      expect(data).not.toHaveProperty('customContentHtml')
+    })
+
     it('returns 409 when already SIGNED', async () => {
       mockNdaFindFirst.mockResolvedValueOnce(nda({ status: 'SIGNED', lead: lead() }) as any)
       await expect(

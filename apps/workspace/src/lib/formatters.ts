@@ -232,6 +232,34 @@ export function formatShortRelativeTime(isoString: string, locale?: string): str
 }
 
 /**
+ * Smart relative time for list rows: "Just now" / "2h ago" / "Apr 5" / "2026"
+ * - <60s   → "Just now" / "Vừa xong"
+ * - <24h   → "Xh ago"   / "X giờ"
+ * - same year → "Apr 5" / locale short month
+ * - prior year → "2026"
+ */
+export function formatSmartRelativeTime(isoString: string, locale?: string): string {
+  const now = new Date()
+  const date = new Date(isoString)
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHrs = Math.floor(diffMin / 60)
+
+  const resolved = locale ?? i18n.language ?? 'en'
+  const isVi = resolved.toLowerCase().startsWith('vi')
+
+  if (diffSec < 60) return isVi ? 'Vừa xong' : 'Just now'
+  if (diffHrs < 1) return isVi ? `${diffMin} phút` : `${diffMin}m ago`
+  if (diffHrs < 24) return isVi ? `${diffHrs} giờ` : `${diffHrs}h ago`
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'short' })
+  }
+  return String(date.getFullYear())
+}
+
+/**
  * Format relative time from ISO string with locale support
  */
 export function formatRelativeTime(isoString: string, locale?: string): string {

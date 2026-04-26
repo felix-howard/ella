@@ -8,6 +8,7 @@ import { X } from 'lucide-react'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
+import { RichTextEditor } from './rich-text-editor'
 
 interface CreateCampaignDialogProps {
   orgSlug: string | null
@@ -21,11 +22,12 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
   const [slug, setSlug] = useState('')
   const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
+  const [formIntroContent, setFormIntroContent] = useState('')
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [tagManuallyEdited, setTagManuallyEdited] = useState(false)
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; slug: string; tag: string; description?: string }) =>
+    mutationFn: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null }) =>
       api.campaigns.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
@@ -79,6 +81,7 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
       slug: slug.trim(),
       tag: tag.trim(),
       description: description.trim() || undefined,
+      formIntroContent: formIntroContent.trim() ? formIntroContent : null,
     })
   }
 
@@ -91,7 +94,7 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-card rounded-2xl border border-border w-full max-w-md shadow-xl"
+        className="bg-card rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -103,7 +106,7 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 overflow-y-auto">
           {/* Name */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
@@ -180,6 +183,22 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
               maxLength={500}
               rows={2}
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+            />
+          </div>
+
+          {/* Form intro content (RTE) */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              {t('leads.campaignFormIntroLabel')}
+            </label>
+            <p className="text-xs text-muted-foreground mb-1.5">
+              {t('leads.campaignFormIntroHint')}
+            </p>
+            <RichTextEditor
+              value={formIntroContent}
+              onChange={setFormIntroContent}
+              placeholder={t('leads.campaignFormIntroPlaceholder')}
+              maxLength={10_000}
             />
           </div>
 

@@ -1,9 +1,10 @@
 /**
- * Leads Toolbar - Search, filter, and bulk actions
+ * Leads Toolbar - Search + integrated filter pills
  */
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Search, MessageSquare } from 'lucide-react'
+import { Search, X } from 'lucide-react'
+import { cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import type { LeadStatus } from '../../lib/api-client'
 import { CustomSelect } from '../ui/custom-select'
@@ -15,15 +16,15 @@ interface LeadsToolbarProps {
   onStatusFilterChange: (status: LeadStatus | '') => void
   tagFilter: string
   onTagFilterChange: (tag: string) => void
-  selectedCount: number
-  onBulkSms: () => void
+  showConverted: boolean
+  onShowConvertedChange: (next: boolean) => void
 }
 
-const STATUSES: (LeadStatus | '')[] = ['', 'NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']
+const STATUSES: LeadStatus[] = ['NEW', 'SENT', 'CONTACTED', 'CONVERTED', 'LOST']
 
 export function LeadsToolbar({
   search, onSearchChange, statusFilter, onStatusFilterChange,
-  tagFilter, onTagFilterChange, selectedCount, onBulkSms,
+  tagFilter, onTagFilterChange, showConverted, onShowConvertedChange,
 }: LeadsToolbarProps) {
   const { t } = useTranslation()
 
@@ -34,50 +35,83 @@ export function LeadsToolbar({
   })
 
   const tags = tagsData?.data ?? []
+  const hasFilters = Boolean(statusFilter || tagFilter || search || showConverted)
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 mb-4">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-4">
+      <div className="relative flex-1 min-w-0">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={t('leads.searchPlaceholder')}
-          className="w-full pl-10 pr-4 py-2 rounded-full bg-card shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          className="w-full pl-10 pr-10 py-2.5 rounded-full bg-card border border-border/60 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-colors"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={t('common.clear', 'Clear')}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      <CustomSelect
-        value={statusFilter}
-        onChange={(val) => onStatusFilterChange(val as LeadStatus | '')}
-        options={STATUSES.filter(Boolean).map((status) => ({
-          value: status,
-          label: t(`leads.status.${status}`),
-        }))}
-        placeholder={t('leads.allStatuses')}
-        className="w-36"
-      />
-
-      {tags.length > 0 && (
+      <div className="flex items-center gap-2">
         <CustomSelect
-          value={tagFilter}
-          onChange={onTagFilterChange}
-          options={tags.map((tag) => ({ value: tag, label: tag }))}
-          placeholder={t('leads.allTags')}
+          value={statusFilter}
+          onChange={(val) => onStatusFilterChange(val as LeadStatus | '')}
+          options={STATUSES.map((status) => ({
+            value: status,
+            label: t(`leads.status.${status}`),
+          }))}
+          placeholder={t('leads.allStatuses')}
           className="w-36"
         />
-      )}
 
-      {selectedCount > 0 && (
+        {tags.length > 0 && (
+          <CustomSelect
+            value={tagFilter}
+            onChange={onTagFilterChange}
+            options={tags.map((tag) => ({ value: tag, label: tag }))}
+            placeholder={t('leads.allTags')}
+            className="w-36"
+          />
+        )}
+
         <button
-          onClick={onBulkSms}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          type="button"
+          onClick={() => onShowConvertedChange(!showConverted)}
+          aria-pressed={showConverted}
+          className={cn(
+            'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
+            showConverted
+              ? 'bg-primary/10 border-primary/30 text-primary'
+              : 'bg-card border-border text-muted-foreground hover:bg-muted',
+          )}
         >
-          <MessageSquare className="w-4 h-4" />
-          {t('leads.sendSms')} ({selectedCount})
+          {t('leads.showConverted', 'Show converted')}
         </button>
-      )}
+
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              onSearchChange('')
+              onStatusFilterChange('')
+              onTagFilterChange('')
+              onShowConvertedChange(false)
+            }}
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            {t('leads.clearFilters', 'Clear')}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@
  * No JSX in tests so they live under .test.ts (vitest include pattern).
  */
 import { Link, Text, View } from '@react-pdf/renderer'
-import React from 'react'
+import type React from 'react'
 import { describe, expect, it } from 'vitest'
 import { htmlToPdfNodes } from '../html-to-pdf'
 

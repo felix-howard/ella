@@ -15,11 +15,15 @@ import {
   updateDeposit,
   getPresignedPdfUrl,
   resendNda,
+  getDefaultHtmlForLead,
+  renderPreviewPdf,
 } from '../../services/nda/nda-service'
 import {
   leadIdParamSchema,
   leadAndNdaIdParamSchema,
   updateDepositBodySchema,
+  createNdaBodySchema,
+  previewNdaBodySchema,
 } from './schemas'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
@@ -37,14 +41,57 @@ function getAuth(user: AuthUser): { orgId: string; staffId: string } {
 }
 
 // POST /:leadId/nda — create NDA, generate token, send SMS
+// Body is optional (defaults to template-rendered NDA). Pass `contentHtml` to
+// snapshot a sanitized custom version on the row (immutable post-SENT).
 staffRoute.post(
   '/:leadId/nda',
   zValidator('param', leadIdParamSchema),
+  zValidator('json', createNdaBodySchema),
   async (c) => {
     const { orgId, staffId } = getAuth(c.get('user'))
     const { leadId } = c.req.valid('param')
-    const { nda, url } = await createNdaForLead({ leadId, orgId, staffId })
+    const body = c.req.valid('json')
+    const { nda, url } = await createNdaForLead({
+      leadId,
+      orgId,
+      staffId,
+      contentHtml: body.contentHtml,
+    })
     return c.json({ success: true, data: nda, url }, 201)
+  },
+)
+
+// GET /:leadId/nda/default-html — template-v1 rendered to HTML for editor seed
+staffRoute.get(
+  '/:leadId/nda/default-html',
+  zValidator('param', leadIdParamSchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { leadId } = c.req.valid('param')
+    const data = await getDefaultHtmlForLead(leadId, orgId)
+    return c.json({ success: true, data })
+  },
+)
+
+// POST /:leadId/nda/preview-pdf — in-memory render of the (possibly-edited)
+// NDA body. Streams `application/pdf` bytes; no DB write.
+staffRoute.post(
+  '/:leadId/nda/preview-pdf',
+  zValidator('param', leadIdParamSchema),
+  zValidator('json', previewNdaBodySchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { leadId } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const buf = await renderPreviewPdf({ leadId, orgId, contentHtml: body.contentHtml })
+    return new Response(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'inline; filename="nda-preview.pdf"',
+        'Cache-Control': 'no-store',
+      },
+    })
   },
 )
 

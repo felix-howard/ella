@@ -1505,6 +1505,7 @@ model NdaAgreement {
 
   // Template snapshot
   templateVersion     String
+  customContentHtml   String?          @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
 
   // Status
   status              NdaStatus        @default(DRAFT)

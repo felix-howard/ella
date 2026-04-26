@@ -6,9 +6,10 @@
  * so audit re-render produces the same bytes.
  */
 import { renderToBuffer } from '@react-pdf/renderer'
+import { htmlToPdfNodes } from '../../lib/nda/html-to-pdf'
 import { getTemplate } from '../../lib/nda/template-registry'
 import type { PdfSignatureInput, TemplateVars } from '../../lib/nda/types'
-import { NdaPdfDocument } from './pdf-document'
+import { NdaPdfDocument, type NdaPdfMode } from './pdf-document'
 
 /** Cap UA at a sensible length so the audit row never overflows the PDF frame. */
 const MAX_USER_AGENT_LENGTH = 256
@@ -17,6 +18,8 @@ export interface GenerateSignedPdfInput {
   ndaAgreement: {
     templateVersion: string
     depositAmount: { toString(): string } | number | string
+    /** When set, body renders from sanitized HTML instead of templateVersion. */
+    customContentHtml?: string | null
   }
   lead: {
     firstName: string | null
@@ -26,6 +29,8 @@ export interface GenerateSignedPdfInput {
     name: string
   }
   signature: PdfSignatureInput
+  /** 'preview' suppresses signature block + audit footer. Default 'signed'. */
+  mode?: NdaPdfMode
 }
 
 function formatDepositAmount(amount: GenerateSignedPdfInput['ndaAgreement']['depositAmount']): string {
@@ -68,7 +73,17 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
     userAgent: truncateUserAgent(input.signature.userAgent),
   }
 
+  const bodyNodes = input.ndaAgreement.customContentHtml
+    ? htmlToPdfNodes(input.ndaAgreement.customContentHtml)
+    : undefined
+
   return renderToBuffer(
-    <NdaPdfDocument template={template} vars={vars} signature={signature} />,
+    <NdaPdfDocument
+      template={template}
+      vars={vars}
+      signature={signature}
+      bodyNodes={bodyNodes}
+      mode={input.mode ?? 'signed'}
+    />,
   )
 }

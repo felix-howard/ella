@@ -64,4 +64,27 @@ describe('generateSignedPdf', () => {
       ),
     ).rejects.toThrow(/Invalid deposit amount/)
   })
+
+  it('renders custom HTML body when customContentHtml is provided', async () => {
+    const buffer = await generateSignedPdf(
+      buildInput({
+        ndaAgreement: {
+          templateVersion: 'v1',
+          depositAmount: '300.00',
+          customContentHtml: '<h2>Custom Section</h2><p>Custom paragraph.</p>',
+        },
+      }),
+    )
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    // Sanity: custom-HTML output diverges from legacy template output
+    const legacy = await generateSignedPdf(buildInput())
+    expect(Buffer.compare(buffer, legacy)).not.toBe(0)
+  })
+
+  it('preview mode produces PDF differing from signed mode (no signature block)', async () => {
+    const preview = await generateSignedPdf(buildInput({ mode: 'preview' }))
+    const signed = await generateSignedPdf(buildInput())
+    expect(preview.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    expect(Buffer.compare(preview, signed)).not.toBe(0)
+  })
 })

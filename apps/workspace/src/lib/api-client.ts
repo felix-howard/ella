@@ -1303,8 +1303,11 @@ export const api = {
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
 
     nda: {
-      create: (leadId: string) =>
-        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, { method: 'POST' }),
+      create: (leadId: string, body: { contentHtml?: string } = {}) =>
+        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
 
       list: (leadId: string) =>
         request<{ success: boolean; data: NdaAgreement[] }>(`/leads/${leadId}/nda`),
@@ -1321,6 +1324,41 @@ export const api = {
 
       getPdfUrl: (leadId: string, ndaId: string) =>
         request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+
+      // Default HTML used to seed the Tiptap editor.
+      getDefaultHtml: (leadId: string) =>
+        request<{ success: boolean; data: { contentHtml: string } }>(
+          `/leads/${leadId}/nda/default-html`,
+        ),
+
+      // Streams `application/pdf` bytes — frontend renders inside an iframe via
+      // a blob URL. Bypasses the `request<>` helper because the response isn't
+      // JSON; mirrors the auth-header logic from `fetchMediaBlob`.
+      previewPdf: async (leadId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        const tokenGetter = getAuthToken
+        if (tokenGetter) {
+          const token = await tokenGetter()
+          if (token) headers.Authorization = `Bearer ${token}`
+        }
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}/nda/preview-pdf`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (!response.ok) {
+          // Try to surface server JSON error details; fall back to status text.
+          let message = `Preview failed (${response.status})`
+          try {
+            const data = (await response.json()) as { error?: string; message?: string }
+            if (data?.message || data?.error) message = data.message || data.error || message
+          } catch {
+            // Body wasn't JSON — keep generic message
+          }
+          throw new ApiError(response.status, 'PREVIEW_FAILED', message)
+        }
+        return response.blob()
+      },
     },
 
     // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)

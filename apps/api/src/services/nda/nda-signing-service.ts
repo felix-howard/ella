@@ -49,6 +49,7 @@ export interface PublicNdaView {
   templateVersion: string
   templateTitle: string
   templateSections: TemplateSection[]
+  templateHtml: string | null
   depositAmount: string
   orgName: string
   leadFirstName: string
@@ -72,6 +73,11 @@ export function toPublicView(nda: LoadedNda): PublicNdaView {
     templateVersion: nda.templateVersion,
     templateTitle: template.title,
     templateSections: sections,
+    // Sanitized at write time (sanitizeNdaHtml). Legacy templateSections kept
+    // for back-compat with portal builds that don't yet read templateHtml.
+    // `|| null` (not `??`) so empty strings collapse to null and the portal
+    // takes the legacy render branch instead of an empty custom HTML block.
+    templateHtml: nda.customContentHtml || null,
     depositAmount,
     orgName: nda.organization.name,
     leadFirstName: nda.lead.firstName,
@@ -110,6 +116,7 @@ export async function signNda(input: {
     ndaAgreement: {
       templateVersion: nda.templateVersion,
       depositAmount: nda.depositAmount,
+      customContentHtml: nda.customContentHtml,
     },
     lead: { firstName: nda.lead.firstName, lastName: nda.lead.lastName },
     organization: { name: nda.organization.name },

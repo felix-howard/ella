@@ -22,6 +22,22 @@ export const tokenParamSchema = z.object({
 
 // ---------- Staff bodies ----------
 
+// Mirrors `NDA_HTML_MAX_LENGTH` in `lib/nda/sanitize-html.ts` so zod rejects
+// oversized payloads before they reach the sanitizer.
+export const NDA_CONTENT_HTML_MAX = 50_000
+
+export const createNdaBodySchema = z
+  .object({
+    contentHtml: z.string().max(NDA_CONTENT_HTML_MAX).optional(),
+  })
+  .strict()
+
+export const previewNdaBodySchema = z
+  .object({
+    contentHtml: z.string().max(NDA_CONTENT_HTML_MAX).optional(),
+  })
+  .strict()
+
 export const updateDepositBodySchema = z
   .object({
     depositStatus: z.enum(['PENDING', 'PAID', 'REFUNDED', 'FORFEITED']),
@@ -53,4 +69,6 @@ export const signNdaBodySchema = z
 
 export type UpdateDepositBody = z.infer<typeof updateDepositBodySchema>
 export type SignNdaBody = z.infer<typeof signNdaBodySchema>
+export type CreateNdaBody = z.infer<typeof createNdaBodySchema>
+export type PreviewNdaBody = z.infer<typeof previewNdaBodySchema>
 export { PNG_DATA_URL_PREFIX }

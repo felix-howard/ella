@@ -32,17 +32,33 @@ function useInvalidateNda(leadId: string) {
   }
 }
 
+export interface CreateNdaPayload {
+  contentHtml?: string
+}
+
 export function useCreateNda(leadId: string) {
   const { t } = useTranslation()
   const invalidate = useInvalidateNda(leadId)
   return useMutation({
-    mutationFn: () => api.leads.nda.create(leadId),
+    mutationFn: (payload: CreateNdaPayload = {}) =>
+      api.leads.nda.create(leadId, payload),
     onSuccess: () => {
       toast.success(t('nda.toast.sent'))
       invalidate()
     },
     onError: (err: Error) => {
       toast.error(err.message || t('nda.toast.sendFailed'))
+    },
+  })
+}
+
+export function useNdaPreview(leadId: string) {
+  const { t } = useTranslation()
+  return useMutation({
+    mutationFn: (payload: { contentHtml?: string }) =>
+      api.leads.nda.previewPdf(leadId, payload),
+    onError: (err: Error) => {
+      toast.error(err.message || t('nda.toast.previewFailed'))
     },
   })
 }

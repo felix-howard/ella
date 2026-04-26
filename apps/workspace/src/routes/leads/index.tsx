@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { PageContainer } from '../../components/layout'
-import { LeadListStatsBar } from '../../components/leads/lead-list-stats-bar'
 import { LeadsToolbar } from '../../components/leads/leads-toolbar'
 import { LeadListTable } from '../../components/leads/lead-list-table'
 import { FloatingBulkBar } from '../../components/leads/floating-bulk-bar'
@@ -144,8 +143,6 @@ function LeadsPage() {
 
       {activeTab === 'leads' ? (
         <>
-          <LeadListStatsBar />
-
           <LeadsToolbar
             search={search}
             onSearchChange={handleSearchChange}

@@ -1037,9 +1037,13 @@ function ClientDetailPage() {
       )}
 
       {/* Shared Docs Tab - Multi-section document sharing per case */}
+      {/* Local Suspense boundary contains any suspending child (e.g. lazy PdfThumbnail) */}
+      {/* so the fallback never bubbles up and replaces the page header/tabs. */}
       {activeTab === 'shared-docs' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.sharedDocsError')}</div>}>
-          <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
+          <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+            <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
+          </Suspense>
         </ErrorBoundary>
       )}
 

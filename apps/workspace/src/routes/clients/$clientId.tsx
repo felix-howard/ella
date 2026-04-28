@@ -57,7 +57,10 @@ import {
   YearSwitcher,
   CreateEngagementModal,
   ClientOverviewTab,
+  BusinessDeleteWithScheduleCModal,
 } from '../../components/clients'
+import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
+import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
@@ -69,30 +72,36 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
+import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
+import { ScheduleCBusinessSummaryList } from '../../components/cases/tabs/schedule-c-tab/schedule-c-business-summary-list'
+
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
+
+const VALID_TAB_PARAMS: TabType[] = [
+  'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
+  'data-entry', 'shared-docs', 'contractors',
+]
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
   parseParams: (params) => ({ clientId: params.clientId }),
+  validateSearch: (search: Record<string, unknown>): { tab?: TabType } => {
+    const tab = search.tab as string | undefined
+    return {
+      tab: tab && VALID_TAB_PARAMS.includes(tab as TabType) ? (tab as TabType) : undefined,
+    }
+  },
 })
-
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
-
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  SOLE_PROPRIETORSHIP: 'Sole Prop',
-  LLC: 'LLC',
-  PARTNERSHIP: 'Partnership',
-  S_CORP: 'S-Corp',
-  C_CORP: 'C-Corp',
-}
 
 function ClientDetailPage() {
   const { t } = useTranslation()
   const { clientId } = Route.useParams()
+  const { tab: initialTabFromSearch } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>('files')
+  const [activeTab, setActiveTab] = useState<TabType>(initialTabFromSearch ?? 'files')
   // Use transition so switching to lazy-loaded tabs (e.g. Shared Docs)
   // keeps the header card visible while the chunk loads instead of
   // flashing the Suspense fallback across the whole content area.
@@ -103,6 +112,7 @@ function ClientDetailPage() {
   const [prevClientId, setPrevClientId] = useState(clientId)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isBusinessDeleteWithSCOpen, setIsBusinessDeleteWithSCOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
@@ -379,8 +389,16 @@ function ClientDetailPage() {
   })
 
   // Fetch Schedule C/E existence to promote tabs from "More" to primary
-  const { expense: scheduleCExpense } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
+  const { expense: scheduleCExpense, totals: scheduleCTotals } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
   const { expense: scheduleEExpense } = useScheduleE({ caseId: activeCaseId, enabled: !!activeCaseId })
+
+  // Phase 8: business delete with owned Schedule C — explicit cascade modal
+  const deleteBusinessWithSC = useDeleteBusinessWithScheduleC({
+    businessId: clientId,
+    groupId: client?.clientGroupId ?? null,
+    parentIndividualId: ownerIndividual?.id ?? null,
+    onSuccess: () => setIsBusinessDeleteWithSCOpen(false),
+  })
 
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
@@ -590,6 +608,28 @@ function ClientDetailPage() {
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
   const isBusiness = client.clientType === 'BUSINESS'
 
+  // Schedule C eligibility & cross-entity summary computation.
+  // Business: only show Schedule C when the entity actually files it (sole prop / SMLLC).
+  // Individual: also surface the tab when linked Schedule-C-eligible businesses already
+  // have their own Schedule C — content becomes a read-only summary list.
+  const businessIsScheduleCEligible = isBusiness && isScheduleCEligibleBusiness(client)
+  const eligibleBusinessesWithScheduleC: ClientPreview[] = !isBusiness
+    ? (client.clientGroup?.clients ?? []).filter(
+        (sibling) =>
+          isScheduleCEligibleBusiness(sibling) && sibling.scheduleCExpense != null
+      )
+    : []
+  // Business: hide entirely when entity type doesn't file Schedule C.
+  // Individual: always-visible (existing behavior); summary view used only when
+  // no own SC exists AND ≥1 eligible business already has its own SC.
+  const showBusinessScheduleCTab = businessIsScheduleCEligible
+  const showIndividualBusinessSummary =
+    !isBusiness && !scheduleCExpense && eligibleBusinessesWithScheduleC.length > 0
+  // For individuals, the tab is always rendered (primary if SC sent, overflow otherwise);
+  // for businesses, only when entity type is Schedule-C-eligible.
+  const showScheduleCInPrimary = isBusiness ? showBusinessScheduleCTab && !!scheduleCExpense : !!scheduleCExpense
+  const showScheduleCInOverflow = isBusiness ? showBusinessScheduleCTab && !scheduleCExpense : !scheduleCExpense
+
   const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
     ? [
         { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
@@ -597,24 +637,24 @@ function ClientDetailPage() {
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(scheduleCExpense ? [scheduleCTab] : []),
+        ...(showScheduleCInPrimary ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(scheduleCExpense ? [scheduleCTab] : []),
+        ...(showScheduleCInPrimary ? [scheduleCTab] : []),
         ...(scheduleEExpense ? [scheduleETab] : []),
       ]
 
   // Overflow tabs: only show tabs that haven't been promoted
   const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
     ? [
-        ...(!scheduleCExpense ? [scheduleCTab] : []),
+        ...(showScheduleCInOverflow ? [scheduleCTab] : []),
       ]
     : [
-        ...(!scheduleCExpense ? [scheduleCTab] : []),
+        ...(showScheduleCInOverflow ? [scheduleCTab] : []),
         ...(!scheduleEExpense ? [scheduleETab] : []),
       ]
 
@@ -928,7 +968,23 @@ function ClientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <ClientOverviewTab client={client} onDeleteClick={() => setIsDeleteModalOpen(true)} />
+        <ClientOverviewTab
+          client={client}
+          parentScheduleC={
+            !isBusiness && scheduleCExpense && selectedEngagement
+              ? { id: scheduleCExpense.id, taxYear: selectedEngagement.taxYear }
+              : null
+          }
+          onDeleteClick={() => {
+            // Phase 8: business clients owning a Schedule C use the explicit
+            // confirmation modal that surfaces the data being destroyed.
+            if (isBusiness && scheduleCExpense) {
+              setIsBusinessDeleteWithSCOpen(true)
+            } else {
+              setIsDeleteModalOpen(true)
+            }
+          }}
+        />
       )}
 
       {/* Files Tab - Primary document explorer view */}
@@ -1011,11 +1067,22 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Schedule C Tab - Self-employment expense collection (lazy loaded) */}
-      {activeTab === 'schedule-c' && activeCaseId && (
+      {/* Schedule C Tab - Self-employment expense collection (lazy loaded).
+          On individuals with no own SC but ≥1 linked Schedule-C-eligible business with SC,
+          render a read-only summary list instead of the binary form view. */}
+      {activeTab === 'schedule-c' && activeCaseId && showIndividualBusinessSummary && (
+        <ScheduleCBusinessSummaryList businesses={eligibleBusinessesWithScheduleC} />
+      )}
+      {activeTab === 'schedule-c' && activeCaseId && !showIndividualBusinessSummary && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleCTab caseId={activeCaseId} clientName={client.name} />
+            <ScheduleCTab
+              caseId={activeCaseId}
+              clientName={client.name}
+              currentClientId={clientId}
+              sourceTaxYear={selectedCase?.taxYear}
+              clientGroup={client.clientGroup ?? null}
+            />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -1103,6 +1170,17 @@ function ClientDetailPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Phase 8: Business Delete With Schedule C — explicit cascade modal */}
+      <BusinessDeleteWithScheduleCModal
+        open={isBusinessDeleteWithSCOpen}
+        businessName={client.name}
+        expenseCount={countScheduleCExpenseLines(scheduleCExpense)}
+        totalDollars={scheduleCTotals?.totalExpenses ?? '0'}
+        isPending={deleteBusinessWithSC.isPending}
+        onConfirm={() => deleteBusinessWithSC.mutate()}
+        onCancel={() => setIsBusinessDeleteWithSCOpen(false)}
+      />
 
       {/* Create Engagement Modal - for adding new tax year */}
       <CreateEngagementModal

@@ -36,6 +36,10 @@ import { createMagicLink } from '../../services/magic-link'
 import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
+import {
+  deleteBusinessWithScheduleC,
+  DeleteBusinessError,
+} from '../../services/clients/delete-business-with-schedule-c'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
@@ -593,6 +597,9 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
                     take: 1,
                     select: { token: true },
                   },
+                  scheduleCExpense: {
+                    select: { id: true, status: true, updatedAt: true },
+                  },
                 },
               },
             },
@@ -662,12 +669,21 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
         clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, taxCases, ...sibling }) => {
           const siblingCase = taxCases?.[0]
           const siblingMagicLink = siblingCase?.magicLinks?.[0]
+          const siblingSC = siblingCase?.scheduleCExpense
           return {
             ...sibling,
             einMasked: maskEIN(siblingEin),
             latestCaseId: siblingCase?.id ?? null,
+            latestCaseTaxYear: siblingCase?.taxYear ?? null,
             portalUrl: siblingMagicLink && portalBaseUrl
               ? `${portalBaseUrl}/u/${siblingMagicLink.token}`
+              : null,
+            scheduleCExpense: siblingSC
+              ? {
+                  id: siblingSC.id,
+                  status: siblingSC.status,
+                  updatedAt: siblingSC.updatedAt.toISOString(),
+                }
               : null,
           }
         }),
@@ -1388,10 +1404,42 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
   // Verify access before delete (org + assignment scope)
   const client = await prisma.client.findFirst({
     where: { id, ...buildClientScopeFilter(user) },
-    select: { id: true },
+    select: {
+      id: true,
+      clientType: true,
+      taxCases: { select: { scheduleCExpense: { select: { id: true } } } },
+    },
   })
   if (!client) {
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
+
+  // Phase 8: BUSINESS clients owning a Schedule C take the cascade-aware path
+  // (audit snapshot + explicit magic-link delete inside one transaction).
+  const ownsScheduleC = client.taxCases.some((tc) => tc.scheduleCExpense != null)
+  if (client.clientType === 'BUSINESS' && ownsScheduleC && user.organizationId) {
+    try {
+      const result = await deleteBusinessWithScheduleC(prisma, {
+        clientId: id,
+        staffId: user.staffId ?? null,
+        organizationId: user.organizationId,
+      })
+      return c.json({
+        success: true,
+        message: 'Client deleted successfully',
+        deleted: result,
+      })
+    } catch (e) {
+      if (e instanceof DeleteBusinessError) {
+        if (e.code === 'CLIENT_NOT_FOUND') {
+          return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+        }
+        if (e.code === 'NOT_A_BUSINESS') {
+          return c.json({ error: 'INVALID_CLIENT_TYPE', message: 'Client is not a business' }, 400)
+        }
+      }
+      throw e
+    }
   }
 
   await prisma.client.delete({ where: { id } })
@@ -1922,6 +1970,13 @@ clientsRoute.post(
               id: result.businessClient.id,
               name: result.businessClient.name,
               clientType: result.businessClient.clientType,
+              businessType: result.businessClient.businessType,
+              taxCases: [
+                {
+                  id: result.bizCase.id,
+                  taxYear: result.bizCase.taxYear,
+                },
+              ],
             },
             group: {
               id: result.group.id,

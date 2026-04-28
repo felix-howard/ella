@@ -81,8 +81,8 @@ export const AUDIT_PROTECTION = {
  * total is `businessTaxReturnFederal + businessTaxReturnState`.
  */
 export const ONE_TIME = {
-  startLlc: 1200,
-  holdingLlcNew: 3000,
+  startLlc: 1500,
+  holdingLlcNew: 4000,
   holdingLlcModify: 1000,
   personalTaxReturn: 150,
   businessTaxReturnFederal: 600,

@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, useTransition, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useTransition, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -27,7 +27,6 @@ import {
   Calculator,
   Home,
   Building2,
-  ChevronDown,
   UserCircle,
   Pencil,
   Check,
@@ -66,7 +65,6 @@ import { SendUploadLinkModal } from '../../components/shared/send-upload-link-mo
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useScheduleC } from '../../hooks/use-schedule-c'
-import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useChatUnread } from '../../hooks/use-chat-unread'
@@ -124,9 +122,6 @@ function ClientDetailPage() {
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
   const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
   const tempIdCounterRef = useRef(0)
-  // "More" dropdown state (must be before early returns for Rules of Hooks)
-  const [isMoreOpen, setIsMoreOpen] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
   // Edit client modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editData, setEditData] = useState<{
@@ -388,9 +383,8 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
-  // Fetch Schedule C/E existence to promote tabs from "More" to primary
+  // Schedule C used by individual cross-entity summary + business delete cascade modal.
   const { expense: scheduleCExpense, totals: scheduleCTotals } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
-  const { expense: scheduleEExpense } = useScheduleE({ caseId: activeCaseId, enabled: !!activeCaseId })
 
   // Phase 8: business delete with owned Schedule C — explicit cascade modal
   const deleteBusinessWithSC = useDeleteBusinessWithScheduleC({
@@ -428,25 +422,6 @@ function ClientDetailPage() {
     setPrevClientId(clientId)
     setActiveTab('files')
   }
-
-  // Close "More" dropdown on outside click or Escape
-  useEffect(() => {
-    if (!isMoreOpen) return
-    const handleClick = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setIsMoreOpen(false)
-      }
-    }
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMoreOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isMoreOpen])
 
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
@@ -603,15 +578,15 @@ function ClientDetailPage() {
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
 
-  // Schedule C/E tabs: promote to primary tabs once a form has been sent
+  // Schedule C/E tabs: always visible (no More dropdown).
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
   const isBusiness = client.clientType === 'BUSINESS'
 
   // Schedule C eligibility & cross-entity summary computation.
   // Business: only show Schedule C when the entity actually files it (sole prop / SMLLC).
-  // Individual: also surface the tab when linked Schedule-C-eligible businesses already
-  // have their own Schedule C — content becomes a read-only summary list.
+  // Individual: always show; renders read-only summary list when no own SC but linked
+  // Schedule-C-eligible businesses already have their own SC.
   const businessIsScheduleCEligible = isBusiness && isScheduleCEligibleBusiness(client)
   const eligibleBusinessesWithScheduleC: ClientPreview[] = !isBusiness
     ? (client.clientGroup?.clients ?? []).filter(
@@ -619,16 +594,10 @@ function ClientDetailPage() {
           isScheduleCEligibleBusiness(sibling) && sibling.scheduleCExpense != null
       )
     : []
-  // Business: hide entirely when entity type doesn't file Schedule C.
-  // Individual: always-visible (existing behavior); summary view used only when
-  // no own SC exists AND ≥1 eligible business already has its own SC.
-  const showBusinessScheduleCTab = businessIsScheduleCEligible
   const showIndividualBusinessSummary =
     !isBusiness && !scheduleCExpense && eligibleBusinessesWithScheduleC.length > 0
-  // For individuals, the tab is always rendered (primary if SC sent, overflow otherwise);
-  // for businesses, only when entity type is Schedule-C-eligible.
-  const showScheduleCInPrimary = isBusiness ? showBusinessScheduleCTab && !!scheduleCExpense : !!scheduleCExpense
-  const showScheduleCInOverflow = isBusiness ? showBusinessScheduleCTab && !scheduleCExpense : !scheduleCExpense
+  // Business: only when entity type is Schedule-C-eligible. Individual: always.
+  const showScheduleCTab = isBusiness ? businessIsScheduleCEligible : true
 
   const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
     ? [
@@ -637,29 +606,16 @@ function ClientDetailPage() {
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(showScheduleCInPrimary ? [scheduleCTab] : []),
+        ...(showScheduleCTab ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(showScheduleCInPrimary ? [scheduleCTab] : []),
-        ...(scheduleEExpense ? [scheduleETab] : []),
+        scheduleCTab,
+        scheduleETab,
       ]
-
-  // Overflow tabs: only show tabs that haven't been promoted
-  const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
-    ? [
-        ...(showScheduleCInOverflow ? [scheduleCTab] : []),
-      ]
-    : [
-        ...(showScheduleCInOverflow ? [scheduleCTab] : []),
-        ...(!scheduleEExpense ? [scheduleETab] : []),
-      ]
-
-  const isOverflowActive = overflowTabs.some((t) => t.id === activeTab)
-  const activeOverflowLabel = overflowTabs.find((t) => t.id === activeTab)?.label
 
   return (
     <PageContainer className="pb-28">
@@ -916,52 +872,6 @@ function ClientDetailPage() {
                 )
               })}
             </nav>
-
-            {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
-              <button
-                role="tab"
-                aria-selected={isOverflowActive}
-                aria-expanded={isMoreOpen}
-                aria-haspopup="true"
-                onClick={() => setIsMoreOpen((v) => !v)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap',
-                  isOverflowActive
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                )}
-              >
-                <span>{isOverflowActive ? activeOverflowLabel : 'More'}</span>
-                <ChevronDown className={cn('w-4 h-4 transition-transform', isMoreOpen && 'rotate-180')} aria-hidden="true" />
-              </button>
-              {isMoreOpen && (
-                <div role="menu" className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-background border border-border rounded-lg shadow-lg py-1">
-                  {overflowTabs.map((tab) => {
-                    const Icon = tab.icon
-                    const isActive = activeTab === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        role="menuitem"
-                        onClick={() => {
-                          switchTab(tab.id)
-                          setIsMoreOpen(false)
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
-                          isActive
-                            ? 'text-primary font-medium bg-muted/50'
-                            : 'text-foreground hover:bg-muted/50'
-                        )}
-                      >
-                        <Icon className="w-4 h-4" aria-hidden="true" />
-                        <span>{tab.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>}
           </div>
         </div>
       </div>

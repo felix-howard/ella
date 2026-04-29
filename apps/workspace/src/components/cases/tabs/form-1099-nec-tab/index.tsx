@@ -337,6 +337,16 @@ export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
             <Button
               variant="outline"
               size="sm"
+              onClick={handleShareIntakeLink}
+              disabled={isShareLoading}
+              className="gap-1.5"
+            >
+              {isShareLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              Intake Form
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               className="gap-1.5"

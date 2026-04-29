@@ -1623,6 +1623,27 @@ model ContractorIntakeToken {
 }
 
 // ============================================
+// Contractor Intake Token (public intake form)
+// ============================================
+
+model ContractorIntakeToken {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  token      String   @unique @default(cuid())
+  taxYear    Int
+  isActive   Boolean  @default(true)
+
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([token])
+  @@index([businessId, isActive])
+}
+
+// ============================================
 // 1099-NEC: Form and Filing
 // ============================================
 

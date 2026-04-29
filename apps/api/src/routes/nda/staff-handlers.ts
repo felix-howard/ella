@@ -83,7 +83,12 @@ staffRoute.post(
     const { orgId } = getAuth(c.get('user'))
     const { leadId } = c.req.valid('param')
     const body = c.req.valid('json')
-    const buf = await renderPreviewPdf({ leadId, orgId, contentHtml: body.contentHtml })
+    const buf = await renderPreviewPdf({
+      entityType: 'lead',
+      entityId: leadId,
+      orgId,
+      contentHtml: body.contentHtml,
+    })
     return new Response(new Uint8Array(buf), {
       status: 200,
       headers: {

@@ -57,6 +57,11 @@ const reassignEntitySchema = z.object({
   targetClientId: z.string().cuid('Invalid target client ID'),
 })
 
+// Schema for moving doc to a specific TaxCase (multi-entity portal)
+const moveToCaseSchema = z.object({
+  targetCaseId: z.string().cuid('Invalid target case ID'),
+})
+
 // Schema for updating rotation
 const updateRotationSchema = z.object({
   rotation: z.number().int().refine(
@@ -432,7 +437,8 @@ imagesRoute.post(
             include: {
               client: true,
               magicLinks: {
-                where: { isActive: true },
+                // Only PORTAL — blurry resend SMS must reuse the upload portal.
+                where: { isActive: true, type: 'PORTAL' },
                 orderBy: { createdAt: 'desc' },
                 take: 1,
               },
@@ -977,6 +983,141 @@ imagesRoute.patch(
       success: true,
       id: updated.id,
       rotation: updated.rotation,
+    })
+  }
+)
+
+/**
+ * POST /images/:id/move-to-case - Move a RawImage to a different TaxCase in same group
+ * Owner-explicit alternative to /reassign-entity: caller targets a specific case (not a client)
+ * Writes audit Action on destination case so CPA sees the move in the action queue
+ */
+imagesRoute.post(
+  '/:id/move-to-case',
+  zValidator('json', moveToCaseSchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { targetCaseId } = c.req.valid('json')
+    const user = c.get('user')
+
+    // Load source image (org-scoped via case→client)
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+      select: {
+        id: true,
+        caseId: true,
+        checklistItemId: true,
+        taxCase: {
+          select: {
+            client: {
+              select: {
+                clientGroupId: true,
+                clientGroup: { select: { organizationId: true } },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!rawImage) {
+      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+    }
+
+    const sourceGroupId = rawImage.taxCase.client.clientGroupId
+    const sourceOrgId = rawImage.taxCase.client.clientGroup?.organizationId
+
+    if (!sourceGroupId || !sourceOrgId) {
+      return c.json(
+        { error: 'NO_GROUP', message: 'Source case is not in a client group' },
+        400
+      )
+    }
+
+    // Early exit if already on target case
+    if (rawImage.caseId === targetCaseId) {
+      return c.json({ moved: false, reason: 'ALREADY_ON_TARGET' })
+    }
+
+    // Validate target case is in same group + org
+    const targetCase = await prisma.taxCase.findFirst({
+      where: {
+        id: targetCaseId,
+        client: {
+          clientGroupId: sourceGroupId,
+          clientGroup: { organizationId: sourceOrgId },
+        },
+      },
+      select: { id: true },
+    })
+
+    if (!targetCase) {
+      return c.json(
+        { error: 'INVALID_TARGET_CASE', message: 'Target case not in same client group' },
+        400
+      )
+    }
+
+    const previousCaseId = rawImage.caseId
+    const previousChecklistItemId = rawImage.checklistItemId
+
+    await prisma.$transaction(async (tx) => {
+      // Decrement source checklist item count (mirror /reassign-entity behavior)
+      // Prevents stale receivedCount on source case until next reconcile
+      if (previousChecklistItemId) {
+        const oldItem = await tx.checklistItem.findUnique({
+          where: { id: previousChecklistItemId },
+          select: { receivedCount: true },
+        })
+        if (oldItem) {
+          await tx.checklistItem.update({
+            where: { id: previousChecklistItemId },
+            data: {
+              receivedCount: Math.max(0, oldItem.receivedCount - 1),
+              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+            },
+          })
+        }
+      }
+
+      await tx.rawImage.update({
+        where: { id },
+        data: {
+          caseId: targetCaseId,
+          routedFromCaseId: previousCaseId,
+          checklistItemId: null,
+          entityConfidence: null,
+        },
+      })
+
+      await tx.action.create({
+        data: {
+          caseId: targetCaseId,
+          type: 'VERIFY_DOCS',
+          priority: 'NORMAL',
+          title: 'Tài liệu đã chuyển từ entity khác',
+          description: `Chuyển từ case ${previousCaseId} sang case ${targetCaseId}`,
+          metadata: {
+            rawImageId: id,
+            fromCaseId: previousCaseId,
+            toCaseId: targetCaseId,
+            movedById: user.staffId,
+          },
+        },
+      })
+    })
+
+    // Refresh activity timestamps on both cases (best-effort)
+    await Promise.all([
+      updateLastActivity(previousCaseId),
+      updateLastActivity(targetCaseId),
+    ])
+
+    return c.json({
+      moved: true,
+      rawImageId: id,
+      fromCaseId: previousCaseId,
+      toCaseId: targetCaseId,
     })
   }
 )

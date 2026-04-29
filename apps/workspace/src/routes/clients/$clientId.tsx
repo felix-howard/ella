@@ -13,6 +13,7 @@ import {
   Phone,
   Mail,
   Calendar,
+  FileSignature,
   FileText,
   MessageSquare,
   User,
@@ -61,6 +62,7 @@ import {
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
+import { AgreementsTab } from '../../components/nda/agreements-tab'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
@@ -75,11 +77,11 @@ import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { ScheduleCBusinessSummaryList } from '../../components/cases/tabs/schedule-c-tab/schedule-c-business-summary-list'
 
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors' | 'agreements'
 
 const VALID_TAB_PARAMS: TabType[] = [
   'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
-  'data-entry', 'shared-docs', 'contractors',
+  'data-entry', 'shared-docs', 'contractors', 'agreements',
 ]
 
 export const Route = createFileRoute('/clients/$clientId')({
@@ -581,6 +583,7 @@ function ClientDetailPage() {
   // Schedule C/E tabs: always visible (no More dropdown).
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
+  const agreementsTab = { id: 'agreements' as TabType, label: t('clientDetail.tabAgreements'), icon: FileSignature }
   const isBusiness = client.clientType === 'BUSINESS'
 
   // Schedule C eligibility & cross-entity summary computation.
@@ -603,6 +606,7 @@ function ClientDetailPage() {
     ? [
         { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        agreementsTab,
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
@@ -611,6 +615,7 @@ function ClientDetailPage() {
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+        agreementsTab,
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
         scheduleCTab,
@@ -905,6 +910,21 @@ function ClientDetailPage() {
           docs={digitalDocs}
           clientGroupId={!isBusiness && client.clientGroupId ? client.clientGroupId : undefined}
           taxYear={selectedEngagement?.taxYear}
+        />
+      )}
+
+      {/* Agreements Tab - NDA send/manage (parameterized shared component) */}
+      {activeTab === 'agreements' && (
+        <AgreementsTab
+          entity={{ type: 'client', id: clientId }}
+          recipient={{
+            id: client.id,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            phone: client.phone,
+          }}
+          enabled={true}
+          canSend={isAdmin}
         />
       )}
 

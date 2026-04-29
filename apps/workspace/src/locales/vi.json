@@ -251,6 +251,7 @@
   "clientDetail.sendToReview": "Gửi kiểm tra",
   "clientDetail.sendToReviewError": "Lỗi khi gửi đi kiểm tra",
   "clientDetail.sendToReviewSuccess": "Đã gửi hồ sơ đi kiểm tra",
+  "clientDetail.tabAgreements": "Hợp đồng",
   "clientDetail.tabChecklist": "Danh sách",
   "clientDetail.tabDataEntry": "Nhập liệu",
   "clientDetail.tabFiles": "Tài liệu",
@@ -398,6 +399,9 @@
   "fileActions.openInNewTab": "Mở trong tab mới",
   "fileActions.download": "Tải xuống",
   "fileActions.moveToCategory": "Chuyển sang mục",
+  "fileActions.moveToEntity": "Chuyển sang entity khác",
+  "fileActions.movedToEntity": "Đã chuyển sang \"{{entity}}\"",
+  "fileActions.moveToEntityError": "Không thể chuyển. Thử lại sau.",
   "fileActions.deleteFile": "Xóa tệp",
   "fileActions.fileOptions": "Tùy chọn tệp",
   "fileActions.movedToCategory": "Đã chuyển sang \"{{category}}\"",
@@ -1682,7 +1686,9 @@
   "nda.send.confirmMessage": "Gửi SMS NDA đến {{name}} ({{phone}}) ngay?",
   "nda.send.confirmCta": "Gửi",
   "nda.send.disabled.pendingSent": "Vẫn còn lời mời NDA đang chờ. Hãy dùng Gửi lại.",
-  "nda.send.disabled.activeEngagement": "Khách đã ký NDA và cọc chưa được giải quyết. Hãy xử lý trước.",
+  "nda.send.disabled.activeEngagement": "Đã ký NDA và cọc chưa được giải quyết. Hãy xử lý trước.",
+  "nda.send.disabled.noPhone": "Cần số điện thoại để gửi SMS.",
+  "nda.send.disabled.notAdmin": "Chỉ Quản trị viên Tổ chức mới có thể gửi NDA.",
   "nda.list.empty": "Chưa có NDA nào được gửi.",
   "nda.list.loadError": "Không thể tải danh sách NDA.",
   "nda.card.template": "Mẫu {{version}}",
@@ -1716,8 +1722,5 @@
   "clientOverview.nda.title": "NDA & Thỏa thuận",
   "clientOverview.nda.empty": "Chưa có NDA nào.",
   "clientOverview.nda.loadError": "Không thể tải NDA.",
-  "clientOverview.nda.manageOnLead": "Quản lý trên trang Lead",
-  "clientOverview.nda.sendViaLead": "Gửi qua trang Lead",
-  "clientOverview.nda.viewAll": "Xem tất cả ({{count}})",
-  "clientOverview.nda.collapse": "Thu gọn"
+  "clientOverview.nda.viewAll": "Xem tất cả ({{count}})"
 }

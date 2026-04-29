@@ -6,7 +6,7 @@
 import { useTranslation } from 'react-i18next'
 import { UserPlus, FileText, Eye, CheckCircle2, Award, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useNdaList } from '../nda/use-nda-mutations'
+import { useNdaList } from '../../nda/use-nda-mutations'
 import { CardSection } from '../../shared/card-section'
 import type { Lead } from '../../../lib/api-client'
 import {
@@ -31,7 +31,7 @@ interface Props {
 export function LeadActivityTimeline({ lead }: Props) {
   const { t } = useTranslation()
 
-  const { data } = useNdaList(lead.id)
+  const { data } = useNdaList({ type: 'lead', id: lead.id })
 
   const events = deriveLeadActivityEvents(lead, data?.data ?? [])
 

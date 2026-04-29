@@ -13,11 +13,14 @@ export const TEMPLATE_VERSION = 'v1'
 export const TEMPLATE_TITLE = 'Non-Disclosure Agreement'
 
 function render(vars: TemplateVars): TemplateSection[] {
+  // Prefer recipientFullName (entity-agnostic); fall back to leadFullName for any
+  // pre-refactor caller that still populates only the legacy field.
+  const recipientName = vars.recipientFullName || vars.leadFullName
   return [
     {
       heading: '1. Parties',
       paragraphs: [
-        `This Non-Disclosure Agreement ("Agreement") is entered into on ${vars.date} between ${vars.orgName} ("Company") and ${vars.leadFullName} ("Recipient").`,
+        `This Non-Disclosure Agreement ("Agreement") is entered into on ${vars.date} between ${vars.orgName} ("Company") and ${recipientName} ("Recipient").`,
       ],
     },
     {
@@ -56,7 +59,7 @@ function render(vars: TemplateVars): TemplateSection[] {
     {
       heading: '7. Signature',
       paragraphs: [
-        `By signing below, ${vars.leadFullName} acknowledges that they have read, understood, and agreed to the terms of this Agreement.`,
+        `By signing below, ${recipientName} acknowledges that they have read, understood, and agreed to the terms of this Agreement.`,
       ],
     },
   ]

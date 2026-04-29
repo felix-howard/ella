@@ -32,8 +32,8 @@ enum TaxType {
 
 enum BusinessType {
   SOLE_PROPRIETORSHIP
-  LLC                       // multi-member LLC (default for legacy rows)
-  SMLLC                     // single-member LLC (disregarded entity, files Schedule C)
+  LLC // multi-member LLC (default for legacy rows)
+  SMLLC // single-member LLC (disregarded entity, files Schedule C)
   PARTNERSHIP
   S_CORP
   C_CORP
@@ -55,7 +55,7 @@ enum DocType {
 
   // Employment Income
   W2
-  W2G                    // Gambling winnings
+  W2G // Gambling winnings
   PAY_STUB
   EMPLOYMENT_CONTRACT
   STOCK_OPTION_AGREEMENT
@@ -63,50 +63,50 @@ enum DocType {
   ESPP_STATEMENT
 
   // 1099 Series - Various Income
-  FORM_1099_INT          // Bank interest
-  FORM_1099_DIV          // Dividends
-  FORM_1099_NEC          // Non-employee compensation
-  FORM_1099_MISC         // Miscellaneous income
-  FORM_1099_K            // Payment card transactions
-  FORM_1099_R            // Retirement distributions
-  FORM_1099_G            // Government payments (unemployment, state refund)
-  FORM_1099_SSA          // Social Security
-  FORM_1099_B            // Brokerage/stock sales
-  FORM_1099_S            // Real estate sales
-  FORM_1099_C            // Cancellation of debt
-  FORM_1099_SA           // HSA distributions
-  FORM_1099_Q            // 529 distributions
-  FORM_1099_A            // Acquisition or Abandonment
-  FORM_1099_CAP          // Corp Control Changes
-  FORM_1099_H            // Health Coverage Tax Credit
-  FORM_1099_LS           // Life Insurance Sale
-  FORM_1099_LTC          // Long-Term Care Benefits
-  FORM_1099_OID          // Original Issue Discount
-  FORM_1099_PATR         // Patronage Dividends
-  FORM_1099_QA           // ABLE Account Distributions
-  FORM_1099_SB           // Seller's Investment in Life Insurance
-  RRB_1099               // Railroad Retirement
-  RRB_1099_R             // Railroad Retirement Tier 2
+  FORM_1099_INT // Bank interest
+  FORM_1099_DIV // Dividends
+  FORM_1099_NEC // Non-employee compensation
+  FORM_1099_MISC // Miscellaneous income
+  FORM_1099_K // Payment card transactions
+  FORM_1099_R // Retirement distributions
+  FORM_1099_G // Government payments (unemployment, state refund)
+  FORM_1099_SSA // Social Security
+  FORM_1099_B // Brokerage/stock sales
+  FORM_1099_S // Real estate sales
+  FORM_1099_C // Cancellation of debt
+  FORM_1099_SA // HSA distributions
+  FORM_1099_Q // 529 distributions
+  FORM_1099_A // Acquisition or Abandonment
+  FORM_1099_CAP // Corp Control Changes
+  FORM_1099_H // Health Coverage Tax Credit
+  FORM_1099_LS // Life Insurance Sale
+  FORM_1099_LTC // Long-Term Care Benefits
+  FORM_1099_OID // Original Issue Discount
+  FORM_1099_PATR // Patronage Dividends
+  FORM_1099_QA // ABLE Account Distributions
+  FORM_1099_SB // Seller's Investment in Life Insurance
+  RRB_1099 // Railroad Retirement
+  RRB_1099_R // Railroad Retirement Tier 2
 
   // K-1 Forms (Pass-through income)
-  SCHEDULE_K1            // Generic K-1
-  SCHEDULE_K1_1065       // Partnership K-1
-  SCHEDULE_K1_1120S      // S-Corp K-1
-  SCHEDULE_K1_1041       // Trust/Estate K-1
+  SCHEDULE_K1 // Generic K-1
+  SCHEDULE_K1_1065 // Partnership K-1
+  SCHEDULE_K1_1120S // S-Corp K-1
+  SCHEDULE_K1_1041 // Trust/Estate K-1
 
   // Health Insurance
-  FORM_1095_A            // Marketplace coverage
-  FORM_1095_B            // Health coverage
-  FORM_1095_C            // Employer health coverage
-  FORM_5498_SA           // HSA contributions
+  FORM_1095_A // Marketplace coverage
+  FORM_1095_B // Health coverage
+  FORM_1095_C // Employer health coverage
+  FORM_5498_SA // HSA contributions
 
   // Education
-  FORM_1098_T            // Tuition statement
-  FORM_1098_E            // Student loan interest
+  FORM_1098_T // Tuition statement
+  FORM_1098_E // Student loan interest
 
   // Deductions / Credits
-  FORM_1098              // Mortgage interest
-  FORM_8332              // Release of claim to exemption
+  FORM_1098 // Mortgage interest
+  FORM_8332 // Release of claim to exemption
 
   // Business Documents
   BANK_STATEMENT
@@ -116,7 +116,7 @@ enum DocType {
   EIN_LETTER
   ARTICLES_OF_INCORPORATION
   OPERATING_AGREEMENT
-  PAYROLL_REPORT         // 941, W-3, etc.
+  PAYROLL_REPORT // 941, W-3, etc.
   DEPRECIATION_SCHEDULE
   VEHICLE_MILEAGE_LOG
   PARTNERSHIP_AGREEMENT
@@ -128,7 +128,7 @@ enum DocType {
   SALES_TAX_REPORT
 
   // Receipts & Supporting Docs
-  RECEIPT                // Generic receipt
+  RECEIPT // Generic receipt
   DAYCARE_RECEIPT
   CHARITY_RECEIPT
   MEDICAL_RECEIPT
@@ -149,81 +149,81 @@ enum DocType {
   // Foreign
   FOREIGN_BANK_STATEMENT
   FOREIGN_TAX_STATEMENT
-  FBAR_SUPPORT_DOCS          // FBAR supporting documents
-  FORM_8938                  // FATCA foreign financial assets
+  FBAR_SUPPORT_DOCS // FBAR supporting documents
+  FORM_8938 // FATCA foreign financial assets
 
   // Real Estate / Home Sale
-  CLOSING_DISCLOSURE         // HUD closing statement
-  LEASE_AGREEMENT            // Rental lease contracts
+  CLOSING_DISCLOSURE // HUD closing statement
+  LEASE_AGREEMENT // Rental lease contracts
   HUD_1
   PROPERTY_DEED
   HOME_APPRAISAL
   PMI_STATEMENT
 
   // Credits / Energy
-  EV_PURCHASE_AGREEMENT      // Electric vehicle purchase docs
-  ENERGY_CREDIT_INVOICE      // Solar, insulation, etc.
+  EV_PURCHASE_AGREEMENT // Electric vehicle purchase docs
+  ENERGY_CREDIT_INVOICE // Solar, insulation, etc.
 
   // Additional Business Docs
-  FORM_W9_ISSUED             // W-9s collected from contractors
-  MORTGAGE_POINTS_STATEMENT  // Points paid on mortgage
+  FORM_W9_ISSUED // W-9s collected from contractors
+  MORTGAGE_POINTS_STATEMENT // Points paid on mortgage
 
   // Prior Year Extension
-  EXTENSION_PAYMENT_PROOF    // Form 4868 / payment confirmation
+  EXTENSION_PAYMENT_PROOF // Form 4868 / payment confirmation
 
   // Tax Returns
-  FORM_1040              // U.S. Individual Income Tax Return
-  FORM_1040_SR           // Tax Return for Seniors
-  FORM_1040_NR           // Nonresident Alien Income Tax Return
-  FORM_1040_X            // Amended U.S. Individual Income Tax Return
-  STATE_TAX_RETURN       // State income tax return (CA 540, etc.)
-  FOREIGN_TAX_RETURN     // Foreign country tax return
-  TAX_RETURN_TRANSCRIPT  // IRS tax return transcript
+  FORM_1040 // U.S. Individual Income Tax Return
+  FORM_1040_SR // Tax Return for Seniors
+  FORM_1040_NR // Nonresident Alien Income Tax Return
+  FORM_1040_X // Amended U.S. Individual Income Tax Return
+  STATE_TAX_RETURN // State income tax return (CA 540, etc.)
+  FOREIGN_TAX_RETURN // Foreign country tax return
+  TAX_RETURN_TRANSCRIPT // IRS tax return transcript
 
   // Form 1040 Schedules
-  SCHEDULE_C             // Profit or Loss From Business (Sole Proprietorship)
-  SCHEDULE_SE            // Self-Employment Tax
-  SCHEDULE_1             // Additional Income and Adjustments to Income
-  SCHEDULE_D             // Capital Gains and Losses
-  SCHEDULE_E             // Supplemental Income and Loss (Rental, Royalties, etc.)
-  SCHEDULE_2             // Additional Taxes
-  SCHEDULE_3             // Additional Credits and Payments
-  SCHEDULE_A             // Itemized Deductions
-  SCHEDULE_B             // Interest and Dividends
-  SCHEDULE_EIC           // Earned Income Credit
-  SCHEDULE_F             // Farm Income
-  SCHEDULE_H             // Household Employment
-  SCHEDULE_J             // Income Averaging
-  SCHEDULE_R             // Credit for Elderly/Disabled
-  SCHEDULE_8812          // Additional Child Tax Credit
+  SCHEDULE_C // Profit or Loss From Business (Sole Proprietorship)
+  SCHEDULE_SE // Self-Employment Tax
+  SCHEDULE_1 // Additional Income and Adjustments to Income
+  SCHEDULE_D // Capital Gains and Losses
+  SCHEDULE_E // Supplemental Income and Loss (Rental, Royalties, etc.)
+  SCHEDULE_2 // Additional Taxes
+  SCHEDULE_3 // Additional Credits and Payments
+  SCHEDULE_A // Itemized Deductions
+  SCHEDULE_B // Interest and Dividends
+  SCHEDULE_EIC // Earned Income Credit
+  SCHEDULE_F // Farm Income
+  SCHEDULE_H // Household Employment
+  SCHEDULE_J // Income Averaging
+  SCHEDULE_R // Credit for Elderly/Disabled
+  SCHEDULE_8812 // Additional Child Tax Credit
 
   // Critical IRS Forms
-  FORM_2210              // Underpayment Penalty
-  FORM_2441              // Child Care Expenses
-  FORM_2555              // Foreign Earned Income
-  FORM_3903              // Moving Expenses
-  FORM_4562              // Depreciation & Amortization
-  FORM_4684              // Casualties and Thefts
-  FORM_4797              // Sales of Business Property
-  FORM_4868              // Extension to File
-  FORM_5329              // Additional Tax on Qualified Plans
-  FORM_5695              // Residential Energy Credits
-  FORM_6251              // Alternative Minimum Tax
-  FORM_8283              // Noncash Charitable Contributions
-  FORM_8379              // Injured Spouse Allocation
-  FORM_8582              // Passive Activity Loss
-  FORM_8606              // Nondeductible IRAs
-  FORM_8829              // Home Office Expenses
-  FORM_8863              // Education Credits
-  FORM_8880              // Retirement Savings Credit
-  FORM_8889              // HSA Deductions
-  FORM_8936              // EV Credit
-  FORM_8949              // Sales of Capital Assets
-  FORM_8959              // Additional Medicare Tax
-  FORM_8960              // Net Investment Income Tax
-  FORM_8962              // Premium Tax Credit
-  FORM_8995              // QBI Deduction
-  FORM_8995_A            // QBI Deduction (Complex)
+  FORM_2210 // Underpayment Penalty
+  FORM_2441 // Child Care Expenses
+  FORM_2555 // Foreign Earned Income
+  FORM_3903 // Moving Expenses
+  FORM_4562 // Depreciation & Amortization
+  FORM_4684 // Casualties and Thefts
+  FORM_4797 // Sales of Business Property
+  FORM_4868 // Extension to File
+  FORM_5329 // Additional Tax on Qualified Plans
+  FORM_5695 // Residential Energy Credits
+  FORM_6251 // Alternative Minimum Tax
+  FORM_8283 // Noncash Charitable Contributions
+  FORM_8379 // Injured Spouse Allocation
+  FORM_8582 // Passive Activity Loss
+  FORM_8606 // Nondeductible IRAs
+  FORM_8829 // Home Office Expenses
+  FORM_8863 // Education Credits
+  FORM_8880 // Retirement Savings Credit
+  FORM_8889 // HSA Deductions
+  FORM_8936 // EV Credit
+  FORM_8949 // Sales of Capital Assets
+  FORM_8959 // Additional Medicare Tax
+  FORM_8960 // Net Investment Income Tax
+  FORM_8962 // Premium Tax Credit
+  FORM_8995 // QBI Deduction
+  FORM_8995_A // QBI Deduction (Complex)
 
   // Investment Documents
   BROKERAGE_STATEMENT
@@ -287,6 +287,12 @@ enum RawImageStatus {
   DUPLICATE
 }
 
+enum UploadSource {
+  PORTAL_EXPLICIT
+  PORTAL_AI
+  CPA_MANUAL
+}
+
 enum DigitalDocStatus {
   PENDING
   EXTRACTED
@@ -323,7 +329,7 @@ enum MessageChannel {
   SMS
   PORTAL
   SYSTEM
-  CALL    // Voice call recordings
+  CALL // Voice call recordings
 }
 
 enum MessageDirection {
@@ -357,27 +363,27 @@ enum FieldType {
 }
 
 enum MessageTemplateCategory {
-  PORTAL_LINK  // Initial message requesting doc upload (sends client portal link)
-  SCHEDULE_C   // Request for Schedule C (business expenses)
-  SCHEDULE_E   // Request for Schedule E (rental property)
+  PORTAL_LINK // Initial message requesting doc upload (sends client portal link)
+  SCHEDULE_C // Request for Schedule C (business expenses)
+  SCHEDULE_E // Request for Schedule E (rental property)
 }
 
 enum EngagementStatus {
-  DRAFT      // Engagement created but intake not complete
-  ACTIVE     // Intake complete, work in progress
-  COMPLETE   // All tax cases filed
-  ARCHIVED   // Past year, read-only
+  DRAFT // Engagement created but intake not complete
+  ACTIVE // Intake complete, work in progress
+  COMPLETE // All tax cases filed
+  ARCHIVED // Past year, read-only
 }
 
 enum DocCategory {
-  IDENTITY    // Giay to tuy than: SSN, DL, PASSPORT
-  INCOME      // Thu nhap: W2, all 1099 variants, K-1
+  IDENTITY // Giay to tuy than: SSN, DL, PASSPORT
+  INCOME // Thu nhap: W2, all 1099 variants, K-1
   TAX_RETURNS // Khai thue: 1040 family, state returns, transcripts
-  EXPENSE     // Chi phi: RECEIPT, INVOICE
-  ASSET       // Tai san: property, vehicle docs
-  EDUCATION   // Giao duc: 1098-T, 1098-E
-  HEALTHCARE  // Y te: 1095-A/B/C
-  OTHER       // Khac: unclassified
+  EXPENSE // Chi phi: RECEIPT, INVOICE
+  ASSET // Tai san: property, vehicle docs
+  EDUCATION // Giao duc: 1098-T, 1098-E
+  HEALTHCARE // Y te: 1095-A/B/C
+  OTHER // Khac: unclassified
 }
 
 enum LeadStatus {
@@ -420,52 +426,52 @@ enum ClientType {
 // ============================================
 
 model Staff {
-  id        String    @id @default(cuid())
-  clerkId   String?   @unique  // Clerk user ID for auth sync
-  email     String    @unique
-  name      String
+  id          String    @id @default(cuid())
+  clerkId     String?   @unique // Clerk user ID for auth sync
+  email       String    @unique
+  name        String
   role        StaffRole @default(STAFF)
   avatarUrl   String?
-  phoneNumber String?   // E.164 format (+84901234567)
+  phoneNumber String? // E.164 format (+84901234567)
   isActive    Boolean   @default(true)
 
   // Notification preferences
-  notifyOnUpload    Boolean @default(true)   // Enable/disable SMS on client uploads
-  notifyOnChat      Boolean @default(false)  // Enable/disable SMS when monitored staff sends messages
+  notifyOnUpload     Boolean @default(true) // Enable/disable SMS on client uploads
+  notifyOnChat       Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
   autoSendUploadLink Boolean @default(false) // Per-staff auto-send upload link on personal form
 
   // Audit fields
   deactivatedAt DateTime?
   lastLoginAt   DateTime?
 
-  actions   Action[]  @relation("AssignedStaff")
+  actions               Action[]        @relation("AssignedStaff")
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
-  auditLogs AuditLog[]
-  language  Language   @default(VI)
-  formSlug  String?   // URL slug for public intake form (/form/:orgSlug/:staffSlug)
-  presence  StaffPresence?
+  auditLogs             AuditLog[]
+  language              Language        @default(VI)
+  formSlug              String? // URL slug for public intake form (/form/:orgSlug/:staffSlug)
+  presence              StaffPresence?
 
-  organizationId    String?
-  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  managedClients    Client[]  @relation("ManagedClients")
-  createdClients    Client[]  @relation("CreatedClients")
-  updatedClients    Client[]  @relation("UpdatedClients")
-  documentViews     DocumentView[]
+  organizationId       String?
+  organization         Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  managedClients       Client[]            @relation("ManagedClients")
+  createdClients       Client[]            @relation("CreatedClients")
+  updatedClients       Client[]            @relation("UpdatedClients")
+  documentViews        DocumentView[]
   uploadedDraftReturns ShareableDocument[]
-  sentMessages  Message[] @relation("SentMessages")
+  sentMessages         Message[]           @relation("SentMessages")
 
   // Notification subscriptions (admin subscribes to other staff's client uploads)
-  notificationSubscriptions   NotificationSubscription[] @relation("NotificationSubscriber")
-  notificationSubscribers     NotificationSubscription[] @relation("NotificationTarget")
+  notificationSubscriptions NotificationSubscription[] @relation("NotificationSubscriber")
+  notificationSubscribers   NotificationSubscription[] @relation("NotificationTarget")
 
-  termsAcceptances TermsAcceptance[]
-  sentSmsLogs      SmsSendLog[]     @relation("SentSmsLogs")
-  createdCampaigns Campaign[]       @relation("CreatedCampaigns")
-  ndaAgreementsCreated NdaAgreement[] @relation("NdaCreatedBy")
+  termsAcceptances     TermsAcceptance[]
+  sentSmsLogs          SmsSendLog[]      @relation("SentSmsLogs")
+  createdCampaigns     Campaign[]        @relation("CreatedCampaigns")
+  ndaAgreementsCreated NdaAgreement[]    @relation("NdaCreatedBy")
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([organizationId, formSlug])
   @@index([clerkId])
@@ -478,7 +484,7 @@ model StaffPresence {
   staffId   String   @unique
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   isOnline  Boolean  @default(false)
-  deviceId  String?  // Twilio device identity: staff_{staffId}
+  deviceId  String? // Twilio device identity: staff_{staffId}
   lastSeen  DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -491,10 +497,10 @@ model TermsAcceptance {
   id        String   @id @default(cuid())
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  version   String   // e.g., "2026.03.27"
+  version   String // e.g., "2026.03.27"
   signedAt  DateTime @default(now())
-  pdfR2Key  String   // R2 key: terms/{orgId}/{staffId}/{version}.pdf
-  ipAddress String?  // IPv4 or IPv6
+  pdfR2Key  String // R2 key: terms/{orgId}/{staffId}/{version}.pdf
+  ipAddress String? // IPv4 or IPv6
   userAgent String?  @db.Text
 
   createdAt DateTime @default(now())
@@ -506,15 +512,15 @@ model TermsAcceptance {
 
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications
 model NotificationSubscription {
-  id              String           @id @default(cuid())
-  subscriberId    String           // The staff who wants to receive notifications
-  targetStaffId   String           // The staff whose clients trigger notifications
-  type            SubscriptionType @default(UPLOAD)
+  id            String           @id @default(cuid())
+  subscriberId  String // The staff who wants to receive notifications
+  targetStaffId String // The staff whose clients trigger notifications
+  type          SubscriptionType @default(UPLOAD)
 
-  subscriber      Staff    @relation("NotificationSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
-  targetStaff     Staff    @relation("NotificationTarget", fields: [targetStaffId], references: [id], onDelete: Cascade)
+  subscriber  Staff @relation("NotificationSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  targetStaff Staff @relation("NotificationTarget", fields: [targetStaffId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([subscriberId, targetStaffId, type])
   @@index([subscriberId])
@@ -522,16 +528,16 @@ model NotificationSubscription {
 }
 
 model Organization {
-  id         String   @id @default(cuid())
-  clerkOrgId String   @unique
+  id         String  @id @default(cuid())
+  clerkOrgId String  @unique
   name       String
-  slug       String?  @unique
+  slug       String? @unique
   logoUrl    String?
-  isActive   Boolean  @default(true)
+  isActive   Boolean @default(true)
 
-  smsLanguage         Language @default(VI)
-  missedCallTextBack            Boolean  @default(false)
-  autoSendFormClientUploadLink  Boolean  @default(false)
+  smsLanguage                  Language @default(VI)
+  missedCallTextBack           Boolean  @default(false)
+  autoSendFormClientUploadLink Boolean  @default(false)
 
   staff         Staff[]
   clients       Client[]
@@ -541,50 +547,51 @@ model Organization {
   campaigns     Campaign[]
   ndaAgreements NdaAgreement[]
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clerkOrgId])
 }
 
 model ClientGroup {
-  id              String        @id @default(cuid())
-  name            String
-  organizationId  String?
-  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  clients         Client[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  name           String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clients        Client[]
+  magicLinks     MagicLink[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([organizationId])
 }
 
 model Client {
-  id        String   @id @default(cuid())
-  firstName String   @default("")
+  id        String       @id @default(cuid())
+  firstName String       @default("")
   lastName  String?
-  name      String   @default("")  // Computed field for backward compat - will be populated by API
+  name      String       @default("") // Computed field for backward compat - will be populated by API
   phone     String
   email     String?
-  language  Language @default(VI)
+  language  Language     @default(VI)
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
 
-  clientType     ClientType   @default(INDIVIDUAL)
-  clientGroupId  String?
-  clientGroup    ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
+  clientType    ClientType   @default(INDIVIDUAL)
+  clientGroupId String?
+  clientGroup   ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
 
   // Business-specific fields (only for clientType = BUSINESS)
-  businessType     BusinessType?
-  einEncrypted     String?       // AES-256-GCM encrypted EIN
-  businessAddress  String?
-  businessCity     String?
-  businessState    String?       // 2-char state code
-  businessZip      String?
+  businessType    BusinessType?
+  einEncrypted    String? // AES-256-GCM encrypted EIN
+  businessAddress String?
+  businessCity    String?
+  businessState   String? // 2-char state code
+  businessZip     String?
 
   // Client overview profile fields
-  avatarUrl      String?   // R2 storage URL for profile picture
-  notes          String?   @db.Text  // Rich text notes (HTML from Tiptap)
+  avatarUrl      String? // R2 storage URL for profile picture
+  notes          String?   @db.Text // Rich text notes (HTML from Tiptap)
   notesUpdatedAt DateTime? // Track when notes last edited
 
   profile        ClientProfile?
@@ -594,20 +601,20 @@ model Client {
   ndaAgreements  NdaAgreement[]
 
   // Business-type client relations (for clientType = BUSINESS)
-  contractors    Contractor[]
-  filingBatches  FilingBatch[]
-  intakeTokens   ContractorIntakeToken[]
+  contractors   Contractor[]
+  filingBatches FilingBatch[]
+  intakeTokens  ContractorIntakeToken[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
-  managedById    String?
-  managedBy      Staff?    @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
+  managedById String?
+  managedBy   Staff?  @relation("ManagedClients", fields: [managedById], references: [id], onDelete: SetNull)
 
-  createdById    String?
-  createdBy      Staff?    @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById    String?
-  updatedBy      Staff?    @relation("UpdatedClients", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   Staff?  @relation("CreatedClients", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Staff?  @relation("UpdatedClients", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -624,35 +631,34 @@ model Client {
   @@index([clientGroupId])
 }
 
-
 /// @deprecated Use TaxEngagement for year-specific profile data.
 /// Will be removed after all clients migrate to engagement-based queries.
 /// Target removal: 2026-Q3 (2 release cycles after migration)
 model ClientProfile {
-  id        String  @id @default(cuid())
-  clientId  String  @unique
-  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  filingStatus     String?
-  hasW2            Boolean @default(false)
-  hasBankAccount   Boolean @default(false)
-  hasInvestments   Boolean @default(false)
-  hasKidsUnder17   Boolean @default(false)
-  numKidsUnder17   Int     @default(0)
-  paysDaycare      Boolean @default(false)
-  hasKids17to24    Boolean @default(false)
+  filingStatus      String?
+  hasW2             Boolean @default(false)
+  hasBankAccount    Boolean @default(false)
+  hasInvestments    Boolean @default(false)
+  hasKidsUnder17    Boolean @default(false)
+  numKidsUnder17    Int     @default(0)
+  paysDaycare       Boolean @default(false)
+  hasKids17to24     Boolean @default(false)
   hasSelfEmployment Boolean @default(false)
   hasRentalProperty Boolean @default(false)
 
-  businessName     String?
-  ein              String?
-  hasEmployees     Boolean @default(false)
-  hasContractors   Boolean @default(false)
-  has1099K         Boolean @default(false)
+  businessName   String?
+  ein            String?
+  hasEmployees   Boolean @default(false)
+  hasContractors Boolean @default(false)
+  has1099K       Boolean @default(false)
 
   // Dynamic intake answers - flexible JSON storage for intake questionnaire responses
   // Maps questionKey -> value (boolean, number, string) from IntakeQuestion model
-  intakeAnswers    Json    @default("{}")
+  intakeAnswers Json @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -661,32 +667,32 @@ model ClientProfile {
 // TaxEngagement: Year-specific client profile for multi-year support
 // Links Client (permanent) -> TaxEngagement (per-year) -> TaxCase (per-form)
 model TaxEngagement {
-  id        String           @id @default(cuid())
-  clientId  String
-  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  taxYear   Int
-  status    EngagementStatus @default(DRAFT)
+  id       String           @id @default(cuid())
+  clientId String
+  client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear  Int
+  status   EngagementStatus @default(DRAFT)
 
   // Profile fields (copied from ClientProfile for year-specific storage)
-  filingStatus       String?
-  hasW2              Boolean @default(false)
-  hasBankAccount     Boolean @default(false)
-  hasInvestments     Boolean @default(false)
-  hasKidsUnder17     Boolean @default(false)
-  numKidsUnder17     Int     @default(0)
-  paysDaycare        Boolean @default(false)
-  hasKids17to24      Boolean @default(false)
-  hasSelfEmployment  Boolean @default(false)
-  hasRentalProperty  Boolean @default(false)
-  businessName       String?
-  ein                String?
-  hasEmployees       Boolean @default(false)
-  hasContractors     Boolean @default(false)
-  has1099K           Boolean @default(false)
-  intakeAnswers      Json    @default("{}")
+  filingStatus      String?
+  hasW2             Boolean @default(false)
+  hasBankAccount    Boolean @default(false)
+  hasInvestments    Boolean @default(false)
+  hasKidsUnder17    Boolean @default(false)
+  numKidsUnder17    Int     @default(0)
+  paysDaycare       Boolean @default(false)
+  hasKids17to24     Boolean @default(false)
+  hasSelfEmployment Boolean @default(false)
+  hasRentalProperty Boolean @default(false)
+  businessName      String?
+  ein               String?
+  hasEmployees      Boolean @default(false)
+  hasContractors    Boolean @default(false)
+  has1099K          Boolean @default(false)
+  intakeAnswers     Json    @default("{}")
 
   // Relations
-  taxCases  TaxCase[]
+  taxCases TaxCase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -695,50 +701,50 @@ model TaxEngagement {
   @@index([clientId])
   @@index([taxYear])
   @@index([status])
-  @@index([clientId, status])  // Filter client's engagements by status
+  @@index([clientId, status]) // Filter client's engagements by status
 }
 
 model TaxCase {
-  id        String        @id @default(cuid())
+  id String @id @default(cuid())
 
   // BACKWARD COMPAT: Keep clientId/taxYear for gradual migration (deprecate in Phase 5+)
-  clientId  String
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   // Required engagement link (Phase 3: made non-nullable)
   engagementId String
   engagement   TaxEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
 
-  taxYear   Int
-  taxTypes  TaxType[]
-  status    TaxCaseStatus @default(INTAKE)
+  taxYear  Int
+  taxTypes TaxType[]
+  status   TaxCaseStatus @default(INTAKE)
 
-  rawImages         RawImage[]
-  digitalDocs       DigitalDoc[]
-  checklistItems    ChecklistItem[]
-  conversation      Conversation?
-  magicLinks        MagicLink[]
-  actions           Action[]
-  imageGroups       ImageGroup[]
-  documentGroups    DocumentGroup[]
-  scheduleCExpense  ScheduleCExpense?
-  scheduleEExpense  ScheduleEExpense?
-  draftReturns      ShareableDocument[]
+  rawImages        RawImage[]
+  digitalDocs      DigitalDoc[]
+  checklistItems   ChecklistItem[]
+  conversation     Conversation?
+  magicLinks       MagicLink[]
+  actions          Action[]
+  imageGroups      ImageGroup[]
+  documentGroups   DocumentGroup[]
+  scheduleCExpense ScheduleCExpense?
+  scheduleEExpense ScheduleEExpense?
+  draftReturns     ShareableDocument[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
   filedAt          DateTime?
 
   // Manual status flags (REVIEW/FILED are manual transitions)
-  isInReview     Boolean   @default(false)
-  isFiled        Boolean   @default(false)
+  isInReview Boolean @default(false)
+  isFiled    Boolean @default(false)
 
   // Activity tracking for sorting & stale detection
-  lastActivityAt DateTime  @default(now())
+  lastActivityAt DateTime @default(now())
 
   // Batch document grouping job tracking
   // When non-null, indicates a grouping job is in progress
-  groupingJobId    String?
+  groupingJobId     String?
   groupingStartedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -747,101 +753,103 @@ model TaxCase {
   @@unique([clientId, taxYear])
   @@index([status])
   @@index([taxYear])
-  @@index([status, taxYear])    // H1: Composite index for filtering by status and year
-  @@index([clientId, status])   // H1: Composite index for client's cases by status
+  @@index([status, taxYear]) // H1: Composite index for filtering by status and year
+  @@index([clientId, status]) // H1: Composite index for client's cases by status
   @@index([lastActivityAt])
   @@index([isInReview])
   @@index([isFiled])
   @@index([engagementId])
-  @@index([engagementId, status])         // Filter engagement's cases by status
+  @@index([engagementId, status]) // Filter engagement's cases by status
   @@index([engagementId, lastActivityAt]) // Sort engagement's cases by activity
-  @@index([groupingJobId])                // Query cases with active grouping jobs
+  @@index([groupingJobId]) // Query cases with active grouping jobs
 }
 
 model RawImage {
-  id        String         @id @default(cuid())
-  caseId    String
-  taxCase   TaxCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  caseId  String
+  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  r2Key     String         @unique
-  r2Url     String?
-  filename  String
-  mimeType  String
-  fileSize  Int
+  r2Key    String  @unique
+  r2Url    String?
+  filename String
+  mimeType String
+  fileSize Int
 
-  status          RawImageStatus @default(UPLOADED)
-  classifiedType  DocType?
-  category        DocCategory?    // AI-assigned document category
-  displayName     String?         @db.VarChar(255)  // Sanitized filename for display (naming convention)
-  aiConfidence    Float?
-  blurScore       Float?
+  status         RawImageStatus @default(UPLOADED)
+  classifiedType DocType?
+  category       DocCategory? // AI-assigned document category
+  displayName    String?        @db.VarChar(255) // Sanitized filename for display (naming convention)
+  aiConfidence   Float?
+  blurScore      Float?
 
   // Duplicate detection fields
-  imageHash       String?        // Perceptual hash (pHash) for duplicate detection
-  imageGroupId    String?
-  imageGroup      ImageGroup?    @relation(fields: [imageGroupId], references: [id])
-  duplicateOfId   String?        // ID of original image this duplicates (for UI badge/link)
+  imageHash     String? // Perceptual hash (pHash) for duplicate detection
+  imageGroupId  String?
+  imageGroup    ImageGroup? @relation(fields: [imageGroupId], references: [id])
+  duplicateOfId String? // ID of original image this duplicates (for UI badge/link)
 
   // AI metadata for fallback rename and multi-page detection (Phase 2+3)
   // { fallbackRename: boolean, documentTitle: string, pageInfo: {...}, reasoning: string }
-  aiMetadata      Json?
+  aiMetadata Json?
 
   // Multi-page document grouping (Phase 3)
-  documentGroupId   String?
-  documentGroup     DocumentGroup?  @relation(fields: [documentGroupId], references: [id])
-  pageNumber        Int?            // Page within group (1, 2, 3...)
-  totalPages        Int?            // Total pages in group (known or estimated)
-  groupConfidence   Float?          // AI confidence in grouping (0-1)
+  documentGroupId String?
+  documentGroup   DocumentGroup? @relation(fields: [documentGroupId], references: [id])
+  pageNumber      Int? // Page within group (1, 2, 3...)
+  totalPages      Int? // Total pages in group (known or estimated)
+  groupConfidence Float? // AI confidence in grouping (0-1)
 
   // Entity routing fields (AI auto-routes docs to correct entity in ClientGroup)
-  entityConfidence    Float?    // AI confidence in entity detection (0-1)
-  routedFromCaseId    String?   // Original caseId before entity re-routing (audit only, no FK)
+  entityConfidence Float? // AI confidence in entity detection (0-1)
+  routedFromCaseId String? // Original caseId before entity re-routing (audit only, no FK)
 
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
   reuploadRequestedAt DateTime?
   reuploadReason      String?
-  reuploadFields      Json?     // ["ssn", "wages"] - specific unreadable fields
+  reuploadFields      Json? // ["ssn", "wages"] - specific unreadable fields
 
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
   digitalDoc      DigitalDoc?
   documentViews   DocumentView[]
 
-  uploadedVia    MessageChannel @default(PORTAL)
+  uploadedVia  MessageChannel @default(PORTAL)
+  uploadSource UploadSource   @default(PORTAL_AI) // Routing source: PORTAL_EXPLICIT (owner picked), PORTAL_AI (AI inferred), CPA_MANUAL
 
   // Viewer display settings (persisted rotation for correct document orientation)
-  rotation       Int            @default(0)  // 0, 90, 180, 270 degrees clockwise
+  rotation Int @default(0) // 0, 90, 180, 270 degrees clockwise
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([caseId])
   @@index([status])
-  @@index([category])                 // Filter by document category
+  @@index([category]) // Filter by document category
   @@index([imageGroupId])
-  @@index([caseId, classifiedType])  // For duplicate detection queries
+  @@index([caseId, classifiedType]) // For duplicate detection queries
   @@index([reuploadRequested])
   @@index([caseId, reuploadRequested])
-  @@index([documentGroupId])          // Multi-page grouping lookup
-  @@index([routedFromCaseId])          // Entity routing audit trail lookups
-  @@index([caseId, documentGroupId])  // Find pages in same group
-  @@index([aiMetadata])               // AI metadata queries
+  @@index([documentGroupId]) // Multi-page grouping lookup
+  @@index([routedFromCaseId]) // Entity routing audit trail lookups
+  @@index([caseId, documentGroupId]) // Find pages in same group
+  @@index([aiMetadata]) // AI metadata queries
+  @@index([uploadSource]) // Filter by upload routing source
 }
 
 // Groups duplicate images of the same physical document
 model ImageGroup {
-  id          String     @id @default(cuid())
-  caseId      String
-  taxCase     TaxCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  caseId  String
+  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   docType     DocType
-  bestImageId String?    // Selected best image from group
+  bestImageId String? // Selected best image from group
 
-  images      RawImage[]
+  images RawImage[]
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([caseId])
   @@index([caseId, docType])
@@ -850,47 +858,47 @@ model ImageGroup {
 // Groups multi-page document uploads (Phase 3)
 // Tracks related pages uploaded separately (e.g., 3-page form uploaded as 3 images)
 model DocumentGroup {
-  id              String      @id @default(cuid())
-  caseId          String
-  case            TaxCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id     String  @id @default(cuid())
+  caseId String
+  case   TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  baseName        String      // Base filename without _PartXofY
-  documentType    String?     // Identified document type (or from fallback)
-  pageCount       Int         @default(1)
-  confidence      Float       // AI confidence in grouping
+  baseName     String // Base filename without _PartXofY
+  documentType String? // Identified document type (or from fallback)
+  pageCount    Int     @default(1)
+  confidence   Float // AI confidence in grouping
 
-  images          RawImage[]
+  images RawImage[]
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([caseId])
-  @@index([caseId, createdAt])  // Recent groups in case
+  @@index([caseId, createdAt]) // Recent groups in case
 }
 
 model DigitalDoc {
-  id          String           @id @default(cuid())
-  caseId      String
-  taxCase     TaxCase          @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  rawImageId  String           @unique
-  rawImage    RawImage         @relation(fields: [rawImageId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  caseId     String
+  taxCase    TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  rawImageId String   @unique
+  rawImage   RawImage @relation(fields: [rawImageId], references: [id], onDelete: Cascade)
 
-  docType     DocType
-  status      DigitalDocStatus @default(PENDING)
+  docType DocType
+  status  DigitalDocStatus @default(PENDING)
 
   extractedData Json
   aiConfidence  Float?
 
-  verifiedAt    DateTime?
-  verifiedById  String?
+  verifiedAt   DateTime?
+  verifiedById String?
 
   // Field-level verification tracking
-  fieldVerifications Json?  // {"ssn": "verified", "wages": "edited", "address": "unreadable"}
+  fieldVerifications Json? // {"ssn": "verified", "wages": "edited", "address": "unreadable"}
 
   // Copy tracking for data entry
-  copiedFields      Json?       // {"ssn": true, "wages": false}
-  entryCompleted    Boolean     @default(false)
-  entryCompletedAt  DateTime?
+  copiedFields     Json? // {"ssn": true, "wages": false}
+  entryCompleted   Boolean   @default(false)
+  entryCompletedAt DateTime?
 
   checklistItemId String?
   checklistItem   ChecklistItem? @relation(fields: [checklistItemId], references: [id])
@@ -906,22 +914,22 @@ model DigitalDoc {
 }
 
 model ChecklistTemplate {
-  id          String   @id @default(cuid())
-  taxType     TaxType
-  docType     DocType
+  id      String  @id @default(cuid())
+  taxType TaxType
+  docType DocType
 
-  labelVi     String
-  labelEn     String
+  labelVi       String
+  labelEn       String
   descriptionVi String?
   descriptionEn String?
-  hintVi      String?   // Help text shown to clients
-  hintEn      String?
+  hintVi        String? // Help text shown to clients
+  hintEn        String?
 
-  isRequired  Boolean  @default(true)
-  condition   String?   // JSON: {"questionKey": value} - only show if profile matches
-  sortOrder   Int      @default(0)
-  category    String
-  expectedCount Int    @default(1)  // How many documents expected (e.g., 12 for bank statements)
+  isRequired    Boolean @default(true)
+  condition     String? // JSON: {"questionKey": value} - only show if profile matches
+  sortOrder     Int     @default(0)
+  category      String
+  expectedCount Int     @default(1) // How many documents expected (e.g., 12 for bank statements)
 
   // Optional link to document library for extended metadata
   docTypeLibraryId String?
@@ -938,31 +946,31 @@ model ChecklistTemplate {
 }
 
 model ChecklistItem {
-  id          String              @id @default(cuid())
-  caseId      String
-  taxCase     TaxCase             @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  templateId  String
-  template    ChecklistTemplate   @relation(fields: [templateId], references: [id])
+  id         String            @id @default(cuid())
+  caseId     String
+  taxCase    TaxCase           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id])
 
-  status      ChecklistItemStatus @default(MISSING)
+  status ChecklistItemStatus @default(MISSING)
 
-  expectedCount Int               @default(1)
-  receivedCount Int               @default(0)
+  expectedCount Int @default(1)
+  receivedCount Int @default(0)
 
   rawImages   RawImage[]
   digitalDocs DigitalDoc[]
 
-  notes       String?
+  notes String?
 
   // Staff override fields
-  isManuallyAdded  Boolean   @default(false)
-  addedById        String?
-  addedBy          Staff?    @relation("AddedChecklistItems", fields: [addedById], references: [id])
-  addedReason      String?
-  skippedAt        DateTime?
-  skippedById      String?
-  skippedBy        Staff?    @relation("SkippedChecklistItems", fields: [skippedById], references: [id])
-  skippedReason    String?
+  isManuallyAdded Boolean   @default(false)
+  addedById       String?
+  addedBy         Staff?    @relation("AddedChecklistItems", fields: [addedById], references: [id])
+  addedReason     String?
+  skippedAt       DateTime?
+  skippedById     String?
+  skippedBy       Staff?    @relation("SkippedChecklistItems", fields: [skippedById], references: [id])
+  skippedReason   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -970,18 +978,18 @@ model ChecklistItem {
   @@unique([caseId, templateId])
   @@index([caseId])
   @@index([status])
-  @@index([caseId, status])     // H1: Composite index for case's checklist by status
+  @@index([caseId, status]) // H1: Composite index for case's checklist by status
 }
 
 model Conversation {
-  id        String   @id @default(cuid())
-  caseId    String   @unique
-  taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  caseId  String  @unique
+  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  messages  Message[]
+  messages Message[]
 
   lastMessageAt DateTime?
-  unreadCount   Int      @default(0)
+  unreadCount   Int       @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -990,36 +998,36 @@ model Conversation {
 }
 
 model Message {
-  id             String           @id @default(cuid())
+  id             String        @id @default(cuid())
   // Polymorphic owner: exactly one of conversationId / leadId is non-null (enforced via DB CHECK).
   conversationId String?
-  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  leadId         String?
-  lead           Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  channel        MessageChannel
-  direction      MessageDirection
-  content        String           @db.VarChar(5000)  // M3: Limit message length for security
+  channel   MessageChannel
+  direction MessageDirection
+  content   String           @db.VarChar(5000) // M3: Limit message length for security
 
-  twilioSid      String?          @unique
-  twilioStatus   String?
+  twilioSid    String? @unique
+  twilioStatus String?
 
-  attachmentUrls  String[]
-  attachmentR2Keys String[]  // Permanent R2 keys for refreshing expired URLs
+  attachmentUrls   String[]
+  attachmentR2Keys String[] // Permanent R2 keys for refreshing expired URLs
 
-  isSystem       Boolean          @default(false)
-  templateUsed   String?
+  isSystem     Boolean @default(false)
+  templateUsed String?
 
   // Staff who sent this message (null for inbound/system messages)
-  sentById      String?
-  sentBy        Staff?    @relation("SentMessages", fields: [sentById], references: [id], onDelete: SetNull)
+  sentById String?
+  sentBy   Staff?  @relation("SentMessages", fields: [sentById], references: [id], onDelete: SetNull)
 
   // Voice call specific fields (null for non-CALL messages)
-  callSid           String?       // Twilio Call SID
-  recordingUrl      String?       // Twilio recording URL (.mp3)
-  recordingDuration Int?          // Recording duration in seconds
-  callStatus        String?       // completed, no-answer, busy, failed, canceled
+  callSid           String? // Twilio Call SID
+  recordingUrl      String? // Twilio recording URL (.mp3)
+  recordingDuration Int? // Recording duration in seconds
+  callStatus        String? // completed, no-answer, busy, failed, canceled
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1032,53 +1040,59 @@ model Message {
 }
 
 model MagicLink {
-  id        String   @id @default(cuid())
-  caseId    String
-  taxCase   TaxCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String   @id @default(cuid())
+  caseId  String?
+  taxCase TaxCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  token     String   @unique @default(cuid())
-  type      MagicLinkType @default(PORTAL)  // PORTAL for docs, SCHEDULE_C for expense form
+  token String         @unique @default(cuid())
+  type  MagicLinkType  @default(PORTAL) // PORTAL for docs, SCHEDULE_C for expense form
+  scope MagicLinkScope @default(CASE) // CASE = single TaxCase (legacy), GROUP = ClientGroup entity picker
+
+  // Group-scoped tokens point at a ClientGroup instead of one TaxCase
+  clientGroupId String?
+  clientGroup   ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
 
   // Optional reference for DRAFT_RETURN type
   draftReturnId String?
   draftReturn   ShareableDocument? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
 
   lastUsedAt DateTime?
-  usageCount Int      @default(0)
+  usageCount Int       @default(0)
 
   expiresAt DateTime?
-  isActive  Boolean  @default(true)
+  isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([token])
   @@index([caseId])
-  @@index([caseId, isActive, createdAt])  // Phase 02: Composite index for request-reupload queries
-  @@index([type])  // Filter by link type
-  @@index([caseId, type, isActive])  // Phase 02: Composite index for Schedule C queries
-  @@index([draftReturnId])  // Draft return lookup
+  @@index([caseId, isActive, createdAt]) // Phase 02: Composite index for request-reupload queries
+  @@index([type]) // Filter by link type
+  @@index([caseId, type, isActive]) // Phase 02: Composite index for Schedule C queries
+  @@index([draftReturnId]) // Draft return lookup
+  @@index([clientGroupId]) // Group-scoped token lookup (Phase 02)
 }
 
 model Action {
-  id        String         @id @default(cuid())
-  caseId    String
-  taxCase   TaxCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  caseId  String
+  taxCase TaxCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  type      ActionType
-  priority  ActionPriority @default(NORMAL)
+  type     ActionType
+  priority ActionPriority @default(NORMAL)
 
   assignedToId String?
-  assignedTo   Staff?      @relation("AssignedStaff", fields: [assignedToId], references: [id])
+  assignedTo   Staff?  @relation("AssignedStaff", fields: [assignedToId], references: [id])
 
-  isCompleted   Boolean    @default(false)
-  completedAt   DateTime?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
 
-  title         String
-  description   String?
-  metadata      Json?
+  title       String
+  description String?
+  metadata    Json?
 
-  scheduledFor  DateTime?
+  scheduledFor DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1088,8 +1102,8 @@ model Action {
   @@index([priority])
   @@index([isCompleted])
   @@index([assignedToId])
-  @@index([isCompleted, priority])      // Composite index for action queue
-  @@index([assignedToId, isCompleted])  // Composite index for staff's pending actions
+  @@index([isCompleted, priority]) // Composite index for action queue
+  @@index([assignedToId, isCompleted]) // Composite index for staff's pending actions
 }
 
 // ============================================
@@ -1098,50 +1112,50 @@ model Action {
 
 // Intake questions - Dynamic questionnaire for client intake
 model IntakeQuestion {
-  id          String      @id @default(cuid())
-  taxTypes    TaxType[]   // Which tax types this question applies to
-  questionKey String      @unique  // e.g., "hasW2", "hasRentalProperty"
+  id          String    @id @default(cuid())
+  taxTypes    TaxType[] // Which tax types this question applies to
+  questionKey String    @unique // e.g., "hasW2", "hasRentalProperty"
 
-  labelVi     String
-  labelEn     String
-  hintVi      String?
-  hintEn      String?
+  labelVi String
+  labelEn String
+  hintVi  String?
+  hintEn  String?
 
-  fieldType   FieldType   // BOOLEAN, SELECT, NUMBER, TEXT
-  options     String?     // JSON for SELECT type options
-  condition   String?     // JSON: show if other answer matches {"questionKey": "value"}
-  section     String      // Section grouping: tax_info, income, dependents, business, deductions, foreign
-  sortOrder   Int         @default(0)
-  isActive    Boolean     @default(true)
+  fieldType FieldType // BOOLEAN, SELECT, NUMBER, TEXT
+  options   String? // JSON for SELECT type options
+  condition String? // JSON: show if other answer matches {"questionKey": "value"}
+  section   String // Section grouping: tax_info, income, dependents, business, deductions, foreign
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
 }
 
 // Comprehensive document type library for staff document recognition
 model DocTypeLibrary {
-  id          String      @id @default(cuid())
-  code        String      @unique  // Internal code matching DocType enum or custom
+  id   String @id @default(cuid())
+  code String @unique // Internal code matching DocType enum or custom
 
-  labelVi     String
-  labelEn     String
+  labelVi       String
+  labelEn       String
   descriptionVi String?
   descriptionEn String?
 
-  category    String      // personal, income, deductions, business, health, foreign, other
-  aliases     String[]    // Alternative names for AI matching
-  keywords    String[]    // Keywords for search/classification
+  category String // personal, income, deductions, business, health, foreign, other
+  aliases  String[] // Alternative names for AI matching
+  keywords String[] // Keywords for search/classification
 
-  sortOrder   Int         @default(0)
-  isActive    Boolean     @default(true)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
 
   // Link to checklist templates that use this doc type
   checklistTemplates ChecklistTemplate[]
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([isActive])
@@ -1153,16 +1167,16 @@ model DocTypeLibrary {
 
 // Message templates for quick client communication
 model MessageTemplate {
-  id          String                  @id @default(cuid())
-  category    MessageTemplateCategory
-  title       String                  // Short title for list display
-  content     String                  @db.VarChar(2000)  // Template content with placeholders
-  placeholders String[]               // e.g., ["clientName", "docType"]
-  sortOrder   Int                     @default(0)
-  isActive    Boolean                 @default(true)
+  id           String                  @id @default(cuid())
+  category     MessageTemplateCategory
+  title        String // Short title for list display
+  content      String                  @db.VarChar(2000) // Template content with placeholders
+  placeholders String[] // e.g., ["clientName", "docType"]
+  sortOrder    Int                     @default(0)
+  isActive     Boolean                 @default(true)
 
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([isActive])
@@ -1185,10 +1199,16 @@ enum AuditEntityType {
 
 // Magic link types for different form flows
 enum MagicLinkType {
-  PORTAL       // Existing document upload
-  SCHEDULE_C   // Self-employed expense collection form
-  SCHEDULE_E   // Rental property expense collection form
+  PORTAL // Existing document upload
+  SCHEDULE_C // Self-employed expense collection form
+  SCHEDULE_E // Rental property expense collection form
   DRAFT_RETURN // Draft tax return PDF viewing
+}
+
+// Magic link scope: CASE = single TaxCase (legacy), GROUP = entity picker for whole ClientGroup
+enum MagicLinkScope {
+  CASE
+  GROUP
 }
 
 enum NdaStatus {
@@ -1207,33 +1227,33 @@ enum NdaDepositStatus {
 }
 
 enum ScheduleCStatus {
-  DRAFT       // Client editing
-  SUBMITTED   // Client submitted, CPA can review
-  LOCKED      // CPA locked, no more edits
+  DRAFT // Client editing
+  SUBMITTED // Client submitted, CPA can review
+  LOCKED // CPA locked, no more edits
 }
 
 enum ScheduleEStatus {
-  DRAFT       // Client editing
-  SUBMITTED   // Client submitted, CPA can review
-  LOCKED      // CPA locked, no more edits
+  DRAFT // Client editing
+  SUBMITTED // Client submitted, CPA can review
+  LOCKED // CPA locked, no more edits
 }
 
 enum DocumentStatus {
-  ACTIVE      // Current version, link valid
-  REVOKED     // Link manually revoked
-  EXPIRED     // Link expired
-  SUPERSEDED  // Replaced by newer version
+  ACTIVE // Current version, link valid
+  REVOKED // Link manually revoked
+  EXPIRED // Link expired
+  SUPERSEDED // Replaced by newer version
 }
 
 // Audit log for tracking field-level changes
 model AuditLog {
   id          String          @id @default(cuid())
   entityType  AuditEntityType
-  entityId    String          // clientId, profileId, or caseId
-  field       String          // Field name that was changed
-  oldValue    Json?           // Previous value (null for new fields)
-  newValue    Json?           // New value (null for deleted fields)
-  changedById String?         // Staff who made the change
+  entityId    String // clientId, profileId, or caseId
+  field       String // Field name that was changed
+  oldValue    Json? // Previous value (null for new fields)
+  newValue    Json? // New value (null for deleted fields)
+  changedById String? // Staff who made the change
   changedBy   Staff?          @relation(fields: [changedById], references: [id])
   createdAt   DateTime        @default(now())
 
@@ -1250,57 +1270,57 @@ model AuditLog {
 // Stores income, 20+ IRS Part II expense categories, vehicle info
 // One Schedule C per TaxCase (multi-business out of scope)
 model ScheduleCExpense {
-  id        String          @id @default(cuid())
-  taxCaseId String          @unique
-  taxCase   TaxCase         @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  taxCaseId String  @unique
+  taxCase   TaxCase @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
 
-  status    ScheduleCStatus @default(DRAFT)
+  status ScheduleCStatus @default(DRAFT)
 
   // === Business Information ===
-  businessName    String?   @db.VarChar(200)  // Principal business or profession
-  businessDesc    String?   @db.VarChar(500)  // Business description / product or service
+  businessName String? @db.VarChar(200) // Principal business or profession
+  businessDesc String? @db.VarChar(500) // Business description / product or service
 
   // === Income Section (Part I) ===
   // All monetary fields use Decimal(12,2) for precision up to $999,999,999.99
-  grossReceipts   Decimal?  @db.Decimal(12, 2)  // Line 1: Gross receipts or sales
-  returns         Decimal?  @db.Decimal(12, 2)  // Line 2: Returns and allowances
-  costOfGoods     Decimal?  @db.Decimal(12, 2)  // Line 4: Cost of goods sold (Part III total)
-  otherIncome     Decimal?  @db.Decimal(12, 2)  // Line 6: Other income
+  grossReceipts Decimal? @db.Decimal(12, 2) // Line 1: Gross receipts or sales
+  returns       Decimal? @db.Decimal(12, 2) // Line 2: Returns and allowances
+  costOfGoods   Decimal? @db.Decimal(12, 2) // Line 4: Cost of goods sold (Part III total)
+  otherIncome   Decimal? @db.Decimal(12, 2) // Line 6: Other income
 
   // === Expenses (Part II) - IRS Schedule C Line 8-27 ===
   // Note: carExpense (Line 9) and vehicleMiles are mutually exclusive - use one method only
-  advertising             Decimal?  @db.Decimal(12, 2)  // Line 8
-  carExpense              Decimal?  @db.Decimal(12, 2)  // Line 9: Actual car/truck expenses (OR use mileage)
-  commissions             Decimal?  @db.Decimal(12, 2)  // Line 10
-  contractLabor           Decimal?  @db.Decimal(12, 2)  // Line 11
-  depletion               Decimal?  @db.Decimal(12, 2)  // Line 12
-  depreciation            Decimal?  @db.Decimal(12, 2)  // Line 13: Depreciation and Sec 179
-  employeeBenefits        Decimal?  @db.Decimal(12, 2)  // Line 14
-  insurance               Decimal?  @db.Decimal(12, 2)  // Line 15: Insurance (other than health)
-  interestMortgage        Decimal?  @db.Decimal(12, 2)  // Line 16a
-  interestOther           Decimal?  @db.Decimal(12, 2)  // Line 16b
-  legalServices           Decimal?  @db.Decimal(12, 2)  // Line 17
-  officeExpense           Decimal?  @db.Decimal(12, 2)  // Line 18
-  pensionPlans            Decimal?  @db.Decimal(12, 2)  // Line 19
-  rentEquipment           Decimal?  @db.Decimal(12, 2)  // Line 20a
-  rentProperty            Decimal?  @db.Decimal(12, 2)  // Line 20b
-  repairs                 Decimal?  @db.Decimal(12, 2)  // Line 21
-  supplies                Decimal?  @db.Decimal(12, 2)  // Line 22
-  taxesAndLicenses        Decimal?  @db.Decimal(12, 2)  // Line 23
-  travel                  Decimal?  @db.Decimal(12, 2)  // Line 24a
-  meals                   Decimal?  @db.Decimal(12, 2)  // Line 24b: Deductible meals (50%)
-  utilities               Decimal?  @db.Decimal(12, 2)  // Line 25
-  wages                   Decimal?  @db.Decimal(12, 2)  // Line 26
-  otherExpenses           Decimal?  @db.Decimal(12, 2)  // Line 27a
-  otherExpensesNotes      String?   @db.VarChar(1000)   // Line 27a description
+  advertising        Decimal? @db.Decimal(12, 2) // Line 8
+  carExpense         Decimal? @db.Decimal(12, 2) // Line 9: Actual car/truck expenses (OR use mileage)
+  commissions        Decimal? @db.Decimal(12, 2) // Line 10
+  contractLabor      Decimal? @db.Decimal(12, 2) // Line 11
+  depletion          Decimal? @db.Decimal(12, 2) // Line 12
+  depreciation       Decimal? @db.Decimal(12, 2) // Line 13: Depreciation and Sec 179
+  employeeBenefits   Decimal? @db.Decimal(12, 2) // Line 14
+  insurance          Decimal? @db.Decimal(12, 2) // Line 15: Insurance (other than health)
+  interestMortgage   Decimal? @db.Decimal(12, 2) // Line 16a
+  interestOther      Decimal? @db.Decimal(12, 2) // Line 16b
+  legalServices      Decimal? @db.Decimal(12, 2) // Line 17
+  officeExpense      Decimal? @db.Decimal(12, 2) // Line 18
+  pensionPlans       Decimal? @db.Decimal(12, 2) // Line 19
+  rentEquipment      Decimal? @db.Decimal(12, 2) // Line 20a
+  rentProperty       Decimal? @db.Decimal(12, 2) // Line 20b
+  repairs            Decimal? @db.Decimal(12, 2) // Line 21
+  supplies           Decimal? @db.Decimal(12, 2) // Line 22
+  taxesAndLicenses   Decimal? @db.Decimal(12, 2) // Line 23
+  travel             Decimal? @db.Decimal(12, 2) // Line 24a
+  meals              Decimal? @db.Decimal(12, 2) // Line 24b: Deductible meals (50%)
+  utilities          Decimal? @db.Decimal(12, 2) // Line 25
+  wages              Decimal? @db.Decimal(12, 2) // Line 26
+  otherExpenses      Decimal? @db.Decimal(12, 2) // Line 27a
+  otherExpensesNotes String?  @db.VarChar(1000) // Line 27a description
 
   // === Custom Expenses (dynamic "Other" list) ===
-  customExpenses          Json?     @default("[]")  // [{name: string, amount: number}]
+  customExpenses Json? @default("[]") // [{name: string, amount: number}]
 
   // === Vehicle Information (Part IV) ===
-  vehicleMiles            Int?      // Total business miles driven
-  vehicleCommuteMiles     Int?      // Commuting miles (not deductible)
-  vehicleOtherMiles       Int?      // Other personal miles
+  vehicleMiles            Int? // Total business miles driven
+  vehicleCommuteMiles     Int? // Commuting miles (not deductible)
+  vehicleOtherMiles       Int? // Other personal miles
   vehicleDateInService    DateTime? // Date vehicle placed in service
   vehicleUsedForCommute   Boolean   @default(false)
   vehicleAnotherAvailable Boolean   @default(false) // Another vehicle for personal use
@@ -1309,15 +1329,15 @@ model ScheduleCExpense {
   // === Version Tracking ===
   // versionHistory JSON structure:
   // [{ version: number, data: {...expense fields}, submittedAt: string, changes: string[] }]
-  version         Int     @default(1)
-  versionHistory  Json    @default("[]")
+  version        Int  @default(1)
+  versionHistory Json @default("[]")
 
   // === Timestamps ===
-  submittedAt DateTime?  // When client submitted (status -> SUBMITTED)
-  lockedAt    DateTime?  // When CPA locked (status -> LOCKED)
-  lockedById  String?    // Staff who locked
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  submittedAt DateTime? // When client submitted (status -> SUBMITTED)
+  lockedAt    DateTime? // When CPA locked (status -> LOCKED)
+  lockedById  String? // Staff who locked
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([status])
   @@index([taxCaseId, status])
@@ -1331,30 +1351,30 @@ model ScheduleCExpense {
 // Stores up to 3 properties as JSON array with income and expense data
 // One ScheduleEExpense per TaxCase (all properties in single record)
 model ScheduleEExpense {
-  id          String          @id @default(cuid())
-  taxCaseId   String          @unique
-  taxCase     TaxCase         @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  taxCaseId String  @unique
+  taxCase   TaxCase @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
 
-  status      ScheduleEStatus @default(DRAFT)
+  status ScheduleEStatus @default(DRAFT)
 
   // === Properties stored as JSON array (A, B, C, D, ... unlimited) ===
   // Each property: { id, address, propertyType, monthsRented, fairRentalDays,
   //   personalUseDays, rentsReceived, expenses (7 fields), otherExpenses[], totals }
-  properties  Json            @default("[]")
+  properties Json @default("[]")
 
   // === Version Tracking ===
   // versionHistory JSON structure:
   // [{ version: number, properties: [...], submittedAt: string, changes: string[] }]
-  version         Int         @default(1)
-  versionHistory  Json        @default("[]")
+  version        Int  @default(1)
+  versionHistory Json @default("[]")
 
   // === Timestamps ===
-  submittedAt DateTime?  // When client submitted (status -> SUBMITTED)
-  lockedAt    DateTime?  // When CPA locked (status -> LOCKED)
-  lockedById  String?    // Staff who locked
+  submittedAt DateTime? // When client submitted (status -> SUBMITTED)
+  lockedAt    DateTime? // When CPA locked (status -> LOCKED)
+  lockedById  String? // Staff who locked
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([taxCaseId, status])
@@ -1368,41 +1388,41 @@ model ScheduleEExpense {
 // Shareable document sharing - CPAs upload PDFs (draft returns, tax analyses, etc.) for client review via portal
 // Table name preserved as `draft_returns` via @@map to avoid data movement during rename
 model ShareableDocument {
-  id            String   @id @default(cuid())
-  taxCaseId     String
-  taxCase       TaxCase  @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  taxCaseId String
+  taxCase   TaxCase @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
 
   // Display title shown to client (e.g. "Draft Return", "Tax Analysis")
-  title         String   @default("Draft Return")
+  title String @default("Draft Return")
 
   // PDF storage
-  r2Key         String   @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
-  filename      String   // Original filename for display
-  fileSize      Int      // Bytes
+  r2Key    String @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
+  filename String // Original filename for display
+  fileSize Int // Bytes
 
   // Versioning
-  version       Int      @default(1)
+  version Int @default(1)
 
   // Uploader
-  uploadedById  String
-  uploadedBy    Staff    @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  uploadedBy   Staff  @relation(fields: [uploadedById], references: [id])
 
   // Status
-  status        DocumentStatus @default(ACTIVE)
+  status DocumentStatus @default(ACTIVE)
 
   // View tracking
-  viewCount     Int      @default(0)
-  lastViewedAt  DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
 
   // Soft delete — set when CPA removes the section
-  deletedAt     DateTime?
+  deletedAt DateTime?
 
   // Magic link for portal access
-  magicLinks    MagicLink[]
+  magicLinks MagicLink[]
 
   // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([taxCaseId])
   @@index([taxCaseId, status, deletedAt])
@@ -1434,36 +1454,36 @@ model DocumentView {
 // ============================================
 
 model Lead {
-  id             String       @id @default(cuid())
-  firstName      String
-  lastName       String
-  phone          String
-  email          String?
-  businessName   String?
-  status         LeadStatus   @default(NEW)
-  campaignTag    String?      @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
-  tags           String[]     @default([])
-  notes          String?      @db.Text
+  id           String     @id @default(cuid())
+  firstName    String
+  lastName     String
+  phone        String
+  email        String?
+  businessName String?
+  status       LeadStatus @default(NEW)
+  campaignTag  String?    @map("source") // renamed from source; e.g., "free-tax-meeting-march-2026" from eventSlug
+  tags         String[]   @default([])
+  notes        String?    @db.Text
 
   // Conversion tracking
-  convertedToId  String?
-  convertedTo    Client?      @relation("ConvertedLead", fields: [convertedToId], references: [id], onDelete: SetNull)
-  convertedAt    DateTime?
+  convertedToId String?
+  convertedTo   Client?   @relation("ConvertedLead", fields: [convertedToId], references: [id], onDelete: SetNull)
+  convertedAt   DateTime?
 
   // Organization scope
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Relations
-  smsSendLogs    SmsSendLog[]
-  ndaAgreements  NdaAgreement[]
-  messages       Message[]
+  smsSendLogs   SmsSendLog[]
+  ndaAgreements NdaAgreement[]
+  messages      Message[]
 
   // Staff-side "last read" marker for inbound SMS unread count
   messagesLastReadAt DateTime?
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([phone, organizationId])
   @@index([status])
@@ -1473,21 +1493,21 @@ model Lead {
 }
 
 model SmsSendLog {
-  id             String        @id @default(cuid())
-  message        String        @db.Text
-  status         SmsSendStatus
-  twilioSid      String?
-  error          String?
+  id        String        @id @default(cuid())
+  message   String        @db.Text
+  status    SmsSendStatus
+  twilioSid String?
+  error     String?
 
   // Relations
   leadId         String
-  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
   sentById       String
-  sentBy         Staff         @relation("SentSmsLogs", fields: [sentById], references: [id])
+  sentBy         Staff        @relation("SentSmsLogs", fields: [sentById], references: [id])
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  sentAt         DateTime      @default(now())
+  sentAt DateTime @default(now())
 
   @@index([leadId])
   @@index([organizationId])
@@ -1496,51 +1516,51 @@ model SmsSendLog {
 }
 
 model NdaAgreement {
-  id                  String           @id @default(cuid())
+  id String @id @default(cuid())
 
   // Tenancy
   // leadId is nullable + SetNull so NDAs are preserved (linked to clientId) when a converted Lead is deleted.
-  leadId              String?
-  lead                Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  clientId            String?
-  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  organizationId      String
-  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Template snapshot
-  templateVersion     String
-  customContentHtml   String?          @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
+  templateVersion   String
+  customContentHtml String? @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
 
   // Status
-  status              NdaStatus        @default(DRAFT)
-  depositStatus       NdaDepositStatus @default(PENDING)
-  depositAmount       Decimal          @default(300.00) @db.Decimal(10, 2)
-  depositPaidAt       DateTime?
-  depositResolvedAt   DateTime?
-  depositNote         String?          @db.Text
+  status            NdaStatus        @default(DRAFT)
+  depositStatus     NdaDepositStatus @default(PENDING)
+  depositAmount     Decimal          @default(300.00) @db.Decimal(10, 2)
+  depositPaidAt     DateTime?
+  depositResolvedAt DateTime?
+  depositNote       String?          @db.Text
 
   // Public access token (replaces MagicLink for NDA)
-  token               String           @unique
-  expiresAt           DateTime?
-  isActive            Boolean          @default(true)
-  lastUsedAt          DateTime?
-  usageCount          Int              @default(0)
+  token      String    @unique
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  usageCount Int       @default(0)
 
   // Signing snapshot (PII — never emit to general application logs)
-  signedAt            DateTime?
-  signerName          String?          // PII
-  signerEmail         String?          // PII
-  signerIpAddress     String?          // PII
-  signerUserAgent     String?          @db.Text // PII
-  signaturePngKey     String?
-  signedPdfKey        String?
+  signedAt        DateTime?
+  signerName      String? // PII
+  signerEmail     String? // PII
+  signerIpAddress String? // PII
+  signerUserAgent String?   @db.Text // PII
+  signaturePngKey String?
+  signedPdfKey    String?
 
   // Audit
-  createdByUserId     String
-  createdBy           Staff            @relation("NdaCreatedBy", fields: [createdByUserId], references: [id])
+  createdByUserId String
+  createdBy       Staff  @relation("NdaCreatedBy", fields: [createdByUserId], references: [id])
 
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([leadId])
   @@index([clientId])
@@ -1551,22 +1571,22 @@ model NdaAgreement {
 }
 
 model Campaign {
-  id             String         @id @default(cuid())
-  name           String
-  slug           String
-  tag            String
-  status         CampaignStatus @default(ACTIVE)
-  description    String?        @db.Text
-  formIntroContent String?      @db.Text
+  id               String         @id @default(cuid())
+  name             String
+  slug             String
+  tag              String
+  status           CampaignStatus @default(ACTIVE)
+  description      String?        @db.Text
+  formIntroContent String?        @db.Text
 
   // Relations
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdById    String
-  createdBy      Staff          @relation("CreatedCampaigns", fields: [createdById], references: [id])
+  createdBy      Staff        @relation("CreatedCampaigns", fields: [createdById], references: [id])
 
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([slug, organizationId])
   @@unique([tag, organizationId])
@@ -1578,25 +1598,25 @@ model Campaign {
 // ============================================
 
 model Contractor {
-  id                  String   @id @default(cuid())
-  clientId            String
-  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  firstName           String
-  lastName            String
-  tinType             String   @default("SSN") // "SSN" or "EIN"
-  ssnEncrypted        String   // AES-256-GCM encrypted SSN/EIN
-  ssnLast4            String   // Last 4 digits for masked display
-  address             String
-  city                String
-  state               String
-  zip                 String
-  email               String?
-  phone               String?
+  id           String  @id @default(cuid())
+  clientId     String
+  client       Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  tinType      String  @default("SSN") // "SSN" or "EIN"
+  ssnEncrypted String // AES-256-GCM encrypted SSN/EIN
+  ssnLast4     String // Last 4 digits for masked display
+  address      String
+  city         String
+  state        String
+  zip          String
+  email        String?
+  phone        String?
 
-  forms               Form1099NEC[]
+  forms Form1099NEC[]
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
 }
@@ -1606,17 +1626,17 @@ model Contractor {
 // ============================================
 
 model ContractorIntakeToken {
-  id         String   @id @default(cuid())
-  clientId   String
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  token      String   @unique @default(cuid())
-  taxYear    Int
-  isActive   Boolean  @default(true)
+  token    String  @unique @default(cuid())
+  taxYear  Int
+  isActive Boolean @default(true)
 
-  expiresAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([token])
   @@index([clientId, isActive])
@@ -1637,25 +1657,25 @@ enum Form1099Status {
 }
 
 model Form1099NEC {
-  id                String          @id @default(cuid())
-  contractorId      String
-  contractor        Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  batchId           String?
-  batch             FilingBatch?    @relation(fields: [batchId], references: [id])
-  taxYear           Int
-  amountBox1        Decimal         @db.Decimal(12, 2)
-  amountBox4        Decimal         @default(0) @db.Decimal(12, 2)
-  pdfStorageKey     String?
-  copyBStorageKey   String?
-  copyCStorageKey   String?
-  status            Form1099Status  @default(DRAFT)
+  id                     String         @id @default(cuid())
+  contractorId           String
+  contractor             Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  batchId                String?
+  batch                  FilingBatch?   @relation(fields: [batchId], references: [id])
+  taxYear                Int
+  amountBox1             Decimal        @db.Decimal(12, 2)
+  amountBox4             Decimal        @default(0) @db.Decimal(12, 2)
+  pdfStorageKey          String?
+  copyBStorageKey        String?
+  copyCStorageKey        String?
+  status                 Form1099Status @default(DRAFT)
   taxbanditsRecordId     String?
   taxbanditsSubmissionId String?
-  validationErrors  String[]        @default([])
-  efileSubmittedAt  DateTime?
-  efileStatus       String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  validationErrors       String[]       @default([])
+  efileSubmittedAt       DateTime?
+  efileStatus            String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@unique([contractorId, taxYear])
   @@index([batchId])
@@ -1674,25 +1694,25 @@ enum FilingStatus {
 }
 
 model FilingBatch {
-  id                  String        @id @default(cuid())
-  clientId            String
-  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  taxYear             Int
-  status              FilingStatus  @default(PENDING)
+  id                     String        @id @default(cuid())
+  clientId               String
+  client                 Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear                Int
+  status                 FilingStatus  @default(PENDING)
   taxbanditsSubmissionId String?
-  submittedAt         DateTime?
-  acceptedAt          DateTime?
-  rejectedAt          DateTime?
-  rejectionReason     String?
-  totalForms          Int           @default(0)
-  acceptedForms       Int           @default(0)
-  rejectedForms       Int           @default(0)
-  tinCheckEnabled     Boolean       @default(true)
-  uspsEnabled         Boolean       @default(true)
-  eDeliveryEnabled    Boolean       @default(true)
-  forms               Form1099NEC[]
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  submittedAt            DateTime?
+  acceptedAt             DateTime?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  totalForms             Int           @default(0)
+  acceptedForms          Int           @default(0)
+  rejectedForms          Int           @default(0)
+  tinCheckEnabled        Boolean       @default(true)
+  uspsEnabled            Boolean       @default(true)
+  eDeliveryEnabled       Boolean       @default(true)
+  forms                  Form1099NEC[]
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
   @@index([clientId])
   @@index([status])

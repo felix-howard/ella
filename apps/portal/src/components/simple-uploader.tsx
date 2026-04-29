@@ -17,12 +17,14 @@ const VALID_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'appl
 
 interface SimpleUploaderProps {
   token: string
+  targetCaseId?: string
   onUploadComplete: (result: UploadResponse) => void
   onError: (message: string) => void
 }
 
 export function SimpleUploader({
   token,
+  targetCaseId,
   onUploadComplete,
   onError,
 }: SimpleUploaderProps) {
@@ -76,8 +78,11 @@ export function SimpleUploader({
       setProgress(0)
 
       try {
-        const result = await portalApi.uploadWithProgress(token, validFiles, (p) =>
-          setProgress(p * 100)
+        const result = await portalApi.uploadWithProgress(
+          token,
+          validFiles,
+          (p) => setProgress(p * 100),
+          targetCaseId
         )
 
         // Show success toast
@@ -92,7 +97,7 @@ export function SimpleUploader({
         setProgress(0)
       }
     },
-    [token, onUploadComplete, onError, t]
+    [token, targetCaseId, onUploadComplete, onError, t]
   )
 
   return (

@@ -6,114 +6,180 @@ import { Hono } from 'hono'
 import { prisma } from '../../lib/db'
 import { validateMagicLink } from '../../services/magic-link'
 import { validateUploadedFiles } from '../../lib/validation'
-import { DOC_TYPE_LABELS_VI, CHECKLIST_STATUS_LABELS_VI } from '../../lib/constants'
 import { isGeminiConfigured } from '../../services/ai'
-import { uploadFile, generateFileKey } from '../../services/storage'
+import { uploadFile, deleteFile, generateFileKey } from '../../services/storage'
 import { inngest } from '../../lib/inngest'
 import { updateLastActivity } from '../../services/activity-tracker'
+import {
+  PORTAL_ERROR_MESSAGES,
+  assertCaseInScope,
+  buildCaseChecklistPayload,
+} from './helpers'
 
 const portalRoute = new Hono()
 
 // GET /portal/:token - Get portal data via magic link
 portalRoute.get('/:token', async (c) => {
   const token = c.req.param('token')
-
   const result = await validateMagicLink(token)
 
   if (!result.valid || !result.data) {
-    const messages = {
-      INVALID_TOKEN: 'Link không hợp lệ. Vui lòng liên hệ văn phòng thuế.',
-      EXPIRED_TOKEN: 'Link đã hết hạn. Vui lòng liên hệ văn phòng thuế.',
-    }
+    const errorCode = result.error || 'INVALID_TOKEN'
     return c.json(
       {
-        error: result.error || 'INVALID_TOKEN',
-        message: messages[(result.error || 'INVALID_TOKEN') as keyof typeof messages],
+        error: errorCode,
+        message: PORTAL_ERROR_MESSAGES[errorCode] || PORTAL_ERROR_MESSAGES.INVALID_TOKEN,
       },
       401
     )
   }
 
-  const { taxCase } = result.data
-  const { client, checklistItems, rawImages } = taxCase
+  const { scope, entities, taxCase, clientGroup, clientGroupId } = result.data
 
-  // Group checklist items by status
-  const received = checklistItems
-    .filter((item) => item.status === 'VERIFIED' || item.status === 'HAS_DIGITAL')
-    .map((item) => ({
-      id: item.id,
-      docType: item.template.docType,
-      labelVi: DOC_TYPE_LABELS_VI[item.template.docType] || item.template.labelVi,
-      status: CHECKLIST_STATUS_LABELS_VI[item.status],
-    }))
+  // Per-entity uploads short-circuit: GET /portal/:token?caseId=xxx
+  // Returns { uploads: [...] } for that case (after scope check). Used by
+  // EntityUploadPage to render the "uploaded files" list without bloating
+  // the landing payload.
+  const queryCaseId = c.req.query('caseId')
+  if (queryCaseId) {
+    // Validate scope: case must belong to the same group/org as the link
+    if (scope === 'CASE') {
+      // CASE-scope link only authorizes its own case
+      if (!taxCase || taxCase.id !== queryCaseId) {
+        return c.json(
+          { error: 'INVALID_TARGET_CASE', message: 'Loại tài liệu không hợp lệ' },
+          403
+        )
+      }
+    } else {
+      const scopeCheck = await assertCaseInScope(queryCaseId, {
+        scope,
+        clientGroupId,
+        clientGroup: clientGroup ? { organizationId: clientGroup.organizationId } : null,
+      })
+      if (!scopeCheck.ok) {
+        return c.json({ error: scopeCheck.code, message: scopeCheck.message }, scopeCheck.status)
+      }
+    }
 
-  const blurry = rawImages
-    .filter((img) => img.status === 'BLURRY')
-    .map((img) => ({
-      id: img.id,
-      docType: img.classifiedType,
-      labelVi: img.classifiedType
-        ? DOC_TYPE_LABELS_VI[img.classifiedType] || img.classifiedType
-        : 'Ảnh không rõ',
-      reason: 'Ảnh bị mờ, vui lòng gửi lại',
-    }))
+    const uploads = await prisma.rawImage.findMany({
+      where: { caseId: queryCaseId },
+      select: {
+        id: true,
+        filename: true,
+        displayName: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-  const missing = checklistItems
-    .filter((item) => item.status === 'MISSING')
-    .map((item) => ({
-      id: item.id,
-      docType: item.template.docType,
-      labelVi: DOC_TYPE_LABELS_VI[item.template.docType] || item.template.labelVi,
-    }))
-
-  // Calculate stats
-  const stats = {
-    uploaded: rawImages.length,
-    verified: checklistItems.filter((item) => item.status === 'VERIFIED').length,
-    missing: missing.length,
+    return c.json({
+      uploads: uploads.map((u) => ({
+        ...u,
+        createdAt: u.createdAt.toISOString(),
+      })),
+    })
   }
 
-  return c.json({
+  // Resolve client display info from anchor case (CASE) or first entity (GROUP)
+  const displayName =
+    taxCase?.client.name ||
+    clientGroup?.name ||
+    entities[0]?.name ||
+    'Khách hàng'
+  const displayLanguage = taxCase?.client.language || 'VI'
+  const displayTaxYear = taxCase?.taxYear ?? entities[0]?.taxYear
+
+  const basePayload = {
+    scope,
     client: {
-      name: client.name,
-      language: client.language,
+      name: displayName,
+      language: displayLanguage,
     },
-    taxCase: {
-      id: taxCase.id,
-      taxYear: taxCase.taxYear,
-      status: taxCase.status,
-    },
-    checklist: {
-      received,
-      blurry,
-      missing,
-    },
-    stats,
+    entities,
+  }
+
+  if (scope === 'GROUP') {
+    // Multi-entity payload — checklist/stats are per-entity (in entities[])
+    return c.json({
+      ...basePayload,
+      taxYear: displayTaxYear,
+      clientGroup: clientGroup
+        ? { id: clientGroup.id, name: clientGroup.name }
+        : null,
+    })
+  }
+
+  // scope === 'CASE' — keep legacy single-entity shape (back-compat)
+  const checklistPayload = buildCaseChecklistPayload(result.data)
+  return c.json({
+    ...basePayload,
+    taxCase: taxCase
+      ? {
+          id: taxCase.id,
+          taxYear: taxCase.taxYear,
+          status: taxCase.status,
+        }
+      : null,
+    ...(checklistPayload || {}),
   })
 })
 
 // POST /portal/:token/upload - Upload documents via portal
 portalRoute.post('/:token/upload', async (c) => {
   const token = c.req.param('token')
-
-  // Validate magic link
   const result = await validateMagicLink(token)
 
   if (!result.valid || !result.data) {
     return c.json(
-      {
-        error: 'INVALID_TOKEN',
-        message: 'Link không hợp lệ hoặc đã hết hạn',
-      },
+      { error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' },
       401
     )
   }
 
-  const caseId = result.data.taxCase.id
+  const { scope, clientGroupId, taxCase, clientGroup } = result.data
 
   // Parse multipart form data
   const formData = await c.req.formData()
   const files = formData.getAll('files') as File[]
+  const targetCaseIdRaw = formData.get('targetCaseId')
+  const targetCaseId =
+    typeof targetCaseIdRaw === 'string' && targetCaseIdRaw.trim()
+      ? targetCaseIdRaw.trim()
+      : null
+
+  // GROUP-scoped tokens require an explicit targetCaseId
+  if (scope === 'GROUP' && !targetCaseId) {
+    return c.json(
+      {
+        error: 'TARGET_CASE_REQUIRED',
+        message: 'Vui lòng chọn loại tài liệu trước khi tải lên',
+      },
+      400
+    )
+  }
+
+  // If a targetCaseId was supplied, validate same group + org
+  if (targetCaseId) {
+    const scopeCheck = await assertCaseInScope(targetCaseId, {
+      scope,
+      clientGroupId,
+      clientGroup: clientGroup ? { organizationId: clientGroup.organizationId } : null,
+    })
+    if (!scopeCheck.ok) {
+      return c.json({ error: scopeCheck.code, message: scopeCheck.message }, scopeCheck.status)
+    }
+  }
+
+  // For scope=CASE without targetCaseId, fall back to the link's own caseId
+  const effectiveCaseId = targetCaseId || taxCase?.id
+  if (!effectiveCaseId) {
+    return c.json(
+      { error: 'TARGET_CASE_REQUIRED', message: 'Không xác định được hồ sơ thuế' },
+      400
+    )
+  }
 
   // Validate uploaded files (type, size, count)
   const validation = validateUploadedFiles(files)
@@ -122,7 +188,8 @@ portalRoute.post('/:token/upload', async (c) => {
       NO_FILES: 'Vui lòng chọn ít nhất một file',
       TOO_MANY_FILES: 'Quá nhiều file. Tối đa 50 file mỗi lần tải lên',
       FILE_TOO_LARGE: 'File quá lớn. Tối đa 10MB mỗi file',
-      INVALID_TYPE: 'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
+      INVALID_TYPE:
+        'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
     }
     return c.json(
       {
@@ -133,30 +200,40 @@ portalRoute.post('/:token/upload', async (c) => {
     )
   }
 
+  // Owner explicitly picked entity → skip AI entity routing downstream
+  const uploadSource = targetCaseId ? 'PORTAL_EXPLICIT' : 'PORTAL_AI'
+
   // Process each file: upload to R2 + trigger background classification
   const createdImages: { id: string; filename: string; status: string; createdAt: string }[] = []
-  const inngestEvents: { name: 'document/uploaded'; data: { rawImageId: string; caseId: string; r2Key: string; mimeType: string; uploadedAt: string } }[] = []
+  const inngestEvents: {
+    name: 'document/uploaded'
+    data: {
+      rawImageId: string
+      caseId: string
+      r2Key: string
+      mimeType: string
+      uploadedAt: string
+    }
+  }[] = []
 
   for (const file of files) {
-    // Read file buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const mimeType = file.type || 'image/jpeg'
 
-    // Generate R2 key and upload
-    const r2Key = generateFileKey(caseId, file.name, 'raw')
+    const r2Key = generateFileKey(effectiveCaseId, file.name, 'raw')
     await uploadFile(r2Key, buffer, mimeType)
 
-    // Create raw image record
     const rawImage = await prisma.rawImage.create({
       data: {
-        caseId,
+        caseId: effectiveCaseId,
         r2Key,
         filename: file.name,
         mimeType,
         fileSize: file.size,
         status: 'UPLOADED',
         uploadedVia: 'PORTAL',
+        uploadSource,
       },
     })
 
@@ -167,13 +244,12 @@ portalRoute.post('/:token/upload', async (c) => {
       createdAt: rawImage.createdAt.toISOString(),
     })
 
-    // Queue background classification job if AI configured
     if (isGeminiConfigured) {
       inngestEvents.push({
         name: 'document/uploaded' as const,
         data: {
           rawImageId: rawImage.id,
-          caseId,
+          caseId: effectiveCaseId,
           r2Key,
           mimeType,
           uploadedAt: new Date().toISOString(),
@@ -190,7 +266,7 @@ portalRoute.post('/:token/upload', async (c) => {
       prisma.action
         .create({
           data: {
-            caseId,
+            caseId: effectiveCaseId,
             type: 'VERIFY_DOCS',
             priority: 'NORMAL',
             title: 'Tài liệu cần phân loại',
@@ -202,16 +278,14 @@ portalRoute.post('/:token/upload', async (c) => {
     })
   }
 
-  // Update case activity timestamp (client uploaded documents)
   if (createdImages.length > 0) {
-    await updateLastActivity(caseId)
+    await updateLastActivity(effectiveCaseId)
   }
 
-  // Create manual review action only if AI is not configured
   if (createdImages.length > 0 && !isGeminiConfigured) {
     await prisma.action.create({
       data: {
-        caseId,
+        caseId: effectiveCaseId,
         type: 'VERIFY_DOCS',
         priority: 'HIGH',
         title: 'Tài liệu mới từ khách hàng',
@@ -229,6 +303,75 @@ portalRoute.post('/:token/upload', async (c) => {
       ? `Đã nhận ${createdImages.length} file. Đang xử lý tự động...`
       : `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
   })
+})
+
+// DELETE /portal/:token/uploads/:rawImageId - Client self-delete (only before LINKED)
+portalRoute.delete('/:token/uploads/:rawImageId', async (c) => {
+  const token = c.req.param('token')
+  const rawImageId = c.req.param('rawImageId')
+
+  const result = await validateMagicLink(token)
+  if (!result.valid || !result.data) {
+    return c.json(
+      { error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' },
+      401
+    )
+  }
+
+  const { scope, clientGroupId, taxCase } = result.data
+
+  const rawImage = await prisma.rawImage.findUnique({
+    where: { id: rawImageId },
+    select: {
+      id: true,
+      status: true,
+      r2Key: true,
+      caseId: true,
+      taxCase: {
+        select: {
+          client: { select: { clientGroupId: true } },
+        },
+      },
+    },
+  })
+
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Không tìm thấy tài liệu' }, 404)
+  }
+
+  // Scope check: image must belong to the case (CASE) or any case in the group (GROUP)
+  if (scope === 'CASE') {
+    if (!taxCase || rawImage.caseId !== taxCase.id) {
+      return c.json({ error: 'FORBIDDEN', message: 'Không có quyền xóa tài liệu này' }, 403)
+    }
+  } else {
+    if (
+      !clientGroupId ||
+      rawImage.taxCase.client.clientGroupId !== clientGroupId
+    ) {
+      return c.json({ error: 'FORBIDDEN', message: 'Không có quyền xóa tài liệu này' }, 403)
+    }
+  }
+
+  if (rawImage.status === 'LINKED') {
+    return c.json(
+      {
+        error: 'LINKED_DOC',
+        message: 'Vui lòng liên hệ kế toán để xóa tài liệu đã liên kết',
+      },
+      403
+    )
+  }
+
+  // Best-effort R2 delete; orphan blob is acceptable, DB row must be removed
+  await deleteFile(rawImage.r2Key).catch((err) => {
+    console.error('[Portal] R2 delete failed (continuing):', err)
+  })
+
+  await prisma.rawImage.delete({ where: { id: rawImage.id } })
+  await updateLastActivity(rawImage.caseId)
+
+  return c.json({ deleted: true, id: rawImage.id })
 })
 
 export { portalRoute }

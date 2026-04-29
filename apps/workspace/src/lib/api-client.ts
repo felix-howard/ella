@@ -340,10 +340,69 @@ export const api = {
         method: 'DELETE',
       }),
 
-    // Read-only NDA listing for client overview tab (org-scoped)
+    // Client NDA — listing is org-scoped (any staff with client access);
+    // mutations require org-admin. Mirrors `api.leads.nda` shape so the
+    // shared frontend components can target either entity.
     nda: {
       list: (clientId: string) =>
         request<{ success: boolean; data: NdaAgreement[] }>(`/clients/${clientId}/nda`),
+
+      create: (clientId: string, body: { contentHtml?: string } = {}) =>
+        request<{ success: boolean; data: NdaAgreement; url: string }>(
+          `/clients/${clientId}/nda`,
+          { method: 'POST', body: JSON.stringify(body) },
+        ),
+
+      resend: (clientId: string, ndaId: string) =>
+        request<{ success: boolean; data: NdaAgreement; url: string; rotated: boolean }>(
+          `/clients/${clientId}/nda/${ndaId}/resend`,
+          { method: 'POST' },
+        ),
+
+      updateDeposit: (
+        clientId: string,
+        ndaId: string,
+        data: { depositStatus: NdaDepositStatus; depositNote?: string | null; depositPaidAt?: string | null },
+      ) =>
+        request<{ success: boolean; data: NdaAgreement }>(
+          `/clients/${clientId}/nda/${ndaId}/deposit`,
+          { method: 'PATCH', body: JSON.stringify(data) },
+        ),
+
+      getPdfUrl: (clientId: string, ndaId: string) =>
+        request<{ success: boolean; url: string }>(`/clients/${clientId}/nda/${ndaId}/pdf`),
+
+      getDefaultHtml: (clientId: string) =>
+        request<{ success: boolean; data: { contentHtml: string } }>(
+          `/clients/${clientId}/nda/default-html`,
+        ),
+
+      // Streams `application/pdf` bytes — frontend renders inside an iframe via
+      // a blob URL. Mirrors `api.leads.nda.previewPdf` exactly.
+      previewPdf: async (clientId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        const tokenGetter = getAuthToken
+        if (tokenGetter) {
+          const token = await tokenGetter()
+          if (token) headers.Authorization = `Bearer ${token}`
+        }
+        const response = await fetch(`${API_BASE_URL}/clients/${clientId}/nda/preview-pdf`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (!response.ok) {
+          let message = `Preview failed (${response.status})`
+          try {
+            const data = (await response.json()) as { error?: string; message?: string }
+            if (data?.message || data?.error) message = data.message || data.error || message
+          } catch {
+            // Body wasn't JSON — keep generic message
+          }
+          throw new ApiError(response.status, 'PREVIEW_FAILED', message)
+        }
+        return response.blob()
+      },
     },
 
   },
@@ -712,6 +771,13 @@ export const api = {
       request<{ success: boolean; id: string; caseId: string; routedFromCaseId: string | null }>(`/images/${imageId}/reassign-entity`, {
         method: 'PATCH',
         body: JSON.stringify({ targetClientId }),
+      }),
+
+    // Move document to a specific TaxCase in the same ClientGroup (CPA cleanup tool)
+    moveToCase: (imageId: string, targetCaseId: string) =>
+      request<{ moved: boolean; rawImageId?: string; fromCaseId?: string; toCaseId?: string; reason?: string }>(`/images/${imageId}/move-to-case`, {
+        method: 'POST',
+        body: JSON.stringify({ targetCaseId }),
       }),
   },
 

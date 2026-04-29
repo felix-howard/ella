@@ -141,21 +141,63 @@ export interface PortalStats {
   missing: number
 }
 
+// Per-entity descriptor returned by GET /portal/:token (single-entry array for scope=CASE)
+export interface PortalEntity {
+  caseId: string
+  clientId: string
+  name: string
+  entityType: 'individual' | 'business'
+  businessType?: string | null
+  uploadCount: number
+  hasChecklist: boolean
+  missingCount?: number
+  taxYear: number
+}
+
+export interface PortalClientGroup {
+  id: string
+  name: string
+}
+
 export interface PortalData {
+  scope: 'CASE' | 'GROUP'
   client: PortalClient
-  taxCase: PortalTaxCase
-  checklist: {
+  entities: PortalEntity[]
+  // Legacy CASE-scope fields (back-compat with single-entity portals)
+  taxCase?: PortalTaxCase | null
+  checklist?: {
     received: ChecklistDoc[]
     blurry: ChecklistDoc[]
     missing: ChecklistDoc[]
   }
-  stats: PortalStats
+  stats?: PortalStats
+  // GROUP-scope fields
+  taxYear?: number
+  clientGroup?: PortalClientGroup | null
 }
 
 export interface UploadedImage {
   id: string
   filename: string
   status: string
+  createdAt: string
+}
+
+// Per-entity uploaded file row returned by GET /portal/:token?caseId=
+export type UploadedFileStatus =
+  | 'UPLOADED'
+  | 'PROCESSING'
+  | 'CLASSIFIED'
+  | 'LINKED'
+  | 'BLURRY'
+  | 'UNCLASSIFIED'
+  | 'DUPLICATE'
+
+export interface UploadedFile {
+  id: string
+  filename: string
+  displayName: string | null
+  status: UploadedFileStatus
   createdAt: string
 }
 
@@ -174,11 +216,13 @@ export const portalApi = {
   uploadWithProgress: async (
     token: string,
     files: File[],
-    onProgress: (progress: number) => void
+    onProgress: (progress: number) => void,
+    targetCaseId?: string
   ): Promise<UploadResponse> => {
     return new Promise((resolve, reject) => {
       const formData = new FormData()
       files.forEach((file) => formData.append('files', file))
+      if (targetCaseId) formData.append('targetCaseId', targetCaseId)
 
       const xhr = new XMLHttpRequest()
 
@@ -237,9 +281,14 @@ export const portalApi = {
   },
 
   // Upload files via magic link (legacy - no progress)
-  upload: async (token: string, files: File[]): Promise<UploadResponse> => {
+  upload: async (
+    token: string,
+    files: File[],
+    targetCaseId?: string
+  ): Promise<UploadResponse> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
+    if (targetCaseId) formData.append('targetCaseId', targetCaseId)
 
     const response = await fetch(`${API_BASE_URL}/portal/${token}/upload`, {
       method: 'POST',
@@ -269,6 +318,20 @@ export const portalApi = {
 
     return data as UploadResponse
   },
+
+  // Get uploaded files for one entity (per-case list) via short-circuit query
+  getEntityUploads: (token: string, caseId: string) =>
+    request<{ uploads: UploadedFile[] }>(
+      `/portal/${token}?caseId=${encodeURIComponent(caseId)}`
+    ),
+
+  // Self-service delete an uploaded file (only when status !== LINKED)
+  // 403 LINKED_DOC means CPA has linked the doc; client cannot remove it.
+  deleteFile: (token: string, rawImageId: string) =>
+    request<{ deleted: true; id: string }>(
+      `/portal/${token}/uploads/${encodeURIComponent(rawImageId)}`,
+      { method: 'DELETE' }
+    ),
 
   // Get draft return data for portal viewing
   getDraft: (token: string) => request<DraftReturnData>(`/portal/draft/${token}`),

@@ -1,0 +1,93 @@
+---
+/**
+ * Calculator form — Section A (Business basics).
+ * 1099 count + W-2 payroll employees + payroll-mode radio cards.
+ * Inputs expose `data-calc-input` keys matching `CalcInput` (phase 01).
+ */
+import { PAYROLL } from "@/config/pricing";
+import {
+  headingCls,
+  hintCls,
+  inputCls,
+  labelCls,
+  sectionCls,
+} from "./calculator-form-styles";
+---
+
+<section class={sectionCls} aria-labelledby="calc-section-business">
+  <h3 id="calc-section-business" class={headingCls}>Your business</h3>
+
+  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+    <div>
+      <label for="calc-nec1099" class={labelCls}>How many 1099 NEC?</label>
+      <input
+        id="calc-nec1099"
+        type="text"
+        name="nec1099Count"
+        inputmode="numeric"
+        pattern="\d*"
+        maxlength="3"
+        placeholder="e.g. 8"
+        aria-describedby="calc-nec1099-hint"
+        data-calc-input="nec1099Count"
+        class={inputCls}
+      />
+      <p id="calc-nec1099-hint" class={hintCls}>
+        Drives your tier (≤10 Basic · 11-20 Pro · 21+ VIP).
+      </p>
+    </div>
+    <div>
+      <label for="calc-payroll-emp" class={labelCls}>W-2 payroll employees</label>
+      <input
+        id="calc-payroll-emp"
+        type="text"
+        name="payrollEmployees"
+        inputmode="numeric"
+        pattern="\d*"
+        maxlength="3"
+        placeholder="0"
+        aria-describedby="calc-payroll-emp-hint"
+        data-calc-input="payrollEmployees"
+        class={inputCls}
+      />
+      <p id="calc-payroll-emp-hint" class={hintCls}>Leave at 0 if you don't run payroll yet.</p>
+    </div>
+  </div>
+
+  <p class={`${labelCls} mt-5`}>Who runs payroll?</p>
+  <div class="grid gap-3 sm:grid-cols-2">
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-300 bg-white p-3 transition hover:border-primary-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50">
+      <input
+        type="radio"
+        name="payrollMode"
+        value="owner-manual"
+        checked
+        aria-describedby="calc-payroll-owner-hint"
+        data-calc-input="payrollMode"
+        class="mt-1"
+      />
+      <span class="text-sm">
+        <span class="block font-medium text-gray-900">Owner runs payroll</span>
+        <span id="calc-payroll-owner-hint" class="block text-xs text-gray-500">
+          ${PAYROLL.ownerManualPerEmp}/employee · manual
+        </span>
+      </span>
+    </label>
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-300 bg-white p-3 transition hover:border-primary-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-50">
+      <input
+        type="radio"
+        name="payrollMode"
+        value="ella-staff"
+        aria-describedby="calc-payroll-ella-hint"
+        data-calc-input="payrollMode"
+        class="mt-1"
+      />
+      <span class="text-sm">
+        <span class="block font-medium text-gray-900">Ella staff runs payroll</span>
+        <span id="calc-payroll-ella-hint" class="block text-xs text-gray-500">
+          ${PAYROLL.ellaStaffPerEmp}/employee · full-service
+        </span>
+      </span>
+    </label>
+  </div>
+</section>

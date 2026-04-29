@@ -5,7 +5,7 @@
  */
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Link2, Search } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, Plus, Upload, Trash2, Search, ExternalLink, Copy } from 'lucide-react'
 import { Button, Modal, ModalHeader, ModalTitle, ModalFooter, cn } from '@ella/ui'
 import { api, type Contractor, type CreateContractorInput, type UpdateContractorInput, type ParseResult, type ParsedContractor } from '../../../../lib/api-client'
 import { toast } from '../../../../stores/toast-store'
@@ -30,12 +30,11 @@ const STATUS_ORDER = ['DRAFT', 'IMPORTED', 'PDF_READY', 'SUBMITTED', 'ACCEPTED',
 const PAGE_SIZE = 10
 
 interface Form1099NECTabProps {
-  businessId: string
   clientId: string
   clientName: string
 }
 
-export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NECTabProps) {
+export function Form1099NECTab({ clientId, clientName }: Form1099NECTabProps) {
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null)
@@ -43,6 +42,7 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isShareLoading, setIsShareLoading] = useState(false)
+  const [intakeFormUrl, setIntakeFormUrl] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -50,27 +50,25 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['contractors', businessId],
-    queryFn: () => api.contractors.list(businessId),
+    queryKey: ['contractors', clientId],
+    queryFn: () => api.contractors.list(clientId),
   })
 
-  // Invalidate businesses list to update contractorCount on cards
-  const invalidateBusinesses = () => queryClient.invalidateQueries({ queryKey: ['businesses'] })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateContractorInput) => api.contractors.create(businessId, data),
+    mutationFn: (data: CreateContractorInput) => api.contractors.create(clientId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
-      invalidateBusinesses()
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+
       setIsFormOpen(false)
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateContractorInput }) =>
-      api.contractors.update(businessId, id, data),
+      api.contractors.update(clientId, id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
       setEditingContractor(null)
       setIsFormOpen(false)
     },
@@ -79,10 +77,10 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.contractors.delete(businessId, id),
+    mutationFn: (id: string) => api.contractors.delete(clientId, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
-      invalidateBusinesses()
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+
       setDeletingId(null)
     },
     onError: () => {
@@ -93,11 +91,11 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
   const [showDeleteAll, setShowDeleteAll] = useState(false)
 
   const deleteAllMutation = useMutation({
-    mutationFn: () => api.contractors.deleteAll(businessId),
+    mutationFn: () => api.contractors.deleteAll(clientId),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
-      queryClient.invalidateQueries({ queryKey: ['form-1099-status', businessId] })
-      invalidateBusinesses()
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['form-1099-status', clientId] })
+
       toast.success(`Deleted ${data.count} contractors`)
       setShowDeleteAll(false)
     },
@@ -109,7 +107,7 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
 
   const bulkSaveMutation = useMutation({
     mutationFn: (contractors: ParsedContractor[]) =>
-      api.contractors.bulkSave(businessId, {
+      api.contractors.bulkSave(clientId, {
         contractors: contractors.map((c) => ({
           firstName: c.firstName,
           lastName: c.lastName,
@@ -124,8 +122,8 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
         taxYear: contractors[0]?.taxYear ?? new Date().getFullYear(),
       }),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['contractors', businessId] })
-      invalidateBusinesses()
+      queryClient.invalidateQueries({ queryKey: ['contractors', clientId] })
+
       setParseResult(null)
       toast.success(`${data.count} contractors saved`)
     },
@@ -145,7 +143,7 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
     const formData = new FormData()
     formData.append('file', file)
     try {
-      const result = await api.contractors.uploadExcel(businessId, formData)
+      const result = await api.contractors.uploadExcel(clientId, formData)
       if (result.data.errors.length > 0) { toast.error(result.data.errors.join('. ')); return }
       if (result.data.contractors.length === 0) { toast.error('No contractors found in file. Check the Excel format.'); return }
       setParseResult(result.data)
@@ -156,25 +154,33 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
     }
   }
 
-  const handleShareIntakeLink = async () => {
-    setIsShareLoading(true)
-    try {
-      // Check for existing active token
-      let tokenData = await api.businesses.intakeToken.get(clientId, businessId)
-
-      // If no active token, create one
-      if (!tokenData.data) {
-        tokenData = await api.businesses.intakeToken.create(clientId, businessId)
+  // Fetch intake form URL on mount
+  useEffect(() => {
+    let cancelled = false
+    const fetchIntakeUrl = async () => {
+      setIsShareLoading(true)
+      try {
+        let tokenData = await api.contractors.intakeToken.get(clientId)
+        if (!tokenData.data) {
+          tokenData = await api.contractors.intakeToken.create(clientId)
+        }
+        if (!cancelled) {
+          setIntakeFormUrl(PORTAL_BASE_URL + '/contractor-intake/' + tokenData.data!.token)
+        }
+      } catch {
+        // Silently fail - link just won't show
+      } finally {
+        if (!cancelled) setIsShareLoading(false)
       }
-
-      const portalUrl = PORTAL_BASE_URL + '/contractor-intake/' + tokenData.data!.token
-      await navigator.clipboard.writeText(portalUrl)
-      toast.success('Intake form link copied to clipboard')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate intake link')
-    } finally {
-      setIsShareLoading(false)
     }
+    fetchIntakeUrl()
+    return () => { cancelled = true }
+  }, [clientId])
+
+  const handleCopyIntakeLink = async () => {
+    if (!intakeFormUrl) return
+    await navigator.clipboard.writeText(intakeFormUrl)
+    toast.success('Intake form link copied to clipboard')
   }
 
   const contractors = data?.data ?? []
@@ -306,16 +312,28 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
                 Delete All
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareIntakeLink}
-              disabled={isShareLoading}
-              className="gap-1.5"
-            >
-              {isShareLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-              Intake Form
-            </Button>
+            {isShareLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : intakeFormUrl ? (
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={intakeFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open Link
+                </a>
+                <button
+                  onClick={handleCopyIntakeLink}
+                  className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
@@ -401,7 +419,7 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
         ) : paginatedContractors.length > 0 ? (
           <ContractorTable
             contractors={paginatedContractors}
-            businessId={businessId}
+            clientId={clientId}
             onEdit={handleEdit}
             onDelete={(id) => {
               setDeletingId(id)
@@ -452,14 +470,14 @@ export function Form1099NECTab({ businessId, clientId, clientName }: Form1099NEC
         {/* Sticky Workflow Bar */}
         {contractors.length > 0 && (
           <div className="sticky bottom-0 mt-4 -mx-4 -mb-4">
-            <FormActionsPanel businessId={businessId} />
+            <FormActionsPanel clientId={clientId} />
           </div>
         )}
       </div>
 
       {/* Filing History */}
       {contractors.length > 0 && (
-        <FilingStatusPanel businessId={businessId} />
+        <FilingStatusPanel clientId={clientId} />
       )}
 
       {/* Add/Edit Contractor Modal */}

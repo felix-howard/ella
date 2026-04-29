@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
 import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory } from '../../lib/api-client'
+import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory, type EntityInfo } from '../../lib/api-client'
 import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
@@ -19,6 +19,7 @@ import { EmptyCategoryDropZone } from './empty-category-drop-zone'
 import { SimpleImageViewerModal } from './simple-image-viewer-modal'
 import { ManualClassificationModal, VerificationModal } from '../documents'
 import { useMarkDocumentViewed } from '../../hooks'
+import { EntityFilterBar } from './entity-filter-bar'
 
 export interface FilesTabProps {
   caseId: string
@@ -28,6 +29,10 @@ export interface FilesTabProps {
   docs?: DigitalDoc[]
   /** Loading state from parent */
   isLoading?: boolean
+  /** For unified view: group ID to fetch all entity images */
+  clientGroupId?: string | null
+  /** Tax year for group images query */
+  taxYear?: number
 }
 
 /** Navigation item for file viewer modals */
@@ -41,7 +46,7 @@ export interface FileNavItem {
  * Files Tab - Document explorer view showing all uploaded files
  * Grouped by DB category field, unclassified at top
  */
-export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoading: parentLoading }: FilesTabProps) {
+export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoading: parentLoading, clientGroupId, taxYear }: FilesTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -56,11 +61,55 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const isDownloadingRef = useRef(false) // Prevent multiple concurrent downloads
   const markViewed = useMarkDocumentViewed()
 
+  // Unified mode: filter by entity
+  const isUnifiedMode = !!clientGroupId
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
+  const [hasSetDefaultEntity, setHasSetDefaultEntity] = useState(false)
+
+  // Fetch group images for unified mode
+  const { data: groupImagesData, isPending: groupImagesLoading } = useQuery({
+    queryKey: ['group-images', clientGroupId, taxYear],
+    queryFn: () => api.clientGroups.getGroupImages(clientGroupId!, taxYear),
+    enabled: isUnifiedMode,
+  })
+
+  // Entity metadata for filter bar (only in unified mode)
+  const entities = useMemo<EntityInfo[]>(
+    () => groupImagesData?.entities ?? [],
+    [groupImagesData?.entities]
+  )
+
+  // Set default selected entity to the individual client (first load only)
+  useEffect(() => {
+    if (!hasSetDefaultEntity && entities.length > 0) {
+      const individualEntity = entities.find(e => e.type === 'INDIVIDUAL')
+      if (individualEntity) {
+        setSelectedEntityId(individualEntity.clientId)
+      }
+      setHasSetDefaultEntity(true)
+    }
+  }, [entities, hasSetDefaultEntity])
+
+  // Build entity lookup map for entity badges: imageId -> { entityClientId, entityName, entityIndex }
+  const entityMap = useMemo(() => {
+    if (!groupImagesData?.images) return new Map<string, { entityClientId: string; entityName: string; entityIndex: number }>()
+    const map = new Map<string, { entityClientId: string; entityName: string; entityIndex: number }>()
+    const entityOrder = groupImagesData.entities.map(e => e.clientId)
+    for (const img of groupImagesData.images) {
+      map.set(img.id, {
+        entityClientId: img.entityClientId,
+        entityName: img.entityName,
+        entityIndex: entityOrder.indexOf(img.entityClientId),
+      })
+    }
+    return map
+  }, [groupImagesData])
+
   // Fetch images only if not provided by parent (backward compatibility)
   const { data: imagesData, isPending: imagesLoading } = useQuery({
     queryKey: ['images', caseId],
     queryFn: () => api.cases.getImages(caseId),
-    enabled: !parentImages, // Skip fetch if parent provides data
+    enabled: !parentImages && !isUnifiedMode, // Skip fetch if parent provides data or unified mode
   })
 
   // Mutation for changing file category (drag and drop - single file)
@@ -148,14 +197,23 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const docs = parentDocs ?? docsData?.docs ?? []
 
-  // Memoize images array - prefer parent data over fetched
-  const images = useMemo(
-    () => parentImages ?? imagesData?.images ?? [],
-    [parentImages, imagesData?.images]
-  )
+  // Memoize images array - unified mode > parent data > fetched
+  const allImages = useMemo(() => {
+    if (isUnifiedMode && groupImagesData?.images) return groupImagesData.images
+    return parentImages ?? imagesData?.images ?? []
+  }, [isUnifiedMode, groupImagesData?.images, parentImages, imagesData?.images])
+
+  // Apply entity filter in unified mode
+  const images = useMemo(() => {
+    if (!isUnifiedMode || !selectedEntityId) return allImages
+    return allImages.filter((img) => {
+      const entity = entityMap.get(img.id)
+      return entity?.entityClientId === selectedEntityId
+    })
+  }, [allImages, isUnifiedMode, selectedEntityId, entityMap])
 
   // Loading state - only show skeleton if parent says loading OR we're fetching without parent data
-  const showLoading = parentLoading || (!parentImages && imagesLoading)
+  const showLoading = parentLoading || (!parentImages && !isUnifiedMode && imagesLoading) || (isUnifiedMode && groupImagesLoading)
 
   // Group images by DB category field (not computed from docType)
   // "Chờ phân loại" only shows docs still being processed (UPLOADED/PROCESSING)
@@ -189,6 +247,15 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return { processing, categorized: byCategory }
   }, [images])
 
+  // Build O(1) lookup map: rawImageId → DigitalDoc (avoid O(n²) docs.find per row)
+  const docsMap = useMemo(() => {
+    const map = new Map<string, DigitalDoc>()
+    for (const d of docs) {
+      if (d.rawImageId) map.set(d.rawImageId, d)
+    }
+    return map
+  }, [docs])
+
   // Build flat navigation list for prev/next navigation in modals
   // Order: by category (CATEGORY_ORDER), then by grouped order (groups first, pages sorted)
   // This matches the visual display order in FileCategorySection
@@ -204,19 +271,17 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       // Groups first (each group's pages in order)
       for (const group of groups) {
         for (const img of group.images) {
-          const doc = docs.find((d) => d.rawImageId === img.id)
-          items.push({ imageId: img.id, doc, image: img })
+          items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
         }
       }
 
       // Then ungrouped
       for (const img of ungrouped) {
-        const doc = docs.find((d) => d.rawImageId === img.id)
-        items.push({ imageId: img.id, doc, image: img })
+        items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
       }
     }
     return items
-  }, [categorized, docs])
+  }, [categorized, docsMap])
 
   // Handlers
   const _handleClassify = (image: RawImage) => {
@@ -637,8 +702,8 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     return <FilesTabSkeleton />
   }
 
-  // Empty state
-  if (images.length === 0) {
+  // Empty state - only when there are truly no files at all
+  if (allImages.length === 0) {
     return (
       <div className="text-center py-12">
         <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -733,11 +798,32 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           </Button>
         </div>
       </div>
+      {/* Entity Filter Bar (unified mode only) */}
+      {isUnifiedMode && entities.length > 1 && (
+        <EntityFilterBar
+          entities={entities}
+          selectedEntityId={selectedEntityId}
+          onSelect={setSelectedEntityId}
+          totalCount={allImages.length}
+        />
+      )}
+
+      {/* Empty filtered state - entity selected but no files for it */}
+      {images.length === 0 && selectedEntityId && (
+        <div className="text-center py-12">
+          <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">{t('filesTab.noFiles')}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('filesTab.noFilesDesc')}
+          </p>
+        </div>
+      )}
+
       {/* Processing Section - Shows docs still being processed by AI */}
       <UnclassifiedSection images={processing} />
 
       {/* Categorized Sections - Using CATEGORY_ORDER for consistent display */}
-      {CATEGORY_ORDER.map((categoryKey) => {
+      {CATEGORY_ORDER.map((categoryKey, idx) => {
         const config = DOC_CATEGORIES[categoryKey]
         const categoryImages = categorized[categoryKey]
 
@@ -763,10 +849,14 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             config={config}
             images={categoryImages}
             docs={docs}
+            docsMap={docsMap}
             caseId={caseId}
             onVerify={handleVerify}
             onViewImage={handleViewImage}
             onFileDrop={handleFileDrop}
+            defaultCollapsed={images.length > 30 && idx > 0}
+            entityMap={isUnifiedMode ? entityMap : undefined}
+            entities={isUnifiedMode ? entities : undefined}
           />
         )
       })}

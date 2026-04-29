@@ -1,0 +1,30 @@
+---
+/**
+ * Pricing summary panel — single inline card on both surfaces:
+ *  - Desktop (≥lg): sticky right-column card inside the calculator grid.
+ *  - Mobile (<lg): inline card that flows after the form (no fixed drawer,
+ *    no click-to-expand) — breakdown is always visible as the user scrolls.
+ *
+ * `pricing-calculator-render.ts` updates `[data-calc-state]` / `[data-calc-output]`
+ * nodes via `querySelectorAll`. Single content copy keeps markup simple.
+ */
+import SummaryPanelContent from "./summary-panel-content.astro";
+---
+
+<aside
+  id="pricing-summary-panel"
+  class="lg:sticky lg:top-24"
+  aria-label="Pricing summary"
+>
+  <div class="rounded-2xl bg-white p-6 ring-1 ring-gray-200 lg:p-8">
+    <SummaryPanelContent />
+  </div>
+
+  <!-- Line item template (cloned by pricing-calculator-render.ts) -->
+  <template id="calc-line-item-template">
+    <li class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+      <span class="text-gray-600" data-slot="label"></span>
+      <span class="font-medium tabular-nums text-gray-900" data-slot="amount"></span>
+    </li>
+  </template>
+</aside>

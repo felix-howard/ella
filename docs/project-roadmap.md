@@ -1,8 +1,265 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-06 ICT
-> **Current Phase:** Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-04-22 ICT
+> **Current Phase:** Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Shared Docs Actions Rework (5 Phases) COMPLETE ✅
+**Started:** 2026-04-22
+**Completed:** 2026-04-22
+**Status:** COMPLETE — All 5 phases delivered on `feature/fuocy-bidi`; awaiting merge → main
+**Branch:** feature/fuocy-bidi
+**Plan:** [Shared Docs Actions Rework](../plans/260422-1137-shared-docs-actions-rework/plan.md)
+**Objective:** Replace Revoke dead-end flow with Pause/Resume/Extend/Delete actions. 4-state UI (Active/Paused/Expired/No-link) with near-expiry amber badge.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend API endpoints | ✅ DONE | 2h | 2026-04-22 |
+| 2 | State logic helper + unit tests | ✅ DONE | 1h | 2026-04-22 |
+| 3 | UI components refactor | ✅ DONE | 4h | 2026-04-22 |
+| 4 | Integration tests | ✅ DONE | 2h | 2026-04-22 |
+| 5 | Docs update | ✅ DONE | 0.5h | 2026-04-22 |
+
+**Phase 01 Completion (DONE):**
+- `POST /shared-docs/:id/pause` — Disable magic link (reversible)
+- `POST /shared-docs/:id/resume` — Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` — Create magic link for sections without active link
+- `POST /shared-docs/:id/extend` now accepts request body `{ duration: '7d'|'14d'|'30d'|'never' }` (default: '14d')
+- `/revoke` endpoint aliased for backward compatibility
+
+**Phase 02 Completion (DONE):**
+- Created `apps/workspace/src/components/shared-docs/compute-link-state.ts` — Pure helper encapsulating 4-state logic + near-expiry detection
+- Created `apps/workspace/src/components/shared-docs/compute-link-state.test.ts` — 13 Vitest unit tests covering states, boundaries, near-expiry (≤3d)
+- Added vitest.config.ts + vitest@^4.0.17 devDep + test scripts to apps/workspace/package.json
+- All 13 tests passing, type-check clean, code review 9/10 → all warnings addressed
+
+**Type signature (Phase 02):**
+```ts
+function computeLinkState(input: {
+  isActive?: boolean;
+  expiresAt?: Date | string | null;
+  linkExists: boolean;
+  now?: Date; // injectable for tests
+}): { state: 'active' | 'paused' | 'expired' | 'none'; daysUntilExpiry: number | null; isNearExpiry: boolean; };
+```
+
+**Phase 03 Completion (DONE):**
+- Refactored `shared-doc-link-bar.tsx` with state-driven rendering (active/paused/expired/none switch)
+- Renamed `revoke-link-modal.tsx` → `pause-link-modal.tsx`; updated copy to "Pause this link?" + explanatory body
+- Converted `extend-link-modal.tsx` → `extend-link-menu.tsx` (MUI Menu dropdown with 4 duration options: 7d/14d/30d/Never)
+- Created `expiry-badge.tsx` component: amber Chip for ≤3 days, red expired label, gray "Never expires" state
+- Created `generate-link-button.tsx` component for no-link state
+- Updated `use-shared-docs.ts` hook: Added `pauseSection`, `resumeSection`, `generateLink` methods; updated `extendSection` signature to accept `{ duration: '7d'|'14d'|'30d'|'never' }`
+- Cleaned up `shared-doc-card.tsx`: Removed "No Active Link" banner; always render link-bar (bar self-decides display)
+- Added 16 i18n keys to `en` + `vi` locales (linkState, actions, extend options, modals, badges)
+- Removed "No Active Link — Upload new version" banner from UI entirely
+- All 47/47 tests passing, typecheck clean, code review 9/10 after addressing duplicated modal copy, stale i18n keys, error logging, aria-labels, file-size extraction
+
+**Phase 04 Completion (DONE):**
+- Created `apps/api/src/routes/shared-docs/__tests__/shared-docs-routes.test.ts` — 22 new integration tests added (total: 50 tests, up from 28)
+- Test coverage: pause (3 tests), revoke-alias (2 tests incl. deprecation-warning-once assertion), resume (3 tests), extend with duration param (9 tests covering 7d/14d/30d + default + never + invalid + NO_ACTIVE_LINK state + authz + idempotent defaults), generate-link (3 tests), pause→resume→extend lifecycle (1 test asserting no `token` write on idempotent default extend)
+- Exposed `__resetDeprecationWarnedForTests` helper in `link-handlers.ts` to eliminate test order dependency
+- All 50 shared-docs integration tests passing locally
+- Pattern: mock-based Prisma fixtures (consistent with existing codebase pattern, trade-off vs. "real DB" approach noted in phase plan)
+
+**Phase 05 Completion (DONE):**
+- Updated `docs/project-changelog.md` — consolidated "[Unreleased] — Shared Docs Actions Rework" entry covering Added/Changed/Deprecated/Fixed/Removed across all 5 phases (was Phase-1-only)
+- Updated `docs/system-architecture.md` — workspace Shared Docs Tab sub-components list now reflects `PauseLinkModal`, `ExtendLinkMenu` (7d/14d/30d/Never), `ActiveLinkPanel`, `GenerateLinkButton`, `ExpiryBadge`; hooks + link mgmt bullets updated with pause/resume/generate + near-expiry badge
+- No stale `Revoke`/`revoke-link-modal` references remain in current-state docs; portal-side `LINK_REVOKED` error code and historical rename notes left intact
+
+---
+
+### Business Entity Separation - Approach B (15 Phases) COMPLETE ✅
+**Started:** 2026-04-08
+**Completed:** 2026-04-09 (All 15 Phases)
+**Status:** Complete — All phases delivered, migrated, and verified
+**Branch:** feature/ella-enhance-202
+**Plan:** [Business Entity Separation Approach B](../plans/260408-business-entity-separation/plan.md)
+**Objective:** Migrate from "Business nested inside Client" to "Business as separate top-level Client record" with ClientGroup linking. Aligns with industry standard (Canopy, TaxDome, Karbon).
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema: ClientType enum + ClientGroup model | ✅ DONE | 1.5h | 2026-04-09 |
+| 2 | Schema: Business fields on Client | ✅ DONE | 1.5h | 2026-04-09 |
+| 3 | Schema: Re-parent Contractor/FilingBatch/IntakeToken FKs | ✅ DONE | 2h | 2026-04-09 |
+| 4 | Data migration script: Business → Client records | ✅ DONE | 2h | 2026-04-09 |
+| 5 | API: Org scope + verifyBusinessClient helper | ✅ DONE | 1h | 2026-04-09 |
+| 6 | API: Client CRUD — support BUSINESS type creation | ✅ DONE | 1.5h | 2026-04-09 |
+| 7 | API: ClientGroup endpoints | ✅ DONE | 1.5h | 2026-04-09 |
+| 8 | API: Contractor routes re-parent to Client | ✅ DONE | 1.5h | 2026-04-09 |
+| 9 | API: 1099-NEC + FilingBatch routes re-parent | ✅ DONE | 1.5h | 2026-04-09 |
+| 10 | Frontend: API client + types update | ✅ DONE | 1.5h | 2026-04-09 |
+| 11 | Frontend: Client list with grouped display | ✅ DONE | 2h | 2026-04-09 |
+| 12 | Frontend: Client creation wizard (individual + business) | ✅ DONE | 2h | 2026-04-09 |
+| 13 | Frontend: Client detail tabs (adaptive per type) | ✅ DONE | 1.5h | 2026-04-09 |
+| 14 | Portal: Entity picker for multi-entity uploads | ✅ DONE | 2h | 2026-04-09 |
+| 15 | Cleanup: Deprecate Business model + remove /businesses routes | ✅ DONE | 1h | 2026-04-09 |
+
+**Completed Deliverables (Phases 01-11):**
+
+**Schema (Phases 01-04):**
+- ClientType enum (INDIVIDUAL/BUSINESS) on Client model
+- ClientGroup model for linking individual ↔ business clients
+- Business-specific nullable fields on Client (businessType, EIN, address)
+- Re-parented Contractor, FilingBatch, ContractorIntakeToken FKs from Business to Client
+- Data migration script: converts existing Business records → Client(BUSINESS) + creates ClientGroups + backfills FKs
+
+**API (Phases 05-09):**
+- verifyBusinessClient helper for org-scoped business client validation
+- Client CRUD: Support BUSINESS type creation with businessType/EIN/address fields
+- ClientGroup endpoints: POST/GET/PATCH/DELETE /clients/:clientId/groups
+- Contractor routes re-parented: GET/POST/PATCH/DELETE /clients/:clientId/contractors with full feature parity
+- 1099-NEC routes re-parented: GET/POST /clients/:clientId/1099-nec/* with status tracking, PDF fetch, batch transmission
+- Shared TaxBandits helpers extracted for DRY code during transition (Phase 09)
+- Backward compatibility maintained: All /businesses/* routes remain functional with @deprecated markers
+
+**Frontend (Phases 10-11):**
+- API client types updated: ClientWithActions includes businessType + clientType + source variants
+- Client list filter: All | Individuals Only | Businesses Only buttons in toolbar
+- Client list grouping: Individuals with linked businesses displayed together, businesses indented
+- Building icon for business clients, initials avatar for individuals
+- businessType badge (LLC, S-Corp, C-Corp, Sole Prop) with i18n labels
+- "Linked to: [owner name]" subtitle on grouped businesses
+- i18n complete: English + Vietnamese locales with 15+ new keys
+
+**Architecture:**
+- Schema: Business FK'd to Client during transition; Client has `clientType` (INDIVIDUAL/BUSINESS) + `clientGroupId` for grouping
+- Target: Client has `clientType` (INDIVIDUAL/BUSINESS) + ClientGroup links individuals to businesses
+- Each entity: separate TaxCase, contractors, 1099 filings
+- Routes: `/clients/:cid/*` where cid = business client (new) or legacy /businesses/:biz-id/* (deprecated)
+
+**Phase 15 Completion (FINAL):**
+- Removed Business model entirely from schema.prisma
+- Dropped businessId FK columns from Contractor, FilingBatch, ContractorIntakeToken models
+- Made clientId required (non-nullable) on all 3 models with Cascade delete
+- Deleted all /businesses/* API routes and route registrations
+- Removed verifyBusinessAccess function from org-scope.ts
+- Deleted frontend /components/businesses/ directory and BusinessesTab references
+- Removed businesses namespace from api-client.ts
+- Applied migration: 20260409140000_remove_business_model_cleanup
+- Added new intake-token CRUD endpoints under /clients/:clientId/intake-token
+- Extracted getBusinessClientForFiling shared helper for code reuse
+- Full type-check and build passed; all tests verified
+
+---
+
+### Friendly Upload Link URL (2 Phases) COMPLETE ✅
+**Started:** 2026-04-10
+**Completed:** 2026-04-10 (All 2 Phases)
+**Status:** Complete — All phases delivered and verified
+**Branch:** feature/enhance-business-record
+**Plan:** [Friendly Upload Link URL](../plans/260410-friendly-upload-link-url/plan.md)
+**Objective:** Change magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better client trust and UX. Legacy `/u/` route preserved for backward compatibility.
+
+**Phase Breakdown:**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: slug token generation | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Portal: new `/upload` route + legacy fallback | ✅ DONE | 1h | 2026-04-10 |
+
+**What Changed:**
+- Token format: `{client-name-slug}-{4-char-random}` instead of 12-char random (e.g., `tuyet-nguyen-7k3m`)
+- New route: `/upload/:token` with friendly URLs
+- Legacy route: `/u/:token` preserved for existing links (backward compatible)
+- `createMagicLink()` and `createMagicLinkWithDeactivation()` now accept optional `clientName` param
+- `getMagicLinkUrl()` PORTAL path changed from `/u/` to `/upload/`
+- Extracted shared `PortalPage` component from `/u/$token/index.tsx` to `components/portal-page.tsx`
+- Both routes (`/u/` and `/upload/`) use shared component, eliminating code duplication
+
+**Deliverables:**
+- New friendly magic link generation in `apps/api/src/services/magic-link.ts`
+- Send-upload-link endpoint now passes clientName when creating links
+- Portal `/upload/:token` route created with shared component
+- Legacy `/u/:token` route refactored to reuse shared component
+- No DB changes required (token column remains String)
+- No schema migration needed (format change transparent to storage layer)
+
+---
+
+### Unified Conversation & Business UX (5 Phases) COMPLETE ✅
+**Started:** 2026-04-10
+**Completed:** 2026-04-10 (All 5 Phases)
+**Status:** Complete — All phases delivered and verified
+**Branch:** feature/enhance-business-record
+**Plan:** [Unified Conversation & Business UX](../plans/260410-unified-conversation-business-ux/plan.md)
+**Objective:** Redirect business detail buttons to individual owner; remove portal entity selector; auto-sync managedById across ClientGroup. Unified conversation + upload experience for group members.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Backend: send-upload-link creates magic link on individual's taxCase | ✅ DONE | 1h | 2026-04-10 |
+| 2 | Backend: Remove entity selector from portal API | ✅ DONE | 45m | 2026-04-10 |
+| 3 | Frontend: Business detail buttons redirect to individual | ✅ DONE | 1.5h | 2026-04-10 |
+| 4 | Backend: Auto-propagate managedById across ClientGroup | ✅ DONE | 1.5h | 2026-04-10 |
+| 5 | Testing & Verification | ✅ DONE | 1h | 2026-04-10 |
+
+**All Phases Complete Deliverables:**
+
+**Phase 01:**
+- `POST /clients/:id/send-upload-link` now creates magic link on individual's taxCase (not business)
+- SMS still resolves to individual's phone correctly
+- Portal uploads go to individual's case records
+- Fallback to business case with warning if individual has no taxCase for year
+- Modified: `apps/api/src/routes/clients/index.ts`
+
+**Phase 02:**
+- Removed entity selector from portal API endpoints
+- Portal no longer requires/accepts entityId parameter
+- All portal operations default to individual's taxCase
+- Modified: `apps/api/src/routes/portal/index.ts`
+
+**Phase 03:**
+- Business detail page buttons (Messages, Upload, Send Upload Link) redirect to individual owner
+- Conversation/Upload UX unified under individual's record
+- Business phone no longer used for outbound messaging
+- Modified: `apps/workspace/src/routes/clients/$clientId.tsx`
+
+**Phase 04:**
+- `PATCH /clients/:id/managed-by` propagates managedById to all ClientGroup members using $transaction
+- Added organizationId defense-in-depth filter to prevent cross-org updates
+- Staff sees unified client list after assignment (no fragmentation)
+- Clients without clientGroupId unaffected
+- Modified: `apps/api/src/routes/clients/index.ts`
+
+**Phase 05:**
+- Comprehensive testing: All 5 test cases (TC1-TC5) passed
+- Verified send-upload-link redirects to individual's taxCase with correct MagicLink records
+- Confirmed portal entity selector removed; single upload to individual's case
+- Validated business detail buttons redirect to individual owner
+- Tested managedById auto-propagation across ClientGroup members
+- Tested edge cases: individuals without groups, businesses without groups, missing taxCases
+- No console errors or TypeScript build issues
+- All manual smoke tests passed on development server
+
+---
+
+### AI-Powered Entity Document Routing (5 Phases) IN PROGRESS
+**Started:** 2026-04-10
+**Current Status:** Phase 3 of 5 COMPLETE
+**Status:** IN PROGRESS — Schema migration, AI classification, entity routing done; reassignment API + unified Files tab next
+**Branch:** feature/enhance-business-record
+**Plan:** [AI-Powered Entity Document Routing](../plans/260410-ai-entity-document-routing/plan.md)
+**Objective:** Auto-classify uploaded docs to correct entity (individual vs business) using Gemini; unified Files tab with entity filter; manual reassignment API. Zero client friction — no entity selector needed.
+
+**Phase Breakdown (Current Status):**
+| Phase | Component | Status | Effort | Completion |
+|-------|-----------|--------|--------|-----------|
+| 1 | Schema: Add entityConfidence, routedFromCaseId to RawImage | ✅ DONE | 30m | 2026-04-10 |
+| 2 | AI Classification Enhancement with Gemini entity detection | ✅ DONE | 2h | 2026-04-10 |
+| 3 | Entity Routing Logic in post-classification Inngest job | ✅ DONE | 1.5h | 2026-04-10 |
+| 4 | Reassignment API: PATCH endpoint to move docs between entities | pending | 1h | — |
+| 5 | Unified Files Tab with entity filter + badge + Move button | pending | 3h | — |
+
+**Phase 01 Completion (DONE):**
+- Added `entityConfidence` Float? field to RawImage model (AI confidence 0-1 in entity routing)
+- Added `routedFromCaseId` String? field to RawImage model (audit trail of original case before re-routing)
+- Migration created: non-destructive, adds optional columns only
+- No data loss; Prisma types updated; type-check verified
+- Deployment: Ready for Phase 2
 
 ---
 

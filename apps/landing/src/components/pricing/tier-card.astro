@@ -1,0 +1,187 @@
+---
+/**
+ * Pricing tier card — marketing card for Basic/Pro/VIP tiers.
+ *
+ * Displays:
+ *  - Headline price = typical bundle (marketingMonthly from pricing-constants).
+ *  - Optional `breakdown` list revealing how the bundle adds up, so users
+ *    can mentally reconcile it against the interactive calculator below.
+ *    Basic/Pro show strict sums (tier base + payroll base).
+ *    VIP uses softer "includes" copy since $425 isn't a clean sum.
+ *  - Optional `priceNote` subtitle under the price (e.g. "typical salon setup").
+ *
+ * Pro tier gets `popular=true` for the "Most Popular" badge + emphasis.
+ */
+import { checkPath } from "@/lib/icons";
+
+export interface BreakdownRow {
+  /** Item label, e.g. "Basic tier (≤10 workers)". */
+  label: string;
+  /** Optional dollar amount; when omitted we render label only (VIP case). */
+  amount?: number;
+  /** Rate unit, defaults to `/mo`. */
+  unit?: string;
+}
+
+interface Props {
+  id: "basic" | "pro" | "vip";
+  name: string;
+  tagline: string;
+  /** Display-only marketing price (USD/month). */
+  monthlyPrice: number;
+  /** Short caption under the headline price, e.g. "typical salon setup". */
+  priceNote?: string;
+  /** Fixed bookkeeping setup fee in USD; omit if custom (use setupNote instead). */
+  setupFee?: number;
+  /** Fixed payroll setup fee in USD; rendered as a second setup line when present. */
+  payrollSetupFee?: number;
+  /** Free-form setup copy, used when no fixed fee (e.g. VIP custom quote). */
+  setupNote?: string;
+  /** Optional formula rows shown under price — explains how `monthlyPrice` adds up. */
+  breakdown?: BreakdownRow[];
+  /** Heading above breakdown rows ("How it adds up" / "What's included"). */
+  breakdownHeading?: string;
+  bullets: readonly string[];
+  popular?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
+}
+
+const {
+  id,
+  name,
+  tagline,
+  monthlyPrice,
+  priceNote,
+  setupFee,
+  payrollSetupFee,
+  setupNote,
+  breakdown,
+  breakdownHeading = "How it adds up",
+  bullets,
+  popular = false,
+  ctaLabel = "Calculate my price",
+  ctaHref = "#calculator",
+} = Astro.props;
+
+// When a fixed setup fee is provided, render two specific setup lines
+// (bookkeeping + payroll) prefixed with the tier name for clarity.
+// Falls back to free-form `setupNote` (e.g. VIP "Custom setup quote").
+const tierPrefix = name.toLowerCase();
+const setupLines: string[] = [];
+if (setupFee !== undefined) {
+  setupLines.push(`+ $${setupFee} ${tierPrefix} bookkeeping one-time setup`);
+  if (payrollSetupFee !== undefined) {
+    setupLines.push(`+ $${payrollSetupFee} ${tierPrefix} payroll one-time setup`);
+  }
+} else if (setupNote) {
+  setupLines.push(setupNote);
+}
+---
+
+<article
+  id={`tier-${id}`}
+  class:list={[
+    "relative flex flex-col rounded-2xl bg-white p-8 shadow-sm ring-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
+    popular
+      ? "ring-2 ring-primary-600 shadow-xl lg:scale-105"
+      : "ring-gray-200",
+  ]}
+  data-animate="fade-up"
+  aria-labelledby={`tier-${id}-name`}
+>
+  {popular && (
+    <span class="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary-600 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+      Most Popular
+    </span>
+  )}
+
+  <div class="mb-6">
+    <h3 id={`tier-${id}-name`} class="text-lg font-semibold text-gray-900">
+      {name}
+    </h3>
+    <p class="mt-1 text-sm text-gray-500">{tagline}</p>
+  </div>
+
+  <div class="mb-5">
+    <div class="flex items-baseline gap-1">
+      <span class="text-4xl font-extrabold tabular-nums text-gray-900">
+        ${monthlyPrice}
+      </span>
+      <span class="text-base text-gray-500">/mo</span>
+    </div>
+    {priceNote && (
+      <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+        {priceNote}
+      </p>
+    )}
+    {setupLines.map((line) => (
+      <p class="mt-1 text-xs text-gray-500">{line}</p>
+    ))}
+  </div>
+
+  {breakdown && breakdown.length > 0 && (
+    <div
+      class:list={[
+        "mb-6 rounded-xl px-4 py-3 text-sm",
+        popular
+          ? "bg-primary-50/70 ring-1 ring-primary-100"
+          : "bg-gray-50 ring-1 ring-gray-100",
+      ]}
+      aria-label={breakdownHeading}
+    >
+      <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        {breakdownHeading}
+      </p>
+      <ul class="space-y-1.5" role="list">
+        {breakdown.map((row) => (
+          <li class="flex items-baseline justify-between gap-3">
+            <span class="text-gray-600">{row.label}</span>
+            {row.amount !== undefined && (
+              <span class="whitespace-nowrap font-medium tabular-nums text-gray-900">
+                ${row.amount}
+                <span class="ml-0.5 text-xs font-normal text-gray-400">
+                  {row.unit ?? "/mo"}
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+
+  <a
+    href={ctaHref}
+    class:list={[
+      "mb-8 block rounded-full py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500",
+      popular
+        ? "bg-primary-600 text-white hover:bg-primary-700"
+        : "border border-primary-600 text-primary-600 hover:bg-primary-50",
+    ]}
+  >
+    {ctaLabel}
+  </a>
+
+  <ul class="flex-1 space-y-3" role="list">
+    {bullets.map((bullet) => (
+      <li class="flex items-start gap-3">
+        <svg
+          class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d={checkPath}
+          />
+        </svg>
+        <span class="text-sm text-gray-600">{bullet}</span>
+      </li>
+    ))}
+  </ul>
+</article>

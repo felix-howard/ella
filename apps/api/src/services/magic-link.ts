@@ -4,6 +4,7 @@
  */
 import { prisma } from '../lib/db'
 import { customAlphabet } from 'nanoid'
+import slugify from 'slugify'
 import { PORTAL_URL } from '../lib/constants'
 import type { MagicLinkType } from '@ella/db'
 
@@ -12,6 +13,30 @@ const generateToken = customAlphabet(
   '0123456789abcdefghijklmnopqrstuvwxyz',
   12
 )
+
+// Random suffix for slug tokens (6 chars = 36^6 ≈ 2.1B combos per name)
+const generateSuffix = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 6)
+
+/**
+ * Generate a friendly token: "tuyet-nguyen-a7k3mz"
+ * Falls back to random token if name is empty/invalid
+ */
+function generateSlugToken(clientName: string): string {
+  const slug = slugify(clientName, { lower: true, strict: true })
+  if (!slug) return generateToken()
+  const trimmedSlug = slug.slice(0, 30).replace(/-$/, '')
+  return `${trimmedSlug}-${generateSuffix()}`
+}
+
+/**
+ * Resolve token based on link type and optional client name.
+ * PORTAL links with a client name get friendly slug tokens; all others get random tokens.
+ */
+function resolveToken(type: MagicLinkType, clientName?: string): string {
+  return (type === 'PORTAL' && clientName)
+    ? generateSlugToken(clientName)
+    : generateToken()
+}
 
 // All link types now have no expiry (null = never expires)
 // Previously: Schedule C/E had 7-day TTL, now removed for better UX
@@ -31,7 +56,7 @@ export function getMagicLinkUrl(token: string, type: MagicLinkType): string {
       return `${PORTAL_URL}/draft/${token}`
     case 'PORTAL':
     default:
-      return `${PORTAL_URL}/u/${token}`
+      return `${PORTAL_URL}/upload/${token}`
   }
 }
 
@@ -45,10 +70,10 @@ export interface CreateMagicLinkOptions {
  */
 export async function createMagicLink(
   caseId: string,
-  options?: CreateMagicLinkOptions
+  options?: CreateMagicLinkOptions & { clientName?: string }
 ): Promise<string> {
-  const token = generateToken()
   const type: MagicLinkType = options?.type || 'PORTAL'
+  const token = resolveToken(type, options?.clientName)
 
   // All link types never expire (null) unless explicitly provided
   const expiresAt: Date | null = options?.expiresAt ?? null
@@ -72,9 +97,10 @@ export async function createMagicLink(
  */
 export async function createMagicLinkWithDeactivation(
   caseId: string,
-  type: MagicLinkType = 'PORTAL'
+  type: MagicLinkType = 'PORTAL',
+  clientName?: string
 ): Promise<{ url: string; expiresAt: Date | null }> {
-  const token = generateToken()
+  const token = resolveToken(type, clientName)
 
   // All link types never expire (null)
   const expiresAt: Date | null = null
@@ -120,6 +146,7 @@ export interface MagicLinkValidationResult {
         id: string
         name: string
         language: string
+        clientGroupId: string | null
       }
       checklistItems: Array<{
         id: string
@@ -189,6 +216,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
           id: link.taxCase.client.id,
           name: link.taxCase.client.name,
           language: link.taxCase.client.language,
+          clientGroupId: link.taxCase.client.clientGroupId,
         },
         checklistItems: link.taxCase.checklistItems.map((item) => ({
           id: item.id,

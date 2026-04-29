@@ -103,8 +103,8 @@ export async function findConversationByPhone(
     return null // Invalid format = no match possible
   }
 
-  const client = await prisma.client.findUnique({
-    where: { phone },
+  const client = await prisma.client.findFirst({
+    where: { phone, clientType: 'INDIVIDUAL' },
     include: {
       taxCases: {
         orderBy: { createdAt: 'desc' },
@@ -135,20 +135,9 @@ export async function createPlaceholderConversation(
   source?: 'INCOMING_SMS' | 'INCOMING_CALL'
 ): Promise<{ id: string }> {
   const result = await prisma.$transaction(async (tx: TransactionClient) => {
-    // RACE CONDITION FIX: Use upsert to handle concurrent requests
-    const client = await tx.client.upsert({
-      where: { phone },
-      create: {
-        firstName: 'New Caller',
-        lastName: ' ',
-        name: 'New Caller',
-        phone,
-        language: 'VI',
-        ...(source ? { source } : {}),
-        ...(organizationId ? { organizationId } : {}),
-      },
-      // If client exists without org, associate with org now
-      update: organizationId ? { organizationId } : {},
+    // Find existing individual client by phone, or create placeholder
+    let client = await tx.client.findFirst({
+      where: { phone, clientType: 'INDIVIDUAL' },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },
@@ -157,6 +146,36 @@ export async function createPlaceholderConversation(
         },
       },
     })
+
+    if (client) {
+      // If client exists without org, associate with org now
+      if (organizationId && !client.organizationId) {
+        await tx.client.update({
+          where: { id: client.id },
+          data: { organizationId },
+        })
+      }
+    } else {
+      client = await tx.client.create({
+        data: {
+          firstName: 'New Caller',
+          lastName: ' ',
+          name: 'New Caller',
+          phone,
+          language: 'VI',
+          clientType: 'INDIVIDUAL',
+          ...(source ? { source } : {}),
+          ...(organizationId ? { organizationId } : {}),
+        },
+        include: {
+          taxCases: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { conversation: true },
+          },
+        },
+      })
+    }
 
     // If client already has a conversation, return it
     if (client.taxCases[0]?.conversation) {

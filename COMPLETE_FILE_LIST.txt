@@ -1,0 +1,113 @@
+COMPLETE FILE LIST FOR CHAT MONITORING & CALL HANDLING
+========================================================
+
+All absolute file paths found during codebase scout:
+
+CORE CHAT MONITORING SYSTEM
+============================
+1. C:\Users\Admin\Desktop\ella\apps\api\src\routes\messages\index.ts
+   - Message send endpoint
+   - Lines 464-480: Emits message/staff-sent event to Inngest
+
+2. C:\Users\Admin\Desktop\ella\apps\api\src\jobs\notify-admin-staff-chat.ts
+   - Inngest batching job
+   - Batches messages: 5 events per 30s window
+   - Queries recipients with notifyOnChat + subscription
+   - Sends SMS notifications with 1s delay between recipients
+
+3. C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\notification-service.ts
+   - SMS notification functions
+   - Lines 381-440: notifyStaffChat() with 5-min throttle per recipient+staff
+   - Lines 309-349: notifyStaffUpload() for comparison
+
+4. C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\templates\staff-chat-monitor.ts
+   - SMS message template generator
+   - VI and EN localized messages
+   - Under 160 chars GSM-7 constraint
+
+SUBSCRIPTION MANAGEMENT
+=======================
+5. C:\Users\Admin\Desktop\ella\apps\api\src\routes\team\index.ts
+   - Team member management endpoints
+   - Lines 510-567: GET /team/members/:staffId/notification-subscriptions
+   - Lines 569-627: PUT /team/members/:staffId/notification-subscriptions
+   - Transactional subscription updates
+
+6. C:\Users\Admin\Desktop\ella\apps\api\src\routes\team\schemas.ts
+   - Zod validation schemas
+   - Lines 38-42: updateNotificationSubscriptionsSchema
+   - Lines 24-36: updateProfileSchema (notifyOnUpload, notifyOnChat)
+
+TWILIO WEBHOOKS & CALL HANDLING
+================================
+7. C:\Users\Admin\Desktop\ella\apps\api\src\routes\webhooks\twilio.ts
+   - 979 lines of Twilio webhook handlers
+   
+   SMS Handlers:
+   - Lines 68-159: POST /webhooks/twilio/sms (inbound SMS)
+   - Lines 166-225: POST /webhooks/twilio/status (SMS delivery status)
+   
+   Outbound Call Handlers:
+   - Lines 235-281: POST /webhooks/twilio/voice (outbound call)
+   - Lines 295-370: POST /webhooks/twilio/voice/recording (recording completion)
+   - Lines 376-438: POST /webhooks/twilio/voice/status (call status)
+   
+   Inbound Call Handlers:
+   - Lines 464-636: POST /webhooks/twilio/voice/incoming (inbound call routing)
+   - Lines 643-722: POST /webhooks/twilio/voice/dial-complete (dial timeout)
+   - Lines 769-839: POST /webhooks/twilio/voice/inbound-recording (recording)
+   
+   Voicemail Handlers:
+   - Lines 728-762: POST /webhooks/twilio/voice/voicemail-complete
+   - Lines 846-976: POST /webhooks/twilio/voice/voicemail-recording (voicemail recording)
+
+8. C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\webhook-handler.ts
+   - SMS message processing
+   - Lines 135-313: processIncomingMessage() main function
+   - Unknown caller placeholder creation
+   - MMS media processing support (up to 10 media items)
+   - Action creation for staff review
+
+9. C:\Users\Admin\Desktop\ella\apps\api\src\services\voice\voicemail-helpers.ts
+   - Voice and voicemail utility functions
+   - Lines 38-41: isValidE164Phone() validation
+   - Lines 49-54: sanitizePhone() for XSS protection
+   - Lines 63-70: sanitizeRecordingDuration() parsing
+   - Lines 81-85: formatVoicemailDuration() human-readable format
+   - Lines 98-122: findConversationByPhone() lookup
+   - Lines 132-180+: createPlaceholderConversation() for unknown callers
+
+INNGEST CONFIGURATION
+======================
+10. C:\Users\Admin\Desktop\ella\apps\api\src\lib\inngest.ts
+    - Event type definitions
+    - Lines 64-75: StaffMessageSentEvent type definition
+    - Lines 80-86: Event map for type-safe handling
+
+DATABASE SCHEMA
+================
+11. C:\Users\Admin\Desktop\ella\packages\db\prisma\schema.prisma
+    - NotificationSubscription model (lines 479-494)
+    - SubscriptionType enum (UPLOAD, CHAT)
+    - Staff model fields:
+      - notifyOnUpload: boolean
+      - notifyOnChat: boolean
+      - notificationSubscriptions relation
+      - notificationSubscribers relation
+
+ADDITIONAL RELATED FILES
+========================
+12. C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\twilio-client.ts
+    - Twilio client initialization
+    - SMS sending functionality
+
+13. C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\missed-call-textback.ts
+    - Missed call notification SMS
+    - Sent when no staff available for incoming calls
+
+REPORT FILES CREATED
+====================
+- /c/Users/Admin/Desktop/ella/scout-260330-chat-monitoring.md (detailed report)
+- /c/Users/Admin/Desktop/ella/SCOUT_FINDINGS_SUMMARY.txt (answers to 3 questions)
+- /c/Users/Admin/Desktop/ella/COMPLETE_FILE_LIST.txt (this file)
+

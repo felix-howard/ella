@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback, useRef, Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, FileText, Calendar, RefreshCw } from 'lucide-react'
-import { Button } from '@ella/ui'
+import { Button, EllaLogoLight, EllaLogoDark } from '@ella/ui'
 import { portalApi, ApiError, type DraftReturnData } from '../../../lib/api-client'
 
 // Lazy load PDF viewer to split bundle (~155KB)
@@ -123,8 +123,24 @@ function DraftViewerPage() {
     <div className="h-dvh flex flex-col">
       {/* Header - compact */}
       <div className="px-4 py-3 border-b border-border bg-card shrink-0">
+        <div className="flex items-center justify-center mb-2">
+          <img
+            src={EllaLogoLight}
+            alt="Ella"
+            width={76}
+            height={24}
+            className="h-6 w-auto dark:hidden"
+          />
+          <img
+            src={EllaLogoDark}
+            alt="Ella"
+            width={76}
+            height={24}
+            className="h-6 w-auto hidden dark:block"
+          />
+        </div>
         <h1 className="text-base font-semibold text-foreground text-center mb-1">
-          {t('draft.title')}
+          {t('draft.titleFormat', { title: data.title || t('draft.title') })}
         </h1>
         <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
@@ -181,7 +197,7 @@ function ErrorView({
 }) {
   const { t } = useTranslation()
 
-  const isInvalidLink = ['INVALID_TOKEN', 'LINK_REVOKED', 'LINK_EXPIRED'].includes(error?.code || '')
+  const isInvalidLink = ['INVALID_TOKEN', 'LINK_REVOKED', 'LINK_EXPIRED', 'DOC_DELETED'].includes(error?.code || '')
 
   const getErrorMessage = () => {
     switch (error?.code) {
@@ -191,6 +207,8 @@ function ErrorView({
         return t('draft.errorRevoked')
       case 'LINK_EXPIRED':
         return t('draft.errorExpired')
+      case 'DOC_DELETED':
+        return t('draft.errorDeleted')
       default:
         return error?.message || t('draft.errorLoading')
     }

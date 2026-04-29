@@ -24,6 +24,7 @@ import {
 import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
+import { isBizWithGroup } from '../../lib/client-helpers'
 import { inngest } from '../../lib/inngest'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -91,7 +92,20 @@ messagesRoute.get(
           taxCase: {
             include: {
               client: {
-                select: { id: true, name: true, phone: true, language: true },
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  language: true,
+                  clientType: true,
+                  clientGroupId: true,
+                  clientGroup: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
               },
             },
           },
@@ -126,7 +140,15 @@ messagesRoute.get(
         lastMessageAt: conv.lastMessageAt?.toISOString() || null,
         createdAt: conv.createdAt.toISOString(),
         updatedAt: conv.updatedAt.toISOString(),
-        client: conv.taxCase.client,
+        client: {
+          id: conv.taxCase.client.id,
+          name: conv.taxCase.client.name,
+          phone: conv.taxCase.client.phone,
+          language: conv.taxCase.client.language,
+          clientType: conv.taxCase.client.clientType,
+          clientGroupId: conv.taxCase.client.clientGroupId,
+          clientGroupName: conv.taxCase.client.clientGroup?.name ?? null,
+        },
         taxCase: {
           id: conv.taxCase.id,
           taxYear: conv.taxCase.taxYear,
@@ -275,10 +297,16 @@ messagesRoute.get('/:caseId', zValidator('query', listMessagesQuerySchema), asyn
   // Verify case belongs to user's org before accessing conversation
   const caseCheck = await prisma.taxCase.findFirst({
     where: { id: caseId, client: buildClientScopeFilter(user) },
-    select: { id: true },
+    select: { id: true, client: { select: { clientType: true, clientGroupId: true } } },
   })
   if (!caseCheck) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Prevent conversation creation for business cases linked to an individual via group
+  if (isBizWithGroup(caseCheck.client)) {
+    console.warn(`[Messages] Blocked conversation upsert for business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
   }
 
   // Get or create conversation using upsert to prevent race conditions
@@ -386,6 +414,12 @@ messagesRoute.post('/send', zValidator('json', sendMessageSchema), async (c) => 
 
   if (!taxCase) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  // Prevent messaging on business cases linked to an individual via group
+  if (isBizWithGroup(taxCase.client)) {
+    console.warn(`[Messages] Blocked send to business case ${caseId} — use individual's case`)
+    return c.json({ error: 'BUSINESS_CASE', message: 'Use the individual owner\'s case for messaging' }, 400)
   }
 
   // Get or create conversation using upsert to prevent race conditions

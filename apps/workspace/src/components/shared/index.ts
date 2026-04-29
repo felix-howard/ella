@@ -9,3 +9,6 @@ export {
   SCHEDULE_E_TEMPLATE_VI,
   SCHEDULE_E_TEMPLATE_EN,
 } from './send-form-message-modal'
+
+export { CardSection } from './card-section'
+export { DetailHeaderCard } from './detail-header-card'

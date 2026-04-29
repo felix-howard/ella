@@ -52,6 +52,11 @@ const batchCategorySchema = z.object({
   category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
 })
 
+// Schema for reassigning entity
+const reassignEntitySchema = z.object({
+  targetClientId: z.string().cuid('Invalid target client ID'),
+})
+
 // Schema for updating rotation
 const updateRotationSchema = z.object({
   rotation: z.number().int().refine(
@@ -824,6 +829,117 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
 
   return c.json({ success: true })
 })
+
+/**
+ * PATCH /images/:id/reassign-entity - Reassign document to another entity
+ * Moves document from one entity's TaxCase to another within the same ClientGroup
+ */
+imagesRoute.patch(
+  '/:id/reassign-entity',
+  zValidator('json', reassignEntitySchema),
+  async (c) => {
+    const id = c.req.param('id')
+    const { targetClientId } = c.req.valid('json')
+    const user = c.get('user')
+
+    // 1. Fetch image with only needed fields
+    const rawImage = await prisma.rawImage.findFirst({
+      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+      select: {
+        id: true,
+        caseId: true,
+        checklistItemId: true,
+        taxCase: {
+          select: {
+            taxYear: true,
+            client: { select: { id: true, clientGroupId: true } },
+          },
+        },
+      },
+    })
+
+    if (!rawImage) {
+      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+    }
+
+    // 2. Validate client is in a group
+    const currentGroupId = rawImage.taxCase.client.clientGroupId
+    if (!currentGroupId) {
+      return c.json(
+        { error: 'NO_GROUP', message: 'Client is not in a group' },
+        400
+      )
+    }
+
+    // 3. Early exit if reassigning to same client
+    if (rawImage.taxCase.client.id === targetClientId) {
+      return c.json({ success: true, message: 'Already in target entity' })
+    }
+
+    // 4. Validate target is in same group and has a TaxCase for the same year
+    const targetClient = await prisma.client.findFirst({
+      where: {
+        id: targetClientId,
+        clientGroupId: currentGroupId,
+        ...buildClientScopeFilter(user),
+      },
+      include: {
+        taxCases: {
+          where: { taxYear: rawImage.taxCase.taxYear },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    })
+
+    if (!targetClient || targetClient.taxCases.length === 0) {
+      return c.json(
+        { error: 'INVALID_TARGET', message: 'Target client not found in same group or has no case for this tax year' },
+        400
+      )
+    }
+
+    const targetCaseId = targetClient.taxCases[0].id
+
+    // 5. Update in transaction: move image + clean up old checklist item
+    const updated = await prisma.$transaction(async (tx) => {
+      // Decrement old checklist item count if linked
+      if (rawImage.checklistItemId) {
+        const oldItem = await tx.checklistItem.findUnique({
+          where: { id: rawImage.checklistItemId },
+          select: { receivedCount: true },
+        })
+        if (oldItem) {
+          await tx.checklistItem.update({
+            where: { id: rawImage.checklistItemId },
+            data: {
+              receivedCount: Math.max(0, oldItem.receivedCount - 1),
+              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+            },
+          })
+        }
+      }
+
+      return tx.rawImage.update({
+        where: { id },
+        data: {
+          caseId: targetCaseId,
+          routedFromCaseId: rawImage.caseId,
+          entityConfidence: null, // Manual override
+          checklistItemId: null, // Detach from old case's checklist
+        },
+        select: { id: true, caseId: true, routedFromCaseId: true },
+      })
+    })
+
+    return c.json({
+      success: true,
+      id: updated.id,
+      caseId: updated.caseId,
+      routedFromCaseId: updated.routedFromCaseId,
+    })
+  }
+)
 
 /**
  * PATCH /images/:id/rotation - Update image rotation

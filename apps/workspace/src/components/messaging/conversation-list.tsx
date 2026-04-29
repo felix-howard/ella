@@ -1,10 +1,12 @@
 /**
  * Conversation List - List of all conversations for unified inbox
  * Displays sorted list with empty and loading states
+ * Groups linked conversations (same clientGroup) together
  */
 
+import { useMemo } from 'react'
 import { cn } from '@ella/ui'
-import { Inbox } from 'lucide-react'
+import { Inbox, Link2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConversationListItem } from './conversation-list-item'
 import type { Conversation } from '../../lib/api-client'
@@ -16,6 +18,10 @@ export interface ConversationListProps {
   className?: string
 }
 
+type ListEntry =
+  | { type: 'single'; conversation: Conversation }
+  | { type: 'group'; groupName: string; conversations: Conversation[] }
+
 export function ConversationList({
   conversations,
   activeCaseId,
@@ -23,6 +29,44 @@ export function ConversationList({
   className,
 }: ConversationListProps) {
   const { t } = useTranslation()
+
+  // Group conversations by clientGroupId while preserving sort order
+  const entries = useMemo<ListEntry[]>(() => {
+    // Build a map of groupId -> conversations
+    const groupMap = new Map<string, Conversation[]>()
+    const seenGroups = new Set<string>()
+    const result: ListEntry[] = []
+
+    // First pass: collect groups
+    for (const conv of conversations) {
+      const gid = conv.client.clientGroupId
+      if (gid) {
+        if (!groupMap.has(gid)) groupMap.set(gid, [])
+        groupMap.get(gid)!.push(conv)
+      }
+    }
+
+    // Second pass: build entries in original order, emitting group on first encounter
+    for (const conv of conversations) {
+      const gid = conv.client.clientGroupId
+      if (gid && groupMap.get(gid)!.length > 1) {
+        // Part of a multi-member group
+        if (!seenGroups.has(gid)) {
+          seenGroups.add(gid)
+          result.push({
+            type: 'group',
+            groupName: conv.client.clientGroupName || t('messages.linkedGroup', 'Linked'),
+            conversations: groupMap.get(gid)!,
+          })
+        }
+        // Skip individual rendering — handled by group entry
+      } else {
+        result.push({ type: 'single', conversation: conv })
+      }
+    }
+
+    return result
+  }, [conversations, t])
 
   // Loading state
   if (isLoading) {
@@ -63,13 +107,43 @@ export function ConversationList({
 
   return (
     <div className={cn('flex-1 overflow-y-auto', className)}>
-      {conversations.map((conversation) => (
-        <ConversationListItem
-          key={conversation.id}
-          conversation={conversation}
-          isActive={conversation.caseId === activeCaseId}
-        />
-      ))}
+      {entries.map((entry) => {
+        if (entry.type === 'single') {
+          return (
+            <ConversationListItem
+              key={entry.conversation.id}
+              conversation={entry.conversation}
+              isActive={entry.conversation.caseId === activeCaseId}
+            />
+          )
+        }
+
+        // Grouped conversations — render inside a visual container
+        const groupId = entry.conversations[0].client.clientGroupId!
+        return (
+          <div
+            key={`group-${groupId}`}
+            className="mx-2 my-1 rounded-xl border border-border/60 bg-muted/20 overflow-hidden"
+          >
+            {/* Group header */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5">
+              <Link2 className="w-3 h-3 text-muted-foreground/70" />
+              <span className="text-[11px] font-medium text-muted-foreground/70">
+                {entry.groupName}
+              </span>
+            </div>
+            {/* Group members */}
+            {entry.conversations.map((conv) => (
+              <ConversationListItem
+                key={conv.id}
+                conversation={conv}
+                isActive={conv.caseId === activeCaseId}
+                isGrouped
+              />
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }

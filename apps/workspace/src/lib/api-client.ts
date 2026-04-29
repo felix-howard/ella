@@ -227,7 +227,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   // Clients
   clients: {
-    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string }) =>
+    list: (params?: { page?: number; limit?: number; search?: string; managedById?: string; attention?: 'newUploads' | 'needsVerification' | 'stale' | 'readyForEntry'; tag?: string; clientType?: ClientType }) =>
       request<PaginatedResponse<ClientWithActions> & { attentionSummary: { newUploads: number; needsVerification: number; stale: number; readyForEntry: number } }>('/clients', { params }),
 
     tags: () =>
@@ -248,6 +248,18 @@ export const api = {
 
     create: (data: CreateClientInput) =>
       request<CreateClientResponse>('/clients', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    createWithBusiness: (data: CreateWithBusinessInput) =>
+      request<CreateWithBusinessResponse>('/clients/create-with-business', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    linkBusiness: (clientId: string, data: LinkBusinessInput) =>
+      request<LinkBusinessResponse>(`/clients/${clientId}/link-business`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -328,141 +340,155 @@ export const api = {
         method: 'DELETE',
       }),
 
-  },
-
-  // Businesses (nested under clients)
-  businesses: {
-    list: (clientId: string) =>
-      request<{ data: Business[] }>(`/clients/${clientId}/businesses`),
-
-    create: (clientId: string, data: CreateBusinessInput) =>
-      request<{ data: Business }>(`/clients/${clientId}/businesses`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
-    update: (clientId: string, businessId: string, data: UpdateBusinessInput) =>
-      request<{ data: Business }>(`/clients/${clientId}/businesses/${businessId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
-
-    delete: (clientId: string, businessId: string) =>
-      request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}`, {
-        method: 'DELETE',
-      }),
-
-    intakeToken: {
-      get: (clientId: string, businessId: string) =>
-        request<{ data: IntakeToken | null }>(`/clients/${clientId}/businesses/${businessId}/intake-token`),
-
-      create: (clientId: string, businessId: string, taxYear?: number) =>
-        request<{ data: IntakeToken }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
-          method: 'POST',
-          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
-        }),
-
-      deactivate: (clientId: string, businessId: string) =>
-        request<{ success: boolean }>(`/clients/${clientId}/businesses/${businessId}/intake-token`, {
-          method: 'DELETE',
-        }),
+    // Read-only NDA listing for client overview tab (org-scoped)
+    nda: {
+      list: (clientId: string) =>
+        request<{ success: boolean; data: NdaAgreement[] }>(`/clients/${clientId}/nda`),
     },
+
   },
 
-  // Contractors (under businesses — Phase 5 will update components to pass businessId)
+  // Contractors (under clients)
   contractors: {
-    list: (businessId: string) =>
-      request<{ data: Contractor[] }>(`/businesses/${businessId}/contractors`),
+    list: (clientId: string) =>
+      request<{ data: Contractor[] }>(`/clients/${clientId}/contractors`),
 
-    create: (businessId: string, data: CreateContractorInput) =>
-      request<{ data: Contractor }>(`/businesses/${businessId}/contractors`, {
+    create: (clientId: string, data: CreateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    update: (businessId: string, id: string, data: UpdateContractorInput) =>
-      request<{ data: Contractor }>(`/businesses/${businessId}/contractors/${id}`, {
+    update: (clientId: string, id: string, data: UpdateContractorInput) =>
+      request<{ data: Contractor }>(`/clients/${clientId}/contractors/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
 
-    delete: (businessId: string, id: string) =>
-      request<{ success: boolean }>(`/businesses/${businessId}/contractors/${id}`, {
+    delete: (clientId: string, id: string) =>
+      request<{ success: boolean }>(`/clients/${clientId}/contractors/${id}`, {
         method: 'DELETE',
       }),
 
-    uploadExcel: (businessId: string, formData: FormData) =>
-      request<{ success: boolean; data: ParseResult }>(`/businesses/${businessId}/contractors/upload-excel`, {
+    uploadExcel: (clientId: string, formData: FormData) =>
+      request<{ success: boolean; data: ParseResult }>(`/clients/${clientId}/contractors/upload-excel`, {
         method: 'POST',
         body: formData,
         timeout: 120000, // 2 min — server does AI address parsing
         retries: 0, // Don't retry file uploads
       }),
 
-    bulkSave: (businessId: string, data: BulkSaveContractorsInput) =>
-      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/bulk-save`, {
+    bulkSave: (clientId: string, data: BulkSaveContractorsInput) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/bulk-save`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    deleteAll: (businessId: string) =>
-      request<{ success: boolean; count: number }>(`/businesses/${businessId}/contractors/all`, {
+    deleteAll: (clientId: string) =>
+      request<{ success: boolean; count: number }>(`/clients/${clientId}/contractors/all`, {
         method: 'DELETE',
       }),
+
+    intakeToken: {
+      get: (clientId: string) =>
+        request<{ data: IntakeToken | null }>(`/clients/${clientId}/intake-token`),
+
+      create: (clientId: string, taxYear?: number) =>
+        request<{ data: IntakeToken }>(`/clients/${clientId}/intake-token`, {
+          method: 'POST',
+          body: JSON.stringify({ taxYear: taxYear ?? new Date().getFullYear() - 1 }),
+        }),
+
+      deactivate: (clientId: string) =>
+        request<{ success: boolean }>(`/clients/${clientId}/intake-token`, {
+          method: 'DELETE',
+        }),
+    },
   },
 
-  // 1099-NEC Forms (under businesses — Phase 5 will update components to pass businessId)
+  // 1099-NEC Forms (under clients — entity separation)
   form1099nec: {
-    status: (businessId: string) =>
-      request<{ data: Form1099StatusCounts }>(`/businesses/${businessId}/1099-nec/status`),
+    status: (clientId: string) =>
+      request<{ data: Form1099StatusCounts }>(`/clients/${clientId}/1099-nec/status`),
 
-    create: (businessId: string) =>
-      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/businesses/${businessId}/1099-nec/create`, {
+    create: (clientId: string) =>
+      request<{ success: boolean; batchId: string; createdCount: number; errors?: Array<{ sequence: string; errors: string[] }> }>(`/clients/${clientId}/1099-nec/create`, {
         method: 'POST',
       }),
 
-    fetchPdfs: (businessId: string) =>
-      request<{ success: boolean; pdfCount: number }>(`/businesses/${businessId}/1099-nec/fetch-pdfs`, {
+    fetchPdfs: (clientId: string) =>
+      request<{ success: boolean; pdfCount: number }>(`/clients/${clientId}/1099-nec/fetch-pdfs`, {
         method: 'POST',
       }),
 
-    prepare: (businessId: string) =>
-      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/businesses/${businessId}/1099-nec/prepare`, {
+    prepare: (clientId: string) =>
+      request<{ success: boolean; createdCount: number; pdfCount: number; batchId?: string; createErrors?: Array<{ sequence: string; errors: string[] }>; pdfErrors?: string[] }>(`/clients/${clientId}/1099-nec/prepare`, {
         method: 'POST',
         timeout: 120000,
       }),
 
-    downloadPdf: (businessId: string, formId: string) =>
-      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf`),
+    downloadPdf: (clientId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf`),
 
-    downloadRecipientPdf: (businessId: string, formId: string) =>
-      request<{ url: string; filename: string }>(`/businesses/${businessId}/1099-nec/${formId}/pdf/recipient`),
+    downloadRecipientPdf: (clientId: string, formId: string) =>
+      request<{ url: string; filename: string }>(`/clients/${clientId}/1099-nec/${formId}/pdf/recipient`),
 
-    getAllPdfs: (businessId: string) =>
-      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs`),
+    getAllPdfs: (clientId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/clients/${clientId}/1099-nec/pdfs`),
 
-    fetchRecipientPdfs: (businessId: string) =>
-      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/businesses/${businessId}/1099-nec/fetch-recipient-pdfs`, {
+    fetchRecipientPdfs: (clientId: string) =>
+      request<{ success: boolean; pdfCount: number; errors?: string[] }>(`/clients/${clientId}/1099-nec/fetch-recipient-pdfs`, {
         method: 'POST',
       }),
 
-    getRecipientPdfs: (businessId: string) =>
-      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/businesses/${businessId}/1099-nec/pdfs/recipient`),
+    getRecipientPdfs: (clientId: string) =>
+      request<{ data: Array<{ formId: string; url: string; filename: string }> }>(`/clients/${clientId}/1099-nec/pdfs/recipient`),
 
-    transmit: (businessId: string) =>
-      request<TransmitResponse>(`/businesses/${businessId}/1099-nec/transmit`, {
+    transmit: (clientId: string) =>
+      request<TransmitResponse>(`/clients/${clientId}/1099-nec/transmit`, {
         method: 'POST',
       }),
 
-    getBatches: (businessId: string) =>
-      request<{ data: FilingBatch[] }>(`/businesses/${businessId}/1099-nec/batches`),
+    getBatches: (clientId: string) =>
+      request<{ data: FilingBatch[] }>(`/clients/${clientId}/1099-nec/batches`),
 
-    getBatch: (businessId: string, batchId: string) =>
-      request<{ data: FilingBatchDetail }>(`/businesses/${businessId}/1099-nec/batches/${batchId}`),
+    getBatch: (clientId: string, batchId: string) =>
+      request<{ data: FilingBatchDetail }>(`/clients/${clientId}/1099-nec/batches/${batchId}`),
 
-    refreshBatchStatus: (businessId: string, batchId: string) =>
-      request<{ success: boolean; status: FilingStatusType }>(`/businesses/${businessId}/1099-nec/batches/${batchId}/refresh`, {
+    refreshBatchStatus: (clientId: string, batchId: string) =>
+      request<{ success: boolean; status: FilingStatusType }>(`/clients/${clientId}/1099-nec/batches/${batchId}/refresh`, {
         method: 'POST',
+      }),
+  },
+
+  // Client Groups (entity separation)
+  clientGroups: {
+    list: (params?: { page?: number; limit?: number; search?: string }) =>
+      request<PaginatedResponse<ClientGroup> & { success: boolean }>('/client-groups', { params }),
+
+    get: (id: string) =>
+      request<{ success: boolean; data: ClientGroup }>(`/client-groups/${id}`),
+
+    create: (data: { name: string; clientIds?: string[] }) =>
+      request<{ success: boolean; data: ClientGroup }>('/client-groups', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: string, data: { name?: string; addClientIds?: string[]; removeClientIds?: string[] }) =>
+      request<{ success: boolean; data: ClientGroup }>(`/client-groups/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/client-groups/${id}`, {
+        method: 'DELETE',
+      }),
+
+    getGroupImages: (groupId: string, taxYear?: number) =>
+      request<GroupImagesResponse>(`/client-groups/${groupId}/images`, {
+        params: { taxYear },
       }),
   },
 
@@ -679,6 +705,13 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ rotation }),
         retries: 0, // Non-critical, don't retry
+      }),
+
+    // Reassign document to another entity within the same ClientGroup
+    reassignEntity: (imageId: string, targetClientId: string) =>
+      request<{ success: boolean; id: string; caseId: string; routedFromCaseId: string | null }>(`/images/${imageId}/reassign-entity`, {
+        method: 'PATCH',
+        body: JSON.stringify({ targetClientId }),
       }),
   },
 
@@ -955,6 +988,13 @@ export const api = {
         method: 'POST',
         retries: 0,
       }),
+
+    // Reassign Schedule C from current TaxCase to targetCaseId (same group + taxYear).
+    reassign: (scheduleCId: string, targetCaseId: string) =>
+      request<ScheduleCReassignResponse>(`/schedule-c/by-id/${scheduleCId}/reassign`, {
+        method: 'POST',
+        body: JSON.stringify({ targetCaseId }),
+      }),
   },
 
   // Schedule E - Staff endpoints for rental property form management
@@ -1093,25 +1133,26 @@ export const api = {
       }),
   },
 
-  // Draft Returns - Sharing draft tax returns with clients
-  draftReturns: {
-    get: (caseId: string) =>
-      request<GetDraftReturnResponse>(`/draft-returns/${caseId}`),
+  // Shared Docs - Multi-section document sharing per tax case
+  sharedDocs: {
+    list: (caseId: string) =>
+      request<ListSharedDocsResponse>(`/shared-docs/case/${caseId}`),
 
-    upload: async (caseId: string, file: File): Promise<UploadDraftReturnResponse> => {
+    get: (id: string) =>
+      request<SectionDetailResponse>(`/shared-docs/${id}`),
+
+    create: async (caseId: string, title: string, file: File): Promise<CreateSectionResponse> => {
       const formData = new FormData()
+      formData.append('title', title)
       formData.append('file', file)
 
-      // Get auth token
       let authHeaders: Record<string, string> = {}
       if (getAuthToken) {
         const token = await getAuthToken()
-        if (token) {
-          authHeaders = { Authorization: `Bearer ${token}` }
-        }
+        if (token) authHeaders = { Authorization: `Bearer ${token}` }
       }
 
-      const response = await fetch(`${API_BASE_URL}/draft-returns/${caseId}/upload`, {
+      const response = await fetch(`${API_BASE_URL}/shared-docs/${caseId}`, {
         method: 'POST',
         body: formData,
         headers: authHeaders,
@@ -1122,28 +1163,83 @@ export const api = {
         throw new ApiError(
           response.status,
           (errorData as { error?: string }).error || 'UPLOAD_FAILED',
-          (errorData as { message?: string }).message || 'Failed to upload draft return'
+          (errorData as { message?: string }).message || 'Failed to create section'
         )
       }
 
       return response.json()
     },
 
-    revoke: (draftId: string) =>
-      request<{ success: boolean }>(`/draft-returns/${draftId}/revoke`, {
+    uploadVersion: async (sectionId: string, file: File): Promise<CreateSectionResponse> => {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      let authHeaders: Record<string, string> = {}
+      if (getAuthToken) {
+        const token = await getAuthToken()
+        if (token) authHeaders = { Authorization: `Bearer ${token}` }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/shared-docs/${sectionId}/version`, {
+        method: 'POST',
+        body: formData,
+        headers: authHeaders,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new ApiError(
+          response.status,
+          (errorData as { error?: string }).error || 'UPLOAD_FAILED',
+          (errorData as { message?: string }).message || 'Failed to upload version'
+        )
+      }
+
+      return response.json()
+    },
+
+    rename: (sectionId: string, title: string) =>
+      request<{ document: ShareableDocumentData }>(`/shared-docs/${sectionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      }),
+
+    remove: (sectionId: string) =>
+      request<{ success: boolean }>(`/shared-docs/${sectionId}`, {
+        method: 'DELETE',
+      }),
+
+    pause: (sectionId: string) =>
+      request<{ success: boolean }>(`/shared-docs/${sectionId}/pause`, {
         method: 'POST',
       }),
 
-    extend: (draftId: string) =>
-      request<{ success: boolean; expiresAt: string }>(`/draft-returns/${draftId}/extend`, {
-        method: 'POST',
-      }),
+    resume: (sectionId: string) =>
+      request<{ success: boolean; expiresAt: string; magicLink: SharedDocMagicLinkData }>(
+        `/shared-docs/${sectionId}/resume`,
+        { method: 'POST' }
+      ),
 
-    getSignedUrl: (draftId: string) =>
-      request<{ url: string; filename: string }>(`/draft-returns/${draftId}/signed-url`),
+    generateLink: (sectionId: string) =>
+      request<{ success: boolean; expiresAt: string; magicLink: SharedDocMagicLinkData }>(
+        `/shared-docs/${sectionId}/generate-link`,
+        { method: 'POST' }
+      ),
 
-    getVersionSignedUrl: (caseId: string, version: number) =>
-      request<{ url: string; filename: string }>(`/draft-returns/version/${caseId}/${version}/signed-url`),
+    extend: (sectionId: string, duration: '7d' | '14d' | '30d' | 'never' = '14d') =>
+      request<{ success: boolean; expiresAt: string | null }>(
+        `/shared-docs/${sectionId}/extend`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ duration }),
+        }
+      ),
+
+    getSignedUrl: (sectionId: string) =>
+      request<{ url: string; filename: string }>(`/shared-docs/${sectionId}/signed-url`),
+
+    getVersionSignedUrl: (sectionId: string, version: number) =>
+      request<{ url: string; filename: string }>(`/shared-docs/${sectionId}/version/${version}/signed-url`),
   },
 
   // Terms & Conditions
@@ -1172,8 +1268,11 @@ export const api = {
 
   // Leads management (admin-only)
   leads: {
-    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string }) =>
+    list: (params?: { page?: number; limit?: number; status?: string; search?: string; tag?: string; includeConverted?: boolean }) =>
       request<{ success: boolean; data: Lead[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>('/leads', { params }),
+
+    create: (data: { firstName: string; lastName: string; phone: string; email?: string | null; notes?: string | null }) =>
+      request<{ success: boolean; data: Lead }>('/leads/admin', { method: 'POST', body: JSON.stringify(data) }),
 
     get: (id: string) =>
       request<{ success: boolean; data: Lead }>(`/leads/${id}`),
@@ -1183,6 +1282,20 @@ export const api = {
 
     tags: () =>
       request<{ success: boolean; data: string[] }>('/leads/tags'),
+
+    stats: () =>
+      request<{
+        success: boolean
+        data: {
+          total: number
+          new: number
+          sent: number
+          contacted: number
+          converted: number
+          lost: number
+          conversionRate: number
+        }
+      }>('/leads/stats'),
 
     convertCheck: (id: string) =>
       request<{ success: boolean; hasDuplicate: boolean; existingClient?: { id: string; firstName: string; lastName: string; phone: string } }>(`/leads/${id}/convert-check`),
@@ -1195,6 +1308,90 @@ export const api = {
 
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
+
+    nda: {
+      create: (leadId: string, body: { contentHtml?: string } = {}) =>
+        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+
+      list: (leadId: string) =>
+        request<{ success: boolean; data: NdaAgreement[] }>(`/leads/${leadId}/nda`),
+
+      resend: (leadId: string, ndaId: string) =>
+        request<{ success: boolean; data: NdaAgreement; url: string; rotated: boolean }>(`/leads/${leadId}/nda/${ndaId}/resend`, { method: 'POST' }),
+
+      updateDeposit: (
+        leadId: string,
+        ndaId: string,
+        data: { depositStatus: NdaDepositStatus; depositNote?: string | null; depositPaidAt?: string | null },
+      ) =>
+        request<{ success: boolean; data: NdaAgreement }>(`/leads/${leadId}/nda/${ndaId}/deposit`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+      getPdfUrl: (leadId: string, ndaId: string) =>
+        request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+
+      // Default HTML used to seed the Tiptap editor.
+      getDefaultHtml: (leadId: string) =>
+        request<{ success: boolean; data: { contentHtml: string } }>(
+          `/leads/${leadId}/nda/default-html`,
+        ),
+
+      // Streams `application/pdf` bytes — frontend renders inside an iframe via
+      // a blob URL. Bypasses the `request<>` helper because the response isn't
+      // JSON; mirrors the auth-header logic from `fetchMediaBlob`.
+      previewPdf: async (leadId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        const tokenGetter = getAuthToken
+        if (tokenGetter) {
+          const token = await tokenGetter()
+          if (token) headers.Authorization = `Bearer ${token}`
+        }
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}/nda/preview-pdf`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (!response.ok) {
+          // Try to surface server JSON error details; fall back to status text.
+          let message = `Preview failed (${response.status})`
+          try {
+            const data = (await response.json()) as { error?: string; message?: string }
+            if (data?.message || data?.error) message = data.message || data.error || message
+          } catch {
+            // Body wasn't JSON — keep generic message
+          }
+          throw new ApiError(response.status, 'PREVIEW_FAILED', message)
+        }
+        return response.blob()
+      },
+    },
+
+    // Two-way Staff ↔ Lead SMS (polymorphic Message.leadId)
+    messages: {
+      list: (leadId: string, params?: { page?: number; limit?: number }) =>
+        request<LeadMessagesResponse>(`/leads/${leadId}/messages`, { params }),
+
+      send: (leadId: string, data: { content: string; channel?: 'SMS' }) =>
+        request<LeadMessageSendResponse>(`/leads/${leadId}/messages/send`, {
+          method: 'POST',
+          body: JSON.stringify({ channel: 'SMS', ...data }),
+          retries: 0, // Avoid duplicate SMS on server error
+        }),
+
+      getUnread: (leadId: string) =>
+        request<{ leadId: string; unreadCount: number }>(`/leads/${leadId}/messages/unread`),
+
+      // Pass `upTo` = the ISO createdAt of the newest message the UI has rendered.
+      // Server clamps watermark to min(upTo, now()) so inbound during round-trip
+      // is not silently marked read.
+      markRead: (leadId: string, data?: { upTo?: string }) =>
+        request<{ leadId: string; unreadCount: number; readAt: string }>(`/leads/${leadId}/messages/read`, {
+          method: 'POST',
+          body: JSON.stringify(data ?? {}),
+        }),
+    },
   },
 
   // Campaign management (admin-only)
@@ -1202,10 +1399,10 @@ export const api = {
     list: () =>
       request<{ success: boolean; data: Campaign[] }>('/campaigns'),
 
-    create: (data: { name: string; slug: string; tag: string; description?: string }) =>
+    create: (data: { name: string; slug: string; tag: string; description?: string; formIntroContent?: string | null }) =>
       request<{ success: boolean; data: Campaign }>('/campaigns', { method: 'POST', body: JSON.stringify(data) }),
 
-    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED' }) =>
+    update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED'; formIntroContent?: string | null }) =>
       request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
     delete: (id: string) =>
@@ -1249,8 +1446,41 @@ export interface Lead {
   tags: string[]
   notes: string | null
   convertedToId: string | null
+  convertedAt: string | null
   createdAt: string
+  updatedAt: string
   smsSendLogs?: SmsSendLog[]
+}
+
+export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'EXPIRED' | 'VOIDED'
+export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
+
+export interface NdaAgreement {
+  id: string
+  // Null after the originating Lead is deleted; clientId still pins the NDA to its Client.
+  leadId: string | null
+  organizationId: string
+  templateVersion: string
+  status: NdaStatus
+  depositStatus: NdaDepositStatus
+  depositAmount: string
+  depositPaidAt: string | null
+  depositResolvedAt: string | null
+  depositNote: string | null
+  token: string
+  expiresAt: string | null
+  isActive: boolean
+  lastUsedAt: string | null
+  usageCount: number
+  signedAt: string | null
+  signerName: string | null
+  signerEmail: string | null
+  signedPdfKey: string | null
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+  /** Present on list + create/resend responses. Use this instead of deriving from token client-side. */
+  url?: string
 }
 
 export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'
@@ -1262,6 +1492,7 @@ export interface Campaign {
   tag: string
   status: CampaignStatus
   description: string | null
+  formIntroContent: string | null
   createdById: string
   createdBy: { name: string }
   createdAt: string
@@ -1299,7 +1530,9 @@ export interface OcrTriggerResponse {
 }
 
 // Client types
-export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'SMLLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+
+export type ClientType = 'INDIVIDUAL' | 'BUSINESS'
 
 export interface Client {
   id: string
@@ -1311,43 +1544,48 @@ export interface Client {
   language: Language
   source?: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
   tags: string[]
+  clientType: ClientType
+  clientGroupId?: string | null
+  clientGroup?: ClientGroup & { clients: ClientPreview[] }
+  businessType?: BusinessType
+  einMasked?: string | null
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
   createdAt: string
   updatedAt: string
   taxCases?: { status: TaxCaseStatus; taxYear: number }[]
 }
 
-export interface Business {
+export interface ClientGroup {
   id: string
   name: string
-  type: BusinessType
-  einMasked: string
-  address: string
-  city: string
-  state: string
-  zip: string
-  contractorCount: number
+  organizationId: string
+  clients: ClientPreview[]
+  _count?: { clients: number }
   createdAt: string
   updatedAt: string
 }
 
-export interface CreateBusinessInput {
+export interface ClientPreview {
+  id: string
   name: string
-  type: BusinessType
-  ein: string
-  address: string
-  city: string
-  state: string
-  zip: string
+  clientType: ClientType
+  phone: string
+  email?: string | null
+  businessType?: BusinessType | null
+  einMasked?: string | null
+  latestCaseId?: string | null
+  latestCaseTaxYear?: number | null
+  portalUrl?: string | null
+  scheduleCExpense?: ScheduleCExpenseSummary | null
 }
 
-export interface UpdateBusinessInput {
-  name?: string
-  type?: BusinessType
-  ein?: string
-  address?: string
-  city?: string
-  state?: string
-  zip?: string
+export interface ScheduleCExpenseSummary {
+  id: string
+  status: ScheduleCStatus
+  updatedAt: string
 }
 
 export interface Contractor {
@@ -1530,8 +1768,11 @@ export interface ClientWithActions {
   phone: string
   email: string | null
   language: 'VI' | 'EN'
-  source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED'
+  source: 'MANUAL' | 'FORM' | 'GENERIC_FORM' | 'STAFF_FORM' | 'CONVERTED' | 'INCOMING_SMS' | 'INCOMING_CALL'
   tags: string[]
+  clientType: ClientType
+  clientGroupId?: string | null
+  businessType?: BusinessType | null
   hasUploadLink: boolean
   createdAt: string
   updatedAt: string
@@ -1585,6 +1826,8 @@ export interface ClientDetail extends Client {
   managedBy?: { id: string; name: string; avatarUrl?: string | null } | null
   createdBy?: { id: string; name: string } | null
   updatedBy?: { id: string; name: string } | null
+  /** Source leads that converted INTO this client (newest first). */
+  convertedLeads?: { id: string }[]
 }
 
 export interface ClientStats {
@@ -1741,6 +1984,9 @@ export interface RawImage {
   pageNumber?: number | null
   totalPages?: number | null
   groupConfidence?: number | null
+  // Entity routing fields
+  entityConfidence?: number | null
+  routedFromCaseId?: string | null
 }
 
 // Image group for duplicate detection
@@ -1774,6 +2020,19 @@ export interface DigitalDoc {
 
 export interface ImagesResponse {
   images: RawImage[]
+}
+
+export interface EntityInfo {
+  clientId: string
+  name: string
+  type: ClientType
+  caseId: string
+  imageCount: number
+}
+
+export interface GroupImagesResponse {
+  images: (RawImage & { entityClientId: string; entityName: string; entityType: ClientType })[]
+  entities: EntityInfo[]
 }
 
 export interface DocsResponse {
@@ -1823,7 +2082,9 @@ export interface ActionsGroupedResponse {
 // Message types
 export interface Message {
   id: string
-  conversationId: string
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null
+  conversationId?: string | null
+  leadId?: string | null
   channel: 'SMS' | 'PORTAL' | 'SYSTEM' | 'CALL'
   direction: 'INBOUND' | 'OUTBOUND'
   content: string
@@ -1852,6 +2113,14 @@ export interface CreateClientInput {
   phone: string
   email?: string
   language?: Language
+  clientType?: ClientType
+  // Business-specific fields (only for BUSINESS clientType)
+  businessType?: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
   profile: {
     taxYear: number
     taxTypes?: TaxType[] // Optional - defaults to ['FORM_1040'] on backend
@@ -1882,6 +2151,74 @@ export interface CreateClientResponse {
   client: Client
   taxCase: { id: string; taxYear: number; status: TaxCaseStatus }
   magicLink: string
+}
+
+// Combo: create individual + business(es) + group in one call
+export interface CreateWithBusinessInput {
+  individual: {
+    firstName: string
+    lastName?: string
+    phone: string
+    email?: string
+    language?: Language
+    profile: { taxYear: number; taxTypes?: TaxType[] }
+  }
+  businesses: Array<{
+    firstName: string
+    phone: string
+    email?: string
+    language?: Language
+    businessType: BusinessType
+    ein?: string
+    businessAddress?: string
+    businessCity?: string
+    businessState?: string
+    businessZip?: string
+    profile: { taxYear: number; taxTypes?: TaxType[] }
+  }>
+  groupName?: string
+  customMessage?: string
+}
+
+export interface CreateWithBusinessResponse {
+  success: boolean
+  data: {
+    individual: { id: string; name: string; clientType: ClientType }
+    businesses: Array<{ id: string; name: string; clientType: ClientType }>
+    group: { id: string; name: string }
+    magicLink: string
+    smsStatus: { sent: boolean; error?: string }
+  }
+}
+
+// Link a new business to an existing individual client
+export interface LinkBusinessInput {
+  firstName: string
+  phone: string
+  email?: string
+  language?: Language
+  businessType: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  taxYear: number
+  taxTypes?: TaxType[]
+}
+
+export interface LinkBusinessResponse {
+  success: boolean
+  data: {
+    business: {
+      id: string
+      name: string
+      clientType: ClientType
+      businessType: BusinessType | null
+      taxCases: { id: string; taxYear: number }[]
+    }
+    group: { id: string; name: string }
+  }
 }
 
 export interface UpdateClientInput {
@@ -1950,6 +2287,24 @@ export interface SendMessageResponse {
   error?: string
 }
 
+// Lead-scoped message list (polymorphic Message.leadId)
+export interface LeadMessagesResponse {
+  messages: Message[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface LeadMessageSendResponse {
+  message: Message
+  sent: boolean
+  smsEnabled: boolean
+  error?: string
+}
+
 // Conversation type for unified inbox
 export interface Conversation {
   id: string
@@ -1963,6 +2318,9 @@ export interface Conversation {
     name: string
     phone: string
     language: Language
+    clientType?: 'INDIVIDUAL' | 'BUSINESS'
+    clientGroupId?: string | null
+    clientGroupName?: string | null
   }
   taxCase: {
     id: string
@@ -2403,6 +2761,13 @@ export interface ScheduleCResendResponse {
   messageSent: boolean
 }
 
+export interface ScheduleCReassignResponse {
+  success: boolean
+  scheduleC: { id: string; taxCaseId: string }
+  fromCase: { id: string; clientId: string; taxYear: number }
+  toCase: { id: string; clientId: string; taxYear: number }
+}
+
 // Schedule E types for rental property form management
 export type ScheduleEStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED'
 
@@ -2571,15 +2936,16 @@ export interface AvatarPresignedUrlResponse {
   expiresIn: number
 }
 
-// Draft Return types for sharing draft tax returns with clients
-export type DraftReturnStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
+// Shared Docs types — multi-section document sharing per tax case
+export type SharedDocStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED' | 'SUPERSEDED'
 
-export interface DraftReturnData {
+export interface ShareableDocumentData {
   id: string
+  title: string
   version: number
   filename: string
   fileSize: number
-  status: DraftReturnStatus
+  status: SharedDocStatus
   viewCount: number
   lastViewedAt: string | null
   uploadedAt: string
@@ -2589,7 +2955,7 @@ export interface DraftReturnData {
   }
 }
 
-export interface DraftMagicLinkData {
+export interface SharedDocMagicLinkData {
   token: string
   url: string
   expiresAt: string | null
@@ -2598,22 +2964,34 @@ export interface DraftMagicLinkData {
   lastUsedAt: string | null
 }
 
-export interface DraftVersionData {
+export interface SharedDocVersionData {
   version: number
   uploadedAt: string
-  status: string
+  status: SharedDocStatus
 }
 
-export interface GetDraftReturnResponse {
-  draftReturn: DraftReturnData | null
-  magicLink: DraftMagicLinkData | null
-  versions: DraftVersionData[]
+export interface SharedDocListItem extends ShareableDocumentData {
+  magicLink: SharedDocMagicLinkData | null
 }
 
-export interface UploadDraftReturnResponse {
-  draftReturn: DraftReturnData
-  magicLink: DraftMagicLinkData
+export interface ListSharedDocsResponse {
+  documents: SharedDocListItem[]
+}
+
+export interface SectionDetailResponse {
+  document: ShareableDocumentData
+  magicLink: SharedDocMagicLinkData | null
+  versions: SharedDocVersionData[]
+}
+
+export interface CreateSectionResponse {
+  document: ShareableDocumentData
+  magicLink: SharedDocMagicLinkData
   portalUrl: string
+}
+
+export interface RenameSectionRequest {
+  title: string
 }
 
 // Group documents response (manual document grouping)

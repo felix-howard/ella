@@ -58,7 +58,8 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 **Key Pages (Workspace):**
 - `/` - Dashboard with stats & quick actions
 - `/clients` - Client list with Kanban/list views
-- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Businesses, Schedule C, Schedule E, Draft Return (Phase 04)
+- `/clients/new` - Multi-path client creation wizard (Phase 12: INDIVIDUAL | BUSINESS | INDIVIDUAL_WITH_BUSINESS). INDIVIDUAL_WITH_BUSINESS path includes accordion UI for managing up to 10 business entities per individual client, with per-business validation, add/remove, and batch submit to create ClientGroup (Phase 2 multi-business enhancement)
+- `/clients/:id` - Client detail with tabs: Overview, Files, Documents, Data Entry, Schedule C, Schedule E, Draft Return. Tab layout varies by clientType (Phase 15)
 - `/cases/:id` - Tax case with checklist & documents
 - `/messages` - Unified inbox with split-view conversations
 - `/actions` - Action queue with priority filtering
@@ -66,10 +67,21 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
-- `/` - Document upload portal (magic link auth)
+- `/upload/:token` - Document upload portal with friendly URLs (e.g., `/upload/tuyet-nguyen-a7k3mz`, magic link auth)
+- `/u/:token` - Legacy document upload portal (backward compatible, deprecated)
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
 - `/draft/:token` - Draft tax return viewer (magic link, public, Phase 03)
+
+**Send Upload Link (Phase 15 - Business Entity Separation Smart Routing):**
+- `POST /clients/:id/send-upload-link` sends SMS with upload portal link to client (or their designated recipient)
+- **Entity Separation Logic**: When business client has clientGroupId (linked to individual owner), endpoint intelligently routes upload link:
+  - Queries individual client in same group, same taxYear
+  - Creates magic link on individual's taxCase (not business's)—uploads go to owner's document collection
+  - Fallback: If individual has no taxCase for year, uses business case with warning log
+  - Defense-in-depth: organizationId filter ensures cross-org data protection
+- **SMS Recipient Resolution**: For grouped business clients, sends to individual's phone + name
+- **Single-Entity Fallback**: Standalone business clients default to their own phone/case (backward compatible)
 
 **Authentication (Clerk + Multi-Tenancy):**
 - `ClerkAuthProvider` - Wraps root, sets JWT token getter
@@ -83,15 +95,33 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Zustand: UI state (sidebar, toast), session persistence
 - File-based routing: `src/routes/*` (auto-generated tree)
 
-**API Client:**
+**API Client (Phase 10 - Client Type & EIN Masking):**
 - Type-safe endpoint groups (team, clients, cases, messages, etc.)
 - Org context: Bearer JWT includes orgId (workspace)
 - Portal: Token-based public endpoints (no auth, portal app)
 - Retry logic: 3 attempts, exponential backoff
 - Pagination: limit=20, max=100
+- **Client Types (Phase 10):** clientType: 'INDIVIDUAL' | 'BUSINESS'. GET /clients/:id returns einMasked (masked EIN) instead of encrypted version.
+- **Namespaces:** clients, cases, team, messages, leads, forms, contractors, clientGroups, sharedDocs (Phase 02, replaces draftReturns), businesses (deprecated in favor of clientGroups)
+- **Phase 02 API Client Changes (workspace):**
+  - `api.draftReturns.*` renamed to `api.sharedDocs.*`
+  - `DraftReturnData` → `ShareableDocumentData` (includes title field)
+  - New types: `SharedDocListItem`, `ListSharedDocsResponse`, `SectionDetailResponse`, `CreateSectionResponse`
+  - Error code: `DOC_DELETED` (410) for soft-deleted documents
 - **Portal API Methods (portalApi):**
-  - `getDraft(token)` - Fetch draft return data + signed PDF URL
+  - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats
+  - `getDraft(token)` - Fetch document data + signed PDF URL (includes title)
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
+
+**Frontend Utilities (Phase 03 - Shared Docs Rework):**
+- **Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
+  - `copyToClipboard(text, options?)` → `Promise<boolean>`
+  - Wraps `navigator.clipboard.writeText` with try/catch + automatic toast feedback
+  - Validates secure context (HTTPS/localhost) before API call
+  - Returns `true` on success, `false` on failure (no exception thrown)
+  - Options: `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
+  - **Safety:** Only safe to call from user gesture context (click, keypress). Auto-copy after async operations (e.g., file upload) risks `NotAllowedError: Document is not focused`. Always use manual copy buttons for user-initiated UI actions.
+  - Used in: Shared Docs card copy-link button (Phase 04+), any text-to-clipboard flow
 
 ## Backend Layer
 
@@ -107,13 +137,30 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
-**Draft Return Sharing (6 - Phase 02 Backend + Phase 04 Frontend Complete):**
-- `POST /draft-returns/:caseId/upload` - Upload PDF, create DraftReturn + MagicLink (14-day TTL)
-- `GET /draft-returns/:caseId` - Get current draft + link status + version history
-- `POST /draft-returns/:id/revoke` - Deactivate link (prevent client access)
-- `POST /draft-returns/:id/extend` - Extend expiry by 14 days
-- `GET /portal/draft/:token` - Validate token, return draft data + signed PDF URL (public)
+**Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework Complete, Phase 03 UI Refactor Complete):**
+- `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
+- `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
+- `GET /shared-docs/:id` - Get section detail (title, status, version count, link status)
+- `PATCH /shared-docs/:id` - Rename section; updates title across all versions
+- `DELETE /shared-docs/:id` - Soft-delete section (deletedAt set, hides from UI)
+- `POST /shared-docs/:id/version` - Upload new version PDF (increments version counter, soft-deletes old)
+- `POST /shared-docs/:id/pause` - Disable magic link (section visible, link inactive; reversible)
+- `POST /shared-docs/:id/resume` - Reactivate paused link with fresh 14-day expiry
+- `POST /shared-docs/:id/generate-link` - Create magic link for sections without one
+- `POST /shared-docs/:id/extend` - Extend link expiry; accepts body { duration: '7d'|'14d'|'30d'|'never' }, default '14d'
+- `POST /shared-docs/:id/revoke` - **DEPRECATED** — use `/pause` (alias kept for backward compat)
+- `GET /shared-docs/:id/signed-url` - Fetch current version PDF from R2 (24h TTL)
+- `GET /shared-docs/:id/version/:version/signed-url` - Fetch specific version PDF from R2
+- `GET /portal/draft/:token` - Validate token, return section data + PDF signed URL (public). Returns 410 DOC_DELETED if soft-deleted.
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
+
+**Portal Document Upload (Phase 2 - Entity Separation - Simplified):**
+- `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns status 401 for invalid/expired token.
+- `POST /portal/:token/upload` - Upload document images via token (public). Validates token, stores images as RawImage records, triggers async Gemini classification + activity tracking. Returns 400 for invalid files, 401 for invalid token.
+- MagicLink generation: Service creates token scoped to individual's taxCaseId (for business clients in groups, routes to individual owner's case via send-upload-link endpoint).
+  - **Friendly Token Format (PORTAL type):** Slugified client name + random 6-char suffix (e.g., `tuyet-nguyen-a7k3mz`). Fallback to 12-char random token if name is empty/invalid.
+  - **Other Types:** Random 12-char alphanumeric tokens (SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN).
+  - **No Expiry:** All magic links now never expire (expiresAt=null) for better UX. Previously Schedule C/E had 7-day TTL.
 
 **Portal PDF Viewer (Phase 02-05 Complete):**
 - Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading
@@ -126,15 +173,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - Bilingual: Auto-syncs language from client preference (EN/VI)
 - Error handling: Invalid token, expired link, revoked link, PDF unavailable, browser unsupported
 
-**Workspace Draft Return Tab (Phase 04 - Workspace UI Complete):**
-- Component: `DraftReturnTab` - Main tab component in `/clients/:id` page
-- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (draft summary + actions)
-- Upload: Drag-drop or file picker, PDF validation (50MB max), upload progress
-- Link display: Filename, fileSize, status badge, shareable link with copy button
-- Actions: Extend link (14 days), Revoke link (with confirmation), Upload new version
-- Version history: Track all drafts, display uploadedBy + timestamp, mark current version
-- View tracking: Display viewCount + lastViewedAt
-- i18n: 26 keys (EN/VI) for all UI strings
+**Workspace Shared Docs Tab (Phase 04 - Workspace UI Complete):**
+- Component: `SharedDocsTab` - Main tab in `/clients/:id` page, manages multi-section ShareableDocument uploads
+- Sub-components: `SharedDocCard` (per-doc display), `SharedDocUploadZone` (drag-drop/file picker), `SharedDocLinkBar` (state-driven link display: active/paused/expired/none), `SharedDocVersionHistory` (version list), `AddSectionInlineForm`, `RenameSectionInline`, `DeleteSectionConfirm`, `ActiveLinkPanel`, `ExtendLinkMenu` (7d/14d/30d/Never dropdown), `PauseLinkModal`, `GenerateLinkButton`, `ExpiryBadge` (amber if ≤3 days)
+- Hooks: `useSharedDocs()` (CRUD + pauseSection/resumeSection/generateLink + extendSection with duration), `useSharedDocSignedUrl()` (R2 URL generation), `computeLinkState` helper (pure 4-state resolver)
+- States: Loading (spinner), Error (retry button), Empty (upload prompt), Active (multi-section list + actions)
+- Upload: Drag-drop/file picker, PDF validation (50MB max), automatic multi-section parsing, progress tracking
+- Link mgmt: Per-section links (14-day default TTL), copy-to-clipboard (Phase 04 clipboard utility), Pause/Resume (reversible), Extend menu (7d/14d/30d/Never), Generate Link for no-link state, near-expiry amber badge (≤3 days), status badges
+- Version history: All document versions per taxCase, uploadedBy + timestamp tracking, current version highlight
+- View tracking: Display viewCount + lastViewedAt per document
+- Quick actions: `quick-actions-bar.tsx` lists all active section links with copy buttons
+- i18n: 26+ keys (EN/VI) for all UI strings, multi-section naming conventions
 
 **Schedule E & Rental (10 - Phase 2):**
 - `GET /schedule-e/:caseId` - Fetch Schedule E data + magic link status
@@ -184,29 +233,33 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PUT /client-assignments/transfer` - Transfer client (app-level, not Clerk-synced)
 - Similar for invitations & staff assignments
 
-**Clients (14+ with Tag Support):**
+**Clients (16+ with Tag Support, Phase 10 Entity Separation):**
 - `GET /clients` - List with org scoping + sort + tag filters (Phase 2: supports `sort=recentUploads`, returns `uploads: { newCount, totalCount, latestAt }` per client. Tag filtering: hasSome, hasAll operators). Returns tags + source enum.
 - `GET /clients/tags` - Get distinct tags (admin required). Returns array of unique tag strings across all org clients, sorted alphabetically. Used for tag filter dropdowns.
-- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED)
-- `GET /clients/:id` - Detail with org verification. Returns tags array + source enum + conversion metadata (convertedLeads)
-- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations
+- `POST /clients` - Create with organization. Accepts tags array + source enum (MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED). Phase 10: Supports clientType (INDIVIDUAL|BUSINESS), businessType, ein (encrypted as einEncrypted), businessAddress/City/State/Zip for BUSINESS clients.
+- `POST /clients/create-with-business` - Combo endpoint (Phase 10). Creates individual client + business client + ClientGroup in one transaction. Body: individual{firstName, lastName, phone, email, language}, business{name, type, ein, address, city, state, zip}, case{taxTypes, taxYear}, groupName. Returns {individual, business, group, taxCase, magicLink}.
+- `GET /clients/:id` - Detail with org verification (Phase 10: returns clientType, einMasked instead of einEncrypted, clientGroupId, business fields for BUSINESS clients). Returns tags array + source enum + conversion metadata.
+- `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
+- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with friendly URL format (e.g., `/upload/tuyet-nguyen-a7k3mz`). Generates friendly slug token based on client name. Phase 15: For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
 - `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
-- Status endpoints for action tracking. Client.source expanded to 5 values (vs 2 previously): MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED tracks full origin path
+- Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
 
-**Business CRUD (4 - Phase 02 Client-Business Separation):**
-- `GET /clients/:clientId/businesses` - List all businesses for a client (org-scoped, reads). Returns business name, type (enum), masked EIN (XX-XXX####), address, city, state, zip, contractor count, timestamps. Ordered by createdAt descending.
-- `GET /clients/:clientId/businesses/:businessId` - Get single business detail (org-scoped, reads). Includes contractor count + filing batch count for delete validation.
-- `POST /clients/:clientId/businesses` - Create business for client (org-scoped, requireOrgAdmin). EIN encrypted with audit logging. Payload: name, type (SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), ein (XX-XXXXXXX format), address, city, state, zip. Returns 201 with created business (EIN masked).
-- `PATCH /clients/:clientId/businesses/:businessId` - Update business fields (org-scoped, requireOrgAdmin). All fields optional. EIN re-encrypted + logged if changed. Returns updated business with masked EIN.
-- `DELETE /clients/:clientId/businesses/:businessId` - Delete business (org-scoped, requireOrgAdmin). Returns 409 HAS_DEPENDENTS if contractors or filing batches linked (enforce data integrity). Returns 200 on success.
-- **Security:** All writes (POST/PATCH/DELETE) require requireOrgAdmin middleware. EIN encryption via encryptSSN/decryptSSN. Audit logging for EIN changes via logProfileChanges. Org-scoped access via buildClientScopeFilter. Client existence verified before business operations.
+**Client Groups (5 - Phase 10 Entity Separation):**
+- `GET /client-groups` - List org client groups with pagination (limit 1-100, default 20). Supports full-text search by group name. Returns group id, name, client count, timestamps.
+- `GET /client-groups/:id` - Get group detail with nested clients array (id, name, clientType, phone). Returns _count.clients for stats.
+- `POST /client-groups` - Create group. Body: name (required), clientIds (optional array). Org-scoped, no special permissions. Returns 201 with created group.
+- `PATCH /client-groups/:id` - Update group. Body: name (optional), addClientIds (add clients to group), removeClientIds (remove clients). Org-scoped. Returns 200 with updated group.
+- `DELETE /client-groups/:id` - Delete group. Org-scoped. Returns 200. No cascade—client relationships preserved (clientGroupId set to null).
+- **Auth Pattern:** All routes org-scoped via buildClientScopeFilter. POST requires valid clientIds that exist in org.
+- **Data Model:** ClientGroup (id, name, organizationId, clients array relation, createdAt, updatedAt). Index: organizationId for fast lookups. Supports flexible grouping (family businesses, partnerships, multi-entity arrangements).
+- **Manager Propagation:** `PATCH /clients/:id/managed-by` atomically updates client manager (managedById) and syncs to all group members via transaction for consistency.
 
 **Cases & Engagements (14+):**
 - `GET /engagements` - List org engagements
@@ -218,27 +271,50 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /cases/:id` - Update case status
 - Actions for compliance tracking
 
-**Documents & Classification (13+):**
+**Documents & Classification (14+):**
 - `POST /documents/upload` - Upload images
 - `POST /documents/classify` - Trigger AI classification
 - `GET /documents/:id` - Document detail
 - `PATCH /documents/:id/verify` - Mark verified with extracted fields
 - `GET /documents/:id/ocr` - Request OCR extraction
 - `POST /images/:id/mark-viewed` - Create DocumentView record for document view tracking (Phase 2)
+- `PATCH /images/:id/reassign-entity` - Move document from one entity to another within same ClientGroup (Phase 04 Entity Routing)
 - Endpoints for document lifecycle
 
-**1099-NEC Tax Form Integration (8 - TaxBandits API, Phase 03 Business Entity Routes):**
-- `POST /businesses/:businessId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY). Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/status` - Form status counts. Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/:formId/pdf` - Download signed PDF URL (24-hour TTL). Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/batches` - List filing batches. Org-scoped with verifyBusinessAccess.
-- `GET /businesses/:businessId/1099-nec/batches/:batchId` - Batch details with forms. Org-scoped with verifyBusinessAccess.
-- `POST /businesses/:businessId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits. Org-scoped with verifyBusinessAccess.
-- Models: Form1099NEC (with status enum, validation errors, eFile tracking, businessId FK), FilingBatch (groups multiple forms by tax year, businessId FK). TaxBandits API integration via singleton client with OAuth 2.0 JWT.
+**Contractor Management (8 - Phase 08 Client Re-Parent Routes):**
+- `GET /clients/:clientId/contractors` - List contractors for business client. Enforces clientType=BUSINESS + org-scope via verifyBusinessClient. Returns contractor list with latest 1099-NEC form per contractor if available (id, firstName, lastName, ssnLast4, address, city, state, zip, email, phone, formId, formStatus, hasCopyA, hasCopyB).
+- `POST /clients/:clientId/contractors` - Create contractor. Body: firstName, lastName, address, city, state, zip, email, phone, tinType (SSN|EIN), ssn. Enforces clientType=BUSINESS. Directly links to Client(clientType=BUSINESS). Returns 201 with created contractor.
+- `PATCH /clients/:clientId/contractors/:id` - Update contractor details. Body: all fields optional. Org-scoped with verifyBusinessClient. Returns 200 with updated contractor.
+- `DELETE /clients/:clientId/contractors/:id` - Delete contractor. Org-scoped with verifyBusinessClient. Returns 204.
+- `POST /clients/:clientId/contractors/upload-excel` - Parse nail salon Excel file (2 contractors per row block: columns A-C left, E-G right). Returns array of parsed contractors with address parsing (regex + AI fallback for ambiguous cities). Org-scoped with verifyBusinessClient.
+- `POST /clients/:clientId/contractors/bulk-save` - Batch save parsed contractors to DB. Body: contractors array with parsed fields. Org-scoped with verifyBusinessClient. Returns 201 with created contractors.
+- `DELETE /clients/:clientId/contractors/all` - Delete all contractors for business client. Org-scoped with verifyBusinessClient. Returns 204.
+- `GET /clients/:clientId/contractors/all` - Alternative list endpoint (same as GET /clients/:clientId/contractors).
+- **Auth Pattern**: All routes use verifyBusinessClient(clientId, user) enforcing both clientType=BUSINESS + org-scope. Audit logging via logProfileChanges(clientId, ...) now uses clientId directly (is business client).
+- **Data Model** (Phase 15 Complete): Contractor.clientId is now the sole parent FK (Cascade delete). Contractor.businessId FK removed. All contractors directly linked to Client with clientType=BUSINESS.
+
+**1099-NEC Tax Form Integration (15 routes - TaxBandits API, Phase 09 Client-Scoped Routes):**
+- **NEW ROUTES** (Phase 09 - Client-Scoped, preferred):
+  - `GET /clients/:clientId/1099-nec/status` - Form status counts (clientType=BUSINESS clients only).
+  - `POST /clients/:clientId/1099-nec/create` - Create forms in TaxBandits (DRAFT → IMPORTED). Enforces BUSINESS client via verifyBusinessClient + requireOrgAdmin.
+  - `POST /clients/:clientId/1099-nec/fetch-pdfs` - Request & download PDFs to R2 (IMPORTED → PDF_READY).
+  - `POST /clients/:clientId/1099-nec/fetch-recipient-pdfs` - Fetch Copy B + C PDFs after IRS transmission (SUBMITTED/ACCEPTED → stored).
+  - `POST /clients/:clientId/1099-nec/prepare` - One-click: create forms + fetch draft PDFs combined (single API call).
+  - `POST /clients/:clientId/1099-nec/transmit` - Transmit to IRS (PDF_READY → SUBMITTED). Auto-fetches recipient PDFs post-transmission.
+  - `GET /clients/:clientId/1099-nec/pdfs` - Signed URLs for all PDF-ready forms (5-min TTL).
+  - `GET /clients/:clientId/1099-nec/pdfs/recipient` - Signed URLs for Copy B PDFs (contractor copies, 5-min TTL).
+  - `GET /clients/:clientId/1099-nec/:formId/pdf` - Download individual form PDF (signed URL).
+  - `GET /clients/:clientId/1099-nec/:formId/pdf/recipient` - Download Copy B PDF (signed URL).
+  - `GET /clients/:clientId/1099-nec/batches` - List filing batches for client.
+  - `GET /clients/:clientId/1099-nec/batches/:batchId` - Batch details with form statuses.
+  - `POST /clients/:clientId/1099-nec/batches/:batchId/refresh` - Refresh batch status from TaxBandits API.
+- **Auth Pattern:** All client routes use verifyBusinessClient(clientId, user) + requireOrgAdmin for mutations. Validates clientType=BUSINESS + org-scope.
+- **Models:** Form1099NEC (status enum, validation errors, eFile tracking, contractorId FK, batchId FK), FilingBatch (groups forms by tax year + submission, status + timestamps for lifecycle tracking, clientId FK, Cascade delete).
 - **TaxBandits Client** (`apps/api/src/services/taxbandits-client.ts`): OAuth 2.0 JWT-based e-filing (form creation, status, PDF request, IRS transmission). Token caching (55-min default), retry with exponential backoff, 30s request timeout.
-- **Shared Access Control** (`apps/api/src/lib/org-scope.ts`): verifyBusinessAccess() helper validates business belongs to user's org, replaces previous clientType guards.
+- **Shared Helpers** (`apps/api/src/routes/form-1099-nec/shared-helpers.ts`, Phase 09):
+  - `createFormsInTaxBandits()` - DRY helper for recipient list building + TaxBandits API call + batch creation + form correlation by Sequence ID.
+  - `fetchDraftPdfs()` - DRY helper for parallel PDF fetch from TaxBandits S3 + R2 storage + form status updates.
+  - Reduces code duplication between /clients and /businesses routes during transition.
 
 **Messages & Voice (15):**
 - `GET /messages` - List conversations (org-scoped)
@@ -304,20 +380,22 @@ Organization (root entity)
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
 - **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
-- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form). Phase 01 Client-Business Entity Separation: simplified to hold client contact info only, business details moved to Business model. Phase 06 Cleanup: removed legacy businessName, einEncrypted, businessAddress, businessPhone fields from all intake forms and components (fully migrated to Business entity).
-- **Business** - clientId FK (one client can have multiple businesses), name, type (BusinessType: SOLE_PROPRIETORSHIP|LLC|PARTNERSHIP|S_CORP|C_CORP), einEncrypted (encrypted), address, city, state, zip. Phase 01 Client-Business Entity Separation: new entity holds business profile, contractors, and filing batches.
+- **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
+- **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
+- **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
 - **TaxCase** - Year-specific tax case, engagementId FK
 - **TaxEngagement** - Year-specific engagement (copy-from support)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
-- **Contractor** - businessId FK (belongs to Business, not Client), firstName, lastName, ssn4Encrypted (last 4 SSN digits, encrypted), address, phone, einEncrypted (optional, encrypted), businessType (INDIVIDUAL|SOLE_PROP|PARTNERSHIP|S_CORP|C_CORP), amount1099 (gross payments). Phase 01 Client-Business Entity Separation: migrated from clientId to businessId FK.
-- **FilingBatch** - businessId FK (Phase 01: migrated from clientId), taxYear, status (PENDING|IN_PROGRESS|SUBMITTED|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), tracking for 1099-NEC e-filing via TaxBandits API
-- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker)
+- **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
+- **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).
+- **ContractorIntakeToken** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), clientId+isActive.
+- **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)
 - **DocumentView** - Staff document view tracking (staffId + rawImageId unique composite). Tracks which staff members viewed which RawImage documents with timestamp (viewedAt). Enables per-CPA "new upload" badge calculations and document engagement metrics.
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
-- **DraftReturn** - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, version tracking (auto-increment per case), uploadedById FK to Staff (Restrict delete), status (ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, magicLinks array relation (1-to-many draft-to-links). Indexes: taxCaseId (single), taxCaseId+status (compound), unique(taxCaseId, version)
-- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional draftReturnId FK (SetNull, for DRAFT_RETURN type), isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. Indexes: token (unique), caseId+type (compound), draftReturnId
+- **ShareableDocument** (Prisma model name; table preserved as `DraftReturn` via `@@map`) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return", min 1 / max 100 chars, unique per case+ACTIVE+non-deleted), version tracking (auto-increment per section via (taxCaseId, title) grouping; rename propagates title across all versions to keep grouping stable), uploadedById FK to Staff, status (DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete — single source of truth for "removed"), magicLinks relation. Indexes: taxCaseId, (taxCaseId, status, deletedAt)
+- **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
 - **Lead** - Marketing lead capture. Fields: id (cuid), firstName, lastName, phone (unique per org + organizationId), email, businessName, status (NEW|CONTACTED|CONVERTED|LOST), campaignTag (renamed from source; eventSlug or null), tags (String[] for categorization, auto-populated from campaignTag on creation), notes (5KB max), organizationId FK, convertedToId FK (Client, null if not converted), createdAt/updatedAt. Indexes: organizationId+status, organizationId+phone, tags (GIN). Phase 02 Marketing API Complete. Phase 01 Tag-Based Categorization Added.
@@ -332,8 +410,56 @@ Organization (root entity)
 - Organization: clerkOrgId (unique), name
 - Staff: organizationId + clerkId (compound unique)
 - Client: organizationId + status, managedById (FK index)
-- DraftReturn: taxCaseId (single), taxCaseId + status (compound), status (single) - optimize case-to-drafts + status filtering
+- ShareableDocument: taxCaseId (single), taxCaseId + status + deletedAt (compound), status (single) - optimize case-to-documents + status filtering with soft-delete awareness
 - Messages: conversationId + createdAt (ordering)
+
+## Phase 04: Business Entity Separation — Data Migration
+
+**Overview:**
+Convert existing Business records into top-level Client records with `clientType=BUSINESS`, creating ClientGroups to link individual owners to their businesses. Industry-standard model matching Canopy, TaxDome, Karbon.
+
+**Migration Script:** `apps/api/scripts/migrate-business-to-client.ts`
+
+**Process:**
+1. Query all Business records with owner Client + related Contractor/FilingBatch/ContractorIntakeToken records
+2. For each Business (idempotent check via unique phone):
+   - Create new Client(clientType=BUSINESS) with business fields (name, businessType, EIN, address)
+   - Create/reuse ClientGroup grouping owner + business
+   - Update all Contractor → clientId (new business client)
+   - Update all FilingBatch → clientId (new business client)
+   - Update all ContractorIntakeToken → clientId (new business client)
+3. Transaction-wrapped per business, 30s timeout, per-business error handling
+
+**Idempotency:**
+- Phone field: `biz-{businessId}` placeholder (unique per source business)
+- Existing migrated records skipped via phone lookup
+- Safe to re-run without duplicates
+
+**CLI Flags:**
+- `--dry-run` — Log planned changes without executing
+- `--confirm` — Required for live mode (safety guard)
+- `--org-id <id>` — Optional, migrate single org only (testing)
+
+**Usage:**
+```bash
+cd apps/api
+# Preview changes
+npm run migrate:business-to-client -- --dry-run
+
+# Execute migration (requires confirmation)
+npm run migrate:business-to-client -- --confirm
+
+# Test single org
+npm run migrate:business-to-client -- --dry-run --org-id <orgId>
+```
+
+**Output:** Migration summary (total, migrated, skipped, errors, groups created, records updated)
+
+**Data Integrity:**
+- All Contractor/FilingBatch/ContractorIntakeToken data preserved
+- EIN remains encrypted, no re-encryption needed
+- Org/manager assignments maintained on business client
+- Phase 15 Complete: Business model removed, all business data now on Client(clientType=BUSINESS)
 
 ## Authentication Flow
 
@@ -533,32 +659,40 @@ apps/portal/src/components/pdf-viewer/ (modular structure)
 - `INVALID_TOKEN` - Token not found in database
 - `LINK_REVOKED` - Staff revoked the draft access
 - `LINK_EXPIRED` - Token expiresAt date passed
+- `DOC_DELETED` - Document soft-deleted by CPA (HTTP 410 from Phase 02 API) - Phase 05 addition, suppresses retry button
 - `PDF_UNAVAILABLE` - R2 signed URL generation failed
 - Browser unsupported - iFrame load error, fallback to download/open buttons
 
 **API Endpoints:**
-- `GET /portal/draft/:token` - Public, no auth, returns DraftReturnData
-- `POST /portal/draft/:token/viewed` - Public, fire & forget, updates view tracking
+- `GET /shared-docs/:token` - Public, no auth, returns ShareableDocumentData (multi-section portal view)
+- `POST /shared-docs/:token/viewed` - Public, fire & forget, updates view tracking per section
 
 **Portal API Client (apps/portal/src/lib/api-client.ts):**
 ```typescript
-export interface DraftReturnData {
+export interface ShareableDocumentData {
   clientName: string           // Display name
   clientLanguage: 'EN' | 'VI'  // Auto-sync language
   taxYear: number              // Tax year
-  version: number              // Draft version
+  version: number              // Document version
+  title: string                // Section title (custom or "Draft Return" default) - Phase 05 addition
   filename: string             // Original filename
   uploadedAt: string           // ISO8601
   pdfUrl: string              // Signed R2 URL (15min expiry)
+  sections?: Array<{           // Multi-section support (Phase 04)
+    id: string                 // Section identifier
+    title: string              // Section title
+    status: 'ACTIVE' | 'REVOKED' // Section-level status
+  }>
 }
 
-portalApi.getDraft(token: string) → Promise<DraftReturnData>
-portalApi.trackDraftView(token: string) → Promise<void>
+portalApi.getSharedDoc(token: string) → Promise<ShareableDocumentData>
+portalApi.trackSharedDocView(token: string) → Promise<void>
 ```
 
 **Localization Keys:**
 ```
-draft.title              → "Draft Tax Return for Review"
+draft.title              → "Draft Tax Return for Review" (fallback if title missing - Phase 05)
+draft.titleFormat        → "{{title}} for Review" (dynamic title per section - Phase 05, pending i18n)
 draft.loading            → "Loading your draft tax return..."
 draft.taxYear            → "Tax Year"
 draft.version            → "Version"
@@ -568,6 +702,7 @@ draft.errorLoading       → "Could not load the draft tax return. Please try ag
 draft.errorInvalidLink   → "This link is not valid. Please contact your CPA for a new link."
 draft.errorRevoked       → "This link has been revoked. Please contact your CPA."
 draft.errorExpired       → "This link has expired. Please contact your CPA for a new link."
+draft.errorDeleted       → "This document has been removed by your CPA." (Phase 05, pending i18n)
 draft.linkInvalid        → "Link Invalid"
 draft.viewerUnsupported  → "PDF Viewer Unavailable"
 draft.viewerFallback     → "Your browser cannot display PDFs directly. Please use the buttons below."
@@ -584,7 +719,7 @@ draft.download           → "Download PDF"
 
 **View Tracking:**
 - Called on successful PDF load (fire & forget pattern)
-- Updates `DraftReturn.viewCount` and `lastViewedAt`
+- Updates `ShareableDocument.viewCount` and `lastViewedAt`
 - Staff can monitor engagement in workspace dashboard
 - No sensitive data logged (token only)
 
@@ -690,6 +825,79 @@ Mobile-optimized UI:
 - Pinch detection: Native touch events (no library needed)
 - Swipe detection: Distance + velocity calculation
 - Fallback: Native PDF controls still available if gestures fail
+
+---
+
+## Phase 05: Portal Viewer - Header UI Updates (Dynamic Title + Ella Logo) (COMPLETE)
+
+**Overview:**
+Portal draft viewer header redesign to display dynamic document titles and Ella branding. Each section can have a custom title (e.g., "2024 Tax Return" vs "Draft Financials") rendered as `{title} for Review`. Ella logo added to header (top-left) with light/dark mode support. New error state for soft-deleted documents (HTTP 410 DOC_DELETED).
+
+**Files Changed:**
+- `apps/portal/src/lib/api-client.ts` — Added `title: string` to `ShareableDocumentData` interface (Phase 02 API addition)
+- `apps/portal/src/routes/draft/$token/index.tsx` — Logo imports, header layout redesign, dynamic title rendering, DOC_DELETED error handling
+
+**Header Layout (Phase 05 Update):**
+```tsx
+// New 3-column header with logo + centered title
+<div className="flex items-center justify-between mb-2">
+  <img src={EllaLogoLight} alt="Ella" className="h-6 w-auto dark:hidden" />
+  <img src={EllaLogoDark} alt="Ella" className="h-6 w-auto hidden dark:block" />
+  <div /> {/* spacer for center alignment */}
+</div>
+<h1 className="text-base font-semibold text-foreground text-center">
+  {t('draft.titleFormat', { title: data.title })}
+</h1>
+```
+
+**Logo Implementation:**
+- Import: `import { EllaLogoLight, EllaLogoDark } from '@ella/ui'`
+- Size: 24px height, auto width (aspect ratio preserved)
+- Variants: `EllaLogoLight` (light mode, black text), `EllaLogoDark` (dark mode, white text)
+- Dark mode: Conditional render via Tailwind `dark:` utilities
+- No layout shift: Dimensions reserved via aspect-ratio
+
+**Title Rendering (Phase 05):**
+- Source: `data.title` from API (custom title set by CPA in workspace)
+- Format key: `draft.titleFormat` with placeholder `{{title}}` (values: "...for Review" en, "...để Xem Xét" vi)
+- Fallback: `draft.title` key if title field missing (defensive degradation, though atomic deploy ensures presence)
+- XSS safe: React text node auto-escapes user-provided title
+
+**Error Handling (Phase 05):**
+```typescript
+// Added DOC_DELETED case
+switch (error?.code) {
+  case 'INVALID_TOKEN': return t('draft.errorInvalidLink')
+  case 'LINK_REVOKED': return t('draft.errorRevoked')
+  case 'LINK_EXPIRED': return t('draft.errorExpired')
+  case 'DOC_DELETED': return t('draft.errorDeleted')   // NEW (Phase 05)
+}
+// Suppress retry button for permanent errors
+const isInvalidLink = ['INVALID_TOKEN', 'LINK_REVOKED', 'LINK_EXPIRED', 'DOC_DELETED'].includes(error?.code)
+```
+
+**Pending i18n (Phase 06):**
+- `draft.titleFormat` — Message key, not yet in locale files
+- `draft.errorDeleted` — Message key, not yet in locale files
+
+**API Compatibility (Phase 02 Dependency):**
+```typescript
+// Portal API response includes title field (added in Phase 02)
+ShareableDocumentData {
+  title: string  // "Draft Return", "2024 Tax Return", etc.
+  ...other fields
+}
+```
+
+**Mobile Layout:**
+- Logo + title stay on single line on portrait (headroom reserved)
+- Logo doesn't wrap; spacer adapts to available width
+- Existing metadata chips (year/version/client) unchanged below title
+
+**Security:**
+- No new CSP impact (logo is static asset from workspace)
+- Title value rendered as text node → HTML-escaped automatically
+- 410 response doesn't leak internal state ("removed by CPA" only)
 
 ---
 
@@ -821,6 +1029,147 @@ overview.notesPlaceholder - Editor placeholder text
 - File size limits: 10MB pre-compression, 200KB post-compression target
 - HTML sanitization: Notes stored as HTML, frontend auto-escapes React rendering (no XSS)
 - HTTPS only: Presigned URLs include X-Amz-* signatures
+
+---
+
+## Phase 03: Client Detail Add Business Drawer (COMPLETE)
+
+**Overview:**
+Slide-over drawer enabling CPAs to link additional business entities to existing individual clients directly from the client detail Overview tab. Provides empty state UI for individuals without businesses and persistent add button for those with existing businesses.
+
+**Components:**
+
+1. **AddBusinessDrawer** (`apps/workspace/src/components/clients/client-overview-tab/add-business-drawer.tsx`)
+   - Fixed slide-over drawer: 100% height, max-width 28rem (md breakpoint), positioned right side
+   - Overlay: Semi-transparent backdrop (opacity-50) with click-to-close
+   - Accessibility: role="dialog", aria-modal="true", aria-label, escape-key dismiss
+   - Body scroll lock: Prevents page scroll while drawer open (document.body.style.overflow)
+   - Header: Title "Add Business" + close button (X icon)
+
+   **Form Content:**
+   - Uses existing `BusinessInfoForm` with `idPrefix="add-biz-"` and `hideTitle` props for drawer context
+   - Fields: business name (required), type, EIN, phone, email, address, city, state, zip
+   - Tax year selector: 3-button toggle group (current year, -1, -2 dynamic from `new Date().getFullYear()`)
+   - Error display: Top banner for API errors with red bg/text
+   - Submit button: "Create & Link Business" with loading spinner during submission
+
+   **Mutation Logic:**
+   ```typescript
+   const mutation = useMutation({
+     mutationFn: (data: LinkBusinessInput) =>
+       api.clients.linkBusiness(clientId, data),
+     onSuccess: () => {
+       onSuccess() // Parent callback for cache invalidation
+       onClose()   // Close drawer
+     }
+   })
+   ```
+
+   **Validation:**
+   - Business name required (trim check)
+   - Other fields optional (matching BusinessInfoForm validation)
+   - Submit disabled while mutation pending
+
+   **Data Mapping:**
+   ```typescript
+   const payload: LinkBusinessInput = {
+     firstName: business.name,           // Business name → firstName
+     phone: clientPhone,                 // Client's phone (from parent)
+     email: clientEmail || undefined,    // Client's email (optional)
+     businessType: business.businessType,
+     ein: business.ein || undefined,
+     businessAddress: business.address || undefined,
+     businessCity: business.city || undefined,
+     businessState: business.state || undefined,
+     businessZip: business.zip || undefined,
+     taxYear                              // Selected tax year
+   }
+   ```
+
+2. **ClientLinkedEntityCard** (Enhanced)
+   - Shows differently based on currentClientType and linkedClients array:
+     - Business clients with no owner: Card hidden (returns null)
+     - Individual clients with no businesses: Empty state card with CTA button
+     - Individual/Business with linked entities: List of linked clients
+     - Individual with businesses: Add button persists at bottom
+
+   **Empty State UI:**
+   ```
+   │ Building icon "Linked Business"
+   │ "No businesses linked yet."
+   │ [  + Add Business  ] (dashed border button)
+   ```
+
+   **Linked Entity Cards:**
+   - Avatar: Initials (rounded-full for individuals, rounded-lg for businesses)
+   - Name + business type badge (e.g., "LLC", "S-Corp")
+   - Contact info: Phone + Email + EIN masked
+   - Navigation: Link to linked client detail page
+   - Hover state: Border + background color change
+
+   **Props:**
+   ```typescript
+   interface ClientLinkedEntityCardProps {
+     clientId: string
+     clientPhone: string
+     clientEmail?: string | null
+     currentClientType: ClientType
+     linkedClients: ClientPreview[]
+     onBusinessAdded?: () => void
+   }
+   ```
+
+3. **ClientOverviewTab** (Updated)
+   - Conditional render: Show ClientLinkedEntityCard for INDIVIDUAL clients OR if clientGroup with members exists
+   - Pass `onBusinessAdded` callback: Invalidates `['clients', client.id]` query
+   - Query refresh shows newly linked business on Overview tab
+
+**API Integration:**
+```
+POST /clients/:clientId/link-business
+Body: LinkBusinessInput {
+  firstName: string              // Business name
+  phone: string                  // Client phone (E.164)
+  email?: string                 // Client email
+  businessType: BusinessType
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  taxYear: number
+}
+Response: LinkBusinessResponse
+```
+
+**User Workflow:**
+1. CPA opens individual client detail page
+2. Overview tab shows: "No businesses linked yet" + "+ Add Business" button
+3. Click button → AddBusinessDrawer opens (slide-over from right)
+4. Fill business form + select tax year
+5. Click "Create & Link Business" → Submits LinkBusinessInput
+6. Success: Drawer closes, Overview refreshes with new linked business
+7. Can repeat: "+ Add Business" button remains visible
+
+**Validation & Error Handling:**
+- Client-side: Business name required
+- API errors: Displayed in-drawer red banner with retry
+- Loading state: Button disabled, spinner, "Creating..." text
+- Success: Auto-close drawer + cache invalidation
+
+**Cache Strategy:**
+```typescript
+onBusinessAdded={() =>
+  queryClient.invalidateQueries({ queryKey: ['clients', client.id] })
+}
+```
+Ensures GET /clients/:id re-fetches with updated clientGroup.clients array.
+
+**Mobile Support:**
+- Drawer: 100% width on mobile, right-aligned
+- Overlay: Full coverage
+- Close: Large X button, escape key
+- Form: Mobile-optimized spacing + full-width tax year buttons
 
 ---
 
@@ -1033,13 +1382,27 @@ apps/api/src/services/ai/
 - Vietnamese name handling: diacritics removed (ă→a, đ→d), PascalCase formatting
 - See: [`phase-02-fallback-smart-rename.md`](./phase-02-fallback-smart-rename.md) for details
 
+**Phase 03 Multi-Entity Document Routing (NEW):**
+- **Inngest Job Step:** route-to-entity (executes after classify, before route-by-confidence)
+- **Activation:** Client has ClientGroup (individual + business entities), AI detected targetEntityId
+- **Validation:** entityConfidence ≥ 0.7, target in same ClientGroup, org-scoped defense-in-depth, target has taxCase for current year
+- **Action:** RawImage.caseId routed from upload entity to intended recipient entity. routedFromCaseId tracks original case (audit trail). entityConfidence stored.
+- **Isolation:** Downstream steps (OCR, rename) use effectiveCaseId (routed destination) for correct entity association
+- **Graceful Degradation:** All routing failures non-fatal—document processing continues with original caseId
+- **Backward Compatible:** Single-entity clients unaffected. Entity routing skipped when conditions not met.
+- **Cross-Group Protection:** targetEntityId must be in current ClientGroup (prevents cross-group document leakage)
+- See: [`phase-02-classification-job.md`](./phase-02-classification-job.md#entity-routing-step-phase-03) for details
+
 Magic Link Service:
 ```typescript
 apps/api/src/services/magic-link.ts
-├── getMagicLinkUrl() - Maps link types to URLs
-├── validateScheduleEToken() - Token validation
-├── getScheduleEMagicLink() - Generate link
-└── Support for PORTAL, SCHEDULE_C, SCHEDULE_E types
+├── getMagicLinkUrl() - Maps link types to URLs (/upload, /expense, /rental, /draft)
+├── createMagicLink() - Generate token scoped to caseId, optional clientName for slug generation
+├── generateSlugToken(clientName) - PORTAL-type tokens: "name-random6" (e.g., "tuyet-nguyen-a7k3mz"), fallback to random if invalid
+├── resolveToken(type, clientName) - PORTAL with name → slug token; others → random token
+├── validateMagicLink() - Token validation + usage tracking
+├── validateScheduleEToken() - Schedule E validation + expiry check
+└── Support for PORTAL (friendly URLs), SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN types
 ```
 
 ## Schedule E Workspace Tab (Phase 4 Frontend - 2026-02-06)
@@ -1098,143 +1461,671 @@ ScheduleETab (index.tsx) [4 states]
 - Endpoint: `GET /schedule-e/:caseId` (via `api.scheduleE.get(caseId)`)
 - Magic link operations reuse existing POST /send, POST /resend routes
 
-## Businesses Tab Workspace (Phase 05 Frontend - 2026-04-03)
+## Phase 12: Frontend Client Creation Wizard - Multi-Path (2026-04-09)
 
-**Location:** `apps/workspace/src/components/businesses/`
+**Location:** `apps/workspace/src/routes/clients/new.tsx` + `apps/workspace/src/components/clients/`
 
 **Overview:**
-Client detail tab for managing multiple businesses per client. Each business is an expandable card showing basic info + embedded contractor/1099-NEC management. Supports full CRUD operations on businesses.
+Three-path client creation wizard supporting Individual, Individual+Business, and Business-only client types. Path selection drives form complexity and submission strategy. Business-only path submits directly without SMS confirmation step.
+
+**Client Creation Paths:**
+
+1. **Individual Path** (Type: 'INDIVIDUAL')
+   - Steps: Basic Info → Confirm & Send SMS
+   - Form: firstName, lastName, phone, email, language, taxYear
+   - Returning client detection: Phone-based lookup (existing client reuse)
+   - Submission: `POST /clients` with customMessage (SMS template)
+   - No business association
+
+2. **Individual + Business Path** (Type: 'INDIVIDUAL_WITH_BUSINESS')
+   - Steps: Basic Info → Business Info → Confirm & Send SMS
+   - Creates linked records: Individual Client + Business Client + ClientGroup
+   - Individual form: firstName, lastName, phone, email, language
+   - Business form: name, businessType, EIN, phone, email, address, city, state, zip
+   - Submission: `POST /clients/with-business` (combo endpoint)
+   - Returns both individual.id and business.id
+   - Business phone inherits from individual if not provided
+
+3. **Business Only Path** (Type: 'BUSINESS')
+   - Steps: Business Info (single form, no SMS confirm)
+   - Form: name, businessType, EIN, phone (required), email, address, city, state, zip
+   - Submission: Direct `POST /clients` with clientType='BUSINESS'
+   - Phone required (no individual phone fallback)
+   - No SMS confirmation step — form redirect to client detail on success
+   - Tax year selector: 3-button toggle (current year - 1, -2, -3)
 
 **Component Hierarchy:**
 ```
-BusinessesTab (index.tsx)
-├── State: isLoading → <Spinner />
-├── State: error → <ErrorCard /> (with Retry button)
-├── State: empty → <EmptyState />
-│   └── Building2 icon, "No businesses yet" message
-│   └── Add Business button
-├── State: with data → <Header /> + <BusinessCard[]>
-│   └── Business count label, Add Business button
-│   └── BusinessCard[0..N]
-│       ├── Business header (clickable, expandable)
-│       │   ├── Building2 icon
-│       │   ├── Name + masked EIN badge
-│       │   ├── Type label (Sole Prop, LLC, etc.)
-│       │   ├── Address, city, state, zip
-│       │   ├── Contractor count (if > 0)
-│       │   ├── Edit button (pencil icon)
-│       │   ├── Delete button (trash icon, red)
-│       │   └── Chevron up/down (expand/collapse)
-│       └── Expanded content: <Form1099NECTab businessId={id} />
-└── <BusinessFormModal /> (create/edit)
-    ├── Name input (required)
-    ├── Type select dropdown
-    ├── EIN input (auto-formatted XX-XXXXXXX)
-    ├── Address input (required)
-    ├── City, State, ZIP (required, grid layout)
-    └── Save/Cancel buttons
+CreateClientPage (new.tsx)
+├── Step: 'type-select'
+│   └── ClientTypeSelector
+│       ├── Card: Individual (User icon, "A person (files 1040)")
+│       ├── Card: Individual + Business (UserPlus icon, "A person who owns a business")
+│       └── Card: Business Only (Building2 icon, "A business entity")
+│
+├── Step: 'individual-form' (paths: INDIVIDUAL, INDIVIDUAL_WITH_BUSINESS)
+│   └── BasicInfoForm
+│       ├── firstName, lastName (required)
+│       ├── phone (required, 10 digits, checked for returning client)
+│       ├── email (optional, email validation)
+│       ├── language (VI/EN select)
+│       ├── taxYear (3-button toggle)
+│       └── ReturningClientSection (if match found)
+│
+├── Step: 'business-form' (paths: INDIVIDUAL_WITH_BUSINESS, BUSINESS)
+│   └── BusinessInfoForm
+│       ├── name (required)
+│       ├── businessType (dropdown: SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+│       ├── EIN (auto-formatted XX-XXXXXXX, optional except for BUSINESS path)
+│       ├── phone (required for BUSINESS, optional for INDIVIDUAL_WITH_BUSINESS)
+│       ├── email (optional)
+│       ├── address (optional, street)
+│       ├── city, state, zip (optional grid layout, state auto-uppercase)
+│       └── Tax Year selector (BUSINESS path only)
+│
+├── Step: 'confirm' (paths: INDIVIDUAL, INDIVIDUAL_WITH_BUSINESS)
+│   └── ConfirmStep
+│       ├── Client summary (name, phone, taxYear, language)
+│       ├── SMS template editor (customizable per language)
+│       └── Create button (submits form + sends SMS)
 ```
 
 **Sub-Components:**
-- **businesses-tab.tsx** - Main tab, data fetching, empty/error states, business list rendering
-- **business-card.tsx** - Expandable card per business, edit/delete triggers, Form1099NECTab embedding
-- **business-form-modal.tsx** - Create/edit form with validation + EIN auto-formatting
-- **index.ts** - Barrel export (BusinessesTab)
+- **client-type-selector.tsx** - 3-card type picker (Individual/Individual+Business/Business)
+- **basic-info-form.tsx** - Individual form fields (firstName, lastName, phone, email, language, taxYear)
+- **business-info-form.tsx** - Business form fields (name, type, EIN, phone, email, address, city, state, zip)
+- **clients/index.ts** - Barrel exports (ClientTypeSelector, BasicInfoForm, BusinessInfoForm, EMPTY_BUSINESS_INFO, EMPTY_BASIC_INFO, type ClientCreationType, type BasicInfoData, type BusinessInfoData)
 
-**Data Hooks:**
+**Form Data Interfaces:**
 ```typescript
-useQuery({
-  queryKey: ['businesses', clientId],
-  queryFn: () => api.businesses.list(clientId),
-})
-```
+type ClientCreationType = 'INDIVIDUAL' | 'INDIVIDUAL_WITH_BUSINESS' | 'BUSINESS'
 
-**Mutations:**
-```typescript
-api.businesses.create(clientId, data)    // POST /clients/:clientId/businesses
-api.businesses.update(clientId, bizId, data)  // PATCH /clients/:clientId/businesses/:businessId
-api.businesses.delete(clientId, bizId)   // DELETE /clients/:clientId/businesses/:businessId
-```
-
-**Form Validation:**
-- Business name: required, non-empty string
-- Type: enum (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
-- EIN: required on create, optional on edit (auto-formats as XX-XXXXXXX)
-- Address: required, non-empty
-- City: required, non-empty
-- State: required, must be 2-letter code (auto-uppercase)
-- ZIP: required, must be 5 or 9 digits (format: XXXXX or XXXXX-XXXX)
-
-**Error Handling:**
-- List load error: Alert card with "Failed to load businesses" message + Retry button
-- Delete error: Toast notification with error message
-- Create/update error: Toast notification with validation details
-
-**EIN Masking:**
-- Display format: XX-XXX#### (show last 4 digits only)
-- Example: 12-3456789 → 12-345#### (masked from API response)
-
-**API Types:**
-```typescript
-interface Business {
-  id: string
-  clientId: string
-  name: string
-  type: BusinessType          // 'SOLE_PROPRIETORSHIP' | 'LLC' | ...
-  einMasked: string          // 'XX-XXX####'
-  address: string
-  city: string
-  state: string              // 2-letter code
-  zip: string
-  contractorCount: number
-  createdAt: string
-  updatedAt: string
+interface BasicInfoData {
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  language: 'VI' | 'EN'
+  taxYear: number
 }
 
-type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
-
-interface CreateBusinessInput {
+interface BusinessInfoData {
   name: string
-  type: BusinessType
-  ein: string                // XX-XXXXXXX format
+  businessType: BusinessType
+  ein: string
+  phone: string
+  email: string
   address: string
   city: string
   state: string
   zip: string
 }
+
+type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
 ```
 
-**Key Features:**
-- Multi-business per client: Single client can have many businesses
-- Expandable design: Contractors/1099s shown only when expanded (reduces clutter)
-- Contractor count badge: Quick visual indicator of activity per business
-- Cascade delete warning: Modal shows contractor count before deletion
-- Business type labels: Readable names (Sole Prop, LLC, etc.) vs. enum values
-- EIN security: Masked in UI, never shown in plaintext (encrypted at rest)
+**Validation Rules:**
 
-**Integration Points:**
-- Depends on Phase 02 (Business CRUD API endpoints) and Phase 01 (Prisma model + FKs)
-- Form1099NECTab now scoped to businessId (was clientId in Phase 03)
-- Contractor routes unchanged (already migrated to businessId in Phase 03)
-- Tab navigation: Replaced "1099-NEC" tab with "Businesses" tab in client detail route
+*Basic Info (Individual paths):*
+- firstName: required, non-empty trim check
+- lastName: required, non-empty trim check
+- phone: required, exactly 10 digits (after removing non-digits)
+- email: optional, but if provided must match email regex pattern
+- language: VI or EN (default VI)
+- taxYear: valid year from TAX_YEARS list
 
-**Internationalization:**
-- Placeholder text, labels, buttons, error messages need i18n keys
-- Empty state: "No businesses yet", "Add a business to manage contractors..."
-- Delete confirmation: "Are you sure you want to delete [name]?"
-- Type labels: All business type enums translated (6 keys)
+*Business Info (Business paths):*
+- name: required, non-empty trim check
+- businessType: must be valid enum value
+- EIN: if provided, must match format XX-XXXXXXX (2-digit + hyphen + 7-digit)
+- phone: required for BUSINESS path, optional for INDIVIDUAL_WITH_BUSINESS
+  - If provided, must be 10 digits (after removing non-digits)
+- email: optional, but if provided must match email regex
+- state: optional, but if provided must be 2-letter uppercase code (validated against US_STATES set)
+- zip: optional, but if provided must be 5 digits or 5-4 format (XXXXX or XXXXX-XXXX)
+
+**Data Sanitization:**
+- email: Control characters removed (0x00-0x1F, 0x7F), length limited to 254 chars, trimmed
+- firstName/lastName: Trimmed, sliced to 50 chars max on submission
+- businessName: Trimmed, sliced to 100 chars max on submission
+- phone: Converted to E.164 format (+1XXXXXXXXXX) on submission
+- state: Auto-uppercase, limited to 2 chars
+
+**Returning Client Detection (Individual paths only):**
+- Triggered on phone blur (BasicInfoForm)
+- API call: `GET /clients/search?phone=<formatted>`
+- If match found:
+  - firstName/lastName auto-populate (if not already filled)
+  - ReturningClientSection shows existing engagement + "Copy from previous" option
+  - Submission creates engagement on existing client instead of new client
+- Checked async: isCheckingPhone loading state during API call
+
+**API Submissions:**
+
+*Individual Path:*
+```
+POST /clients
+{
+  firstName: string
+  lastName: string
+  phone: "+1XXXXXXXXXX"    (E.164)
+  email?: string          (sanitized)
+  language: "VI" | "EN"
+  profile: { taxYear: number, taxTypes: ["FORM_1040"] }
+  customMessage: string   (SMS template from confirm step)
+}
+```
+
+*Individual + Business Path:*
+```
+POST /clients/with-business
+{
+  individual: {
+    firstName: string
+    lastName: string
+    phone: "+1XXXXXXXXXX"
+    email?: string
+    language: "VI" | "EN"
+    profile: { taxYear: number, taxTypes: ["FORM_1040"] }
+  }
+  business: {
+    firstName: string            (business name)
+    businessType: BusinessType
+    ein?: string
+    phone: "+1XXXXXXXXXX"        (defaults to individual.phone)
+    email?: string
+    businessAddress?: string
+    businessCity?: string
+    businessState?: string
+    businessZip?: string
+    language: "VI" | "EN"
+    profile: { taxYear: number }
+  }
+  groupName: string             (e.g., "John Doe Group")
+}
+```
+
+*Business Only Path:*
+```
+POST /clients
+{
+  firstName: string            (business name)
+  clientType: "BUSINESS"
+  businessType: BusinessType
+  phone: "+1XXXXXXXXXX"       (required, no fallback)
+  email?: string
+  ein?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+  profile: { taxYear: number }
+}
+```
+
+**Step Navigation:**
+
+*Forward Navigation (handleNext):*
+- 'individual-form' → validate basic info
+  - If INDIVIDUAL: go to 'confirm'
+  - If INDIVIDUAL_WITH_BUSINESS: go to 'business-form'
+- 'business-form' (INDIVIDUAL_WITH_BUSINESS only) → validate business info → go to 'confirm'
+- 'business-form' (BUSINESS only): no next step, submit inline via button
+
+*Backward Navigation (handleBack):*
+- 'individual-form' → 'type-select' (reset type)
+- 'business-form' (INDIVIDUAL_WITH_BUSINESS) → 'individual-form'
+- 'business-form' (BUSINESS only) → 'type-select' (reset type)
+- 'confirm' → 'business-form' (INDIVIDUAL_WITH_BUSINESS) or 'individual-form' (INDIVIDUAL)
+
+*Step Indicator:*
+- Hidden on 'type-select'
+- INDIVIDUAL path: 2 steps (Basic Info, Confirm)
+- BUSINESS path: 1 step (Business Info, no indicator shown)
+- INDIVIDUAL_WITH_BUSINESS path: 3 steps (Basic Info, Business Info, Confirm)
+- Current step highlighted, completed steps show checkmark
+
+**Business-Only Direct Submission (No Confirm Step):**
+- Business form has inline "Create Business Client" button
+- Button validates businessInfo before submission
+- No SMS confirm step (business entities assumed to have secure communication channels)
+- On success: navigate to `/clients/:clientId` (client detail view)
+- On error: submitError displayed, no form reset (user can retry)
+
+**EIN Auto-Formatting:**
+- Input: User types/pastes any text
+- Processing: Digits extracted, limited to 9 chars
+- Format: If > 2 digits, format as XX-XXXXXXX
+- Display: Real-time, as user types
+- Validation: Final format checked before submission (must be XX-XXXXXXX or empty)
+
+**US State Validation:**
+- Hard-coded SET of 50 states + DC + territories (AL, AK, ... VI, GU, AS, MP)
+- Input: Case-insensitive, auto-uppercase to 2 chars
+- Validation error: "Invalid state code" if not in set
+
+**Accessibility Features:**
+- All form fields have htmlFor-linked labels
+- Error messages: aria-describedby linked, role="alert"
+- Required fields: aria-required="true", red asterisk with aria-hidden="true"
+- Invalid fields: aria-invalid="true" when errors present
+- TypeSelector cards: Keyboard navigable, Enter/Space to select
+- StepIndicator: Semantic nav with aria-label="Progress", icon descriptions
+- Focus management: First invalid field focused on validation error
+- Modal/drawer patterns: Escape key, backdrop click, focus trap
+
+**Internationalization (i18n):**
+- SMS template defaults: DEFAULT_SMS_TEMPLATE_VI and DEFAULT_SMS_TEMPLATE_EN
+- Template editable on confirm step (language selector changes active template)
+- Language passed to SMS send endpoint
+- Error messages: t('newClient.errorFirstNameRequired'), etc.
+- UI text: t('newClient.stepBasicInfo'), t('newClient.stepConfirm'), etc.
+
+**Error Handling:**
+- Validation errors: Local state, displayed per-field with aria-describedby
+- Submission errors: Top-level error banner (submitError state)
+- Returning client check: Silent failure (setExistingClient(null)), no error shown
+- Phone blur check: Async (isCheckingPhone flag), debounce recommended by caller
 
 **Performance:**
-- Query key structure: `['businesses', clientId]` — invalidated on CRUD operations
-- Contractors query: `['contractors', businessId]` — scoped per business (loaded only when card expanded)
-- Business count badge: Re-calculated on contractor add/delete (via query invalidation)
+- No query caching for type selector (UI-only state)
+- Returning client query: No automatic retry, user can manually blur phone field again
+- Submission: Single request per path, no parallel requests
+- Form re-render optimization: useState for each form data object, onChange callbacks only update that object
 
-**Accessibility:**
-- Business card header: role="button", tabIndex=0, keyboard-accessible (Enter/Space)
-- Buttons: Accessible with hover/focus states
-- Icons: Semantic (Building2 for business, Pencil for edit, Trash for delete, ChevronUp/Down for expand)
-- Modal: ModalHeader, ModalTitle, form labels with htmlFor references
-- Delete confirmation: ModalFooter with Cancel/Delete buttons (red delete button)
+**Key Differences from Prior Client Creation:**
+- OLD: Single form with clientType toggle + all business fields (removed in Phase 04)
+- NEW: Path-driven wizard with separate form components per path type
+- NEW: Business phone optional for Individual+Business path (inherits from individual)
+- NEW: Business-only path submits directly (no SMS confirm step)
+- NEW: ClientTypeSelector as first step (three-card UX)
+- NEW: Combo endpoint `POST /clients/with-business` for Individual+Business path
+
+---
+
+## Phase 13: Client Detail Page - Type-Based Tab Layout (2026-04-09)
+
+**Location:** `apps/workspace/src/routes/clients/$clientId.tsx`
+
+**Overview:**
+Client detail page now renders different tab layouts based on clientType (INDIVIDUAL vs BUSINESS). INDIVIDUAL clients show Overview, Files, Data Entry, Draft Return, Schedule C, Schedule E. BUSINESS clients show Overview, Files, Contractors, Data Entry, Draft Return, Schedule C. Removed old "Businesses" tab. Added cross-link banner showing linked clients in same ClientGroup. Header adapts with building icon and businessType badge for BUSINESS clients.
+
+**Tab Configuration:**
+
+**BUSINESS Client Tabs:**
+- Overview (Building2 icon)
+- Files (FolderOpen icon)
+- Contractors (UserCircle icon) — new, shows contractor list for business
+- Data Entry (ClipboardList icon)
+- Draft Return (FileText icon)
+- Schedule C (Calculator icon) — conditional, appears if scheduleCExpense data exists
+
+**INDIVIDUAL Client Tabs:**
+- Overview (User icon)
+- Files (FolderOpen icon)
+- Data Entry (ClipboardList icon)
+- Draft Return (FileText icon)
+- Schedule C (Calculator icon) — conditional, appears if scheduleCExpense data exists
+- Schedule E (Home icon) — conditional, appears if scheduleEExpense data exists
+
+**Tab Configuration Logic (`$clientId.tsx` lines 506-534):**
+```typescript
+const isBusiness = client.clientType === 'BUSINESS'
+
+const tabs = isBusiness
+  ? [
+      { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
+      { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+      { id: 'contractors', label: 'Contractors', icon: UserCircle },
+      { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
+      ...(scheduleCExpense ? [scheduleCTab] : []),
+    ]
+  : [
+      { id: 'overview', label: t('clientOverview.title'), icon: User },
+      { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
+      { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
+      { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
+      ...(scheduleCExpense ? [scheduleCTab] : []),
+      ...(scheduleEExpense ? [scheduleETab] : []),
+    ]
+
+// Overflow tabs (shown in "More" dropdown)
+const overflowTabs = isBusiness
+  ? [...(!scheduleCExpense ? [scheduleCTab] : [])]
+  : [
+      ...(!scheduleCExpense ? [scheduleCTab] : []),
+      ...(!scheduleEExpense ? [scheduleETab] : []),
+    ]
+```
+
+**Header Adaptations:**
+
+1. **Avatar**
+   - BUSINESS: Building2 icon with primary/10 background
+   - INDIVIDUAL: Initials with color-coded background (getAvatarColor)
+
+2. **Business Type Badge**
+   - BUSINESS only: Displays businessType (SOLE_PROPRIETORSHIP, LLC, PARTNERSHIP, S_CORP, C_CORP)
+   - Maps via BUSINESS_TYPE_LABELS (e.g., "S_CORP" → "S-Corp")
+   - Style: px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary
+
+3. **EIN Display**
+   - BUSINESS only: Shows einMasked in header (e.g., "EIN: XX-XXXX567")
+   - INDIVIDUAL: No EIN displayed
+
+**Cross-Link Banner (lines 551-574):**
+
+Shows linked clients in same ClientGroup below back button:
+```typescript
+{client.clientGroup && client.clientGroup.clients.length > 1 && (
+  <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-sm mb-4">
+    <span className="text-muted-foreground">Linked:</span>
+    {client.clientGroup.clients
+      .filter(c => c.id !== clientId)
+      .map(sibling => (
+        <Link
+          key={sibling.id}
+          to="/clients/$clientId"
+          params={{ clientId: sibling.id }}
+          className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium"
+        >
+          {sibling.clientType === 'BUSINESS' ? (
+            <Building2 className="w-3.5 h-3.5" />
+          ) : (
+            <User className="w-3.5 h-3.5" />
+          )}
+          {sibling.name}
+          <ArrowRight className="w-3 h-3" />
+        </Link>
+      ))}
+  </div>
+)}
+```
+
+**Tab State Management:**
+
+Tab state resets on clientId change via useEffect (prevents stale state when navigating between clients):
+```typescript
+useEffect(() => {
+  setActiveTab('files') // or appropriate default per clientType
+}, [clientId])
+```
+
+**Removed Features:**
+- Old "Businesses" tab (businesses now appear as separate top-level clients)
+- Schedule E support for BUSINESS clients (E-type income is individual-only)
+
+**Tab Type Definition:**
+```typescript
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
+```
+
+---
+
+## Phase 03: Business Detail Buttons Redirect to Individual (2026-04-10)
+
+**Location:** `apps/workspace/src/routes/clients/$clientId.tsx` (lines 282–288, 298, 709–750)
+
+**Overview:**
+Messages and Upload buttons on BUSINESS client detail page now intelligently redirect to the individual owner's tax case. Unread badge queries the correct case conversation count. Visual indicators show owner name. Seamless fallback for standalone business clients.
+
+**Sibling Client Data Flow:**
+
+Backend API (`GET /clients/:id`, apps/api/src/routes/clients/index.ts):
+```
+For each sibling in clientGroup.clients (excluding self):
+  - Query latest TaxCase (taxYear DESC, take 1)
+  - Extract magicLink token from latest case
+  - Build portalUrl from token (if exists)
+  - Include: id, name, clientType, phone, email, businessType, einMasked, latestCaseId, portalUrl
+```
+
+Frontend ClientPreview type (apps/shared):
+```typescript
+interface ClientPreview {
+  id: string
+  name: string
+  clientType: ClientType
+  phone: string
+  email?: string | null
+  businessType?: BusinessType | null
+  einMasked?: string | null
+  latestCaseId?: string | null      // Latest tax case for this client
+  portalUrl?: string | null         // Magic link portal for this client
+}
+```
+
+**Owner Individual Resolution (lines 282–288):**
+
+```typescript
+const ownerIndividual = useMemo(() => {
+  if (client?.clientType !== 'BUSINESS' || !client.clientGroup?.clients) {
+    return null
+  }
+  return client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
+}, [client?.clientType, client?.clientGroup?.clients])
+```
+
+**Unread Badge Query (line 298):**
+
+```typescript
+const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
+const { data: unreadData } = useQuery({
+  queryKey: ['unread-count', messageCaseId],
+  queryFn: () => api.messages.getUnreadCount(messageCaseId!),
+  enabled: !!messageCaseId,
+})
+```
+
+**Upload Button (lines 709–728):**
+
+- Uses three-tier fallback chain for portal URL:
+  1. `ownerIndividual?.portalUrl` (preferred for business clients in groups)
+  2. `selectedCase?.portalUrl` (current case portal)
+  3. `client.portalUrl` (backward compat, top-level client portal)
+- Opens in new tab (target="_blank")
+- Shows visual hint: `(via {ownerName.split(' ')[0]})`
+
+**Messages Button (lines 731–750):**
+
+- Navigates to `/messages` with `caseId=messageCaseId` (ownerIndividual's latestCaseId when available)
+- Shows same "(via Name)" hint
+- Unread badge queries correct case conversation count
+- All message queries use `messageCaseId` for accurate count
+
+**Send Upload Link Button (line 752):**
+
+- Visible only when portalUrl is null (no active magic link)
+- Uses same portal URL fallback chain to determine visibility
+- Submits with correct caseId for SMS routing
+
+**Backward Compatibility:**
+
+- INDIVIDUAL clients: `ownerIndividual` null, uses current client's caseId/portalUrl
+- BUSINESS clients without clientGroup: No redirect hint shown, uses current client's portalUrl
+- Clients with multiple businesses: Only first INDIVIDUAL sibling used (assumes 1:many relationships)
+
+**Visual Indicators:**
+
+```
+Messages button:    [📨 Messages (via John)]
+Upload button:      [⬆️ Upload (via John)]
+```
+
+The "(via Name)" hint is semantic text (no screen reader override), helping CPAs understand which entity's documents they're accessing.
+
+**Code Quality:** 9.2/10
+- Minimal prop additions (latestCaseId, portalUrl on ClientPreview)
+- Clear fallback logic (3-tier chain)
+- Consistent UX across Messages/Upload/SendLink flows
+- Production-ready, zero breaking changes
+
+---
+
+## Phase 4: Unified Conversation & Business UX - Auto-Propagate managedById (2026-04-10)
+
+**Location:** `apps/api/src/lib/client-helpers.ts` (NEW), `apps/api/src/routes/clients/index.ts` (PATCH /clients/:id/managed-by), test files
+
+**Overview:**
+Staff assignment (managedById) now propagates atomically to all ClientGroup members. When assigning staff to individual or business client, all linked clients receive same manager for unified client list visibility.
+
+**Helper Library** (`apps/api/src/lib/client-helpers.ts`):
+
+```typescript
+/**
+ * Check if a client is a business linked to a group (with an individual owner).
+ * Business clients in a group should share the individual's conversation/portal.
+ */
+export function isBizWithGroup(client: { clientType: string; clientGroupId?: string | null }): boolean {
+  return client.clientType === 'BUSINESS' && !!client.clientGroupId
+}
+
+/**
+ * Find the individual owner in a client group.
+ * Uses createdAt desc ordering — in current data model, each group has exactly one individual.
+ */
+export async function findGroupIndividual(clientGroupId: string, organizationId?: string) {
+  return prisma.client.findFirst({
+    where: {
+      clientGroupId,
+      clientType: 'INDIVIDUAL',
+      ...(organizationId ? { organizationId } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id, phone, name, language,
+      taxCases: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id, taxYear },
+      },
+    },
+  })
+}
+```
+
+**Endpoint: PATCH /clients/:id/managed-by**
+
+Old behavior: Update single client's managedById.
+
+New behavior:
+```
+1. Query client with clientGroupId
+2. If client.clientGroupId exists:
+   - updateMany all group members with same managedById (atomic $transaction)
+   - Log: "Updated X staff assignments in group"
+3. If orphan (no clientGroupId):
+   - Update single client only (backward compatible)
+4. Filter by organizationId for security
+```
+
+**Code Pattern:**
+
+```typescript
+// Before: simple update
+await prisma.client.update({
+  where: { id: clientId },
+  data: { managedById },
+})
+
+// After: group-aware with transaction
+const client = await prisma.client.findUnique({
+  where: { id: clientId },
+  select: { clientGroupId: true },
+})
+
+if (client?.clientGroupId) {
+  await prisma.$transaction([
+    prisma.client.updateMany({
+      where: {
+        clientGroupId: client.clientGroupId,
+        organizationId, // security filter
+      },
+      data: { managedById },
+    }),
+  ])
+} else {
+  await prisma.client.update({
+    where: { id: clientId, organizationId },
+    data: { managedById },
+  })
+}
+```
+
+**Verification Tests:**
+
+`send-upload-link.test.ts` (13 tests):
+- Magic link routed to individual's taxCase when business has clientGroupId
+- SMS sent to individual's phone (not business landline)
+- Fallback to business case with warning log if individual lacks taxCase for year
+- Standalone business clients unchanged (backward compatible)
+
+`managed-by-propagation.test.ts` (13 tests):
+- Assign staff to individual → business also updated atomically
+- Assign staff to business → individual also updated atomically
+- Unassign (managedById = null) → all group members unaffected
+- Non-grouped clients remain independent (no cross-org leakage)
+- Orphan client updates don't affect other groups
+
+**Integration Points:**
+
+1. **Messages Routes** (`apps/api/src/routes/messages/index.ts`): Guard conversation creation against business cases using `isBizWithGroup()` helper—conversations belong to individual owner only.
+
+2. **SMS Webhook** (`apps/api/src/services/sms/webhook-handler.ts`): Check `isBizWithGroup()` before creating incoming message conversation. Routes inbound SMS to individual's conversation if applicable.
+
+3. **Portal Routes** (`apps/api/src/routes/portal/index.ts`): send-upload-link endpoint uses `findGroupIndividual()` to resolve individual's taxCase, creates magic link on individual's case, SMS to individual's phone.
+
+**Code Quality:** 9.3/10
+- Helper functions eliminate duplication (used in 3+ route files)
+- Atomic transactions ensure group consistency
+- Comprehensive test coverage (26+ tests across 2 files)
+- Backward compatible (orphans unaffected)
+- Security: organizationId filters prevent cross-org updates
+
+---
+
+## Phase 3: Multi-Business Per Client - Add Business Drawer (2026-04-09)
+
+**Location:** `apps/workspace/src/components/clients/client-overview-tab/`
+
+**Overview:**
+Enables CPAs to add linked businesses to existing individual clients directly from client detail page. Component hierarchy: ClientOverviewTab → ClientLinkedEntityCard (shows empty state + add button) → AddBusinessDrawer (form submission).
+
+**Components:**
+
+**AddBusinessDrawer** (`add-business-drawer.tsx`):
+- Slide-over drawer from right side (fixed inset-y-0 right-0, max-w-md, z-50)
+- Overlay: fixed inset-0 bg-black/30 z-40 (dismisses on click)
+- Form: BusinessInfoForm + TaxYearSelector
+- States: idle | loading | error | success
+- Submission: POST `/clients/:clientId/link-business` with {businessInfo, taxYear}
+- On success: calls `onSuccess()` callback → invalidates React Query cache → drawer closes
+- Error display: AlertCircle icon + error message
+- Mobile-friendly: Full viewport width on mobile, constrained on desktop
+
+**ClientLinkedEntityCard** (Enhanced):
+- Props: `clientId` (NEW), `currentClientType`, `linkedClients`, `onBusinessAdded` (NEW)
+- Behavior: Shows for INDIVIDUAL clients even when no businesses linked (empty state)
+- Empty State: Card title "Linked Business" + "No businesses linked yet" + "+ Add Business" button
+- Card Button: Dashed border, Lucide Plus icon, hover effects (border-primary, text-primary)
+- Drawer Open: Local state `drawerOpen`, renders AddBusinessDrawer when true
+- Non-empty: Lists existing linked clients with edit/archive icons
+
+**ClientOverviewTab** (Updated):
+- Condition: Shows LinkedEntityCard if `client.clientGroup?.clients.length > 0` OR `client.clientType === 'INDIVIDUAL'`
+- Callback: `onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['clients', client.id] })}`
+- Passes: `clientId`, `currentClientType`, `linkedClients` array, callback
+
+**Data Flow:**
+1. User navigates to INDIVIDUAL client detail
+2. Overview tab renders ClientLinkedEntityCard (shows even if no businesses)
+3. User clicks "+ Add Business" button → drawer opens
+4. User fills BusinessInfoForm + selects tax year
+5. User clicks Submit → loading state
+6. API: POST `/clients/:clientId/link-business` (Phase 1)
+7. Success: onSuccess() → queryClient.invalidateQueries → card refreshes with new business
+8. Error: Error message displayed, form preserved (user can retry)
 
 ---
 
@@ -1561,6 +2452,6 @@ All avatar/notes UI will need i18n keys in workspace:
 
 ---
 
-**Version:** 2.9
-**Last Updated:** 2026-04-05
-**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete - removed legacy businessName/ein fields from all intake forms. Supabase Realtime Broadcast integrated for near-instant message updates (100-500ms vs 10-30s polling). Org-scoped channels with 60s fallback polling. Backward compatible. Includes Phase 02 Draft Return Sharing + Phase 04 Navigation + Phase 02 Profile API + Phase 2 Document Upload Notification + Phase 06 Intake Form Cleanup + Phase 01 Realtime Messaging.
+**Version:** 3.0
+**Last Updated:** 2026-04-10
+**Status:** Multi-Tenant architecture with Clerk Webhook Sync Migration complete. Client-Business Entity Separation Phase 06 (Cleanup & Integration Testing) complete. Supabase Realtime Broadcast integrated for 100-500ms message updates. Phase 12 Client Creation Wizard (multi-path) complete. Phase 13 Client Detail Page (type-based tabs) complete. Phase 02 ShareableDocument (multi-section) API + Phase 04 Workspace UI complete: SharedDocsTab + 10 sub-components, useSharedDocs/useSharedDocSignedUrl hooks, legacy DraftReturn components removed. Draft Return tab renamed to Shared Docs tab across UI and i18n keys.

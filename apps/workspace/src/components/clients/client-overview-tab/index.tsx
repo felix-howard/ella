@@ -5,26 +5,42 @@
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@ella/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { type ClientDetail } from '../../../lib/api-client'
-import { ClientProfileCard } from './client-profile-card'
+import { ClientLinkedEntityCard } from './client-linked-entity-card'
 import { ClientMetaInfo } from './client-meta-info'
 import { ClientQuickStats } from './client-quick-stats'
 import { ClientActivityTimeline } from './client-activity-timeline'
 import { ClientAssignedStaff } from './client-assigned-staff'
 import { ClientNotesEditor } from './client-notes-editor'
+import { ClientNdaSection } from './client-nda-section'
 
 interface ClientOverviewTabProps {
   client: ClientDetail
+  /** Parent individual's Schedule C summary for the active tax year (drives migration prompt). */
+  parentScheduleC?: { id: string; taxYear: number } | null
   onDeleteClick?: () => void
 }
 
-export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabProps) {
+export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: ClientOverviewTabProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   return (
     <div className="space-y-6">
-      {/* Profile Card - Full width */}
-      <ClientProfileCard client={client} />
+      {/* Linked Entity Card - Shows linked business or owner */}
+      {(client.clientType === 'INDIVIDUAL' || (client.clientGroup && client.clientGroup.clients.length > 0)) && (
+        <ClientLinkedEntityCard
+          clientId={client.id}
+          clientName={client.name}
+          clientPhone={client.phone}
+          clientEmail={client.email}
+          currentClientType={client.clientType}
+          linkedClients={client.clientGroup?.clients || []}
+          parentScheduleC={parentScheduleC}
+          onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['client', client.id] })}
+        />
+      )}
 
       {/* Audit metadata: created/updated dates and staff */}
       <ClientMetaInfo
@@ -36,6 +52,9 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
 
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
+
+      {/* NDA & Agreement - read-only history transferred from source lead */}
+      <ClientNdaSection client={client} />
 
       {/* Two column layout: Notes (wider) + Assigned Staff (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -78,7 +97,6 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
 }
 
 // Re-export sub-components for direct imports if needed
-export { ClientProfileCard } from './client-profile-card'
 export { ClientQuickStats } from './client-quick-stats'
 export { ClientActivityTimeline } from './client-activity-timeline'
 export { ClientAssignedStaff } from './client-assigned-staff'

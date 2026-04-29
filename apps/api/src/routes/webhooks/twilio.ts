@@ -141,9 +141,8 @@ twilioWebhookRoute.post('/sms', async (c) => {
     if (!result.success) {
       console.warn(`[Twilio Webhook] Processing failed: ${result.error}`)
     } else {
-      console.log(
-        `[Twilio Webhook] Message ${result.messageId} recorded for case ${result.caseId}`
-      )
+      const target = result.leadId ? `lead ${result.leadId}` : `case ${result.caseId}`
+      console.log(`[Twilio Webhook] Message ${result.messageId} recorded for ${target}`)
     }
 
     // Return TwiML response (empty = no auto-reply)
@@ -536,8 +535,8 @@ twilioWebhookRoute.post('/voice/incoming', async (c) => {
 
   try {
     // 1. Find caller's client and conversation
-    const client = await prisma.client.findUnique({
-      where: { phone: from },
+    const client = await prisma.client.findFirst({
+      where: { phone: from, clientType: 'INDIVIDUAL' },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },
@@ -765,8 +764,8 @@ twilioWebhookRoute.post('/voice/dial-complete', async (c) => {
   // Twilio provides original caller phone in From field of the action callback
   const callerPhone = formData.From as string
   if (callerPhone) {
-    const callerClient = await prisma.client.findUnique({
-      where: { phone: callerPhone },
+    const callerClient = await prisma.client.findFirst({
+      where: { phone: callerPhone, clientType: 'INDIVIDUAL' },
       select: { organizationId: true },
     })
     sendMissedCallTextBack(callerPhone, callerClient?.organizationId || null).catch(() => {})
@@ -961,14 +960,17 @@ twilioWebhookRoute.post('/voice/voicemail-recording', async (c) => {
           },
         })
 
-        // Increment unreadCount on conversation
-        await tx.conversation.update({
-          where: { id: existingMessage.conversationId },
-          data: {
-            lastMessageAt: new Date(),
-            unreadCount: { increment: 1 },
-          },
-        })
+        // Increment unreadCount on conversation (voicemails are always case-owned,
+        // but guard for polymorphic Message.conversationId being nullable).
+        if (existingMessage.conversationId) {
+          await tx.conversation.update({
+            where: { id: existingMessage.conversationId },
+            data: {
+              lastMessageAt: new Date(),
+              unreadCount: { increment: 1 },
+            },
+          })
+        }
 
         return updated
       })

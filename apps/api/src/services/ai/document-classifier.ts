@@ -17,7 +17,9 @@ import type {
   SmartRenameResult,
   GroupingAnalysisResult,
   ExtractedMetadata,
+  EntityContext,
 } from './prompts/classify'
+export type { EntityContext } from './prompts/classify'
 import { config } from '../../lib/config'
 import { getCategoryFromDocType } from '@ella/shared'
 import type { DocCategory } from '@ella/shared'
@@ -41,6 +43,9 @@ export interface DocumentClassificationResult {
   recipientName: string | null // Person's name extracted from document
   // Metadata for hierarchical clustering (Phase 1 grouping redesign)
   extractedMetadata?: ExtractedMetadata
+  // Entity routing fields (multi-entity document routing)
+  targetEntityId?: string | null
+  entityConfidence?: number
   error?: string
   processingTimeMs?: number
 }
@@ -54,7 +59,8 @@ export interface DocumentClassificationResult {
  */
 export async function classifyDocument(
   imageBuffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  entityContext?: EntityContext
 ): Promise<DocumentClassificationResult> {
   const startTime = Date.now()
 
@@ -101,7 +107,7 @@ export async function classifyDocument(
   }
 
   try {
-    const prompt = getClassificationPrompt()
+    const prompt = getClassificationPrompt(entityContext)
     const result = await analyzeImage<ClassificationResult>(imageBuffer, mimeType, prompt)
 
     if (!result.success || !result.data) {
@@ -148,6 +154,8 @@ export async function classifyDocument(
       source: result.data.source ?? null,
       recipientName: result.data.recipientName ?? null,
       extractedMetadata: result.data.extractedMetadata,
+      targetEntityId: result.data.targetEntityId ?? null,
+      entityConfidence: result.data.targetEntityId ? result.data.entityConfidence : undefined,
       processingTimeMs: Date.now() - startTime,
     }
   } catch (error) {
@@ -178,7 +186,8 @@ export async function classifyDocument(
  */
 export async function batchClassifyDocuments(
   images: Array<{ buffer: Buffer; mimeType: string; id: string }>,
-  concurrency = config.ai.batchConcurrency
+  concurrency = config.ai.batchConcurrency,
+  entityContext?: EntityContext
 ): Promise<Array<{ id: string; result: DocumentClassificationResult }>> {
   const results: Array<{ id: string; result: DocumentClassificationResult }> = []
 
@@ -188,7 +197,7 @@ export async function batchClassifyDocuments(
     const chunkResults = await Promise.all(
       chunk.map(async (img) => ({
         id: img.id,
-        result: await classifyDocument(img.buffer, img.mimeType),
+        result: await classifyDocument(img.buffer, img.mimeType, entityContext),
       }))
     )
     results.push(...chunkResults)

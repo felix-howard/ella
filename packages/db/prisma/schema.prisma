@@ -32,7 +32,8 @@ enum TaxType {
 
 enum BusinessType {
   SOLE_PROPRIETORSHIP
-  LLC
+  LLC                       // multi-member LLC (default for legacy rows)
+  SMLLC                     // single-member LLC (disregarded entity, files Schedule C)
   PARTNERSHIP
   S_CORP
   C_CORP
@@ -409,6 +410,11 @@ enum ClientSource {
   INCOMING_CALL
 }
 
+enum ClientType {
+  INDIVIDUAL
+  BUSINESS
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -446,7 +452,7 @@ model Staff {
   createdClients    Client[]  @relation("CreatedClients")
   updatedClients    Client[]  @relation("UpdatedClients")
   documentViews     DocumentView[]
-  uploadedDraftReturns DraftReturn[]
+  uploadedDraftReturns ShareableDocument[]
   sentMessages  Message[] @relation("SentMessages")
 
   // Notification subscriptions (admin subscribes to other staff's client uploads)
@@ -456,6 +462,7 @@ model Staff {
   termsAcceptances TermsAcceptance[]
   sentSmsLogs      SmsSendLog[]     @relation("SentSmsLogs")
   createdCampaigns Campaign[]       @relation("CreatedCampaigns")
+  ndaAgreementsCreated NdaAgreement[] @relation("NdaCreatedBy")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -526,11 +533,13 @@ model Organization {
   missedCallTextBack            Boolean  @default(false)
   autoSendFormClientUploadLink  Boolean  @default(false)
 
-  staff       Staff[]
-  clients     Client[]
-  leads       Lead[]
-  smsSendLogs SmsSendLog[]
-  campaigns   Campaign[]
+  staff         Staff[]
+  clients       Client[]
+  clientGroups  ClientGroup[]
+  leads         Lead[]
+  smsSendLogs   SmsSendLog[]
+  campaigns     Campaign[]
+  ndaAgreements NdaAgreement[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -538,16 +547,40 @@ model Organization {
   @@index([clerkOrgId])
 }
 
+model ClientGroup {
+  id              String        @id @default(cuid())
+  name            String
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  clients         Client[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([organizationId])
+}
+
 model Client {
   id        String   @id @default(cuid())
   firstName String   @default("")
   lastName  String?
   name      String   @default("")  // Computed field for backward compat - will be populated by API
-  phone     String   @unique
+  phone     String
   email     String?
   language  Language @default(VI)
   source    ClientSource @default(MANUAL)
   tags      String[]     @default([])
+
+  clientType     ClientType   @default(INDIVIDUAL)
+  clientGroupId  String?
+  clientGroup    ClientGroup? @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
+
+  // Business-specific fields (only for clientType = BUSINESS)
+  businessType     BusinessType?
+  einEncrypted     String?       // AES-256-GCM encrypted EIN
+  businessAddress  String?
+  businessCity     String?
+  businessState    String?       // 2-char state code
+  businessZip      String?
 
   // Client overview profile fields
   avatarUrl      String?   // R2 storage URL for profile picture
@@ -558,7 +591,12 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
-  businesses     Business[]
+  ndaAgreements  NdaAgreement[]
+
+  // Business-type client relations (for clientType = BUSINESS)
+  contractors    Contractor[]
+  filingBatches  FilingBatch[]
+  intakeTokens   ContractorIntakeToken[]
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -582,34 +620,10 @@ model Client {
   @@index([createdById])
   @@index([updatedById])
   @@index([tags], type: Gin)
+  @@index([clientType])
+  @@index([clientGroupId])
 }
 
-// ============================================
-// Business entity (linked to Client)
-// ============================================
-
-model Business {
-  id             String       @id @default(cuid())
-  clientId       String
-  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  name           String
-  type           BusinessType
-  einEncrypted   String       // AES-256-GCM encrypted EIN
-  address        String
-  city           String
-  state          String       // 2-char state code
-  zip            String
-
-  contractors    Contractor[]
-  filingBatches  FilingBatch[]
-  intakeTokens   ContractorIntakeToken[]
-
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@index([clientId])
-}
 
 /// @deprecated Use TaxEngagement for year-specific profile data.
 /// Will be removed after all clients migrate to engagement-based queries.
@@ -709,7 +723,7 @@ model TaxCase {
   documentGroups    DocumentGroup[]
   scheduleCExpense  ScheduleCExpense?
   scheduleEExpense  ScheduleEExpense?
-  draftReturns      DraftReturn[]
+  draftReturns      ShareableDocument[]
 
   lastContactAt    DateTime?
   entryCompletedAt DateTime?
@@ -779,6 +793,10 @@ model RawImage {
   totalPages        Int?            // Total pages in group (known or estimated)
   groupConfidence   Float?          // AI confidence in grouping (0-1)
 
+  // Entity routing fields (AI auto-routes docs to correct entity in ClientGroup)
+  entityConfidence    Float?    // AI confidence in entity detection (0-1)
+  routedFromCaseId    String?   // Original caseId before entity re-routing (audit only, no FK)
+
   // Re-upload request tracking
   reuploadRequested   Boolean   @default(false)
   reuploadRequestedAt DateTime?
@@ -806,6 +824,7 @@ model RawImage {
   @@index([reuploadRequested])
   @@index([caseId, reuploadRequested])
   @@index([documentGroupId])          // Multi-page grouping lookup
+  @@index([routedFromCaseId])          // Entity routing audit trail lookups
   @@index([caseId, documentGroupId])  // Find pages in same group
   @@index([aiMetadata])               // AI metadata queries
 }
@@ -972,8 +991,12 @@ model Conversation {
 
 model Message {
   id             String           @id @default(cuid())
-  conversationId String
-  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Polymorphic owner: exactly one of conversationId / leadId is non-null (enforced via DB CHECK).
+  conversationId String?
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  leadId         String?
+  lead           Lead?            @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   channel        MessageChannel
   direction      MessageDirection
@@ -1002,6 +1025,7 @@ model Message {
   updatedAt DateTime @updatedAt
 
   @@index([conversationId])
+  @@index([leadId, createdAt])
   @@index([createdAt])
   @@index([callSid])
   @@index([sentById])
@@ -1017,7 +1041,7 @@ model MagicLink {
 
   // Optional reference for DRAFT_RETURN type
   draftReturnId String?
-  draftReturn   DraftReturn? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
+  draftReturn   ShareableDocument? @relation(fields: [draftReturnId], references: [id], onDelete: SetNull)
 
   lastUsedAt DateTime?
   usageCount Int      @default(0)
@@ -1155,6 +1179,8 @@ enum AuditEntityType {
   TAX_CASE
   TAX_ENGAGEMENT
   ORGANIZATION
+  SCHEDULE_C
+  BUSINESS
 }
 
 // Magic link types for different form flows
@@ -1163,6 +1189,21 @@ enum MagicLinkType {
   SCHEDULE_C   // Self-employed expense collection form
   SCHEDULE_E   // Rental property expense collection form
   DRAFT_RETURN // Draft tax return PDF viewing
+}
+
+enum NdaStatus {
+  DRAFT
+  SENT
+  SIGNED
+  EXPIRED
+  VOIDED
+}
+
+enum NdaDepositStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FORFEITED
 }
 
 enum ScheduleCStatus {
@@ -1177,7 +1218,7 @@ enum ScheduleEStatus {
   LOCKED      // CPA locked, no more edits
 }
 
-enum DraftReturnStatus {
+enum DocumentStatus {
   ACTIVE      // Current version, link valid
   REVOKED     // Link manually revoked
   EXPIRED     // Link expired
@@ -1324,11 +1365,15 @@ model ScheduleEExpense {
 // DRAFT RETURN SHARING
 // ============================================
 
-// Draft tax return sharing - CPAs upload PDF for client review via portal
-model DraftReturn {
+// Shareable document sharing - CPAs upload PDFs (draft returns, tax analyses, etc.) for client review via portal
+// Table name preserved as `draft_returns` via @@map to avoid data movement during rename
+model ShareableDocument {
   id            String   @id @default(cuid())
   taxCaseId     String
   taxCase       TaxCase  @relation(fields: [taxCaseId], references: [id], onDelete: Cascade)
+
+  // Display title shown to client (e.g. "Draft Return", "Tax Analysis")
+  title         String   @default("Draft Return")
 
   // PDF storage
   r2Key         String   @unique // cases/{caseId}/draft-returns/{timestamp}.pdf
@@ -1343,11 +1388,14 @@ model DraftReturn {
   uploadedBy    Staff    @relation(fields: [uploadedById], references: [id])
 
   // Status
-  status        DraftReturnStatus @default(ACTIVE)
+  status        DocumentStatus @default(ACTIVE)
 
   // View tracking
   viewCount     Int      @default(0)
   lastViewedAt  DateTime?
+
+  // Soft delete — set when CPA removes the section
+  deletedAt     DateTime?
 
   // Magic link for portal access
   magicLinks    MagicLink[]
@@ -1357,8 +1405,9 @@ model DraftReturn {
   updatedAt     DateTime @updatedAt
 
   @@index([taxCaseId])
-  @@index([taxCaseId, status])
+  @@index([taxCaseId, status, deletedAt])
   @@index([status])
+  @@map("DraftReturn")
 }
 
 // ============================================
@@ -1407,6 +1456,11 @@ model Lead {
 
   // Relations
   smsSendLogs    SmsSendLog[]
+  ndaAgreements  NdaAgreement[]
+  messages       Message[]
+
+  // Staff-side "last read" marker for inbound SMS unread count
+  messagesLastReadAt DateTime?
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -1441,6 +1495,61 @@ model SmsSendLog {
   @@index([twilioSid])
 }
 
+model NdaAgreement {
+  id                  String           @id @default(cuid())
+
+  // Tenancy
+  // leadId is nullable + SetNull so NDAs are preserved (linked to clientId) when a converted Lead is deleted.
+  leadId              String?
+  lead                Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  clientId            String?
+  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  organizationId      String
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Template snapshot
+  templateVersion     String
+  customContentHtml   String?          @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
+
+  // Status
+  status              NdaStatus        @default(DRAFT)
+  depositStatus       NdaDepositStatus @default(PENDING)
+  depositAmount       Decimal          @default(300.00) @db.Decimal(10, 2)
+  depositPaidAt       DateTime?
+  depositResolvedAt   DateTime?
+  depositNote         String?          @db.Text
+
+  // Public access token (replaces MagicLink for NDA)
+  token               String           @unique
+  expiresAt           DateTime?
+  isActive            Boolean          @default(true)
+  lastUsedAt          DateTime?
+  usageCount          Int              @default(0)
+
+  // Signing snapshot (PII — never emit to general application logs)
+  signedAt            DateTime?
+  signerName          String?          // PII
+  signerEmail         String?          // PII
+  signerIpAddress     String?          // PII
+  signerUserAgent     String?          @db.Text // PII
+  signaturePngKey     String?
+  signedPdfKey        String?
+
+  // Audit
+  createdByUserId     String
+  createdBy           Staff            @relation("NdaCreatedBy", fields: [createdByUserId], references: [id])
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([leadId])
+  @@index([clientId])
+  @@index([organizationId])
+  @@index([token])
+  @@index([status])
+  @@index([leadId, status])
+}
+
 model Campaign {
   id             String         @id @default(cuid())
   name           String
@@ -1448,6 +1557,7 @@ model Campaign {
   tag            String
   status         CampaignStatus @default(ACTIVE)
   description    String?        @db.Text
+  formIntroContent String?      @db.Text
 
   // Relations
   organizationId String
@@ -1469,8 +1579,8 @@ model Campaign {
 
 model Contractor {
   id                  String   @id @default(cuid())
-  businessId          String
-  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   firstName           String
   lastName            String
   tinType             String   @default("SSN") // "SSN" or "EIN"
@@ -1488,7 +1598,7 @@ model Contractor {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  @@index([businessId])
+  @@index([clientId])
 }
 
 // ============================================
@@ -1497,8 +1607,8 @@ model Contractor {
 
 model ContractorIntakeToken {
   id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   token      String   @unique @default(cuid())
   taxYear    Int
@@ -1509,7 +1619,7 @@ model ContractorIntakeToken {
   updatedAt  DateTime @updatedAt
 
   @@index([token])
-  @@index([businessId, isActive])
+  @@index([clientId, isActive])
 }
 
 // ============================================
@@ -1565,8 +1675,8 @@ enum FilingStatus {
 
 model FilingBatch {
   id                  String        @id @default(cuid())
-  businessId          String
-  business            Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId            String
+  client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   taxYear             Int
   status              FilingStatus  @default(PENDING)
   taxbanditsSubmissionId String?
@@ -1584,7 +1694,7 @@ model FilingBatch {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
-  @@index([businessId])
+  @@index([clientId])
   @@index([status])
   @@index([taxbanditsSubmissionId])
 }

@@ -1,0 +1,124 @@
+CHAT MONITORING NOTIFICATIONS - SCOUT FINDINGS SUMMARY
+========================================================
+
+QUESTION 1: How chat monitoring notifications are triggered when staff sends messages to clients
+==============================================================================
+
+TRIGGER POINT:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\routes\messages\index.ts (lines 464-480)
+  - Event: 'message/staff-sent' fired via inngest.send()
+  - Batching key: `${staffId}-${caseId}` for grouping same staff-client pairs
+  
+BATCHING JOB:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\jobs\notify-admin-staff-chat.ts
+  - Batches 5 events per 30s window
+  - Queries admins with BOTH conditions:
+    1. notifyOnChat: true (global preference)
+    2. NotificationSubscription(targetStaffId=sender, type='CHAT') (specific subscription)
+  - Only ADMIN role staff receive notifications
+
+DELIVERY:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\notification-service.ts (notifyStaffChat)
+  - Sends SMS to recipient's phone (not sender's phone)
+  - 5-minute throttle per recipient+staff pair (in-memory)
+  - Localized message (VI/EN)
+
+MESSAGE TEMPLATE:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\templates\staff-chat-monitor.ts
+  - VI: "[Ella] ${staffName} da gui ${messageCount} tin nhan cho ${clientName}."
+  - EN: "[Ella] ${staffName} sent ${messageCount} messages to ${clientName}."
+
+---
+
+QUESTION 2: How phone calls are handled (incoming/outgoing call webhooks)
+==============================================================================
+
+ALL WEBHOOKS:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\routes\webhooks\twilio.ts (979 lines)
+
+OUTBOUND CALL:
+  - POST /webhooks/twilio/voice
+  - Returns TwiML with recording enabled
+  - Registers status and recording callbacks
+
+INBOUND CALL:
+  - POST /webhooks/twilio/voice/incoming
+  - Finds caller's client and latest conversation
+  - Routes to: last-contact staff (if assigned) OR all online admins
+  - Falls back to voicemail if no staff online
+  - Sends missed call text-back SMS if no staff available
+
+VOICEMAIL:
+  - POST /webhooks/twilio/voice/voicemail-recording
+  - Handles unknown callers (creates placeholder conversation)
+  - Updates message with recording URL + duration
+  - Increments conversation unreadCount
+
+CALL STATUS TRACKING:
+  - POST /webhooks/twilio/voice/status (terminal states)
+  - POST /webhooks/twilio/voice/dial-complete (ring timeout → voicemail)
+
+RECORDING HANDLING:
+  - POST /webhooks/twilio/voice/recording (outbound calls)
+  - POST /webhooks/twilio/voice/inbound-recording (inbound calls)
+  - POST /webhooks/twilio/voice/voicemail-recording (voicemail messages)
+
+SMS HANDLING:
+  - POST /webhooks/twilio/sms (inbound SMS)
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\services\sms\webhook-handler.ts
+  - Handles unknown callers by creating placeholder conversation
+  - Processes MMS media (up to 10 items)
+
+HELPERS:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\services\voice\voicemail-helpers.ts
+  - E.164 phone validation
+  - Placeholder conversation creation
+  - Duration formatting
+
+---
+
+QUESTION 3: The notification subscription model/schema
+==============================================================================
+
+DATABASE SCHEMA:
+  - File: C:\Users\Admin\Desktop\ella\packages\db\prisma\schema.prisma
+
+NotificationSubscription model:
+  - id: cuid
+  - subscriberId: Staff ID of person receiving notifications
+  - targetStaffId: Staff ID of person being monitored
+  - type: SubscriptionType (UPLOAD or CHAT)
+  - Unique constraint: (subscriberId, targetStaffId, type)
+  - Indexes on subscriberId and targetStaffId
+
+SubscriptionType enum:
+  - UPLOAD: Notify when monitored staff's clients upload documents
+  - CHAT: Notify when monitored staff sends messages to clients
+
+Staff model fields:
+  - notifyOnUpload: boolean (global preference toggle)
+  - notifyOnChat: boolean (global preference toggle)
+  - notificationSubscriptions: relation to NotificationSubscription (as subscriber)
+  - notificationSubscribers: relation to NotificationSubscription (as target)
+
+LOGIC:
+  - Admin receives chat notification IF:
+    1. Admin.notifyOnChat: true (global preference enabled) AND
+    2. Admin has NotificationSubscription(subscriberId=admin, targetStaffId=staff, type='CHAT')
+
+SUBSCRIPTION MANAGEMENT API:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\routes\team\index.ts (lines 510-627)
+  
+  GET /team/members/:staffId/notification-subscriptions
+    - Returns uploadSubscriptions[] and chatSubscriptions[] (array of target staff IDs)
+    - Lists available members to subscribe to
+  
+  PUT /team/members/:staffId/notification-subscriptions
+    - Replaces subscriptions for a type
+    - Request: { targetStaffIds: string[], type: 'UPLOAD' | 'CHAT' }
+    - Transaction: Delete old → Create new
+
+SCHEMA VALIDATION:
+  - File: C:\Users\Admin\Desktop\ella\apps\api\src\routes\team\schemas.ts (lines 38-42)
+  - updateNotificationSubscriptionsSchema: { targetStaffIds: array of strings, type: enum }
+

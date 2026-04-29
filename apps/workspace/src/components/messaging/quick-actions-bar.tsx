@@ -1,7 +1,7 @@
 /**
  * Quick Actions Bar - Message composer with quick action buttons
  * Provides text input, template picker, and common actions
- * Includes dropdown for inserting various client links (portal, schedule E/C, draft return)
+ * Includes dropdown for inserting various client links (portal, schedule E/C, shared docs)
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react'
@@ -13,7 +13,10 @@ import { stripHtmlTags } from '../../lib/formatters'
 import { api } from '../../lib/api-client'
 import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useScheduleC } from '../../hooks/use-schedule-c'
-import { useDraftReturn } from '../../hooks/use-draft-return'
+import { useSharedDocs } from '../../hooks/use-shared-docs'
+import type { ChatContext } from '../../types/chat-context'
+import { getQuickTemplates } from '../../lib/chat-quick-templates'
+import { ChatTemplateDropdown } from './chat-template-dropdown'
 
 
 export interface QuickActionsBarProps {
@@ -26,6 +29,12 @@ export interface QuickActionsBarProps {
   caseId?: string
   defaultChannel?: 'SMS' | 'PORTAL'
   autoFocus?: boolean
+  /**
+   * Optional chat context. When `type === 'lead'`, the case-specific link
+   * dropdown is replaced by lead templates (NDA link, follow-up).
+   * Absent → behaves identically to legacy case-only callers.
+   */
+  context?: ChatContext
 }
 
 export function QuickActionsBar({
@@ -38,7 +47,10 @@ export function QuickActionsBar({
   caseId,
   defaultChannel: _defaultChannel = 'SMS',
   autoFocus,
+  context,
 }: QuickActionsBarProps) {
+  const isLeadContext = context?.type === 'lead'
+  const leadTemplates = isLeadContext ? getQuickTemplates(context) : []
   const { t } = useTranslation()
   const [message, setMessage] = useState('')
   const [isLoadingPortalLink, setIsLoadingPortalLink] = useState(false)
@@ -48,15 +60,17 @@ export function QuickActionsBar({
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch schedule E, C, and draft return data for link availability
+  // Fetch schedule E, C, and shared docs data for link availability
   const { magicLink: scheduleELink } = useScheduleE({ caseId, enabled: !!caseId })
   const { magicLink: scheduleCLink } = useScheduleC({ caseId, enabled: !!caseId })
-  const { magicLink: draftReturnLink } = useDraftReturn({ caseId, enabled: !!caseId })
+  const { documents: sharedDocs } = useSharedDocs({ caseId, enabled: !!caseId })
 
   // Get URLs from API responses (URL is built server-side with correct PORTAL_URL)
   const scheduleEUrl = scheduleELink?.url && scheduleELink?.isActive ? scheduleELink.url : null
   const scheduleCUrl = scheduleCLink?.url && scheduleCLink?.isActive ? scheduleCLink.url : null
-  const draftReturnUrl = draftReturnLink?.url && draftReturnLink?.isActive ? draftReturnLink.url : null
+  const sharedDocLinks = sharedDocs
+    .filter((doc) => doc.magicLink?.url && doc.magicLink?.isActive)
+    .map((doc) => ({ id: doc.id, title: doc.title, url: doc.magicLink!.url }))
 
   // Auto-resize textarea
   useEffect(() => {
@@ -165,7 +179,7 @@ export function QuickActionsBar({
   }
 
   // Check if any links are available (for showing dropdown vs single button)
-  const hasAdditionalLinks = scheduleEUrl || scheduleCUrl || draftReturnUrl
+  const hasAdditionalLinks = scheduleEUrl || scheduleCUrl || sharedDocLinks.length > 0
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -178,8 +192,14 @@ export function QuickActionsBar({
 
   const canSend = message.trim().length > 0 && !isSending && !disabled
 
-  // Dropdown content for link options
-  const dropdownContent = isDropdownOpen && createPortal(
+  // Insert text from a chat template into the composer.
+  const handleTemplateInsert = (text: string) => {
+    setMessage((prev) => prev ? `${prev}\n${text}` : text)
+    textareaRef.current?.focus()
+  }
+
+  // Case context: link dropdown (portal + schedule E/C + shared docs).
+  const caseDropdown = !isLeadContext && isDropdownOpen && createPortal(
     <div
       ref={dropdownRef}
       style={{
@@ -226,26 +246,37 @@ export function QuickActionsBar({
         </button>
       )}
 
-      {/* Draft Return Link - only if available and active */}
-      {draftReturnUrl && (
+      {/* Shared Doc Links - one entry per active section */}
+      {sharedDocLinks.map((doc) => (
         <button
-          onClick={() => insertLink(draftReturnUrl)}
+          key={doc.id}
+          onClick={() => insertLink(doc.url)}
           className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors"
         >
           <FileText className="w-4 h-4 text-muted-foreground" />
-          {t('messages.linkDraftReturn')}
+          <span className="truncate">{doc.title}</span>
         </button>
-      )}
+      ))}
     </div>,
     document.body
   )
+
+  const dropdownContent = caseDropdown
 
   return (
     <div className="bg-card px-3 py-2.5 shadow-[0_-1px_4px_-1px_rgba(0,0,0,0.04)]">
         {/* Input area - vertically centered */}
         <div className="flex items-center gap-2">
-          {/* Link dropdown button */}
-          {clientId && (
+          {/* Lead context: templates dropdown */}
+          {isLeadContext && (
+            <ChatTemplateDropdown
+              templates={leadTemplates}
+              onInsert={handleTemplateInsert}
+            />
+          )}
+
+          {/* Case context: link dropdown button */}
+          {!isLeadContext && clientId && (
             hasAdditionalLinks ? (
               // Dropdown button when additional links are available
               <button

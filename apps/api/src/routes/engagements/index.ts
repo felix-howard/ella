@@ -25,6 +25,7 @@ import { createMagicLink } from '../../services/magic-link'
 import type { EngagementStatus, Prisma, TaxType } from '@ella/db'
 import type { AuthUser, AuthVariables } from '../../middleware/auth'
 import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
+import { isBizWithGroup } from '../../lib/client-helpers'
 
 const engagementsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -204,13 +205,16 @@ engagementsRoute.post('/', strictRateLimit, zValidator('json', createEngagementS
     },
   })
 
-  // Create conversation for the case (for messaging)
-  await prisma.conversation.create({
-    data: { caseId: taxCase.id, lastMessageAt: new Date() },
-  })
+  // Create conversation only for individual/standalone clients
+  // Business clients linked to an individual (via ClientGroup) share the individual's conversation
+  if (!isBizWithGroup(client)) {
+    await prisma.conversation.create({
+      data: { caseId: taxCase.id, lastMessageAt: new Date() },
+    })
+  }
 
   // Create magic link for portal access (async, non-blocking)
-  createMagicLink(taxCase.id).catch(() => {})
+  createMagicLink(taxCase.id, { clientName: client.name }).catch(() => {})
 
   // Audit log: Log creation (async, non-blocking)
   const createChanges: FieldChange[] = [

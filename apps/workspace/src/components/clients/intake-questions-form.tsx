@@ -53,8 +53,9 @@ const TAX_TYPE_OPTIONS: { value: TaxType; label: string; description: string }[]
   { value: 'FORM_1065', label: '1065 (Partnership)', description: 'Tờ khai thuế hợp danh' },
 ]
 
-// Available tax years
-const TAX_YEARS = [2025, 2024, 2023]
+// Available tax years (current year - 1 is the latest filing year)
+const currentYear = new Date().getFullYear() - 1
+const TAX_YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
 export function IntakeQuestionsForm({ data, onChange, errors }: IntakeQuestionsFormProps) {
   const handleChange = <K extends keyof IntakeFormData>(field: K, value: IntakeFormData[K]) => {

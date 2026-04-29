@@ -8,6 +8,7 @@ export function ToastContainer() {
   return (
     <Toaster
       position="bottom-right"
+      containerStyle={{ zIndex: 10100 }}
       toastOptions={{
         duration: 3000,
         style: {

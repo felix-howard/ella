@@ -1,0 +1,106 @@
+---
+/**
+ * Consultation booking modal — native <dialog> element wrapping the contact
+ * form and a live price-breakdown preview. Listens for the
+ * `calc:open-consultation` CustomEvent dispatched by pricing-calculator.ts
+ * when the summary panel's CTA is clicked.
+ *
+ * Uses `idPrefix="consult"` on the shared ContactForm to avoid DOM id
+ * collisions with the bottom-of-page <CTASection /> (which uses "demo").
+ *
+ * Accessibility: native <dialog> + showModal() gives us focus trap, ESC
+ * close, and aria-modal semantics for free on evergreen browsers.
+ */
+import ContactForm from "@/components/contact-form.astro";
+---
+
+<dialog
+  id="consultation-modal"
+  aria-labelledby="consultation-modal-title"
+  class="w-full max-w-xl rounded-3xl p-0 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+>
+  <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-950 text-white">
+    <!-- Close button -->
+    <button
+      type="button"
+      data-consultation-close
+      aria-label="Close consultation form"
+      class="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+    >
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="space-y-6 p-6 sm:p-8">
+      <header>
+        <p class="text-xs font-semibold uppercase tracking-widest text-primary-200">
+          Free consultation
+        </p>
+        <h2 id="consultation-modal-title" class="mt-1 text-2xl font-bold text-white sm:text-3xl">
+          Book your free consultation
+        </h2>
+        <p class="mt-2 text-sm text-white/70">
+          We'll review your estimate together and tailor the plan to your business.
+        </p>
+      </header>
+
+      <!-- Breakdown preview (populated on open via CustomEvent). Hidden in enterprise mode. -->
+      <section
+        data-consultation-breakdown-wrapper
+        aria-labelledby="consultation-breakdown-title"
+        class="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10"
+      >
+        <h3
+          id="consultation-breakdown-title"
+          class="text-xs font-semibold uppercase tracking-widest text-white/70"
+        >
+          Your estimate
+        </h3>
+        <pre
+          data-consultation-breakdown
+          class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-white/90"
+        ></pre>
+      </section>
+
+      <ContactForm idPrefix="consult" prefillMessage="" />
+
+      <p class="rounded-xl bg-white/5 p-3 text-center text-xs text-white/70 ring-1 ring-white/10">
+        <span class="font-semibold text-white">$300 deposit</span> — fully refundable if you proceed with us.
+      </p>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  interface OpenConsultationDetail {
+    breakdownText: string;
+    showBreakdown: boolean;
+  }
+
+  const dialog = document.getElementById("consultation-modal");
+  if (dialog instanceof HTMLDialogElement) {
+    const breakdownEl = dialog.querySelector<HTMLElement>("[data-consultation-breakdown]");
+    const breakdownWrapper = dialog.querySelector<HTMLElement>("[data-consultation-breakdown-wrapper]");
+    const messageEl = dialog.querySelector<HTMLTextAreaElement>("#consult-message");
+    const closeBtn = dialog.querySelector<HTMLButtonElement>("[data-consultation-close]");
+
+    document.addEventListener("calc:open-consultation", (event) => {
+      const detail = (event as CustomEvent<OpenConsultationDetail>).detail;
+      const text = detail?.breakdownText ?? "";
+      // textContent (not innerHTML) → XSS-safe even though we control the source.
+      if (breakdownEl) breakdownEl.textContent = text;
+      if (messageEl) messageEl.value = text;
+      if (breakdownWrapper) breakdownWrapper.hidden = !detail?.showBreakdown;
+      dialog.showModal();
+    });
+
+    closeBtn?.addEventListener("click", () => dialog.close());
+
+    // Backdrop click closes modal. Relies on the <dialog> itself having no
+    // padding (inner wrapper owns it) so target === dialog means backdrop.
+    dialog.addEventListener("click", (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+</script>

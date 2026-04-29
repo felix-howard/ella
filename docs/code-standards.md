@@ -191,6 +191,24 @@ const filter = buildClientScopeFilter(user)
 const clients = await prisma.client.findMany({ where: filter })
 ```
 
+**Business-Type Client Verification (Phase 08+):**
+- Use `verifyBusinessClient(clientId, user)` for endpoints that require clientType=BUSINESS
+- Enforces both org-scope AND clientType=BUSINESS validation
+- Returns Client | null (null if not found or wrong clientType)
+- Example: Contractor management routes (/clients/:clientId/contractors) require BUSINESS clients
+- Pattern:
+```typescript
+app.get('/clients/:clientId/contractors', async (c) => {
+  const user = c.get('user')
+  const { clientId } = c.req.param()
+  const client = await verifyBusinessClient(clientId, user)
+  if (!client) {
+    return c.json({ error: 'NOT_FOUND', message: 'Business client not found' }, 404)
+  }
+  // Continue with businessClient-scoped logic
+})
+```
+
 ## Frontend Patterns (@ella/workspace & @ella/portal)
 
 **React Query Integration:**
@@ -214,6 +232,29 @@ const clients = await prisma.client.findMany({ where: filter })
 - Design tokens: colors, spacing, radius, shadows
 - Dark mode support via `dark:` prefix
 - Component variants via `class-variance-authority`
+
+## Frontend Utilities (@ella/workspace)
+
+**Clipboard Utility (`apps/workspace/src/lib/clipboard.ts`):**
+- `copyToClipboard(text, options?)` → `Promise<boolean>`
+- Wraps `navigator.clipboard.writeText` with try/catch + automatic toast feedback
+- Detects secure context (HTTPS/localhost) before attempting write
+- **Options:** `successMsg` (default: i18n `common.linkCopied`), `errorMsg` (default: i18n `common.copyFailed`), `showToast` (default: true)
+- **Usage:** Always call from user gesture context (click, keypress) to avoid `NotAllowedError: Document is not focused`
+```typescript
+import { copyToClipboard } from '@lib/clipboard'
+
+const handleCopy = async () => {
+  const ok = await copyToClipboard(magicLink.url, {
+    successMsg: t('sharedDocs.linkCopied'),
+    errorMsg: t('sharedDocs.copyFailed'),
+  })
+  if (ok) {
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+}
+```
 
 ## Realtime Messaging (Supabase Broadcast)
 
@@ -354,6 +395,9 @@ export function MyComponent() {
 ## Testing Patterns
 
 **Unit Tests (Vitest):**
+- Workspace app (`@ella/workspace`) has vitest configured for unit testing pure utility helpers (e.g., `compute-link-state.test.ts`)
+- Configuration: `vitest.config.ts` with node environment, matches `src/**/*.test.ts` pattern
+- Test scripts: `pnpm test` (run), `pnpm test:watch` (watch mode)
 ```typescript
 // Test file naming: feature.test.ts
 describe('Feature', () => {

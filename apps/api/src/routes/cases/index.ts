@@ -29,6 +29,7 @@ import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
 import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-scope'
+import { isBizWithGroup } from '../../lib/client-helpers'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -117,9 +118,12 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
       },
     })
 
-    await tx.conversation.create({
-      data: { caseId: newCase.id },
-    })
+    // Only create conversation for individual/standalone clients
+    if (!isBizWithGroup(client)) {
+      await tx.conversation.create({
+        data: { caseId: newCase.id },
+      })
+    }
 
     return newCase
   })

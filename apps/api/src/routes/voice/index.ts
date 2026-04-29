@@ -182,8 +182,8 @@ voiceRoutes.get('/caller/:phone', async (c) => {
 
   try {
     // Find client by phone
-    const client = await prisma.client.findUnique({
-      where: { phone },
+    const client = await prisma.client.findFirst({
+      where: { phone, clientType: 'INDIVIDUAL' },
       include: {
         taxCases: {
           orderBy: { createdAt: 'desc' },

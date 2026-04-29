@@ -271,17 +271,23 @@ export function useClassificationUpdates({
     setActiveExtractingCount(count)
   }, [docsResponse, handleDocStatusChange])
 
-  // Cleanup on unmount to prevent memory leaks
+  // Reset refs when caseId changes so switching clients/tabs doesn't
+  // replay toasts for the new case's existing docs/images as if they
+  // were freshly extracted. New caseId → treat next query result as
+  // initial load (toasts suppressed).
   useEffect(() => {
-    return () => {
-      previousImagesRef.current.clear()
-      previousDocsRef.current.clear()
-      initialProcessingIdsRef.current = null
-      initialPendingDocIdsRef.current = null
-      isInitialLoadRef.current = true
-      isInitialDocsLoadRef.current = true
-    }
-  }, [])
+    previousImagesRef.current.clear()
+    previousDocsRef.current.clear()
+    initialProcessingIdsRef.current = null
+    initialPendingDocIdsRef.current = null
+    isInitialLoadRef.current = true
+    isInitialDocsLoadRef.current = true
+    // Reset counts on caseId change — intentional sync of external key to internal state.
+    // Deps only include caseId, so no cascade loop risk.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveProcessingCount(0)
+    setActiveExtractingCount(0)
+  }, [caseId])
 
   return {
     images: imagesResponse?.images || [],

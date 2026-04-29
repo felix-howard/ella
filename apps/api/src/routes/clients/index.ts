@@ -3,6 +3,7 @@
  * CRUD operations for client management
  */
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { prisma } from '../../lib/db'
@@ -22,6 +23,8 @@ import {
   avatarPresignedUrlSchema,
   avatarConfirmSchema,
   updateNotesSchema,
+  createWithBusinessSchema,
+  linkBusinessSchema,
 } from './schemas'
 import { generateChecklist, cascadeCleanupOnFalse, refreshChecklist } from '../../services/checklist-generator'
 import {
@@ -33,17 +36,26 @@ import { createMagicLink } from '../../services/magic-link'
 import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
+import {
+  deleteBusinessWithScheduleC,
+  DeleteBusinessError,
+} from '../../services/clients/delete-business-with-schedule-c'
 import { computeStatus, calculateStaleDays } from '@ella/shared'
 import type { ActionCounts, ClientWithActions } from '@ella/shared'
 import { Prisma } from '@ella/db'
-import type { TaxType, Language } from '@ella/db'
+import type { TaxType, Language, ClientType, BusinessType } from '@ella/db'
+import { encryptSSN, maskEIN } from '../../services/crypto'
 import type { ClientUploads } from '@ella/shared'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
+import { clientsNdaRoute } from './nda'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
+
+// Sub-routes (paths relative to /clients, e.g. /:clientId/nda)
+clientsRoute.route('/', clientsNdaRoute)
 
 /**
  * Compute display name from firstName and lastName
@@ -51,6 +63,7 @@ const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 function computeDisplayName(firstName: string, lastName?: string | null): string {
   return lastName ? `${firstName} ${lastName}` : firstName
 }
+
 
 // GET /clients/intake-questions - Get intake questions for selected tax types
 // This is used by the client creation form to dynamically load questions
@@ -91,7 +104,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 // GET /clients - List all clients with pagination, computed status, and action counts
 // Optimized: Uses Prisma _count for aggregation instead of fetching all records
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
-  const { page, limit, search, managedById, attention, tag } = c.req.valid('query')
+  const { page, limit, search, managedById, attention, tag, clientType } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
 
   // Build where clause with org + assignment scope
@@ -106,11 +119,31 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       const digitsOnly = sanitizedSearch.replace(/\D/g, '')
       const phoneSearch = digitsOnly.length >= 3 ? digitsOnly : sanitizedSearch
 
-      where.OR = [
-        { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
-        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+      const namePhoneFilter = [
+        { firstName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { lastName: { contains: sanitizedSearch, mode: 'insensitive' as const } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' as const } },
         { phone: { contains: phoneSearch } },
+      ]
+
+      // Also include linked group members: if search matches a client in a group,
+      // show all members of that group (e.g. searching "john" shows John Wick + his business)
+      const matchingGroupIds = await prisma.client.findMany({
+        where: {
+          ...buildClientScopeFilter(user),
+          clientGroupId: { not: null },
+          OR: namePhoneFilter,
+        },
+        select: { clientGroupId: true },
+        distinct: ['clientGroupId'],
+      })
+      const groupIds = matchingGroupIds
+        .map(c => c.clientGroupId)
+        .filter((id): id is string => id !== null)
+
+      where.OR = [
+        ...namePhoneFilter,
+        ...(groupIds.length > 0 ? [{ clientGroupId: { in: groupIds } }] : []),
       ]
     }
   }
@@ -122,6 +155,11 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
 
   if (tag) {
     where.tags = { has: tag }
+  }
+
+  // Filter by client type (entity separation)
+  if (clientType) {
+    where.clientType = clientType
   }
 
   const orderBy = { createdAt: 'desc' as const }
@@ -275,6 +313,9 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
       language: client.language as 'VI' | 'EN',
       source: client.source as ClientSource,
       tags: client.tags,
+      clientType: client.clientType,
+      clientGroupId: client.clientGroupId,
+      businessType: client.businessType,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
       computedStatus: computedStatusValue,
@@ -350,13 +391,29 @@ clientsRoute.get('/tags', async (c) => {
 // POST /clients - Create new client with profile and tax case
 clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   const body = c.req.valid('json')
-  const { profile, customMessage, firstName, lastName, ...clientData } = body
+  const { profile, customMessage, firstName, lastName, clientType, businessType, ein, businessAddress, businessCity, businessState, businessZip, ...clientData } = body
   const user = c.get('user')
 
-  // Compute display name from firstName and lastName
-  const displayName = computeDisplayName(firstName, lastName)
+  // For BUSINESS clients, firstName = business name, ignore lastName
+  const displayName = clientType === 'BUSINESS'
+    ? firstName
+    : computeDisplayName(firstName, lastName)
 
   try {
+  // Check phone uniqueness among INDIVIDUAL clients in same org
+  if (clientType !== 'BUSINESS') {
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        phone: clientData.phone,
+        clientType: 'INDIVIDUAL',
+        organizationId: user.organizationId,
+      },
+    })
+    if (existingClient) {
+      throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+    }
+  }
+
   // Create client with profile and tax case in transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create client with org scope and managed-by
@@ -367,6 +424,16 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         name: displayName,  // Computed for backward compatibility
         ...clientData,
         language: clientData.language as Language,
+        clientType: clientType as ClientType,
+        // Business-specific fields (only set for BUSINESS clients)
+        ...(clientType === 'BUSINESS' ? {
+          businessType: businessType as BusinessType,
+          einEncrypted: ein ? encryptSSN(ein) : undefined,
+          businessAddress,
+          businessCity,
+          businessState,
+          businessZip,
+        } : {}),
         organizationId: user.organizationId,
         managedById: user.staffId,  // Always set creator as manager
         createdById: user.staffId,  // Track who created this client
@@ -436,7 +503,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
   )
 
   // Create magic link
-  const magicLink = await createMagicLink(result.taxCase.id)
+  const magicLink = await createMagicLink(result.taxCase.id, { clientName: result.client.name })
 
   // Send welcome SMS with magic link (async, non-blocking)
   // Use client's language preference (from form), not org default
@@ -470,6 +537,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
         phone: result.client.phone,
         email: result.client.email,
         language: result.client.language,
+        clientType: result.client.clientType,
         createdAt: result.client.createdAt.toISOString(),
         updatedAt: result.client.updatedAt.toISOString(),
       },
@@ -511,6 +579,33 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
       managedBy: { select: { id: true, name: true, avatarUrl: true } },
       createdBy: { select: { id: true, name: true } },
       updatedBy: { select: { id: true, name: true } },
+      // Include client group with sibling clients for cross-linking (excludes self)
+      clientGroup: {
+        include: {
+          clients: {
+            where: { id: { not: id } },
+            select: {
+              id: true, name: true, clientType: true, phone: true,
+              email: true, businessType: true, einEncrypted: true,
+              taxCases: {
+                orderBy: { taxYear: 'desc' },
+                take: 1,
+                include: {
+                  magicLinks: {
+                    where: { isActive: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { token: true },
+                  },
+                  scheduleCExpense: {
+                    select: { id: true, status: true, updatedAt: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       taxCases: {
         orderBy: { taxYear: 'desc' },
         include: {
@@ -527,6 +622,12 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
             },
           },
         },
+      },
+      // Source leads that converted INTO this client — used by Overview to link
+      // back to the original Lead page for NDA management.
+      convertedLeads: {
+        select: { id: true },
+        orderBy: { convertedAt: 'desc' },
       },
     },
   })
@@ -558,10 +659,43 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   // Keep top-level portalUrl for backwards compatibility (latest case)
   const portalUrl = taxCasesWithPortal[0]?.portalUrl ?? null
 
+  // Strip encrypted EIN — send masked version only
+  const { einEncrypted, ...clientSafe } = client
+
+  // Mask EIN and build portalUrl/latestCaseId for sibling clients in the group
+  const clientGroupSafe = clientSafe.clientGroup
+    ? {
+        ...clientSafe.clientGroup,
+        clients: clientSafe.clientGroup.clients.map(({ einEncrypted: siblingEin, taxCases, ...sibling }) => {
+          const siblingCase = taxCases?.[0]
+          const siblingMagicLink = siblingCase?.magicLinks?.[0]
+          const siblingSC = siblingCase?.scheduleCExpense
+          return {
+            ...sibling,
+            einMasked: maskEIN(siblingEin),
+            latestCaseId: siblingCase?.id ?? null,
+            latestCaseTaxYear: siblingCase?.taxYear ?? null,
+            portalUrl: siblingMagicLink && portalBaseUrl
+              ? `${portalBaseUrl}/u/${siblingMagicLink.token}`
+              : null,
+            scheduleCExpense: siblingSC
+              ? {
+                  id: siblingSC.id,
+                  status: siblingSC.status,
+                  updatedAt: siblingSC.updatedAt.toISOString(),
+                }
+              : null,
+          }
+        }),
+      }
+    : null
+
   return c.json({
-    ...client,
+    ...clientSafe,
+    einMasked: maskEIN(einEncrypted),
     name: computeDisplayName(client.firstName, client.lastName),
     avatarUrl: await resolveAvatarUrl(client.avatarUrl),
+    clientGroup: clientGroupSafe,
     managedBy: client.managedBy
       ? { ...client.managedBy, avatarUrl: await resolveAvatarUrl(client.managedBy.avatarUrl) }
       : null,
@@ -682,14 +816,21 @@ clientsRoute.patch(
     // Verify access before update (org + assignment scope)
     const existing = await prisma.client.findFirst({
       where: { id, ...buildClientScopeFilter(user) },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, clientType: true },
     })
     if (!existing) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
     }
 
+    // Reject business field updates on INDIVIDUAL clients
+    const businessFields = ['businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
+    const hasBusinessFieldUpdate = businessFields.some((f) => f in body)
+    if (hasBusinessFieldUpdate && existing.clientType !== 'BUSINESS') {
+      return c.json({ error: 'INVALID_UPDATE', message: 'Business fields can only be set on BUSINESS clients' }, 400)
+    }
+
     // Explicitly pick only allowed fields to prevent mass assignment
-    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags'] as const
+    const allowedFields = ['firstName', 'lastName', 'phone', 'email', 'language', 'tags', 'businessType', 'ein', 'businessAddress', 'businessCity', 'businessState', 'businessZip'] as const
     const updateData = pickFields(body, [...allowedFields]) as {
       firstName?: string
       lastName?: string | null
@@ -697,6 +838,12 @@ clientsRoute.patch(
       email?: string | null
       language?: Language
       tags?: string[]
+      businessType?: string
+      ein?: string | null
+      businessAddress?: string | null
+      businessCity?: string | null
+      businessState?: string | null
+      businessZip?: string | null
     }
 
     // Normalize tags (consistent with lead tag handling)
@@ -711,9 +858,19 @@ clientsRoute.patch(
       ;(updateData as Record<string, unknown>).name = computeDisplayName(newFirstName, newLastName)
     }
 
+    // Build Prisma-compatible update data: encrypt EIN, cast enums
+    const prismaUpdateData: Record<string, unknown> = { ...updateData }
+    if (updateData.businessType) {
+      prismaUpdateData.businessType = updateData.businessType as BusinessType
+    }
+    if ('ein' in updateData) {
+      prismaUpdateData.einEncrypted = updateData.ein ? encryptSSN(updateData.ein) : null
+      delete prismaUpdateData.ein
+    }
+
     const client = await prisma.client.update({
       where: { id },
-      data: { ...updateData, updatedById: user.staffId },
+      data: { ...prismaUpdateData, updatedById: user.staffId },
     })
 
     return c.json({
@@ -1247,10 +1404,42 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
   // Verify access before delete (org + assignment scope)
   const client = await prisma.client.findFirst({
     where: { id, ...buildClientScopeFilter(user) },
-    select: { id: true },
+    select: {
+      id: true,
+      clientType: true,
+      taxCases: { select: { scheduleCExpense: { select: { id: true } } } },
+    },
   })
   if (!client) {
     return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+  }
+
+  // Phase 8: BUSINESS clients owning a Schedule C take the cascade-aware path
+  // (audit snapshot + explicit magic-link delete inside one transaction).
+  const ownsScheduleC = client.taxCases.some((tc) => tc.scheduleCExpense != null)
+  if (client.clientType === 'BUSINESS' && ownsScheduleC && user.organizationId) {
+    try {
+      const result = await deleteBusinessWithScheduleC(prisma, {
+        clientId: id,
+        staffId: user.staffId ?? null,
+        organizationId: user.organizationId,
+      })
+      return c.json({
+        success: true,
+        message: 'Client deleted successfully',
+        deleted: result,
+      })
+    } catch (e) {
+      if (e instanceof DeleteBusinessError) {
+        if (e.code === 'CLIENT_NOT_FOUND') {
+          return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
+        }
+        if (e.code === 'NOT_A_BUSINESS') {
+          return c.json({ error: 'INVALID_CLIENT_TYPE', message: 'Client is not a business' }, 400)
+        }
+      }
+      throw e
+    }
   }
 
   await prisma.client.delete({ where: { id } })
@@ -1272,6 +1461,7 @@ clientsRoute.patch(
     // Verify client belongs to org
     const client = await prisma.client.findFirst({
       where: { id, organizationId: user.organizationId },
+      select: { id: true, clientGroupId: true },
     })
     if (!client) {
       return c.json({ error: 'NOT_FOUND', message: 'Client not found' }, 404)
@@ -1287,10 +1477,31 @@ clientsRoute.patch(
       }
     }
 
-    const updated = await prisma.client.update({
-      where: { id },
-      data: { managedById: staffId },
-      include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+    // Use transaction for atomic group update
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.client.update({
+        where: { id },
+        data: { managedById: staffId },
+        include: { managedBy: { select: { id: true, name: true, avatarUrl: true } } },
+      })
+
+      // Propagate to all group members if client belongs to a group
+      if (client.clientGroupId) {
+        const propagateResult = await tx.client.updateMany({
+          where: {
+            clientGroupId: client.clientGroupId,
+            id: { not: id },
+            organizationId: user.organizationId,
+          },
+          data: { managedById: staffId },
+        })
+
+        console.log(
+          `[managedById sync] Propagated managedById=${staffId ?? 'null'} to ${propagateResult.count} members (group: ${client.clientGroupId})`
+        )
+      }
+
+      return result
     })
 
     const managedBy = updated.managedBy
@@ -1329,6 +1540,8 @@ clientsRoute.post(
         name: true,
         phone: true,
         language: true,
+        clientType: true,
+        clientGroupId: true,
         taxCases: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -1350,17 +1563,65 @@ clientsRoute.post(
       return c.json({ error: 'SMS not configured' }, 500)
     }
 
-    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/u/abc123)
-    const portalUrl = await createMagicLink(latestCase.id)
+    // Resolve SMS recipient and target taxCase
+    // For business clients with group, redirect to individual's phone + taxCase
+    let smsPhone = client.phone
+    let smsName = client.name
+    let smsLanguage = client.language
+    let targetCaseId = latestCase.id
+
+    if (client.clientType === 'BUSINESS' && client.clientGroupId) {
+      // Each group has exactly one individual in current data model.
+      // orderBy createdAt desc as a safe tiebreaker if multiple exist.
+      const individual = await prisma.client.findFirst({
+        where: {
+          clientGroupId: client.clientGroupId,
+          clientType: 'INDIVIDUAL',
+          organizationId: user.organizationId,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          phone: true,
+          name: true,
+          language: true,
+          taxCases: {
+            where: { taxYear: latestCase.taxYear },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      })
+      if (individual) {
+        smsPhone = individual.phone
+        smsName = individual.name
+        smsLanguage = individual.language
+
+        // Use individual's taxCase for magic link so portal uploads go to individual
+        const indivCase = individual.taxCases[0]
+        if (indivCase) {
+          targetCaseId = indivCase.id
+          console.log(`[Send Upload Link] Redirected business ${id} → individual case ${indivCase.id}`)
+        } else {
+          console.warn(`[Send Upload Link] Individual ${individual.id} has no taxCase for year ${latestCase.taxYear} — using business case`)
+        }
+      } else {
+        console.warn(`[Send Upload Link] Business client ${id} in group ${client.clientGroupId} has no individual — falling back to business phone`)
+      }
+    }
+
+    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/upload/tuyet-nguyen-7k3m)
+    const portalUrl = await createMagicLink(targetCaseId, { clientName: smsName })
 
     try {
       const result = await sendWelcomeMessage(
-        latestCase.id,
-        client.name,
-        client.phone,
+        targetCaseId,
+        smsName,
+        smsPhone,
         portalUrl,
         latestCase.taxYear,
-        client.language as 'VI' | 'EN',
+        smsLanguage as 'VI' | 'EN',
         customMessage,
         user.staffId,
       )
@@ -1376,5 +1637,356 @@ clientsRoute.post(
     }
   }
 )
+
+// ============================================
+// POST /clients/create-with-business — Combo: individual + business + group
+// ============================================
+clientsRoute.post(
+  '/create-with-business',
+  zValidator('json', createWithBusinessSchema),
+  async (c) => {
+    const { individual, businesses, groupName, customMessage } = c.req.valid('json')
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.staffId) {
+      throw new HTTPException(403, { message: 'Organization and staff record required' })
+    }
+
+    // Check phone uniqueness for individual client in same org
+    const existingClient = await prisma.client.findFirst({
+        where: {
+          phone: individual.phone,
+          clientType: 'INDIVIDUAL',
+          organizationId: user.organizationId,
+        },
+      })
+      if (existingClient) {
+        throw new HTTPException(409, { message: 'A client with this phone number already exists' })
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Create individual client
+        const indivName = computeDisplayName(individual.firstName, individual.lastName)
+        const individualClient = await tx.client.create({
+          data: {
+            firstName: individual.firstName,
+            lastName: individual.lastName || null,
+            name: indivName,
+            phone: individual.phone,
+            email: individual.email || null,
+            language: individual.language as Language,
+            clientType: 'INDIVIDUAL' as ClientType,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+          include: { profile: true },
+        })
+
+        // Create engagement + tax case for individual
+        const { engagementId: indivEngId } = await findOrCreateEngagement(
+          tx,
+          individualClient.id,
+          individual.profile.taxYear,
+          null
+        )
+        const indivCase = await tx.taxCase.create({
+          data: {
+            clientId: individualClient.id,
+            taxYear: individual.profile.taxYear,
+            engagementId: indivEngId,
+            taxTypes: (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+            status: 'INTAKE',
+          },
+        })
+        await tx.conversation.create({
+          data: { caseId: indivCase.id, lastMessageAt: new Date() },
+        })
+
+        // Create business clients (loop over array)
+        const businessClients: { id: string; name: string; clientType: ClientType }[] = []
+        const bizCaseInfos: { caseId: string; taxTypes: TaxType[]; profileId: string }[] = []
+        for (const biz of businesses) {
+          const businessClient = await tx.client.create({
+            data: {
+              firstName: biz.firstName,
+              lastName: null,
+              name: biz.firstName,
+              phone: biz.phone,
+              email: biz.email || null,
+              language: biz.language as Language,
+              clientType: 'BUSINESS' as ClientType,
+              businessType: biz.businessType as BusinessType,
+              einEncrypted: biz.ein ? encryptSSN(biz.ein) : undefined,
+              businessAddress: biz.businessAddress,
+              businessCity: biz.businessCity,
+              businessState: biz.businessState,
+              businessZip: biz.businessZip,
+              organizationId: user.organizationId,
+              managedById: user.staffId,
+              createdById: user.staffId,
+              profile: {
+                create: {
+                  intakeAnswers: {},
+                },
+              },
+            },
+            include: { profile: true },
+          })
+
+          // Create engagement + tax case for each business
+          const { engagementId: bizEngId } = await findOrCreateEngagement(
+            tx,
+            businessClient.id,
+            biz.profile.taxYear,
+            null
+          )
+          const bizTaxTypes = (biz.profile.taxTypes || ['FORM_1120S']) as TaxType[]
+          const bizCase = await tx.taxCase.create({
+            data: {
+              clientId: businessClient.id,
+              taxYear: biz.profile.taxYear,
+              engagementId: bizEngId,
+              taxTypes: bizTaxTypes,
+              status: 'INTAKE',
+            },
+          })
+          // Skip conversation for business clients — only individual gets a conversation
+          businessClients.push({
+            id: businessClient.id,
+            name: businessClient.name,
+            clientType: businessClient.clientType as ClientType,
+          })
+          bizCaseInfos.push({
+            caseId: bizCase.id,
+            taxTypes: bizTaxTypes,
+            profileId: businessClient.profile!.id,
+          })
+        }
+
+        // Create client group linking all
+        const bizNames = businesses.map((b) => b.firstName).join(' + ')
+        const name = groupName || `${individual.firstName} + ${bizNames}`
+        const group = await tx.clientGroup.create({
+          data: {
+            name,
+            organizationId: user.organizationId,
+          },
+        })
+
+        // Link all clients to the group
+        const allClientIds = [individualClient.id, ...businessClients.map((b) => b.id)]
+        await tx.client.updateMany({
+          where: { id: { in: allClientIds } },
+          data: { clientGroupId: group.id },
+        })
+
+        return { individualClient, businessClients, bizCaseInfos, group, indivCase }
+      })
+
+      // Generate checklists for individual and all business tax cases
+      await generateChecklist(
+        result.indivCase.id,
+        (individual.profile.taxTypes || ['FORM_1040']) as TaxType[],
+        result.individualClient.profile!
+      )
+      for (const bizInfo of result.bizCaseInfos) {
+        const bizProfile = await prisma.clientProfile.findUnique({ where: { id: bizInfo.profileId } })
+        if (bizProfile) {
+          await generateChecklist(bizInfo.caseId, bizInfo.taxTypes, bizProfile)
+        }
+      }
+
+      // Create magic link and send welcome SMS for individual client
+      const magicLink = await createMagicLink(result.indivCase.id, { clientName: result.individualClient.name })
+
+      let smsStatus: { sent: boolean; error?: string } = { sent: false }
+      if (isSmsEnabled()) {
+        try {
+          const smsResult = await sendWelcomeMessage(
+            result.indivCase.id,
+            result.individualClient.name,
+            result.individualClient.phone,
+            magicLink,
+            result.indivCase.taxYear,
+            result.individualClient.language as 'VI' | 'EN',
+            customMessage,
+            user.staffId
+          )
+          smsStatus = { sent: smsResult.smsSent, error: smsResult.error }
+        } catch (error) {
+          console.error('[Create With Business] Failed to send welcome SMS:', error)
+          smsStatus = { sent: false, error: 'SMS_SEND_FAILED' }
+        }
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            individual: {
+              id: result.individualClient.id,
+              name: result.individualClient.name,
+              clientType: result.individualClient.clientType,
+            },
+            businesses: result.businessClients,
+            group: {
+              id: result.group.id,
+              name: result.group.name,
+            },
+            magicLink,
+            smsStatus,
+          },
+        },
+        201
+      )
+    }
+  )
+
+// ============================================
+// POST /clients/:id/link-business — Link new business to existing individual
+// ============================================
+clientsRoute.post(
+  '/:id/link-business',
+  zValidator('param', clientIdParamSchema),
+  zValidator('json', linkBusinessSchema),
+  async (c) => {
+    const { id: clientId } = c.req.valid('param')
+    const body = c.req.valid('json')
+    const user = c.get('user')
+
+    if (!user.organizationId || !user.staffId) {
+      throw new HTTPException(403, { message: 'Organization and staff record required' })
+    }
+
+    const scopeFilter = buildClientScopeFilter(user)
+
+    // Verify client exists and belongs to org
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, ...scopeFilter },
+      include: { clientGroup: true },
+    })
+
+    if (!client) {
+      throw new HTTPException(404, { message: 'Client not found' })
+    }
+
+    if (client.clientType !== 'INDIVIDUAL') {
+      throw new HTTPException(400, { message: 'Only individual clients can have linked businesses' })
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Create business client
+      const businessClient = await tx.client.create({
+          data: {
+            firstName: body.firstName,
+            lastName: null,
+            name: body.firstName,
+            phone: body.phone,
+            email: body.email || null,
+            language: (body.language || 'VI') as Language,
+            clientType: 'BUSINESS' as ClientType,
+            businessType: body.businessType as BusinessType,
+            einEncrypted: body.ein ? encryptSSN(body.ein) : undefined,
+            businessAddress: body.businessAddress,
+            businessCity: body.businessCity,
+            businessState: body.businessState,
+            businessZip: body.businessZip,
+            organizationId: user.organizationId,
+            managedById: user.staffId,
+            createdById: user.staffId,
+            profile: {
+              create: {
+                intakeAnswers: {},
+              },
+            },
+          },
+          include: { profile: true },
+        })
+
+        // Create engagement + tax case
+        const bizTaxTypes = (body.taxTypes || ['FORM_1120S']) as TaxType[]
+        const { engagementId } = await findOrCreateEngagement(
+          tx,
+          businessClient.id,
+          body.taxYear,
+          null
+        )
+        const bizCase = await tx.taxCase.create({
+          data: {
+            clientId: businessClient.id,
+            taxYear: body.taxYear,
+            engagementId,
+            taxTypes: bizTaxTypes,
+            status: 'INTAKE',
+          },
+        })
+        // Skip conversation for linked business — individual already has one
+
+        // Get or create client group
+        let group = client.clientGroup
+        if (!group) {
+          group = await tx.clientGroup.create({
+            data: {
+              name: `${client.name} Group`,
+              organizationId: user.organizationId,
+            },
+          })
+          // Link individual to the new group
+          await tx.client.update({
+            where: { id: clientId },
+            data: { clientGroupId: group.id },
+          })
+        }
+
+        // Link business to group
+        await tx.client.update({
+          where: { id: businessClient.id },
+          data: { clientGroupId: group.id },
+        })
+
+        return { businessClient, bizCase, bizTaxTypes, group }
+      })
+
+      // Generate checklist for business tax case
+      if (result.businessClient.profile) {
+        await generateChecklist(
+          result.bizCase.id,
+          result.bizTaxTypes,
+          result.businessClient.profile
+        )
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            business: {
+              id: result.businessClient.id,
+              name: result.businessClient.name,
+              clientType: result.businessClient.clientType,
+              businessType: result.businessClient.businessType,
+              taxCases: [
+                {
+                  id: result.bizCase.id,
+                  taxYear: result.bizCase.taxYear,
+                },
+              ],
+            },
+            group: {
+              id: result.group.id,
+              name: result.group.name,
+            },
+          },
+        },
+        201
+      )
+    }
+  )
 
 export { clientsRoute }

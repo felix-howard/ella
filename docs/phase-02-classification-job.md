@@ -47,13 +47,22 @@ Durable Step 2: fetch-image
   └─ Return { buffer: base64, mimeType }
         ↓
 Durable Step 3: classify
-  ├─ Decode base64 buffer
-  ├─ Call Gemini vision classification
-  ├─ Extract { docType, confidence, reasoning, taxYear, source }
+  ├─ Build EntityContext from ClientGroup (multi-entity clients)
+  ├─ Call Gemini vision classification (with entity routing prompt if group)
+  ├─ Extract { docType, confidence, reasoning, taxYear, source, targetEntityId?, entityConfidence? }
   ├─ Determine category via getCategoryFromDocType()
-  └─ Return classification result
+  └─ Return classification result + entity routing fields
         ↓
-Durable Step 4: route-by-confidence
+Durable Step 3.5: route-to-entity (Phase 03 - MULTI-ENTITY ROUTING)
+  ├─ If no targetEntityId or entityConfidence < 0.7: skip
+  ├─ Validate targetEntityId in same ClientGroup (org-scoped defense-in-depth)
+  ├─ Lookup target client's TaxCase for same taxYear
+  ├─ Update RawImage.caseId → targetEntity's taxCaseId (route document)
+  ├─ Set RawImage.routedFromCaseId (audit trail)
+  ├─ Set RawImage.entityConfidence (routing confidence score)
+  └─ Return { routed, fromCaseId, toCaseId, targetEntity, entityConfidence }
+        ↓
+Durable Step 4: route-by-confidence (uses effectiveCaseId after entity routing)
   ├─ If confidence < 60%:
   │  ├─ Update RawImage.status = UNCLASSIFIED
   │  └─ Create AI_FAILED action (NORMAL priority)
@@ -216,6 +225,120 @@ const classifyDocumentJob = inngest.createFunction(
 - ChecklistItem auto-linked
 - No action created (silent success)
 - OCR extraction triggers if docType supports it
+
+---
+
+## Entity Routing Step (Phase 03)
+
+### Purpose & Behavior
+
+When a client belongs to a ClientGroup (e.g., individual owner + business entities), documents may target a specific entity within the group. The entity routing step intelligently reassigns documents to their intended recipient.
+
+**When Active:**
+- Client has `clientGroupId` (belongs to multi-entity group)
+- AI classification detected `targetEntityId` with confidence ≥ 0.7
+- Target entity exists in same group AND same organization (defense-in-depth)
+- Target entity has TaxCase for current taxYear
+
+**Flow:**
+1. Gemini prompt includes entity context (all group members: names, types)
+2. Classifier returns `targetEntityId` (which entity the doc belongs to)
+3. Route-to-entity step validates and updates RawImage.caseId
+4. Downstream steps use `effectiveCaseId` (routed caseId) for isolation
+
+### Entity Context Generation
+
+**File:** `apps/api/src/jobs/classify-document.ts` — `buildEntityContext()` helper
+
+```typescript
+// Queries ClientGroup members for multi-entity routing
+// Returns entities array with: id, name, type ('individual'|'business'), businessType
+// Skips single-entity groups (no routing needed)
+const entityContext = await buildEntityContext(caseId)
+
+// Example for group with individual + business:
+{
+  entities: [
+    { id: 'cli_xxx1', name: 'John Doe', type: 'individual' },
+    { id: 'cli_xxx2', name: 'Doe Family Business LLC', type: 'business', businessType: 'LLC' }
+  ]
+}
+```
+
+### Classification Prompt Enhancement
+
+When EntityContext provided, Gemini prompt includes section:
+
+```
+ENTITY ROUTING RULES (for multi-entity groups):
+- Documents naming specific business → route to business entity
+- Personal ID docs (driver license, passport) → route to individual
+- Shared docs (bank statements, tax returns) → determine intent from context
+- Unclear → default to individual entity
+```
+
+Classifier returns:
+- `targetEntityId`: Which group member the document belongs to (or null if unclear)
+- `entityConfidence`: Routing confidence (0-1.0)
+
+### Routing Validation & Execution
+
+**Security Checks (Defense-in-Depth):**
+1. targetEntityId must exist in ClientGroup (prevents cross-group routing)
+2. Organization ID must match (prevents cross-org data leaks)
+3. Target entity must have TaxCase for current taxYear (prevents orphaning documents)
+
+**Routing Update:**
+```typescript
+// If all validations pass:
+await prisma.rawImage.update({
+  where: { id: rawImageId },
+  data: {
+    caseId: targetCaseId,           // Route to target entity's case
+    routedFromCaseId: caseId,       // Audit trail (original case)
+    entityConfidence,               // Routing confidence
+  },
+})
+```
+
+### Effective CaseId Pattern
+
+Downstream steps use `effectiveCaseId` for isolation:
+
+```typescript
+// After entity routing step
+const effectiveCaseId = entityRouting.routed
+  ? entityRouting.toCaseId
+  : caseId  // Original caseId if no routing
+
+// route-by-confidence step uses effectiveCaseId
+const routing = await step.run('route-by-confidence', async () => {
+  // All DB updates use effectiveCaseId (routed destination)
+  // Prevents cross-contamination between group members
+})
+```
+
+### Failure Modes & Fallback
+
+| Condition | Action |
+|-----------|--------|
+| No targetEntityId detected | Skip routing, continue with original caseId |
+| entityConfidence < 0.7 | Skip routing (low confidence), continue with original caseId |
+| Target not in ClientGroup | Skip routing, log warning |
+| No taxCase for target in current year | Skip routing, log warning |
+| Cross-org violation detected | Skip routing, security log |
+
+All failures are non-fatal—document processing continues with original caseId.
+
+### Database Schema Changes
+
+**RawImage** table additions (nullable, optional):
+
+```typescript
+caseId: string              // Existing: original upload case
+routedFromCaseId?: string   // NEW (Phase 03): audit trail if routed
+entityConfidence?: float    // NEW (Phase 03): routing confidence (0-1.0)
+```
 
 ---
 
@@ -495,7 +618,7 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
 
 Enhanced Gemini prompt with few-shot examples, Vietnamese name handling, and confidence calibration.
 
-**Classification Result Format (Phase 02 Update):**
+**Classification Result Format (Phase 02 Update + Entity Routing Enhancement):**
 
 ```typescript
 export interface ClassificationResult {
@@ -506,9 +629,13 @@ export interface ClassificationResult {
     docType: SupportedDocType
     confidence: number
   }>
-  // NEW: Naming components extracted from document
+  // Naming components extracted from document
   taxYear: number | null                  // 4-digit year (2000-2100) or null
   source: string | null                   // Cleaned issuer/employer name or null
+  recipientName?: string | null           // Person's name from document
+  // Entity routing fields (multi-entity document routing - Phase 02 Enhancement)
+  targetEntityId?: string | null          // Client ID of matched entity (null = default to individual)
+  entityConfidence?: number               // 0-1 confidence in entity match (only set when targetEntityId non-null)
 }
 ```
 
@@ -543,6 +670,57 @@ validateClassificationResult(result.data)
 // Category automatically determined
 const category = getCategoryFromDocType(result.data.docType)
 ```
+
+### Entity Routing for Multi-Entity Clients (Phase 02 Enhancement)
+
+**Purpose:** Enables intelligent document assignment to correct entity (individual or business) for ClientGroup clients with multiple entities.
+
+**EntityContext Interface:**
+
+```typescript
+export interface EntityContext {
+  entities: Array<{
+    id: string                   // Client ID
+    name: string                 // "Messi Tran" or "Yenu Nail Spa"
+    type: 'individual' | 'business'
+    businessType?: string        // "LLC", "S_CORP", etc. (optional for business entities)
+  }>
+}
+```
+
+**Usage in Classification:**
+
+```typescript
+// In document-classifier.ts or job context
+const entityContext: EntityContext = {
+  entities: [
+    { id: 'cl_ind123', name: 'John Smith', type: 'individual' },
+    { id: 'cl_biz456', name: 'Smith Consulting LLC', type: 'business', businessType: 'LLC' }
+  ]
+}
+
+// Pass context to classifier (optional, for multi-entity clients)
+const result = await classifyDocument(buffer, mimeType, entityContext)
+
+// Result includes entity routing fields
+console.log(result.targetEntityId)   // 'cl_biz456' if document belongs to business
+console.log(result.entityConfidence) // 0.85 if confident in match
+```
+
+**Routing Rules (Embedded in Gemini Prompt):**
+
+- **Business documents** (bank statements, P&L, EIN letters) → match by business name on document
+- **Personal ID documents** (W-2, SSN card, driver's license) → always route to 'individual' entity
+- **1099-NEC issued to business** → match business name
+- **Unclear document** → default to 'individual' entity (conservative routing)
+
+**Behavior:**
+
+- **Single-entity clients** (no EntityContext) → entity routing section omitted from prompt, routing fields undefined in response (backward compatible)
+- **Multi-entity clients** (EntityContext with 2+ entities) → prompt includes entity routing block, response includes targetEntityId + entityConfidence
+- **Backward compatible** → existing code not providing EntityContext continues to work unchanged
+
+---
 
 ### PDF Conversion Service (Phase 3)
 

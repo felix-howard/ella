@@ -1,6 +1,6 @@
 /**
- * Chatbox Header - Consistent with /messages conversation header
- * Light background with avatar, client info, green Call button, and close
+ * Chatbox Header - generic header for the FloatingChatbox.
+ * Accepts a title/subtitle pair so it can render for either a client case or a lead.
  */
 
 import { useTranslation } from 'react-i18next'
@@ -10,23 +10,32 @@ import { getInitials, getAvatarColor, formatPhone, maskPhone } from '../../lib/f
 import { useOrgRole } from '../../hooks/use-org-role'
 
 export interface ChatboxHeaderProps {
-  clientName: string
-  clientPhone?: string
+  /** Primary line (e.g., client or lead full name). */
+  title: string
+  /** Optional phone displayed below the title (masked for non-admins). */
+  phone?: string
+  /** Optional free-text subtitle — takes precedence over phone if provided. */
+  subtitle?: string
   onClose: () => void
+  /** When undefined, the call button is hidden. */
   onCall?: () => void
   className?: string
 }
 
 export function ChatboxHeader({
-  clientName,
-  clientPhone,
+  title,
+  phone,
+  subtitle,
   onClose,
   onCall,
   className,
 }: ChatboxHeaderProps) {
   const { t } = useTranslation()
   const { isAdmin } = useOrgRole()
-  const avatarColor = getAvatarColor(clientName)
+  const avatarColor = getAvatarColor(title)
+
+  const displaySubtitle =
+    subtitle ?? (phone ? (isAdmin ? formatPhone(phone) : maskPhone(phone)) : undefined)
 
   return (
     <div
@@ -37,23 +46,23 @@ export function ChatboxHeader({
         className
       )}
     >
-      {/* Client info */}
+      {/* Identity */}
       <div className="flex items-center gap-3 min-w-0">
         <div className={cn(
           'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-background',
           avatarColor.bg
         )}>
           <span className={cn('font-medium text-sm', avatarColor.text)}>
-            {getInitials(clientName)}
+            {getInitials(title)}
           </span>
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate tracking-tight">
-            {clientName}
+            {title}
           </h3>
-          {clientPhone && (
+          {displaySubtitle && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">
-              {isAdmin ? formatPhone(clientPhone) : maskPhone(clientPhone)}
+              {displaySubtitle}
             </p>
           )}
         </div>
@@ -61,7 +70,6 @@ export function ChatboxHeader({
 
       {/* Action buttons */}
       <div className="flex items-center gap-1">
-        {/* Call button - green with text, matching /messages page */}
         {onCall && (
           <button
             onClick={onCall}
@@ -74,7 +82,6 @@ export function ChatboxHeader({
           </button>
         )}
 
-        {/* Close */}
         <button
           onClick={onClose}
           className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"

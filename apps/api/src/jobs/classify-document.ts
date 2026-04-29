@@ -5,12 +5,12 @@
  * Workflow:
  * 1. Idempotency check (skip if already processed)
  * 2. Fetch image from R2 (with resize for large files)
- * 3. Check for duplicates (pHash) - skip AI if duplicate found
- * 4. Classify with Gemini (with error handling for unavailability)
- * 5. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
- * 6. Rename file with naming convention (classified docs only)
- * 7. OCR extraction (if confidence >= 60% and doc type supports OCR)
- * 8. Update DB with results
+ * 3. Classify with Gemini (with entity context for multi-entity routing)
+ * 3.5. Route to entity (if multi-entity group, reassign caseId)
+ * 4. Route by confidence (>85% auto-link, 60-85% review, <60% unclassified)
+ * 5. Rename file with naming convention (classified docs only)
+ * 6. OCR extraction (if confidence >= 60% and doc type supports OCR)
+ * 7. Update DB with results
  */
 
 import sharp from 'sharp'
@@ -19,6 +19,7 @@ import { prisma } from '../lib/db'
 import { fetchImageBuffer, renameFile, deleteFile } from '../services/storage'
 import { getCategoryFromDocType, getDisplayNameFromKey } from '@ella/shared'
 import { classifyDocument, requiresOcrExtraction, generateSmartFilename } from '../services/ai'
+import type { EntityContext } from '../services/ai'
 // Simple PDF check (pdf-poppler removed)
 const isPdfMimeType = (mimeType: string) => mimeType === 'application/pdf'
 import { extractDocumentData } from '../services/ai/ocr-extractor'
@@ -125,6 +126,46 @@ async function syncMessageR2Keys(oldKey: string, newKey: string): Promise<number
   } catch (syncErr) {
     console.warn(`[classify-document] Failed to sync renamed key to messages:`, syncErr)
     return 0
+  }
+}
+
+/**
+ * Build entity context for multi-entity document routing
+ * Returns EntityContext if client belongs to a group with multiple entities, undefined otherwise
+ */
+async function buildEntityContext(caseId: string): Promise<EntityContext | undefined> {
+  const taxCase = await prisma.taxCase.findUnique({
+    where: { id: caseId },
+    select: {
+      clientId: true,
+      client: {
+        select: { clientGroupId: true },
+      },
+    },
+  })
+
+  if (!taxCase?.client.clientGroupId) return undefined
+
+  const groupMembers = await prisma.client.findMany({
+    where: { clientGroupId: taxCase.client.clientGroupId },
+    select: {
+      id: true,
+      name: true,
+      clientType: true,
+      businessType: true,
+    },
+  })
+
+  // Skip if single entity (no routing needed)
+  if (groupMembers.length <= 1) return undefined
+
+  return {
+    entities: groupMembers.map((m) => ({
+      id: m.id,
+      name: m.name,
+      type: m.clientType === 'BUSINESS' ? 'business' as const : 'individual' as const,
+      businessType: m.businessType ?? undefined,
+    })),
   }
 }
 
@@ -288,7 +329,13 @@ export const classifyDocumentJob = inngest.createFunction(
       const buffer = fileBuffer!
 
       try {
-        const result = await classifyDocument(buffer, imageData.mimeType)
+        // Build entity context for multi-entity routing
+        const entityContext = await buildEntityContext(caseId)
+        if (entityContext) {
+          console.log(`[classify-document] Entity context: ${entityContext.entities.length} entities in group`)
+        }
+
+        const result = await classifyDocument(buffer, imageData.mimeType, entityContext)
 
         // Check for service unavailability in error message
         if (!result.success && result.error && isServiceUnavailable(result.error)) {
@@ -328,6 +375,8 @@ export const classifyDocumentJob = inngest.createFunction(
           source: result.source,
           recipientName: result.recipientName,
           extractedMetadata: result.extractedMetadata,
+          targetEntityId: result.targetEntityId ?? null,
+          entityConfidence: result.entityConfidence ?? null,
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -348,9 +397,99 @@ export const classifyDocumentJob = inngest.createFunction(
           source: null,
           recipientName: null,
           extractedMetadata: undefined,
+          targetEntityId: null,
+          entityConfidence: null,
         }
       }
     })
+
+    // Step 2.5: Route to correct entity (multi-entity document routing)
+    const entityRouting = await step.run('route-to-entity', async () => {
+      const { targetEntityId, entityConfidence } = classification
+
+      // Skip if no entity detection or low confidence
+      if (!targetEntityId || !entityConfidence || entityConfidence < 0.7) {
+        const reason = !targetEntityId ? 'no-target-entity' : 'low-confidence'
+        console.log(`[classify-document] Entity routing skipped: ${reason}`)
+        return { routed: false, reason } as const
+      }
+
+      // Lookup client group from current case (include org for cross-org validation)
+      const currentCase = await prisma.taxCase.findUnique({
+        where: { id: caseId },
+        select: {
+          clientId: true,
+          taxYear: true,
+          client: {
+            select: {
+              clientGroupId: true,
+              clientGroup: { select: { organizationId: true } },
+            },
+          },
+        },
+      })
+
+      if (!currentCase?.client.clientGroupId) {
+        console.log(`[classify-document] Entity routing skipped: no-client-group`)
+        return { routed: false, reason: 'no-client-group' } as const
+      }
+
+      // Validate targetEntityId is in the group AND same org (defense-in-depth)
+      const groupMembers = await prisma.client.findMany({
+        where: {
+          clientGroupId: currentCase.client.clientGroupId,
+          // Ensure group belongs to same org as current case's group
+          clientGroup: { organizationId: currentCase.client.clientGroup?.organizationId ?? undefined },
+        },
+        select: {
+          id: true,
+          name: true,
+          clientType: true,
+          taxCases: {
+            where: { taxYear: currentCase.taxYear },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      })
+
+      const targetMember = groupMembers.find((m) => m.id === targetEntityId)
+      if (!targetMember) {
+        console.log(`[classify-document] Entity routing skipped: target-not-in-group`)
+        return { routed: false, reason: 'target-not-in-group' } as const
+      }
+
+      const targetCaseId = targetMember.taxCases[0]?.id
+      if (!targetCaseId || targetCaseId === caseId) {
+        console.log(`[classify-document] Entity routing skipped: same-case-or-no-target-case`)
+        return { routed: false, reason: 'same-case-or-no-target-case' } as const
+      }
+
+      // Route: update RawImage to target entity's case
+      await prisma.rawImage.update({
+        where: { id: rawImageId },
+        data: {
+          caseId: targetCaseId,
+          routedFromCaseId: caseId,
+          entityConfidence,
+        },
+      })
+
+      console.log(
+        `[classify-document] Entity routed: ${targetMember.name} (confidence: ${(entityConfidence * 100).toFixed(0)}%)`
+      )
+
+      return {
+        routed: true,
+        fromCaseId: caseId,
+        toCaseId: targetCaseId,
+        targetEntity: targetMember.name,
+        entityConfidence,
+      } as const
+    })
+
+    // After entity routing, downstream steps must use the effective caseId
+    const effectiveCaseId = entityRouting.routed ? entityRouting.toCaseId : caseId
 
     // Step 3: Route by confidence and update DB
     // Also handles fallback smart rename for low confidence documents
@@ -450,7 +589,7 @@ export const classifyDocumentJob = inngest.createFunction(
 
         // Still create AI_FAILED action for CPA visibility
         await createAction({
-          caseId,
+          caseId: effectiveCaseId,
           type: 'AI_FAILED',
           priority: getActionPriority(errorInfo.severity),
           title: getActionTitle(errorInfo.type),
@@ -509,10 +648,10 @@ export const classifyDocumentJob = inngest.createFunction(
             `[classify-document] Continuation detected: parent=${parentForm}, line=${continuationMarker?.lineNumber}`
           )
 
-          // Lookup parent form in same case
+          // Lookup parent form in same case (use effectiveCaseId for routed docs)
           const parentDoc = await prisma.rawImage.findFirst({
             where: {
-              caseId,
+              caseId: effectiveCaseId,
               classifiedType: parentForm as DocType,
               status: { in: ['CLASSIFIED', 'LINKED'] },
             },
@@ -542,7 +681,7 @@ export const classifyDocumentJob = inngest.createFunction(
             continuationLinked = true
           } else {
             console.warn(
-              `[classify-document] Parent form ${parentForm} not found in case ${caseId}`
+              `[classify-document] Parent form ${parentForm} not found in case ${effectiveCaseId}`
             )
             // Keep as original classification, but log for manual review
           }
@@ -565,7 +704,7 @@ export const classifyDocumentJob = inngest.createFunction(
           console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
         }
 
-        const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
+        const checklistItemId = await linkToChecklistItem(rawImageId, effectiveCaseId, validDocType)
 
         return {
           action: continuationLinked ? 'auto-linked-continuation' : 'auto-linked',
@@ -591,10 +730,10 @@ export const classifyDocumentJob = inngest.createFunction(
         console.log(`[classify-document] Continuation linked: ${updatedDisplayName}`)
       }
 
-      const checklistItemId = await linkToChecklistItem(rawImageId, caseId, validDocType)
+      const checklistItemId = await linkToChecklistItem(rawImageId, effectiveCaseId, validDocType)
 
       await createAction({
-        caseId,
+        caseId: effectiveCaseId,
         type: 'VERIFY_DOCS',
         priority: 'NORMAL',
         title: 'Xác minh phân loại',
@@ -626,8 +765,8 @@ export const classifyDocumentJob = inngest.createFunction(
         // If we have smart rename data, rename the R2 file too
         if (routing.smartRename) {
           // Defense-in-depth: Validate caseId format (CUID)
-          if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
-            console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+          if (!effectiveCaseId || !/^c[a-z0-9]{24,}$/.test(effectiveCaseId)) {
+            console.error(`[classify-document] Invalid caseId format: ${effectiveCaseId}`)
             await prisma.rawImage.update({
               where: { id: rawImageId },
               data: { category: 'OTHER' },
@@ -642,7 +781,7 @@ export const classifyDocumentJob = inngest.createFunction(
           }
 
           // Rename R2 file using smart rename documentTitle
-          const result = await renameFile(r2Key, caseId, {
+          const result = await renameFile(r2Key, effectiveCaseId, {
             taxYear: null,
             docType: routing.smartRename.documentTitle,
             source: null,
@@ -711,8 +850,8 @@ export const classifyDocumentJob = inngest.createFunction(
       // For fallback-renamed docs, rename using smart rename data
       if (routing.action === 'fallback-renamed' && routing.smartRename) {
         // Defense-in-depth: Validate caseId format (CUID)
-        if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
-          console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+        if (!effectiveCaseId || !/^c[a-z0-9]{24,}$/.test(effectiveCaseId)) {
+          console.error(`[classify-document] Invalid caseId format: ${effectiveCaseId}`)
           return {
             renamed: false,
             newKey: null,
@@ -723,7 +862,7 @@ export const classifyDocumentJob = inngest.createFunction(
         }
 
         // Rename using smart rename documentTitle as docType
-        const result = await renameFile(r2Key, caseId, {
+        const result = await renameFile(r2Key, effectiveCaseId, {
           taxYear: null, // Smart rename includes year in suggestedFilename
           docType: routing.smartRename.documentTitle,
           source: null,
@@ -780,8 +919,8 @@ export const classifyDocumentJob = inngest.createFunction(
       }
 
       // Defense-in-depth: Validate caseId format (CUID)
-      if (!caseId || !/^c[a-z0-9]{24,}$/.test(caseId)) {
-        console.error(`[classify-document] Invalid caseId format: ${caseId}`)
+      if (!effectiveCaseId || !/^c[a-z0-9]{24,}$/.test(effectiveCaseId)) {
+        console.error(`[classify-document] Invalid caseId format: ${effectiveCaseId}`)
         return {
           renamed: false,
           newKey: null,
@@ -800,7 +939,7 @@ export const classifyDocumentJob = inngest.createFunction(
       // Race condition safety: Copy completes first, then DB update, then delete
       // If any step fails, retry is safe because copy is idempotent
       // recipientName is extracted from document by AI (employee name, recipient, etc.)
-      const result = await renameFile(r2Key, caseId, {
+      const result = await renameFile(r2Key, effectiveCaseId, {
         taxYear: classification.taxYear,
         docType: validDocType,
         source: classification.source,
@@ -811,7 +950,7 @@ export const classifyDocumentJob = inngest.createFunction(
         // Telemetry: Log rename failure with context for debugging
         console.error(`[classify-document] Rename failed`, {
           rawImageId,
-          caseId,
+          caseId: effectiveCaseId,
           r2Key,
           docType: validDocType,
           error: result.error,
@@ -881,7 +1020,7 @@ export const classifyDocumentJob = inngest.createFunction(
         // Atomic DB update: upsert digital doc, update checklist, mark linked
         return processOcrResultAtomic({
           rawImageId,
-          caseId,
+          caseId: effectiveCaseId,
           docType: validDocType,
           extractedData: ocrResult.extractedData || {},
           status,
@@ -903,6 +1042,9 @@ export const classifyDocumentJob = inngest.createFunction(
         confidence: classification.confidence,
       },
       routing: routing.action,
+      entityRouting: entityRouting.routed
+        ? { routed: true, fromCaseId: entityRouting.fromCaseId, toCaseId: entityRouting.toCaseId, targetEntity: entityRouting.targetEntity }
+        : { routed: false, reason: entityRouting.reason },
       rename: {
         renamed: renameResult.renamed,
         newKey: renameResult.newKey,

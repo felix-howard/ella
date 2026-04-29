@@ -25,17 +25,22 @@ import { rentalRoute } from './routes/rental'
 import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { orgSettingsRoute } from './routes/org-settings'
-import { draftReturnsRoute } from './routes/draft-returns'
+import { sharedDocsRoute } from './routes/shared-docs'
 import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
 import { leadsRoute } from './routes/leads'
 import { contractorIntakeRoute } from './routes/contractor-intake'
-import { contractorsRoute } from './routes/contractors'
-import { businessesRoute } from './routes/businesses'
-import { form1099NecRoute } from './routes/form-1099-nec'
+import { clientContractorsRoute } from './routes/contractors/client-contractors'
+import { clientForm1099NecRoute } from './routes/form-1099-nec/client-form-1099-nec'
+import { clientForm1099NecPdfsRoute } from './routes/form-1099-nec/client-form-1099-nec-pdfs'
+import { clientForm1099NecBatchesRoute } from './routes/form-1099-nec/client-form-1099-nec-batches'
+import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-form-1099-nec-prepare'
 import { campaignsRoute } from './routes/campaigns'
+import { clientGroupsRoute } from './routes/client-groups'
+import { ndaStaffRoute, ndaPublicRoute } from './routes/nda'
+import { leadMessagesRoute } from './routes/leads/messages'
 
 const app = new OpenAPIHono()
 
@@ -68,6 +73,9 @@ app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
 app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
+app.route('/leads', ndaStaffRoute) // NDA staff endpoints: /leads/:leadId/nda/* (inline auth+requireOrgAdmin)
+app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (inline auth+requireOrgAdmin)
+app.route('/public/nda', ndaPublicRoute) // NDA public endpoints: token-based, no auth
 app.route('/contractor-intake', contractorIntakeRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
@@ -85,17 +93,19 @@ app.use('/schedule-e/*', authMiddleware)
 app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
-app.use('/draft-returns/*', authMiddleware)
+app.use('/shared-docs/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
+app.use('/client-groups/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
 app.use('/cases/*', deprecationHeadersMiddleware)
-app.use('/businesses/*', authMiddleware)
 app.route('/clients', clientsRoute)
-app.route('/clients', businessesRoute) // /clients/:clientId/businesses
-app.route('/businesses', contractorsRoute) // /businesses/:businessId/contractors
-app.route('/businesses', form1099NecRoute) // /businesses/:businessId/1099-nec/*
+app.route('/clients', clientContractorsRoute) // /clients/:clientId/contractors
+app.route('/clients', clientForm1099NecRoute) // /clients/:clientId/1099-nec/*
+app.route('/clients', clientForm1099NecPdfsRoute) // /clients/:clientId/1099-nec/pdfs/*
+app.route('/clients', clientForm1099NecBatchesRoute) // /clients/:clientId/1099-nec/batches/*
+app.route('/clients', clientForm1099NecPrepareRoute) // /clients/:clientId/1099-nec/prepare
 app.route('/cases', casesRoute)
 app.route('/engagements', engagementsRoute)
 app.route('/actions', actionsRoute)
@@ -109,9 +119,10 @@ app.route('/schedule-e', scheduleERoute)
 app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
-app.route('/draft-returns', draftReturnsRoute)
+app.route('/shared-docs', sharedDocsRoute)
 app.route('/terms', termsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
+app.route('/client-groups', clientGroupsRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

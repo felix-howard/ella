@@ -40,10 +40,19 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
   const [error, setError] = useState<string | null>(null)
   const listRef = useRef<UploadedFilesListHandle>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  // Reset to loading when route params change (React 19 guidance:
+  // adjust state during render via stored deps key, not inside useEffect).
+  const depsKey = `${token}|${caseId}`
+  const [prevDepsKey, setPrevDepsKey] = useState(depsKey)
+  if (prevDepsKey !== depsKey) {
+    setPrevDepsKey(depsKey)
+    setEntity(null)
     setLoading(true)
     setError(null)
+  }
+
+  useEffect(() => {
+    let cancelled = false
     portalApi
       .getData(token)
       .then((data) => {

@@ -6,9 +6,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { CustomSelect, type SelectOption } from '../../ui/custom-select'
+import { CustomSelect, type SelectOption } from '../ui/custom-select'
 import { useUpdateDeposit } from './use-nda-mutations'
-import type { NdaAgreement, NdaDepositStatus } from '../../../lib/api-client'
+import type { NdaAgreement, NdaDepositStatus } from '../../lib/api-client'
+import type { EntityRef } from './types'
 
 const ALLOWED: Record<NdaDepositStatus, readonly NdaDepositStatus[]> = {
   PENDING: ['PENDING', 'PAID', 'FORFEITED'],
@@ -26,14 +27,14 @@ function toLocalInputValue(iso: string | null): string {
 }
 
 interface Props {
-  leadId: string
+  entity: EntityRef
   nda: NdaAgreement
   onClose: () => void
 }
 
-export function UpdateDepositPanel({ leadId, nda, onClose }: Props) {
+export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
   const { t } = useTranslation()
-  const mutation = useUpdateDeposit(leadId)
+  const mutation = useUpdateDeposit(entity)
 
   const originalPaidAt = toLocalInputValue(nda.depositPaidAt)
   const [status, setStatus] = useState<NdaDepositStatus>(nda.depositStatus)

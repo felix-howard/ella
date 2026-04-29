@@ -253,6 +253,7 @@
   "clientDetail.sendToReview": "Send to Review",
   "clientDetail.sendToReviewError": "Error sending for review",
   "clientDetail.sendToReviewSuccess": "Sent for review",
+  "clientDetail.tabAgreements": "Agreements",
   "clientDetail.tabChecklist": "Checklist",
   "clientDetail.tabDataEntry": "Data Entry",
   "clientDetail.tabFiles": "Files",
@@ -1688,7 +1689,9 @@
   "nda.send.confirmMessage": "Send NDA SMS to {{name}} ({{phone}}) now?",
   "nda.send.confirmCta": "Send",
   "nda.send.disabled.pendingSent": "An NDA invite is still outstanding. Resend it instead.",
-  "nda.send.disabled.activeEngagement": "Lead has a signed NDA with an open deposit. Resolve it first.",
+  "nda.send.disabled.activeEngagement": "Has a signed NDA with an open deposit. Resolve it first.",
+  "nda.send.disabled.noPhone": "Phone number required for SMS delivery.",
+  "nda.send.disabled.notAdmin": "Only Org Admin can send NDAs.",
   "nda.list.empty": "No NDAs sent yet.",
   "nda.list.loadError": "Failed to load NDAs.",
   "nda.card.template": "Template {{version}}",
@@ -1722,8 +1725,5 @@
   "clientOverview.nda.title": "NDA & Agreement",
   "clientOverview.nda.empty": "No NDA on file.",
   "clientOverview.nda.loadError": "Failed to load NDAs.",
-  "clientOverview.nda.manageOnLead": "Manage on lead page",
-  "clientOverview.nda.sendViaLead": "Send via lead page",
-  "clientOverview.nda.viewAll": "View all ({{count}})",
-  "clientOverview.nda.collapse": "Collapse"
+  "clientOverview.nda.viewAll": "View all ({{count}})"
 }

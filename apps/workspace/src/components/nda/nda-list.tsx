@@ -1,21 +1,22 @@
 /**
- * Renders the list of NDAs for a Lead.
- * Pure presentation — parent component owns the useNdaList query so it can
- * pass `ndas` to SendNdaButton for disabled-state logic without double fetching.
+ * Renders the list of NDAs for a given entity (lead or client).
+ * Pure presentation — parent owns the useNdaList query so it can pass `ndas`
+ * to SendNdaButton for disabled-state logic without double fetching.
  */
 import { useTranslation } from 'react-i18next'
 import { FileSignature, Loader2 } from 'lucide-react'
 import { NdaCard } from './nda-card'
-import type { NdaAgreement } from '../../../lib/api-client'
+import type { NdaAgreement } from '../../lib/api-client'
+import type { EntityRef } from './types'
 
 interface Props {
-  leadId: string
+  entity: EntityRef
   ndas: NdaAgreement[]
   isLoading: boolean
   isError: boolean
 }
 
-export function NdaList({ leadId, ndas, isLoading, isError }: Props) {
+export function NdaList({ entity, ndas, isLoading, isError }: Props) {
   const { t } = useTranslation()
 
   if (isLoading) {
@@ -46,7 +47,7 @@ export function NdaList({ leadId, ndas, isLoading, isError }: Props) {
   return (
     <div className="space-y-3">
       {ndas.map((nda) => (
-        <NdaCard key={nda.id} leadId={leadId} nda={nda} />
+        <NdaCard key={nda.id} entity={entity} nda={nda} />
       ))}
     </div>
   )

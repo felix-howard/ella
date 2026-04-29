@@ -1,29 +1,29 @@
 /**
- * Lead-page NDA row: wraps the shared <NdaReadonlyCard /> for presentation
- * (status badges, metadata, View PDF) and adds the lead-only interactive
- * actions: copy link, resend SMS, deposit update.
+ * Interactive entity-scoped NDA row: wraps the shared <NdaReadonlyCard /> for
+ * presentation (status badges, metadata) and adds the actions: copy link,
+ * resend SMS, view PDF, deposit update. Branches PDF endpoint by entity type.
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, RefreshCw, FileText, Loader2, Pencil } from 'lucide-react'
-import { useResendNda } from './use-nda-mutations'
+import { useResendNda, ndaApi } from './use-nda-mutations'
 import { UpdateDepositPanel } from './update-deposit-panel'
-import { NdaReadonlyCard } from '../../nda/nda-readonly-card'
-import { toast } from '../../../stores/toast-store'
-import { copyToClipboard } from '../../../lib/clipboard'
-import { api } from '../../../lib/api-client'
-import type { NdaAgreement } from '../../../lib/api-client'
+import { NdaReadonlyCard } from './nda-readonly-card'
+import { toast } from '../../stores/toast-store'
+import { copyToClipboard } from '../../lib/clipboard'
+import type { NdaAgreement } from '../../lib/api-client'
+import type { EntityRef } from './types'
 
 interface Props {
-  leadId: string
+  entity: EntityRef
   nda: NdaAgreement
 }
 
-export function NdaCard({ leadId, nda }: Props) {
+export function NdaCard({ entity, nda }: Props) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const resendMutation = useResendNda(leadId)
+  const resendMutation = useResendNda(entity)
 
   const handleCopyLink = () => {
     if (!nda.url) {
@@ -40,7 +40,7 @@ export function NdaCard({ leadId, nda }: Props) {
   const handleViewPdf = async () => {
     try {
       setPdfLoading(true)
-      const res = await api.leads.nda.getPdfUrl(leadId, nda.id)
+      const res = await ndaApi(entity).getPdfUrl(entity.id, nda.id)
       window.open(res.url, '_blank', 'noopener,noreferrer')
     } catch (err) {
       toast.error((err as Error).message || t('nda.toast.pdfFailed'))
@@ -53,7 +53,7 @@ export function NdaCard({ leadId, nda }: Props) {
   const canViewPdf = nda.status === 'SIGNED' && !!nda.signedPdfKey
 
   // View PDF rendered here (not via shared card) so it lines up with the
-  // other lead-page actions on a single flex row.
+  // other entity-page actions on a single flex row.
   return (
     <div className="space-y-2">
       <NdaReadonlyCard nda={nda} />
@@ -109,7 +109,7 @@ export function NdaCard({ leadId, nda }: Props) {
         </button>
       </div>
 
-      {editing && <UpdateDepositPanel leadId={leadId} nda={nda} onClose={() => setEditing(false)} />}
+      {editing && <UpdateDepositPanel entity={entity} nda={nda} onClose={() => setEditing(false)} />}
     </div>
   )
 }

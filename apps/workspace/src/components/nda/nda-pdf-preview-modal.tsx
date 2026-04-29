@@ -1,22 +1,24 @@
 /**
- * PDF preview modal stacked above the editor. POSTs editor HTML to /preview-pdf,
- * renders the response blob in an iframe. cancelRef gates onSuccess against
- * stale fetches; handleClose revokes the blob URL synchronously; Esc uses
- * capture-phase + stopImmediatePropagation so it doesn't dismiss the editor too.
+ * PDF preview modal stacked above the editor. POSTs editor HTML to the entity's
+ * preview-pdf endpoint, renders the response blob in an iframe. cancelRef gates
+ * onSuccess against stale fetches; handleClose revokes the blob URL synchronously;
+ * Esc uses capture-phase + stopImmediatePropagation so it doesn't dismiss the
+ * editor too.
  */
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2, X, Download, RotateCw } from 'lucide-react'
 import { useNdaPreview } from './use-nda-mutations'
+import type { EntityRef } from './types'
 
-interface Props { open: boolean; leadId: string; contentHtml: string; onClose: () => void }
+interface Props { open: boolean; entity: EntityRef; contentHtml: string; onClose: () => void }
 
 const BTN_CLS = 'px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-2'
 
-export function NdaPdfPreviewModal({ open, leadId, contentHtml, onClose }: Props) {
+export function NdaPdfPreviewModal({ open, entity, contentHtml, onClose }: Props) {
   const { t } = useTranslation()
-  const mutation = useNdaPreview(leadId)
+  const mutation = useNdaPreview(entity)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const cancelRef = useRef(false)
 

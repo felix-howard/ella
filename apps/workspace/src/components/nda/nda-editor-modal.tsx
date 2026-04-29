@@ -1,8 +1,8 @@
 /**
- * Full-screen editor modal for customizing NDA content per-lead before sending.
- * Preloads default HTML (variables substituted) via TanStack Query, lets staff
- * edit through the existing RichTextEditor, and submits via useCreateNda.
- * Preview hook delegated to caller (Phase 05 wires the preview modal).
+ * Full-screen editor modal for customizing NDA content per-recipient before
+ * sending. Preloads default HTML (variables substituted) via TanStack Query,
+ * lets staff edit through the existing RichTextEditor, submits via useCreateNda.
+ * Preview hook delegated to caller (renders preview modal beside this).
  *
  * Caller mounts this only when the editor is open so internal state resets
  * naturally on close (no setState-in-effect needed).
@@ -11,22 +11,23 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2, X, RotateCcw, Send, FileText } from 'lucide-react'
-import { RichTextEditor } from '../rich-text-editor'
+import { RichTextEditor } from '../leads/rich-text-editor'
 import { useNdaDefaultHtml } from './use-nda-default-html'
 import { useCreateNda } from './use-nda-mutations'
-import { formatPhone } from '../../../lib/formatters'
-import type { Lead } from '../../../lib/api-client'
+import { formatPhone } from '../../lib/formatters'
+import type { EntityRef, Recipient } from './types'
 
 interface Props {
   onClose: () => void
-  lead: Pick<Lead, 'id' | 'firstName' | 'lastName' | 'phone'>
+  entity: EntityRef
+  recipient: Recipient
   onPreviewClick: (currentHtml: string) => void
 }
 
-export function NdaEditorModal({ onClose, lead, onPreviewClick }: Props) {
+export function NdaEditorModal({ onClose, entity, recipient, onPreviewClick }: Props) {
   const { t } = useTranslation()
-  const defaultQuery = useNdaDefaultHtml(lead.id, true)
-  const mutation = useCreateNda(lead.id)
+  const defaultQuery = useNdaDefaultHtml(entity, true)
+  const mutation = useCreateNda(entity)
 
   // `html` is null until the user edits. Render uses derived `effectiveHtml`
   // that falls back to the fetched default — keeps editor controlled without
@@ -53,7 +54,7 @@ export function NdaEditorModal({ onClose, lead, onPreviewClick }: Props) {
     !defaultQuery.isError &&
     !mutation.isPending
 
-  const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(' ')
+  const fullName = [recipient.firstName, recipient.lastName].filter(Boolean).join(' ')
 
   const handleReset = () => {
     if (!isDirty) return
@@ -82,7 +83,7 @@ export function NdaEditorModal({ onClose, lead, onPreviewClick }: Props) {
               {t('nda.editor.title')}
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {fullName} · {formatPhone(lead.phone)}
+              {fullName} · {formatPhone(recipient.phone)}
             </p>
           </div>
           <button

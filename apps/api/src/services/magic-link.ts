@@ -6,7 +6,7 @@ import { prisma } from '../lib/db'
 import { customAlphabet } from 'nanoid'
 import slugify from 'slugify'
 import { PORTAL_URL } from '../lib/constants'
-import type { MagicLinkType } from '@ella/db'
+import type { MagicLinkType, MagicLinkScope } from '@ella/db'
 
 // Custom alphabet for URL-safe tokens (no confusing characters)
 const generateToken = customAlphabet(
@@ -133,12 +133,28 @@ export async function createMagicLinkWithDeactivation(
   }
 }
 
+export interface PortalEntityPayload {
+  caseId: string
+  clientId: string
+  name: string
+  entityType: 'individual' | 'business'
+  businessType: string | null
+  uploadCount: number
+  hasChecklist: boolean
+  missingCount?: number
+  taxYear: number
+}
+
 // Return type for validateMagicLink
 export interface MagicLinkValidationResult {
   valid: boolean
   error?: string
   data?: {
-    taxCase: {
+    scope: MagicLinkScope
+    clientGroupId: string | null
+    entities: PortalEntityPayload[]
+    // Present only for scope=CASE (back-compat with existing portal callers)
+    taxCase?: {
       id: string
       taxYear: number
       status: string
@@ -162,7 +178,71 @@ export interface MagicLinkValidationResult {
         classifiedType: string | null
       }>
     }
+    clientGroup?: {
+      id: string
+      name: string
+      organizationId: string | null
+    }
   }
+}
+
+/**
+ * Resolve all entities (cases) within a ClientGroup for a given tax year.
+ * Returns one payload per entity (client + their tax case for that year).
+ * Sort: individuals first, then businesses by Client.createdAt asc.
+ */
+export async function resolveGroupEntities(
+  clientGroupId: string,
+  taxYear: number
+): Promise<PortalEntityPayload[]> {
+  const clients = await prisma.client.findMany({
+    where: { clientGroupId },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      clientType: true,
+      businessType: true,
+      createdAt: true,
+      taxCases: {
+        where: { taxYear },
+        select: {
+          id: true,
+          taxYear: true,
+          rawImages: { select: { id: true } },
+          checklistItems: { select: { status: true } },
+        },
+      },
+    },
+  })
+
+  const entities: PortalEntityPayload[] = []
+  for (const client of clients) {
+    // Each client may have at most one tax case for this year (unique [clientId, taxYear])
+    const tc = client.taxCases[0]
+    if (!tc) continue
+    const hasChecklist = tc.checklistItems.length > 0
+    entities.push({
+      caseId: tc.id,
+      clientId: client.id,
+      name: client.name,
+      entityType: client.clientType === 'BUSINESS' ? 'business' : 'individual',
+      businessType: client.businessType ?? null,
+      uploadCount: tc.rawImages.length,
+      hasChecklist,
+      missingCount: hasChecklist
+        ? tc.checklistItems.filter((c) => c.status === 'MISSING').length
+        : undefined,
+      taxYear: tc.taxYear,
+    })
+  }
+
+  // Individuals first, businesses after (createdAt order already applied within each group via outer orderBy)
+  entities.sort((a, b) => {
+    if (a.entityType === b.entityType) return 0
+    return a.entityType === 'individual' ? -1 : 1
+  })
+  return entities
 }
 
 /**
@@ -181,6 +261,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
           rawImages: true,
         },
       },
+      clientGroup: true,
     },
   })
 
@@ -205,20 +286,75 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
     },
   })
 
+  if (link.scope === 'GROUP') {
+    if (!link.clientGroupId || !link.clientGroup) {
+      return { valid: false, error: 'INVALID_TOKEN' }
+    }
+    // GROUP tokens may still anchor to a TaxCase (used to derive taxYear); fall back to most recent case in group
+    let taxYear = link.taxCase?.taxYear
+    if (!taxYear) {
+      const anchor = await prisma.taxCase.findFirst({
+        where: { client: { clientGroupId: link.clientGroupId } },
+        orderBy: { taxYear: 'desc' },
+        select: { taxYear: true },
+      })
+      taxYear = anchor?.taxYear
+    }
+    if (!taxYear) {
+      return { valid: false, error: 'INVALID_TOKEN' }
+    }
+    const entities = await resolveGroupEntities(link.clientGroupId, taxYear)
+    return {
+      valid: true,
+      data: {
+        scope: 'GROUP',
+        clientGroupId: link.clientGroupId,
+        entities,
+        clientGroup: {
+          id: link.clientGroup.id,
+          name: link.clientGroup.name,
+          organizationId: link.clientGroup.organizationId,
+        },
+      },
+    }
+  }
+
+  // scope === 'CASE' (legacy)
+  if (!link.taxCase) {
+    return { valid: false, error: 'INVALID_TOKEN' }
+  }
+
+  const tc = link.taxCase
+  const missingCount = tc.checklistItems.filter((c) => c.status === 'MISSING').length
+  const singleEntity: PortalEntityPayload = {
+    caseId: tc.id,
+    clientId: tc.client.id,
+    name: tc.client.name,
+    entityType: tc.client.clientType === 'BUSINESS' ? 'business' : 'individual',
+    businessType: tc.client.businessType ?? null,
+    uploadCount: tc.rawImages.length,
+    hasChecklist: tc.checklistItems.length > 0,
+    missingCount: tc.checklistItems.length > 0 ? missingCount : undefined,
+    taxYear: tc.taxYear,
+  }
+
   return {
     valid: true,
     data: {
+      scope: 'CASE',
+      clientGroupId: tc.client.clientGroupId,
+      entities: [singleEntity],
       taxCase: {
-        id: link.taxCase.id,
-        taxYear: link.taxCase.taxYear,
-        status: link.taxCase.status,
+        id: tc.id,
+        taxYear: tc.taxYear,
+        status: tc.status,
         client: {
-          id: link.taxCase.client.id,
-          name: link.taxCase.client.name,
-          language: link.taxCase.client.language,
-          clientGroupId: link.taxCase.client.clientGroupId,
+          id: tc.client.id,
+          name: tc.client.name,
+          language: tc.client.language,
+          clientGroupId: tc.client.clientGroupId,
         },
-        checklistItems: link.taxCase.checklistItems.map((item) => ({
+        checklistItems: tc.checklistItems.map((item) => ({
           id: item.id,
           status: item.status,
           template: {
@@ -226,7 +362,7 @@ export async function validateMagicLink(token: string): Promise<MagicLinkValidat
             labelVi: item.template.labelVi,
           },
         })),
-        rawImages: link.taxCase.rawImages.map((img) => ({
+        rawImages: tc.rawImages.map((img) => ({
           id: img.id,
           status: img.status,
           classifiedType: img.classifiedType,
@@ -316,6 +452,11 @@ export async function validateScheduleCToken(token: string): Promise<ScheduleCVa
 
   if (link.expiresAt && link.expiresAt < new Date()) {
     return { valid: false, error: 'EXPIRED_TOKEN' }
+  }
+
+  // SCHEDULE_C tokens always anchor to a TaxCase
+  if (!link.taxCase) {
+    return { valid: false, error: 'INVALID_TOKEN' }
   }
 
   // Check if expense is locked
@@ -424,6 +565,11 @@ export async function validateScheduleEToken(token: string): Promise<ScheduleEVa
 
   if (link.expiresAt && link.expiresAt < new Date()) {
     return { valid: false, error: 'EXPIRED_TOKEN' }
+  }
+
+  // SCHEDULE_E tokens always anchor to a TaxCase
+  if (!link.taxCase) {
+    return { valid: false, error: 'INVALID_TOKEN' }
   }
 
   // Check if expense is locked

@@ -10,31 +10,29 @@ import { cn } from '@ella/ui'
 import { type ClientPreview, type ClientType } from '../../../lib/api-client'
 import { formatPhone } from '../../../lib/formatters'
 import { getInitials, getAvatarColor } from '../../../lib/formatters'
+import { BUSINESS_TYPE_LABELS } from '../../../lib/business-type-helpers'
 import { AddBusinessDrawer } from './add-business-drawer'
-
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  SOLE_PROPRIETORSHIP: 'Sole Prop',
-  LLC: 'LLC',
-  PARTNERSHIP: 'Partnership',
-  S_CORP: 'S-Corp',
-  C_CORP: 'C-Corp',
-}
 
 interface ClientLinkedEntityCardProps {
   clientId: string
+  clientName: string
   clientPhone: string
   clientEmail?: string | null
   currentClientType: ClientType
   linkedClients: ClientPreview[]
+  /** Parent individual's Schedule C summary, if any. Drives migration prompt on add. */
+  parentScheduleC?: { id: string; taxYear: number } | null
   onBusinessAdded?: () => void
 }
 
 export function ClientLinkedEntityCard({
   clientId,
+  clientName,
   clientPhone,
   clientEmail,
   currentClientType,
   linkedClients,
+  parentScheduleC,
   onBusinessAdded,
 }: ClientLinkedEntityCardProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -71,8 +69,10 @@ export function ClientLinkedEntityCard({
         {drawerOpen && (
           <AddBusinessDrawer
             clientId={clientId}
+            clientName={clientName}
             clientPhone={clientPhone}
             clientEmail={clientEmail}
+            parentScheduleC={parentScheduleC}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             onSuccess={() => onBusinessAdded?.()}
@@ -169,8 +169,10 @@ export function ClientLinkedEntityCard({
       {isIndividual && drawerOpen && (
         <AddBusinessDrawer
           clientId={clientId}
+          clientName={clientName}
           clientPhone={clientPhone}
           clientEmail={clientEmail}
+          parentScheduleC={parentScheduleC}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           onSuccess={() => onBusinessAdded?.()}

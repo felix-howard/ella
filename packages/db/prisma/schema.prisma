@@ -32,7 +32,8 @@ enum TaxType {
 
 enum BusinessType {
   SOLE_PROPRIETORSHIP
-  LLC
+  LLC                       // multi-member LLC (default for legacy rows)
+  SMLLC                     // single-member LLC (disregarded entity, files Schedule C)
   PARTNERSHIP
   S_CORP
   C_CORP
@@ -1178,6 +1179,8 @@ enum AuditEntityType {
   TAX_CASE
   TAX_ENGAGEMENT
   ORGANIZATION
+  SCHEDULE_C
+  BUSINESS
 }
 
 // Magic link types for different form flows

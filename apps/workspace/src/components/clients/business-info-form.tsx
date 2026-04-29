@@ -9,6 +9,7 @@ import { AddressAutocomplete } from './address-autocomplete'
 
 const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
   { value: 'SOLE_PROPRIETORSHIP', label: 'Sole Proprietorship' },
+  { value: 'SMLLC', label: 'Single-Member LLC' },
   { value: 'LLC', label: 'LLC' },
   { value: 'PARTNERSHIP', label: 'Partnership' },
   { value: 'S_CORP', label: 'S-Corp' },

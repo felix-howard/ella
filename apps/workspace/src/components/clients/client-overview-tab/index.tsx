@@ -17,10 +17,12 @@ import { ClientNdaSection } from './client-nda-section'
 
 interface ClientOverviewTabProps {
   client: ClientDetail
+  /** Parent individual's Schedule C summary for the active tax year (drives migration prompt). */
+  parentScheduleC?: { id: string; taxYear: number } | null
   onDeleteClick?: () => void
 }
 
-export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabProps) {
+export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: ClientOverviewTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
@@ -30,10 +32,12 @@ export function ClientOverviewTab({ client, onDeleteClick }: ClientOverviewTabPr
       {(client.clientType === 'INDIVIDUAL' || (client.clientGroup && client.clientGroup.clients.length > 0)) && (
         <ClientLinkedEntityCard
           clientId={client.id}
+          clientName={client.name}
           clientPhone={client.phone}
           clientEmail={client.email}
           currentClientType={client.clientType}
           linkedClients={client.clientGroup?.clients || []}
+          parentScheduleC={parentScheduleC}
           onBusinessAdded={() => queryClient.invalidateQueries({ queryKey: ['client', client.id] })}
         />
       )}

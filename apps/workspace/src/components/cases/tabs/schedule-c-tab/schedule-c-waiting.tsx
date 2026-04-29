@@ -4,7 +4,7 @@
  */
 import { Send, Eye, Clock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { ScheduleCExpense, ScheduleCMagicLink, NecBreakdownItem } from '../../../../lib/api-client'
+import type { ScheduleCExpense, ScheduleCMagicLink, NecBreakdownItem, ClientGroup } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
 import { ScheduleCActions } from './schedule-c-actions'
@@ -15,9 +15,12 @@ interface ScheduleCWaitingProps {
   magicLink: ScheduleCMagicLink | null
   caseId: string
   necBreakdown?: NecBreakdownItem[]
+  currentClientId?: string
+  sourceTaxYear?: number
+  clientGroup?: ClientGroup | null
 }
 
-export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = [] }: ScheduleCWaitingProps) {
+export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = [], currentClientId, sourceTaxYear, clientGroup }: ScheduleCWaitingProps) {
   const { t } = useTranslation()
 
   return (
@@ -26,7 +29,15 @@ export function ScheduleCWaiting({ expense, magicLink, caseId, necBreakdown = []
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Schedule C</h2>
         <div className="flex items-center gap-3">
-          <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+          <ScheduleCActions
+            caseId={caseId}
+            status={expense.status}
+            magicLinkUrl={magicLink?.url}
+            scheduleCId={expense.id}
+            currentClientId={currentClientId}
+            sourceTaxYear={sourceTaxYear}
+            clientGroup={clientGroup}
+          />
           <StatusBadge status="DRAFT" />
         </div>
       </div>

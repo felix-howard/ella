@@ -25,6 +25,8 @@ import { Route as DraftTokenIndexRouteImport } from './routes/draft/$token/index
 import { Route as ContractorIntakeTokenIndexRouteImport } from './routes/contractor-intake/$token/index'
 import { Route as RegisterOrgSlugEventSlugIndexRouteImport } from './routes/register/$orgSlug/$eventSlug/index'
 import { Route as FormOrgSlugStaffSlugIndexRouteImport } from './routes/form/$orgSlug/$staffSlug/index'
+import { Route as UploadTokenECaseIdIndexRouteImport } from './routes/upload/$token/e/$caseId/index'
+import { Route as UTokenECaseIdIndexRouteImport } from './routes/u/$token/e/$caseId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -109,6 +111,16 @@ const FormOrgSlugStaffSlugIndexRoute =
     path: '/form/$orgSlug/$staffSlug/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const UploadTokenECaseIdIndexRoute = UploadTokenECaseIdIndexRouteImport.update({
+  id: '/e/$caseId/',
+  path: '/e/$caseId/',
+  getParentRoute: () => UploadTokenRoute,
+} as any)
+const UTokenECaseIdIndexRoute = UTokenECaseIdIndexRouteImport.update({
+  id: '/e/$caseId/',
+  path: '/e/$caseId/',
+  getParentRoute: () => UTokenRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -127,6 +139,8 @@ export interface FileRoutesByFullPath {
   '/upload/$token/': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
+  '/u/$token/e/$caseId': typeof UTokenECaseIdIndexRoute
+  '/upload/$token/e/$caseId': typeof UploadTokenECaseIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,6 +155,8 @@ export interface FileRoutesByTo {
   '/upload/$token': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug': typeof RegisterOrgSlugEventSlugIndexRoute
+  '/u/$token/e/$caseId': typeof UTokenECaseIdIndexRoute
+  '/upload/$token/e/$caseId': typeof UploadTokenECaseIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,6 +176,8 @@ export interface FileRoutesById {
   '/upload/$token/': typeof UploadTokenIndexRoute
   '/form/$orgSlug/$staffSlug/': typeof FormOrgSlugStaffSlugIndexRoute
   '/register/$orgSlug/$eventSlug/': typeof RegisterOrgSlugEventSlugIndexRoute
+  '/u/$token/e/$caseId/': typeof UTokenECaseIdIndexRoute
+  '/upload/$token/e/$caseId/': typeof UploadTokenECaseIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,6 +198,8 @@ export interface FileRouteTypes {
     | '/upload/$token/'
     | '/form/$orgSlug/$staffSlug'
     | '/register/$orgSlug/$eventSlug'
+    | '/u/$token/e/$caseId'
+    | '/upload/$token/e/$caseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,6 +214,8 @@ export interface FileRouteTypes {
     | '/upload/$token'
     | '/form/$orgSlug/$staffSlug'
     | '/register/$orgSlug/$eventSlug'
+    | '/u/$token/e/$caseId'
+    | '/upload/$token/e/$caseId'
   id:
     | '__root__'
     | '/'
@@ -212,6 +234,8 @@ export interface FileRouteTypes {
     | '/upload/$token/'
     | '/form/$orgSlug/$staffSlug/'
     | '/register/$orgSlug/$eventSlug/'
+    | '/u/$token/e/$caseId/'
+    | '/upload/$token/e/$caseId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -343,6 +367,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FormOrgSlugStaffSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/upload/$token/e/$caseId/': {
+      id: '/upload/$token/e/$caseId/'
+      path: '/e/$caseId'
+      fullPath: '/upload/$token/e/$caseId'
+      preLoaderRoute: typeof UploadTokenECaseIdIndexRouteImport
+      parentRoute: typeof UploadTokenRoute
+    }
+    '/u/$token/e/$caseId/': {
+      id: '/u/$token/e/$caseId/'
+      path: '/e/$caseId'
+      fullPath: '/u/$token/e/$caseId'
+      preLoaderRoute: typeof UTokenECaseIdIndexRouteImport
+      parentRoute: typeof UTokenRoute
+    }
   }
 }
 
@@ -372,10 +410,12 @@ const RentalTokenRouteWithChildren = RentalTokenRoute._addFileChildren(
 
 interface UTokenRouteChildren {
   UTokenIndexRoute: typeof UTokenIndexRoute
+  UTokenECaseIdIndexRoute: typeof UTokenECaseIdIndexRoute
 }
 
 const UTokenRouteChildren: UTokenRouteChildren = {
   UTokenIndexRoute: UTokenIndexRoute,
+  UTokenECaseIdIndexRoute: UTokenECaseIdIndexRoute,
 }
 
 const UTokenRouteWithChildren =
@@ -383,10 +423,12 @@ const UTokenRouteWithChildren =
 
 interface UploadTokenRouteChildren {
   UploadTokenIndexRoute: typeof UploadTokenIndexRoute
+  UploadTokenECaseIdIndexRoute: typeof UploadTokenECaseIdIndexRoute
 }
 
 const UploadTokenRouteChildren: UploadTokenRouteChildren = {
   UploadTokenIndexRoute: UploadTokenIndexRoute,
+  UploadTokenECaseIdIndexRoute: UploadTokenECaseIdIndexRoute,
 }
 
 const UploadTokenRouteWithChildren = UploadTokenRoute._addFileChildren(

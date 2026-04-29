@@ -9,6 +9,7 @@ import { Button } from '@ella/ui'
 import { portalApi, type PortalData, type UploadResponse, ApiError } from '../lib/api-client'
 import { WelcomeHeader } from './landing/welcome-header'
 import { SimpleUploader } from './simple-uploader'
+import { EntityPickerPage } from './entity-picker-page'
 
 type PageState = 'loading' | 'success' | 'error'
 
@@ -132,14 +133,38 @@ export function PortalPage({ token }: { token: string }) {
     return <ErrorView error={error} onRetry={handleReload} />
   }
 
-  // Success state
+  // Multi-entity GROUP scope → tile picker (solo bypass falls through below)
+  if (data.scope === 'GROUP' && data.entities.length > 1) {
+    return (
+      <EntityPickerPage
+        token={token}
+        clientName={data.client.name}
+        taxYear={data.taxYear ?? data.entities[0]?.taxYear ?? 0}
+        entities={data.entities}
+      />
+    )
+  }
+
+  // GROUP with single entity → bypass picker, but still send targetCaseId
+  // so backend tags the upload as PORTAL_EXPLICIT (no AI entity routing).
+  const soloTargetCaseId =
+    data.scope === 'GROUP' && data.entities.length === 1
+      ? data.entities[0].caseId
+      : undefined
+
+  // Header tax year: prefer taxCase (CASE), then top-level taxYear (GROUP), then first entity (defensive).
+  const headerTaxYear =
+    data.taxCase?.taxYear ?? data.taxYear ?? data.entities[0]?.taxYear
+
+  // Success state — solo individual / legacy CASE scope (zero regression)
   return (
     <div className="flex-1 flex flex-col">
-      <WelcomeHeader clientName={data.client.name} taxYear={data.taxCase.taxYear} />
+      <WelcomeHeader clientName={data.client.name} taxYear={headerTaxYear} />
 
       <div className="px-6 py-6">
         <SimpleUploader
           token={token}
+          targetCaseId={soloTargetCaseId}
           onUploadComplete={handleUploadComplete}
           onError={handleUploadError}
         />

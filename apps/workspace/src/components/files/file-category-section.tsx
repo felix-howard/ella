@@ -671,6 +671,7 @@ const FileItemRow = memo(function FileItemRow({
             caseId={caseId}
             currentCategory={categoryKey}
             onRenameClick={handleStartRename}
+            peers={entities?.filter((e) => e.caseId !== image.caseId)}
           />
         </div>
       )}

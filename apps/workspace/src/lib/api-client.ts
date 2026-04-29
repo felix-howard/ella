@@ -713,6 +713,13 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ targetClientId }),
       }),
+
+    // Move document to a specific TaxCase in the same ClientGroup (CPA cleanup tool)
+    moveToCase: (imageId: string, targetCaseId: string) =>
+      request<{ moved: boolean; rawImageId?: string; fromCaseId?: string; toCaseId?: string; reason?: string }>(`/images/${imageId}/move-to-case`, {
+        method: 'POST',
+        body: JSON.stringify({ targetCaseId }),
+      }),
   },
 
   // Messages

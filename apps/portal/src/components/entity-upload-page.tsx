@@ -30,7 +30,7 @@ interface EntityUploadPageProps {
 }
 
 export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const useUploadPrefix = pathname.startsWith('/upload/')
@@ -117,8 +117,7 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
     )
   }
 
-  const lang: 'vi' | 'en' = i18n.language === 'en' ? 'en' : 'vi'
-  const label = entityTypeLabel(entity, lang)
+  const label = entityTypeLabel(entity, t)
 
   return (
     <div className="flex-1 flex flex-col">

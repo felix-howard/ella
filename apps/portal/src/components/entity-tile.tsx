@@ -13,25 +13,17 @@ interface EntityTileProps {
 }
 
 export function EntityTile({ entity, onSelect }: EntityTileProps) {
-  const { t, i18n } = useTranslation()
-  const lang: 'vi' | 'en' = i18n.language === 'en' ? 'en' : 'vi'
+  const { t } = useTranslation()
 
-  const label = entityTypeLabel(entity, lang)
+  const label = entityTypeLabel(entity, t)
   const isIndividual = entity.entityType === 'individual'
 
-  let countLine: string
-  if (entity.uploadCount > 0) {
-    countLine = t('portal.entityPicker.uploadCount', { count: entity.uploadCount })
-  } else if (!entity.hasChecklist) {
-    countLine = t('portal.entityPicker.empty')
-  } else {
-    countLine = t('portal.entityPicker.uploadCount', { count: 0 })
-  }
-
-  const showMissing =
-    entity.hasChecklist &&
-    typeof entity.missingCount === 'number' &&
-    entity.missingCount > 0
+  // Checklist-based "missing" count is intentionally hidden — checklist
+  // wiring isn't trustworthy yet and the warning misleads clients.
+  const countLine =
+    entity.uploadCount > 0
+      ? t('portal.entityPicker.uploadCount', { count: entity.uploadCount })
+      : t('portal.entityPicker.empty')
 
   return (
     <button
@@ -53,15 +45,7 @@ export function EntityTile({ entity, onSelect }: EntityTileProps) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-foreground truncate">{entity.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {countLine}
-            {showMissing && (
-              <span className="text-warning">
-                {' • '}
-                {t('portal.entityPicker.missingCount', { count: entity.missingCount })}
-              </span>
-            )}
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{countLine}</p>
         </div>
       </div>
     </button>

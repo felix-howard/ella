@@ -51,11 +51,16 @@ import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import { clientsNdaRoute } from './nda'
+import { clientsNdaStaffRoute } from './nda-staff'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
 // Sub-routes (paths relative to /clients, e.g. /:clientId/nda)
+// Read-only listing first; staff mutations layer requireOrgAdmin internally.
+// Hono dispatches by method+path so the GET listing in `clientsNdaRoute`
+// and the POST/PATCH mutations here coexist without collision.
 clientsRoute.route('/', clientsNdaRoute)
+clientsRoute.route('/', clientsNdaStaffRoute)
 
 /**
  * Compute display name from firstName and lastName

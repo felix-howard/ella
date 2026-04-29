@@ -2,23 +2,33 @@
  * SMS concerns for NDA invites — kept separate from the main service so the
  * template can evolve (EN/VI, copy tweaks) without touching CRUD logic.
  *
+ * Lead path (sendNdaInviteSms): persists Message + SmsSendLog and broadcasts
+ * a realtime event, identical to pre-refactor behavior.
+ *
+ * Client path (sendNdaInviteSmsForClient): dispatches the SMS via Twilio but
+ * SKIPS Message + SmsSendLog persistence — both models require a non-null
+ * `leadId` (Message has no clientId column at all; SmsSendLog.leadId is NOT
+ * NULL). Adding those columns is intentionally deferred per phase plan
+ * (no DB migration in Phase 01). The asymmetry is documented; client NDA SMS
+ * audit can be reconstructed from Twilio logs until the schema gains parity.
+ *
  * v1: language hardcoded to EN. A VI translation is available in the template
- * module for future per-lead/per-org language resolution.
+ * module for future per-recipient/per-org language resolution.
  */
 import { prisma } from '../../lib/db'
 import { sendSmsOnly, isTwilioConfigured } from '../sms'
 import { generateNdaMessage } from '../sms/templates'
 import { publishMessageEventFromLead } from '../realtime/message-publisher'
 
-interface LeadForInvite {
+export interface RecipientForInvite {
   id: string
   firstName: string
   phone: string
 }
 
-export function buildInviteMessage(lead: { firstName: string }, url: string): string {
+export function buildInviteMessage(recipient: { firstName: string }, url: string): string {
   return generateNdaMessage({
-    firstName: lead.firstName,
+    firstName: recipient.firstName,
     ndaUrl: url,
     language: 'EN',
   })
@@ -80,8 +90,13 @@ async function persistNdaSms(params: {
   return { messageId: null }
 }
 
+/**
+ * Lead-scoped invite SMS. Persists Message + SmsSendLog and publishes a
+ * realtime event. Signature retained (param key `lead`) for backward compat
+ * with route handlers + tests.
+ */
 export async function sendNdaInviteSms(params: {
-  lead: LeadForInvite
+  lead: RecipientForInvite
   orgId: string
   staffId: string
   url: string
@@ -114,4 +129,29 @@ export async function sendNdaInviteSms(params: {
       channel: 'SMS',
     }).catch(() => {})
   }
+}
+
+/**
+ * Client-scoped invite SMS. Dispatches via Twilio only — see file header for
+ * why persistence is deliberately skipped on this branch.
+ */
+export async function sendNdaInviteSmsForClient(params: {
+  client: RecipientForInvite
+  orgId: string
+  staffId: string
+  url: string
+}): Promise<void> {
+  if (!isTwilioConfigured()) {
+    console.warn('[NDA] Twilio not configured; skipping invite SMS')
+    return
+  }
+  const message = buildInviteMessage(params.client, params.url)
+  const result = await sendSmsOnly(params.client.phone, message)
+  if (!result.success) {
+    console.warn(
+      `[NDA] Client invite SMS failed for client=${params.client.id} org=${params.orgId}: ${result.error ?? 'unknown'}`,
+    )
+  }
+  // No Message / SmsSendLog persist on the client branch (schema lacks clientId
+  // on those models). Twilio's own log is the audit source until schema parity.
 }

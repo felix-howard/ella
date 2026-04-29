@@ -63,6 +63,11 @@ export function getMagicLinkUrl(token: string, type: MagicLinkType): string {
 export interface CreateMagicLinkOptions {
   expiresAt?: Date
   type?: MagicLinkType
+  // GROUP scope upgrades the link into a multi-entity portal — required when
+  // the anchor case's client belongs to a multi-member ClientGroup so the
+  // portal renders the entity picker instead of a solo upload page.
+  scope?: MagicLinkScope
+  clientGroupId?: string
 }
 
 /**
@@ -78,6 +83,11 @@ export async function createMagicLink(
   // All link types never expire (null) unless explicitly provided
   const expiresAt: Date | null = options?.expiresAt ?? null
 
+  const scope: MagicLinkScope = options?.scope ?? 'CASE'
+  if (scope === 'GROUP' && !options?.clientGroupId) {
+    throw new Error('createMagicLink: clientGroupId is required when scope=GROUP')
+  }
+
   await prisma.magicLink.create({
     data: {
       caseId,
@@ -85,6 +95,8 @@ export async function createMagicLink(
       type,
       expiresAt,
       isActive: true,
+      scope,
+      clientGroupId: scope === 'GROUP' ? options!.clientGroupId! : null,
     },
   })
 

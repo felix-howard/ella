@@ -437,7 +437,8 @@ imagesRoute.post(
             include: {
               client: true,
               magicLinks: {
-                where: { isActive: true },
+                // Only PORTAL — blurry resend SMS must reuse the upload portal.
+                where: { isActive: true, type: 'PORTAL' },
                 orderBy: { createdAt: 'desc' },
                 take: 1,
               },

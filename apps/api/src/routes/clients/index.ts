@@ -592,7 +592,9 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
                 take: 1,
                 include: {
                   magicLinks: {
-                    where: { isActive: true },
+                    // Only PORTAL links — Schedule C/E links live on the same case
+                    // and would otherwise win the orderBy and break the upload button.
+                    where: { isActive: true, type: 'PORTAL' },
                     orderBy: { createdAt: 'desc' },
                     take: 1,
                     select: { token: true },
@@ -610,7 +612,8 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
         orderBy: { taxYear: 'desc' },
         include: {
           magicLinks: {
-            where: { isActive: true },
+            // Only PORTAL links — see sibling-client query for rationale.
+            where: { isActive: true, type: 'PORTAL' },
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -721,7 +724,8 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
         take: 1,
         include: {
           magicLinks: {
-            where: { isActive: true },
+            // Only PORTAL — resend-sms must not pick a Schedule C/E link.
+            where: { isActive: true, type: 'PORTAL' },
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -1802,8 +1806,14 @@ clientsRoute.post(
         }
       }
 
-      // Create magic link and send welcome SMS for individual client
-      const magicLink = await createMagicLink(result.indivCase.id, { clientName: result.individualClient.name })
+      // Create magic link and send welcome SMS for individual client.
+      // Anchor on individual TaxCase but use GROUP scope so the portal entity
+      // picker renders all linked entities (individual + business cases).
+      const magicLink = await createMagicLink(result.indivCase.id, {
+        clientName: result.individualClient.name,
+        scope: 'GROUP',
+        clientGroupId: result.group.id,
+      })
 
       let smsStatus: { sent: boolean; error?: string } = { sent: false }
       if (isSmsEnabled()) {

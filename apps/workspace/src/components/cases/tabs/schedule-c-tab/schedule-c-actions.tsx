@@ -1,27 +1,50 @@
 /**
- * Schedule C Actions - Unlock button and compact form link with copy
+ * Schedule C Actions - Unlock, form link with copy, and reassign-to-entity action.
  */
 import { useState } from 'react'
-import { Unlock, Loader2, ExternalLink, Copy, Check } from 'lucide-react'
+import { Unlock, Loader2, ExternalLink, Copy, Check, MoveRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@ella/ui'
-import type { ScheduleCStatus } from '../../../../lib/api-client'
+import { Button, SimpleTooltip } from '@ella/ui'
+import type { ClientGroup, ScheduleCStatus } from '../../../../lib/api-client'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
 import { toast } from '../../../../stores/toast-store'
+import {
+  ScheduleCReassignModal,
+  buildReassignTargets,
+} from './schedule-c-reassign-modal'
 
 interface ScheduleCActionsProps {
   caseId: string
   status: ScheduleCStatus
   magicLinkUrl?: string | null
+  scheduleCId?: string
+  currentClientId?: string
+  sourceTaxYear?: number
+  clientGroup?: ClientGroup | null
 }
 
-export function ScheduleCActions({ caseId, status, magicLinkUrl }: ScheduleCActionsProps) {
+export function ScheduleCActions({
+  caseId,
+  status,
+  magicLinkUrl,
+  scheduleCId,
+  currentClientId,
+  sourceTaxYear,
+  clientGroup,
+}: ScheduleCActionsProps) {
   const { t } = useTranslation()
   const { unlock, isLoading } = useScheduleCActions({ caseId })
   const [copied, setCopied] = useState(false)
+  const [reassignOpen, setReassignOpen] = useState(false)
 
   const isLocked = status === 'LOCKED'
   const formLink = magicLinkUrl ?? null
+
+  const canShowReassign = !!(scheduleCId && currentClientId && sourceTaxYear != null && clientGroup)
+  const reassignTargetCount = canShowReassign
+    ? buildReassignTargets(clientGroup, currentClientId as string, sourceTaxYear as number).length
+    : 0
+  const reassignDisabled = reassignTargetCount === 0
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -35,6 +58,20 @@ export function ScheduleCActions({ caseId, status, magicLinkUrl }: ScheduleCActi
       toast.error(t('common.copyFailed'))
     }
   }
+
+  const reassignButton = canShowReassign ? (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => !reassignDisabled && setReassignOpen(true)}
+      disabled={reassignDisabled}
+      className="gap-2"
+      aria-label={t('scheduleC.reassign.menuItem')}
+    >
+      <MoveRight className="w-4 h-4" aria-hidden="true" />
+      {t('scheduleC.reassign.menuItem')}
+    </Button>
+  ) : null
 
   return (
     <div className="flex items-center gap-2">
@@ -56,6 +93,12 @@ export function ScheduleCActions({ caseId, status, magicLinkUrl }: ScheduleCActi
           {t('scheduleC.unlockButton')}
         </Button>
       )}
+
+      {/* Reassign — disabled-with-tooltip when no eligible targets */}
+      {reassignButton && reassignDisabled && (
+        <SimpleTooltip text={t('scheduleC.reassign.disabledTooltip')}>{reassignButton}</SimpleTooltip>
+      )}
+      {reassignButton && !reassignDisabled && reassignButton}
 
       {/* Form Link - compact: open link + copy icon */}
       {!isLocked && formLink && (
@@ -82,6 +125,17 @@ export function ScheduleCActions({ caseId, status, magicLinkUrl }: ScheduleCActi
             )}
           </button>
         </div>
+      )}
+
+      {canShowReassign && (
+        <ScheduleCReassignModal
+          open={reassignOpen}
+          scheduleCId={scheduleCId as string}
+          currentClientId={currentClientId as string}
+          sourceTaxYear={sourceTaxYear as number}
+          clientGroup={clientGroup ?? null}
+          onClose={() => setReassignOpen(false)}
+        />
       )}
     </div>
   )

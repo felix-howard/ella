@@ -4,7 +4,7 @@
  */
 import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { ScheduleCExpense, ScheduleCMagicLink, ScheduleCTotals, NecBreakdownItem } from '../../../../lib/api-client'
+import type { ScheduleCExpense, ScheduleCMagicLink, ScheduleCTotals, NecBreakdownItem, ClientGroup } from '../../../../lib/api-client'
 import { formatDateTime } from './format-utils'
 import { IncomeTable } from './income-table'
 import { ExpenseTable } from './expense-table'
@@ -19,9 +19,12 @@ interface ScheduleCSummaryProps {
   totals: ScheduleCTotals | null
   caseId: string
   necBreakdown?: NecBreakdownItem[]
+  currentClientId?: string
+  sourceTaxYear?: number
+  clientGroup?: ClientGroup | null
 }
 
-export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakdown = [] }: ScheduleCSummaryProps) {
+export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakdown = [], currentClientId, sourceTaxYear, clientGroup }: ScheduleCSummaryProps) {
   const { t } = useTranslation()
   const isLocked = expense.status === 'LOCKED'
 
@@ -36,7 +39,15 @@ export function ScheduleCSummary({ expense, magicLink, totals, caseId, necBreakd
           </p>
         </div>
         <div className="flex items-center gap-3">
-            <ScheduleCActions caseId={caseId} status={expense.status} magicLinkUrl={magicLink?.url} />
+            <ScheduleCActions
+              caseId={caseId}
+              status={expense.status}
+              magicLinkUrl={magicLink?.url}
+              scheduleCId={expense.id}
+              currentClientId={currentClientId}
+              sourceTaxYear={sourceTaxYear}
+              clientGroup={clientGroup}
+            />
             <StatusBadge status={expense.status} />
           </div>
       </div>

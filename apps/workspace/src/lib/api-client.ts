@@ -988,6 +988,13 @@ export const api = {
         method: 'POST',
         retries: 0,
       }),
+
+    // Reassign Schedule C from current TaxCase to targetCaseId (same group + taxYear).
+    reassign: (scheduleCId: string, targetCaseId: string) =>
+      request<ScheduleCReassignResponse>(`/schedule-c/by-id/${scheduleCId}/reassign`, {
+        method: 'POST',
+        body: JSON.stringify({ targetCaseId }),
+      }),
   },
 
   // Schedule E - Staff endpoints for rental property form management
@@ -1523,7 +1530,7 @@ export interface OcrTriggerResponse {
 }
 
 // Client types
-export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
+export type BusinessType = 'SOLE_PROPRIETORSHIP' | 'LLC' | 'SMLLC' | 'PARTNERSHIP' | 'S_CORP' | 'C_CORP'
 
 export type ClientType = 'INDIVIDUAL' | 'BUSINESS'
 
@@ -1570,7 +1577,15 @@ export interface ClientPreview {
   businessType?: BusinessType | null
   einMasked?: string | null
   latestCaseId?: string | null
+  latestCaseTaxYear?: number | null
   portalUrl?: string | null
+  scheduleCExpense?: ScheduleCExpenseSummary | null
+}
+
+export interface ScheduleCExpenseSummary {
+  id: string
+  status: ScheduleCStatus
+  updatedAt: string
 }
 
 export interface Contractor {
@@ -2195,7 +2210,13 @@ export interface LinkBusinessInput {
 export interface LinkBusinessResponse {
   success: boolean
   data: {
-    business: { id: string; name: string; clientType: ClientType }
+    business: {
+      id: string
+      name: string
+      clientType: ClientType
+      businessType: BusinessType | null
+      taxCases: { id: string; taxYear: number }[]
+    }
     group: { id: string; name: string }
   }
 }
@@ -2738,6 +2759,13 @@ export interface ScheduleCResendResponse {
   success: boolean
   expiresAt: string
   messageSent: boolean
+}
+
+export interface ScheduleCReassignResponse {
+  success: boolean
+  scheduleC: { id: string; taxCaseId: string }
+  fromCase: { id: string; clientId: string; taxYear: number }
+  toCase: { id: string; clientId: string; taxYear: number }
 }
 
 // Schedule E types for rental property form management

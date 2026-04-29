@@ -109,7 +109,7 @@ export function detectTier(nec1099Count: number): Tier {
 const ONE_TIME_LABELS: Record<keyof CalcInput["oneTime"], string> = {
   startLlc: "Start LLC",
   holdingLlcNew: "Holding LLC (new)",
-  holdingLlcModify: "Holding LLC (modify)",
+  holdingLlcModify: "Re-structure LLC basic",
   personalTaxReturn: "Personal tax return",
   businessTaxReturn: "Business tax return",
 };
@@ -133,7 +133,7 @@ export function calculatePrice(input: CalcInput): CalcResult {
   const setup: LineItem[] = [];
 
   monthly.push({ label: `${tierDef.label} tier`, amount: tierDef.monthly, kind: "monthly" });
-  setup.push({ label: `${tierDef.label} setup`, amount: tierDef.setup, kind: "setup" });
+  setup.push({ label: `${tierDef.label} bookkeeping setup`, amount: tierDef.setup, kind: "setup" });
 
   // Payroll — only applies when employees > 0 (matches worked example #1)
   if (input.payrollEmployees > 0) {

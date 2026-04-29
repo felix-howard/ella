@@ -5,25 +5,52 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { cn } from '@ella/ui'
 import { useMutation } from '@tanstack/react-query'
-import { api, type LinkBusinessInput, type BusinessType } from '../../../lib/api-client'
+import {
+  api,
+  type LinkBusinessInput,
+  type BusinessType,
+  type LinkBusinessResponse,
+} from '../../../lib/api-client'
 import { BusinessInfoForm, type BusinessInfoData, EMPTY_BUSINESS_INFO } from '../business-info-form'
+import { ScheduleCLinkExistingModal } from '../schedule-c-link-existing-modal'
 
 const currentYear = new Date().getFullYear() - 1
 const TAX_YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
+const SCHEDULE_C_ELIGIBLE_TYPES: ReadonlySet<BusinessType> = new Set<BusinessType>([
+  'SOLE_PROPRIETORSHIP',
+  'SMLLC',
+])
+
+interface ParentScheduleCSummary {
+  id: string
+  taxYear: number
+}
+
 interface AddBusinessDrawerProps {
   clientId: string
+  clientName: string
   clientPhone: string
   clientEmail?: string | null
+  /** Parent individual's Schedule C summary, if any. Required for migration prompt. */
+  parentScheduleC?: ParentScheduleCSummary | null
   open: boolean
   onClose: () => void
   onSuccess: () => void
 }
 
+interface MigrationPromptState {
+  scheduleCId: string
+  newBusinessCaseId: string
+  businessName: string
+}
+
 export function AddBusinessDrawer({
   clientId,
+  clientName,
   clientPhone,
   clientEmail,
+  parentScheduleC,
   open,
   onClose,
   onSuccess,
@@ -31,16 +58,20 @@ export function AddBusinessDrawer({
   const [business, setBusiness] = useState<BusinessInfoData>({ ...EMPTY_BUSINESS_INFO })
   const [taxYear, setTaxYear] = useState(TAX_YEARS[0])
   const [errors, setErrors] = useState<Partial<Record<keyof BusinessInfoData, string>>>({})
+  const [migrationPrompt, setMigrationPrompt] = useState<MigrationPromptState | null>(null)
 
-  // Handle escape key
+  // Handle escape key — modal owns Esc when mounted; drawer ignores Esc while
+  // a link-business call is pending so the user cannot abandon mid-mutation.
   useEffect(() => {
     if (!open) return
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (migrationPrompt) return
+      onClose()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [open, onClose])
+  }, [open, onClose, migrationPrompt])
 
   // Prevent body scroll when open
   useEffect(() => {
@@ -54,11 +85,33 @@ export function AddBusinessDrawer({
 
   const mutation = useMutation({
     mutationFn: (data: LinkBusinessInput) => api.clients.linkBusiness(clientId, data),
-    onSuccess: () => {
+    onSuccess: (response: LinkBusinessResponse) => {
+      const newBusiness = response.data.business
+      const newCase = newBusiness.taxCases?.[0]
+      const eligible =
+        !!newBusiness.businessType && SCHEDULE_C_ELIGIBLE_TYPES.has(newBusiness.businessType)
+      const sameYear =
+        !!parentScheduleC && !!newCase && parentScheduleC.taxYear === newCase.taxYear
+
+      if (parentScheduleC && eligible && sameYear && newCase) {
+        setMigrationPrompt({
+          scheduleCId: parentScheduleC.id,
+          newBusinessCaseId: newCase.id,
+          businessName: newBusiness.name,
+        })
+        return
+      }
+
       onSuccess()
       onClose()
     },
   })
+
+  const finishMigrationPrompt = () => {
+    setMigrationPrompt(null)
+    onSuccess()
+    onClose()
+  }
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof BusinessInfoData, string>> = {}
@@ -87,8 +140,14 @@ export function AddBusinessDrawer({
     mutation.mutate(payload)
   }
 
+  // Block dismiss while the link-business call is in flight or while the
+  // migration modal owns the foreground.
+  const canDismiss = !mutation.isPending && !migrationPrompt
   const handleOverlayClick = () => {
-    if (!mutation.isPending) onClose()
+    if (canDismiss) onClose()
+  }
+  const handleHeaderCloseClick = () => {
+    if (canDismiss) onClose()
   }
 
   return (
@@ -118,8 +177,9 @@ export function AddBusinessDrawer({
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-foreground">Add Business</h2>
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              onClick={handleHeaderCloseClick}
+              disabled={!canDismiss}
+              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -174,6 +234,18 @@ export function AddBusinessDrawer({
           </button>
         </div>
       </div>
+
+      {migrationPrompt && (
+        <ScheduleCLinkExistingModal
+          open
+          scheduleCId={migrationPrompt.scheduleCId}
+          individualName={clientName}
+          businessName={migrationPrompt.businessName}
+          newBusinessCaseId={migrationPrompt.newBusinessCaseId}
+          onResolved={finishMigrationPrompt}
+          onClose={finishMigrationPrompt}
+        />
+      )}
     </>
   )
 }

@@ -4,7 +4,7 @@
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useEffect, useTransition, lazy, Suspense } from 'react'
+import { useState, useCallback, useRef, useTransition, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -27,7 +27,6 @@ import {
   Calculator,
   Home,
   Building2,
-  ChevronDown,
   UserCircle,
   Pencil,
   Check,
@@ -57,42 +56,50 @@ import {
   YearSwitcher,
   CreateEngagementModal,
   ClientOverviewTab,
+  BusinessDeleteWithScheduleCModal,
 } from '../../components/clients'
+import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
+import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
 import { useScheduleC } from '../../hooks/use-schedule-c'
-import { useScheduleE } from '../../hooks/use-schedule-e'
 import { useClassificationUpdates } from '../../hooks/use-classification-updates'
 import { useOrgRole } from '../../hooks/use-org-role'
 import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type RawImage, type DigitalDoc } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
+import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
+import { ScheduleCBusinessSummaryList } from '../../components/cases/tabs/schedule-c-tab/schedule-c-business-summary-list'
+
+type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
+
+const VALID_TAB_PARAMS: TabType[] = [
+  'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
+  'data-entry', 'shared-docs', 'contractors',
+]
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
   parseParams: (params) => ({ clientId: params.clientId }),
+  validateSearch: (search: Record<string, unknown>): { tab?: TabType } => {
+    const tab = search.tab as string | undefined
+    return {
+      tab: tab && VALID_TAB_PARAMS.includes(tab as TabType) ? (tab as TabType) : undefined,
+    }
+  },
 })
-
-type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors'
-
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  SOLE_PROPRIETORSHIP: 'Sole Prop',
-  LLC: 'LLC',
-  PARTNERSHIP: 'Partnership',
-  S_CORP: 'S-Corp',
-  C_CORP: 'C-Corp',
-}
 
 function ClientDetailPage() {
   const { t } = useTranslation()
   const { clientId } = Route.useParams()
+  const { tab: initialTabFromSearch } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>('files')
+  const [activeTab, setActiveTab] = useState<TabType>(initialTabFromSearch ?? 'files')
   // Use transition so switching to lazy-loaded tabs (e.g. Shared Docs)
   // keeps the header card visible while the chunk loads instead of
   // flashing the Suspense fallback across the whole content area.
@@ -103,6 +110,7 @@ function ClientDetailPage() {
   const [prevClientId, setPrevClientId] = useState(clientId)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isBusinessDeleteWithSCOpen, setIsBusinessDeleteWithSCOpen] = useState(false)
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
   const [isClassifyModalOpen, setIsClassifyModalOpen] = useState(false)
   const [verifyDoc, setVerifyDoc] = useState<DigitalDoc | null>(null)
@@ -114,9 +122,6 @@ function ClientDetailPage() {
   const [isCreateEngagementOpen, setIsCreateEngagementOpen] = useState(false)
   const [isSendUploadLinkOpen, setIsSendUploadLinkOpen] = useState(false)
   const tempIdCounterRef = useRef(0)
-  // "More" dropdown state (must be before early returns for Rules of Hooks)
-  const [isMoreOpen, setIsMoreOpen] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
   // Edit client modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editData, setEditData] = useState<{
@@ -378,9 +383,16 @@ function ClientDetailPage() {
     refetchInterval: 5000,
   })
 
-  // Fetch Schedule C/E existence to promote tabs from "More" to primary
-  const { expense: scheduleCExpense } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
-  const { expense: scheduleEExpense } = useScheduleE({ caseId: activeCaseId, enabled: !!activeCaseId })
+  // Schedule C used by individual cross-entity summary + business delete cascade modal.
+  const { expense: scheduleCExpense, totals: scheduleCTotals } = useScheduleC({ caseId: activeCaseId, enabled: !!activeCaseId })
+
+  // Phase 8: business delete with owned Schedule C — explicit cascade modal
+  const deleteBusinessWithSC = useDeleteBusinessWithScheduleC({
+    businessId: clientId,
+    groupId: client?.clientGroupId ?? null,
+    parentIndividualId: ownerIndividual?.id ?? null,
+    onSuccess: () => setIsBusinessDeleteWithSCOpen(false),
+  })
 
   // Handler for year change from YearSwitcher
   // IMPORTANT: Must be before early returns to maintain consistent hook order
@@ -410,25 +422,6 @@ function ClientDetailPage() {
     setPrevClientId(clientId)
     setActiveTab('files')
   }
-
-  // Close "More" dropdown on outside click or Escape
-  useEffect(() => {
-    if (!isMoreOpen) return
-    const handleClick = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setIsMoreOpen(false)
-      }
-    }
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMoreOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isMoreOpen])
 
   // Error state - only show when actual error or no data after loading complete
   if (isClientError || (!isClientLoading && !client)) {
@@ -585,10 +578,26 @@ function ClientDetailPage() {
   const { clients: clientsText } = UI_TEXT
   const avatarColor = getAvatarColor(client.name)
 
-  // Schedule C/E tabs: promote to primary tabs once a form has been sent
+  // Schedule C/E tabs: always visible (no More dropdown).
   const scheduleCTab = { id: 'schedule-c' as TabType, label: 'Schedule C', icon: Calculator }
   const scheduleETab = { id: 'schedule-e' as TabType, label: 'Schedule E', icon: Home }
   const isBusiness = client.clientType === 'BUSINESS'
+
+  // Schedule C eligibility & cross-entity summary computation.
+  // Business: only show Schedule C when the entity actually files it (sole prop / SMLLC).
+  // Individual: always show; renders read-only summary list when no own SC but linked
+  // Schedule-C-eligible businesses already have their own SC.
+  const businessIsScheduleCEligible = isBusiness && isScheduleCEligibleBusiness(client)
+  const eligibleBusinessesWithScheduleC: ClientPreview[] = !isBusiness
+    ? (client.clientGroup?.clients ?? []).filter(
+        (sibling) =>
+          isScheduleCEligibleBusiness(sibling) && sibling.scheduleCExpense != null
+      )
+    : []
+  const showIndividualBusinessSummary =
+    !isBusiness && !scheduleCExpense && eligibleBusinessesWithScheduleC.length > 0
+  // Business: only when entity type is Schedule-C-eligible. Individual: always.
+  const showScheduleCTab = isBusiness ? businessIsScheduleCEligible : true
 
   const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
     ? [
@@ -597,29 +606,16 @@ function ClientDetailPage() {
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(scheduleCExpense ? [scheduleCTab] : []),
+        ...(showScheduleCTab ? [scheduleCTab] : []),
       ]
     : [
         { id: 'overview', label: t('clientOverview.title'), icon: User },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
-        ...(scheduleCExpense ? [scheduleCTab] : []),
-        ...(scheduleEExpense ? [scheduleETab] : []),
+        scheduleCTab,
+        scheduleETab,
       ]
-
-  // Overflow tabs: only show tabs that haven't been promoted
-  const overflowTabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
-    ? [
-        ...(!scheduleCExpense ? [scheduleCTab] : []),
-      ]
-    : [
-        ...(!scheduleCExpense ? [scheduleCTab] : []),
-        ...(!scheduleEExpense ? [scheduleETab] : []),
-      ]
-
-  const isOverflowActive = overflowTabs.some((t) => t.id === activeTab)
-  const activeOverflowLabel = overflowTabs.find((t) => t.id === activeTab)?.label
 
   return (
     <PageContainer className="pb-28">
@@ -876,59 +872,29 @@ function ClientDetailPage() {
                 )
               })}
             </nav>
-
-            {overflowTabs.length > 0 && <div ref={moreRef} className="relative flex-shrink-0">
-              <button
-                role="tab"
-                aria-selected={isOverflowActive}
-                aria-expanded={isMoreOpen}
-                aria-haspopup="true"
-                onClick={() => setIsMoreOpen((v) => !v)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap',
-                  isOverflowActive
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                )}
-              >
-                <span>{isOverflowActive ? activeOverflowLabel : 'More'}</span>
-                <ChevronDown className={cn('w-4 h-4 transition-transform', isMoreOpen && 'rotate-180')} aria-hidden="true" />
-              </button>
-              {isMoreOpen && (
-                <div role="menu" className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-background border border-border rounded-lg shadow-lg py-1">
-                  {overflowTabs.map((tab) => {
-                    const Icon = tab.icon
-                    const isActive = activeTab === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        role="menuitem"
-                        onClick={() => {
-                          switchTab(tab.id)
-                          setIsMoreOpen(false)
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
-                          isActive
-                            ? 'text-primary font-medium bg-muted/50'
-                            : 'text-foreground hover:bg-muted/50'
-                        )}
-                      >
-                        <Icon className="w-4 h-4" aria-hidden="true" />
-                        <span>{tab.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>}
           </div>
         </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <ClientOverviewTab client={client} onDeleteClick={() => setIsDeleteModalOpen(true)} />
+        <ClientOverviewTab
+          client={client}
+          parentScheduleC={
+            !isBusiness && scheduleCExpense && selectedEngagement
+              ? { id: scheduleCExpense.id, taxYear: selectedEngagement.taxYear }
+              : null
+          }
+          onDeleteClick={() => {
+            // Phase 8: business clients owning a Schedule C use the explicit
+            // confirmation modal that surfaces the data being destroyed.
+            if (isBusiness && scheduleCExpense) {
+              setIsBusinessDeleteWithSCOpen(true)
+            } else {
+              setIsDeleteModalOpen(true)
+            }
+          }}
+        />
       )}
 
       {/* Files Tab - Primary document explorer view */}
@@ -1011,11 +977,22 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Schedule C Tab - Self-employment expense collection (lazy loaded) */}
-      {activeTab === 'schedule-c' && activeCaseId && (
+      {/* Schedule C Tab - Self-employment expense collection (lazy loaded).
+          On individuals with no own SC but ≥1 linked Schedule-C-eligible business with SC,
+          render a read-only summary list instead of the binary form view. */}
+      {activeTab === 'schedule-c' && activeCaseId && showIndividualBusinessSummary && (
+        <ScheduleCBusinessSummaryList businesses={eligibleBusinessesWithScheduleC} />
+      )}
+      {activeTab === 'schedule-c' && activeCaseId && !showIndividualBusinessSummary && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleCTab caseId={activeCaseId} clientName={client.name} />
+            <ScheduleCTab
+              caseId={activeCaseId}
+              clientName={client.name}
+              currentClientId={clientId}
+              sourceTaxYear={selectedCase?.taxYear}
+              clientGroup={client.clientGroup ?? null}
+            />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -1037,9 +1014,13 @@ function ClientDetailPage() {
       )}
 
       {/* Shared Docs Tab - Multi-section document sharing per case */}
+      {/* Local Suspense boundary contains any suspending child (e.g. lazy PdfThumbnail) */}
+      {/* so the fallback never bubbles up and replaces the page header/tabs. */}
       {activeTab === 'shared-docs' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.sharedDocsError')}</div>}>
-          <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
+          <Suspense fallback={<div className="p-6 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+            <SharedDocsTab caseId={activeCaseId} clientName={client.name} />
+          </Suspense>
         </ErrorBoundary>
       )}
 
@@ -1099,6 +1080,17 @@ function ClientDetailPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Phase 8: Business Delete With Schedule C — explicit cascade modal */}
+      <BusinessDeleteWithScheduleCModal
+        open={isBusinessDeleteWithSCOpen}
+        businessName={client.name}
+        expenseCount={countScheduleCExpenseLines(scheduleCExpense)}
+        totalDollars={scheduleCTotals?.totalExpenses ?? '0'}
+        isPending={deleteBusinessWithSC.isPending}
+        onConfirm={() => deleteBusinessWithSC.mutate()}
+        onCancel={() => setIsBusinessDeleteWithSCOpen(false)}
+      />
 
       {/* Create Engagement Modal - for adding new tax year */}
       <CreateEngagementModal

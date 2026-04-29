@@ -4,6 +4,7 @@
  */
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@ella/ui'
+import type { ClientGroup } from '../../../../lib/api-client'
 import { useScheduleC } from '../../../../hooks/use-schedule-c'
 import { ScheduleCEmptyState } from './schedule-c-empty-state'
 import { ScheduleCWaiting } from './schedule-c-waiting'
@@ -12,9 +13,12 @@ import { ScheduleCSummary } from './schedule-c-summary'
 interface ScheduleCTabProps {
   caseId: string
   clientName: string
+  currentClientId?: string
+  sourceTaxYear?: number
+  clientGroup?: ClientGroup | null
 }
 
-export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
+export function ScheduleCTab({ caseId, clientName, currentClientId, sourceTaxYear, clientGroup }: ScheduleCTabProps) {
   const { expense, magicLink, totals, necBreakdown, isLoading, error, refetch } = useScheduleC({
     caseId,
     enabled: true,
@@ -55,7 +59,17 @@ export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
 
   // State 2: Schedule C exists but status is DRAFT → Show waiting state
   if (expense?.status === 'DRAFT') {
-    return <ScheduleCWaiting expense={expense} magicLink={magicLink} caseId={caseId} necBreakdown={necBreakdown} />
+    return (
+      <ScheduleCWaiting
+        expense={expense}
+        magicLink={magicLink}
+        caseId={caseId}
+        necBreakdown={necBreakdown}
+        currentClientId={currentClientId}
+        sourceTaxYear={sourceTaxYear}
+        clientGroup={clientGroup}
+      />
+    )
   }
 
   // State 3 & 4: Schedule C is SUBMITTED or LOCKED → Show summary
@@ -67,6 +81,9 @@ export function ScheduleCTab({ caseId, clientName }: ScheduleCTabProps) {
         totals={totals}
         caseId={caseId}
         necBreakdown={necBreakdown}
+        currentClientId={currentClientId}
+        sourceTaxYear={sourceTaxYear}
+        clientGroup={clientGroup}
       />
     )
   }

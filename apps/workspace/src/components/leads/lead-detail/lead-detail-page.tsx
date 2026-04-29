@@ -10,7 +10,7 @@ import { LeadInfoGrid } from './lead-info-grid'
 import { LeadActivityTimeline } from './lead-activity-timeline'
 import { LeadNotesSection } from './lead-notes-section'
 import { LeadDangerZone } from './lead-danger-zone'
-import { AgreementsTab } from '../nda/agreements-tab'
+import { AgreementsTab } from '../../nda/agreements-tab'
 import { FloatingChatbox } from '../../chatbox'
 import { ErrorBoundary } from '../../error-boundary'
 import { useChatUnread } from '../../../hooks/use-chat-unread'
@@ -43,7 +43,16 @@ export function LeadDetailPage({ lead }: Props) {
         {/* Main column */}
         <div className="xl:col-span-2 space-y-6 min-w-0">
           <LeadActivityTimeline lead={lead} />
-          <AgreementsTab lead={lead} enabled={true} />
+          <AgreementsTab
+            entity={{ type: 'lead', id: lead.id }}
+            recipient={{
+              id: lead.id,
+              firstName: lead.firstName,
+              lastName: lead.lastName,
+              phone: lead.phone,
+            }}
+            enabled={true}
+          />
           <LeadNotesSection lead={lead} />
         </div>
 

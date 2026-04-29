@@ -5,7 +5,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import type { NdaStatus, NdaDepositStatus } from '../../../lib/api-client'
+import type { NdaStatus, NdaDepositStatus } from '../../lib/api-client'
 
 const ndaStatusStyles: Record<NdaStatus, string> = {
   DRAFT: 'bg-muted text-muted-foreground border-border',

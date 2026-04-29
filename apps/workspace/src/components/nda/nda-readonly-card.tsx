@@ -2,39 +2,41 @@
  * Shared, presentation-only NDA card. Used by:
  *   - Lead detail page (wrapped by NdaCard which adds interactive buttons)
  *   - Client Overview tab (read-only — exposes "View PDF" only)
+ *   - Client Agreements tab (wrapped by NdaCard for interactive actions)
  *
  * Owns no mutations. Renders status badges, metadata, deposit info, and an
- * optional "View PDF" action that opens the signed PDF presigned URL via
- * the existing `api.leads.nda.getPdfUrl` (caller passes its leadId).
+ * optional "View PDF" action that opens the signed PDF presigned URL via the
+ * entity-aware `getPdfUrl` endpoint (lead vs. client).
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Loader2 } from 'lucide-react'
-import { NdaStatusBadge, DepositStatusBadge } from '../leads/nda/nda-status-badges'
+import { NdaStatusBadge, DepositStatusBadge } from './nda-status-badges'
 import { toast } from '../../stores/toast-store'
 import { formatShortRelativeTime, formatFullDateTime } from '../../lib/formatters'
-import { api } from '../../lib/api-client'
+import { ndaApi } from './use-nda-mutations'
 import type { NdaAgreement } from '../../lib/api-client'
+import type { EntityRef } from './types'
 
 interface Props {
   nda: NdaAgreement
-  /** When provided + showViewPdf is true, exposes a "View PDF" button. */
-  leadId?: string
+  /** Entity owning this NDA (lead or client). When provided + showViewPdf, exposes "View PDF". */
+  entity?: EntityRef
   /** Render the View PDF button when the NDA is SIGNED with a stored PDF. */
   showViewPdf?: boolean
 }
 
-export function NdaReadonlyCard({ nda, leadId, showViewPdf = false }: Props) {
+export function NdaReadonlyCard({ nda, entity, showViewPdf = false }: Props) {
   const { t, i18n } = useTranslation()
   const [pdfLoading, setPdfLoading] = useState(false)
 
-  const canViewPdf = showViewPdf && !!leadId && nda.status === 'SIGNED' && !!nda.signedPdfKey
+  const canViewPdf = showViewPdf && !!entity && nda.status === 'SIGNED' && !!nda.signedPdfKey
 
   const handleViewPdf = async () => {
-    if (!leadId) return
+    if (!entity) return
     try {
       setPdfLoading(true)
-      const res = await api.leads.nda.getPdfUrl(leadId, nda.id)
+      const res = await ndaApi(entity).getPdfUrl(entity.id, nda.id)
       window.open(res.url, '_blank', 'noopener,noreferrer')
     } catch (err) {
       toast.error((err as Error).message || t('nda.toast.pdfFailed'))

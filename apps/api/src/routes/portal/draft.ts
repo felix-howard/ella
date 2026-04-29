@@ -46,6 +46,10 @@ portalDraftRoute.get('/:token', async (c) => {
     return c.json({ error: 'DRAFT_NOT_FOUND', message: 'Document not found' }, 404)
   }
 
+  if (!magicLink.taxCase) {
+    return c.json({ error: 'INVALID_TOKEN', message: 'Document not associated with a case' }, 401)
+  }
+
   // Section soft-deleted by CPA — signal "gone" semantics to viewer.
   if (magicLink.draftReturn.deletedAt !== null) {
     return c.json({ error: 'DOC_DELETED', message: 'This document has been removed by the CPA.' }, 410)

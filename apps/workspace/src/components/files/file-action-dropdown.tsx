@@ -20,10 +20,11 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
-import { api, fetchMediaBlobUrl, type RawImage, type DocCategory } from '../../lib/api-client'
+import { api, fetchMediaBlobUrl, type RawImage, type DocCategory, type EntityInfo } from '../../lib/api-client'
 import { DOC_CATEGORIES, CATEGORY_ORDER, type DocCategoryKey } from '../../lib/doc-categories'
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
+import { MoveToEntitySubmenu } from './move-to-entity-submenu'
 
 export interface FileActionDropdownProps {
   image: RawImage
@@ -31,6 +32,8 @@ export interface FileActionDropdownProps {
   currentCategory?: DocCategoryKey | null
   /** Callback to trigger inline rename mode */
   onRenameClick?: () => void
+  /** Peer entities in same ClientGroup excluding current image's case (omit/empty hides menu) */
+  peers?: EntityInfo[]
 }
 
 /**
@@ -41,19 +44,27 @@ export function FileActionDropdown({
   caseId,
   currentCategory,
   onRenameClick,
+  peers,
 }: FileActionDropdownProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [isOpen, setIsOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showCategorySubmenu, setShowCategorySubmenu] = useState(false)
+  const [showEntitySubmenu, setShowEntitySubmenu] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [submenuPosition, setSubmenuPosition] = useState({ top: 0, left: 0, openLeft: false })
+  const [entitySubmenuPosition, setEntitySubmenuPosition] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const submenuRef = useRef<HTMLDivElement>(null)
   const submenuTriggerRef = useRef<HTMLDivElement>(null)
+  const entitySubmenuRef = useRef<HTMLDivElement>(null)
+  const entitySubmenuTriggerRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const entityHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const hasPeers = !!peers && peers.length > 0
 
   // Calculate dropdown position
   const updatePosition = useCallback(() => {
@@ -121,6 +132,31 @@ export function FileActionDropdown({
     setSubmenuPosition({ top, left, openLeft })
   }, [])
 
+  // Calculate entity submenu position (mirrors category submenu logic)
+  const updateEntitySubmenuPosition = useCallback(() => {
+    if (!entitySubmenuTriggerRef.current || !dropdownRef.current) return
+
+    const triggerRect = entitySubmenuTriggerRef.current.getBoundingClientRect()
+    const dropdownRect = dropdownRef.current.getBoundingClientRect()
+    const submenuWidth = 208 // w-52
+    const submenuHeight = Math.min(280, (peers?.length ?? 0) * 44 + 8)
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let left = dropdownRect.right - 4
+    if (left + submenuWidth > viewportWidth - 8) {
+      left = dropdownRect.left - submenuWidth + 4
+    }
+
+    let top = triggerRect.top - 4
+    if (top + submenuHeight > viewportHeight - 8) {
+      top = viewportHeight - submenuHeight - 8
+    }
+    if (top < 8) top = 8
+
+    setEntitySubmenuPosition({ top, left })
+  }, [peers])
+
   // Update position on open and scroll
   useLayoutEffect(() => {
     if (isOpen) {
@@ -137,6 +173,13 @@ export function FileActionDropdown({
     }
   }, [showCategorySubmenu, updateSubmenuPosition])
 
+  useLayoutEffect(() => {
+    if (showEntitySubmenu) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      updateEntitySubmenuPosition()
+    }
+  }, [showEntitySubmenu, updateEntitySubmenuPosition])
+
   // Update position when scrolling
   useEffect(() => {
     if (!isOpen) return
@@ -146,11 +189,14 @@ export function FileActionDropdown({
       if (showCategorySubmenu) {
         requestAnimationFrame(updateSubmenuPosition)
       }
+      if (showEntitySubmenu) {
+        requestAnimationFrame(updateEntitySubmenuPosition)
+      }
     }
 
     window.addEventListener('scroll', handleScroll, true)
     return () => window.removeEventListener('scroll', handleScroll, true)
-  }, [isOpen, showCategorySubmenu, updatePosition, updateSubmenuPosition])
+  }, [isOpen, showCategorySubmenu, showEntitySubmenu, updatePosition, updateSubmenuPosition, updateEntitySubmenuPosition])
 
   // Fetch signed URL for download
   const { data: signedUrlData } = useSignedUrl(image.id, {
@@ -165,10 +211,12 @@ export function FileActionDropdown({
       const clickedTrigger = triggerRef.current?.contains(target)
       const clickedDropdown = dropdownRef.current?.contains(target)
       const clickedSubmenu = submenuRef.current?.contains(target)
+      const clickedEntitySubmenu = entitySubmenuRef.current?.contains(target)
 
-      if (!clickedTrigger && !clickedDropdown && !clickedSubmenu) {
+      if (!clickedTrigger && !clickedDropdown && !clickedSubmenu && !clickedEntitySubmenu) {
         setIsOpen(false)
         setShowCategorySubmenu(false)
+        setShowEntitySubmenu(false)
       }
     }
 
@@ -178,11 +226,14 @@ export function FileActionDropdown({
     }
   }, [isOpen])
 
-  // Clean up hover timeout on unmount
+  // Clean up hover timeouts on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current)
+      }
+      if (entityHoverTimeoutRef.current) {
+        clearTimeout(entityHoverTimeoutRef.current)
       }
     }
   }, [])
@@ -229,11 +280,13 @@ export function FileActionDropdown({
     e.stopPropagation()
     setIsOpen(!isOpen)
     setShowCategorySubmenu(false)
+    setShowEntitySubmenu(false)
   }
 
   const handleRename = () => {
     setIsOpen(false)
     setShowCategorySubmenu(false)
+    setShowEntitySubmenu(false)
     onRenameClick?.()
   }
 
@@ -283,6 +336,7 @@ export function FileActionDropdown({
     }
     hoverTimeoutRef.current = setTimeout(() => {
       setShowCategorySubmenu(true)
+      setShowEntitySubmenu(false)
     }, 100) // Small delay to prevent accidental triggers
   }
 
@@ -308,6 +362,68 @@ export function FileActionDropdown({
     hoverTimeoutRef.current = setTimeout(() => {
       setShowCategorySubmenu(false)
     }, 100)
+  }
+
+  // Hover handlers for entity submenu (mirror category-submenu timing)
+  const handleEntityTriggerEnter = () => {
+    if (entityHoverTimeoutRef.current) {
+      clearTimeout(entityHoverTimeoutRef.current)
+    }
+    entityHoverTimeoutRef.current = setTimeout(() => {
+      setShowEntitySubmenu(true)
+      setShowCategorySubmenu(false)
+    }, 100)
+  }
+
+  const handleEntityTriggerLeave = () => {
+    if (entityHoverTimeoutRef.current) {
+      clearTimeout(entityHoverTimeoutRef.current)
+    }
+    entityHoverTimeoutRef.current = setTimeout(() => {
+      setShowEntitySubmenu(false)
+    }, 150)
+  }
+
+  const handleEntitySubmenuEnter = () => {
+    if (entityHoverTimeoutRef.current) {
+      clearTimeout(entityHoverTimeoutRef.current)
+    }
+  }
+
+  const handleEntitySubmenuLeave = () => {
+    if (entityHoverTimeoutRef.current) {
+      clearTimeout(entityHoverTimeoutRef.current)
+    }
+    entityHoverTimeoutRef.current = setTimeout(() => {
+      setShowEntitySubmenu(false)
+    }, 100)
+  }
+
+  // Move to entity (different TaxCase in same group) mutation
+  const moveToCaseMutation = useMutation({
+    mutationFn: ({ targetCaseId }: { targetCaseId: string; entityName: string }) =>
+      api.images.moveToCase(image.id, targetCaseId),
+    onSuccess: (data, vars) => {
+      if (data.moved) {
+        toast.success(t('fileActions.movedToEntity', { entity: vars.entityName }))
+      }
+      queryClient.invalidateQueries({ queryKey: ['images', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['images', vars.targetCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['group-images'] })
+      queryClient.invalidateQueries({ queryKey: ['cases', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['cases', vars.targetCaseId] })
+      queryClient.invalidateQueries({ queryKey: ['checklist', caseId] })
+      queryClient.invalidateQueries({ queryKey: ['checklist', vars.targetCaseId] })
+      setIsOpen(false)
+      setShowEntitySubmenu(false)
+    },
+    onError: () => {
+      toast.error(t('fileActions.moveToEntityError'))
+    },
+  })
+
+  const handleMoveToEntity = (targetCaseId: string, entityName: string) => {
+    moveToCaseMutation.mutate({ targetCaseId, entityName })
   }
 
   // Delete mutation
@@ -413,6 +529,26 @@ export function FileActionDropdown({
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground" />
       </div>
+
+      {/* Move to Entity (multi-entity portal cleanup) - shows submenu on hover */}
+      {hasPeers && (
+        <div
+          ref={entitySubmenuTriggerRef}
+          onMouseEnter={handleEntityTriggerEnter}
+          onMouseLeave={handleEntityTriggerLeave}
+          className={cn(
+            'w-full flex items-center justify-between px-3 py-2.5 text-sm cursor-pointer transition-colors',
+            showEntitySubmenu ? 'bg-muted' : 'hover:bg-muted',
+            moveToCaseMutation.isPending && 'opacity-60'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <FolderInput className="w-4 h-4 text-muted-foreground" />
+            {t('fileActions.moveToEntity')}
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
 
       {/* Delete */}
       <div className="border-t border-border">
@@ -546,6 +682,19 @@ export function FileActionDropdown({
 
       {/* Category Submenu rendered in portal */}
       {categorySubmenu}
+
+      {/* Entity Submenu rendered in portal */}
+      {isOpen && showEntitySubmenu && hasPeers && (
+        <MoveToEntitySubmenu
+          ref={entitySubmenuRef}
+          peers={peers!}
+          isPending={moveToCaseMutation.isPending}
+          position={entitySubmenuPosition}
+          onSelect={handleMoveToEntity}
+          onMouseEnter={handleEntitySubmenuEnter}
+          onMouseLeave={handleEntitySubmenuLeave}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal}

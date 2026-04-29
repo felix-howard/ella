@@ -7,6 +7,17 @@
  */
 
 export interface TemplateVars {
+  /**
+   * Recipient display name. Preferred for all new templates.
+   * Resolved from Lead OR Client depending on the NDA entity.
+   * Optional during the entity-agnostic transition; v1 templates fall back to
+   * `leadFullName` when this is absent.
+   */
+  recipientFullName?: string
+  /**
+   * @deprecated Alias for `recipientFullName`. v1 templates still consume it
+   * for backward compatibility; new templates should use `recipientFullName`.
+   */
   leadFullName: string
   orgName: string
   depositAmount: string

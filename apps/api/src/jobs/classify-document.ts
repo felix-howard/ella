@@ -249,6 +249,17 @@ export const classifyDocumentJob = inngest.createFunction(
       }
     }
 
+    // Step 0.5: Read uploadSource — owner's explicit entity choice is ground truth
+    // for PORTAL_EXPLICIT uploads (skip AI entity routing); set at upload time and
+    // immutable thereafter, so safe to read on retries.
+    const sourceRow = await step.run('read-upload-source', async () =>
+      prisma.rawImage.findUnique({
+        where: { id: rawImageId },
+        select: { uploadSource: true },
+      })
+    )
+    const isExplicitUpload = sourceRow?.uploadSource === 'PORTAL_EXPLICIT'
+
     // Step 1: Fetch file from R2 with resize for large images
     // PDFs are sent directly to Gemini (native PDF support for better accuracy)
     // NOTE: Buffer stored outside step to avoid Inngest step output size limit (~4MB).
@@ -329,9 +340,12 @@ export const classifyDocumentJob = inngest.createFunction(
       const buffer = fileBuffer!
 
       try {
-        // Build entity context for multi-entity routing
-        const entityContext = await buildEntityContext(caseId)
-        if (entityContext) {
+        // Build entity context for multi-entity routing — skipped for explicit
+        // uploads where the owner already picked the target entity in the portal.
+        const entityContext = isExplicitUpload ? undefined : await buildEntityContext(caseId)
+        if (isExplicitUpload) {
+          console.log(`[classify-document] Skipped entity context: explicit-upload (rawImage=${rawImageId})`)
+        } else if (entityContext) {
           console.log(`[classify-document] Entity context: ${entityContext.entities.length} entities in group`)
         }
 
@@ -405,6 +419,12 @@ export const classifyDocumentJob = inngest.createFunction(
 
     // Step 2.5: Route to correct entity (multi-entity document routing)
     const entityRouting = await step.run('route-to-entity', async () => {
+      // Owner already picked entity at upload time — AI must not override that choice.
+      if (isExplicitUpload) {
+        console.log(`[classify-document] Entity routing skipped: explicit-upload`)
+        return { routed: false, reason: 'explicit-upload' } as const
+      }
+
       const { targetEntityId, entityConfidence } = classification
 
       // Skip if no entity detection or low confidence

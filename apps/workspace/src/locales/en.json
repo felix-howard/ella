@@ -231,6 +231,7 @@
   "clientDetail.deleteClient": "Delete client",
   "clientDetail.deleteError": "Error deleting client",
   "clientDetail.deleteModalDesc": "This action cannot be undone. This will permanently delete the client <red>{{name}}</red> and all associated data. Type \"Delete\" to confirm.",
+  "clientDetail.deleteModalCascadeTitle": "Linked businesses will also be deleted:",
   "clientDetail.deleteConfirmPlaceholder": "Type Delete to confirm",
   "clientDetail.deleteConfirmWord": "Delete",
   "clientDetail.deleteModalTitle": "Delete Client",

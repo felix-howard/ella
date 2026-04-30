@@ -233,6 +233,7 @@
   "clientDetail.deleteConfirmPlaceholder": "Nhập Xóa để xác nhận",
   "clientDetail.deleteConfirmWord": "Xóa",
   "clientDetail.deleteModalDesc": "Hành động này không thể hoàn tác. Khách hàng <red>{{name}}</red> và tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn. Nhập \"Xóa\" để xác nhận.",
+  "clientDetail.deleteModalCascadeTitle": "Các doanh nghiệp liên kết cũng sẽ bị xóa:",
   "clientDetail.deleteModalTitle": "Xóa khách hàng",
   "clientDetail.deleteSuccess": "Đã xóa khách hàng thành công",
   "clientDetail.deleting": "Đang xóa...",

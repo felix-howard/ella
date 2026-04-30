@@ -1406,6 +1406,10 @@ clientsRoute.get(
 )
 
 // DELETE /clients/:id - Delete client
+// Cascade rule: deleting an INDIVIDUAL also removes every BUSINESS sibling in
+// the same ClientGroup (and the now-empty group). BUSINESS deletes only remove
+// the single entity. Schedule-C-owning businesses route through the audit-aware
+// path so the deletion snapshot is preserved.
 clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
@@ -1416,7 +1420,20 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
     select: {
       id: true,
       clientType: true,
+      clientGroupId: true,
       taxCases: { select: { scheduleCExpense: { select: { id: true } } } },
+      clientGroup: {
+        select: {
+          id: true,
+          clients: {
+            where: { id: { not: id }, clientType: 'BUSINESS' },
+            select: {
+              id: true,
+              taxCases: { select: { scheduleCExpense: { select: { id: true } } } },
+            },
+          },
+        },
+      },
     },
   })
   if (!client) {
@@ -1451,9 +1468,47 @@ clientsRoute.delete('/:id', zValidator('param', clientIdParamSchema), async (c) 
     }
   }
 
+  // INDIVIDUAL → cascade delete every linked business in the same ClientGroup.
+  const siblingBusinesses = client.clientGroup?.clients ?? []
+  const deletedBusinessIds: string[] = []
+  if (client.clientType === 'INDIVIDUAL' && siblingBusinesses.length > 0) {
+    for (const business of siblingBusinesses) {
+      const bizOwnsSC = business.taxCases.some((tc) => tc.scheduleCExpense != null)
+      try {
+        if (bizOwnsSC && user.organizationId) {
+          await deleteBusinessWithScheduleC(prisma, {
+            clientId: business.id,
+            staffId: user.staffId ?? null,
+            organizationId: user.organizationId,
+          })
+        } else {
+          await prisma.client.delete({ where: { id: business.id } })
+        }
+        deletedBusinessIds.push(business.id)
+      } catch (e) {
+        // Sibling already gone — keep going so the parent delete still completes.
+        if (e instanceof DeleteBusinessError && e.code === 'CLIENT_NOT_FOUND') continue
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') continue
+        throw e
+      }
+    }
+  }
+
   await prisma.client.delete({ where: { id } })
 
-  return c.json({ success: true, message: 'Client deleted successfully' })
+  // Drop the now-empty ClientGroup so the org listing stays tidy.
+  if (client.clientGroupId) {
+    const remaining = await prisma.client.count({ where: { clientGroupId: client.clientGroupId } })
+    if (remaining === 0) {
+      await prisma.clientGroup.delete({ where: { id: client.clientGroupId } }).catch(() => {})
+    }
+  }
+
+  return c.json({
+    success: true,
+    message: 'Client deleted successfully',
+    deletedBusinessIds,
+  })
 })
 
 // PATCH /clients/:id/managed-by - Change client manager (admin only)

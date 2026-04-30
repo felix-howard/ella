@@ -23,7 +23,7 @@ export function WelcomeHeader({ clientName, taxYear }: WelcomeHeaderProps) {
 
       {/* Greeting */}
       <h1 className="text-2xl font-semibold text-foreground">
-        {t('portal.welcome')}, <span className="text-accent">{clientName}</span>!
+        {t('portal.welcome')} <span className="text-accent">{clientName}</span> 👋
       </h1>
 
       {/* Tax Year Badge */}

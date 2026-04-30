@@ -2,17 +2,24 @@
  * Intake Form - Single-step self-registration form.
  * Mirrors the internal "Add Client" Basic Info flow:
  *   First Name*, Last Name*, Phone*, Email, Tax Year, "File business taxes too?" toggle.
- * When toggle = Yes, business fields appear inline. clientType is derived from the toggle.
+ * When toggle = Yes, an accordion of one or more businesses is shown — the user
+ * can add up to 10 with the "Add Another Business" button.
  */
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { Button, cn } from '@ella/ui'
-import { IntakeBusinessForm, EMPTY_BUSINESS_DATA, type IntakeBusinessData } from './intake-business-form'
+import {
+  IntakeBusinessAccordion,
+  MAX_BUSINESSES,
+  type IntakeBusinessEntry,
+} from './intake-business-accordion'
+import { EMPTY_BUSINESS_DATA, type IntakeBusinessData } from './intake-business-form'
 import { formatPhoneUS } from '../../lib/format-phone'
 
 export type IntakeClientType = 'INDIVIDUAL' | 'INDIVIDUAL_WITH_BUSINESS'
 
+/** Shape sent to the submit handler — businesses normalized to the API contract. */
 export interface IntakeFormData {
   clientType: IntakeClientType
   firstName: string
@@ -20,15 +27,19 @@ export interface IntakeFormData {
   phone: string
   email: string
   taxYear: number
-  businessName?: string
+  businesses?: IntakeBusinessSubmit[]
+}
+
+export interface IntakeBusinessSubmit {
+  name: string
   businessType?: string
-  businessEin?: string
-  businessPhone?: string
-  businessEmail?: string
-  businessAddress?: string
-  businessCity?: string
-  businessState?: string
-  businessZip?: string
+  ein?: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
 }
 
 interface IntakeFormProps {
@@ -43,6 +54,36 @@ const taxYears = [currentYear - 1, currentYear - 2, currentYear - 3]
 const inputClass =
   'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
 
+let businessKeySeq = 0
+const newBusinessEntry = (): IntakeBusinessEntry => ({
+  ...EMPTY_BUSINESS_DATA,
+  _key: `biz-${++businessKeySeq}`,
+})
+
+/** Trim a value, return undefined when empty so the API doesn't get empty strings. */
+const optional = (v: string) => {
+  const t = v.trim()
+  return t.length > 0 ? t : undefined
+}
+
+/** Convert UI business state to the API submit shape (drop empty fields). */
+function toSubmitBusiness(biz: IntakeBusinessData): IntakeBusinessSubmit | null {
+  const name = biz.businessName.trim()
+  if (!name) return null
+  const phoneDigits = biz.businessPhone.replace(/\D/g, '')
+  return {
+    name,
+    businessType: biz.businessType || undefined,
+    ein: optional(biz.businessEin),
+    phone: phoneDigits ? `+1${phoneDigits}` : undefined,
+    email: optional(biz.businessEmail),
+    address: optional(biz.businessAddress),
+    city: optional(biz.businessCity),
+    state: optional(biz.businessState),
+    zip: optional(biz.businessZip),
+  }
+}
+
 export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
   const { t } = useTranslation()
   const submittingRef = useRef(false)
@@ -53,20 +94,48 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
   const [email, setEmail] = useState('')
   const [taxYear, setTaxYear] = useState(currentYear - 1)
   const [hasBusiness, setHasBusiness] = useState<boolean | null>(null)
-  const [bizData, setBizData] = useState<IntakeBusinessData>(EMPTY_BUSINESS_DATA)
+  const [businesses, setBusinesses] = useState<IntakeBusinessEntry[]>(() => [newBusinessEntry()])
+  const [expandedIndex, setExpandedIndex] = useState(0)
 
   const phoneDigits = phone.replace(/\D/g, '')
   const isIndividualValid =
     firstName.trim().length > 0 && lastName.trim().length > 0 && phoneDigits.length === 10
-  const isBusinessValid = hasBusiness === true ? bizData.businessName.trim().length > 0 : true
+  const isBusinessValid =
+    hasBusiness === true ? businesses.every((b) => b.businessName.trim().length > 0) : true
   const canSubmit = isIndividualValid && hasBusiness !== null && isBusinessValid
+
+  const updateBusiness = (index: number, updates: Partial<IntakeBusinessData>) => {
+    setBusinesses((prev) => prev.map((b, i) => (i === index ? { ...b, ...updates } : b)))
+  }
+
+  const addBusiness = () => {
+    if (businesses.length >= MAX_BUSINESSES) return
+    setBusinesses((prev) => {
+      const next = [...prev, newBusinessEntry()]
+      setExpandedIndex(next.length - 1)
+      return next
+    })
+  }
+
+  const removeBusiness = (index: number) => {
+    setBusinesses((prev) => {
+      if (prev.length <= 1) return prev
+      const next = prev.filter((_, i) => i !== index)
+      setExpandedIndex((cur) => Math.min(cur, next.length - 1))
+      return next
+    })
+  }
 
   const handleSubmit = async () => {
     if (submittingRef.current || !canSubmit) return
     submittingRef.current = true
 
-    const bizPhoneDigits = bizData.businessPhone.replace(/\D/g, '')
     const clientType: IntakeClientType = hasBusiness ? 'INDIVIDUAL_WITH_BUSINESS' : 'INDIVIDUAL'
+    const submitBusinesses = hasBusiness
+      ? businesses
+          .map(toSubmitBusiness)
+          .filter((b): b is IntakeBusinessSubmit => b !== null)
+      : undefined
 
     try {
       await onSubmit({
@@ -76,19 +145,7 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
         phone: `+1${phoneDigits}`,
         email: email.trim(),
         taxYear,
-        ...(hasBusiness
-          ? {
-              businessName: bizData.businessName.trim(),
-              businessType: bizData.businessType,
-              businessEin: bizData.businessEin || undefined,
-              businessPhone: bizPhoneDigits ? `+1${bizPhoneDigits}` : undefined,
-              businessEmail: bizData.businessEmail.trim() || undefined,
-              businessAddress: bizData.businessAddress.trim() || undefined,
-              businessCity: bizData.businessCity.trim() || undefined,
-              businessState: bizData.businessState.trim() || undefined,
-              businessZip: bizData.businessZip.trim() || undefined,
-            }
-          : {}),
+        businesses: submitBusinesses,
       })
     } finally {
       submittingRef.current = false
@@ -215,13 +272,17 @@ export function IntakeForm({ onSubmit, isSubmitting, error }: IntakeFormProps) {
         </div>
       </div>
 
-      {/* Inline business form when Yes */}
+      {/* Multi-business accordion when Yes */}
       {hasBusiness === true && (
-        <div className="pt-2">
-          <IntakeBusinessForm
-            data={bizData}
-            onChange={(updates) => setBizData((prev) => ({ ...prev, ...updates }))}
-            phoneRequired={false}
+        <div className="pt-2 space-y-3">
+          <h3 className="text-base font-semibold text-primary">{t('form.businessInfo')}</h3>
+          <IntakeBusinessAccordion
+            businesses={businesses}
+            expandedIndex={expandedIndex}
+            onExpandedChange={setExpandedIndex}
+            onUpdate={updateBusiness}
+            onAdd={addBusiness}
+            onRemove={removeBusiness}
           />
         </div>
       )}

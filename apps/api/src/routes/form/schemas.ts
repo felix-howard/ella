@@ -25,6 +25,21 @@ export const getStaffFormInfoParamsSchema = z.object({
   staffSlug: slugSchema,
 })
 
+// Single business entry shape for the multi-business `businesses` array.
+// All fields except `name` are optional — when phone is missing for the
+// INDIVIDUAL_WITH_BUSINESS path, the API falls back to the individual's phone.
+export const businessInputSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  businessType: businessTypeEnum.optional(),
+  ein: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
+  phone: phoneSchema.optional(),
+  email: z.string().email().max(254).optional(),
+  address: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().regex(/^[A-Z]{2}$/, 'Must be 2-letter state code').optional(),
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/, 'Must be valid US zip code').optional(),
+})
+
 export const submitFormSchema = z.object({
   // Client type: determines creation path
   clientType: z.enum(['INDIVIDUAL', 'INDIVIDUAL_WITH_BUSINESS', 'BUSINESS']).default('INDIVIDUAL'),
@@ -38,7 +53,12 @@ export const submitFormSchema = z.object({
   language: z.enum(['VI', 'EN']).default('VI'),
   staffSlug: slugSchema.optional(),
 
-  // Business fields (required for INDIVIDUAL_WITH_BUSINESS and BUSINESS)
+  // Multi-business: when provided, takes precedence over the flat business
+  // fields below. Used by the self-serve form to add multiple businesses.
+  businesses: z.array(businessInputSchema).max(10).optional(),
+
+  // Legacy flat business fields (single business) — kept for backwards compat.
+  // If `businesses` array is provided, these are ignored.
   businessName: z.string().trim().min(1).max(100).optional(),
   businessType: businessTypeEnum.optional(),
   businessEin: z.string().regex(/^\d{2}-\d{7}$/, 'EIN must be XX-XXXXXXX format').optional(),
@@ -59,19 +79,22 @@ export const submitFormSchema = z.object({
   { message: 'First name and phone are required for individual clients', path: ['firstName'] }
 ).refine(
   (data) => {
-    // Business fields required for BUSINESS and INDIVIDUAL_WITH_BUSINESS
+    // At least one business name required for BUSINESS / INDIVIDUAL_WITH_BUSINESS.
+    // Accepts either the new `businesses[]` array or the legacy flat fields.
     if (data.clientType === 'BUSINESS' || data.clientType === 'INDIVIDUAL_WITH_BUSINESS') {
-      return !!data.businessName
+      const hasArray = Array.isArray(data.businesses) && data.businesses.length > 0
+      return hasArray || !!data.businessName
     }
     return true
   },
   { message: 'Business name is required', path: ['businessName'] }
 ).refine(
   (data) => {
-    // Business phone required for BUSINESS and INDIVIDUAL_WITH_BUSINESS
-    // (avoids phone uniqueness collision when both clients share the same phone)
-    if (data.clientType === 'BUSINESS' || data.clientType === 'INDIVIDUAL_WITH_BUSINESS') {
-      return !!data.businessPhone
+    // BUSINESS-only path needs a phone (no individual phone to fall back on).
+    // For INDIVIDUAL_WITH_BUSINESS the API falls back to the individual's phone.
+    if (data.clientType === 'BUSINESS') {
+      const arrayPhone = data.businesses?.[0]?.phone
+      return !!(arrayPhone || data.businessPhone)
     }
     return true
   },
@@ -79,3 +102,4 @@ export const submitFormSchema = z.object({
 )
 
 export type SubmitFormInput = z.infer<typeof submitFormSchema>
+export type BusinessInput = z.infer<typeof businessInputSchema>

@@ -282,10 +282,10 @@ formRoute.post(
           // Skip conversation for business — individual already has one
         }
 
-        return { individual, indCase }
+        return { individual, indCase, group }
       })
 
-      const smsSent = await trySendWelcomeSms(shouldAutoSend, result.indCase.id, fullName, input.phone!, input.taxYear, input.language, staffId)
+      const smsSent = await trySendWelcomeSms(shouldAutoSend, result.indCase.id, fullName, input.phone!, input.taxYear, input.language, staffId, result.group.id)
       return c.json({ success: true, clientId: result.individual.id, smsSent })
 
     }
@@ -322,14 +322,24 @@ function normalizeBusinesses(input: {
   }]
 }
 
-/** Try sending welcome SMS if auto-send is enabled */
+/**
+ * Try sending welcome SMS if auto-send is enabled.
+ *
+ * When `clientGroupId` is provided, the magic link is created with `scope=GROUP`
+ * so the portal renders the entity picker (individual + businesses) instead of
+ * the solo upload page. Required for INDIVIDUAL_WITH_BUSINESS submissions —
+ * without it, multi-entity intakes get a CASE-scoped link and bypass the picker.
+ */
 async function trySendWelcomeSms(
   shouldAutoSend: boolean, caseId: string, clientName: string,
   phone: string, taxYear: number, language: string, staffId: string | null,
+  clientGroupId?: string,
 ): Promise<boolean> {
   if (!shouldAutoSend || !isSmsEnabled()) return false
   try {
-    const magicLink = await createMagicLink(caseId, { clientName })
+    const magicLink = clientGroupId
+      ? await createMagicLink(caseId, { clientName, scope: 'GROUP', clientGroupId })
+      : await createMagicLink(caseId, { clientName })
     const result = await sendWelcomeMessage(
       caseId, clientName, phone, magicLink, taxYear,
       language as 'VI' | 'EN', undefined, staffId,

@@ -343,7 +343,6 @@
   "portal.entityPicker.businessType.PARTNERSHIP": "Your business (Partnership)",
   "portal.entityUpload.back": "Back",
   "portal.entityUpload.helperTitle": "You're sending papers for {{name}}.",
-  "portal.entityUpload.helperBody": "Tap the green button below to upload. Your papers are saved as soon as you see \"Uploaded\" — you can close this page anytime.",
   "portal.entityUpload.helperSwitch": "Need to send papers for a different person or business? Tap Back, then choose the right name.",
   "portal.uploadedFiles.heading": "Uploaded documents",
   "portal.uploadedFiles.empty": "No documents yet",

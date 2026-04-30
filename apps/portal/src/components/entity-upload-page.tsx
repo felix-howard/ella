@@ -136,9 +136,6 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
         <p className="text-sm text-foreground">
           {t('portal.entityUpload.helperTitle', { name: entity.name })}
         </p>
-        <p className="text-sm text-muted-foreground">
-          {t('portal.entityUpload.helperBody')}
-        </p>
         <p className="text-xs text-muted-foreground">
           {t('portal.entityUpload.helperSwitch')}
         </p>

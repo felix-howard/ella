@@ -343,7 +343,6 @@
   "portal.entityPicker.businessType.PARTNERSHIP": "Doanh nghiệp của bạn (Partnership)",
   "portal.entityUpload.back": "Quay lại",
   "portal.entityUpload.helperTitle": "Bạn đang gửi giấy tờ cho {{name}}.",
-  "portal.entityUpload.helperBody": "Nhấn nút màu xanh bên dưới để gửi. Khi thấy chữ \"Đã gửi\", giấy tờ của bạn đã được lưu — bạn có thể thoát ra bất cứ lúc nào.",
   "portal.entityUpload.helperSwitch": "Muốn gửi giấy tờ cho người khác hoặc doanh nghiệp khác? Nhấn Quay lại, rồi chọn đúng tên.",
   "portal.uploadedFiles.heading": "Tài liệu đã tải",
   "portal.uploadedFiles.empty": "Chưa có tài liệu nào",

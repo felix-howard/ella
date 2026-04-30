@@ -28,15 +28,23 @@ const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxy
 type RawLoadedNda = Prisma.NdaAgreementGetPayload<{
   include: {
     lead: { select: { id: true; firstName: true; lastName: true } }
+    client: { select: { id: true; firstName: true; lastName: true } }
     organization: { select: { id: true; name: true } }
   }
 }>
 
-// `lead` and `leadId` are nullable on the schema (SetNull on lead delete) but
-// the public signing flow requires them — so the loader narrows them away.
-export type LoadedNda = Omit<RawLoadedNda, 'lead' | 'leadId'> & {
-  lead: NonNullable<RawLoadedNda['lead']>
-  leadId: string
+// NDA can be scoped to either a Lead (pre-conversion) or a Client (created
+// directly from the Agreements tab). Both relations are nullable + SetNull on
+// the schema, so the public flow normalizes whichever is present into
+// `signer` and rejects the rare case where both are detached.
+export type SignerKind = 'lead' | 'client'
+export type LoadedNda = RawLoadedNda & {
+  signer: {
+    id: string
+    firstName: string
+    lastName: string | null
+    kind: SignerKind
+  }
 }
 
 export async function loadNdaByToken(token: string): Promise<LoadedNda | null> {
@@ -44,12 +52,38 @@ export async function loadNdaByToken(token: string): Promise<LoadedNda | null> {
     where: { token },
     include: {
       lead: { select: { id: true, firstName: true, lastName: true } },
+      client: { select: { id: true, firstName: true, lastName: true } },
       organization: { select: { id: true, name: true } },
     },
   })
-  // Treat NDAs whose originating Lead has been deleted as "link not found".
-  if (!nda || !nda.lead || !nda.leadId) return null
-  return nda as LoadedNda
+  if (!nda) return null
+
+  // Prefer lead when both exist (lead-originated NDAs may carry a clientId
+  // after conversion). Fall back to client for direct-created NDAs.
+  if (nda.lead && nda.leadId) {
+    return {
+      ...nda,
+      signer: {
+        id: nda.lead.id,
+        firstName: nda.lead.firstName,
+        lastName: nda.lead.lastName,
+        kind: 'lead',
+      },
+    }
+  }
+  if (nda.client && nda.clientId) {
+    return {
+      ...nda,
+      signer: {
+        id: nda.client.id,
+        firstName: nda.client.firstName,
+        lastName: nda.client.lastName,
+        kind: 'client',
+      },
+    }
+  }
+  // Both originating entities deleted — treat as link not found.
+  return null
 }
 
 export interface PublicNdaView {
@@ -68,9 +102,9 @@ export interface PublicNdaView {
 export function toPublicView(nda: LoadedNda): PublicNdaView {
   const template = getTemplate(nda.templateVersion)
   const depositAmount = `$${nda.depositAmount.toString()}`
-  const leadFullName = [nda.lead.firstName, nda.lead.lastName].filter(Boolean).join(' ')
+  const fullName = [nda.signer.firstName, nda.signer.lastName].filter(Boolean).join(' ')
   const sections = template.render({
-    leadFullName,
+    leadFullName: fullName,
     orgName: nda.organization.name,
     depositAmount,
     date: nda.createdAt.toISOString().slice(0, 10),
@@ -90,7 +124,7 @@ export function toPublicView(nda: LoadedNda): PublicNdaView {
     templateHtml: nda.customContentHtml || null,
     depositAmount,
     orgName: nda.organization.name,
-    leadFirstName: nda.lead.firstName,
+    leadFirstName: nda.signer.firstName,
   }
 }
 
@@ -115,10 +149,12 @@ export async function signNda(input: {
   const signedAt = new Date()
 
   // Nonced keys so concurrent sign attempts don't clobber each other's R2 objects.
-  // Only the winning attempt's keys get written to the DB row.
+  // Only the winning attempt's keys get written to the DB row. Path prefix
+  // mirrors the originating entity so client-direct NDAs land under clients/.
   const nonce = generateAttemptNonce()
-  const signaturePngKey = `leads/${nda.leadId}/nda/${nda.id}-${nonce}-signature.png`
-  const signedPdfKey = `leads/${nda.leadId}/nda/${nda.id}-${nonce}-signed.pdf`
+  const keyPrefix = nda.signer.kind === 'lead' ? 'leads' : 'clients'
+  const signaturePngKey = `${keyPrefix}/${nda.signer.id}/nda/${nda.id}-${nonce}-signature.png`
+  const signedPdfKey = `${keyPrefix}/${nda.signer.id}/nda/${nda.id}-${nonce}-signed.pdf`
 
   await uploadFile(signaturePngKey, decoded.buffer, 'image/png')
 
@@ -128,7 +164,7 @@ export async function signNda(input: {
       depositAmount: nda.depositAmount,
       customContentHtml: nda.customContentHtml,
     },
-    lead: { firstName: nda.lead.firstName, lastName: nda.lead.lastName },
+    lead: { firstName: nda.signer.firstName, lastName: nda.signer.lastName },
     organization: { name: nda.organization.name },
     signature: {
       pngBuffer: decoded.buffer,

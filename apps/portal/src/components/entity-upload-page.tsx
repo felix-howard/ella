@@ -132,6 +132,15 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
     <div className="flex-1 flex flex-col">
       <EntityUploadHeader entity={entity} label={label} onBack={handleBack} />
 
+      <div className="px-6 pt-2 pb-4 space-y-2">
+        <p className="text-sm text-foreground">
+          {t('portal.entityUpload.helperTitle', { name: entity.name })}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t('portal.entityUpload.helperSwitch')}
+        </p>
+      </div>
+
       <div className="px-6 py-4">
         <SimpleUploader
           token={token}

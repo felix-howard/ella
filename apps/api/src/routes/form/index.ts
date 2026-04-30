@@ -16,7 +16,22 @@ import {
   getFormInfoParamsSchema,
   getStaffFormInfoParamsSchema,
   submitFormSchema,
+  type BusinessInput,
 } from './schemas'
+
+/**
+ * zValidator error hook: convert Zod validation failures into a friendly
+ * { error, message } JSON body. Without this, Hono returns the raw ZodError
+ * which the client stringifies to "[object Object]".
+ */
+function zodErrorHook(result: { success: boolean; error?: { issues?: Array<{ path: (string | number)[]; message: string }> } }, c: { json: (body: unknown, status: number) => Response }) {
+  if (!result.success) {
+    const first = result.error?.issues?.[0]
+    const field = first?.path?.join('.') || 'input'
+    const msg = first?.message || 'Invalid request'
+    return c.json({ error: 'VALIDATION_ERROR', message: `${field}: ${msg}` }, 400)
+  }
+}
 
 const formRoute = new Hono()
 
@@ -122,7 +137,7 @@ formRoute.post(
   '/:orgSlug/submit',
   submitRateLimit,
   zValidator('param', getFormInfoParamsSchema),
-  zValidator('json', submitFormSchema),
+  zValidator('json', submitFormSchema, zodErrorHook),
   async (c) => {
     const { orgSlug } = c.req.valid('param')
     const input = c.req.valid('json')
@@ -151,8 +166,11 @@ formRoute.post(
     const source: ClientSource = staffId ? 'STAFF_FORM' : 'GENERIC_FORM'
     const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
 
+    // Normalize: prefer the new `businesses[]` array, fall back to legacy flat fields.
+    const businesses: BusinessInput[] = normalizeBusinesses(input)
+
     // Check phone uniqueness for individual clients in same org
-    const phoneToCheck = clientType === 'BUSINESS' ? input.businessPhone : input.phone
+    const phoneToCheck = clientType === 'BUSINESS' ? businesses[0]?.phone : input.phone
       if (phoneToCheck) {
         const existingClient = await prisma.client.findFirst({
           where: { phone: phoneToCheck, clientType: 'INDIVIDUAL', organizationId: org.id },
@@ -189,19 +207,20 @@ formRoute.post(
         return c.json({ success: true, clientId: result.client.id, smsSent })
       }
 
-      // --- BUSINESS path ---
+      // --- BUSINESS path (single business, no individual) ---
       if (clientType === 'BUSINESS') {
+        const biz = businesses[0]! // schema guarantees existence + phone
         const result = await prisma.$transaction(async (tx) => {
           const client = await tx.client.create({
             data: {
-              firstName: input.businessName!, name: input.businessName!,
-              phone: input.businessPhone!, email: input.businessEmail || null,
+              firstName: biz.name, name: biz.name,
+              phone: biz.phone!, email: biz.email || null,
               language: input.language as Language,
               clientType: 'BUSINESS' as ClientType,
-              businessType: (input.businessType || 'LLC') as BusinessType,
-              einEncrypted: input.businessEin ? encryptSSN(input.businessEin) : undefined,
-              businessAddress: input.businessAddress || null, businessCity: input.businessCity || null,
-              businessState: input.businessState || null, businessZip: input.businessZip || null,
+              businessType: (biz.businessType || 'LLC') as BusinessType,
+              einEncrypted: biz.ein ? encryptSSN(biz.ein) : undefined,
+              businessAddress: biz.address || null, businessCity: biz.city || null,
+              businessState: biz.state || null, businessZip: biz.zip || null,
               source, organizationId: org.id, managedById: staffId,
             },
           })
@@ -217,7 +236,7 @@ formRoute.post(
         return c.json({ success: true, clientId: result.client.id, smsSent: false })
       }
 
-      // --- INDIVIDUAL_WITH_BUSINESS path ---
+      // --- INDIVIDUAL_WITH_BUSINESS path (one individual + N businesses, all in one ClientGroup) ---
       const fullName = input.lastName ? `${input.firstName} ${input.lastName}` : input.firstName!
       const groupName = `${fullName} Group`
 
@@ -239,25 +258,29 @@ formRoute.post(
         })
         await tx.conversation.create({ data: { caseId: indCase.id, lastMessageAt: new Date() } })
 
-        // Business client (businessPhone required by schema for this path)
-        const bizPhone = input.businessPhone!
-        const business = await tx.client.create({
-          data: {
-            firstName: input.businessName!, name: input.businessName!, phone: bizPhone,
-            email: input.businessEmail || null, language: input.language as Language,
-            clientType: 'BUSINESS' as ClientType,
-            businessType: (input.businessType || 'LLC') as BusinessType,
-            einEncrypted: input.businessEin ? encryptSSN(input.businessEin) : undefined,
-            businessAddress: input.businessAddress || null, businessCity: input.businessCity || null,
-            businessState: input.businessState || null, businessZip: input.businessZip || null,
-            source, organizationId: org.id, managedById: staffId, clientGroupId: group.id,
-          },
-        })
-        const { engagementId: bizEngId } = await findOrCreateEngagement(tx, business.id, input.taxYear)
-        const _bizCase = await tx.taxCase.create({
-          data: { clientId: business.id, taxYear: input.taxYear, engagementId: bizEngId, taxTypes: ['FORM_1120S'], status: 'INTAKE' },
-        })
-        // Skip conversation for business — individual already has one
+        // One business client per `businesses[]` entry. Phone falls back to the
+        // individual's phone when the business phone is not provided
+        // (uniqueness check at line above only targets INDIVIDUAL clientType).
+        for (const biz of businesses) {
+          const business = await tx.client.create({
+            data: {
+              firstName: biz.name, name: biz.name,
+              phone: biz.phone || input.phone!,
+              email: biz.email || null, language: input.language as Language,
+              clientType: 'BUSINESS' as ClientType,
+              businessType: (biz.businessType || 'LLC') as BusinessType,
+              einEncrypted: biz.ein ? encryptSSN(biz.ein) : undefined,
+              businessAddress: biz.address || null, businessCity: biz.city || null,
+              businessState: biz.state || null, businessZip: biz.zip || null,
+              source, organizationId: org.id, managedById: staffId, clientGroupId: group.id,
+            },
+          })
+          const { engagementId: bizEngId } = await findOrCreateEngagement(tx, business.id, input.taxYear)
+          await tx.taxCase.create({
+            data: { clientId: business.id, taxYear: input.taxYear, engagementId: bizEngId, taxTypes: ['FORM_1120S'], status: 'INTAKE' },
+          })
+          // Skip conversation for business — individual already has one
+        }
 
         return { individual, indCase }
       })
@@ -267,6 +290,37 @@ formRoute.post(
 
     }
   )
+
+/**
+ * Build a unified list of businesses from either the new `businesses[]`
+ * array (preferred) or the legacy flat `business*` fields.
+ */
+function normalizeBusinesses(input: {
+  businesses?: BusinessInput[]
+  businessName?: string
+  businessType?: BusinessInput['businessType']
+  businessEin?: string
+  businessPhone?: string
+  businessEmail?: string
+  businessAddress?: string
+  businessCity?: string
+  businessState?: string
+  businessZip?: string
+}): BusinessInput[] {
+  if (input.businesses && input.businesses.length > 0) return input.businesses
+  if (!input.businessName) return []
+  return [{
+    name: input.businessName,
+    businessType: input.businessType,
+    ein: input.businessEin,
+    phone: input.businessPhone,
+    email: input.businessEmail,
+    address: input.businessAddress,
+    city: input.businessCity,
+    state: input.businessState,
+    zip: input.businessZip,
+  }]
+}
 
 /** Try sending welcome SMS if auto-send is enabled */
 async function trySendWelcomeSms(

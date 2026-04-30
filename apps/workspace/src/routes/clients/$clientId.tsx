@@ -604,9 +604,10 @@ function ClientDetailPage() {
 
   const tabs: { id: TabType; label: string; icon: typeof User }[] = isBusiness
     ? [
+        // Business entities skip the Agreements tab — NDAs are signed by the
+        // individual owner of the ClientGroup, not the business itself.
         { id: 'overview', label: t('clientOverview.title'), icon: Building2 },
         { id: 'files', label: t('clientDetail.tabFiles'), icon: FolderOpen },
-        agreementsTab,
         { id: 'contractors', label: 'Contractors', icon: UserCircle },
         { id: 'data-entry', label: t('clientDetail.tabDataEntry'), icon: ClipboardList },
         { id: 'shared-docs', label: t('clientDetail.tabSharedDocs'), icon: FileText },
@@ -913,8 +914,9 @@ function ClientDetailPage() {
         />
       )}
 
-      {/* Agreements Tab - NDA send/manage (parameterized shared component) */}
-      {activeTab === 'agreements' && (
+      {/* Agreements Tab - NDA send/manage (parameterized shared component).
+          Hidden for businesses: NDAs are scoped to the individual owner. */}
+      {activeTab === 'agreements' && !isBusiness && (
         <AgreementsTab
           entity={{ type: 'client', id: clientId }}
           recipient={{

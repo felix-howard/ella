@@ -65,16 +65,8 @@ export function useFormPage({ orgSlug, staffSlug }: UseFormPageOptions) {
         taxYear: data.taxYear,
         language: i18n.language.startsWith('vi') ? 'VI' : 'EN',
         staffSlug,
-        // Business fields
-        businessName: data.businessName,
-        businessType: data.businessType,
-        businessEin: data.businessEin,
-        businessPhone: data.businessPhone,
-        businessEmail: data.businessEmail,
-        businessAddress: data.businessAddress,
-        businessCity: data.businessCity,
-        businessState: data.businessState,
-        businessZip: data.businessZip,
+        // Multi-business: API consumes the `businesses` array directly.
+        businesses: data.businesses,
       })
       setSmsSent(result.smsSent)
       setState('success')

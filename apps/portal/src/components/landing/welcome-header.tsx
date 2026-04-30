@@ -14,6 +14,9 @@ interface WelcomeHeaderProps {
 export function WelcomeHeader({ clientName, taxYear }: WelcomeHeaderProps) {
   const { t } = useTranslation()
 
+  // Strip trailing " Group" so greetings read naturally for older clients.
+  const displayName = clientName.replace(/\s+Group\s*$/i, '').trim() || clientName
+
   return (
     <header className="px-6 pt-8 pb-6 text-center">
       {/* Ella Logo */}
@@ -23,7 +26,7 @@ export function WelcomeHeader({ clientName, taxYear }: WelcomeHeaderProps) {
 
       {/* Greeting */}
       <h1 className="text-2xl font-semibold text-foreground">
-        {t('portal.welcome')}, <span className="text-accent">{clientName}</span>!
+        {t('portal.welcome')} <span className="text-accent">{displayName}</span> 👋
       </h1>
 
       {/* Tax Year Badge */}

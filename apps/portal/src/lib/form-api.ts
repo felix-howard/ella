@@ -31,6 +31,18 @@ export interface RegistrationFormData {
   businessName: string
 }
 
+export interface BusinessSubmitInput {
+  name: string
+  businessType?: string
+  ein?: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+}
+
 export interface SubmitFormData {
   clientType: 'INDIVIDUAL' | 'INDIVIDUAL_WITH_BUSINESS' | 'BUSINESS'
   // Individual fields
@@ -41,7 +53,9 @@ export interface SubmitFormData {
   taxYear: number
   language: 'VI' | 'EN'
   staffSlug?: string
-  // Business fields
+  // Multi-business (preferred). When set, takes precedence over the legacy flat fields below.
+  businesses?: BusinessSubmitInput[]
+  // Legacy flat business fields (single business) — kept for backwards compat.
   businessName?: string
   businessType?: string
   businessEin?: string
@@ -59,7 +73,7 @@ export interface SubmitResponse {
   smsSent: boolean
 }
 
-async function safeParseJson(res: Response): Promise<Record<string, string>> {
+async function safeParseJson(res: Response): Promise<Record<string, unknown>> {
   try {
     return await res.json()
   } catch {
@@ -67,12 +81,37 @@ async function safeParseJson(res: Response): Promise<Record<string, string>> {
   }
 }
 
+/**
+ * Pull a human-readable error string out of an arbitrary JSON error body.
+ * Handles strings, Zod-style nested error objects, and `{issues: [...]}` arrays
+ * so the user never sees "[object Object]".
+ */
+function extractErrorMessage(json: Record<string, unknown>, fallback: string): string {
+  // Prefer explicit `message` (our API's friendly string)
+  if (typeof json.message === 'string' && json.message.trim()) return json.message
+
+  const err = json.error
+  if (typeof err === 'string' && err.trim()) return err
+
+  // Hono's default zValidator response shape: { success: false, error: { issues: [...] } }
+  if (err && typeof err === 'object') {
+    const issues = (err as { issues?: Array<{ path?: (string | number)[]; message?: string }> }).issues
+    if (Array.isArray(issues) && issues.length > 0) {
+      const first = issues[0]
+      const field = first.path?.join('.') || 'input'
+      return `${field}: ${first.message || 'Invalid value'}`
+    }
+  }
+
+  return fallback
+}
+
 export const formApi = {
   async getOrgInfo(orgSlug: string): Promise<FormInfoResponse> {
     const res = await fetch(`${API_BASE}/form/${orgSlug}`)
     if (!res.ok) {
       const data = await safeParseJson(res)
-      throw new Error(data.error || 'Organization not found')
+      throw new Error(extractErrorMessage(data, 'Organization not found'))
     }
     return res.json()
   },
@@ -81,7 +120,7 @@ export const formApi = {
     const res = await fetch(`${API_BASE}/form/${orgSlug}/${staffSlug}`)
     if (!res.ok) {
       const data = await safeParseJson(res)
-      throw new Error(data.error || 'Form not found')
+      throw new Error(extractErrorMessage(data, 'Form not found'))
     }
     return res.json()
   },
@@ -115,7 +154,7 @@ export const formApi = {
     const json = await safeParseJson(res)
 
     if (!res.ok) {
-      return { success: false, error: json.message || json.error || 'Registration failed' }
+      return { success: false, error: extractErrorMessage(json, 'Registration failed') }
     }
 
     return json as unknown as { success: boolean; leadId?: string; error?: string }
@@ -130,7 +169,7 @@ export const formApi = {
 
     if (!res.ok) {
       const json = await safeParseJson(res)
-      throw new Error(json.message || json.error || 'Submission failed')
+      throw new Error(extractErrorMessage(json, 'Submission failed'))
     }
 
     return res.json()
@@ -169,7 +208,7 @@ export const formApi = {
     })
     if (!res.ok) {
       const json = await safeParseJson(res)
-      throw new Error(json.message || json.error || 'Submission failed')
+      throw new Error(extractErrorMessage(json, 'Submission failed'))
     }
     return res.json()
   },

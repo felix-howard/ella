@@ -45,6 +45,9 @@ export function EntityPickerPage({
         <h2 className="text-base font-semibold text-foreground">
           {t('portal.entityPicker.heading')}
         </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('portal.entityPicker.helpText')}
+        </p>
       </div>
 
       <div className="px-6 py-4">

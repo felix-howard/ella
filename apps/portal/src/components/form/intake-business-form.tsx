@@ -1,6 +1,9 @@
 /**
  * Business info form for the public intake form.
  * Fields: name, type, EIN, phone, email, address (with Google Places), city, state, zip
+ *
+ * Supports rendering multiple instances on the same page via the `idPrefix` prop
+ * (each instance must use a unique prefix so input ids stay unique).
  */
 import { useTranslation } from 'react-i18next'
 import { AddressAutocomplete } from '../contractor-intake/address-autocomplete'
@@ -42,12 +45,16 @@ interface IntakeBusinessFormProps {
   data: IntakeBusinessData
   onChange: (updates: Partial<IntakeBusinessData>) => void
   phoneRequired?: boolean
+  /** Prefix for input ids — needed when multiple instances render on the same page. */
+  idPrefix?: string
+  /** Hide the section heading — used when the form is rendered inside an accordion that already shows the title. */
+  hideTitle?: boolean
 }
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors'
 
-export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusinessFormProps) {
+export function IntakeBusinessForm({ data, onChange, phoneRequired, idPrefix = 'intake-', hideTitle }: IntakeBusinessFormProps) {
   const { t } = useTranslation()
 
   const formatEin = (value: string) => {
@@ -55,17 +62,19 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
     return digits.length > 2 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : digits
   }
 
+  const id = (suffix: string) => `${idPrefix}biz${suffix}`
+
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-semibold text-primary">{t('form.businessInfo')}</h3>
+      {!hideTitle && <h3 className="text-base font-semibold text-primary">{t('form.businessInfo')}</h3>}
 
       {/* Business Name */}
       <div>
-        <label htmlFor="intake-bizName" className="block text-sm font-medium text-foreground mb-1.5">
+        <label htmlFor={id('Name')} className="block text-sm font-medium text-foreground mb-1.5">
           {t('form.businessName')} <span className="text-destructive">*</span>
         </label>
         <input
-          id="intake-bizName"
+          id={id('Name')}
           type="text"
           value={data.businessName}
           onChange={(e) => onChange({ businessName: e.target.value })}
@@ -79,11 +88,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
       {/* Business Type + EIN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label htmlFor="intake-bizType" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('Type')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.businessType')}
           </label>
           <select
-            id="intake-bizType"
+            id={id('Type')}
             value={data.businessType}
             onChange={(e) => onChange({ businessType: e.target.value })}
             className={inputClass}
@@ -94,11 +103,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
           </select>
         </div>
         <div>
-          <label htmlFor="intake-bizEin" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('Ein')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.ein')}
           </label>
           <input
-            id="intake-bizEin"
+            id={id('Ein')}
             type="text"
             value={data.businessEin}
             onChange={(e) => onChange({ businessEin: formatEin(e.target.value) })}
@@ -112,13 +121,13 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
       {/* Phone + Email */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label htmlFor="intake-bizPhone" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('Phone')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.businessPhone')} {phoneRequired && <span className="text-destructive">*</span>}
           </label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">+1</span>
             <input
-              id="intake-bizPhone"
+              id={id('Phone')}
               type="tel"
               value={data.businessPhone}
               onChange={(e) => onChange({ businessPhone: formatPhoneUS(e.target.value) })}
@@ -129,11 +138,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
           </div>
         </div>
         <div>
-          <label htmlFor="intake-bizEmail" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('Email')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.businessEmail')}
           </label>
           <input
-            id="intake-bizEmail"
+            id={id('Email')}
             type="email"
             value={data.businessEmail}
             onChange={(e) => onChange({ businessEmail: e.target.value })}
@@ -145,11 +154,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
 
       {/* Address with Google Places autocomplete */}
       <div>
-        <label htmlFor="intake-bizAddress" className="block text-sm font-medium text-foreground mb-1.5">
+        <label htmlFor={id('Address')} className="block text-sm font-medium text-foreground mb-1.5">
           {t('form.street')}
         </label>
         <AddressAutocomplete
-          id="intake-bizAddress"
+          id={id('Address')}
           value={data.businessAddress}
           onChange={(value) => onChange({ businessAddress: value })}
           onSelect={(result) => onChange({
@@ -166,11 +175,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
       {/* City, State, ZIP */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label htmlFor="intake-bizCity" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('City')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.city')}
           </label>
           <input
-            id="intake-bizCity"
+            id={id('City')}
             type="text"
             value={data.businessCity}
             onChange={(e) => onChange({ businessCity: e.target.value })}
@@ -179,11 +188,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
           />
         </div>
         <div>
-          <label htmlFor="intake-bizState" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('State')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.state')}
           </label>
           <input
-            id="intake-bizState"
+            id={id('State')}
             type="text"
             value={data.businessState}
             onChange={(e) => onChange({ businessState: e.target.value.toUpperCase().slice(0, 2) })}
@@ -193,11 +202,11 @@ export function IntakeBusinessForm({ data, onChange, phoneRequired }: IntakeBusi
           />
         </div>
         <div>
-          <label htmlFor="intake-bizZip" className="block text-sm font-medium text-foreground mb-1.5">
+          <label htmlFor={id('Zip')} className="block text-sm font-medium text-foreground mb-1.5">
             {t('form.zip')}
           </label>
           <input
-            id="intake-bizZip"
+            id={id('Zip')}
             type="text"
             value={data.businessZip}
             onChange={(e) => onChange({ businessZip: e.target.value })}

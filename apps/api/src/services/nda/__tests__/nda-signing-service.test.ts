@@ -43,6 +43,7 @@ function activeNda(overrides: Record<string, unknown> = {}) {
   return {
     id: 'nda-1',
     leadId: 'lead-1',
+    clientId: null,
     organizationId: 'org-1',
     token: 'tok-abc',
     status: 'SENT',
@@ -54,27 +55,65 @@ function activeNda(overrides: Record<string, unknown> = {}) {
     signedAt: null,
     signedPdfKey: null,
     lead: { id: 'lead-1', firstName: 'Jane', lastName: 'Doe' },
+    client: null,
     organization: { id: 'org-1', name: 'Acme Tax LLC' },
+    signer: { id: 'lead-1', firstName: 'Jane', lastName: 'Doe', kind: 'lead' },
     ...overrides,
   }
+}
+
+function activeClientNda(overrides: Record<string, unknown> = {}) {
+  return activeNda({
+    leadId: null,
+    clientId: 'client-1',
+    lead: null,
+    client: { id: 'client-1', firstName: 'Lan', lastName: 'Nguyen' },
+    signer: { id: 'client-1', firstName: 'Lan', lastName: 'Nguyen', kind: 'client' },
+    ...overrides,
+  })
 }
 
 describe('loadNdaByToken', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('queries by unique token with lead + org includes', async () => {
+  it('queries by unique token with lead + client + org includes', async () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)
     const nda = await loadNdaByToken('tok-abc')
     expect(nda?.id).toBe('nda-1')
+    expect(nda?.signer).toEqual({
+      id: 'lead-1',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      kind: 'lead',
+    })
     const call = mockFindUnique.mock.calls[0][0] as any
     expect(call.where).toEqual({ token: 'tok-abc' })
     expect(call.include.lead).toBeDefined()
+    expect(call.include.client).toBeDefined()
     expect(call.include.organization).toBeDefined()
   })
 
   it('returns null when token is unknown', async () => {
     mockFindUnique.mockResolvedValueOnce(null)
     expect(await loadNdaByToken('bad')).toBeNull()
+  })
+
+  it('builds signer from client when NDA is client-scoped (no lead)', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeClientNda() as any)
+    const nda = await loadNdaByToken('tok-abc')
+    expect(nda?.signer).toEqual({
+      id: 'client-1',
+      firstName: 'Lan',
+      lastName: 'Nguyen',
+      kind: 'client',
+    })
+  })
+
+  it('returns null when both lead and client are detached', async () => {
+    mockFindUnique.mockResolvedValueOnce(
+      activeNda({ leadId: null, lead: null, clientId: null, client: null }) as any,
+    )
+    expect(await loadNdaByToken('tok-abc')).toBeNull()
   })
 })
 
@@ -105,12 +144,20 @@ describe('toPublicView', () => {
     const view = toPublicView(
       activeNda({
         lead: { id: 'lead-1', firstName: 'Jane', lastName: '' },
+        signer: { id: 'lead-1', firstName: 'Jane', lastName: '', kind: 'lead' },
       }) as any,
     )
     const body = JSON.stringify(view.templateSections)
     expect(body).toContain('Jane')
     // Shouldn't contain a stray trailing space-only token
     expect(body).not.toContain('Jane  ')
+  })
+
+  it('renders signer name from client when NDA is client-scoped', () => {
+    const view = toPublicView(activeClientNda() as any)
+    expect(view.leadFirstName).toBe('Lan')
+    const body = JSON.stringify(view.templateSections)
+    expect(body).toContain('Lan Nguyen')
   })
 
   it('exposes templateHtml when customContentHtml is set', () => {
@@ -264,5 +311,17 @@ describe('signNda', () => {
     expect(arg.signature.pngBuffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true)
     expect(arg.lead).toEqual({ firstName: 'Jane', lastName: 'Doe' })
     expect(arg.organization).toEqual({ name: 'Acme Tax LLC' })
+  })
+
+  it('uploads under clients/ prefix when NDA is client-scoped', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeClientNda() as any)
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as any)
+
+    await signNda(baseInput)
+
+    const [pngKey] = mockUpload.mock.calls[0]
+    const [pdfKey] = mockUpload.mock.calls[1]
+    expect(pngKey).toMatch(/^clients\/client-1\/nda\/nda-1-[a-z0-9]{10}-signature\.png$/)
+    expect(pdfKey).toMatch(/^clients\/client-1\/nda\/nda-1-[a-z0-9]{10}-signed\.pdf$/)
   })
 })

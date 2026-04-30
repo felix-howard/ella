@@ -1620,8 +1620,18 @@ clientsRoute.post(
       }
     }
 
+    // Use GROUP scope when client belongs to a multi-entity ClientGroup so the
+    // portal renders the entity picker (individual + linked businesses). Without
+    // this the link is CASE-scoped and the picker is bypassed for clients with
+    // 2+ entities — same bug pattern as the form-submit auto-send link.
     // createMagicLink returns full URL (e.g., https://portal.ellatax.com/upload/tuyet-nguyen-7k3m)
-    const portalUrl = await createMagicLink(targetCaseId, { clientName: smsName })
+    const portalUrl = client.clientGroupId
+      ? await createMagicLink(targetCaseId, {
+          clientName: smsName,
+          scope: 'GROUP',
+          clientGroupId: client.clientGroupId,
+        })
+      : await createMagicLink(targetCaseId, { clientName: smsName })
 
     try {
       const result = await sendWelcomeMessage(

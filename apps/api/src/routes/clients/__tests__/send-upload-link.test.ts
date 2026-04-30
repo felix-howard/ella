@@ -173,7 +173,11 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, { clientName: 'Tuyet Nguyen' })
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_IND, {
+      clientName: 'Tuyet Nguyen',
+      scope: 'GROUP',
+      clientGroupId: 'group_1',
+    })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_IND,
       'Tuyet Nguyen',
@@ -217,7 +221,11 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, { clientName: 'Tuyet Nguyen' })
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
+      clientName: 'Tuyet Nguyen',
+      scope: 'GROUP',
+      clientGroupId: 'group_1',
+    })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_BIZ,
       'Tuyet Nguyen',
@@ -253,7 +261,11 @@ describe('POST /clients/:id/send-upload-link', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, { clientName: 'Landa Nails' })
+    expect(createMagicLink).toHaveBeenCalledWith(CASE_BIZ, {
+      clientName: 'Landa Nails',
+      scope: 'GROUP',
+      clientGroupId: 'group_1',
+    })
     expect(sendWelcomeMessage).toHaveBeenCalledWith(
       CASE_BIZ,
       'Landa Nails',

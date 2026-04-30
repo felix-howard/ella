@@ -53,8 +53,9 @@ export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: Cl
       {/* Quick Stats - 4 cards in responsive grid */}
       <ClientQuickStats clientId={client.id} />
 
-      {/* NDA & Agreement - read-only history transferred from source lead */}
-      <ClientNdaSection client={client} />
+      {/* NDA & Agreement - read-only history transferred from source lead.
+          Business entities skip this — NDAs are scoped to the individual owner. */}
+      {client.clientType !== 'BUSINESS' && <ClientNdaSection client={client} />}
 
       {/* Two column layout: Notes (wider) + Assigned Staff (narrower) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

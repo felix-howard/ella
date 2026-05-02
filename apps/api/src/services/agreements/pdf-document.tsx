@@ -24,6 +24,8 @@ interface NdaPdfDocumentProps {
   /** Pre-built body nodes (custom HTML path). Falls back to template render when absent. */
   bodyNodes?: ReactElement[]
   mode?: NdaPdfMode
+  /** Override the rendered title. When omitted, falls back to `template.title`. */
+  title?: string
 }
 
 export function NdaPdfDocument({
@@ -32,19 +34,21 @@ export function NdaPdfDocument({
   signature,
   bodyNodes,
   mode = 'signed',
+  title,
 }: NdaPdfDocumentProps) {
   const signedAtIso = signature.signedAt.toISOString()
   const isPreview = mode === 'preview'
+  const heading = title?.trim() || template.title
 
   return (
     <Document
-      title={template.title}
+      title={heading}
       author={vars.orgName}
       creationDate={signature.signedAt}
       modificationDate={signature.signedAt}
     >
       <Page size="LETTER" style={s.page} wrap>
-        <Text style={s.title}>{template.title}</Text>
+        <Text style={s.title}>{heading}</Text>
         <Text style={s.subtitle}>
           {vars.orgName} — {vars.date}
         </Text>

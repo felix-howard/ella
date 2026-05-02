@@ -1733,6 +1733,8 @@
   "agreements.type.ENGAGEMENT_LETTER": "Engagement Letter",
   "agreements.type.SERVICE_AGREEMENT": "Service Agreement",
   "agreements.type.CUSTOM": "Custom",
+  "agreements.preview.title": "{{type}} PDF Preview",
+  "agreements.toast.sent": "{{type}} sent",
   "agreements.wizard.step1Title": "Choose agreement type",
   "agreements.wizard.step1Description": "Pick the type of agreement to send.",
   "agreements.wizard.step2Title": "Choose a template",

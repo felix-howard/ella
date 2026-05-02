@@ -106,6 +106,7 @@ clientsAgreementsStaffRoute.post(
       entityId: clientId,
       orgId,
       contentHtml: body.contentHtml,
+      title: body.title,
     })
     return new Response(new Uint8Array(buf), {
       status: 200,

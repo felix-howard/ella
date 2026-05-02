@@ -11,23 +11,37 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, X, Download, RotateCw } from 'lucide-react'
 import { useAgreementPreview } from './use-agreement-mutations'
 import type { EntityRef } from './types'
+import type { AgreementType } from '../../lib/api-client'
 
-interface Props { open: boolean; entity: EntityRef; contentHtml: string; onClose: () => void }
+interface Props {
+  open: boolean
+  entity: EntityRef
+  contentHtml: string
+  /** Agreement type drives the modal heading. Defaults to NDA for legacy callers. */
+  type?: AgreementType
+  /** Title rendered as the PDF heading inside the iframe. Falls back to type label. */
+  title?: string
+  onClose: () => void
+}
 
 const BTN_CLS = 'px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-2'
 
-export function NdaPdfPreviewModal({ open, entity, contentHtml, onClose }: Props) {
+export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onClose }: Props) {
   const { t } = useTranslation()
   const mutation = useAgreementPreview(entity)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const cancelRef = useRef(false)
+
+  const typeLabel = t(`agreements.type.${type ?? 'NDA'}`)
+  const headerTitle = t('agreements.preview.title', { type: typeLabel })
+  const effectiveTitle = title?.trim() || typeLabel
 
   const clearBlob = () => setBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
 
   const startFetch = () => {
     cancelRef.current = false
     clearBlob()
-    mutation.mutate({ contentHtml }, {
+    mutation.mutate({ contentHtml, title: effectiveTitle }, {
       onSuccess: (blob) => { if (!cancelRef.current) setBlobUrl(URL.createObjectURL(blob)) },
     })
   }
@@ -44,7 +58,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, onClose }: Props
     startFetch()
     return () => { cancelRef.current = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, contentHtml])
+  }, [open, contentHtml, effectiveTitle])
 
   useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }, [blobUrl])
 
@@ -70,11 +84,11 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, onClose }: Props
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 id="nda-preview-title" className="text-lg font-semibold text-foreground">
-            {t('nda.preview.title')}
+            {headerTitle}
           </h3>
           <div className="flex items-center gap-2">
             {blobUrl && (
-              <a href={blobUrl} download="nda-preview.pdf" className={BTN_CLS}>
+              <a href={blobUrl} download="agreement-preview.pdf" className={BTN_CLS}>
                 <Download className="w-4 h-4" />
                 {t('nda.preview.download')}
               </a>
@@ -100,7 +114,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, onClose }: Props
             </div>
           )}
           {blobUrl && !mutation.isPending && (
-            <iframe src={blobUrl} title={t('nda.preview.title')} className="w-full h-full border-0" />
+            <iframe src={blobUrl} title={headerTitle} className="w-full h-full border-0" />
           )}
         </div>
       </div>

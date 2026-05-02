@@ -276,6 +276,8 @@ export function Step3ContentEditor({
         open={previewOpen}
         entity={entity}
         contentHtml={effectiveHtml}
+        type={type}
+        title={effectiveTitle}
         onClose={() => setPreviewOpen(false)}
       />
     </div>

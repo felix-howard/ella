@@ -379,7 +379,7 @@ export const api = {
 
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
       // a blob URL. Mirrors `api.leads.agreements.previewPdf` exactly.
-      previewPdf: async (clientId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+      previewPdf: async (clientId: string, body: { contentHtml?: string; title?: string } = {}): Promise<Blob> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const tokenGetter = getAuthToken
         if (tokenGetter) {
@@ -1408,7 +1408,7 @@ export const api = {
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
       // a blob URL. Bypasses the `request<>` helper because the response isn't
       // JSON; mirrors the auth-header logic from `fetchMediaBlob`.
-      previewPdf: async (leadId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
+      previewPdf: async (leadId: string, body: { contentHtml?: string; title?: string } = {}): Promise<Blob> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const tokenGetter = getAuthToken
         if (tokenGetter) {

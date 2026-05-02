@@ -290,16 +290,20 @@ export async function renderPreviewPdf(input: {
   entityId: string
   orgId: string
   contentHtml?: string
+  /** Override the PDF heading. Defaults to template title when omitted. */
+  title?: string
 }): Promise<Buffer> {
   const entity = await loadEntityWithOrg(input)
   const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
   const customContentHtml = sanitized ? sanitized : null
+  const trimmedTitle = input.title?.trim() || null
 
   return generateSignedPdf({
     agreement: {
       templateVersion: currentTemplate.version,
       depositAmount: DEFAULT_DEPOSIT_AMOUNT,
       customContentHtml,
+      title: trimmedTitle,
     },
     lead: { firstName: entity.firstName, lastName: entity.lastName },
     organization: { name: entity.organization.name },

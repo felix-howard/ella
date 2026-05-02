@@ -1730,6 +1730,8 @@
   "agreements.type.ENGAGEMENT_LETTER": "Thư cam kết",
   "agreements.type.SERVICE_AGREEMENT": "Hợp đồng dịch vụ",
   "agreements.type.CUSTOM": "Tùy chỉnh",
+  "agreements.preview.title": "Xem trước PDF — {{type}}",
+  "agreements.toast.sent": "Đã gửi {{type}}",
   "agreements.wizard.step1Title": "Chọn loại thỏa thuận",
   "agreements.wizard.step1Description": "Chọn loại thỏa thuận muốn gửi.",
   "agreements.wizard.step2Title": "Chọn mẫu",

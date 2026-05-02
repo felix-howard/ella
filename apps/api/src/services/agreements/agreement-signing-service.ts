@@ -181,6 +181,7 @@ export async function signAgreement(input: {
       templateVersion: agreement.templateVersion,
       depositAmount: agreement.depositAmount ?? '0.00',
       customContentHtml: agreement.customContentHtml,
+      title: agreement.title,
     },
     lead: { firstName: agreement.signer.firstName, lastName: agreement.signer.lastName },
     organization: { name: agreement.organization.name },

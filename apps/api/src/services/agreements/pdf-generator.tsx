@@ -20,6 +20,8 @@ export interface GenerateSignedPdfInput {
     depositAmount: { toString(): string } | number | string
     /** When set, body renders from sanitized HTML instead of templateVersion. */
     customContentHtml?: string | null
+    /** Override the PDF heading. Defaults to template.title when omitted. */
+    title?: string | null
   }
   lead: {
     firstName: string | null
@@ -84,6 +86,7 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
       signature={signature}
       bodyNodes={bodyNodes}
       mode={input.mode ?? 'signed'}
+      title={input.agreement.title ?? undefined}
     />,
   )
 }

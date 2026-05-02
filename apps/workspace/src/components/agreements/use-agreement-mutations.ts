@@ -19,6 +19,11 @@ import type {
 } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
+/** Look up the user-facing label for an agreement type. */
+function agreementTypeLabel(t: (k: string) => string, type: AgreementType): string {
+  return t(`agreements.type.${type}`)
+}
+
 export const agreementListKey = (entity: EntityRef, type?: AgreementType) =>
   ['nda', entity.type, entity.id, 'list', type ?? 'all'] as const
 
@@ -66,8 +71,9 @@ export function useCreateAgreement(entity: EntityRef) {
   return useMutation({
     mutationFn: (payload: CreateAgreementPayload) =>
       agreementsApi(entity).create(entity.id, payload),
-    onSuccess: () => {
-      toast.success(t('nda.toast.sent'))
+    onSuccess: (_data, payload) => {
+      const typeLabel = agreementTypeLabel(t, payload.type ?? 'NDA')
+      toast.success(t('agreements.toast.sent', { type: typeLabel }))
       invalidate()
     },
     onError: (err: Error) => {
@@ -79,7 +85,7 @@ export function useCreateAgreement(entity: EntityRef) {
 export function useAgreementPreview(entity: EntityRef) {
   const { t } = useTranslation()
   return useMutation({
-    mutationFn: (payload: { contentHtml?: string }) =>
+    mutationFn: (payload: { contentHtml?: string; title?: string }) =>
       agreementsApi(entity).previewPdf(entity.id, payload),
     onError: (err: Error) => {
       toast.error(err.message || t('nda.toast.previewFailed'))

@@ -105,6 +105,7 @@ staffRoute.post(
       entityId: leadId,
       orgId,
       contentHtml: body.contentHtml,
+      title: body.title,
     })
     return new Response(new Uint8Array(buf), {
       status: 200,

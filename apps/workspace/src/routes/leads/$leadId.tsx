@@ -48,7 +48,7 @@ function LeadDetailRoute() {
   if (!lead) {
     return (
       <PageContainer>
-        <div className="max-w-6xl mx-auto w-full animate-pulse">
+        <div className="w-full animate-pulse">
           <div className="h-5 w-32 bg-muted rounded mb-4" />
           <div className="h-24 bg-muted rounded-lg mb-6" />
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">

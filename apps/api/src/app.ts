@@ -39,7 +39,8 @@ import { clientForm1099NecBatchesRoute } from './routes/form-1099-nec/client-for
 import { clientForm1099NecPrepareRoute } from './routes/form-1099-nec/client-form-1099-nec-prepare'
 import { campaignsRoute } from './routes/campaigns'
 import { clientGroupsRoute } from './routes/client-groups'
-import { ndaStaffRoute, ndaPublicRoute } from './routes/nda'
+import { agreementsStaffRoute, agreementsPublicRoute } from './routes/agreements'
+import { agreementTemplatesRoute } from './routes/agreement-templates'
 import { leadMessagesRoute } from './routes/leads/messages'
 
 const app = new OpenAPIHono()
@@ -73,9 +74,10 @@ app.route('/api/inngest', inngestRoute)
 app.route('/auth', authSignupRoute)
 app.route('/form', formRoute)
 app.route('/leads', leadsRoute) // Mixed: POST / is public, rest use inline authMiddleware+requireOrgAdmin
-app.route('/leads', ndaStaffRoute) // NDA staff endpoints: /leads/:leadId/nda/* (inline auth+requireOrgAdmin)
+app.route('/leads', agreementsStaffRoute) // Agreement staff endpoints: /leads/:leadId/agreements/* (inline auth+requireOrgAdmin)
 app.route('/leads', leadMessagesRoute) // Lead messages: /leads/:id/messages* (inline auth+requireOrgAdmin)
-app.route('/public/nda', ndaPublicRoute) // NDA public endpoints: token-based, no auth
+app.route('/public/agreements', agreementsPublicRoute) // Public signing endpoints (token-based, no auth) — canonical path
+app.route('/public/nda', agreementsPublicRoute) // Alias retained for back-compat with existing customer SMS links
 app.route('/contractor-intake', contractorIntakeRoute)
 
 // Protected routes - require authenticated Clerk user + Staff record
@@ -96,6 +98,7 @@ app.use('/org-settings/*', authMiddleware)
 app.use('/shared-docs/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
+app.use('/agreement-templates/*', authMiddleware)
 
 // Routes (with deprecation headers for clientId-based queries)
 app.use('/clients/*', deprecationHeadersMiddleware)
@@ -123,6 +126,7 @@ app.route('/shared-docs', sharedDocsRoute)
 app.route('/terms', termsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 app.route('/client-groups', clientGroupsRoute)
+app.route('/agreement-templates', agreementTemplatesRoute)
 
 // OpenAPI documentation
 app.doc('/doc', {

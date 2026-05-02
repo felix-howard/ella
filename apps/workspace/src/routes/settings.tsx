@@ -4,17 +4,30 @@
  */
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Settings, User, Bell, Link as LinkIcon } from 'lucide-react'
+import { Settings, User, Bell, Link as LinkIcon, FileSignature } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ella/ui'
 import { PageContainer } from '../components/layout'
 import { SettingsGeneralTab } from '../components/settings/settings-general-tab'
 import { SettingsProfileTab } from '../components/settings/settings-profile-tab'
 import { SettingsNotificationsTab } from '../components/settings/settings-notifications-tab'
 import { SettingsFormLinksTab } from '../components/settings/settings-form-links-tab'
+import { SettingsAgreementTemplatesTab } from '../components/settings/settings-agreement-templates-tab'
+import { useOrgRole } from '../hooks/use-org-role'
 
-type SettingsTab = 'general' | 'profile' | 'notifications' | 'form-links'
+type SettingsTab =
+  | 'general'
+  | 'profile'
+  | 'notifications'
+  | 'form-links'
+  | 'agreement-templates'
 
-const VALID_TABS: SettingsTab[] = ['general', 'profile', 'notifications', 'form-links']
+const VALID_TABS: SettingsTab[] = [
+  'general',
+  'profile',
+  'notifications',
+  'form-links',
+  'agreement-templates',
+]
 
 export const Route = createFileRoute('/settings')({
   validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => {
@@ -30,6 +43,7 @@ function SettingsPage() {
   const { t } = useTranslation()
   const { tab } = Route.useSearch()
   const navigate = useNavigate()
+  const { isAdmin } = useOrgRole()
   const activeTab = tab || 'general'
 
   const handleTabChange = (value: string) => {
@@ -63,6 +77,12 @@ function SettingsPage() {
               <LinkIcon className="w-4 h-4" />
               {t('settings.tabFormLinks')}
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="agreement-templates" className="flex items-center gap-2">
+                <FileSignature className="w-4 h-4" />
+                {t('settings.tabAgreementTemplates')}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="general">
@@ -79,6 +99,10 @@ function SettingsPage() {
 
           <TabsContent value="form-links">
             <SettingsFormLinksTab />
+          </TabsContent>
+
+          <TabsContent value="agreement-templates">
+            <SettingsAgreementTemplatesTab />
           </TabsContent>
         </Tabs>
       </div>

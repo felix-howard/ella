@@ -50,17 +50,17 @@ import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
-import { clientsNdaRoute } from './nda'
-import { clientsNdaStaffRoute } from './nda-staff'
+import { clientsAgreementsRoute } from './agreements'
+import { clientsAgreementsStaffRoute } from './agreements-staff'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
 
-// Sub-routes (paths relative to /clients, e.g. /:clientId/nda)
+// Sub-routes (paths relative to /clients, e.g. /:clientId/agreements)
 // Read-only listing first; staff mutations layer requireOrgAdmin internally.
-// Hono dispatches by method+path so the GET listing in `clientsNdaRoute`
+// Hono dispatches by method+path so the GET listing in `clientsAgreementsRoute`
 // and the POST/PATCH mutations here coexist without collision.
-clientsRoute.route('/', clientsNdaRoute)
-clientsRoute.route('/', clientsNdaStaffRoute)
+clientsRoute.route('/', clientsAgreementsRoute)
+clientsRoute.route('/', clientsAgreementsStaffRoute)
 
 /**
  * Compute display name from firstName and lastName

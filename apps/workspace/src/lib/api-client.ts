@@ -340,45 +340,45 @@ export const api = {
         method: 'DELETE',
       }),
 
-    // Client NDA — listing is org-scoped (any staff with client access);
-    // mutations require org-admin. Mirrors `api.leads.nda` shape so the
+    // Client agreements — listing is org-scoped (any staff with client access);
+    // mutations require org-admin. Mirrors `api.leads.agreements` shape so the
     // shared frontend components can target either entity.
-    nda: {
-      list: (clientId: string) =>
-        request<{ success: boolean; data: NdaAgreement[] }>(`/clients/${clientId}/nda`),
+    agreements: {
+      list: (clientId: string, params?: { type?: AgreementType }) =>
+        request<{ success: boolean; data: Agreement[] }>(`/clients/${clientId}/agreements`, { params }),
 
-      create: (clientId: string, body: { contentHtml?: string } = {}) =>
-        request<{ success: boolean; data: NdaAgreement; url: string }>(
-          `/clients/${clientId}/nda`,
+      create: (clientId: string, body: CreateAgreementPayload) =>
+        request<{ success: boolean; data: Agreement; url: string }>(
+          `/clients/${clientId}/agreements`,
           { method: 'POST', body: JSON.stringify(body) },
         ),
 
-      resend: (clientId: string, ndaId: string) =>
-        request<{ success: boolean; data: NdaAgreement; url: string; rotated: boolean }>(
-          `/clients/${clientId}/nda/${ndaId}/resend`,
+      resend: (clientId: string, agreementId: string) =>
+        request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(
+          `/clients/${clientId}/agreements/${agreementId}/resend`,
           { method: 'POST' },
         ),
 
       updateDeposit: (
         clientId: string,
-        ndaId: string,
+        agreementId: string,
         data: { depositStatus: NdaDepositStatus; depositNote?: string | null; depositPaidAt?: string | null },
       ) =>
-        request<{ success: boolean; data: NdaAgreement }>(
-          `/clients/${clientId}/nda/${ndaId}/deposit`,
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/${agreementId}/deposit`,
           { method: 'PATCH', body: JSON.stringify(data) },
         ),
 
-      getPdfUrl: (clientId: string, ndaId: string) =>
-        request<{ success: boolean; url: string }>(`/clients/${clientId}/nda/${ndaId}/pdf`),
+      getPdfUrl: (clientId: string, agreementId: string) =>
+        request<{ success: boolean; url: string }>(`/clients/${clientId}/agreements/${agreementId}/pdf`),
 
       getDefaultHtml: (clientId: string) =>
         request<{ success: boolean; data: { contentHtml: string } }>(
-          `/clients/${clientId}/nda/default-html`,
+          `/clients/${clientId}/agreements/default-html`,
         ),
 
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
-      // a blob URL. Mirrors `api.leads.nda.previewPdf` exactly.
+      // a blob URL. Mirrors `api.leads.agreements.previewPdf` exactly.
       previewPdf: async (clientId: string, body: { contentHtml?: string } = {}): Promise<Blob> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const tokenGetter = getAuthToken
@@ -386,7 +386,7 @@ export const api = {
           const token = await tokenGetter()
           if (token) headers.Authorization = `Bearer ${token}`
         }
-        const response = await fetch(`${API_BASE_URL}/clients/${clientId}/nda/preview-pdf`, {
+        const response = await fetch(`${API_BASE_URL}/clients/${clientId}/agreements/preview-pdf`, {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
@@ -1375,33 +1375,34 @@ export const api = {
     delete: (id: string) =>
       request<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
 
-    nda: {
-      create: (leadId: string, body: { contentHtml?: string } = {}) =>
-        request<{ success: boolean; data: NdaAgreement; url: string }>(`/leads/${leadId}/nda`, {
+    agreements: {
+      create: (leadId: string, body: CreateAgreementPayload) =>
+        request<{ success: boolean; data: Agreement; url: string }>(`/leads/${leadId}/agreements`, {
           method: 'POST',
           body: JSON.stringify(body),
         }),
 
-      list: (leadId: string) =>
-        request<{ success: boolean; data: NdaAgreement[] }>(`/leads/${leadId}/nda`),
+      list: (leadId: string, params?: { type?: AgreementType }) =>
+        request<{ success: boolean; data: Agreement[] }>(`/leads/${leadId}/agreements`, { params }),
 
-      resend: (leadId: string, ndaId: string) =>
-        request<{ success: boolean; data: NdaAgreement; url: string; rotated: boolean }>(`/leads/${leadId}/nda/${ndaId}/resend`, { method: 'POST' }),
+      resend: (leadId: string, agreementId: string) =>
+        request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(`/leads/${leadId}/agreements/${agreementId}/resend`, { method: 'POST' }),
 
       updateDeposit: (
         leadId: string,
-        ndaId: string,
+        agreementId: string,
         data: { depositStatus: NdaDepositStatus; depositNote?: string | null; depositPaidAt?: string | null },
       ) =>
-        request<{ success: boolean; data: NdaAgreement }>(`/leads/${leadId}/nda/${ndaId}/deposit`, { method: 'PATCH', body: JSON.stringify(data) }),
+        request<{ success: boolean; data: Agreement }>(`/leads/${leadId}/agreements/${agreementId}/deposit`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-      getPdfUrl: (leadId: string, ndaId: string) =>
-        request<{ success: boolean; url: string }>(`/leads/${leadId}/nda/${ndaId}/pdf`),
+      getPdfUrl: (leadId: string, agreementId: string) =>
+        request<{ success: boolean; url: string }>(`/leads/${leadId}/agreements/${agreementId}/pdf`),
 
-      // Default HTML used to seed the Tiptap editor.
+      // Default HTML used to seed the Tiptap editor for NDA type. Non-NDA types
+      // should seed from a templateId instead (server will 422 for non-NDA).
       getDefaultHtml: (leadId: string) =>
         request<{ success: boolean; data: { contentHtml: string } }>(
-          `/leads/${leadId}/nda/default-html`,
+          `/leads/${leadId}/agreements/default-html`,
         ),
 
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
@@ -1414,7 +1415,7 @@ export const api = {
           const token = await tokenGetter()
           if (token) headers.Authorization = `Bearer ${token}`
         }
-        const response = await fetch(`${API_BASE_URL}/leads/${leadId}/nda/preview-pdf`, {
+        const response = await fetch(`${API_BASE_URL}/leads/${leadId}/agreements/preview-pdf`, {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
@@ -1474,6 +1475,52 @@ export const api = {
     delete: (id: string) =>
       request<{ success: boolean }>(`/campaigns/${id}`, { method: 'DELETE' }),
   },
+
+  // Org-level agreement templates (admin-only mutations; reads open to staff).
+  // CUSTOM type intentionally excluded from templates — CUSTOM agreements carry
+  // per-send unique content and reject `templateId` server-side.
+  agreementTemplates: {
+    list: (params?: { type?: AgreementTemplateType; includeArchived?: boolean }) =>
+      request<{ success: boolean; data: AgreementTemplate[] }>('/agreement-templates', {
+        params: {
+          ...(params?.type ? { type: params.type } : {}),
+          ...(params?.includeArchived ? { includeArchived: 'true' } : {}),
+        },
+      }),
+
+    get: (id: string) =>
+      request<{ success: boolean; data: AgreementTemplate }>(`/agreement-templates/${id}`),
+
+    create: (data: {
+      name: string
+      type: AgreementTemplateType
+      contentHtml: string
+      defaultDepositAmount?: string | null
+    }) =>
+      request<{ success: boolean; data: AgreementTemplate }>('/agreement-templates', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (
+      id: string,
+      data: { name?: string; contentHtml?: string; defaultDepositAmount?: string | null },
+    ) =>
+      request<{ success: boolean; data: AgreementTemplate }>(`/agreement-templates/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    archive: (id: string) =>
+      request<{ success: boolean; data: AgreementTemplate }>(`/agreement-templates/${id}/archive`, {
+        method: 'POST',
+      }),
+
+    unarchive: (id: string) =>
+      request<{ success: boolean; data: AgreementTemplate }>(`/agreement-templates/${id}/unarchive`, {
+        method: 'POST',
+      }),
+  },
 }
 
 // Type definitions
@@ -1521,15 +1568,30 @@ export interface Lead {
 export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'EXPIRED' | 'VOIDED'
 export type NdaDepositStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FORFEITED'
 
-export interface NdaAgreement {
+/** Aliases retained: NDA was renamed to Agreement (multi-type). */
+export type AgreementStatus = NdaStatus
+export type DepositStatus = NdaDepositStatus
+
+export type AgreementType = 'NDA' | 'ENGAGEMENT_LETTER' | 'SERVICE_AGREEMENT' | 'CUSTOM'
+/** Templates exclude CUSTOM (per-send unique content; rejects templateId). */
+export type AgreementTemplateType = Exclude<AgreementType, 'CUSTOM'>
+
+export interface Agreement {
   id: string
-  // Null after the originating Lead is deleted; clientId still pins the NDA to its Client.
+  type: AgreementType
+  title: string
+  internalNote: string | null
+  // Null after the originating Lead is deleted; clientId still pins the agreement to its Client.
   leadId: string | null
+  clientId: string | null
   organizationId: string
+  templateId: string | null
   templateVersion: string
-  status: NdaStatus
-  depositStatus: NdaDepositStatus
-  depositAmount: string
+  customContentHtml: string | null
+  status: AgreementStatus
+  /** Null when no deposit was attached at send time (non-NDA flows). */
+  depositStatus: DepositStatus | null
+  depositAmount: string | null
   depositPaidAt: string | null
   depositResolvedAt: string | null
   depositNote: string | null
@@ -1547,6 +1609,34 @@ export interface NdaAgreement {
   updatedAt: string
   /** Present on list + create/resend responses. Use this instead of deriving from token client-side. */
   url?: string
+}
+
+/** Legacy alias — use `Agreement`. Some shared components still receive
+ * NDA-typed rows where `depositStatus` is non-null in practice. */
+export type NdaAgreement = Agreement & { depositStatus: DepositStatus }
+
+export interface CreateAgreementPayload {
+  type?: AgreementType
+  title?: string
+  contentHtml?: string
+  templateId?: string
+  /** Pass `null` to explicitly skip deposit; positive decimal string otherwise. */
+  depositAmount?: string | null
+  /** Staff-only context, never shown to recipient. Omit/blank → skipped. */
+  internalNote?: string
+}
+
+export interface AgreementTemplate {
+  id: string
+  type: AgreementTemplateType
+  name: string
+  contentHtml: string
+  defaultDepositAmount: string | null
+  isArchived: boolean
+  organizationId: string
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type CampaignStatus = 'ACTIVE' | 'ARCHIVED'

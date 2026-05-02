@@ -468,7 +468,8 @@ model Staff {
   termsAcceptances     TermsAcceptance[]
   sentSmsLogs          SmsSendLog[]      @relation("SentSmsLogs")
   createdCampaigns     Campaign[]        @relation("CreatedCampaigns")
-  ndaAgreementsCreated NdaAgreement[]    @relation("NdaCreatedBy")
+  agreementsCreated         Agreement[]         @relation("AgreementCreatedBy")
+  agreementTemplatesCreated AgreementTemplate[] @relation("AgreementTemplateCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -539,13 +540,14 @@ model Organization {
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
 
-  staff         Staff[]
-  clients       Client[]
-  clientGroups  ClientGroup[]
-  leads         Lead[]
-  smsSendLogs   SmsSendLog[]
-  campaigns     Campaign[]
-  ndaAgreements NdaAgreement[]
+  staff              Staff[]
+  clients            Client[]
+  clientGroups       ClientGroup[]
+  leads              Lead[]
+  smsSendLogs        SmsSendLog[]
+  campaigns          Campaign[]
+  agreements         Agreement[]
+  agreementTemplates AgreementTemplate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -598,7 +600,7 @@ model Client {
   engagements    TaxEngagement[]
   taxCases       TaxCase[]
   convertedLeads Lead[]          @relation("ConvertedLead")
-  ndaAgreements  NdaAgreement[]
+  agreements     Agreement[]
 
   // Business-type client relations (for clientType = BUSINESS)
   contractors   Contractor[]
@@ -1211,7 +1213,14 @@ enum MagicLinkScope {
   GROUP
 }
 
-enum NdaStatus {
+enum AgreementType {
+  NDA
+  ENGAGEMENT_LETTER
+  SERVICE_AGREEMENT
+  CUSTOM
+}
+
+enum AgreementStatus {
   DRAFT
   SENT
   SIGNED
@@ -1219,7 +1228,7 @@ enum NdaStatus {
   VOIDED
 }
 
-enum NdaDepositStatus {
+enum DepositStatus {
   PENDING
   PAID
   REFUNDED
@@ -1476,7 +1485,7 @@ model Lead {
 
   // Relations
   smsSendLogs   SmsSendLog[]
-  ndaAgreements NdaAgreement[]
+  agreements    Agreement[]
   messages      Message[]
 
   // Staff-side "last read" marker for inbound SMS unread count
@@ -1515,11 +1524,16 @@ model SmsSendLog {
   @@index([twilioSid])
 }
 
-model NdaAgreement {
+model Agreement {
   id String @id @default(cuid())
 
+  // Type + display
+  type         AgreementType @default(NDA)
+  title        String        @db.VarChar(200)
+  internalNote String?       @db.Text
+
   // Tenancy
-  // leadId is nullable + SetNull so NDAs are preserved (linked to clientId) when a converted Lead is deleted.
+  // leadId is nullable + SetNull so agreements are preserved (linked to clientId) when a converted Lead is deleted.
   leadId         String?
   lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
   clientId       String?
@@ -1528,16 +1542,18 @@ model NdaAgreement {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Template snapshot
+  templateId        String?
+  template          AgreementTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   templateVersion   String
-  customContentHtml String? @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
+  customContentHtml String?            @db.Text // Sanitized HTML snapshot per-lead. NULL = render from templateVersion.
 
   // Status
-  status            NdaStatus        @default(DRAFT)
-  depositStatus     NdaDepositStatus @default(PENDING)
-  depositAmount     Decimal          @default(300.00) @db.Decimal(10, 2)
+  status            AgreementStatus @default(DRAFT)
+  depositStatus     DepositStatus?
+  depositAmount     Decimal?        @db.Decimal(10, 2)
   depositPaidAt     DateTime?
   depositResolvedAt DateTime?
-  depositNote       String?          @db.Text
+  depositNote       String?         @db.Text
 
   // Public access token (replaces MagicLink for NDA)
   token      String    @unique
@@ -1557,7 +1573,7 @@ model NdaAgreement {
 
   // Audit
   createdByUserId String
-  createdBy       Staff  @relation("NdaCreatedBy", fields: [createdByUserId], references: [id])
+  createdBy       Staff  @relation("AgreementCreatedBy", fields: [createdByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1568,6 +1584,31 @@ model NdaAgreement {
   @@index([token])
   @@index([status])
   @@index([leadId, status])
+  @@index([organizationId, type])
+  @@index([templateId])
+}
+
+model AgreementTemplate {
+  id   String        @id @default(cuid())
+  type AgreementType
+  name String        @db.VarChar(200)
+
+  contentHtml          String  @db.Text
+  defaultDepositAmount Decimal? @db.Decimal(10, 2)
+  isArchived           Boolean @default(false)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdByUserId String
+  createdBy       Staff  @relation("AgreementTemplateCreatedBy", fields: [createdByUserId], references: [id])
+
+  agreements Agreement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, type, isArchived])
 }
 
 model Campaign {

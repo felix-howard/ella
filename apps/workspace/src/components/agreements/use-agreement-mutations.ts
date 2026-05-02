@@ -93,17 +93,23 @@ export function useAgreementPreview(entity: EntityRef) {
   })
 }
 
-export function useResendAgreement(entity: EntityRef) {
+export function useResendAgreement(entity: EntityRef, fallbackType?: AgreementType) {
   const { t } = useTranslation()
   const invalidate = useInvalidateAgreements(entity)
   return useMutation({
     mutationFn: (agreementId: string) => agreementsApi(entity).resend(entity.id, agreementId),
     onSuccess: (res) => {
-      toast.success(res.rotated ? t('nda.toast.resentRotated') : t('nda.toast.resent'))
+      const typeLabel = agreementTypeLabel(t, res.data.type ?? fallbackType ?? 'NDA')
+      toast.success(
+        res.rotated
+          ? t('agreements.toast.resentRotated', { type: typeLabel })
+          : t('agreements.toast.resent', { type: typeLabel }),
+      )
       invalidate()
     },
     onError: (err: Error) => {
-      toast.error(err.message || t('nda.toast.resendFailed'))
+      const typeLabel = agreementTypeLabel(t, fallbackType ?? 'NDA')
+      toast.error(err.message || t('agreements.toast.resendFailed', { type: typeLabel }))
     },
   })
 }

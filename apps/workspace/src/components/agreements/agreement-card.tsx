@@ -25,7 +25,7 @@ export function NdaCard({ entity, nda }: Props) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const resendMutation = useResendAgreement(entity)
+  const resendMutation = useResendAgreement(entity, nda.type)
 
   const handleCopyLink = () => {
     if (!nda.url) {

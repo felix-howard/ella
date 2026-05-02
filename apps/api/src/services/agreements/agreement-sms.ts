@@ -3,7 +3,9 @@
  * the template can evolve (EN/VI, copy tweaks) without touching CRUD logic.
  *
  * Lead path (sendAgreementInviteSms): persists Message via Message.leadId and
- * records SmsSendLog audit, then broadcasts a realtime event.
+ * records SmsSendLog audit, then broadcasts a realtime event. Both successes
+ * AND failures persist the Message (failures with twilioStatus `ERROR: ...`)
+ * so the chat panel surfaces the attempt — mirrors the client path.
  *
  * Client path (sendAgreementInviteSmsForClient): persists Message via the
  * client's latest TaxCase Conversation (Message.conversationId), so chat
@@ -63,50 +65,35 @@ async function persistAgreementSms(params: {
   error: string | null
   twilioStatus: string
 }): Promise<{ messageId: string | null }> {
-  // Persist to Message (chat history) + SmsSendLog (audit) atomically.
-  // Only create Message when SMS actually succeeded so failed sends don't
-  // pollute the chat panel — failures still land in SmsSendLog for ops.
-  if (params.ok) {
-    const [msg] = await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          leadId: params.leadId,
-          channel: 'SMS',
-          direction: 'OUTBOUND',
-          content: params.message,
-          twilioSid: params.sid,
-          twilioStatus: params.twilioStatus,
-          sentById: params.sentById,
-          templateUsed: AGREEMENT_INVITE_TEMPLATE_NAME,
-        },
-      }),
-      prisma.smsSendLog.create({
-        data: {
-          leadId: params.leadId,
-          organizationId: params.organizationId,
-          sentById: params.sentById,
-          message: params.message,
-          status: 'SENT',
-          twilioSid: params.sid,
-          error: null,
-        },
-      }),
-    ])
-    return { messageId: msg.id }
-  }
-
-  await prisma.smsSendLog.create({
-    data: {
-      leadId: params.leadId,
-      organizationId: params.organizationId,
-      sentById: params.sentById,
-      message: params.message,
-      status: 'FAILED',
-      twilioSid: params.sid,
-      error: params.error,
-    },
-  })
-  return { messageId: null }
+  // Persist to Message (chat history) + SmsSendLog (audit) atomically. Failed
+  // sends ALSO land in Message (twilioStatus `ERROR: ...`) so the chat panel
+  // shows the attempt — message-bubble parses the prefix and renders "Failed".
+  const [msg] = await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        leadId: params.leadId,
+        channel: 'SMS',
+        direction: 'OUTBOUND',
+        content: params.message,
+        twilioSid: params.sid,
+        twilioStatus: params.twilioStatus,
+        sentById: params.sentById,
+        templateUsed: AGREEMENT_INVITE_TEMPLATE_NAME,
+      },
+    }),
+    prisma.smsSendLog.create({
+      data: {
+        leadId: params.leadId,
+        organizationId: params.organizationId,
+        sentById: params.sentById,
+        message: params.message,
+        status: params.ok ? 'SENT' : 'FAILED',
+        twilioSid: params.sid,
+        error: params.ok ? null : params.error,
+      },
+    }),
+  ])
+  return { messageId: msg.id }
 }
 
 /**
@@ -122,12 +109,12 @@ export async function sendAgreementInviteSms(params: {
   title: string
   orgName: string
 }): Promise<void> {
-  if (!isTwilioConfigured()) {
-    console.warn('[Agreement] Twilio not configured; skipping invite SMS')
-    return
-  }
   const message = buildInviteMessage(params.lead, params.url, params.title, params.orgName)
-  const result = await sendSmsOnly(params.lead.phone, message)
+  // sendSmsOnly returns success=false with error='SMS_NOT_CONFIGURED' when
+  // Twilio isn't set up — handled uniformly with other failures below.
+  const result: Awaited<ReturnType<typeof sendSmsOnly>> = isTwilioConfigured()
+    ? await sendSmsOnly(params.lead.phone, message)
+    : { success: false, error: 'SMS_NOT_CONFIGURED' }
   const twilioStatus = result.success
     ? (result.status || 'queued')
     : `ERROR: ${result.error ?? 'unknown'}`
@@ -165,12 +152,10 @@ export async function sendAgreementInviteSmsForClient(params: {
   title: string
   orgName: string
 }): Promise<void> {
-  if (!isTwilioConfigured()) {
-    console.warn('[Agreement] Twilio not configured; skipping invite SMS')
-    return
-  }
   const message = buildInviteMessage(params.client, params.url, params.title, params.orgName)
-  const result = await sendSmsOnly(params.client.phone, message)
+  const result: Awaited<ReturnType<typeof sendSmsOnly>> = isTwilioConfigured()
+    ? await sendSmsOnly(params.client.phone, message)
+    : { success: false, error: 'SMS_NOT_CONFIGURED' }
 
   // Resolve latest TaxCase for this client; fall back to a console warn if
   // there is no case yet (rare — invite is normally sent after case creation).

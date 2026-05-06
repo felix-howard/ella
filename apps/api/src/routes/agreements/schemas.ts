@@ -133,6 +133,11 @@ export const signAgreementBodySchema = z
       })
       .max(800_000),
     agreementChecked: z.literal(true),
+    // v2 NDA: business clients must supply auth-rep + title. Server still
+    // re-enforces against Client.clientType after loading the row, so a
+    // BUSINESS client cannot omit these even if they fake the schema.
+    clientAuthRepName: z.string().min(2).max(120).optional(),
+    clientAuthRepTitle: z.string().min(2).max(80).optional(),
   })
   .strict()
 

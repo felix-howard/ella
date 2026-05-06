@@ -40,7 +40,7 @@ publicRoute.get(
     const { token } = c.req.valid('param')
     const agreement = await loadAgreementByToken(token)
     if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
-    return c.json({ success: true, data: toPublicView(agreement) })
+    return c.json({ success: true, data: await toPublicView(agreement) })
   },
 )
 
@@ -59,6 +59,8 @@ publicRoute.post(
       signaturePngDataUrl: body.signaturePngDataUrl,
       ip: extractIp(c),
       userAgent: extractUserAgent(c),
+      clientAuthRepName: body.clientAuthRepName,
+      clientAuthRepTitle: body.clientAuthRepTitle,
     })
     return c.json({ success: true, data: result })
   },

@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('../../../lib/db', () => ({
   prisma: {
     lead: { findFirst: vi.fn() },
+    staff: { findUnique: vi.fn() },
     agreement: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../../../lib/db', () => ({
 
 vi.mock('../../../services/storage', () => ({
   getSignedDownloadUrl: vi.fn(),
+  copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
 }))
 
 // Mock both new and legacy export names. agreement-create-ops imports
@@ -55,6 +57,7 @@ import { sendAgreementInviteSms } from '../../../services/agreements/agreement-s
 import { staffRoute } from '../staff-handlers'
 
 const mockLeadFindFirst = vi.mocked(prisma.lead.findFirst)
+const mockStaffFindUnique = vi.mocked(prisma.staff.findUnique)
 const mockNdaCreate = vi.mocked(prisma.agreement.create)
 const mockNdaFindFirst = vi.mocked(prisma.agreement.findFirst)
 const mockNdaFindMany = vi.mocked(prisma.agreement.findMany)
@@ -65,12 +68,35 @@ const mockSendSms = vi.mocked(sendAgreementInviteSms)
 const app = new Hono()
 app.route('/leads', staffRoute)
 
+const ORG_V2_FIELDS = {
+  id: 'org-1',
+  name: 'Acme Tax LLC',
+  address: '10700 Richmond Ave',
+  city: 'Houston',
+  state: 'TX',
+  zip: '77042',
+  governingState: 'Texas',
+  governingCounty: 'Harris County',
+}
+
 function lead(overrides: Record<string, unknown> = {}) {
   return {
     id: 'lead-1',
     firstName: 'Jane',
     phone: '+15551234567',
-    organization: { name: 'Acme Tax LLC' },
+    businessName: null,
+    organization: ORG_V2_FIELDS,
+    ...overrides,
+  }
+}
+
+function staffWithSignature(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'staff-1',
+    name: 'Felix Howard',
+    email: 'felix@acme.test',
+    title: 'Managing Partner, CPA',
+    signaturePngKey: 'staff-signatures/staff-1/abc.png',
     ...overrides,
   }
 }
@@ -98,7 +124,10 @@ function nda(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Staff NDA handlers', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockStaffFindUnique.mockResolvedValue(staffWithSignature() as any)
+  })
 
   describe('POST /leads/:leadId/nda', () => {
     async function createReq(body: unknown = {}) {
@@ -190,7 +219,7 @@ describe('Staff NDA handlers', () => {
       }
     }
 
-    it('returns rendered HTML containing template-v1 headings', async () => {
+    it('returns rendered HTML with v2 section headings (currentTemplate is v2)', async () => {
       mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
       const res = await app.request('/leads/lead-1/agreements/default-html')
       const json = await res.json()
@@ -199,8 +228,11 @@ describe('Staff NDA handlers', () => {
       expect(json.success).toBe(true)
       expect(typeof json.data.contentHtml).toBe('string')
       expect(json.data.contentHtml).toMatch(/<h2>/)
-      expect(json.data.contentHtml).toContain('Jane Doe')
-      expect(json.data.contentHtml).toContain('Acme Tax LLC')
+      // v2 template: recipient name is in HeaderBlock PDF component, not HTML body.
+      // Org name is also not interpolated into body sections (it's in the PDF header).
+      // Verify v2-specific section headings are present instead.
+      expect(json.data.contentHtml).toContain('1. Purpose of Agreement')
+      expect(json.data.contentHtml).toContain('20. Client Acknowledgment')
     })
 
     it('returns 404 when lead not in caller org', async () => {

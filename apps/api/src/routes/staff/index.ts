@@ -9,6 +9,8 @@ import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { resolveAvatarUrl } from '../../services/storage'
 import type { AuthVariables } from '../../middleware/auth'
+import { signatureRoute } from './signature'
+import { ndaReadinessRoute } from './nda-readiness'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -164,5 +166,11 @@ staffRoute.patch(
     return c.json(updated)
   }
 )
+
+// Mount signature sub-routes at /staff/me/signature
+staffRoute.route('/me/signature', signatureRoute)
+
+// Mount NDA readiness check at /staff/me/nda-readiness
+staffRoute.route('/me/nda-readiness', ndaReadinessRoute)
 
 export { staffRoute }

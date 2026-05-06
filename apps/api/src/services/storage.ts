@@ -177,6 +177,32 @@ export async function getSignedDownloadUrl(
 }
 
 /**
+ * Server-side copy one R2 object to a new key. Used by NDA signing flow to
+ * snapshot a CPA's stored signature into a per-agreement copy so future
+ * signature edits don't retro-mutate already-sent NDAs.
+ *
+ * Throws on R2 failure so the caller can roll back the surrounding write.
+ * No-op (returns destination key) when R2 isn't configured (dev/test).
+ */
+export async function copyR2Object(input: {
+  from: string
+  to: string
+}): Promise<{ key: string }> {
+  if (!isR2Configured) {
+    console.warn(`[Storage] R2 not configured, skipping copy: ${input.from} -> ${input.to}`)
+    return { key: input.to }
+  }
+  await s3Client.send(
+    new CopyObjectCommand({
+      Bucket: BUCKET_NAME,
+      CopySource: `${BUCKET_NAME}/${input.from}`,
+      Key: input.to,
+    }),
+  )
+  return { key: input.to }
+}
+
+/**
  * Generate a unique key for a file upload
  * Uses timestamp + random suffix to prevent key collision on concurrent uploads
  */

@@ -72,6 +72,25 @@ export interface AgreementTemplateSection {
 
 export type AgreementStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'VOIDED'
 
+export type AgreementClientType = 'INDIVIDUAL' | 'BUSINESS'
+
+export interface AgreementFirmSnapshot {
+  name: string
+  address: string
+  signerName: string
+  signerTitle: string
+  /** Presigned URL for already-drawn firm signature PNG. */
+  signaturePresignedUrl: string | null
+  /** Formatted human date or null when not yet signed. */
+  signedAt: string | null
+}
+
+export interface AgreementClientSnapshot {
+  nameOrBusiness: string
+  address: string
+  clientType: AgreementClientType
+}
+
 export interface AgreementPublicView {
   status: AgreementStatus
   expiresAt: string | null
@@ -84,12 +103,19 @@ export interface AgreementPublicView {
   depositAmount: string | null
   orgName: string
   leadFirstName: string
+  /** v2 only. Null for legacy v1 agreements. */
+  firmSnapshot: AgreementFirmSnapshot | null
+  /** v2 only. Null for legacy v1 agreements. */
+  clientSnapshot: AgreementClientSnapshot | null
 }
 
 export interface AgreementSignPayload {
   signerName: string
   signaturePngDataUrl: string
   agreementChecked: true
+  /** v2 BUSINESS-only. Required when clientSnapshot.clientType === 'BUSINESS'. */
+  clientAuthRepName?: string
+  clientAuthRepTitle?: string
 }
 
 export interface AgreementSignResult {

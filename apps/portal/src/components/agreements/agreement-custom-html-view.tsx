@@ -8,14 +8,24 @@
  */
 import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { sanitizeAgreementHtmlClient } from '../../lib/sanitize-agreement-html'
+import type { AgreementFirmSnapshot, AgreementClientSnapshot } from '../../lib/api-client'
+import { AgreementHeaderBlock } from './agreement-header-block'
 
 interface AgreementCustomHtmlViewProps {
   title: string
   html: string
   onReachBottom: () => void
+  firmSnapshot?: AgreementFirmSnapshot | null
+  clientSnapshot?: AgreementClientSnapshot | null
 }
 
-export function AgreementCustomHtmlView({ title, html, onReachBottom }: AgreementCustomHtmlViewProps) {
+export function AgreementCustomHtmlView({
+  title,
+  html,
+  onReachBottom,
+  firmSnapshot,
+  clientSnapshot,
+}: AgreementCustomHtmlViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const reachedRef = useRef(false)
@@ -63,6 +73,9 @@ export function AgreementCustomHtmlView({ title, html, onReachBottom }: Agreemen
       tabIndex={0}
     >
       <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+      {firmSnapshot && clientSnapshot && (
+        <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
+      )}
       <div
         className="agreement-custom-html-content text-foreground/90"
         dangerouslySetInnerHTML={{ __html: safeHtml }}

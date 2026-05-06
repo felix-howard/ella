@@ -187,12 +187,16 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 title={view.templateTitle}
                 html={view.templateHtml}
                 onReachBottom={handleReachBottom}
+                firmSnapshot={view.firmSnapshot}
+                clientSnapshot={view.clientSnapshot}
               />
             ) : (
               <AgreementTemplateView
                 title={view.templateTitle}
                 sections={view.templateSections}
                 onReachBottom={handleReachBottom}
+                firmSnapshot={view.firmSnapshot}
+                clientSnapshot={view.clientSnapshot}
               />
             )}
             <div className="shrink-0">
@@ -200,6 +204,8 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 canSubmit={reachedBottom}
                 submitting={state === 'submitting'}
                 onSubmit={handleSubmit}
+                firmSnapshot={view.firmSnapshot}
+                clientType={view.clientSnapshot?.clientType ?? null}
               />
             </div>
           </>

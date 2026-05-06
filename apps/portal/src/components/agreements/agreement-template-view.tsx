@@ -5,15 +5,28 @@
  * events on iOS Safari).
  */
 import { useEffect, useRef, useCallback } from 'react'
-import type { AgreementTemplateSection } from '../../lib/api-client'
+import type {
+  AgreementTemplateSection,
+  AgreementFirmSnapshot,
+  AgreementClientSnapshot,
+} from '../../lib/api-client'
+import { AgreementHeaderBlock } from './agreement-header-block'
 
 interface AgreementTemplateViewProps {
   title: string
   sections: AgreementTemplateSection[]
   onReachBottom: () => void
+  firmSnapshot?: AgreementFirmSnapshot | null
+  clientSnapshot?: AgreementClientSnapshot | null
 }
 
-export function AgreementTemplateView({ title, sections, onReachBottom }: AgreementTemplateViewProps) {
+export function AgreementTemplateView({
+  title,
+  sections,
+  onReachBottom,
+  firmSnapshot,
+  clientSnapshot,
+}: AgreementTemplateViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const reachedRef = useRef(false)
@@ -59,6 +72,9 @@ export function AgreementTemplateView({ title, sections, onReachBottom }: Agreem
       tabIndex={0}
     >
       <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+      {firmSnapshot && clientSnapshot && (
+        <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
+      )}
       {sections.map((section, i) => (
         <section key={`sec-${i}`} className="mb-5">
           <h3 className="font-semibold text-foreground mb-2">{section.heading}</h3>

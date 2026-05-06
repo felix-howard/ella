@@ -24,16 +24,32 @@ export interface TemplateVars {
   depositAmount: string
   date: string
   templateVersion: string
+  /** v2: State whose law governs the agreement (e.g. "Texas"). */
+  governingState?: string
+  /** v2: "{County}, {State}" locality string for court jurisdiction. */
+  governingCounty?: string
+  /** v2: Confidentiality duration text (e.g. "five (5)"). */
+  confidentialityYears?: string
 }
 
 export interface TemplateSection {
   heading: string
   paragraphs: string[]
+  /** Optional unordered (bullet) list rendered after paragraphs. */
+  bullets?: string[]
+  /** Optional ordered list rendered after bullets or paragraphs. */
+  ordered?: string[]
+  /** Optional paragraphs rendered after bullets/ordered (list-continuation text). */
+  trailingParagraphs?: string[]
+  /** When true, signals that only a signature-block placeholder should be emitted. */
+  signaturePlaceholder?: boolean
 }
 
 export interface NdaTemplate {
   version: string
   title: string
+  /** Optional subtitle rendered below the title. v1 omits this. */
+  subtitle?: string
   render(vars: TemplateVars): TemplateSection[]
 }
 

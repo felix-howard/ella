@@ -9,6 +9,7 @@
  */
 import type { AgreementType } from '@ella/db'
 import { templateV1 } from './template-v1'
+import { templateV2 } from './template-v2'
 import type { NdaTemplate } from './types'
 
 function buildRegistry(templates: NdaTemplate[]): Record<string, NdaTemplate> {
@@ -22,7 +23,7 @@ function buildRegistry(templates: NdaTemplate[]): Record<string, NdaTemplate> {
   return registry
 }
 
-const REGISTRY = buildRegistry([templateV1])
+const REGISTRY = buildRegistry([templateV1, templateV2])
 
 export function getTemplate(version: string): NdaTemplate {
   const template = REGISTRY[version]
@@ -32,15 +33,17 @@ export function getTemplate(version: string): NdaTemplate {
   return template
 }
 
-/** Current default built-in template (legacy NDA flow). */
-export const currentTemplate: NdaTemplate = templateV1
+/** Current default built-in template. New NDAs are created with v2. */
+export const currentTemplate: NdaTemplate = templateV2
 
 /**
  * Default built-in template per AgreementType.
  *
- * Only NDA ships with a built-in v1 today. Other types REQUIRE either an
- * org-level templateId or a customContentHtml at create time — there is no
- * built-in fallback for them. Returns null when no built-in default exists.
+ * NDA defaults to v2 for new agreements. v1 remains resolvable via
+ * `getTemplate('v1')` for re-rendering existing signed agreements.
+ *
+ * Other types REQUIRE either an org-level templateId or a customContentHtml
+ * at create time — there is no built-in fallback for them.
  *
  * NOTE: non-NDA agreements still record `templateVersion = 'v1'` on the row
  * so `getTemplate()` resolves a structural template for the PDF generator's
@@ -50,5 +53,5 @@ export const currentTemplate: NdaTemplate = templateV1
  * and the recorded version is purely a not-null discipline.
  */
 export function defaultTemplateForType(type: AgreementType): NdaTemplate | null {
-  return type === 'NDA' ? templateV1 : null
+  return type === 'NDA' ? templateV2 : null
 }

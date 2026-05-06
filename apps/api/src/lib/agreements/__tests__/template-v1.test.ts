@@ -88,8 +88,10 @@ describe('NDA template v1', () => {
 })
 
 describe('NDA template registry', () => {
-  it('currentTemplate is templateV1', () => {
-    expect(currentTemplate).toBe(templateV1)
+  it('currentTemplate is templateV2 (v2 is the new default)', () => {
+    // currentTemplate was bumped to v2; v1 is still resolvable for re-render.
+    expect(currentTemplate.version).toBe('v2')
+    expect(currentTemplate).not.toBe(templateV1)
   })
 
   it('getTemplate("v1") returns templateV1', () => {

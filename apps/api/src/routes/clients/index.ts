@@ -32,7 +32,7 @@ import {
   computeIntakeAnswersDiff,
   computeProfileFieldDiff,
 } from '../../services/audit-logger'
-import { createMagicLink } from '../../services/magic-link'
+import { createMagicLink, upgradeActivePortalLinksToGroup } from '../../services/magic-link'
 import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
@@ -2040,6 +2040,21 @@ clientsRoute.post(
           result.bizTaxTypes,
           result.businessClient.profile
         )
+      }
+
+      // Existing clients may already have a CASE-scoped portal URL from when
+      // they were created as solo individuals. After linking a business, keep
+      // that same URL usable by upgrading the individual's active upload links
+      // for this tax year to GROUP scope so the portal renders all entities.
+      const individualCase = await prisma.taxCase.findFirst({
+        where: {
+          clientId,
+          taxYear: body.taxYear,
+        },
+        select: { id: true },
+      })
+      if (individualCase) {
+        await upgradeActivePortalLinksToGroup(individualCase.id, result.group.id)
       }
 
       return c.json(

@@ -17,6 +17,7 @@ vi.mock('../../../lib/db', () => ({
 // Mock services
 vi.mock('../../../services/magic-link', () => ({
   createMagicLink: vi.fn().mockResolvedValue('https://portal.ellatax.com/upload/test-token'),
+  upgradeActivePortalLinksToGroup: vi.fn(),
 }))
 
 vi.mock('../../../services/sms', () => ({

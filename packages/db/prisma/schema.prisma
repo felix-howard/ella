@@ -444,6 +444,11 @@ model Staff {
   deactivatedAt DateTime?
   lastLoginAt   DateTime?
 
+  // NDA signing identity
+  title              String?   // e.g. "Managing Partner, CPA"
+  signaturePngKey    String?   // R2 key: staff-signatures/{staffId}/{nonce}.png
+  signatureUpdatedAt DateTime?
+
   actions               Action[]        @relation("AssignedStaff")
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
@@ -539,6 +544,14 @@ model Organization {
   smsLanguage                  Language @default(VI)
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
+
+  // Firm address + governing law (for NDA header)
+  address         String? // Street address
+  city            String?
+  state           String? // 2-letter code, e.g. "TX"
+  zip             String?
+  governingState  String? // e.g. "Texas"
+  governingCounty String? // e.g. "Harris County"
 
   staff              Staff[]
   clients            Client[]
@@ -1570,6 +1583,17 @@ model Agreement {
   signerUserAgent String?   @db.Text // PII
   signaturePngKey String?
   signedPdfKey    String?
+
+  // Firm signing snapshot (snapshotted at agreement create time — Pattern B)
+  firmSignerName      String?
+  firmSignerTitle     String?
+  firmSignerEmail     String?
+  firmSignaturePngKey String? // copied from Staff.signaturePngKey at send time
+  firmSignedAt        DateTime?
+
+  // Client business representative (populated only when clientType = BUSINESS)
+  clientAuthRepName  String?
+  clientAuthRepTitle String?
 
   // Audit
   createdByUserId String

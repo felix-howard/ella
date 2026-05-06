@@ -5,6 +5,10 @@
  *
  * `requirePhone` is opt-in because read paths (default-html, preview-pdf,
  * list) don't need phone — only SMS-bearing flows (create, resend) do.
+ *
+ * `loadEntityForV2Snapshot` is the v2 NDA variant that also pulls business
+ * address fields (clients only) + the firm's governing-law fields so the
+ * Agreement row can snapshot a self-contained header block.
  */
 import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
@@ -62,4 +66,152 @@ export function formatRecipientName(entity: {
     (p): p is string => !!p && p.trim().length > 0,
   )
   return parts.join(' ').trim() || 'Unnamed Recipient'
+}
+
+// ── v2 NDA snapshot loader ────────────────────────────────────────────────
+
+/** Subset of Organization fields snapshotted into the Agreement header. */
+export interface OrgSnapshotFields {
+  id: string
+  name: string
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  governingState: string | null
+  governingCounty: string | null
+}
+
+/** Client business fields. For BUSINESS clients, `firstName` IS the business
+ *  name (Client model has no separate businessName column — see
+ *  `apps/api/src/routes/clients/index.ts:402`). Lead has its own `businessName`
+ *  scalar; that's exposed via `leadBusinessName` on V2EntitySnapshot. */
+export interface ClientSnapshotFields {
+  clientType: 'INDIVIDUAL' | 'BUSINESS'
+  businessAddress: string | null
+  businessCity: string | null
+  businessState: string | null
+  businessZip: string | null
+}
+
+export interface V2EntitySnapshot extends CanonicalEntity {
+  organization: OrgSnapshotFields
+  /** Lead.businessName when entityType === 'lead', else null (clients keep their
+   *  own business fields under `client`). */
+  leadBusinessName: string | null
+  client: ClientSnapshotFields | null
+}
+
+const ORG_V2_SELECT = {
+  id: true,
+  name: true,
+  address: true,
+  city: true,
+  state: true,
+  zip: true,
+  governingState: true,
+  governingCounty: true,
+} as const
+
+const LEAD_V2_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  businessName: true,
+  organization: { select: ORG_V2_SELECT },
+} as const
+
+const CLIENT_V2_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  clientType: true,
+  businessAddress: true,
+  businessCity: true,
+  businessState: true,
+  businessZip: true,
+  organization: { select: ORG_V2_SELECT },
+} as const
+
+export async function loadEntityForV2Snapshot(input: LoadEntityInput): Promise<V2EntitySnapshot> {
+  const { entityType, entityId, orgId, requirePhone = false } = input
+  const where = { id: entityId, organizationId: orgId }
+
+  if (entityType === 'lead') {
+    const lead = await prisma.lead.findFirst({ where, select: LEAD_V2_SELECT })
+    if (!lead) throw new HTTPException(404, { message: 'Lead not found' })
+    if (requirePhone && !lead.phone?.trim()) {
+      throw new HTTPException(422, { message: 'Phone required' })
+    }
+    return {
+      id: lead.id,
+      firstName: lead.firstName,
+      lastName: lead.lastName,
+      phone: lead.phone,
+      organization: lead.organization!,
+      leadBusinessName: lead.businessName,
+      client: null,
+    }
+  }
+
+  const client = await prisma.client.findFirst({ where, select: CLIENT_V2_SELECT })
+  if (!client) throw new HTTPException(404, { message: 'Client not found' })
+  if (requirePhone && !client.phone?.trim()) {
+    throw new HTTPException(422, { message: 'Phone required' })
+  }
+  return {
+    id: client.id,
+    firstName: client.firstName,
+    lastName: client.lastName,
+    phone: client.phone,
+    organization: client.organization!,
+    leadBusinessName: null,
+    client: {
+      clientType: client.clientType,
+      businessAddress: client.businessAddress,
+      businessCity: client.businessCity,
+      businessState: client.businessState,
+      businessZip: client.businessZip,
+    },
+  }
+}
+
+/** Compose a "Street, City, ST ZIP" address line, dropping empty pieces.
+ *  Returns null when nothing useful is present so callers can render "[Address]"
+ *  fallback without misleading commas. */
+export function composeAddressLine(parts: {
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+}): string | null {
+  const street = parts.address?.trim()
+  const city = parts.city?.trim()
+  const state = parts.state?.trim()
+  const zip = parts.zip?.trim()
+  const cityStateZip = [city, [state, zip].filter(Boolean).join(' ').trim()]
+    .filter((s) => s && s.length > 0)
+    .join(', ')
+  const composed = [street, cityStateZip].filter((s) => s && s.length > 0).join(', ')
+  return composed.length > 0 ? composed : null
+}
+
+/** Resolve "what the client is called in the header / signature block".
+ *  BUSINESS client → firstName (Client uses firstName as the business name —
+ *  see `routes/clients/index.ts:402`). Lead with businessName → businessName.
+ *  Otherwise → "FirstName LastName". */
+export function resolveClientNameOrBusiness(input: {
+  firstName: string | null
+  lastName: string | null
+  client?: { clientType: 'INDIVIDUAL' | 'BUSINESS' } | null
+  leadBusinessName?: string | null
+}): string {
+  const fullName = formatRecipientName({ firstName: input.firstName, lastName: input.lastName })
+  if (input.client?.clientType === 'BUSINESS') {
+    return input.firstName?.trim() || fullName
+  }
+  if (input.leadBusinessName?.trim()) return input.leadBusinessName.trim()
+  return fullName
 }

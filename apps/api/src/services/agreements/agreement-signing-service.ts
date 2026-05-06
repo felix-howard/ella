@@ -15,23 +15,62 @@ import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
 import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { uploadFile, getSignedDownloadUrl } from '../storage'
+import { uploadFile, getSignedDownloadUrl, fetchImageBuffer } from '../storage'
 import { isExpired } from './token-service'
 import { decodeSignaturePng } from '../../routes/agreements/helpers'
 import { generateSignedPdf } from './pdf-generator'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
+import { composeAddressLine, resolveClientNameOrBusiness } from './entity-loader'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
+const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
 const generateAttemptNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
 
 type RawLoadedAgreement = Prisma.AgreementGetPayload<{
   include: {
-    lead: { select: { id: true; firstName: true; lastName: true } }
-    client: { select: { id: true; firstName: true; lastName: true } }
-    organization: { select: { id: true; name: true } }
+    lead: {
+      select: {
+        id: true
+        firstName: true
+        lastName: true
+        businessName: true
+      }
+    }
+    client: {
+      select: {
+        id: true
+        firstName: true
+        lastName: true
+        clientType: true
+        businessAddress: true
+        businessCity: true
+        businessState: true
+        businessZip: true
+      }
+    }
+    organization: {
+      select: {
+        id: true
+        name: true
+        address: true
+        city: true
+        state: true
+        zip: true
+        governingState: true
+        governingCounty: true
+      }
+    }
   }
 }>
+
+function formatHumanDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
 
 // Agreement can be scoped to either a Lead (pre-conversion) or a Client
 // (created directly from the Agreements tab). Both relations are nullable +
@@ -54,9 +93,38 @@ export async function loadAgreementByToken(token: string): Promise<LoadedAgreeme
   const agreement = await prisma.agreement.findUnique({
     where: { token },
     include: {
-      lead: { select: { id: true, firstName: true, lastName: true } },
-      client: { select: { id: true, firstName: true, lastName: true } },
-      organization: { select: { id: true, name: true } },
+      lead: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          businessName: true,
+        },
+      },
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          clientType: true,
+          businessAddress: true,
+          businessCity: true,
+          businessState: true,
+          businessZip: true,
+        },
+      },
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          city: true,
+          state: true,
+          zip: true,
+          governingState: true,
+          governingCounty: true,
+        },
+      },
     },
   })
   if (!agreement) return null
@@ -92,6 +160,25 @@ export async function loadAgreementByToken(token: string): Promise<LoadedAgreeme
 /** Legacy alias retained for transitional callers. */
 export const loadNdaByToken = loadAgreementByToken
 
+/** v2 snapshot fields exposed to the portal so it can render the
+ *  HeaderBlock + Section 21 firm column before the client signs. */
+export interface PublicFirmSnapshot {
+  name: string
+  address: string
+  signerName: string
+  signerTitle: string
+  /** Presigned URL (15-min TTL) for the firm's already-drawn signature PNG. */
+  signaturePresignedUrl: string | null
+  /** Formatted human date (e.g. "May 6, 2026"). */
+  signedAt: string | null
+}
+
+export interface PublicClientSnapshot {
+  nameOrBusiness: string
+  address: string
+  clientType: 'INDIVIDUAL' | 'BUSINESS'
+}
+
 export interface PublicAgreementView {
   status: string
   expiresAt: Date | null
@@ -104,12 +191,16 @@ export interface PublicAgreementView {
   depositAmount: string | null
   orgName: string
   leadFirstName: string
+  /** v2 only. Null for legacy v1 agreements so the portal can branch. */
+  firmSnapshot: PublicFirmSnapshot | null
+  /** v2 only. Null for legacy v1. */
+  clientSnapshot: PublicClientSnapshot | null
 }
 
 /** Legacy alias retained for transitional callers. */
 export type PublicNdaView = PublicAgreementView
 
-export function toPublicView(agreement: LoadedAgreement): PublicAgreementView {
+export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAgreementView> {
   const template = getTemplate(agreement.templateVersion)
   const depositAmount = agreement.depositAmount
     ? `$${agreement.depositAmount.toString()}`
@@ -123,7 +214,60 @@ export function toPublicView(agreement: LoadedAgreement): PublicAgreementView {
     depositAmount: depositAmount ?? '',
     date: agreement.createdAt.toISOString().slice(0, 10),
     templateVersion: agreement.templateVersion,
+    governingState: agreement.organization.governingState ?? undefined,
+    governingCounty: agreement.organization.governingCounty ?? undefined,
+    confidentialityYears: 'five (5)',
   })
+
+  // v2 snapshot: only build when the row carries firm-side data (i.e. NDA v2
+  // sent post-Phase-3). Legacy v1 NDAs return null so the portal renders the
+  // pre-existing flow without a header block.
+  const isV2 = agreement.templateVersion === 'v2' && Boolean(agreement.firmSignaturePngKey)
+
+  let firmSnapshot: PublicFirmSnapshot | null = null
+  let clientSnapshot: PublicClientSnapshot | null = null
+
+  if (isV2) {
+    const firmAddress = composeAddressLine({
+      address: agreement.organization.address,
+      city: agreement.organization.city,
+      state: agreement.organization.state,
+      zip: agreement.organization.zip,
+    })
+    const presignedUrl = agreement.firmSignaturePngKey
+      ? await getSignedDownloadUrl(agreement.firmSignaturePngKey, VIEW_PRESIGN_TTL_SECONDS)
+      : null
+
+    firmSnapshot = {
+      name: agreement.organization.name,
+      address: firmAddress ?? '[Address not provided]',
+      signerName: agreement.firmSignerName ?? '',
+      signerTitle: agreement.firmSignerTitle ?? '',
+      signaturePresignedUrl: presignedUrl,
+      signedAt: agreement.firmSignedAt ? formatHumanDate(agreement.firmSignedAt) : null,
+    }
+
+    const clientType: 'INDIVIDUAL' | 'BUSINESS' = agreement.client?.clientType ?? 'INDIVIDUAL'
+    const clientAddress =
+      composeAddressLine({
+        address: agreement.client?.businessAddress,
+        city: agreement.client?.businessCity,
+        state: agreement.client?.businessState,
+        zip: agreement.client?.businessZip,
+      }) ?? '[Address not provided]'
+
+    clientSnapshot = {
+      nameOrBusiness: resolveClientNameOrBusiness({
+        firstName: agreement.signer.firstName,
+        lastName: agreement.signer.lastName,
+        client: agreement.client ? { clientType: agreement.client.clientType } : null,
+        leadBusinessName: agreement.lead?.businessName ?? null,
+      }),
+      address: clientAddress,
+      clientType,
+    }
+  }
+
   return {
     status: agreement.status,
     expiresAt: agreement.expiresAt,
@@ -139,16 +283,23 @@ export function toPublicView(agreement: LoadedAgreement): PublicAgreementView {
     depositAmount,
     orgName: agreement.organization.name,
     leadFirstName: agreement.signer.firstName,
+    firmSnapshot,
+    clientSnapshot,
   }
 }
 
-export async function signAgreement(input: {
+export interface SignAgreementInput {
   token: string
   signerName: string
   signaturePngDataUrl: string
   ip: string
   userAgent: string
-}) {
+  /** v2 BUSINESS-only. Required when Client.clientType === 'BUSINESS'. */
+  clientAuthRepName?: string
+  clientAuthRepTitle?: string
+}
+
+export async function signAgreement(input: SignAgreementInput) {
   const agreement = await loadAgreementByToken(input.token)
   if (!agreement) throw new HTTPException(404, { message: 'Agreement link not found' })
 
@@ -158,6 +309,24 @@ export async function signAgreement(input: {
   if (isExpired(agreement.expiresAt)) {
     throw new HTTPException(410, { message: 'Agreement link has expired' })
   }
+
+  const isV2 = agreement.templateVersion === 'v2' && Boolean(agreement.firmSignaturePngKey)
+
+  // Server reads clientType from DB, never trusts the payload. INDIVIDUAL
+  // signers cannot supply auth-rep fields (silently dropped); BUSINESS signers
+  // MUST supply both.
+  const dbClientType: 'INDIVIDUAL' | 'BUSINESS' = agreement.client?.clientType ?? 'INDIVIDUAL'
+  const repName = input.clientAuthRepName?.trim() || null
+  const repTitle = input.clientAuthRepTitle?.trim() || null
+  if (dbClientType === 'BUSINESS' && (!repName || !repTitle)) {
+    throw new HTTPException(400, {
+      message: 'Authorized representative name and title are required for business clients',
+    })
+  }
+  // For INDIVIDUAL clients, drop any rep fields the caller may have supplied
+  // — they're not relevant and shouldn't be persisted as noise.
+  const persistRepName = dbClientType === 'BUSINESS' ? repName : null
+  const persistRepTitle = dbClientType === 'BUSINESS' ? repTitle : null
 
   const decoded = decodeSignaturePng(input.signaturePngDataUrl)
   const signedAt = new Date()
@@ -176,6 +345,53 @@ export async function signAgreement(input: {
 
   await uploadFile(signaturePngKey, decoded.buffer, 'image/png')
 
+  // v2: pull firm signature PNG bytes for the dual-signature block + build
+  // header/signature snapshot inputs. Legacy v1 falls through with no extras.
+  let firmSnapshot: Parameters<typeof generateSignedPdf>[0]['firmSnapshot']
+  let clientSnapshot: Parameters<typeof generateSignedPdf>[0]['clientSnapshot']
+  if (isV2) {
+    const firmFetched = agreement.firmSignaturePngKey
+      ? await fetchImageBuffer(agreement.firmSignaturePngKey)
+      : null
+    const firmAddressLine = composeAddressLine({
+      address: agreement.organization.address,
+      city: agreement.organization.city,
+      state: agreement.organization.state,
+      zip: agreement.organization.zip,
+    })
+    const clientAddressLine =
+      composeAddressLine({
+        address: agreement.client?.businessAddress,
+        city: agreement.client?.businessCity,
+        state: agreement.client?.businessState,
+        zip: agreement.client?.businessZip,
+      }) ?? '[Address not provided]'
+
+    firmSnapshot = {
+      name: agreement.organization.name,
+      address: firmAddressLine ?? '[Address not provided]',
+      signerName: agreement.firmSignerName ?? '',
+      signerTitle: agreement.firmSignerTitle ?? '',
+      signaturePngBuffer: firmFetched?.buffer,
+      signedAt: agreement.firmSignedAt ? formatHumanDate(agreement.firmSignedAt) : undefined,
+    }
+
+    clientSnapshot = {
+      nameOrBusiness: resolveClientNameOrBusiness({
+        firstName: agreement.signer.firstName,
+        lastName: agreement.signer.lastName,
+        client: agreement.client ? { clientType: agreement.client.clientType } : null,
+        leadBusinessName: agreement.lead?.businessName ?? null,
+      }),
+      address: clientAddressLine,
+      clientType: dbClientType,
+      authRepName: persistRepName ?? undefined,
+      authRepTitle: persistRepTitle ?? undefined,
+      signaturePngBuffer: decoded.buffer,
+      signedAt: formatHumanDate(signedAt),
+    }
+  }
+
   const pdfBuffer = await generateSignedPdf({
     agreement: {
       templateVersion: agreement.templateVersion,
@@ -184,7 +400,11 @@ export async function signAgreement(input: {
       title: agreement.title,
     },
     lead: { firstName: agreement.signer.firstName, lastName: agreement.signer.lastName },
-    organization: { name: agreement.organization.name },
+    organization: {
+      name: agreement.organization.name,
+      governingState: agreement.organization.governingState,
+      governingCounty: agreement.organization.governingCounty,
+    },
     signature: {
       pngBuffer: decoded.buffer,
       typedName: input.signerName,
@@ -192,6 +412,8 @@ export async function signAgreement(input: {
       userAgent: input.userAgent,
       signedAt,
     },
+    firmSnapshot,
+    clientSnapshot,
   })
 
   await uploadFile(signedPdfKey, pdfBuffer, 'application/pdf')
@@ -206,6 +428,8 @@ export async function signAgreement(input: {
       signerUserAgent: input.userAgent,
       signaturePngKey,
       signedPdfKey,
+      clientAuthRepName: persistRepName,
+      clientAuthRepTitle: persistRepTitle,
       isActive: false,
       lastUsedAt: signedAt,
       usageCount: { increment: 1 },

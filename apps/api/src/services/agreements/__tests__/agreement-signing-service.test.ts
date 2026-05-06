@@ -118,8 +118,8 @@ describe('loadNdaByToken', () => {
 })
 
 describe('toPublicView', () => {
-  it('renders template sections with full name + org + deposit', () => {
-    const view = toPublicView(activeNda() as any)
+  it('renders template sections with full name + org + deposit', async () => {
+    const view = await toPublicView(activeNda() as any)
     expect(view.status).toBe('SENT')
     expect(view.expired).toBe(false)
     expect(view.orgName).toBe('Acme Tax LLC')
@@ -131,17 +131,20 @@ describe('toPublicView', () => {
     const body = JSON.stringify(view.templateSections)
     expect(body).toContain('Jane Doe')
     expect(body).toContain('Acme Tax LLC')
+    // v1 agreements: no firm/client snapshot returned.
+    expect(view.firmSnapshot).toBeNull()
+    expect(view.clientSnapshot).toBeNull()
   })
 
-  it('flags expired=true when expiresAt is in the past', () => {
-    const view = toPublicView(
+  it('flags expired=true when expiresAt is in the past', async () => {
+    const view = await toPublicView(
       activeNda({ expiresAt: new Date('2020-01-01T00:00:00Z') }) as any,
     )
     expect(view.expired).toBe(true)
   })
 
-  it('handles missing last name gracefully', () => {
-    const view = toPublicView(
+  it('handles missing last name gracefully', async () => {
+    const view = await toPublicView(
       activeNda({
         lead: { id: 'lead-1', firstName: 'Jane', lastName: '' },
         signer: { id: 'lead-1', firstName: 'Jane', lastName: '', kind: 'lead' },
@@ -153,15 +156,15 @@ describe('toPublicView', () => {
     expect(body).not.toContain('Jane  ')
   })
 
-  it('renders signer name from client when NDA is client-scoped', () => {
-    const view = toPublicView(activeClientNda() as any)
+  it('renders signer name from client when NDA is client-scoped', async () => {
+    const view = await toPublicView(activeClientNda() as any)
     expect(view.leadFirstName).toBe('Lan')
     const body = JSON.stringify(view.templateSections)
     expect(body).toContain('Lan Nguyen')
   })
 
-  it('exposes templateHtml when customContentHtml is set', () => {
-    const view = toPublicView(
+  it('exposes templateHtml when customContentHtml is set', async () => {
+    const view = await toPublicView(
       activeNda({ customContentHtml: '<p>Custom NDA content</p>' }) as any,
     )
     expect(view.templateHtml).toBe('<p>Custom NDA content</p>')
@@ -169,20 +172,52 @@ describe('toPublicView', () => {
     expect(view.templateSections.length).toBeGreaterThan(0)
   })
 
-  it('returns templateHtml=null when customContentHtml is null', () => {
-    const view = toPublicView(activeNda({ customContentHtml: null }) as any)
+  it('returns templateHtml=null when customContentHtml is null', async () => {
+    const view = await toPublicView(activeNda({ customContentHtml: null }) as any)
     expect(view.templateHtml).toBeNull()
     expect(view.templateSections.length).toBeGreaterThan(0)
   })
 
-  it('coerces empty-string customContentHtml to null (legacy render branch)', () => {
-    const view = toPublicView(activeNda({ customContentHtml: '' }) as any)
+  it('coerces empty-string customContentHtml to null (legacy render branch)', async () => {
+    const view = await toPublicView(activeNda({ customContentHtml: '' }) as any)
     expect(view.templateHtml).toBeNull()
   })
 
-  it('coerces undefined customContentHtml to null', () => {
-    const view = toPublicView(activeNda({ customContentHtml: undefined }) as any)
+  it('coerces undefined customContentHtml to null', async () => {
+    const view = await toPublicView(activeNda({ customContentHtml: undefined }) as any)
     expect(view.templateHtml).toBeNull()
+  })
+
+  it('builds firmSnapshot + clientSnapshot for v2 agreements with firm signature', async () => {
+    mockGetSigned.mockResolvedValueOnce('https://r2.test/firm-sig.png')
+    const view = await toPublicView(
+      activeNda({
+        templateVersion: 'v2',
+        firmSignaturePngKey: 'agreement-firm-sigs/staff-1/abc.png',
+        firmSignerName: 'Felix Howard',
+        firmSignerTitle: 'Managing Partner, CPA',
+        firmSignedAt: new Date('2026-05-06T17:00:00Z'),
+        organization: {
+          id: 'org-1',
+          name: 'Acme Tax LLC',
+          address: '10700 Richmond Ave Ste 117',
+          city: 'Houston',
+          state: 'TX',
+          zip: '77042',
+          governingState: 'Texas',
+          governingCounty: 'Harris County',
+        },
+        client: null,
+        lead: { id: 'lead-1', firstName: 'Jane', lastName: 'Doe', businessName: null },
+      }) as any,
+    )
+    expect(view.firmSnapshot).not.toBeNull()
+    expect(view.firmSnapshot?.name).toBe('Acme Tax LLC')
+    expect(view.firmSnapshot?.address).toContain('Houston')
+    expect(view.firmSnapshot?.signerTitle).toBe('Managing Partner, CPA')
+    expect(view.firmSnapshot?.signaturePresignedUrl).toBe('https://r2.test/firm-sig.png')
+    expect(view.clientSnapshot?.clientType).toBe('INDIVIDUAL')
+    expect(view.clientSnapshot?.nameOrBusiness).toBe('Jane Doe')
   })
 })
 

@@ -14,6 +14,7 @@ vi.mock('../../../lib/db', () => ({
   prisma: {
     lead: { findFirst: vi.fn() },
     client: { findFirst: vi.fn() },
+    staff: { findUnique: vi.fn() },
     agreement: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -27,6 +28,10 @@ vi.mock('../../../lib/db', () => ({
 vi.mock('../agreement-sms', () => ({
   sendAgreementInviteSms: vi.fn().mockResolvedValue(undefined),
   sendAgreementInviteSmsForClient: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../../storage', () => ({
+  copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
 }))
 
 import type * as TokenServiceModule from '../token-service'
@@ -43,9 +48,21 @@ import { prisma } from '../../../lib/db'
 import { createAgreementForEntity } from '../agreement-create-ops'
 
 const mockLeadFindFirst = vi.mocked(prisma.lead.findFirst)
+const mockStaffFindUnique = vi.mocked(prisma.staff.findUnique)
 const mockAgreementCreate = vi.mocked(prisma.agreement.create)
 const mockAgreementFindFirst = vi.mocked(prisma.agreement.findFirst)
 const mockTemplateFindFirst = vi.mocked(prisma.agreementTemplate.findFirst)
+
+const ORG_V2_FIELDS = {
+  id: 'org-1',
+  name: 'Acme Tax LLC',
+  address: '10700 Richmond Ave',
+  city: 'Houston',
+  state: 'TX',
+  zip: '77042',
+  governingState: 'Texas',
+  governingCounty: 'Harris County',
+}
 
 function leadWithOrg(overrides: Record<string, unknown> = {}) {
   return {
@@ -53,7 +70,19 @@ function leadWithOrg(overrides: Record<string, unknown> = {}) {
     firstName: 'Jane',
     lastName: 'Doe',
     phone: '+15551234567',
-    organization: { name: 'Acme Tax LLC' },
+    businessName: null,
+    organization: ORG_V2_FIELDS,
+    ...overrides,
+  }
+}
+
+function staffWithSignature(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'staff-1',
+    name: 'Felix Howard',
+    email: 'felix@acme.test',
+    title: 'Managing Partner, CPA',
+    signaturePngKey: 'staff-signatures/staff-1/abc.png',
     ...overrides,
   }
 }
@@ -95,6 +124,7 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAgreementFindFirst.mockResolvedValue(null) // gate: no active NDA
+    mockStaffFindUnique.mockResolvedValue(staffWithSignature() as any)
   })
 
   describe('NDA (default type)', () => {
@@ -111,8 +141,8 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
 
       const created = (mockAgreementCreate.mock.calls[0][0] as any).data
       expect(created.type).toBe('NDA')
-      expect(created.title).toBe('Non-Disclosure Agreement')
-      expect(created.templateVersion).toBe('v1')
+      // Title comes from currentTemplate (v2) which has an updated title
+      expect(created.templateVersion).toBe('v2')
       // Built-in default → no customContentHtml stored.
       expect(created.customContentHtml).toBeNull()
       expect(created.templateId).toBeNull()

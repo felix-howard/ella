@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('../../../lib/db', () => ({
   prisma: {
     lead: { findFirst: vi.fn() },
+    staff: { findUnique: vi.fn() },
     agreement: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../../../lib/db', () => ({
 
 vi.mock('../../storage', () => ({
   getSignedDownloadUrl: vi.fn(),
+  copyR2Object: vi.fn().mockResolvedValue({ key: 'copied' }),
 }))
 
 // Wrap the shared mock in vi.hoisted so it's available when vi.mock runs.
@@ -56,6 +58,7 @@ import {
 } from '../agreement-service'
 
 const mockLeadFindFirst = vi.mocked(prisma.lead.findFirst)
+const mockStaffFindUnique = vi.mocked(prisma.staff.findUnique)
 const mockNdaCreate = vi.mocked(prisma.agreement.create)
 const mockNdaFindFirst = vi.mocked(prisma.agreement.findFirst)
 const mockNdaFindMany = vi.mocked(prisma.agreement.findMany)
@@ -67,10 +70,33 @@ function lead(overrides: Record<string, unknown> = {}) {
   return { id: 'lead-1', firstName: 'Jane', phone: '+15551234567', ...overrides }
 }
 
+const ORG_V2_FIELDS = {
+  id: 'org-1',
+  name: 'Acme Tax LLC',
+  address: '10700 Richmond Ave',
+  city: 'Houston',
+  state: 'TX',
+  zip: '77042',
+  governingState: 'Texas',
+  governingCounty: 'Harris County',
+}
+
 /** lead() shape augmented with the organization relation that
- *  loadEntityWithOrg expects from prisma.lead.findFirst. */
+ *  loadEntityWithOrg/loadEntityForV2Snapshot expect from prisma.lead.findFirst.
+ *  Includes full v2 firm/governing fields so NDA paths pass setup-validation. */
 function leadWithOrg(overrides: Record<string, unknown> = {}) {
-  return { ...lead(), organization: { name: 'Acme Tax LLC' }, ...overrides }
+  return { ...lead(), businessName: null, organization: ORG_V2_FIELDS, ...overrides }
+}
+
+function staffWithSignature(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'staff-1',
+    name: 'Felix Howard',
+    email: 'felix@acme.test',
+    title: 'Managing Partner, CPA',
+    signaturePngKey: 'staff-signatures/staff-1/abc.png',
+    ...overrides,
+  }
 }
 
 function nda(overrides: Record<string, unknown> = {}) {
@@ -98,6 +124,7 @@ function nda(overrides: Record<string, unknown> = {}) {
 describe('NDA service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockStaffFindUnique.mockResolvedValue(staffWithSignature() as any)
   })
 
   describe('createNdaForLead', () => {
@@ -113,7 +140,7 @@ describe('NDA service', () => {
         leadId: 'lead-1',
         organizationId: 'org-1',
         createdByUserId: 'staff-1',
-        templateVersion: 'v1',
+        templateVersion: 'v2', // currentTemplate bumped to v2
         status: 'SENT',
         token: 'tok_fixed_28_char_aaaaaaaaaa',
         isActive: true,

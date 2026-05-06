@@ -16,6 +16,7 @@
  *  - depositAmount null → no deposit fields set; row carries no deposit lifecycle
  */
 import type { Prisma, AgreementType } from '@ella/db'
+import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
 import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
@@ -27,9 +28,13 @@ import {
 import { generateAgreementToken, expiryDate } from './token-service'
 import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
 import { generateSignedPdf } from './pdf-generator'
+import { copyR2Object } from '../storage'
 import {
   loadEntityWithOrg,
+  loadEntityForV2Snapshot,
   formatRecipientName,
+  composeAddressLine,
+  resolveClientNameOrBusiness,
   type EntityType,
 } from './entity-loader'
 import {
@@ -46,6 +51,8 @@ const PREVIEW_PLACEHOLDER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
 )
+
+const generateFirmSigNonce = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 10)
 
 interface CreateAgreementInput {
   entityType: EntityType
@@ -189,16 +196,87 @@ async function assertNoActiveNdaEngagement(input: {
   throw new HTTPException(409, { message: reason })
 }
 
+/**
+ * Snapshot the CPA's stored signature into a per-agreement R2 copy.
+ * Pattern B: store a *copy*, not a reference, so future signature edits don't
+ * retro-mutate already-sent NDAs. R2 key is generated up-front so callers can
+ * persist it on the row before the actual server-side copy runs (we copy
+ * pre-insert; if insert fails the orphan is swept by R2 lifecycle rules).
+ *
+ * Returns the snapshot fields ready to splat onto Agreement.create.data.
+ * Throws 422 when the firm/CPA setup is incomplete — Phase 4 wires the UI
+ * pre-flight; this is the server-side last line of defense.
+ */
+async function snapshotFirmSide(input: {
+  staffId: string
+  orgGoverningOk: boolean
+  orgAddressOk: boolean
+}): Promise<{
+  firmSignerName: string
+  firmSignerTitle: string
+  firmSignerEmail: string
+  firmSignaturePngKey: string
+  firmSignedAt: Date
+}> {
+  const staff = await prisma.staff.findUnique({
+    where: { id: input.staffId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      title: true,
+      signaturePngKey: true,
+    },
+  })
+  if (!staff) {
+    throw new HTTPException(404, { message: 'Staff record not found' })
+  }
+  const missing: string[] = []
+  if (!staff.title?.trim()) missing.push('CPA profile title')
+  if (!staff.signaturePngKey) missing.push('CPA signature')
+  if (!input.orgAddressOk) missing.push('firm address')
+  if (!input.orgGoverningOk) missing.push('governing law')
+  if (missing.length > 0) {
+    throw new HTTPException(422, {
+      message: `NDA cannot be sent: missing ${missing.join(', ')}. Complete Settings → Profile + Settings → General first.`,
+    })
+  }
+
+  // Generate unique destination key. Done before copy so any failure leaves
+  // no DB row pointing at a half-written object.
+  const firmSigKey = `agreement-firm-sigs/${staff.id}/${generateFirmSigNonce()}.png`
+  await copyR2Object({ from: staff.signaturePngKey!, to: firmSigKey })
+
+  return {
+    firmSignerName: staff.name,
+    firmSignerTitle: staff.title!.trim(),
+    firmSignerEmail: staff.email,
+    firmSignaturePngKey: firmSigKey,
+    firmSignedAt: new Date(),
+  }
+}
+
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
   const title = input.title?.trim() || DEFAULT_TITLES[type]
 
-  const entity = await loadEntityWithOrg({
-    entityType: input.entityType,
-    entityId: input.entityId,
-    orgId: input.orgId,
-    requirePhone: true,
-  })
+  // NDAs use the v2 snapshot loader (firm + governing law + business client
+  // fields). Other types use the legacy narrow loader since they don't render
+  // a header/signature block.
+  const entity =
+    type === 'NDA'
+      ? await loadEntityForV2Snapshot({
+          entityType: input.entityType,
+          entityId: input.entityId,
+          orgId: input.orgId,
+          requirePhone: true,
+        })
+      : await loadEntityWithOrg({
+          entityType: input.entityType,
+          entityId: input.entityId,
+          orgId: input.orgId,
+          requirePhone: true,
+        })
 
   // Active-engagement gate is NDA-only. Other types are parallel-sendable.
   if (type === 'NDA') {
@@ -220,6 +298,25 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
 
   const trimmedNote = input.internalNote?.trim() || null
 
+  // Firm-side snapshot: NDA-only. Pre-validates org + staff are set up, then
+  // copies the staff signature into a per-agreement R2 object.
+  let firmSnapshot: Awaited<ReturnType<typeof snapshotFirmSide>> | null = null
+  if (type === 'NDA') {
+    const v2 = entity as Awaited<ReturnType<typeof loadEntityForV2Snapshot>>
+    firmSnapshot = await snapshotFirmSide({
+      staffId: input.staffId,
+      orgAddressOk: Boolean(
+        v2.organization.address?.trim() &&
+          v2.organization.city?.trim() &&
+          v2.organization.state?.trim() &&
+          v2.organization.zip?.trim(),
+      ),
+      orgGoverningOk: Boolean(
+        v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim(),
+      ),
+    })
+  }
+
   const token = generateAgreementToken()
   const agreement = await prisma.agreement.create({
     data: {
@@ -238,6 +335,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
       isActive: true,
       depositAmount: deposit.depositAmount,
       depositStatus: deposit.depositStatus,
+      ...(firmSnapshot ?? {}),
     },
   })
 
@@ -293,10 +391,35 @@ export async function renderPreviewPdf(input: {
   /** Override the PDF heading. Defaults to template title when omitted. */
   title?: string
 }): Promise<Buffer> {
-  const entity = await loadEntityWithOrg(input)
+  // v2 NDA preview: load full snapshot so header shows real firm + client
+  // address. Signatures stay as placeholders (mode='preview' suppresses them).
+  const v2Entity = await loadEntityForV2Snapshot(input)
   const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
   const customContentHtml = sanitized ? sanitized : null
   const trimmedTitle = input.title?.trim() || null
+
+  const firmAddress = composeAddressLine({
+    address: v2Entity.organization.address,
+    city: v2Entity.organization.city,
+    state: v2Entity.organization.state,
+    zip: v2Entity.organization.zip,
+  })
+
+  const clientAddress = v2Entity.client
+    ? composeAddressLine({
+        address: v2Entity.client.businessAddress,
+        city: v2Entity.client.businessCity,
+        state: v2Entity.client.businessState,
+        zip: v2Entity.client.businessZip,
+      })
+    : null
+
+  const clientNameOrBusiness = resolveClientNameOrBusiness({
+    firstName: v2Entity.firstName,
+    lastName: v2Entity.lastName,
+    client: v2Entity.client,
+    leadBusinessName: v2Entity.leadBusinessName,
+  })
 
   return generateSignedPdf({
     agreement: {
@@ -305,8 +428,12 @@ export async function renderPreviewPdf(input: {
       customContentHtml,
       title: trimmedTitle,
     },
-    lead: { firstName: entity.firstName, lastName: entity.lastName },
-    organization: { name: entity.organization.name },
+    lead: { firstName: v2Entity.firstName, lastName: v2Entity.lastName },
+    organization: {
+      name: v2Entity.organization.name,
+      governingState: v2Entity.organization.governingState,
+      governingCounty: v2Entity.organization.governingCounty,
+    },
     signature: {
       pngBuffer: PREVIEW_PLACEHOLDER_PNG,
       typedName: 'PREVIEW',
@@ -315,5 +442,19 @@ export async function renderPreviewPdf(input: {
       signedAt: new Date(),
     },
     mode: 'preview',
+    firmSnapshot: firmAddress
+      ? {
+          name: v2Entity.organization.name,
+          address: firmAddress,
+          // Signer fields stay empty — preview mode renders placeholders.
+          signerName: '',
+          signerTitle: '',
+        }
+      : undefined,
+    clientSnapshot: {
+      nameOrBusiness: clientNameOrBusiness,
+      address: clientAddress ?? '[Address]',
+      clientType: v2Entity.client?.clientType ?? 'INDIVIDUAL',
+    },
   })
 }

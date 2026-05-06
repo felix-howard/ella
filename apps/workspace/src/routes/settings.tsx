@@ -2,6 +2,7 @@
  * Settings Page - Tabbed layout with General, Profile, Notifications, and Form Links
  * Uses URL search params for tab state so tabs are bookmarkable
  */
+import { useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Settings, User, Bell, Link as LinkIcon, FileSignature } from 'lucide-react'
@@ -29,11 +30,17 @@ const VALID_TABS: SettingsTab[] = [
   'agreement-templates',
 ]
 
+/** Section ids that the NDA wizard's "Set up" deep links target. */
+const VALID_FOCUS = ['signature', 'title', 'firm-info'] as const
+type SettingsFocus = (typeof VALID_FOCUS)[number]
+
 export const Route = createFileRoute('/settings')({
-  validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab } => {
+  validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab; focus?: SettingsFocus } => {
     const tab = search.tab as string
+    const focus = search.focus as string
     return {
       tab: VALID_TABS.includes(tab as SettingsTab) ? (tab as SettingsTab) : undefined,
+      focus: VALID_FOCUS.includes(focus as SettingsFocus) ? (focus as SettingsFocus) : undefined,
     }
   },
   component: SettingsPage,
@@ -41,7 +48,7 @@ export const Route = createFileRoute('/settings')({
 
 function SettingsPage() {
   const { t } = useTranslation()
-  const { tab } = Route.useSearch()
+  const { tab, focus } = Route.useSearch()
   const navigate = useNavigate()
   const { isAdmin } = useOrgRole()
   const activeTab = tab || 'general'
@@ -53,6 +60,24 @@ function SettingsPage() {
       replace: true,
     })
   }
+
+  // Scroll the focused section into view + apply a brief highlight pulse so
+  // CPAs landing here from the NDA setup card can find what they need.
+  useEffect(() => {
+    if (!focus) return
+    // Defer to next frame so the target tab content has mounted.
+    const id = window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-settings-focus="${focus}"]`)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const ringClasses = ['ring-2', 'ring-primary', 'ring-offset-2']
+      el.classList.add(...ringClasses)
+      window.setTimeout(() => {
+        el.classList.remove(...ringClasses)
+      }, 2000)
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [focus, activeTab])
 
   return (
     <PageContainer>

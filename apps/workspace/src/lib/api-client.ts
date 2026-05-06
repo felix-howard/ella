@@ -1121,6 +1121,24 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ autoSendUploadLink }),
       }),
+
+    getSignature: () =>
+      request<{ signaturePngKey: string | null; signedUrl: string | null; signatureUpdatedAt: string | null }>('/staff/me/signature'),
+
+    uploadSignature: (signatureBase64: string) =>
+      request<{ signaturePngKey: string; signedUrl: string | null }>('/staff/me/signature', {
+        method: 'POST',
+        body: JSON.stringify({ signatureBase64 }),
+      }),
+
+    deleteSignature: () =>
+      request<{ success: boolean }>('/staff/me/signature', { method: 'DELETE' }),
+
+    getNdaReadiness: () =>
+      request<{
+        ready: boolean
+        missing: ('signature' | 'title' | 'orgAddress' | 'orgGoverningLaw')[]
+      }>('/staff/me/nda-readiness'),
   },
 
   // Team Management
@@ -1190,10 +1208,10 @@ export const api = {
   // Organization Settings
   orgSettings: {
     get: () =>
-      request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings'),
+      request<OrgSettings>('/org-settings'),
 
-    update: (data: { smsLanguage?: Language; missedCallTextBack?: boolean; autoSendFormClientUploadLink?: boolean; slug?: string | null }) =>
-      request<{ smsLanguage: Language; missedCallTextBack: boolean; autoSendFormClientUploadLink: boolean; slug: string | null }>('/org-settings', {
+    update: (data: Partial<OrgSettingsUpdateInput>) =>
+      request<OrgSettings>('/org-settings', {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
@@ -3047,11 +3065,29 @@ export interface StaffProfile {
   role: string
   avatarUrl: string | null
   phoneNumber: string | null
+  title: string | null
   notifyOnUpload: boolean
   notifyOnChat: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
 }
+
+export interface OrgSettings {
+  smsLanguage: Language
+  missedCallTextBack: boolean
+  autoSendFormClientUploadLink: boolean
+  slug: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  governingState: string | null
+  governingCounty: string | null
+}
+
+export type OrgSettingsUpdateInput = Partial<
+  Omit<OrgSettings, 'smsLanguage'> & { smsLanguage?: Language }
+>
 
 export interface ProfileResponse {
   staff: StaffProfile & { _count: { managedClients: number }; isActive: boolean; deactivatedAt: string | null }
@@ -3064,6 +3100,7 @@ export interface UpdateStaffProfileInput {
   firstName?: string
   lastName?: string
   phoneNumber?: string | null
+  title?: string | null
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
 }

@@ -25,14 +25,14 @@ function buildParams(
 
 describe('generateAgreementInviteMessage', () => {
   describe('English (EN)', () => {
-    it('includes firstName, title, orgName, url, validity notice', () => {
+    it('includes firstName, title, orgName, url', () => {
       const msg = generateAgreementInviteMessage(buildParams({ firstName: 'Alice' }))
       expect(msg).toContain('Hi Alice')
       expect(msg).toContain('Non-Disclosure Agreement')
       expect(msg).toContain('Acme Tax LLC')
       expect(msg).toContain('https://portal.ellatax.com/agreements/abc123')
-      expect(msg).toContain('7 days')
-      expect(msg).toContain('HELP')
+      expect(msg).not.toContain('Valid for 7 days')
+      expect(msg).not.toContain('Reply HELP')
     })
 
     it('interpolates Engagement Letter title verbatim', () => {
@@ -66,8 +66,8 @@ describe('generateAgreementInviteMessage', () => {
       expect(msg).toContain('Thỏa thuận Bảo mật')
       expect(msg).toContain('Ella Tax')
       expect(msg).toContain('https://x.test/agreements/tok')
-      expect(msg).toContain('7 ngày')
-      expect(msg).toContain('HELP')
+      expect(msg).not.toContain('hiệu lực 7 ngày')
+      expect(msg).not.toContain('Soạn HELP')
     })
 
     it('preserves diacritics in name', () => {

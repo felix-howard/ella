@@ -8,11 +8,9 @@
  *
  * Segment cost notes:
  * - EN (GSM-7, 160 chars/seg): typical titles ("NDA", "Engagement Letter
- *   2025") fit in 1 segment. Long custom titles + long org names can push to
- *   2 segments — accepted trade-off for v1 flexibility.
+ *   2025") fit comfortably in 1 segment.
  * - VI (UCS-2, 70 chars/seg): Vietnamese diacritics force UCS-2 encoding, so
- *   the typical message lands in ~3 segments. Accepted trade-off until
- *   per-org language resolution lets us short-circuit non-VI orgs.
+ *   the typical message lands in ~2 segments.
  */
 
 export interface AgreementInviteTemplateParams {
@@ -25,12 +23,10 @@ export interface AgreementInviteTemplateParams {
 
 const TEMPLATES = {
   VI: (params: AgreementInviteTemplateParams) =>
-    `Chào ${params.firstName}, vui lòng xem và ký ${params.title} từ ${params.orgName}: ${params.url}
-Liên kết có hiệu lực 7 ngày. Soạn HELP để được hỗ trợ.`,
+    `Chào ${params.firstName}, vui lòng xem và ký ${params.title} từ ${params.orgName}: ${params.url}`,
 
   EN: (params: AgreementInviteTemplateParams) =>
-    `Hi ${params.firstName}, please review and sign the ${params.title} from ${params.orgName}: ${params.url}
-Valid for 7 days. Reply HELP for assistance.`,
+    `Hi ${params.firstName}, please review and sign the ${params.title} from ${params.orgName}: ${params.url}`,
 }
 
 export function generateAgreementInviteMessage(

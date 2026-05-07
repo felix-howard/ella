@@ -465,10 +465,11 @@ leadsRoute.post(
         data: { conversationId: conversation.id, leadId: null },
       })
 
-      // Link all NDAs from this lead to the new client. organizationId filter is
-      // defense-in-depth (leadId is already org-scoped). Pending SENT NDAs remain
-      // signable via their token; once signed they auto-surface on the Client.
-      const ndaMigrated = await tx.ndaAgreement.updateMany({
+      // Link all agreements from this lead to the new client. organizationId
+      // filter is defense-in-depth (leadId is already org-scoped). Pending SENT
+      // agreements remain signable via their token; once signed they auto-
+      // surface on the Client.
+      const agreementMigrated = await tx.agreement.updateMany({
         where: { leadId: id, organizationId: orgId },
         data: { clientId: client.id },
       })
@@ -492,7 +493,7 @@ leadsRoute.post(
         taxCase,
         conversation,
         migratedCount: migrated.count,
-        ndaMigratedCount: ndaMigrated.count,
+        agreementMigratedCount: agreementMigrated.count,
       }
     })
 
@@ -507,7 +508,7 @@ leadsRoute.post(
     console.info('[LeadConvert] migration counts', {
       leadId: id,
       messages: result.migratedCount,
-      ndas: result.ndaMigratedCount,
+      agreements: result.agreementMigratedCount,
       conversationId: result.conversation.id,
     })
 

@@ -9,6 +9,7 @@ import { useTheme, type Theme } from '../../stores/ui-store'
 import { useLanguageSync } from '../../hooks/use-language-sync'
 import { api } from '../../lib/api-client'
 import type { Language } from '../../lib/api-client'
+import { FirmInfoCard } from './firm-info-card'
 
 export function SettingsGeneralTab() {
   const { theme, setTheme } = useTheme()
@@ -19,6 +20,7 @@ export function SettingsGeneralTab() {
       <ThemeCard theme={theme} setTheme={setTheme} />
       <LanguageCard currentLanguage={currentLanguage} changeLanguage={changeLanguage} />
       <MissedCallTextBackCard />
+      <FirmInfoCard />
     </div>
   )
 }

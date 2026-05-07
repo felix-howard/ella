@@ -1,6 +1,6 @@
 # Project Changelog
 
-> **Last Updated:** 2026-04-22 ICT
+> **Last Updated:** 2026-05-06 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
@@ -38,6 +38,34 @@
 - `revoke-link-modal.tsx`, `extend-link-modal.tsx` (superseded by pause-link-modal + extend-link-menu)
 
 **Backward Compatibility:** `/revoke` alias preserved one release; old hook import names aliased internally. Zero schema changes. Existing clients unaffected.
+
+---
+
+## 2026-05-06
+
+### Backend & Frontend: NDA Upgrade - Phase 04 (Wizard Pre-flight & E2E) ✅ COMPLETE
+**Status:** Complete (NDA v2 fully shipped: dual signatures, org-level firm info, v1/v2 branching)
+**Plan:** `plans/260506-2137-GH-260430-nda-upgrade/plan.md`
+**Branch:** feat/scratch-260430-1707
+
+**Summary:** NDA upgrade complete with Phase 4 (wizard pre-flight gating + readiness endpoint). New v2 template (21 sections) now default for all new NDAs with dual signatures (CPA stored + client portal), org-level firm address/governing law, settings deep-linking, and PDF preview pre-fill. Existing v1 NDAs untouched via `templateVersion` branching. Pre-flight check blocks send if CPA/org missing required fields (signature, title, address, governing law). E2E tests deferred (no Playwright infra; server-side defense via 422 validation).
+
+**Added:**
+- `GET /staff/me/nda-readiness` — Returns `{ ready: boolean, missing: string[] }` where missing ⊂ ['signature','title','orgAddress','orgGoverningLaw']. Mounted under `/staff` Hono router with auth middleware.
+- `useNdaReadiness` hook + `NdaSetupRequiredCard` component — Wizard pre-flight gate: if not ready, render setup card instead of agreement editor (fail-closed on query error).
+- Deep-link support (`?tab=profile&focus=signature`) — Settings page scrolls/highlights targeted section via `data-settings-focus` attribute on profile signature card, title field, firm-info card.
+- Query invalidation on mutation success — `['nda-readiness']` cache invalidated when CPA updates signature/title or org updates firm-info, forcing re-fetch on wizard return.
+- PDF preview with v2 firm/client snapshots — `renderPreviewPdf` now loads v2 entity snapshot, passes firm/client data so preview header shows real org address (signatures remain placeholder).
+
+**Changed:**
+- Template v2 now default for new NDAs (`templateVersion: 'v2'` in schema migration); v1 preserved for backward compatibility via branching pattern.
+- Agreement sending flow: CPA must have signature + title in profile + Org must have address + governing law, checked via `nda-readiness` endpoint before send allowed.
+
+**Backward Compatibility:** `templateVersion` branching protects all existing v1 agreements; no data loss or rendering regressions.
+
+**Test Status:** Server-side 422 validation enforces missing fields (defense in depth). E2E Playwright tests deferred (no infra in repo).
+
+**Next Phase:** NDA feature complete. Plan marked status=completed.
 
 ---
 

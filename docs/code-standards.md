@@ -209,6 +209,12 @@ app.get('/clients/:clientId/contractors', async (c) => {
 })
 ```
 
+**Template Version Branching (Agreements/NDA - Phase 04+):**
+- Use `templateVersion` field on Agreement records to branch rendering: 'v1' (legacy, untouched) vs 'v2' (new template with dual signatures, org details)
+- All PDF rendering paths must check `templateVersion` to avoid breaking existing data
+- Migration: Existing agreements auto-populate `templateVersion: 'v1'`; new NDAs default to `templateVersion: 'v2'`
+- Pattern: `if (agreement.templateVersion === 'v2') { renderV2Template() } else { renderV1Template() }`
+
 ## Frontend Patterns (@ella/workspace & @ella/portal)
 
 **React Query Integration:**

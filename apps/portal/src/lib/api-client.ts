@@ -64,34 +64,62 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
-// NDA types
-export interface NdaTemplateSection {
+// Agreement types
+export interface AgreementTemplateSection {
   heading: string
   paragraphs: string[]
 }
 
-export type NdaStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'VOIDED'
+export type AgreementStatus = 'DRAFT' | 'SENT' | 'SIGNED' | 'VOIDED'
 
-export interface NdaPublicView {
-  status: NdaStatus
+export type AgreementClientType = 'INDIVIDUAL' | 'BUSINESS'
+
+export interface AgreementFirmSnapshot {
+  name: string
+  address: string
+  contact: string | null
+  signerName: string
+  signerTitle: string
+  /** Presigned URL for already-drawn firm signature PNG. */
+  signaturePresignedUrl: string | null
+  /** Formatted human date or null when not yet signed. */
+  signedAt: string | null
+}
+
+export interface AgreementClientSnapshot {
+  nameOrBusiness: string
+  address: string
+  clientType: AgreementClientType
+}
+
+export interface AgreementPublicView {
+  status: AgreementStatus
   expiresAt: string | null
   expired: boolean
   templateVersion: string
   templateTitle: string
-  templateSections: NdaTemplateSection[]
+  templateSections: AgreementTemplateSection[]
   templateHtml: string | null
-  depositAmount: string
+  /** Formatted (e.g. `$300.00`) when a deposit applies; null otherwise. */
+  depositAmount: string | null
   orgName: string
   leadFirstName: string
+  /** v2 only. Null for legacy v1 agreements. */
+  firmSnapshot: AgreementFirmSnapshot | null
+  /** v2 only. Null for legacy v1 agreements. */
+  clientSnapshot: AgreementClientSnapshot | null
 }
 
-export interface NdaSignPayload {
+export interface AgreementSignPayload {
   signerName: string
   signaturePngDataUrl: string
   agreementChecked: true
+  /** v2 BUSINESS-only. Required when clientSnapshot.clientType === 'BUSINESS'. */
+  clientAuthRepName?: string
+  clientAuthRepTitle?: string
 }
 
-export interface NdaSignResult {
+export interface AgreementSignResult {
   status: 'SIGNED'
   signedAt: string
   downloadUrl: string
@@ -343,18 +371,21 @@ export const portalApi = {
     })
   },
 
-  // Load NDA agreement by public token
-  getNda: async (token: string): Promise<NdaPublicView> => {
-    const envelope = await request<ApiEnvelope<NdaPublicView>>(
-      `/public/nda/${token}`,
+  // Load agreement by public token
+  getAgreement: async (token: string): Promise<AgreementPublicView> => {
+    const envelope = await request<ApiEnvelope<AgreementPublicView>>(
+      `/public/agreements/${token}`,
     )
     return envelope.data
   },
 
-  // Submit NDA signature
-  signNda: async (token: string, payload: NdaSignPayload): Promise<NdaSignResult> => {
-    const envelope = await request<ApiEnvelope<NdaSignResult>>(
-      `/public/nda/${token}/sign`,
+  // Submit agreement signature
+  signAgreement: async (
+    token: string,
+    payload: AgreementSignPayload,
+  ): Promise<AgreementSignResult> => {
+    const envelope = await request<ApiEnvelope<AgreementSignResult>>(
+      `/public/agreements/${token}/sign`,
       {
         method: 'POST',
         body: JSON.stringify(payload),

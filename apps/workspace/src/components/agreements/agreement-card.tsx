@@ -1,0 +1,163 @@
+/**
+ * Interactive entity-scoped Agreement row: wraps the shared <NdaReadonlyCard />
+ * for presentation (title, type, status badges, metadata) and adds the actions:
+ * copy link, resend SMS, view PDF, deposit update. Branches PDF endpoint by
+ * entity type. Deposit update is hidden when the agreement carries no deposit.
+ */
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
+import { useResendAgreement, agreementsApi } from './use-agreement-mutations'
+import { UpdateDepositPanel } from './update-deposit-panel'
+import { NdaReadonlyCard } from './agreement-readonly-card'
+import { AgreementExtendModal } from './agreement-extend-modal'
+import { getExpiryStatus } from './agreement-expiry'
+import { toast } from '../../stores/toast-store'
+import { copyToClipboard } from '../../lib/clipboard'
+import type { Agreement } from '../../lib/api-client'
+import type { EntityRef } from './types'
+
+interface Props {
+  entity: EntityRef
+  /** Prop name kept as `nda` for parent compatibility — accepts any agreement type. */
+  nda: Agreement
+}
+
+export function NdaCard({ entity, nda }: Props) {
+  const { t, i18n } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const resendMutation = useResendAgreement(entity, nda.type)
+
+  const handleCopyLink = () => {
+    if (!nda.url) {
+      toast.error(t('nda.toast.linkUnavailable'))
+      return
+    }
+    void copyToClipboard(nda.url, { successMsg: t('nda.toast.linkCopied') })
+  }
+
+  const handleResend = () => {
+    resendMutation.mutate(nda.id)
+  }
+
+  const handleViewPdf = async () => {
+    try {
+      setPdfLoading(true)
+      const res = await agreementsApi(entity).getPdfUrl(entity.id, nda.id)
+      window.open(res.url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      toast.error((err as Error).message || t('nda.toast.pdfFailed'))
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  const canCopyOrResend = nda.status === 'SENT' && nda.isActive
+  const canViewPdf = nda.status === 'SIGNED' && !!nda.signedPdfKey
+  // Extend is only meaningful while the link is still the source of truth.
+  // Allow it both when active and when expired (lets staff resurrect a link
+  // without rotating the token + spamming SMS via Resend).
+  const canExtend =
+    nda.status !== 'SIGNED' && nda.status !== 'VOIDED' && !!nda.expiresAt
+  // Hide deposit editor for agreements that opted out of deposit at send time.
+  const canEditDeposit = nda.depositStatus !== null
+
+  // Soon/expired states promote Extend to a primary visual treatment so it
+  // grabs the staff member's attention on the busiest cards.
+  const expiryKind = getExpiryStatus(nda, i18n.language).kind
+  const extendIsUrgent = expiryKind === 'soon' || expiryKind === 'expired'
+
+  // View PDF rendered here (not via shared card) so it lines up with the
+  // other entity-page actions on a single flex row.
+  return (
+    <div className="space-y-2">
+      <NdaReadonlyCard nda={nda} />
+
+      <div className="flex flex-wrap gap-2">
+        {canCopyOrResend && (
+          <>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              {t('nda.card.copyLink')}
+            </button>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendMutation.isPending}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {resendMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              {t('nda.card.resend')}
+            </button>
+          </>
+        )}
+        {canExtend && (
+          <button
+            type="button"
+            onClick={() => setExtendOpen(true)}
+            className={
+              'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ' +
+              (extendIsUrgent
+                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                : 'border border-border hover:bg-muted')
+            }
+          >
+            <Clock className="w-3.5 h-3.5" />
+            {t('nda.card.extend')}
+          </button>
+        )}
+        {canViewPdf && (
+          <button
+            type="button"
+            onClick={handleViewPdf}
+            disabled={pdfLoading}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {pdfLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileText className="w-3.5 h-3.5" />
+            )}
+            {t('nda.card.viewPdf')}
+          </button>
+        )}
+        {canEditDeposit && (
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1.5"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            {editing ? t('nda.card.closeDeposit') : t('nda.card.updateDeposit')}
+          </button>
+        )}
+      </div>
+
+      {/* Type-narrow nda for the panel: canEditDeposit guarantees depositStatus is non-null. */}
+      {editing && canEditDeposit && nda.depositStatus !== null && (
+        <UpdateDepositPanel
+          entity={entity}
+          nda={{ ...nda, depositStatus: nda.depositStatus }}
+          onClose={() => setEditing(false)}
+        />
+      )}
+
+      <AgreementExtendModal
+        open={extendOpen}
+        entity={entity}
+        nda={nda}
+        onClose={() => setExtendOpen(false)}
+      />
+    </div>
+  )
+}

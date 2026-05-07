@@ -57,10 +57,10 @@ import {
 } from './staff-chat-monitor'
 
 import {
-  generateNdaMessage,
-  NDA_TEMPLATE_NAME,
-  type NdaTemplateParams,
-} from './nda'
+  generateAgreementInviteMessage,
+  AGREEMENT_INVITE_TEMPLATE_NAME,
+  type AgreementInviteTemplateParams,
+} from './agreement-invite'
 
 // Re-export everything
 export {
@@ -82,8 +82,8 @@ export {
   STAFF_UPLOAD_TEMPLATE_NAME,
   generateStaffChatMonitorMessage,
   STAFF_CHAT_MONITOR_TEMPLATE_NAME,
-  generateNdaMessage,
-  NDA_TEMPLATE_NAME,
+  generateAgreementInviteMessage,
+  AGREEMENT_INVITE_TEMPLATE_NAME,
 }
 
 export type {
@@ -96,7 +96,7 @@ export type {
   MissedCallTextbackParams,
   StaffUploadTemplateParams,
   StaffChatMonitorTemplateParams,
-  NdaTemplateParams,
+  AgreementInviteTemplateParams,
 }
 
 // Template name union type
@@ -110,7 +110,7 @@ export type TemplateName =
   | typeof MISSED_CALL_TEXTBACK_TEMPLATE_NAME
   | typeof STAFF_UPLOAD_TEMPLATE_NAME
   | typeof STAFF_CHAT_MONITOR_TEMPLATE_NAME
-  | typeof NDA_TEMPLATE_NAME
+  | typeof AGREEMENT_INVITE_TEMPLATE_NAME
 
 // Language type
 export type SmsLanguage = 'VI' | 'EN'

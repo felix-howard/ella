@@ -104,6 +104,31 @@ export async function createMagicLink(
 }
 
 /**
+ * Upgrade existing active upload links for a case into group-scoped links.
+ * Used when an individual starts as a solo client and later gets linked
+ * businesses; previously sent portal URLs should keep working and show the
+ * entity picker without requiring staff to resend the upload link.
+ */
+export async function upgradeActivePortalLinksToGroup(
+  caseId: string,
+  clientGroupId: string
+): Promise<number> {
+  const result = await prisma.magicLink.updateMany({
+    where: {
+      caseId,
+      type: 'PORTAL',
+      isActive: true,
+    },
+    data: {
+      scope: 'GROUP',
+      clientGroupId,
+    },
+  })
+
+  return result.count
+}
+
+/**
  * Create a new magic link with atomic deactivation of existing links
  * Uses transaction to ensure atomicity
  */

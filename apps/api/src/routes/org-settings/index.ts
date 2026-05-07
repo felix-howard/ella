@@ -17,6 +17,24 @@ const updateOrgSettingsSchema = z.object({
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
+  // Firm address + governing law (NDA header)
+  address: z.string().max(200).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  state: z.string().length(2).nullable().optional(),
+  zip: z.string().max(20).nullable().optional(),
+  governingState: z.string().max(50).nullable().optional(),
+  governingCounty: z.string().max(100).nullable().optional(),
+  firmPhone: z.string().max(30).nullable().optional(),
+  firmEmail: z.string().email().max(254).nullable().optional(),
+  firmWebsite: z
+    .string()
+    .max(200)
+    .url()
+    .refine((value) => value.startsWith('http://') || value.startsWith('https://'), {
+      message: 'firmWebsite must be an http(s) URL',
+    })
+    .nullable()
+    .optional(),
 })
 
 // GET /org-settings - Get org settings
@@ -28,7 +46,21 @@ orgSettingsRoute.get('/', async (c) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
-    select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true },
+    select: {
+      smsLanguage: true,
+      missedCallTextBack: true,
+      autoSendFormClientUploadLink: true,
+      slug: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
+      governingState: true,
+      governingCounty: true,
+      firmPhone: true,
+      firmEmail: true,
+      firmWebsite: true,
+    },
   })
 
   if (!org) {
@@ -40,6 +72,15 @@ orgSettingsRoute.get('/', async (c) => {
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
     slug: org.slug,
+    address: org.address,
+    city: org.city,
+    state: org.state,
+    zip: org.zip,
+    governingState: org.governingState,
+    governingCounty: org.governingCounty,
+    firmPhone: org.firmPhone,
+    firmEmail: org.firmEmail,
+    firmWebsite: org.firmWebsite,
   })
 })
 
@@ -75,7 +116,22 @@ orgSettingsRoute.patch(
       updated = await prisma.organization.update({
         where: { id: user.organizationId },
         data,
-        select: { smsLanguage: true, missedCallTextBack: true, autoSendFormClientUploadLink: true, slug: true, clerkOrgId: true },
+        select: {
+          smsLanguage: true,
+          missedCallTextBack: true,
+          autoSendFormClientUploadLink: true,
+          slug: true,
+          clerkOrgId: true,
+          address: true,
+          city: true,
+          state: true,
+          zip: true,
+          governingState: true,
+          governingCounty: true,
+          firmPhone: true,
+          firmEmail: true,
+          firmWebsite: true,
+        },
       })
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -100,6 +156,15 @@ orgSettingsRoute.patch(
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
       slug: updated.slug,
+      address: updated.address,
+      city: updated.city,
+      state: updated.state,
+      zip: updated.zip,
+      governingState: updated.governingState,
+      governingCounty: updated.governingCounty,
+      firmPhone: updated.firmPhone,
+      firmEmail: updated.firmEmail,
+      firmWebsite: updated.firmWebsite,
     })
   }
 )

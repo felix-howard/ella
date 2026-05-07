@@ -62,7 +62,7 @@ import {
 import { useDeleteBusinessWithScheduleC } from '../../hooks/use-delete-business-with-schedule-c'
 import { countScheduleCExpenseLines } from '../../lib/schedule-c-expense-helpers'
 import { FilesTab } from '../../components/files'
-import { AgreementsTab } from '../../components/nda/agreements-tab'
+import { AgreementsTab } from '../../components/agreements/agreements-tab'
 import { SendUploadLinkModal } from '../../components/shared/send-upload-link-modal'
 import { FloatingChatbox } from '../../components/chatbox'
 import { ErrorBoundary } from '../../components/error-boundary'
@@ -1067,6 +1067,21 @@ function ClientDetailPage() {
             />
           </ModalDescription>
         </ModalHeader>
+        {/* Warn the user about cascade delete of sibling businesses (individual only) */}
+        {!isBusiness && (client.clientGroup?.clients?.filter((c) => c.clientType === 'BUSINESS') ?? []).length > 0 && (
+          <div className="mx-6 mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <p className="font-medium text-destructive mb-1.5">
+              {t('clientDetail.deleteModalCascadeTitle', 'Linked businesses will also be deleted:')}
+            </p>
+            <ul className="list-disc pl-5 space-y-0.5 text-foreground">
+              {client.clientGroup!.clients
+                .filter((c) => c.clientType === 'BUSINESS')
+                .map((biz) => (
+                  <li key={biz.id}>{biz.name}</li>
+                ))}
+            </ul>
+          </div>
+        )}
         <div className="px-6 pb-2">
           <Input
             value={deleteConfirmText}

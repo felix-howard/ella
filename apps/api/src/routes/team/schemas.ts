@@ -30,6 +30,8 @@ export const updateProfileSchema = z.object({
     .regex(/^\+[1-9]\d{6,14}$/, 'Invalid E.164 format')
     .optional()
     .nullable(),
+  // NDA signing identity
+  title: z.string().max(80).nullable().optional(),
   // Notification preferences
   notifyOnUpload: z.boolean().optional(),
   notifyOnChat: z.boolean().optional(),

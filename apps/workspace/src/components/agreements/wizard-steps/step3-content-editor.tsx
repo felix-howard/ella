@@ -35,7 +35,16 @@ export interface Step3Draft {
   depositEnabledOverride: boolean | null
   depositAmountOverride: string | null
   internalNote: string
+  /** Link validity in days, persisted with the agreement and reused by resend/extend. */
+  expiryDays: number
 }
+
+/** Mirrors `MIN_EXPIRY_DAYS` / `MAX_EXPIRY_DAYS` on the server. Kept inline to
+ *  avoid a workspace-package dependency on @ella/api types just for two ints. */
+export const EXPIRY_DAYS_MIN = 1
+export const EXPIRY_DAYS_MAX = 90
+export const EXPIRY_DAYS_DEFAULT = 7
+export const EXPIRY_DAYS_PRESETS = [7, 14, 30, 60, 90] as const
 
 export const emptyStep3Draft: Step3Draft = {
   titleOverride: null,
@@ -43,6 +52,7 @@ export const emptyStep3Draft: Step3Draft = {
   depositEnabledOverride: null,
   depositAmountOverride: null,
   internalNote: '',
+  expiryDays: EXPIRY_DAYS_DEFAULT,
 }
 
 export interface Step3Resolved {
@@ -51,6 +61,7 @@ export interface Step3Resolved {
   depositEnabled: boolean
   depositAmount: string
   internalNote: string
+  expiryDays: number
 }
 
 interface Props {
@@ -136,10 +147,15 @@ export function Step3ContentEditor({
   const depositValid =
     !effectiveDepositEnabled ||
     /^\d+(\.\d{1,2})?$/.test(effectiveDepositAmount.trim())
+  const expiryValid =
+    Number.isInteger(draft.expiryDays) &&
+    draft.expiryDays >= EXPIRY_DAYS_MIN &&
+    draft.expiryDays <= EXPIRY_DAYS_MAX
   const canSubmit =
     !!titleTrim &&
     htmlTrim.length > 0 &&
     depositValid &&
+    expiryValid &&
     !seedLoading &&
     !seedError &&
     !isSubmitting
@@ -152,6 +168,7 @@ export function Step3ContentEditor({
       depositEnabled: effectiveDepositEnabled,
       depositAmount: effectiveDepositAmount.trim(),
       internalNote: draft.internalNote,
+      expiryDays: draft.expiryDays,
     })
   }
 
@@ -231,6 +248,63 @@ export function Step3ContentEditor({
           )}
         </label>
       )}
+
+      <div className="block max-w-md">
+        <span className="block text-xs font-medium text-muted-foreground mb-1">
+          {t('agreements.wizard.fields.expiryDaysLabel')}
+        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={EXPIRY_DAYS_MIN}
+            max={EXPIRY_DAYS_MAX}
+            step={1}
+            value={draft.expiryDays}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10)
+              patch({ expiryDays: Number.isFinite(n) ? n : EXPIRY_DAYS_DEFAULT })
+            }}
+            disabled={isSubmitting}
+            className="w-24 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+          <span className="text-sm text-muted-foreground">
+            {t('agreements.wizard.fields.expiryDaysUnit')}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {EXPIRY_DAYS_PRESETS.map((p) => {
+              const active = draft.expiryDays === p
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => patch({ expiryDays: p })}
+                  disabled={isSubmitting}
+                  className={
+                    'px-2.5 py-1 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 ' +
+                    (active
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:bg-muted text-muted-foreground')
+                  }
+                >
+                  {p}d
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        {!expiryValid && (
+          <span className="text-xs text-destructive mt-1 block">
+            {t('agreements.wizard.fields.expiryDaysInvalid', {
+              min: EXPIRY_DAYS_MIN,
+              max: EXPIRY_DAYS_MAX,
+            })}
+          </span>
+        )}
+        <span className="block text-xs text-muted-foreground mt-1">
+          {t('agreements.wizard.fields.expiryDaysHint')}
+        </span>
+      </div>
 
       <label className="block">
         <span className="block text-xs font-medium text-muted-foreground mb-1">

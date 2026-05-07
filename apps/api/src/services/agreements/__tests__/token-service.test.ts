@@ -8,6 +8,9 @@ import {
   expiryDate,
   isExpired,
   AGREEMENT_EXPIRY_DAYS,
+  MIN_EXPIRY_DAYS,
+  MAX_EXPIRY_DAYS,
+  clampExpiryDays,
 } from '../token-service'
 
 const TOKEN_ALPHABET = /^[a-zA-Z0-9]+$/ // no ambiguity chars (0/O, 1/l/I excluded at gen time)
@@ -84,5 +87,32 @@ describe('isExpired', () => {
 
   it('returns true 1ms past boundary', () => {
     expect(isExpired(new Date('2026-04-23T11:59:59.999Z'), now)).toBe(true)
+  })
+})
+
+describe('clampExpiryDays', () => {
+  it('returns default for null / undefined / NaN', () => {
+    expect(clampExpiryDays(null)).toBe(AGREEMENT_EXPIRY_DAYS)
+    expect(clampExpiryDays(undefined)).toBe(AGREEMENT_EXPIRY_DAYS)
+    expect(clampExpiryDays(Number.NaN)).toBe(AGREEMENT_EXPIRY_DAYS)
+  })
+
+  it('floors to MIN when below range', () => {
+    expect(clampExpiryDays(0)).toBe(MIN_EXPIRY_DAYS)
+    expect(clampExpiryDays(-5)).toBe(MIN_EXPIRY_DAYS)
+  })
+
+  it('caps to MAX when above range', () => {
+    expect(clampExpiryDays(MAX_EXPIRY_DAYS + 1)).toBe(MAX_EXPIRY_DAYS)
+    expect(clampExpiryDays(10_000)).toBe(MAX_EXPIRY_DAYS)
+  })
+
+  it('truncates fractional days', () => {
+    expect(clampExpiryDays(7.9)).toBe(7)
+  })
+
+  it('returns the value unchanged when in range', () => {
+    expect(clampExpiryDays(14)).toBe(14)
+    expect(clampExpiryDays(30)).toBe(30)
   })
 })

@@ -6,10 +6,12 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, RefreshCw, FileText, Loader2, Pencil } from 'lucide-react'
+import { Copy, RefreshCw, FileText, Loader2, Pencil, Clock } from 'lucide-react'
 import { useResendAgreement, agreementsApi } from './use-agreement-mutations'
 import { UpdateDepositPanel } from './update-deposit-panel'
 import { NdaReadonlyCard } from './agreement-readonly-card'
+import { AgreementExtendModal } from './agreement-extend-modal'
+import { getExpiryStatus } from './agreement-expiry'
 import { toast } from '../../stores/toast-store'
 import { copyToClipboard } from '../../lib/clipboard'
 import type { Agreement } from '../../lib/api-client'
@@ -22,8 +24,9 @@ interface Props {
 }
 
 export function NdaCard({ entity, nda }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [editing, setEditing] = useState(false)
+  const [extendOpen, setExtendOpen] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const resendMutation = useResendAgreement(entity, nda.type)
 
@@ -53,8 +56,18 @@ export function NdaCard({ entity, nda }: Props) {
 
   const canCopyOrResend = nda.status === 'SENT' && nda.isActive
   const canViewPdf = nda.status === 'SIGNED' && !!nda.signedPdfKey
+  // Extend is only meaningful while the link is still the source of truth.
+  // Allow it both when active and when expired (lets staff resurrect a link
+  // without rotating the token + spamming SMS via Resend).
+  const canExtend =
+    nda.status !== 'SIGNED' && nda.status !== 'VOIDED' && !!nda.expiresAt
   // Hide deposit editor for agreements that opted out of deposit at send time.
   const canEditDeposit = nda.depositStatus !== null
+
+  // Soon/expired states promote Extend to a primary visual treatment so it
+  // grabs the staff member's attention on the busiest cards.
+  const expiryKind = getExpiryStatus(nda, i18n.language).kind
+  const extendIsUrgent = expiryKind === 'soon' || expiryKind === 'expired'
 
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
@@ -87,6 +100,21 @@ export function NdaCard({ entity, nda }: Props) {
               {t('nda.card.resend')}
             </button>
           </>
+        )}
+        {canExtend && (
+          <button
+            type="button"
+            onClick={() => setExtendOpen(true)}
+            className={
+              'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ' +
+              (extendIsUrgent
+                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                : 'border border-border hover:bg-muted')
+            }
+          >
+            <Clock className="w-3.5 h-3.5" />
+            {t('nda.card.extend')}
+          </button>
         )}
         {canViewPdf && (
           <button
@@ -123,6 +151,13 @@ export function NdaCard({ entity, nda }: Props) {
           onClose={() => setEditing(false)}
         />
       )}
+
+      <AgreementExtendModal
+        open={extendOpen}
+        entity={entity}
+        nda={nda}
+        onClose={() => setExtendOpen(false)}
+      />
     </div>
   )
 }

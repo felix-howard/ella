@@ -10,11 +10,12 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText, Loader2 } from 'lucide-react'
+import { FileText, Loader2, Clock } from 'lucide-react'
 import { NdaStatusBadge, DepositStatusBadge, AgreementTypeBadge } from './agreement-status-badges'
 import { toast } from '../../stores/toast-store'
 import { formatShortRelativeTime, formatFullDateTime } from '../../lib/formatters'
 import { agreementsApi } from './use-agreement-mutations'
+import { getExpiryStatus, expiryToneClass } from './agreement-expiry'
 import type { Agreement } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
@@ -62,31 +63,48 @@ export function NdaReadonlyCard({ nda, entity, showViewPdf = false }: Props) {
         {nda.depositStatus && <DepositStatusBadge status={nda.depositStatus} />}
       </div>
 
-      <div className="text-xs text-muted-foreground space-y-0.5">
-        <div>
-          {t('nda.card.created')}:{' '}
-          <span className="text-foreground">
-            {formatShortRelativeTime(nda.createdAt, i18n.language)}
-          </span>
-        </div>
-        {nda.signedAt && (
-          <div>
-            {t('nda.card.signed')}:{' '}
-            <span className="text-foreground">{formatFullDateTime(nda.signedAt)}</span>
+      {(() => {
+        const expiry = getExpiryStatus(nda, i18n.language)
+        return (
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div>
+              {t('nda.card.created')}:{' '}
+              <span className="text-foreground">
+                {formatShortRelativeTime(nda.createdAt, i18n.language)}
+              </span>
+            </div>
+            {expiry.kind !== 'na' && (
+              <div
+                className={'flex items-center gap-1.5 ' + expiryToneClass(expiry.kind)}
+                title={expiry.fullDate ?? undefined}
+              >
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-medium">{expiry.label}</span>
+                {expiry.fullDate && (
+                  <span className="text-muted-foreground">· {expiry.fullDate}</span>
+                )}
+              </div>
+            )}
+            {nda.signedAt && (
+              <div>
+                {t('nda.card.signed')}:{' '}
+                <span className="text-foreground">{formatFullDateTime(nda.signedAt)}</span>
+              </div>
+            )}
+            {nda.depositPaidAt && (
+              <div>
+                {t('nda.card.depositPaid')}:{' '}
+                <span className="text-foreground">{formatFullDateTime(nda.depositPaidAt)}</span>
+              </div>
+            )}
+            {nda.depositNote && (
+              <div className="mt-1 p-2 rounded bg-muted/30 text-foreground whitespace-pre-wrap break-words">
+                {nda.depositNote}
+              </div>
+            )}
           </div>
-        )}
-        {nda.depositPaidAt && (
-          <div>
-            {t('nda.card.depositPaid')}:{' '}
-            <span className="text-foreground">{formatFullDateTime(nda.depositPaidAt)}</span>
-          </div>
-        )}
-        {nda.depositNote && (
-          <div className="mt-1 p-2 rounded bg-muted/30 text-foreground whitespace-pre-wrap break-words">
-            {nda.depositNote}
-          </div>
-        )}
-      </div>
+        )
+      })()}
 
       {canViewPdf && (
         <div className="flex flex-wrap gap-2">

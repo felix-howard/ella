@@ -1571,6 +1571,9 @@ model Agreement {
   // Public access token (replaces MagicLink for NDA)
   token      String    @unique
   expiresAt  DateTime?
+  /** Validity window in days from send/rotation. Persisted so resend reuses
+   *  the originally-chosen duration and Extend can also default to it. */
+  expiryDays Int       @default(7)
   isActive   Boolean   @default(true)
   lastUsedAt DateTime?
   usageCount Int       @default(0)

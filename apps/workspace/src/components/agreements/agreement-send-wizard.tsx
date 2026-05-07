@@ -118,6 +118,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
     depositEnabled: boolean
     depositAmount: string
     internalNote: string
+    expiryDays: number
   }) => {
     if (!type) return
     // BLANK + BUILTIN_NDA are client-only sentinels — never sent to the server.
@@ -134,6 +135,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
       templateId: isRealTemplate ? templateId : undefined,
       depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
       internalNote: resolved.internalNote.trim() || undefined,
+      expiryDays: resolved.expiryDays,
     }
     mutation.mutate(payload, { onSuccess: () => onClose() })
   }

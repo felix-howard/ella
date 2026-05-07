@@ -121,6 +121,22 @@ export interface UpdateDepositPayload {
   depositPaidAt?: string | null
 }
 
+export function useExtendAgreement(entity: EntityRef) {
+  const { t } = useTranslation()
+  const invalidate = useInvalidateAgreements(entity)
+  return useMutation({
+    mutationFn: ({ agreementId, days }: { agreementId: string; days?: number }) =>
+      agreementsApi(entity).extend(entity.id, agreementId, days != null ? { days } : {}),
+    onSuccess: () => {
+      toast.success(t('agreements.toast.extended'))
+      invalidate()
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t('agreements.toast.extendFailed'))
+    },
+  })
+}
+
 export function useUpdateDeposit(entity: EntityRef) {
   const { t } = useTranslation()
   const invalidate = useInvalidateAgreements(entity)

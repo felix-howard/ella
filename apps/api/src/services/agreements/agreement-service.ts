@@ -23,6 +23,7 @@ import {
   updateDepositForEntity,
   resendAgreementForEntity,
   resendNdaForEntity,
+  extendAgreementForEntity,
 } from './agreement-mutation-ops'
 
 export { buildAgreementUrl, buildNdaUrl } from './agreement-shared'
@@ -35,6 +36,7 @@ export {
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
   resendNdaForEntity,
+  extendAgreementForEntity,
 }
 
 /** Legacy alias retained so any caller still importing the old name compiles. */

@@ -25,7 +25,7 @@ import {
   currentTemplate,
   defaultTemplateForType,
 } from '../../lib/agreements/template-registry'
-import { generateAgreementToken, expiryDate } from './token-service'
+import { generateAgreementToken, expiryDate, clampExpiryDays } from './token-service'
 import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
 import { generateSignedPdf } from './pdf-generator'
 import { copyR2Object } from '../storage'
@@ -71,6 +71,8 @@ interface CreateAgreementInput {
   depositAmount?: Prisma.Decimal | string | number | null
   /** Staff-only note persisted on the Agreement row. Never rendered to recipient. */
   internalNote?: string | null
+  /** Link validity in days. Clamped to [MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS]. Defaults to 7. */
+  expiryDays?: number | null
 }
 
 const DEFAULT_TITLES: Record<AgreementType, string> = {
@@ -318,6 +320,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
   }
 
   const token = generateAgreementToken()
+  const expiryDays = clampExpiryDays(input.expiryDays)
   const agreement = await prisma.agreement.create({
     data: {
       ...agreementScopeWhere(input.entityType, entity.id),
@@ -331,7 +334,8 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
       customContentHtml,
       status: 'SENT',
       token,
-      expiresAt: expiryDate(),
+      expiresAt: expiryDate(expiryDays),
+      expiryDays,
       isActive: true,
       depositAmount: deposit.depositAmount,
       depositStatus: deposit.depositStatus,

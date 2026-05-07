@@ -359,6 +359,12 @@ export const api = {
           { method: 'POST' },
         ),
 
+      extend: (clientId: string, agreementId: string, body: { days?: number } = {}) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/clients/${clientId}/agreements/${agreementId}/extend`,
+          { method: 'POST', body: JSON.stringify(body) },
+        ),
+
       updateDeposit: (
         clientId: string,
         agreementId: string,
@@ -1406,6 +1412,12 @@ export const api = {
       resend: (leadId: string, agreementId: string) =>
         request<{ success: boolean; data: Agreement; url: string; rotated: boolean }>(`/leads/${leadId}/agreements/${agreementId}/resend`, { method: 'POST' }),
 
+      extend: (leadId: string, agreementId: string, body: { days?: number } = {}) =>
+        request<{ success: boolean; data: Agreement }>(
+          `/leads/${leadId}/agreements/${agreementId}/extend`,
+          { method: 'POST', body: JSON.stringify(body) },
+        ),
+
       updateDeposit: (
         leadId: string,
         agreementId: string,
@@ -1615,6 +1627,8 @@ export interface Agreement {
   depositNote: string | null
   token: string
   expiresAt: string | null
+  /** Validity window in days, persisted on the row so resend + extend reuse it. */
+  expiryDays: number
   isActive: boolean
   lastUsedAt: string | null
   usageCount: number
@@ -1642,6 +1656,8 @@ export interface CreateAgreementPayload {
   depositAmount?: string | null
   /** Staff-only context, never shown to recipient. Omit/blank → skipped. */
   internalNote?: string
+  /** Link validity in days. Server clamps to [1, 90]. Default 7 when omitted. */
+  expiryDays?: number
 }
 
 export interface AgreementTemplate {

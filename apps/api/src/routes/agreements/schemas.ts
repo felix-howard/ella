@@ -4,6 +4,7 @@
  * Kept separate so handlers stay thin and the schemas are trivially testable.
  */
 import { z } from 'zod'
+import { MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS } from '../../services/agreements/token-service'
 
 // ---------- Params ----------
 
@@ -56,6 +57,13 @@ export const createAgreementBodySchema = z
     depositAmount: depositAmountSchema.optional().nullable(),
     /** Staff-only context, never shown to recipient or in PDF. */
     internalNote: z.string().max(2000).trim().optional(),
+    /** Link validity window in days. Server clamps to supported range. */
+    expiryDays: z
+      .number()
+      .int()
+      .min(MIN_EXPIRY_DAYS)
+      .max(MAX_EXPIRY_DAYS)
+      .optional(),
   })
   .strict()
   .superRefine((val, ctx) => {
@@ -119,6 +127,18 @@ export const updateDepositBodySchema = z
   })
   .strict()
 
+export const extendAgreementBodySchema = z
+  .object({
+    /** New validity window from now. Server clamps; omit to reuse stored expiryDays. */
+    days: z
+      .number()
+      .int()
+      .min(MIN_EXPIRY_DAYS)
+      .max(MAX_EXPIRY_DAYS)
+      .optional(),
+  })
+  .strict()
+
 // ---------- Public bodies ----------
 
 const PNG_DATA_URL_PREFIX = 'data:image/png;base64,'
@@ -145,6 +165,7 @@ export const signAgreementBodySchema = z
 export const signNdaBodySchema = signAgreementBodySchema
 
 export type UpdateDepositBody = z.infer<typeof updateDepositBodySchema>
+export type ExtendAgreementBody = z.infer<typeof extendAgreementBodySchema>
 export type SignAgreementBody = z.infer<typeof signAgreementBodySchema>
 export type SignNdaBody = SignAgreementBody
 export type CreateAgreementBody = z.infer<typeof createAgreementBodySchema>

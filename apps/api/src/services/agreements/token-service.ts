@@ -13,8 +13,12 @@ const AGREEMENT_TOKEN_LENGTH = 28
 
 const generate = customAlphabet(AGREEMENT_TOKEN_ALPHABET, AGREEMENT_TOKEN_LENGTH)
 
-/** Agreement link lifetime from send. Locked by design — not configurable per send. */
+/** Default lifetime when caller doesn't specify. Used as the @default in schema too. */
 export const AGREEMENT_EXPIRY_DAYS = 7
+/** Lower bound — anything shorter is unusable for a recipient to act on. */
+export const MIN_EXPIRY_DAYS = 1
+/** Upper bound — keeps SMS commitment within a reasonable engagement window. */
+export const MAX_EXPIRY_DAYS = 90
 
 export function generateAgreementToken(): string {
   return generate()
@@ -27,6 +31,15 @@ export function expiryDate(days: number = AGREEMENT_EXPIRY_DAYS, from: Date = ne
   const out = new Date(from)
   out.setUTCDate(out.getUTCDate() + days)
   return out
+}
+
+/** Coerce caller-supplied duration into the supported range. Falsy → default. */
+export function clampExpiryDays(days: number | null | undefined): number {
+  if (days == null || !Number.isFinite(days)) return AGREEMENT_EXPIRY_DAYS
+  const n = Math.trunc(days)
+  if (n < MIN_EXPIRY_DAYS) return MIN_EXPIRY_DAYS
+  if (n > MAX_EXPIRY_DAYS) return MAX_EXPIRY_DAYS
+  return n
 }
 
 export function isExpired(expiresAt: Date | null | undefined, now: Date = new Date()): boolean {

@@ -10,7 +10,7 @@
 import { HTTPException } from 'hono/http-exception'
 import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
-import { generateAgreementToken, expiryDate, isExpired } from './token-service'
+import { generateAgreementToken, expiryDate, isExpired, clampExpiryDays } from './token-service'
 import { sendAgreementInviteSms, sendAgreementInviteSmsForClient } from './agreement-sms'
 import { assertDepositTransition, type DepositStatus } from '../../routes/agreements/helpers'
 import { type EntityType } from './entity-loader'
@@ -109,7 +109,7 @@ export async function resendAgreementForEntity(input: {
       where: { id: agreement.id },
       data: {
         token: generateAgreementToken(),
-        expiresAt: expiryDate(),
+        expiresAt: expiryDate(agreement.expiryDays),
         status: 'SENT',
         isActive: true,
       },
@@ -147,3 +147,46 @@ export async function resendAgreementForEntity(input: {
 
 /** Legacy alias retained for transitional callers + tests. */
 export const resendNdaForEntity = resendAgreementForEntity
+
+/**
+ * Push the link's expiry forward without rotating the token or sending SMS.
+ * Optionally updates `expiryDays` so future resends keep the new duration.
+ * Refuses on terminal statuses (SIGNED, VOIDED) — extending a closed agreement
+ * has no useful semantics.
+ */
+export async function extendAgreementForEntity(input: {
+  entityType: EntityType
+  entityId: string
+  agreementId: string
+  orgId: string
+  /** New validity window from now. Clamped; defaults to the agreement's stored expiryDays. */
+  days?: number | null
+}) {
+  const agreement = await prisma.agreement.findFirst({
+    where: {
+      id: input.agreementId,
+      ...agreementScopeWhere(input.entityType, input.entityId),
+      organizationId: input.orgId,
+    },
+    select: { id: true, status: true, expiryDays: true },
+  })
+  if (!agreement) throw new HTTPException(404, { message: 'Agreement not found' })
+  if (agreement.status === 'SIGNED') {
+    throw new HTTPException(409, { message: 'Agreement already signed' })
+  }
+  if (agreement.status === 'VOIDED') {
+    throw new HTTPException(409, { message: 'Agreement is voided' })
+  }
+
+  const days = clampExpiryDays(input.days ?? agreement.expiryDays)
+  const updated = await prisma.agreement.update({
+    where: { id: agreement.id },
+    data: {
+      expiresAt: expiryDate(days),
+      expiryDays: days,
+      isActive: true,
+      status: 'SENT',
+    },
+  })
+  return updated
+}

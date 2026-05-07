@@ -19,6 +19,7 @@ import {
   updateDepositForEntity,
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
+  extendAgreementForEntity,
   getDefaultHtmlForEntity,
   renderPreviewPdf,
 } from '../../services/agreements/agreement-service'
@@ -29,6 +30,7 @@ import {
   updateDepositBodySchema,
   createAgreementBodySchema,
   previewAgreementBodySchema,
+  extendAgreementBodySchema,
 } from './schemas'
 
 const staffRoute = new Hono<{ Variables: AuthVariables }>()
@@ -68,6 +70,7 @@ staffRoute.post(
       templateId: body.templateId,
       depositAmount: body.depositAmount ?? null,
       internalNote: body.internalNote,
+      expiryDays: body.expiryDays,
     })
     return c.json({ success: true, data: agreement, url }, 201)
   },
@@ -196,6 +199,27 @@ staffRoute.post(
       url: result.url,
       rotated: result.rotated,
     })
+  },
+)
+
+// POST /:leadId/agreements/:id/extend — push expiresAt forward without rotating
+// the token or sending SMS. Optionally updates the stored validity window.
+staffRoute.post(
+  '/:leadId/agreements/:id/extend',
+  zValidator('param', leadAndAgreementIdParamSchema),
+  zValidator('json', extendAgreementBodySchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { leadId, id } = c.req.valid('param')
+    const { days } = c.req.valid('json')
+    const data = await extendAgreementForEntity({
+      entityType: 'lead',
+      entityId: leadId,
+      agreementId: id,
+      orgId,
+      days,
+    })
+    return c.json({ success: true, data })
   },
 )
 

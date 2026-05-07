@@ -25,12 +25,14 @@ import {
   updateDepositForEntity,
   getPresignedPdfUrlForEntity,
   resendAgreementForEntity,
+  extendAgreementForEntity,
   renderPreviewPdf,
 } from '../../services/agreements/agreement-service'
 import {
   createAgreementBodySchema,
   previewAgreementBodySchema,
   updateDepositBodySchema,
+  extendAgreementBodySchema,
 } from '../agreements/schemas'
 import {
   clientIdParamSchema,
@@ -71,6 +73,7 @@ clientsAgreementsStaffRoute.post(
       templateId: body.templateId,
       depositAmount: body.depositAmount ?? null,
       internalNote: body.internalNote,
+      expiryDays: body.expiryDays,
     })
     return c.json({ success: true, data: agreement, url }, 201)
   },
@@ -178,6 +181,27 @@ clientsAgreementsStaffRoute.post(
       url: result.url,
       rotated: result.rotated,
     })
+  },
+)
+
+// POST /:clientId/agreements/:id/extend — push expiresAt forward without rotating
+// the token or sending SMS.
+clientsAgreementsStaffRoute.post(
+  '/:clientId/agreements/:id/extend',
+  zValidator('param', clientAndAgreementIdParamSchema),
+  zValidator('json', extendAgreementBodySchema),
+  async (c) => {
+    const { orgId } = getAuth(c.get('user'))
+    const { clientId, id } = c.req.valid('param')
+    const { days } = c.req.valid('json')
+    const data = await extendAgreementForEntity({
+      entityType: 'client',
+      entityId: clientId,
+      agreementId: id,
+      orgId,
+      days,
+    })
+    return c.json({ success: true, data })
   },
 )
 

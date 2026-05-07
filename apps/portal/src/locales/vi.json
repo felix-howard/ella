@@ -381,8 +381,8 @@
   "contractorIntake.invalidLink": "Link không hợp lệ hoặc đã hết hạn",
   "contractorIntake.invalidLinkMessage": "Link này không còn hợp lệ. Vui lòng liên hệ văn phòng thuế để nhận link mới.",
   "contractorIntake.submitted": "Đã gửi {{count}} nhà thầu",
-  "nda.pageTitle": "Ký NDA với {{orgName}}",
-  "nda.pageSubtitle": "Chào {{firstName}} — vui lòng xem lại thỏa thuận bên dưới. Khoản đặt cọc dịch vụ {{amount}} cũng được xác nhận trong tài liệu này.",
+  "nda.greeting": "Chào {{firstName}} — vui lòng xem lại thỏa thuận bên dưới.",
+  "nda.depositNote": "Khoản đặt cọc dịch vụ {{amount}} cũng được xác nhận trong tài liệu này.",
   "nda.signatureLabel": "Vẽ chữ ký của bạn",
   "nda.signatureHint": "Dùng ngón tay hoặc chuột để ký vào ô ở trên.",
   "nda.clearSignature": "Xóa",
@@ -410,5 +410,12 @@
   "nda.error.rate_limited.title": "Quá nhiều lần thử",
   "nda.error.rate_limited.message": "Bạn đã thử quá nhiều lần. Vui lòng đợi vài phút và thử lại.",
   "nda.error.server.title": "Đã xảy ra lỗi",
-  "nda.error.server.message": "Không tải được thỏa thuận. Vui lòng thử lại."
+  "nda.error.server.message": "Không tải được thỏa thuận. Vui lòng thử lại.",
+  "nda.documentBadge": "Thỏa thuận",
+  "nda.depositBadge": "Đặt cọc {{amount}}",
+  "nda.secureSigning": "Ký điện tử an toàn",
+  "nda.firmAlreadySigned": "Văn phòng đã ký",
+  "nda.signFormTitle": "Chữ ký của bạn",
+  "nda.footerSecure": "Phiên ký được mã hóa — thông tin của bạn được bảo vệ.",
+  "nda.poweredBy": "Cung cấp bởi Ella"
 }

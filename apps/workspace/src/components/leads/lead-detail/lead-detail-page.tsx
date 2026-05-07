@@ -10,7 +10,7 @@ import { LeadInfoGrid } from './lead-info-grid'
 import { LeadActivityTimeline } from './lead-activity-timeline'
 import { LeadNotesSection } from './lead-notes-section'
 import { LeadDangerZone } from './lead-danger-zone'
-import { AgreementsTab } from '../../nda/agreements-tab'
+import { AgreementsTab } from '../../agreements/agreements-tab'
 import { FloatingChatbox } from '../../chatbox'
 import { ErrorBoundary } from '../../error-boundary'
 import { useChatUnread } from '../../../hooks/use-chat-unread'
@@ -36,7 +36,7 @@ export function LeadDetailPage({ lead }: Props) {
   const fullName = `${lead.firstName} ${lead.lastName}`.trim()
 
   return (
-    <div className="max-w-6xl mx-auto w-full">
+    <div className="w-full">
       <LeadDetailHeader lead={lead} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

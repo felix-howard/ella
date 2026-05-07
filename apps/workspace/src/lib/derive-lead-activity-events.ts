@@ -3,7 +3,7 @@
  * v1 is derive-only: no AuditLog table. Historic status changes are lost —
  * only the current status (via updatedAt) is surfaced.
  */
-import type { Lead, NdaAgreement } from './api-client'
+import type { Agreement, Lead } from './api-client'
 
 export type TimelineEventType =
   | 'created'
@@ -27,7 +27,7 @@ export interface TimelineEvent {
 
 export function deriveLeadActivityEvents(
   lead: Lead,
-  ndaAgreements: NdaAgreement[]
+  agreements: Agreement[]
 ): TimelineEvent[] {
   const events: TimelineEvent[] = []
 
@@ -39,7 +39,7 @@ export function deriveLeadActivityEvents(
     color: 'blue',
   })
 
-  for (const nda of ndaAgreements) {
+  for (const nda of agreements) {
     if (nda.status === 'SENT' || nda.status === 'SIGNED' || nda.status === 'EXPIRED' || nda.status === 'VOIDED') {
       events.push({
         id: `nda-sent-${nda.id}`,

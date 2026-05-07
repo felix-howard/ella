@@ -58,6 +58,7 @@ vi.mock('../../../services/engagement-helpers', () => ({
 
 vi.mock('../../../services/magic-link', () => ({
   createMagicLink: vi.fn(),
+  upgradeActivePortalLinksToGroup: vi.fn(),
 }))
 
 vi.mock('../../../services/sms', () => ({

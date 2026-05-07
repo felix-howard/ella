@@ -32,16 +32,21 @@
 .form-intro-content em { font-style: italic; }
 .form-intro-content u { text-decoration: underline; }
 
-/* Sanitized NDA custom HTML rendered on signing page (defence-in-depth via DOMPurify) */
-.nda-custom-html-content > * + * { margin-top: 0.5rem; }
-.nda-custom-html-content h2 { font-size: 1rem; font-weight: 600; margin-top: 1rem; }
-.nda-custom-html-content h3 { font-size: 0.9375rem; font-weight: 600; margin-top: 0.75rem; }
-.nda-custom-html-content p { margin: 0; }
-.nda-custom-html-content ul,
-.nda-custom-html-content ol { padding-left: 1.25rem; }
-.nda-custom-html-content ul { list-style: disc; }
-.nda-custom-html-content ol { list-style: decimal; }
-.nda-custom-html-content li + li { margin-top: 0.25rem; }
-.nda-custom-html-content a { color: var(--color-primary, #2563eb); text-decoration: underline; }
-.nda-custom-html-content strong { font-weight: 600; }
-.nda-custom-html-content em { font-style: italic; }
+/* Sanitized agreement custom HTML rendered on signing page (defence-in-depth via DOMPurify) */
+.agreement-custom-html-content > * + * { margin-top: 0.65rem; }
+.agreement-custom-html-content h2 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; color: var(--color-foreground); }
+.agreement-custom-html-content h3 { font-size: 0.9375rem; font-weight: 600; margin-top: 1rem; color: var(--color-foreground); }
+.agreement-custom-html-content p { margin: 0; }
+.agreement-custom-html-content ul,
+.agreement-custom-html-content ol { padding-left: 1.25rem; }
+.agreement-custom-html-content ul { list-style: disc; }
+.agreement-custom-html-content ol { list-style: decimal; }
+.agreement-custom-html-content li + li { margin-top: 0.35rem; }
+.agreement-custom-html-content a { color: var(--color-primary, #2563eb); text-decoration: underline; }
+.agreement-custom-html-content strong { font-weight: 600; }
+.agreement-custom-html-content em { font-style: italic; }
+
+@media (min-width: 1024px) {
+  .agreement-custom-html-content h2 { font-size: 1.0625rem; }
+  .agreement-custom-html-content h3 { font-size: 1rem; }
+}

@@ -23,6 +23,7 @@ import { Route as FormOrgSlugIndexRouteImport } from './routes/form/$orgSlug/ind
 import { Route as ExpenseTokenIndexRouteImport } from './routes/expense/$token/index'
 import { Route as DraftTokenIndexRouteImport } from './routes/draft/$token/index'
 import { Route as ContractorIntakeTokenIndexRouteImport } from './routes/contractor-intake/$token/index'
+import { Route as AgreementsTokenIndexRouteImport } from './routes/agreements/$token/index'
 import { Route as RegisterOrgSlugEventSlugIndexRouteImport } from './routes/register/$orgSlug/$eventSlug/index'
 import { Route as FormOrgSlugStaffSlugIndexRouteImport } from './routes/form/$orgSlug/$staffSlug/index'
 import { Route as UploadTokenECaseIdIndexRouteImport } from './routes/upload/$token/e/$caseId/index'
@@ -99,6 +100,11 @@ const ContractorIntakeTokenIndexRoute =
     path: '/contractor-intake/$token/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AgreementsTokenIndexRoute = AgreementsTokenIndexRouteImport.update({
+  id: '/agreements/$token/',
+  path: '/agreements/$token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterOrgSlugEventSlugIndexRoute =
   RegisterOrgSlugEventSlugIndexRouteImport.update({
     id: '/register/$orgSlug/$eventSlug/',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
   '/upload/$token': typeof UploadTokenRouteWithChildren
+  '/agreements/$token': typeof AgreementsTokenIndexRoute
   '/contractor-intake/$token': typeof ContractorIntakeTokenIndexRoute
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agreements/$token': typeof AgreementsTokenIndexRoute
   '/contractor-intake/$token': typeof ContractorIntakeTokenIndexRoute
   '/draft/$token': typeof DraftTokenIndexRoute
   '/expense/$token': typeof ExpenseTokenIndexRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/rental/$token': typeof RentalTokenRouteWithChildren
   '/u/$token': typeof UTokenRouteWithChildren
   '/upload/$token': typeof UploadTokenRouteWithChildren
+  '/agreements/$token/': typeof AgreementsTokenIndexRoute
   '/contractor-intake/$token/': typeof ContractorIntakeTokenIndexRoute
   '/draft/$token/': typeof DraftTokenIndexRoute
   '/expense/$token/': typeof ExpenseTokenIndexRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/rental/$token'
     | '/u/$token'
     | '/upload/$token'
+    | '/agreements/$token'
     | '/contractor-intake/$token'
     | '/draft/$token'
     | '/expense/$token/'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agreements/$token'
     | '/contractor-intake/$token'
     | '/draft/$token'
     | '/expense/$token'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/rental/$token'
     | '/u/$token'
     | '/upload/$token'
+    | '/agreements/$token/'
     | '/contractor-intake/$token/'
     | '/draft/$token/'
     | '/expense/$token/'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   RentalTokenRoute: typeof RentalTokenRouteWithChildren
   UTokenRoute: typeof UTokenRouteWithChildren
   UploadTokenRoute: typeof UploadTokenRouteWithChildren
+  AgreementsTokenIndexRoute: typeof AgreementsTokenIndexRoute
   ContractorIntakeTokenIndexRoute: typeof ContractorIntakeTokenIndexRoute
   DraftTokenIndexRoute: typeof DraftTokenIndexRoute
   FormOrgSlugIndexRoute: typeof FormOrgSlugIndexRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContractorIntakeTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agreements/$token/': {
+      id: '/agreements/$token/'
+      path: '/agreements/$token'
+      fullPath: '/agreements/$token'
+      preLoaderRoute: typeof AgreementsTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register/$orgSlug/$eventSlug/': {
       id: '/register/$orgSlug/$eventSlug/'
       path: '/register/$orgSlug/$eventSlug'
@@ -441,6 +461,7 @@ const rootRouteChildren: RootRouteChildren = {
   RentalTokenRoute: RentalTokenRouteWithChildren,
   UTokenRoute: UTokenRouteWithChildren,
   UploadTokenRoute: UploadTokenRouteWithChildren,
+  AgreementsTokenIndexRoute: AgreementsTokenIndexRoute,
   ContractorIntakeTokenIndexRoute: ContractorIntakeTokenIndexRoute,
   DraftTokenIndexRoute: DraftTokenIndexRoute,
   FormOrgSlugIndexRoute: FormOrgSlugIndexRoute,

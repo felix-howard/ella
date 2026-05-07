@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import { FileSignature, ArrowRight, Loader2 } from 'lucide-react'
 import { api, type ClientDetail } from '../../../lib/api-client'
-import { NdaReadonlyCard } from '../../nda/nda-readonly-card'
+import { NdaReadonlyCard } from '../../agreements/agreement-readonly-card'
 
 interface Props {
   client: ClientDetail
@@ -20,7 +20,7 @@ export function ClientNdaSection({ client }: Props) {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['nda', 'client', client.id, 'list'],
-    queryFn: () => api.clients.nda.list(client.id),
+    queryFn: () => api.clients.agreements.list(client.id),
     staleTime: 60_000,
   })
 

@@ -14,6 +14,7 @@ import { toast } from '../../stores/toast-store'
 import { formatPhone } from '../../lib/formatters'
 import { NotificationSubscriptions } from './notification-subscriptions'
 import { TermsDownloadButton } from './terms-download-button'
+import { useInvalidateNdaReadiness } from '../agreements/use-nda-readiness'
 
 // Phone input styles
 import 'react-phone-number-input/style.css'
@@ -31,11 +32,13 @@ interface ProfileFormProps {
 export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChange, isRoleChangePending, hideNotifications }: ProfileFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const invalidateReadiness = useInvalidateNdaReadiness()
   const [isEditing, setIsEditing] = useState(false)
 
   // Form state - only used during edit mode
   const [editFirstName, setEditFirstName] = useState(staff.firstName)
   const [editLastName, setEditLastName] = useState(staff.lastName)
+  const [editTitle, setEditTitle] = useState(staff.title ?? '')
   const [editPhoneNumber, setEditPhoneNumber] = useState<E164Number | undefined>(
     staff.phoneNumber as E164Number | undefined
   )
@@ -55,6 +58,7 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
         firstName: editFirstName.trim(),
         lastName: editLastName.trim(),
         phoneNumber: editPhoneNumber || null,
+        title: editTitle.trim() || null,
         notifyOnUpload: editNotifyOnUpload,
       }),
     onSuccess: () => {
@@ -66,6 +70,8 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
       toast.success(t('profile.updateSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+      // Title changes affect NDA readiness for the current staff.
+      if (staffId === 'me') invalidateReadiness()
       setIsEditing(false)
     },
     onError: () => {
@@ -108,6 +114,7 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
   const handleCancel = () => {
     setEditFirstName(staff.firstName)
     setEditLastName(staff.lastName)
+    setEditTitle(staff.title ?? '')
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
     setEditRole(staff.role === 'ADMIN' ? 'org:admin' : 'org:member')
@@ -121,6 +128,7 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
   const isDirty =
     editFirstName !== staff.firstName ||
     editLastName !== staff.lastName ||
+    editTitle !== (staff.title ?? '') ||
     editPhoneNumber !== staff.phoneNumber ||
     editNotifyOnUpload !== staff.notifyOnUpload ||
     editRole !== currentClerkRole
@@ -209,6 +217,26 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
           ) : (
             <p className="text-foreground">
               {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+            </p>
+          )}
+        </div>
+
+        {/* Title (e.g. Managing Partner, CPA) */}
+        <div data-settings-focus="title">
+          <label htmlFor="title" className="block text-sm font-medium text-foreground mb-1.5">
+            Title
+          </label>
+          {isEditing ? (
+            <Input
+              id="title"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={80}
+              placeholder="e.g. Managing Partner, CPA"
+            />
+          ) : (
+            <p className="text-foreground">
+              {staff.title || <span className="text-muted-foreground">{t('profile.notSet')}</span>}
             </p>
           )}
         </div>

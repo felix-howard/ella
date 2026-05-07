@@ -8,6 +8,7 @@ import { Loader2, User } from 'lucide-react'
 import { ProfileForm } from '../profile/profile-form'
 import { AvatarUploader } from '../profile/avatar-uploader'
 import { StaffFormLinkCard } from '../profile/staff-form-link-card'
+import { SignaturePadCard } from '../profile/signature-pad-card'
 import { api } from '../../lib/api-client'
 import { useOrgRole } from '../../hooks/use-org-role'
 
@@ -70,6 +71,9 @@ export function SettingsProfileTab() {
         canChangeRole={false}
         hideNotifications
       />
+
+      {/* Signature Pad */}
+      <SignaturePadCard />
 
       {/* Personal Form Link */}
       <StaffFormLinkCard

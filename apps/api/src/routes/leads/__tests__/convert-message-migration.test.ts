@@ -13,13 +13,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const {
   updateManyMock,
   messageCreateMock,
-  ndaUpdateManyMock,
+  agreementUpdateManyMock,
   clientCreateMock,
   clientFindFirstMock,
 } = vi.hoisted(() => ({
   updateManyMock: vi.fn(),
   messageCreateMock: vi.fn(),
-  ndaUpdateManyMock: vi.fn(),
+  agreementUpdateManyMock: vi.fn(),
   clientCreateMock: vi.fn(),
   clientFindFirstMock: vi.fn(),
 }))
@@ -45,8 +45,8 @@ vi.mock('../../../lib/db', () => {
       // invariant: conversion must REASSIGN messages, never copy.
       create: messageCreateMock,
     },
-    ndaAgreement: {
-      updateMany: ndaUpdateManyMock,
+    agreement: {
+      updateMany: agreementUpdateManyMock,
     },
     lead: {
       update: vi.fn().mockResolvedValue({ id: 'lead_1' }),
@@ -136,8 +136,8 @@ function mockLead(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   updateManyMock.mockReset()
   updateManyMock.mockResolvedValue({ count: 3 })
-  ndaUpdateManyMock.mockReset()
-  ndaUpdateManyMock.mockResolvedValue({ count: 0 })
+  agreementUpdateManyMock.mockReset()
+  agreementUpdateManyMock.mockResolvedValue({ count: 0 })
   messageCreateMock.mockReset()
   clientCreateMock.mockReset()
   clientCreateMock.mockResolvedValue({
@@ -190,7 +190,7 @@ describe('POST /leads/:id/convert — message history migration', () => {
 
     expect(res.status).toBe(400)
     expect(updateManyMock).not.toHaveBeenCalled()
-    expect(ndaUpdateManyMock).not.toHaveBeenCalled()
+    expect(agreementUpdateManyMock).not.toHaveBeenCalled()
   })
 })
 
@@ -227,7 +227,7 @@ describe('POST /leads/:id/convert — notes carry-over', () => {
 describe('POST /leads/:id/convert — NDA migration', () => {
   it('links all lead NDAs to the new client via updateMany', async () => {
     mockLead()
-    ndaUpdateManyMock.mockResolvedValueOnce({ count: 2 })
+    agreementUpdateManyMock.mockResolvedValueOnce({ count: 2 })
 
     const res = await buildApp().request(`/leads/${VALID_LEAD_CUID}/convert`, {
       method: 'POST',
@@ -236,8 +236,8 @@ describe('POST /leads/:id/convert — NDA migration', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(ndaUpdateManyMock).toHaveBeenCalledTimes(1)
-    expect(ndaUpdateManyMock).toHaveBeenCalledWith({
+    expect(agreementUpdateManyMock).toHaveBeenCalledTimes(1)
+    expect(agreementUpdateManyMock).toHaveBeenCalledWith({
       where: { leadId: VALID_LEAD_CUID, organizationId: 'org_1' },
       data: { clientId: 'client_new' },
     })
@@ -267,6 +267,6 @@ describe('POST /leads/:id/convert — duplicate phone hard-block', () => {
     // No mutations persisted on duplicate path.
     expect(clientCreateMock).not.toHaveBeenCalled()
     expect(updateManyMock).not.toHaveBeenCalled()
-    expect(ndaUpdateManyMock).not.toHaveBeenCalled()
+    expect(agreementUpdateManyMock).not.toHaveBeenCalled()
   })
 })

@@ -1746,6 +1746,8 @@
   "agreements.wizard.stepIndicator": "Step {{current}} of {{total}}",
   "agreements.wizard.startBlank": "Start blank",
   "agreements.wizard.startBlankDescription": "Open an empty editor — paste from Google Docs or write from scratch.",
+  "agreements.wizard.builtinNda": "Default NDA",
+  "agreements.wizard.builtinNdaDescription": "Built-in confidentiality and non-disclosure agreement — the standard template.",
   "agreements.wizard.noTemplatesForType": "No templates of this type yet. Use \"Start blank\" or add one in Settings → Agreement Templates.",
   "agreements.wizard.templatesLoadError": "Failed to load templates.",
   "agreements.wizard.contentLoadError": "Failed to load content. Please retry.",

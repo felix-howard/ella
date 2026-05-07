@@ -3,16 +3,17 @@
  * Agreement / Custom). Steps:
  *   1. Type picker — 4 cards
  *   2. Template picker — list filtered by type, "Start Blank" option.
- *      NDA auto-skips this step (always uses built-in template-v1).
+ *      For NDA, a synthetic "Default NDA" card surfaces the built-in template
+ *      so the picker step is consistent across types.
  *   3. Content editor — rich text + title + deposit toggle + internal note
  *
  * On submit the wizard POSTs to the entity-aware /agreements endpoint via
  * useCreateAgreement, then closes itself on success (toast + cache invalidation
  * are handled by the mutation hook).
  *
- * State machine is a simple { step, type?, templateId? | 'blank', html, title,
- * depositEnabled, depositAmount, internalNote }. Back button steps backward
- * without losing already-entered fields.
+ * State machine is a simple { step, type?, templateId? | 'blank' | 'builtin',
+ * html, title, depositEnabled, depositAmount, internalNote }. Back button steps
+ * backward without losing already-entered fields.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -28,6 +29,10 @@ import {
   emptyStep3Draft,
   type Step3Draft,
 } from './wizard-steps/step3-content-editor'
+import {
+  BLANK_TEMPLATE,
+  BUILTIN_NDA_TEMPLATE,
+} from './wizard-steps/template-sentinels'
 import { formatPhone } from '../../lib/formatters'
 import type {
   Agreement,
@@ -46,9 +51,6 @@ interface Props {
 }
 
 type Step = 1 | 2 | 3
-
-/** Sentinel template selection meaning "no template — empty editor". */
-const BLANK_TEMPLATE = '__blank__'
 
 export function AgreementSendWizard({ entity, recipient, agreements, onClose }: Props) {
   const { t } = useTranslation()
@@ -81,14 +83,6 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
 
   const handleTypeSelect = (next: AgreementType) => {
     setType(next)
-    if (next === 'NDA') {
-      // NDA always uses the built-in template; skip Step 2.
-      // The setup-required gate (rendered below in place of Step 3) blocks
-      // editing/sending until readiness check passes.
-      setTemplateId(BLANK_TEMPLATE)
-      setStep(3)
-      return
-    }
     if (next === 'CUSTOM') {
       // CUSTOM rejects templateId server-side; force blank editor.
       setTemplateId(BLANK_TEMPLATE)
@@ -107,8 +101,8 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
 
   const handleBack = () => {
     if (step === 3) {
-      // NDA + CUSTOM skipped Step 2 — bounce back to Step 1.
-      const target: Step = type === 'NDA' || type === 'CUSTOM' ? 1 : 2
+      // CUSTOM skipped Step 2 — bounce back to Step 1.
+      const target: Step = type === 'CUSTOM' ? 1 : 2
       setStep(target)
       return
     }
@@ -126,12 +120,18 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
     internalNote: string
   }) => {
     if (!type) return
+    // BLANK + BUILTIN_NDA are client-only sentinels — never sent to the server.
+    // Server resolves NDA without templateId/contentHtml to the built-in default,
+    // and the editor always supplies contentHtml so the snapshot is exact.
+    const isRealTemplate =
+      !!templateId &&
+      templateId !== BLANK_TEMPLATE &&
+      templateId !== BUILTIN_NDA_TEMPLATE
     const payload: CreateAgreementPayload = {
       type,
       title: resolved.title.trim() || undefined,
       contentHtml: resolved.contentHtml.trim() || undefined,
-      templateId:
-        templateId && templateId !== BLANK_TEMPLATE ? templateId : undefined,
+      templateId: isRealTemplate ? templateId : undefined,
       depositAmount: resolved.depositEnabled ? resolved.depositAmount : null,
       internalNote: resolved.internalNote.trim() || undefined,
     }
@@ -221,7 +221,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
             <Step3ContentEditor
               entity={entity}
               type={type}
-              templateId={templateId === BLANK_TEMPLATE ? null : templateId}
+              templateId={templateId}
               isSubmitting={mutation.isPending}
               draft={draft}
               onDraftChange={setDraft}

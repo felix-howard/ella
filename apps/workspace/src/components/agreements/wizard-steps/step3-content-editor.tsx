@@ -7,9 +7,10 @@
  * user types/toggles, the override captures their value verbatim.
  *
  * Seeds editor HTML based on (type, templateId):
- *   - NDA: fetches /agreements/default-html (built-in template-v1, vars filled)
- *   - Other type + templateId: pulls template.contentHtml verbatim
- *   - Blank or CUSTOM: empty editor
+ *   - NDA + BUILTIN_NDA_TEMPLATE: fetches /agreements/default-html (built-in
+ *     template, vars filled)
+ *   - Any type + real templateId: pulls template.contentHtml verbatim
+ *   - BLANK_TEMPLATE / null / CUSTOM: empty editor
  *
  * Beyond content: title (defaults to type label), deposit toggle (NDA on by
  * default), deposit amount (from template default or constant), internal note.
@@ -23,6 +24,7 @@ import { Loader2, Send, FileText } from 'lucide-react'
 import { RichTextEditor } from '../../leads/rich-text-editor'
 import { NdaPdfPreviewModal } from '../agreement-pdf-preview-modal'
 import { useAgreementDefaultHtml } from '../use-agreement-default-html'
+import { BLANK_TEMPLATE, BUILTIN_NDA_TEMPLATE } from './template-sentinels'
 import { api } from '../../../lib/api-client'
 import type { AgreementType } from '../../../lib/api-client'
 import type { EntityRef } from '../types'
@@ -83,25 +85,31 @@ export function Step3ContentEditor({
   const { t } = useTranslation()
   const [previewOpen, setPreviewOpen] = useState(false)
 
-  // Default-HTML fetch (NDA only). Other types seed from template fetch below
-  // or leave the editor blank.
-  const defaultHtmlQuery = useAgreementDefaultHtml(entity, type === 'NDA')
+  const isBuiltinNda = templateId === BUILTIN_NDA_TEMPLATE
+  const isRealTemplate =
+    !!templateId &&
+    templateId !== BLANK_TEMPLATE &&
+    templateId !== BUILTIN_NDA_TEMPLATE
 
-  // Template fetch (non-NDA types only when a templateId was selected).
+  // Default-HTML fetch — only when the user picked the synthetic "Default NDA"
+  // card. Start blank or org templates leave the editor blank / seed from the
+  // template fetch below instead.
+  const defaultHtmlQuery = useAgreementDefaultHtml(entity, isBuiltinNda)
+
+  // Template fetch — any agreement type when a real templateId was selected.
   const templateQuery = useQuery({
     queryKey: ['agreement-templates', 'detail', templateId],
     queryFn: () =>
       api.agreementTemplates.get(templateId as string).then((res) => res.data),
-    enabled: type !== 'NDA' && !!templateId,
+    enabled: isRealTemplate,
     staleTime: Infinity,
   })
 
-  const seedHtml: string =
-    type === 'NDA'
-      ? defaultHtmlQuery.data?.data.contentHtml ?? ''
-      : templateId
-        ? templateQuery.data?.contentHtml ?? ''
-        : ''
+  const seedHtml: string = isBuiltinNda
+    ? defaultHtmlQuery.data?.data.contentHtml ?? ''
+    : isRealTemplate
+      ? templateQuery.data?.contentHtml ?? ''
+      : ''
 
   const templateDefaultDeposit = templateQuery.data?.defaultDepositAmount ?? null
 
@@ -117,11 +125,11 @@ export function Step3ContentEditor({
     onDraftChange({ ...draft, ...partial })
 
   const seedLoading =
-    (type === 'NDA' && defaultHtmlQuery.isLoading) ||
-    (type !== 'NDA' && !!templateId && templateQuery.isLoading)
+    (isBuiltinNda && defaultHtmlQuery.isLoading) ||
+    (isRealTemplate && templateQuery.isLoading)
   const seedError =
-    (type === 'NDA' && defaultHtmlQuery.isError) ||
-    (type !== 'NDA' && !!templateId && templateQuery.isError)
+    (isBuiltinNda && defaultHtmlQuery.isError) ||
+    (isRealTemplate && templateQuery.isError)
 
   const titleTrim = effectiveTitle.trim()
   const htmlTrim = effectiveHtml.trim()

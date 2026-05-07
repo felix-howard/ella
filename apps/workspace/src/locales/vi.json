@@ -1743,6 +1743,8 @@
   "agreements.wizard.stepIndicator": "Bước {{current}}/{{total}}",
   "agreements.wizard.startBlank": "Bắt đầu trống",
   "agreements.wizard.startBlankDescription": "Mở trình soạn thảo trống — dán từ Google Docs hoặc viết mới.",
+  "agreements.wizard.builtinNda": "NDA mặc định",
+  "agreements.wizard.builtinNdaDescription": "Mẫu thỏa thuận bảo mật (NDA) tích hợp sẵn — mẫu chuẩn.",
   "agreements.wizard.noTemplatesForType": "Chưa có mẫu thuộc loại này. Dùng \"Bắt đầu trống\" hoặc thêm mẫu trong Cài đặt → Mẫu thỏa thuận.",
   "agreements.wizard.templatesLoadError": "Không thể tải mẫu.",
   "agreements.wizard.contentLoadError": "Không thể tải nội dung. Vui lòng thử lại.",

@@ -38,11 +38,11 @@ describe('generateNdaToken', () => {
 })
 
 describe('expiryDate', () => {
-  it('defaults to AGREEMENT_EXPIRY_DAYS (7 days) from now', () => {
+  it('defaults to AGREEMENT_EXPIRY_DAYS (30 days) from now', () => {
     const from = new Date('2026-04-23T00:00:00.000Z')
     const out = expiryDate(undefined, from)
-    expect(out.toISOString()).toBe('2026-04-30T00:00:00.000Z')
-    expect(AGREEMENT_EXPIRY_DAYS).toBe(7)
+    expect(out.toISOString()).toBe('2026-05-23T00:00:00.000Z')
+    expect(AGREEMENT_EXPIRY_DAYS).toBe(30)
   })
 
   it('accepts custom day count', () => {

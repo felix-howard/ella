@@ -552,6 +552,9 @@ model Organization {
   zip             String?
   governingState  String? // e.g. "Texas"
   governingCounty String? // e.g. "Harris County"
+  firmPhone        String?
+  firmEmail        String?
+  firmWebsite      String?
 
   staff              Staff[]
   clients            Client[]
@@ -1573,7 +1576,7 @@ model Agreement {
   expiresAt  DateTime?
   /** Validity window in days from send/rotation. Persisted so resend reuses
    *  the originally-chosen duration and Extend can also default to it. */
-  expiryDays Int       @default(7)
+  expiryDays Int       @default(30)
   isActive   Boolean   @default(true)
   lastUsedAt DateTime?
   usageCount Int       @default(0)

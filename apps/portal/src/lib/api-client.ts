@@ -77,6 +77,7 @@ export type AgreementClientType = 'INDIVIDUAL' | 'BUSINESS'
 export interface AgreementFirmSnapshot {
   name: string
   address: string
+  contact: string | null
   signerName: string
   signerTitle: string
   /** Presigned URL for already-drawn firm signature PNG. */

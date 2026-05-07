@@ -24,6 +24,17 @@ const updateOrgSettingsSchema = z.object({
   zip: z.string().max(20).nullable().optional(),
   governingState: z.string().max(50).nullable().optional(),
   governingCounty: z.string().max(100).nullable().optional(),
+  firmPhone: z.string().max(30).nullable().optional(),
+  firmEmail: z.string().email().max(254).nullable().optional(),
+  firmWebsite: z
+    .string()
+    .max(200)
+    .url()
+    .refine((value) => value.startsWith('http://') || value.startsWith('https://'), {
+      message: 'firmWebsite must be an http(s) URL',
+    })
+    .nullable()
+    .optional(),
 })
 
 // GET /org-settings - Get org settings
@@ -46,6 +57,9 @@ orgSettingsRoute.get('/', async (c) => {
       zip: true,
       governingState: true,
       governingCounty: true,
+      firmPhone: true,
+      firmEmail: true,
+      firmWebsite: true,
     },
   })
 
@@ -64,6 +78,9 @@ orgSettingsRoute.get('/', async (c) => {
     zip: org.zip,
     governingState: org.governingState,
     governingCounty: org.governingCounty,
+    firmPhone: org.firmPhone,
+    firmEmail: org.firmEmail,
+    firmWebsite: org.firmWebsite,
   })
 })
 
@@ -111,6 +128,9 @@ orgSettingsRoute.patch(
           zip: true,
           governingState: true,
           governingCounty: true,
+          firmPhone: true,
+          firmEmail: true,
+          firmWebsite: true,
         },
       })
     } catch (error) {
@@ -142,6 +162,9 @@ orgSettingsRoute.patch(
       zip: updated.zip,
       governingState: updated.governingState,
       governingCounty: updated.governingCounty,
+      firmPhone: updated.firmPhone,
+      firmEmail: updated.firmEmail,
+      firmWebsite: updated.firmWebsite,
     })
   }
 )

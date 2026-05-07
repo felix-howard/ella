@@ -42,6 +42,9 @@ export function FirmInfoCard() {
     zip: '',
     governingState: '',
     governingCounty: '',
+    firmPhone: '',
+    firmEmail: '',
+    firmWebsite: '',
   })
 
   // Sync form from query data when entering edit mode
@@ -53,6 +56,9 @@ export function FirmInfoCard() {
       zip: data?.zip ?? '',
       governingState: data?.governingState ?? '',
       governingCounty: data?.governingCounty ?? '',
+      firmPhone: data?.firmPhone ?? '',
+      firmEmail: data?.firmEmail ?? '',
+      firmWebsite: data?.firmWebsite ?? '',
     })
     setIsEditing(true)
   }
@@ -66,6 +72,9 @@ export function FirmInfoCard() {
         zip: form.zip.trim() || null,
         governingState: form.governingState.trim() || null,
         governingCounty: form.governingCounty.trim() || null,
+        firmPhone: form.firmPhone.trim() || null,
+        firmEmail: form.firmEmail.trim() || null,
+        firmWebsite: form.firmWebsite.trim() || null,
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(QUERY_KEY, updated)
@@ -92,7 +101,7 @@ export function FirmInfoCard() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">Firm Information</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Used to auto-fill NDA headers. Visible to org admins only.
+              Used to auto-fill agreement headers. Visible to org admins only.
             </p>
           </div>
         </div>
@@ -142,6 +151,21 @@ export function FirmInfoCard() {
               </div>
             </div>
 
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Phone</label>
+                <Input value={form.firmPhone} onChange={set('firmPhone')} maxLength={30} placeholder="+1 555 123 4567" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                <Input type="email" value={form.firmEmail} onChange={set('firmEmail')} maxLength={254} placeholder="office@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Website</label>
+                <Input value={form.firmWebsite} onChange={set('firmWebsite')} maxLength={200} placeholder="https://example.com" />
+              </div>
+            </div>
+
             {/* Governing law */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -180,6 +204,18 @@ export function FirmInfoCard() {
               <dd className="text-foreground mt-0.5">
                 {data?.governingState ? (
                   <>{data.governingState}{data.governingCounty ? `, ${data.governingCounty}` : ''}</>
+                ) : <span className="text-muted-foreground">Not set</span>}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Contact</dt>
+              <dd className="text-foreground mt-0.5">
+                {data?.firmPhone || data?.firmEmail || data?.firmWebsite ? (
+                  <>
+                    {data.firmPhone && <>{data.firmPhone}<br /></>}
+                    {data.firmEmail && <>{data.firmEmail}<br /></>}
+                    {data.firmWebsite}
+                  </>
                 ) : <span className="text-muted-foreground">Not set</span>}
               </dd>
             </div>

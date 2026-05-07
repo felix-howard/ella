@@ -1,12 +1,12 @@
 /**
  * Entity-aware agreement create + preview operations.
  * - createAgreementForEntity: phone-required, sanitize HTML, write row, dispatch SMS
- * - getDefaultHtmlForEntity: render built-in NDA template-v1 with recipient name
- *   (other types have no built-in default — caller seeds from a templateId or empty editor)
+ * - getDefaultHtmlForEntity: render built-in NDA or Engagement Letter HTML with
+ *   known firm/client fields pre-filled.
  * - renderPreviewPdf: in-memory PDF preview of (possibly-edited) HTML
  *
  * Type-aware content resolution:
- *  - NDA without explicit content/template → built-in template-v1 default
+ *  - NDA without explicit content/template → built-in NDA default
  *  - CUSTOM → customContentHtml is REQUIRED
  *  - ENGAGEMENT_LETTER / SERVICE_AGREEMENT → templateId snapshot OR
  *    customContentHtml; if neither supplied, validation rejects
@@ -20,6 +20,7 @@ import { customAlphabet } from 'nanoid'
 import { HTTPException } from 'hono/http-exception'
 import { prisma } from '../../lib/db'
 import { sanitizeAgreementHtml } from '../../lib/agreements/sanitize-html'
+import { findAgreementPlaceholders } from '../../lib/agreements/placeholders'
 import { renderDefaultAgreementHtml } from '../../lib/agreements/render-default-html'
 import {
   currentTemplate,
@@ -34,6 +35,7 @@ import {
   loadEntityForV2Snapshot,
   formatRecipientName,
   composeAddressLine,
+  composeContactLine,
   resolveClientNameOrBusiness,
   type EntityType,
 } from './entity-loader'
@@ -71,7 +73,7 @@ interface CreateAgreementInput {
   depositAmount?: Prisma.Decimal | string | number | null
   /** Staff-only note persisted on the Agreement row. Never rendered to recipient. */
   internalNote?: string | null
-  /** Link validity in days. Clamped to [MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS]. Defaults to 7. */
+  /** Link validity in days. Clamped to [MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS]. Defaults to 30. */
   expiryDays?: number | null
 }
 
@@ -128,6 +130,14 @@ async function resolveContent(input: {
 
   // Type-specific content rules.
   const finalHtml = customContentHtml ?? snapshottedHtml
+  if (input.type === 'ENGAGEMENT_LETTER') {
+    const placeholders = findAgreementPlaceholders(finalHtml)
+    if (placeholders.length > 0) {
+      throw new HTTPException(422, {
+        message: `Engagement Letter has unresolved placeholders: ${placeholders.join(', ')}`,
+      })
+    }
+  }
   if (input.type === 'CUSTOM' && !finalHtml) {
     throw new HTTPException(422, { message: 'CUSTOM agreement requires content' })
   }
@@ -211,8 +221,10 @@ async function assertNoActiveNdaEngagement(input: {
  */
 async function snapshotFirmSide(input: {
   staffId: string
+  type: AgreementType
   orgGoverningOk: boolean
   orgAddressOk: boolean
+  orgContactOk: boolean
 }): Promise<{
   firmSignerName: string
   firmSignerTitle: string
@@ -237,10 +249,11 @@ async function snapshotFirmSide(input: {
   if (!staff.title?.trim()) missing.push('CPA profile title')
   if (!staff.signaturePngKey) missing.push('CPA signature')
   if (!input.orgAddressOk) missing.push('firm address')
-  if (!input.orgGoverningOk) missing.push('governing law')
+  if (input.type === 'NDA' && !input.orgGoverningOk) missing.push('governing law')
+  if (input.type === 'ENGAGEMENT_LETTER' && !input.orgContactOk) missing.push('firm contact')
   if (missing.length > 0) {
     throw new HTTPException(422, {
-      message: `NDA cannot be sent: missing ${missing.join(', ')}. Complete Settings → Profile + Settings → General first.`,
+      message: `${DEFAULT_TITLES[input.type]} cannot be sent: missing ${missing.join(', ')}. Complete Settings → Profile + Settings → General first.`,
     })
   }
 
@@ -261,12 +274,12 @@ async function snapshotFirmSide(input: {
 export async function createAgreementForEntity(input: CreateAgreementInput) {
   const type = input.type ?? 'NDA'
   const title = input.title?.trim() || DEFAULT_TITLES[type]
+  const usesFirmSnapshot = type === 'NDA' || type === 'ENGAGEMENT_LETTER'
 
-  // NDAs use the v2 snapshot loader (firm + governing law + business client
-  // fields). Other types use the legacy narrow loader since they don't render
-  // a header/signature block.
+  // NDA + Engagement Letter use the v2 snapshot loader (firm + business client
+  // fields). Other types use the legacy narrow loader.
   const entity =
-    type === 'NDA'
+    usesFirmSnapshot
       ? await loadEntityForV2Snapshot({
           entityType: input.entityType,
           entityId: input.entityId,
@@ -300,13 +313,14 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
 
   const trimmedNote = input.internalNote?.trim() || null
 
-  // Firm-side snapshot: NDA-only. Pre-validates org + staff are set up, then
+  // Firm-side snapshot: NDA + Engagement Letter. Pre-validates org + staff are set up, then
   // copies the staff signature into a per-agreement R2 object.
   let firmSnapshot: Awaited<ReturnType<typeof snapshotFirmSide>> | null = null
-  if (type === 'NDA') {
+  if (usesFirmSnapshot) {
     const v2 = entity as Awaited<ReturnType<typeof loadEntityForV2Snapshot>>
     firmSnapshot = await snapshotFirmSide({
       staffId: input.staffId,
+      type,
       orgAddressOk: Boolean(
         v2.organization.address?.trim() &&
           v2.organization.city?.trim() &&
@@ -316,6 +330,7 @@ export async function createAgreementForEntity(input: CreateAgreementInput) {
       orgGoverningOk: Boolean(
         v2.organization.governingState?.trim() && v2.organization.governingCounty?.trim(),
       ),
+      orgContactOk: Boolean(v2.organization.firmPhone?.trim() && v2.organization.firmEmail?.trim()),
     })
   }
 
@@ -376,15 +391,53 @@ export async function getDefaultHtmlForEntity(input: {
   entityType: EntityType
   entityId: string
   orgId: string
+  type?: AgreementType
 }): Promise<{ contentHtml: string }> {
-  const entity = await loadEntityWithOrg(input)
+  const type = input.type ?? 'NDA'
+  const template = defaultTemplateForType(type)
+  if (!template) {
+    throw new HTTPException(422, { message: 'No built-in default for agreement type' })
+  }
+  const entity = await loadEntityForV2Snapshot(input)
+  const firmAddress = composeAddressLine({
+    address: entity.organization.address,
+    city: entity.organization.city,
+    state: entity.organization.state,
+    zip: entity.organization.zip,
+  })
+  const clientAddress = entity.client
+    ? composeAddressLine({
+        address: entity.client.businessAddress,
+        city: entity.client.businessCity,
+        state: entity.client.businessState,
+        zip: entity.client.businessZip,
+      })
+    : null
+  const clientNameOrBusiness = resolveClientNameOrBusiness({
+    firstName: entity.firstName,
+    lastName: entity.lastName,
+    client: entity.client,
+    leadBusinessName: entity.leadBusinessName,
+  })
+  const clientContact = composeContactLine({ phone: entity.phone, email: entity.email })
   const vars = buildDefaultTemplateVars({
     recipientName: formatRecipientName(entity),
-    orgName: entity.organization.name,
+    organization: {
+      name: entity.organization.name,
+      governingState: entity.organization.governingState,
+      governingCounty: entity.organization.governingCounty,
+      firmAddress,
+      firmPhone: entity.organization.firmPhone,
+      firmEmail: entity.organization.firmEmail,
+      firmWebsite: entity.organization.firmWebsite,
+    },
     depositAmount: DEFAULT_DEPOSIT_AMOUNT,
     date: new Date(),
+    clientNameOrBusiness,
+    clientContact,
+    clientAddress,
   })
-  return { contentHtml: renderDefaultAgreementHtml(vars) }
+  return { contentHtml: renderDefaultAgreementHtml(vars, template) }
 }
 
 export async function renderPreviewPdf(input: {
@@ -392,6 +445,7 @@ export async function renderPreviewPdf(input: {
   entityId: string
   orgId: string
   contentHtml?: string
+  type?: AgreementType
   /** Override the PDF heading. Defaults to template title when omitted. */
   title?: string
 }): Promise<Buffer> {
@@ -400,7 +454,16 @@ export async function renderPreviewPdf(input: {
   const v2Entity = await loadEntityForV2Snapshot(input)
   const sanitized = input.contentHtml ? sanitizeAgreementHtml(input.contentHtml) : ''
   const customContentHtml = sanitized ? sanitized : null
+  if (input.type === 'ENGAGEMENT_LETTER') {
+    const placeholders = findAgreementPlaceholders(customContentHtml)
+    if (placeholders.length > 0) {
+      throw new HTTPException(422, {
+        message: `Engagement Letter has unresolved placeholders: ${placeholders.join(', ')}`,
+      })
+    }
+  }
   const trimmedTitle = input.title?.trim() || null
+  const template = defaultTemplateForType(input.type ?? 'NDA') ?? currentTemplate
 
   const firmAddress = composeAddressLine({
     address: v2Entity.organization.address,
@@ -424,10 +487,16 @@ export async function renderPreviewPdf(input: {
     client: v2Entity.client,
     leadBusinessName: v2Entity.leadBusinessName,
   })
+  const firmContact = composeContactLine({
+    phone: v2Entity.organization.firmPhone,
+    email: v2Entity.organization.firmEmail,
+    website: v2Entity.organization.firmWebsite,
+  })
 
   return generateSignedPdf({
     agreement: {
-      templateVersion: currentTemplate.version,
+      type: input.type ?? 'NDA',
+      templateVersion: template.version,
       depositAmount: DEFAULT_DEPOSIT_AMOUNT,
       customContentHtml,
       title: trimmedTitle,
@@ -450,6 +519,7 @@ export async function renderPreviewPdf(input: {
       ? {
           name: v2Entity.organization.name,
           address: firmAddress,
+          contact: firmContact ?? undefined,
           // Signer fields stay empty — preview mode renders placeholders.
           signerName: '',
           signerTitle: '',

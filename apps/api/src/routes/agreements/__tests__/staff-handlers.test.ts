@@ -77,6 +77,9 @@ const ORG_V2_FIELDS = {
   zip: '77042',
   governingState: 'Texas',
   governingCounty: 'Harris County',
+  firmPhone: '+15551234567',
+  firmEmail: 'office@acme.test',
+  firmWebsite: 'https://acme.test',
 }
 
 function lead(overrides: Record<string, unknown> = {}) {
@@ -233,6 +236,18 @@ describe('Staff NDA handlers', () => {
       // Verify v2-specific section headings are present instead.
       expect(json.data.contentHtml).toContain('1. Purpose of Agreement')
       expect(json.data.contentHtml).toContain('20. Client Acknowledgment')
+    })
+
+    it('returns the built-in Engagement Letter when requested by type', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+      const res = await app.request('/leads/lead-1/agreements/default-html?type=ENGAGEMENT_LETTER')
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.success).toBe(true)
+      expect(json.data.contentHtml).toContain('Engagement Letter')
+      expect(json.data.contentHtml).toContain('Acceptance and Signature')
+      expect(json.data.contentHtml).toContain('[Amount]')
     })
 
     it('returns 404 when lead not in caller org', async () => {

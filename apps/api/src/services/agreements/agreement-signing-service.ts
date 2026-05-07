@@ -21,7 +21,7 @@ import { decodeSignaturePng } from '../../routes/agreements/helpers'
 import { generateSignedPdf } from './pdf-generator'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { TemplateSection } from '../../lib/agreements/types'
-import { composeAddressLine, resolveClientNameOrBusiness } from './entity-loader'
+import { composeAddressLine, composeContactLine, resolveClientNameOrBusiness } from './entity-loader'
 
 const DOWNLOAD_TTL_SECONDS = 900 // 15 min
 const VIEW_PRESIGN_TTL_SECONDS = 900 // 15 min
@@ -59,6 +59,9 @@ type RawLoadedAgreement = Prisma.AgreementGetPayload<{
         zip: true
         governingState: true
         governingCounty: true
+        firmPhone: true
+        firmEmail: true
+        firmWebsite: true
       }
     }
   }
@@ -123,6 +126,9 @@ export async function loadAgreementByToken(token: string): Promise<LoadedAgreeme
           zip: true,
           governingState: true,
           governingCounty: true,
+          firmPhone: true,
+          firmEmail: true,
+          firmWebsite: true,
         },
       },
     },
@@ -165,6 +171,7 @@ export const loadNdaByToken = loadAgreementByToken
 export interface PublicFirmSnapshot {
   name: string
   address: string
+  contact: string | null
   signerName: string
   signerTitle: string
   /** Presigned URL (15-min TTL) for the firm's already-drawn signature PNG. */
@@ -222,7 +229,7 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
   // v2 snapshot: only build when the row carries firm-side data (i.e. NDA v2
   // sent post-Phase-3). Legacy v1 NDAs return null so the portal renders the
   // pre-existing flow without a header block.
-  const isV2 = agreement.templateVersion === 'v2' && Boolean(agreement.firmSignaturePngKey)
+  const isV2 = Boolean(agreement.firmSignaturePngKey)
 
   let firmSnapshot: PublicFirmSnapshot | null = null
   let clientSnapshot: PublicClientSnapshot | null = null
@@ -237,10 +244,16 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
     const presignedUrl = agreement.firmSignaturePngKey
       ? await getSignedDownloadUrl(agreement.firmSignaturePngKey, VIEW_PRESIGN_TTL_SECONDS)
       : null
+    const firmContact = composeContactLine({
+      phone: agreement.organization.firmPhone,
+      email: agreement.organization.firmEmail,
+      website: agreement.organization.firmWebsite,
+    })
 
     firmSnapshot = {
       name: agreement.organization.name,
       address: firmAddress ?? '[Address not provided]',
+      contact: firmContact,
       signerName: agreement.firmSignerName ?? '',
       signerTitle: agreement.firmSignerTitle ?? '',
       signaturePresignedUrl: presignedUrl,
@@ -310,7 +323,7 @@ export async function signAgreement(input: SignAgreementInput) {
     throw new HTTPException(410, { message: 'Agreement link has expired' })
   }
 
-  const isV2 = agreement.templateVersion === 'v2' && Boolean(agreement.firmSignaturePngKey)
+  const isV2 = Boolean(agreement.firmSignaturePngKey)
 
   // Server reads clientType from DB, never trusts the payload. INDIVIDUAL
   // signers cannot supply auth-rep fields (silently dropped); BUSINESS signers
@@ -359,6 +372,11 @@ export async function signAgreement(input: SignAgreementInput) {
       state: agreement.organization.state,
       zip: agreement.organization.zip,
     })
+    const firmContactLine = composeContactLine({
+      phone: agreement.organization.firmPhone,
+      email: agreement.organization.firmEmail,
+      website: agreement.organization.firmWebsite,
+    })
     const clientAddressLine =
       composeAddressLine({
         address: agreement.client?.businessAddress,
@@ -370,6 +388,7 @@ export async function signAgreement(input: SignAgreementInput) {
     firmSnapshot = {
       name: agreement.organization.name,
       address: firmAddressLine ?? '[Address not provided]',
+      contact: firmContactLine ?? undefined,
       signerName: agreement.firmSignerName ?? '',
       signerTitle: agreement.firmSignerTitle ?? '',
       signaturePngBuffer: firmFetched?.buffer,
@@ -394,6 +413,7 @@ export async function signAgreement(input: SignAgreementInput) {
 
   const pdfBuffer = await generateSignedPdf({
     agreement: {
+      type: agreement.type,
       templateVersion: agreement.templateVersion,
       depositAmount: agreement.depositAmount ?? '0.00',
       customContentHtml: agreement.customContentHtml,

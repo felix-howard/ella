@@ -20,6 +20,7 @@ export interface CanonicalEntity {
   firstName: string | null
   lastName: string | null
   phone: string | null
+  email?: string | null
   organization: { name: string }
 }
 
@@ -35,6 +36,7 @@ const ENTITY_SELECT = {
   firstName: true,
   lastName: true,
   phone: true,
+  email: true,
   organization: { select: { name: true } },
 } as const
 
@@ -80,6 +82,9 @@ export interface OrgSnapshotFields {
   zip: string | null
   governingState: string | null
   governingCounty: string | null
+  firmPhone: string | null
+  firmEmail: string | null
+  firmWebsite: string | null
 }
 
 /** Client business fields. For BUSINESS clients, `firstName` IS the business
@@ -111,6 +116,9 @@ const ORG_V2_SELECT = {
   zip: true,
   governingState: true,
   governingCounty: true,
+  firmPhone: true,
+  firmEmail: true,
+  firmWebsite: true,
 } as const
 
 const LEAD_V2_SELECT = {
@@ -118,6 +126,7 @@ const LEAD_V2_SELECT = {
   firstName: true,
   lastName: true,
   phone: true,
+  email: true,
   businessName: true,
   organization: { select: ORG_V2_SELECT },
 } as const
@@ -127,6 +136,7 @@ const CLIENT_V2_SELECT = {
   firstName: true,
   lastName: true,
   phone: true,
+  email: true,
   clientType: true,
   businessAddress: true,
   businessCity: true,
@@ -150,6 +160,7 @@ export async function loadEntityForV2Snapshot(input: LoadEntityInput): Promise<V
       firstName: lead.firstName,
       lastName: lead.lastName,
       phone: lead.phone,
+      email: lead.email,
       organization: lead.organization!,
       leadBusinessName: lead.businessName,
       client: null,
@@ -166,6 +177,7 @@ export async function loadEntityForV2Snapshot(input: LoadEntityInput): Promise<V
     firstName: client.firstName,
     lastName: client.lastName,
     phone: client.phone,
+    email: client.email,
     organization: client.organization!,
     leadBusinessName: null,
     client: {
@@ -176,6 +188,17 @@ export async function loadEntityForV2Snapshot(input: LoadEntityInput): Promise<V
       businessZip: client.businessZip,
     },
   }
+}
+
+export function composeContactLine(parts: {
+  phone?: string | null
+  email?: string | null
+  website?: string | null
+}): string | null {
+  const pieces = [parts.phone, parts.email, parts.website]
+    .map((p) => p?.trim())
+    .filter((p): p is string => !!p)
+  return pieces.length > 0 ? pieces.join(' | ') : null
 }
 
 /** Compose a "Street, City, ST ZIP" address line, dropping empty pieces.

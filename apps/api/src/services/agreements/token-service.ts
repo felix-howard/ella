@@ -14,7 +14,7 @@ const AGREEMENT_TOKEN_LENGTH = 28
 const generate = customAlphabet(AGREEMENT_TOKEN_ALPHABET, AGREEMENT_TOKEN_LENGTH)
 
 /** Default lifetime when caller doesn't specify. Used as the @default in schema too. */
-export const AGREEMENT_EXPIRY_DAYS = 7
+export const AGREEMENT_EXPIRY_DAYS = 30
 /** Lower bound — anything shorter is unusable for a recipient to act on. */
 export const MIN_EXPIRY_DAYS = 1
 /** Upper bound — keeps SMS commitment within a reasonable engagement window. */

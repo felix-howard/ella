@@ -43,6 +43,10 @@ export interface OrganizationVarsInput {
   name: string
   governingState?: string | null
   governingCounty?: string | null
+  firmAddress?: string | null
+  firmPhone?: string | null
+  firmEmail?: string | null
+  firmWebsite?: string | null
 }
 
 export function buildDefaultTemplateVars(input: {
@@ -54,6 +58,9 @@ export function buildDefaultTemplateVars(input: {
   organization?: OrganizationVarsInput
   depositAmount: Prisma.Decimal | { toString(): string }
   date: Date
+  clientNameOrBusiness?: string | null
+  clientContact?: string | null
+  clientAddress?: string | null
 }): TemplateVars {
   // Resolve org name: prefer organization.name, fall back to legacy orgName.
   const org = input.organization
@@ -76,5 +83,12 @@ export function buildDefaultTemplateVars(input: {
     governingState,
     governingCounty,
     confidentialityYears: 'five (5)',
+    firmAddress: org?.firmAddress?.trim() || undefined,
+    firmPhone: org?.firmPhone?.trim() || undefined,
+    firmEmail: org?.firmEmail?.trim() || undefined,
+    firmWebsite: org?.firmWebsite?.trim() || undefined,
+    clientNameOrBusiness: input.clientNameOrBusiness?.trim() || undefined,
+    clientContact: input.clientContact?.trim() || undefined,
+    clientAddress: input.clientAddress?.trim() || undefined,
   }
 }

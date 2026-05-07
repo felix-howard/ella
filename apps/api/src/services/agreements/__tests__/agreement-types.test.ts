@@ -62,6 +62,9 @@ const ORG_V2_FIELDS = {
   zip: '77042',
   governingState: 'Texas',
   governingCounty: 'Harris County',
+  firmPhone: '+15551234567',
+  firmEmail: 'office@acme.test',
+  firmWebsite: 'https://acme.test',
 }
 
 function leadWithOrg(overrides: Record<string, unknown> = {}) {
@@ -298,6 +301,23 @@ describe('createAgreementForEntity — type-aware content resolution', () => {
           type: 'ENGAGEMENT_LETTER',
         }),
       ).rejects.toMatchObject({ status: 422 })
+      expect(mockAgreementCreate).not.toHaveBeenCalled()
+    })
+
+    it('rejects with 422 when contentHtml still has bracket placeholders', async () => {
+      mockLeadFindFirst.mockResolvedValueOnce(leadWithOrg() as any)
+
+      await expect(
+        createAgreementForEntity({
+          entityType: 'lead',
+          entityId: 'lead-1',
+          orgId: 'org-1',
+          staffId: 'staff-1',
+          type: 'ENGAGEMENT_LETTER',
+          contentHtml: '<p>Fee: [Amount]</p>',
+        }),
+      ).rejects.toMatchObject({ status: 422 })
+
       expect(mockAgreementCreate).not.toHaveBeenCalled()
     })
 

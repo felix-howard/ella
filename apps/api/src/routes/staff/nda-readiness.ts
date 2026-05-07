@@ -7,10 +7,12 @@
  * sending until setup is complete.
  */
 import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { prisma } from '../../lib/db'
 import type { AuthVariables } from '../../middleware/auth'
 
-export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw'
+export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
 
 export interface NdaReadinessResponse {
   ready: boolean
@@ -19,8 +21,13 @@ export interface NdaReadinessResponse {
 
 export const ndaReadinessRoute = new Hono<{ Variables: AuthVariables }>()
 
-ndaReadinessRoute.get('/', async (c) => {
+const readinessQuerySchema = z.object({
+  type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
+}).strict()
+
+ndaReadinessRoute.get('/', zValidator('query', readinessQuerySchema), async (c) => {
   const user = c.get('user')
+  const { type } = c.req.valid('query')
   if (!user?.staffId || !user?.organizationId) {
     return c.json({ error: 'Staff record not found' }, 404)
   }
@@ -39,6 +46,8 @@ ndaReadinessRoute.get('/', async (c) => {
         zip: true,
         governingState: true,
         governingCounty: true,
+        firmPhone: true,
+        firmEmail: true,
       },
     }),
   ])
@@ -53,8 +62,11 @@ ndaReadinessRoute.get('/', async (c) => {
   if (!org.address?.trim() || !org.city?.trim() || !org.state?.trim() || !org.zip?.trim()) {
     missing.push('orgAddress')
   }
-  if (!org.governingState?.trim() || !org.governingCounty?.trim()) {
+  if (type === 'NDA' && (!org.governingState?.trim() || !org.governingCounty?.trim())) {
     missing.push('orgGoverningLaw')
+  }
+  if (type === 'ENGAGEMENT_LETTER' && (!org.firmPhone?.trim() || !org.firmEmail?.trim())) {
+    missing.push('orgContact')
   }
 
   const body: NdaReadinessResponse = { ready: missing.length === 0, missing }

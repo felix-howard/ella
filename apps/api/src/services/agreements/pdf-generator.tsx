@@ -14,6 +14,7 @@ import React from 'react'
 import { htmlToPdfNodes } from '../../lib/agreements/html-to-pdf'
 import { getTemplate } from '../../lib/agreements/template-registry'
 import type { PdfSignatureInput, TemplateVars } from '../../lib/agreements/types'
+import type { AgreementType } from '@ella/db'
 import { PdfHeaderBlock } from './pdf-header-block'
 import { PdfSignatureBlock, type PdfSignatureMode } from './pdf-signature-block'
 import { NdaPdfDocument, type NdaPdfMode } from './pdf-document'
@@ -27,6 +28,8 @@ export interface FirmSnapshot {
   name: string
   /** Full composed address string: "123 Main St, Houston, TX 77001" */
   address: string
+  /** Optional composed contact string: "phone | email | website" */
+  contact?: string
   signerName: string
   signerTitle: string
   /** PNG bytes from R2. Required in 'signed'/'view' modes. */
@@ -52,6 +55,7 @@ export interface ClientSnapshot {
 
 export interface GenerateSignedPdfInput {
   agreement: {
+    type?: AgreementType
     templateVersion: string
     depositAmount: { toString(): string } | number | string
     /** When set, body renders from sanitized HTML instead of templateVersion. */
@@ -109,7 +113,7 @@ function truncateUserAgent(ua: string): string {
 
 export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<Buffer> {
   const template = getTemplate(input.agreement.templateVersion)
-  const isV2 = template.version === 'v2'
+  const usesDualSignature = Boolean(input.firmSnapshot || input.clientSnapshot)
 
   const vars: TemplateVars = {
     leadFullName: formatFullName(input.lead),
@@ -130,21 +134,28 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
   const bodyNodes = input.agreement.customContentHtml
     ? htmlToPdfNodes(input.agreement.customContentHtml)
     : undefined
+  const heading = input.agreement.title?.trim() || template.title
 
   // ── v2 path: inject HeaderBlock + SignatureBlock ──────────────────────────
-  if (isV2) {
+  if (usesDualSignature) {
     const mode = input.mode ?? 'signed'
     const sigMode: PdfSignatureMode =
       mode === 'preview' ? 'preview' : mode === 'view' ? 'view' : 'signed'
 
     const firm = input.firmSnapshot
     const client = input.clientSnapshot
+    const agreementLabel =
+      input.agreement.type === 'NDA' || !input.agreement.type
+        ? 'Confidentiality and Non-Disclosure Agreement ("Agreement")'
+        : heading
 
     const headerBlock = (
       <PdfHeaderBlock
+        agreementLabel={agreementLabel}
         date={firm?.signedAt ?? '[Date]'}
         firmName={firm?.name ?? input.organization.name}
         firmAddress={firm?.address ?? '[Address]'}
+        firmContact={firm?.contact}
         clientNameOrBusiness={client?.nameOrBusiness ?? formatFullName(input.lead)}
         clientAddress={client?.address ?? '[Address]'}
       />
@@ -153,6 +164,11 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
     const signatureBlock = (
       <PdfSignatureBlock
         mode={sigMode}
+        heading={
+          input.agreement.type === 'ENGAGEMENT_LETTER'
+            ? 'Acceptance and Signature'
+            : '21. Signatures'
+        }
         firmName={firm?.name ?? input.organization.name}
         firmSignerName={firm?.signerName ?? ''}
         firmSignerTitle={firm?.signerTitle ?? ''}

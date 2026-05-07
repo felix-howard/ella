@@ -30,13 +30,13 @@ interface Props {
 export function AgreementExtendModal({ open, entity, nda, onClose }: Props) {
   const { t, i18n } = useTranslation()
   const mutation = useExtendAgreement(entity)
-  const [days, setDays] = useState<number>(nda.expiryDays || 7)
+  const [days, setDays] = useState<number>(nda.expiryDays || 30)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset to the agreement's stored window each time the modal opens — avoids
   // stale state from a prior open.
   useEffect(() => {
-    if (open) setDays(nda.expiryDays || 7)
+    if (open) setDays(nda.expiryDays || 30)
   }, [open, nda.expiryDays])
 
   useEffect(() => {

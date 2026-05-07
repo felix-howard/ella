@@ -10,11 +10,14 @@ import React from 'react'
 import { pdfStyles as s } from './pdf-styles'
 
 export interface PdfHeaderBlockProps {
+  agreementLabel?: string
   /** Formatted date string (e.g. "May 6, 2026"). Use "[Date]" for preview. */
   date: string
   firmName: string
   /** Full address string: "123 Main St, Houston, TX 77001" */
   firmAddress: string
+  /** Optional firm contact string: phone | email | website. */
+  firmContact?: string
   /** Business name or "FirstName LastName" depending on clientType. */
   clientNameOrBusiness: string
   /** Full address string for the client. "[Address]" in preview. */
@@ -22,16 +25,18 @@ export interface PdfHeaderBlockProps {
 }
 
 export function PdfHeaderBlock({
+  agreementLabel = 'Agreement',
   date,
   firmName,
   firmAddress,
+  firmContact,
   clientNameOrBusiness,
   clientAddress,
 }: PdfHeaderBlockProps) {
   return (
     <View style={s.partiesBlock}>
       <Text style={s.partiesText}>
-        {'This Confidentiality and Non-Disclosure Agreement ("Agreement") is entered into as of '}
+        {`This ${agreementLabel} is entered into as of `}
         <Text style={s.partiesBold}>{date}</Text>
         {' by and between:'}
       </Text>
@@ -42,6 +47,13 @@ export function PdfHeaderBlock({
         <Text style={s.partiesBold}>{firmAddress}</Text>
         {' ("Firm"),'}
       </Text>
+
+      {firmContact ? (
+        <Text style={s.partiesText}>
+          {'Firm contact: '}
+          <Text style={s.partiesBold}>{firmContact}</Text>
+        </Text>
+      ) : null}
 
       <Text style={s.partiesText}>{'and'}</Text>
 

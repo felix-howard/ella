@@ -7,16 +7,17 @@
 import type { AgreementFirmSnapshot, AgreementClientSnapshot } from '../../lib/api-client'
 
 interface AgreementHeaderBlockProps {
+  title: string
   firm: AgreementFirmSnapshot
   client: AgreementClientSnapshot
 }
 
-export function AgreementHeaderBlock({ firm, client }: AgreementHeaderBlockProps) {
+export function AgreementHeaderBlock({ title, firm, client }: AgreementHeaderBlockProps) {
   const date = firm.signedAt ?? '[Date]'
   return (
     <div className="mb-7 rounded-xl border border-border bg-muted/30 p-4 text-[0.9375rem] leading-relaxed text-foreground/90 shadow-subtle space-y-2 sm:p-5">
       <p>
-        {'This Confidentiality and Non-Disclosure Agreement ("Agreement") is entered into as of '}
+        {`This ${title} is entered into as of `}
         <span className="font-semibold text-foreground">{date}</span>
         {' by and between:'}
       </p>
@@ -26,6 +27,12 @@ export function AgreementHeaderBlock({ firm, client }: AgreementHeaderBlockProps
         <span className="font-semibold text-foreground">{firm.address}</span>
         {' ("Firm"),'}
       </p>
+      {firm.contact && (
+        <p>
+          {'Firm contact: '}
+          <span className="font-semibold text-foreground">{firm.contact}</span>
+        </p>
+      )}
       <p className="text-muted-foreground">and</p>
       <p>
         <span className="font-semibold text-foreground">{client.nameOrBusiness}</span>

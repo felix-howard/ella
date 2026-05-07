@@ -16,6 +16,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
@@ -42,6 +43,10 @@ import {
 const clientsAgreementsStaffRoute = new Hono<{ Variables: AuthVariables }>()
 
 clientsAgreementsStaffRoute.use('*', requireOrgAdmin)
+
+const defaultHtmlQuerySchema = z.object({
+  type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
+}).strict()
 
 function getAuth(user: AuthUser): { orgId: string; staffId: string } {
   if (!user.organizationId) {
@@ -79,17 +84,20 @@ clientsAgreementsStaffRoute.post(
   },
 )
 
-// GET /:clientId/agreements/default-html — built-in NDA template-v1 rendered to HTML
+// GET /:clientId/agreements/default-html — built-in type-specific HTML for editor seed.
 clientsAgreementsStaffRoute.get(
   '/:clientId/agreements/default-html',
   zValidator('param', clientIdParamSchema),
+  zValidator('query', defaultHtmlQuerySchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))
     const { clientId } = c.req.valid('param')
+    const { type } = c.req.valid('query')
     const data = await getDefaultHtmlForEntity({
       entityType: 'client',
       entityId: clientId,
       orgId,
+      type,
     })
     return c.json({ success: true, data })
   },
@@ -108,6 +116,7 @@ clientsAgreementsStaffRoute.post(
       entityType: 'client',
       entityId: clientId,
       orgId,
+      type: body.type,
       contentHtml: body.contentHtml,
       title: body.title,
     })

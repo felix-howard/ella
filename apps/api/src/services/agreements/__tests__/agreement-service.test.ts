@@ -79,6 +79,9 @@ const ORG_V2_FIELDS = {
   zip: '77042',
   governingState: 'Texas',
   governingCounty: 'Harris County',
+  firmPhone: '+15551234567',
+  firmEmail: 'office@acme.test',
+  firmWebsite: 'https://acme.test',
 }
 
 /** lead() shape augmented with the organization relation that

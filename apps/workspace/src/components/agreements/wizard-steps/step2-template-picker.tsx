@@ -8,7 +8,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { FilePlus, FileSignature, Loader2 } from 'lucide-react'
-import { BUILTIN_NDA_TEMPLATE } from './template-sentinels'
+import { BUILTIN_ENGAGEMENT_LETTER_TEMPLATE, BUILTIN_NDA_TEMPLATE } from './template-sentinels'
 import { api } from '../../../lib/api-client'
 import type {
   AgreementTemplate,
@@ -95,6 +95,26 @@ export function Step2TemplatePicker({ type, onSelect }: Props) {
             </button>
           )}
 
+          {type === 'ENGAGEMENT_LETTER' && (
+            <button
+              type="button"
+              onClick={() => onSelect(BUILTIN_ENGAGEMENT_LETTER_TEMPLATE)}
+              className="text-left p-4 rounded-xl border border-border bg-card hover:border-primary hover:shadow-md transition-all flex items-start gap-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <span className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                <FileSignature className="w-5 h-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">
+                  {t('agreements.wizard.builtinEngagementLetter')}
+                </span>
+                <span className="block text-xs text-muted-foreground mt-1">
+                  {t('agreements.wizard.builtinEngagementLetterDescription')}
+                </span>
+              </span>
+            </button>
+          )}
+
           {templates.map((tpl) => (
             <button
               key={tpl.id}
@@ -115,7 +135,7 @@ export function Step2TemplatePicker({ type, onSelect }: Props) {
             </button>
           ))}
 
-          {templates.length === 0 && type !== 'NDA' && (
+          {templates.length === 0 && type !== 'NDA' && type !== 'ENGAGEMENT_LETTER' && (
             <p className="text-xs text-muted-foreground sm:col-span-2 px-1">
               {t('agreements.wizard.noTemplatesForType')}
             </p>

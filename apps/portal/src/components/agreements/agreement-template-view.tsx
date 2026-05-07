@@ -93,7 +93,7 @@ export function AgreementTemplateView({
         <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
       )}
       {firmSnapshot && clientSnapshot && (
-        <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
+        <AgreementHeaderBlock title={title} firm={firmSnapshot} client={clientSnapshot} />
       )}
       {sections.map((section, i) => (
         <section key={`sec-${i}`} className="mb-6 last:mb-0">

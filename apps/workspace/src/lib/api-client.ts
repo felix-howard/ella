@@ -378,14 +378,15 @@ export const api = {
       getPdfUrl: (clientId: string, agreementId: string) =>
         request<{ success: boolean; url: string }>(`/clients/${clientId}/agreements/${agreementId}/pdf`),
 
-      getDefaultHtml: (clientId: string) =>
+      getDefaultHtml: (clientId: string, params?: { type?: AgreementTemplateType }) =>
         request<{ success: boolean; data: { contentHtml: string } }>(
           `/clients/${clientId}/agreements/default-html`,
+          { params },
         ),
 
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
       // a blob URL. Mirrors `api.leads.agreements.previewPdf` exactly.
-      previewPdf: async (clientId: string, body: { contentHtml?: string; title?: string } = {}): Promise<Blob> => {
+      previewPdf: async (clientId: string, body: { type?: AgreementType; contentHtml?: string; title?: string } = {}): Promise<Blob> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const tokenGetter = getAuthToken
         if (tokenGetter) {
@@ -1140,11 +1141,11 @@ export const api = {
     deleteSignature: () =>
       request<{ success: boolean }>('/staff/me/signature', { method: 'DELETE' }),
 
-    getNdaReadiness: () =>
+    getNdaReadiness: (params?: { type?: 'NDA' | 'ENGAGEMENT_LETTER' }) =>
       request<{
         ready: boolean
-        missing: ('signature' | 'title' | 'orgAddress' | 'orgGoverningLaw')[]
-      }>('/staff/me/nda-readiness'),
+        missing: ('signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact')[]
+      }>('/staff/me/nda-readiness', { params }),
   },
 
   // Team Management
@@ -1428,17 +1429,17 @@ export const api = {
       getPdfUrl: (leadId: string, agreementId: string) =>
         request<{ success: boolean; url: string }>(`/leads/${leadId}/agreements/${agreementId}/pdf`),
 
-      // Default HTML used to seed the Tiptap editor for NDA type. Non-NDA types
-      // should seed from a templateId instead (server will 422 for non-NDA).
-      getDefaultHtml: (leadId: string) =>
+      // Default HTML used to seed the Tiptap editor for built-in agreement types.
+      getDefaultHtml: (leadId: string, params?: { type?: AgreementTemplateType }) =>
         request<{ success: boolean; data: { contentHtml: string } }>(
           `/leads/${leadId}/agreements/default-html`,
+          { params },
         ),
 
       // Streams `application/pdf` bytes — frontend renders inside an iframe via
       // a blob URL. Bypasses the `request<>` helper because the response isn't
       // JSON; mirrors the auth-header logic from `fetchMediaBlob`.
-      previewPdf: async (leadId: string, body: { contentHtml?: string; title?: string } = {}): Promise<Blob> => {
+      previewPdf: async (leadId: string, body: { type?: AgreementType; contentHtml?: string; title?: string } = {}): Promise<Blob> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const tokenGetter = getAuthToken
         if (tokenGetter) {
@@ -1656,7 +1657,7 @@ export interface CreateAgreementPayload {
   depositAmount?: string | null
   /** Staff-only context, never shown to recipient. Omit/blank → skipped. */
   internalNote?: string
-  /** Link validity in days. Server clamps to [1, 90]. Default 7 when omitted. */
+  /** Link validity in days. Server clamps to [1, 90]. Default 30 when omitted. */
   expiryDays?: number
 }
 
@@ -3099,6 +3100,9 @@ export interface OrgSettings {
   zip: string | null
   governingState: string | null
   governingCounty: string | null
+  firmPhone: string | null
+  firmEmail: string | null
+  firmWebsite: string | null
 }
 
 export type OrgSettingsUpdateInput = Partial<

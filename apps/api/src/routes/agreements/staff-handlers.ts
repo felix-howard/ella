@@ -48,6 +48,9 @@ function getAuth(user: AuthUser): { orgId: string; staffId: string } {
 }
 
 const listQuerySchema = z.object({ type: agreementTypeSchema.optional() }).strict()
+const defaultHtmlQuerySchema = z.object({
+  type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
+}).strict()
 
 // POST /:leadId/agreements — create agreement, generate token, send SMS.
 // Body accepts type, title, contentHtml, templateId, depositAmount.
@@ -76,18 +79,20 @@ staffRoute.post(
   },
 )
 
-// GET /:leadId/agreements/default-html — built-in NDA template-v1 rendered to
-// HTML for editor seed (NDA-specific; non-NDA types should seed from a templateId).
+// GET /:leadId/agreements/default-html — built-in type-specific HTML for editor seed.
 staffRoute.get(
   '/:leadId/agreements/default-html',
   zValidator('param', leadIdParamSchema),
+  zValidator('query', defaultHtmlQuerySchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))
     const { leadId } = c.req.valid('param')
+    const { type } = c.req.valid('query')
     const data = await getDefaultHtmlForEntity({
       entityType: 'lead',
       entityId: leadId,
       orgId,
+      type,
     })
     return c.json({ success: true, data })
   },
@@ -107,6 +112,7 @@ staffRoute.post(
       entityType: 'lead',
       entityId: leadId,
       orgId,
+      type: body.type,
       contentHtml: body.contentHtml,
       title: body.title,
     })

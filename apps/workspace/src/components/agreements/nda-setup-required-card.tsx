@@ -12,9 +12,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check, RefreshCw, X } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { useOrgRole } from '../../hooks/use-org-role'
-import { ndaReadinessQueryKey } from './use-nda-readiness'
 
-type Missing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw'
+type Missing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
 
 interface Props {
   missing: Missing[]
@@ -42,6 +41,7 @@ const ITEMS: ItemConfig[] = [
   { key: 'title',           scope: 'staff', tab: 'profile', focus: 'title',      labelKey: 'agreements.setup.title.label',           helperKey: 'agreements.setup.title.helper' },
   { key: 'orgAddress',      scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgAddress.label',      helperKey: 'agreements.setup.orgAddress.helper' },
   { key: 'orgGoverningLaw', scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgGoverningLaw.label', helperKey: 'agreements.setup.orgGoverningLaw.helper' },
+  { key: 'orgContact',      scope: 'org',   tab: 'general', focus: 'firm-info',  labelKey: 'agreements.setup.orgContact.label',      helperKey: 'agreements.setup.orgContact.helper' },
 ]
 
 export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose }: Props) {
@@ -49,7 +49,7 @@ export function NdaSetupRequiredCard({ missing, isRefreshing, hasError, onClose 
   const { isAdmin } = useOrgRole()
   const qc = useQueryClient()
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ndaReadinessQueryKey })
+  const refresh = () => qc.invalidateQueries({ queryKey: ['nda-readiness'] })
 
   return (
     <div className="space-y-4">

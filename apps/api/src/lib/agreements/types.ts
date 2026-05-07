@@ -30,6 +30,13 @@ export interface TemplateVars {
   governingCounty?: string
   /** v2: Confidentiality duration text (e.g. "five (5)"). */
   confidentialityYears?: string
+  firmAddress?: string
+  firmPhone?: string
+  firmEmail?: string
+  firmWebsite?: string
+  clientNameOrBusiness?: string
+  clientContact?: string
+  clientAddress?: string
 }
 
 export interface TemplateSection {

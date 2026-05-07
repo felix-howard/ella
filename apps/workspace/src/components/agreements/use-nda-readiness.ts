@@ -5,19 +5,22 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api-client'
 
-export const ndaReadinessQueryKey = ['nda-readiness'] as const
+import type { AgreementType } from '../../lib/api-client'
 
-export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw'
+export const ndaReadinessQueryKey = (type: 'NDA' | 'ENGAGEMENT_LETTER' = 'NDA') =>
+  ['nda-readiness', type] as const
+
+export type NdaReadinessMissing = 'signature' | 'title' | 'orgAddress' | 'orgGoverningLaw' | 'orgContact'
 
 export interface NdaReadiness {
   ready: boolean
   missing: NdaReadinessMissing[]
 }
 
-export function useNdaReadiness(enabled = true) {
+export function useNdaReadiness(type: Extract<AgreementType, 'NDA' | 'ENGAGEMENT_LETTER'> = 'NDA', enabled = true) {
   return useQuery<NdaReadiness>({
-    queryKey: ndaReadinessQueryKey,
-    queryFn: () => api.staff.getNdaReadiness(),
+    queryKey: ndaReadinessQueryKey(type),
+    queryFn: () => api.staff.getNdaReadiness({ type }),
     enabled,
     staleTime: 0,
   })
@@ -25,5 +28,5 @@ export function useNdaReadiness(enabled = true) {
 
 export function useInvalidateNdaReadiness() {
   const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: ndaReadinessQueryKey })
+  return () => qc.invalidateQueries({ queryKey: ['nda-readiness'] })
 }

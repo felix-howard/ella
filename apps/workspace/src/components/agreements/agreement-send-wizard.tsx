@@ -31,6 +31,7 @@ import {
 } from './wizard-steps/step3-content-editor'
 import {
   BLANK_TEMPLATE,
+  BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
   BUILTIN_NDA_TEMPLATE,
 } from './wizard-steps/template-sentinels'
 import { formatPhone } from '../../lib/formatters'
@@ -63,12 +64,14 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
   // Step3 draft is owned here so Back navigation preserves user input.
   const [draft, setDraft] = useState<Step3Draft>(emptyStep3Draft)
 
-  // NDA pre-flight: block Step 1 advancement when CPA / org missing required setup.
+  // Agreement setup pre-flight: block send when CPA / org missing required setup.
   // Fail closed — if the query errors (offline, 401, 500), keep the user gated.
   // Server-side `snapshotFirmSide` is the real enforcement; this is just UX.
-  const readinessQuery = useNdaReadiness(type === 'NDA')
-  const ndaSetupMissing =
-    type === 'NDA' &&
+  const readinessType = type === 'ENGAGEMENT_LETTER' ? 'ENGAGEMENT_LETTER' : 'NDA'
+  const needsReadiness = type === 'NDA' || type === 'ENGAGEMENT_LETTER'
+  const readinessQuery = useNdaReadiness(readinessType, needsReadiness)
+  const setupMissing =
+    needsReadiness &&
     (readinessQuery.isError ||
       (readinessQuery.data ? !readinessQuery.data.ready : false))
 
@@ -127,7 +130,8 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
     const isRealTemplate =
       !!templateId &&
       templateId !== BLANK_TEMPLATE &&
-      templateId !== BUILTIN_NDA_TEMPLATE
+      templateId !== BUILTIN_NDA_TEMPLATE &&
+      templateId !== BUILTIN_ENGAGEMENT_LETTER_TEMPLATE
     const payload: CreateAgreementPayload = {
       type,
       title: resolved.title.trim() || undefined,
@@ -206,12 +210,12 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
           {step === 2 && type && (
             <Step2TemplatePicker type={type} onSelect={handleTemplateSelect} />
           )}
-          {step === 3 && type === 'NDA' && readinessQuery.isLoading && (
+          {step === 3 && needsReadiness && readinessQuery.isLoading && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
           )}
-          {step === 3 && type === 'NDA' && !readinessQuery.isLoading && ndaSetupMissing && (
+          {step === 3 && needsReadiness && !readinessQuery.isLoading && setupMissing && (
             <NdaSetupRequiredCard
               missing={readinessQuery.data?.missing ?? []}
               isRefreshing={readinessQuery.isFetching}
@@ -219,7 +223,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
               onClose={onClose}
             />
           )}
-          {step === 3 && type && !(type === 'NDA' && (readinessQuery.isLoading || ndaSetupMissing)) && (
+          {step === 3 && type && !(needsReadiness && (readinessQuery.isLoading || setupMissing)) && (
             <Step3ContentEditor
               entity={entity}
               type={type}

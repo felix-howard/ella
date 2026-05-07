@@ -94,7 +94,7 @@ export function AgreementCustomHtmlView({
         <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
       )}
       {firmSnapshot && clientSnapshot && (
-        <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
+        <AgreementHeaderBlock title={title} firm={firmSnapshot} client={clientSnapshot} />
       )}
       <div
         className="agreement-custom-html-content text-foreground/90"

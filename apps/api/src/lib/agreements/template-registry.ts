@@ -8,6 +8,7 @@
  * Extension model: bumping a built-in = copy the file, register here.
  */
 import type { AgreementType } from '@ella/db'
+import { engagementLetterTemplate } from './template-engagement-letter'
 import { templateV1 } from './template-v1'
 import { templateV2 } from './template-v2'
 import type { NdaTemplate } from './types'
@@ -23,7 +24,7 @@ function buildRegistry(templates: NdaTemplate[]): Record<string, NdaTemplate> {
   return registry
 }
 
-const REGISTRY = buildRegistry([templateV1, templateV2])
+const REGISTRY = buildRegistry([templateV1, templateV2, engagementLetterTemplate])
 
 export function getTemplate(version: string): NdaTemplate {
   const template = REGISTRY[version]
@@ -42,16 +43,12 @@ export const currentTemplate: NdaTemplate = templateV2
  * NDA defaults to v2 for new agreements. v1 remains resolvable via
  * `getTemplate('v1')` for re-rendering existing signed agreements.
  *
- * Other types REQUIRE either an org-level templateId or a customContentHtml
- * at create time — there is no built-in fallback for them.
- *
- * NOTE: non-NDA agreements still record `templateVersion = 'v1'` on the row
- * so `getTemplate()` resolves a structural template for the PDF generator's
- * legacy `template.render(vars)` path (used only when `customContentHtml`
- * is null — which never happens for non-NDA types per the create-rules).
- * The `template.render()` output for non-NDA rows is therefore unreachable
- * and the recorded version is purely a not-null discipline.
+ * Engagement Letter has a built-in editor seed, but create still requires the
+ * edited HTML snapshot so unresolved case-specific placeholders can be blocked.
+ * Other types require either an org-level templateId or customContentHtml.
  */
 export function defaultTemplateForType(type: AgreementType): NdaTemplate | null {
-  return type === 'NDA' ? templateV2 : null
+  if (type === 'NDA') return templateV2
+  if (type === 'ENGAGEMENT_LETTER') return engagementLetterTemplate
+  return null
 }

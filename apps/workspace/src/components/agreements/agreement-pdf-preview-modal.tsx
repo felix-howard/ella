@@ -46,7 +46,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
   const startFetch = () => {
     cancelRef.current = false
     clearBlob()
-    mutation.mutate({ contentHtml, title: effectiveTitle }, {
+    mutation.mutate({ type: type ?? 'NDA', contentHtml, title: effectiveTitle }, {
       onSuccess: (blob) => { if (!cancelRef.current) setBlobUrl(URL.createObjectURL(blob)) },
     })
   }

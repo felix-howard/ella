@@ -85,7 +85,7 @@ export function useCreateAgreement(entity: EntityRef) {
 export function useAgreementPreview(entity: EntityRef) {
   const { t } = useTranslation()
   return useMutation({
-    mutationFn: (payload: { contentHtml?: string; title?: string }) =>
+    mutationFn: (payload: { type?: AgreementType; contentHtml?: string; title?: string }) =>
       agreementsApi(entity).previewPdf(entity.id, payload),
     onError: (err: Error) => {
       toast.error(err.message || t('nda.toast.previewFailed'))

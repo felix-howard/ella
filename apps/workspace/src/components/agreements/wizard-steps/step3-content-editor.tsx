@@ -24,7 +24,11 @@ import { Loader2, FileText } from 'lucide-react'
 import { RichTextEditor } from '../../leads/rich-text-editor'
 import { NdaPdfPreviewModal } from '../agreement-pdf-preview-modal'
 import { useAgreementDefaultHtml } from '../use-agreement-default-html'
-import { BLANK_TEMPLATE, BUILTIN_NDA_TEMPLATE } from './template-sentinels'
+import {
+  BLANK_TEMPLATE,
+  BUILTIN_ENGAGEMENT_LETTER_TEMPLATE,
+  BUILTIN_NDA_TEMPLATE,
+} from './template-sentinels'
 import { api } from '../../../lib/api-client'
 import type { AgreementType } from '../../../lib/api-client'
 import type { EntityRef } from '../types'
@@ -43,7 +47,7 @@ export interface Step3Draft {
  *  avoid a workspace-package dependency on @ella/api types just for two ints. */
 export const EXPIRY_DAYS_MIN = 1
 export const EXPIRY_DAYS_MAX = 90
-export const EXPIRY_DAYS_DEFAULT = 7
+export const EXPIRY_DAYS_DEFAULT = 30
 export const EXPIRY_DAYS_PRESETS = [7, 14, 30, 60, 90] as const
 
 export const emptyStep3Draft: Step3Draft = {
@@ -78,9 +82,16 @@ interface Props {
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
 /** Mirrors server-side `AGREEMENT_HTML_MAX_LENGTH` to avoid round-trip 422s. */
 const HTML_MAX = 50_000
+const PLACEHOLDER_RE = /\[[^\[\]\n]{2,120}\]/g
 
 function defaultTitleFor(type: AgreementType, t: (k: string) => string): string {
   return t(`agreements.type.${type}`)
+}
+
+function findPlaceholders(html: string): string[] {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const text = doc.body.textContent ?? ''
+  return Array.from(new Set(text.match(PLACEHOLDER_RE) ?? [])).slice(0, 10)
 }
 
 export function Step3ContentEditor({
@@ -97,15 +108,18 @@ export function Step3ContentEditor({
   const [previewOpen, setPreviewOpen] = useState(false)
 
   const isBuiltinNda = templateId === BUILTIN_NDA_TEMPLATE
+  const isBuiltinEngagementLetter = templateId === BUILTIN_ENGAGEMENT_LETTER_TEMPLATE
+  const isBuiltinDefault = isBuiltinNda || isBuiltinEngagementLetter
   const isRealTemplate =
     !!templateId &&
     templateId !== BLANK_TEMPLATE &&
-    templateId !== BUILTIN_NDA_TEMPLATE
+    templateId !== BUILTIN_NDA_TEMPLATE &&
+    templateId !== BUILTIN_ENGAGEMENT_LETTER_TEMPLATE
 
-  // Default-HTML fetch — only when the user picked the synthetic "Default NDA"
-  // card. Start blank or org templates leave the editor blank / seed from the
-  // template fetch below instead.
-  const defaultHtmlQuery = useAgreementDefaultHtml(entity, isBuiltinNda)
+  const defaultHtmlType = isBuiltinEngagementLetter ? 'ENGAGEMENT_LETTER' : 'NDA'
+
+  // Default-HTML fetch — only when the user picked a synthetic built-in card.
+  const defaultHtmlQuery = useAgreementDefaultHtml(entity, defaultHtmlType, isBuiltinDefault)
 
   // Template fetch — any agreement type when a real templateId was selected.
   const templateQuery = useQuery({
@@ -116,7 +130,7 @@ export function Step3ContentEditor({
     staleTime: Infinity,
   })
 
-  const seedHtml: string = isBuiltinNda
+  const seedHtml: string = isBuiltinDefault
     ? defaultHtmlQuery.data?.data.contentHtml ?? ''
     : isRealTemplate
       ? templateQuery.data?.contentHtml ?? ''
@@ -136,10 +150,10 @@ export function Step3ContentEditor({
     onDraftChange({ ...draft, ...partial })
 
   const seedLoading =
-    (isBuiltinNda && defaultHtmlQuery.isLoading) ||
+    (isBuiltinDefault && defaultHtmlQuery.isLoading) ||
     (isRealTemplate && templateQuery.isLoading)
   const seedError =
-    (isBuiltinNda && defaultHtmlQuery.isError) ||
+    (isBuiltinDefault && defaultHtmlQuery.isError) ||
     (isRealTemplate && templateQuery.isError)
 
   const titleTrim = effectiveTitle.trim()
@@ -151,11 +165,15 @@ export function Step3ContentEditor({
     Number.isInteger(draft.expiryDays) &&
     draft.expiryDays >= EXPIRY_DAYS_MIN &&
     draft.expiryDays <= EXPIRY_DAYS_MAX
+  const unresolvedPlaceholders =
+    type === 'ENGAGEMENT_LETTER' ? findPlaceholders(effectiveHtml) : []
+  const placeholdersResolved = unresolvedPlaceholders.length === 0
   const canSubmit =
     !!titleTrim &&
     htmlTrim.length > 0 &&
     depositValid &&
     expiryValid &&
+    placeholdersResolved &&
     !seedLoading &&
     !seedError &&
     !isSubmitting
@@ -210,6 +228,14 @@ export function Step3ContentEditor({
           />
         )}
       </div>
+
+      {!placeholdersResolved && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+          {t('agreements.wizard.placeholdersUnresolved', {
+            placeholders: unresolvedPlaceholders.join(', '),
+          })}
+        </div>
+      )}
 
       <label className="flex items-start gap-2 cursor-pointer">
         <input

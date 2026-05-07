@@ -18,6 +18,7 @@ export type PdfSignatureMode = 'preview' | 'view' | 'signed'
 
 export interface PdfSignatureBlockProps {
   mode: PdfSignatureMode
+  heading?: string
 
   // Firm side
   firmName: string
@@ -85,6 +86,7 @@ function SigImageRow({ label, pngBuffer, showPlaceholder }: SigImageRowProps) {
 
 export function PdfSignatureBlock({
   mode,
+  heading = '21. Signatures',
   firmName,
   firmSignerName,
   firmSignerTitle,
@@ -104,7 +106,7 @@ export function PdfSignatureBlock({
 
   return (
     <View wrap={false} style={s.sigSection}>
-      <Text style={s.sigSectionHeading}>21. Signatures</Text>
+      <Text style={s.sigSectionHeading}>{heading}</Text>
 
       {/* ── Firm column ── */}
       <Text style={s.sigColumnHeader}>Firm</Text>

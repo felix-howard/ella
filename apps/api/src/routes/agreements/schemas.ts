@@ -106,6 +106,7 @@ export const createNdaBodySchema = z
 
 export const previewAgreementBodySchema = z
   .object({
+    type: agreementTypeSchema.default('NDA'),
     contentHtml: z.string().max(AGREEMENT_CONTENT_HTML_MAX).optional(),
     /** Optional title shown as the PDF heading. Defaults to the template's built-in title. */
     title: z.string().min(1).max(200).optional(),

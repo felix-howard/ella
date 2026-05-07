@@ -82,7 +82,7 @@ interface Props {
 const DEFAULT_DEPOSIT_AMOUNT = '500.00'
 /** Mirrors server-side `AGREEMENT_HTML_MAX_LENGTH` to avoid round-trip 422s. */
 const HTML_MAX = 50_000
-const PLACEHOLDER_RE = /\[[^\[\]\n]{2,120}\]/g
+const PLACEHOLDER_RE = /\[[^[\]\n]{2,120}\]/g
 
 function defaultTitleFor(type: AgreementType, t: (k: string) => string): string {
   return t(`agreements.type.${type}`)

@@ -28,19 +28,28 @@ interface Props {
 }
 
 export function AgreementExtendModal({ open, entity, nda, onClose }: Props) {
+  if (!open) return null
+  return (
+    <AgreementExtendModalContent
+      key={`${nda.id}:${nda.expiryDays ?? 30}`}
+      entity={entity}
+      nda={nda}
+      onClose={onClose}
+    />
+  )
+}
+
+function AgreementExtendModalContent({
+  entity,
+  nda,
+  onClose,
+}: Omit<Props, 'open'>) {
   const { t, i18n } = useTranslation()
   const mutation = useExtendAgreement(entity)
   const [days, setDays] = useState<number>(nda.expiryDays || 30)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Reset to the agreement's stored window each time the modal opens — avoids
-  // stale state from a prior open.
   useEffect(() => {
-    if (open) setDays(nda.expiryDays || 30)
-  }, [open, nda.expiryDays])
-
-  useEffect(() => {
-    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !mutation.isPending) {
         e.stopImmediatePropagation()
@@ -49,13 +58,11 @@ export function AgreementExtendModal({ open, entity, nda, onClose }: Props) {
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, mutation.isPending, onClose])
+  }, [mutation.isPending, onClose])
 
   useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
-
-  if (!open) return null
+    inputRef.current?.focus()
+  }, [])
 
   const expiry = getExpiryStatus(nda, i18n.language)
   const valid =

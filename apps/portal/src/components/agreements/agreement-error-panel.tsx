@@ -24,26 +24,26 @@ export function AgreementErrorPanel({ code, onRetry }: AgreementErrorPanelProps)
   const retryable = code === 'server' || code === 'rate_limited'
 
   return (
-    <div
-      className="flex-1 flex items-center justify-center p-6"
+    <section
+      className="flex-1 flex items-center justify-center"
       role="alert"
       aria-live="polite"
     >
-      <div className="text-center max-w-sm">
-        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-8 h-8 text-destructive" />
+      <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-5">
+          <AlertCircle className="w-9 h-9 text-destructive" aria-hidden="true" />
         </div>
 
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight mb-2">
           {t(`nda.error.${code}.title`)}
         </h2>
 
-        <p className="text-muted-foreground mb-6">
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-6">
           {t(`nda.error.${code}.message`)}
         </p>
 
         {retryable && onRetry && (
-          <Button onClick={onRetry} className="gap-2">
+          <Button onClick={onRetry} size="lg" className="gap-2 shadow-md">
             <RefreshCw className="w-4 h-4" />
             {t('common.tryAgain')}
           </Button>
@@ -53,6 +53,6 @@ export function AgreementErrorPanel({ code, onRetry }: AgreementErrorPanelProps)
           {t('nda.contactHint')}
         </p>
       </div>
-    </div>
+    </section>
   )
 }

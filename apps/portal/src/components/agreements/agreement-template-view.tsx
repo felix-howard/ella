@@ -18,6 +18,8 @@ interface AgreementTemplateViewProps {
   onReachBottom: () => void
   firmSnapshot?: AgreementFirmSnapshot | null
   clientSnapshot?: AgreementClientSnapshot | null
+  /** When true, suppresses the inner H2 (page hero already shows the title). */
+  hideTitle?: boolean
 }
 
 export function AgreementTemplateView({
@@ -26,6 +28,7 @@ export function AgreementTemplateView({
   onReachBottom,
   firmSnapshot,
   clientSnapshot,
+  hideTitle = false,
 }: AgreementTemplateViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -66,12 +69,14 @@ export function AgreementTemplateView({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 min-h-[480px] overflow-y-auto border border-border rounded-md bg-card p-5 text-sm leading-relaxed text-foreground"
+      className="flex-1 min-h-[480px] overflow-y-auto border border-border rounded-xl bg-card shadow-sm p-5 sm:p-7 text-[0.9375rem] leading-relaxed text-foreground"
       role="region"
       aria-label={title}
       tabIndex={0}
     >
-      <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+      {!hideTitle && (
+        <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+      )}
       {firmSnapshot && clientSnapshot && (
         <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
       )}

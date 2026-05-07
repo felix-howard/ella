@@ -8,7 +8,7 @@
 import { useRef, useState } from 'react'
 import SignatureCanvas from 'react-signature-canvas'
 import { useTranslation } from 'react-i18next'
-import { Eraser, Loader2 } from 'lucide-react'
+import { Check, Eraser, Loader2, PenLine } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
 import type { AgreementFirmSnapshot, AgreementClientType } from '../../lib/api-client'
 
@@ -98,23 +98,32 @@ export function AgreementSignForm({
   }
 
   return (
-    <div className="space-y-4">
+    <section className="bg-card border border-border rounded-xl shadow-sm p-5 sm:p-6 space-y-5">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary-dark">
+          <PenLine className="w-3.5 h-3.5" aria-hidden="true" />
+        </span>
+        <h2 className="text-base font-semibold text-foreground">
+          {t('nda.signFormTitle')}
+        </h2>
+      </div>
+
       {firmSnapshot?.signaturePresignedUrl && (
-        <div className="rounded-md border border-border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground mb-2">
-            {t('nda.firmAlreadySigned', { defaultValue: 'The Firm has already signed' })}
+        <div className="rounded-lg border border-border bg-muted/40 p-3.5">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            {t('nda.firmAlreadySigned')}
           </p>
           <div className="flex items-end gap-3">
             <img
               src={firmSnapshot.signaturePresignedUrl}
               alt={firmSnapshot.signerName || 'Firm signature'}
-              className="h-16 w-auto bg-white rounded border border-border"
+              className="h-16 w-auto bg-white rounded-md border border-border"
             />
-            <div className="text-xs text-foreground/80 leading-tight pb-1">
-              <div className="font-semibold">{firmSnapshot.signerName}</div>
+            <div className="text-xs text-foreground/80 leading-snug pb-1">
+              <div className="font-semibold text-foreground">{firmSnapshot.signerName}</div>
               {firmSnapshot.signerTitle && <div>{firmSnapshot.signerTitle}</div>}
               {firmSnapshot.signedAt && (
-                <div className="text-muted-foreground">{firmSnapshot.signedAt}</div>
+                <div className="text-muted-foreground mt-0.5">{firmSnapshot.signedAt}</div>
               )}
             </div>
           </div>
@@ -122,7 +131,7 @@ export function AgreementSignForm({
       )}
 
       {isBusiness && (
-        <>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label
               className="block text-sm font-medium text-foreground mb-1.5"
@@ -159,21 +168,21 @@ export function AgreementSignForm({
               required
             />
           </div>
-        </>
+        </div>
       )}
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">
           {t('nda.signatureLabel')}
         </label>
-        <div className="relative border border-border rounded-md bg-white overflow-hidden">
+        <div className="relative rounded-lg border-2 border-dashed border-border bg-white overflow-hidden focus-within:border-primary/50 transition-colors">
           <SignatureCanvas
             ref={sigRef}
             penColor="#111827"
             backgroundColor="#ffffff"
             onEnd={handleStrokeEnd}
             canvasProps={{
-              className: 'w-full h-40 touch-none',
+              className: 'block w-full h-40 touch-none',
               'aria-label': t('nda.signatureLabel'),
             }}
           />
@@ -181,17 +190,20 @@ export function AgreementSignForm({
             type="button"
             onClick={handleClear}
             disabled={submitting}
-            className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-muted/80 hover:bg-muted text-muted-foreground disabled:opacity-50"
+            className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-card/90 border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 backdrop-blur-sm"
           >
             <Eraser className="w-3.5 h-3.5" />
             {t('nda.clearSignature')}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{t('nda.signatureHint')}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{t('nda.signatureHint')}</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5" htmlFor="nda-signer-name">
+        <label
+          className="block text-sm font-medium text-foreground mb-1.5"
+          htmlFor="nda-signer-name"
+        >
           {t('nda.typedNameLabel')}
         </label>
         <Input
@@ -205,29 +217,43 @@ export function AgreementSignForm({
         />
       </div>
 
-      <label className="flex items-start gap-2 cursor-pointer select-none">
+      <label
+        className={`flex items-start gap-3 rounded-lg border p-3.5 transition-colors ${
+          agreed
+            ? 'border-primary/40 bg-primary-light/40'
+            : 'border-border bg-muted/30 hover:bg-muted/50'
+        } ${canSubmit && !submitting ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
+      >
         <input
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
           disabled={submitting || !canSubmit}
-          className="mt-0.5 h-4 w-4 accent-primary"
+          className="mt-0.5 h-4 w-4 accent-primary shrink-0"
         />
-        <span className="text-sm text-foreground">
+        <span className="text-sm text-foreground leading-snug">
           {canSubmit ? t('nda.agreeLabel') : t('nda.scrollFirstHint')}
         </span>
       </label>
 
-      <Button onClick={handleSubmit} disabled={!formReady} className="w-full gap-2">
+      <Button
+        onClick={handleSubmit}
+        disabled={!formReady}
+        size="lg"
+        className="w-full gap-2 shadow-md"
+      >
         {submitting ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             {t('nda.submitting')}
           </>
         ) : (
-          t('nda.submit')
+          <>
+            <Check className="w-4 h-4" />
+            {t('nda.submit')}
+          </>
         )}
       </Button>
-    </div>
+    </section>
   )
 }

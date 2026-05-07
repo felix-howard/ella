@@ -410,5 +410,12 @@
   "nda.error.rate_limited.title": "Quá nhiều lần thử",
   "nda.error.rate_limited.message": "Bạn đã thử quá nhiều lần. Vui lòng đợi vài phút và thử lại.",
   "nda.error.server.title": "Đã xảy ra lỗi",
-  "nda.error.server.message": "Không tải được thỏa thuận. Vui lòng thử lại."
+  "nda.error.server.message": "Không tải được thỏa thuận. Vui lòng thử lại.",
+  "nda.documentBadge": "Thỏa thuận",
+  "nda.depositBadge": "Đặt cọc {{amount}}",
+  "nda.secureSigning": "Ký điện tử an toàn",
+  "nda.firmAlreadySigned": "Văn phòng đã ký",
+  "nda.signFormTitle": "Chữ ký của bạn",
+  "nda.footerSecure": "Phiên ký được mã hóa — thông tin của bạn được bảo vệ.",
+  "nda.poweredBy": "Cung cấp bởi Ella"
 }

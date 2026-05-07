@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { FileText, Loader2, Lock, ShieldCheck } from 'lucide-react'
 import { EllaLogoLight, EllaLogoDark } from '@ella/ui'
 import {
   portalApi,
@@ -131,26 +131,36 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-background">
-      <header className="px-4 py-3 border-b border-border bg-card shrink-0">
-        <div className="flex items-center justify-center">
-          <img
-            src={EllaLogoLight}
-            alt="Ella"
-            width={76}
-            height={24}
-            className="h-6 w-auto dark:hidden"
-          />
-          <img
-            src={EllaLogoDark}
-            alt="Ella"
-            width={76}
-            height={24}
-            className="h-6 w-auto hidden dark:block"
-          />
+      <header className="bg-card border-b border-border shrink-0">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center">
+            <img
+              src={EllaLogoLight}
+              alt="Ella"
+              width={76}
+              height={24}
+              className="h-6 w-auto dark:hidden"
+            />
+            <img
+              src={EllaLogoDark}
+              alt="Ella"
+              width={76}
+              height={24}
+              className="h-6 w-auto hidden dark:block"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <ShieldCheck className="w-4 h-4 text-primary" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('nda.secureSigning')}</span>
+          </div>
         </div>
+        <div
+          className="h-0.5 bg-gradient-to-r from-primary/0 via-primary to-primary/0"
+          aria-hidden="true"
+        />
       </header>
 
-      <main className="flex-1 flex flex-col max-w-2xl w-full mx-auto p-4 gap-4">
+      <main className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 gap-5">
         {state === 'loading' && (
           <div
             className="flex-1 flex items-center justify-center"
@@ -172,16 +182,26 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
 
         {(state === 'ready' || state === 'submitting') && view && (
           <>
-            <div className="shrink-0">
-              <h1 className="text-lg font-semibold text-foreground">
+            <section className="bg-card border border-border rounded-xl shadow-sm p-5 sm:p-6">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-light text-primary-dark px-2.5 py-1 text-xs font-semibold tracking-wide">
+                  <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                  {t('nda.documentBadge')}
+                </span>
+                {view.depositAmount && (
+                  <span className="inline-flex items-center rounded-full bg-accent-light text-accent px-2.5 py-1 text-xs font-semibold tracking-wide">
+                    {t('nda.depositBadge', { amount: view.depositAmount })}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight">
                 {view.templateTitle}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-2 text-sm sm:text-base text-muted-foreground leading-relaxed">
                 {t('nda.greeting', { firstName: view.leadFirstName })}
-                {view.depositAmount &&
-                  ` ${t('nda.depositNote', { amount: view.depositAmount })}`}
               </p>
-            </div>
+            </section>
+
             {view.templateHtml ? (
               <AgreementCustomHtmlView
                 title={view.templateTitle}
@@ -189,6 +209,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 onReachBottom={handleReachBottom}
                 firmSnapshot={view.firmSnapshot}
                 clientSnapshot={view.clientSnapshot}
+                hideTitle
               />
             ) : (
               <AgreementTemplateView
@@ -197,6 +218,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 onReachBottom={handleReachBottom}
                 firmSnapshot={view.firmSnapshot}
                 clientSnapshot={view.clientSnapshot}
+                hideTitle
               />
             )}
             <div className="shrink-0">
@@ -219,6 +241,16 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
           />
         )}
       </main>
+
+      <footer className="border-t border-border bg-card shrink-0">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{t('nda.footerSecure')}</span>
+          </div>
+          <span className="font-medium">{t('nda.poweredBy')}</span>
+        </div>
+      </footer>
     </div>
   )
 }

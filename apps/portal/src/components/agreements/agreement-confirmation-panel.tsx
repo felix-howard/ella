@@ -25,21 +25,25 @@ export function AgreementConfirmationPanel({
   )
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6" role="status" aria-live="polite">
-      <div className="text-center max-w-sm">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="w-8 h-8 text-primary" />
+    <section
+      className="flex-1 flex items-center justify-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-9 h-9 text-primary-dark" aria-hidden="true" />
         </div>
 
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight mb-2">
           {t('nda.confirmedTitle')}
         </h2>
 
-        <p className="text-muted-foreground mb-1">
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-2">
           {t('nda.confirmedMessage', { orgName })}
         </p>
         <p className="text-xs text-muted-foreground mb-6">
-          {t('nda.signedAtLabel')}: {formattedDate}
+          {t('nda.signedAtLabel')}: <span className="font-medium text-foreground/80">{formattedDate}</span>
         </p>
 
         <a
@@ -48,7 +52,7 @@ export function AgreementConfirmationPanel({
           rel="noopener noreferrer"
           className="inline-block"
         >
-          <Button className="gap-2">
+          <Button size="lg" className="gap-2 shadow-md">
             <Download className="w-4 h-4" />
             {t('nda.downloadCopy')}
           </Button>
@@ -58,6 +62,6 @@ export function AgreementConfirmationPanel({
           {t('nda.downloadTtlHint')}
         </p>
       </div>
-    </div>
+    </section>
   )
 }

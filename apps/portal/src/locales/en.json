@@ -410,5 +410,12 @@
   "nda.error.rate_limited.title": "Too many attempts",
   "nda.error.rate_limited.message": "You have made too many attempts recently. Please wait a few minutes and try again.",
   "nda.error.server.title": "Something went wrong",
-  "nda.error.server.message": "We could not load the agreement. Please try again."
+  "nda.error.server.message": "We could not load the agreement. Please try again.",
+  "nda.documentBadge": "Agreement",
+  "nda.depositBadge": "{{amount}} deposit",
+  "nda.secureSigning": "Secure e-signing",
+  "nda.firmAlreadySigned": "The Firm has already signed",
+  "nda.signFormTitle": "Your signature",
+  "nda.footerSecure": "Encrypted signing session — your information is protected.",
+  "nda.poweredBy": "Powered by Ella"
 }

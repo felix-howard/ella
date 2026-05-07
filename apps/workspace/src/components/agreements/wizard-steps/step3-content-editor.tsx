@@ -20,7 +20,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Send, FileText } from 'lucide-react'
+import { Loader2, FileText } from 'lucide-react'
 import { RichTextEditor } from '../../leads/rich-text-editor'
 import { NdaPdfPreviewModal } from '../agreement-pdf-preview-modal'
 import { useAgreementDefaultHtml } from '../use-agreement-default-html'
@@ -260,23 +260,14 @@ export function Step3ContentEditor({
           type="button"
           onClick={() => setPreviewOpen(true)}
           disabled={!canSubmit}
-          className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          <FileText className="w-4 h-4" />
-          {t('nda.editor.preview')}
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
         >
           {isSubmitting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Send className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
           )}
-          {t('nda.send.confirmCta')}
+          {t('nda.editor.previewAndSend')}
         </button>
       </div>
 
@@ -287,6 +278,8 @@ export function Step3ContentEditor({
         type={type}
         title={effectiveTitle}
         onClose={() => setPreviewOpen(false)}
+        onSend={handleSubmit}
+        isSending={isSubmitting}
       />
     </div>
   )

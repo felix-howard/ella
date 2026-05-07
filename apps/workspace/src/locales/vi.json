@@ -1717,6 +1717,7 @@
   "nda.editor.reset": "Khôi phục mặc định",
   "nda.editor.resetConfirm": "Hủy thay đổi và khôi phục nội dung mặc định?",
   "nda.editor.preview": "Xem trước PDF",
+  "nda.editor.previewAndSend": "Xem trước & Gửi",
   "nda.editor.loadError": "Không thể tải nội dung mặc định. Vui lòng thử lại.",
   "nda.preview.title": "Xem trước PDF NDA",
   "nda.preview.download": "Tải xuống",

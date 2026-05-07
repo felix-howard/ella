@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Loader2, X, Download, RotateCw } from 'lucide-react'
+import { Loader2, X, Download, RotateCw, Send } from 'lucide-react'
 import { useAgreementPreview } from './use-agreement-mutations'
 import type { EntityRef } from './types'
 import type { AgreementType } from '../../lib/api-client'
@@ -22,11 +22,16 @@ interface Props {
   /** Title rendered as the PDF heading inside the iframe. Falls back to type label. */
   title?: string
   onClose: () => void
+  /** When provided, footer renders a Send button — gated on the preview having
+   *  rendered, forcing the user to look at the PDF before dispatching. */
+  onSend?: () => void
+  /** Outer submission state — disables Send and swaps icon for a spinner. */
+  isSending?: boolean
 }
 
 const BTN_CLS = 'px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-2'
 
-export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onClose }: Props) {
+export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onClose, onSend, isSending }: Props) {
   const { t } = useTranslation()
   const mutation = useAgreementPreview(entity)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -47,11 +52,13 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
   }
 
   const handleClose = () => {
-    if (mutation.isPending) return
+    if (mutation.isPending || isSending) return
     cancelRef.current = true
     clearBlob()
     onClose()
   }
+
+  const canSend = !!onSend && !!blobUrl && !mutation.isPending && !isSending
 
   useEffect(() => {
     if (!open) return
@@ -70,7 +77,7 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mutation.isPending])
+  }, [open, mutation.isPending, isSending])
 
   if (!open) return null
   return createPortal(
@@ -93,7 +100,18 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
                 {t('nda.preview.download')}
               </a>
             )}
-            <button type="button" onClick={handleClose} disabled={mutation.isPending} aria-label={t('common.close')} className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50">
+            {onSend && (
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={!canSend}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {t('nda.send.confirmCta')}
+              </button>
+            )}
+            <button type="button" onClick={handleClose} disabled={mutation.isPending || isSending} aria-label={t('common.close')} className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50">
               <X className="w-5 h-5" />
             </button>
           </div>

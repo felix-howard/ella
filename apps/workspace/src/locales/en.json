@@ -1720,6 +1720,7 @@
   "nda.editor.reset": "Reset to default",
   "nda.editor.resetConfirm": "Discard your changes and reset to default content?",
   "nda.editor.preview": "Preview PDF",
+  "nda.editor.previewAndSend": "Preview & Send",
   "nda.editor.loadError": "Failed to load default content. Please retry.",
   "nda.preview.title": "NDA PDF Preview",
   "nda.preview.download": "Download",

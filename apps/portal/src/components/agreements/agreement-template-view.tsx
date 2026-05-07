@@ -4,7 +4,7 @@
  * detected via an IntersectionObserver sentinel (more reliable than scroll
  * events on iOS Safari).
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import type {
   AgreementTemplateSection,
   AgreementFirmSnapshot,
@@ -34,10 +34,25 @@ export function AgreementTemplateView({
   const sentinelRef = useRef<HTMLDivElement>(null)
   const reachedRef = useRef(false)
   const onReachBottomRef = useRef(onReachBottom)
+  const [isDesktop, setIsDesktop] = useState(false)
 
   useEffect(() => {
     onReachBottomRef.current = onReachBottom
   }, [onReachBottom])
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(media.matches)
+    update()
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update)
+      return () => media.removeEventListener('change', update)
+    }
+
+    media.addListener(update)
+    return () => media.removeListener(update)
+  }, [])
 
   const markReached = useCallback(() => {
     if (reachedRef.current) return
@@ -60,16 +75,16 @@ export function AgreementTemplateView({
           }
         }
       },
-      { root, rootMargin: '0px 0px 48px 0px', threshold: 0 },
+      { root: isDesktop ? root : null, rootMargin: '0px 0px 48px 0px', threshold: 0 },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [markReached, sections])
+  }, [markReached, sections, isDesktop])
 
   return (
     <div
       ref={scrollRef}
-      className="flex-1 min-h-[480px] overflow-y-auto border border-border rounded-xl bg-card shadow-sm p-5 sm:p-7 text-[0.9375rem] leading-relaxed text-foreground"
+      className="min-h-0 overflow-visible overflow-x-hidden rounded-xl border border-border bg-card p-5 text-[0.9375rem] leading-relaxed text-foreground shadow-card [overflow-wrap:anywhere] sm:p-6 lg:h-full lg:min-h-[760px] lg:overflow-y-auto lg:max-h-none lg:p-8"
       role="region"
       aria-label={title}
       tabIndex={0}
@@ -81,13 +96,15 @@ export function AgreementTemplateView({
         <AgreementHeaderBlock firm={firmSnapshot} client={clientSnapshot} />
       )}
       {sections.map((section, i) => (
-        <section key={`sec-${i}`} className="mb-5">
-          <h3 className="font-semibold text-foreground mb-2">{section.heading}</h3>
-          {section.paragraphs.map((p, j) => (
-            <p key={`sec-${i}-p-${j}`} className="text-foreground/90 mb-2 last:mb-0">
-              {p}
-            </p>
-          ))}
+        <section key={`sec-${i}`} className="mb-6 last:mb-0">
+          <h3 className="mb-2.5 text-base font-semibold text-foreground">{section.heading}</h3>
+          <div className="space-y-2.5">
+            {section.paragraphs.map((p, j) => (
+              <p key={`sec-${i}-p-${j}`} className="text-foreground/85">
+                {p}
+              </p>
+            ))}
+          </div>
         </section>
       ))}
       <div ref={sentinelRef} aria-hidden="true" />

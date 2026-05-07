@@ -98,18 +98,18 @@ export function AgreementSignForm({
   }
 
   return (
-    <section className="bg-card border border-border rounded-xl shadow-sm p-5 sm:p-6 space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-light text-primary-dark">
+    <section className="rounded-xl border border-border bg-card p-5 shadow-card space-y-5 sm:p-6 lg:p-5">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-primary-dark">
           <PenLine className="w-3.5 h-3.5" aria-hidden="true" />
         </span>
-        <h2 className="text-base font-semibold text-foreground">
+        <h2 className="text-lg font-semibold text-foreground lg:text-base">
           {t('nda.signFormTitle')}
         </h2>
       </div>
 
       {firmSnapshot?.signaturePresignedUrl && (
-        <div className="rounded-lg border border-border bg-muted/40 p-3.5">
+        <div className="rounded-lg border border-border bg-muted/40 p-3.5 shadow-subtle">
           <p className="text-xs font-medium text-muted-foreground mb-2">
             {t('nda.firmAlreadySigned')}
           </p>
@@ -177,14 +177,14 @@ export function AgreementSignForm({
         <label className="block text-sm font-medium text-foreground mb-1.5">
           {t('nda.signatureLabel')}
         </label>
-        <div className="relative rounded-lg border-2 border-dashed border-border bg-white overflow-hidden focus-within:border-primary/50 transition-colors">
+        <div className="relative overflow-hidden rounded-lg border-2 border-dashed border-border bg-white shadow-subtle transition-colors focus-within:border-primary/50">
           <SignatureCanvas
             ref={sigRef}
             penColor="#111827"
             backgroundColor="#ffffff"
             onEnd={handleStrokeEnd}
             canvasProps={{
-              className: 'block w-full h-40 touch-none',
+              className: 'block w-full h-36 sm:h-44 lg:h-36 touch-none',
               'aria-label': t('nda.signatureLabel'),
             }}
           />

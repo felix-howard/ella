@@ -6,7 +6,7 @@
  * Defence-in-depth: server already sanitized at write; sanitizeAgreementHtmlClient
  * strips anything that slipped past or was injected post-fetch.
  */
-import { useEffect, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { sanitizeAgreementHtmlClient } from '../../lib/sanitize-agreement-html'
 import type { AgreementFirmSnapshot, AgreementClientSnapshot } from '../../lib/api-client'
 import { AgreementHeaderBlock } from './agreement-header-block'
@@ -33,10 +33,25 @@ export function AgreementCustomHtmlView({
   const sentinelRef = useRef<HTMLDivElement>(null)
   const reachedRef = useRef(false)
   const onReachBottomRef = useRef(onReachBottom)
+  const [isDesktop, setIsDesktop] = useState(false)
 
   useEffect(() => {
     onReachBottomRef.current = onReachBottom
   }, [onReachBottom])
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(media.matches)
+    update()
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update)
+      return () => media.removeEventListener('change', update)
+    }
+
+    media.addListener(update)
+    return () => media.removeListener(update)
+  }, [])
 
   const safeHtml = useMemo(() => sanitizeAgreementHtmlClient(html), [html])
 
@@ -61,16 +76,16 @@ export function AgreementCustomHtmlView({
           }
         }
       },
-      { root, rootMargin: '0px 0px 48px 0px', threshold: 0 },
+      { root: isDesktop ? root : null, rootMargin: '0px 0px 48px 0px', threshold: 0 },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [markReached, safeHtml])
+  }, [markReached, safeHtml, isDesktop])
 
   return (
     <div
       ref={scrollRef}
-      className="agreement-custom-html-view flex-1 min-h-[480px] overflow-y-auto border border-border rounded-xl bg-card shadow-sm p-5 sm:p-7 text-[0.9375rem] leading-relaxed text-foreground"
+      className="agreement-custom-html-view min-h-0 overflow-visible overflow-x-hidden rounded-xl border border-border bg-card p-5 text-[0.9375rem] leading-relaxed text-foreground shadow-card [overflow-wrap:anywhere] sm:p-6 lg:h-full lg:min-h-[760px] lg:overflow-y-auto lg:max-h-none lg:p-8"
       role="region"
       aria-label={title}
       tabIndex={0}

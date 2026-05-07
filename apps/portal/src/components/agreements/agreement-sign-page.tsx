@@ -130,36 +130,36 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
   const handleReachBottom = useCallback(() => setReachedBottom(true), [])
 
   return (
-    <div className="min-h-dvh flex flex-col bg-background">
-      <header className="shrink-0">
-        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div className="relative left-1/2 min-h-dvh w-screen -translate-x-1/2 flex flex-col bg-background">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center">
             <img
               src={EllaLogoLight}
               alt="Ella"
               width={76}
               height={24}
-              className="h-6 w-auto dark:hidden"
+              className="h-6 w-auto dark:hidden sm:h-7"
             />
             <img
               src={EllaLogoDark}
               alt="Ella"
               width={76}
               height={24}
-              className="h-6 w-auto hidden dark:block"
+              className="h-6 w-auto hidden dark:block sm:h-7"
             />
           </div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
-            <span className="hidden sm:inline">{t('nda.secureSigning')}</span>
+          <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-card border border-border px-3 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground shadow-sm">
+            <ShieldCheck className="w-4 h-4 text-primary" aria-hidden="true" />
+            <span>{t('nda.secureSigning')}</span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 gap-5">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8">
         {state === 'loading' && (
           <div
-            className="flex-1 flex items-center justify-center"
+            className="min-h-[60dvh] flex items-center justify-center"
             role="status"
             aria-label={t('common.processing')}
           >
@@ -177,47 +177,53 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         )}
 
         {(state === 'ready' || state === 'submitting') && view && (
-          <>
-            <section className="bg-card border border-border rounded-xl shadow-sm p-5 sm:p-6">
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-light text-primary-dark px-2.5 py-1 text-xs font-semibold tracking-wide">
-                  <FileText className="w-3.5 h-3.5" aria-hidden="true" />
-                  {t('nda.documentBadge')}
-                </span>
-                {view.depositAmount && (
-                  <span className="inline-flex items-center rounded-full bg-accent-light text-accent px-2.5 py-1 text-xs font-semibold tracking-wide">
-                    {t('nda.depositBadge', { amount: view.depositAmount })}
+          <div className="mx-auto grid w-full max-w-[calc(100vw-2rem)] gap-5 lg:max-w-none lg:grid-cols-[minmax(0,1fr)_380px]">
+            <section className="lg:col-span-2 overflow-hidden rounded-xl border border-border bg-card shadow-card">
+              <div className="border-b border-border bg-muted/30 px-5 py-4 sm:px-6 sm:py-5 lg:px-7">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-light text-primary-dark px-3 py-1.5 text-xs font-semibold">
+                    <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                    {t('nda.documentBadge')}
                   </span>
-                )}
+                  {view.depositAmount && (
+                    <span className="inline-flex items-center rounded-full bg-accent-light text-accent px-3 py-1.5 text-xs font-semibold">
+                      {t('nda.depositBadge', { amount: view.depositAmount })}
+                    </span>
+                  )}
+                </div>
               </div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight">
-                {view.templateTitle}
-              </h1>
-              <p className="mt-2 text-sm sm:text-base text-muted-foreground leading-relaxed">
-                {t('nda.greeting', { firstName: view.leadFirstName })}
-              </p>
+              <div className="px-5 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7">
+                <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
+                  {view.templateTitle}
+                </h1>
+                <p className="mt-2 max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
+                  {t('nda.greeting', { firstName: view.leadFirstName })}
+                </p>
+              </div>
             </section>
 
-            {view.templateHtml ? (
-              <AgreementCustomHtmlView
-                title={view.templateTitle}
-                html={view.templateHtml}
-                onReachBottom={handleReachBottom}
-                firmSnapshot={view.firmSnapshot}
-                clientSnapshot={view.clientSnapshot}
-                hideTitle
-              />
-            ) : (
-              <AgreementTemplateView
-                title={view.templateTitle}
-                sections={view.templateSections}
-                onReachBottom={handleReachBottom}
-                firmSnapshot={view.firmSnapshot}
-                clientSnapshot={view.clientSnapshot}
-                hideTitle
-              />
-            )}
-            <div className="shrink-0">
+            <div className="min-w-0 lg:h-full">
+              {view.templateHtml ? (
+                <AgreementCustomHtmlView
+                  title={view.templateTitle}
+                  html={view.templateHtml}
+                  onReachBottom={handleReachBottom}
+                  firmSnapshot={view.firmSnapshot}
+                  clientSnapshot={view.clientSnapshot}
+                  hideTitle
+                />
+              ) : (
+                <AgreementTemplateView
+                  title={view.templateTitle}
+                  sections={view.templateSections}
+                  onReachBottom={handleReachBottom}
+                  firmSnapshot={view.firmSnapshot}
+                  clientSnapshot={view.clientSnapshot}
+                  hideTitle
+                />
+              )}
+            </div>
+            <div className="shrink-0 lg:sticky lg:top-24">
               <AgreementSignForm
                 canSubmit={reachedBottom}
                 submitting={state === 'submitting'}
@@ -226,7 +232,7 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
                 clientType={view.clientSnapshot?.clientType ?? null}
               />
             </div>
-          </>
+          </div>
         )}
 
         {state === 'confirmed' && signed && view && (
@@ -238,8 +244,8 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
         )}
       </main>
 
-      <footer className="border-t border-border bg-card shrink-0">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+      <footer className="border-t border-border bg-card/90 shrink-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{t('nda.footerSecure')}</span>

@@ -32,6 +32,7 @@ export function ClientOverviewTab({ client, parentScheduleC, onDeleteClick }: Cl
       {(client.clientType === 'INDIVIDUAL' || (client.clientGroup && client.clientGroup.clients.length > 0)) && (
         <ClientLinkedEntityCard
           clientId={client.id}
+          clientGroupId={client.clientGroup?.id ?? client.clientGroupId}
           clientName={client.name}
           clientPhone={client.phone}
           clientEmail={client.email}

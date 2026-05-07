@@ -131,8 +131,8 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-background">
-      <header className="bg-card border-b border-border shrink-0">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <header className="shrink-0">
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center">
             <img
               src={EllaLogoLight}
@@ -149,15 +149,11 @@ export function AgreementSignPage({ token }: AgreementSignPageProps) {
               className="h-6 w-auto hidden dark:block"
             />
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <ShieldCheck className="w-4 h-4 text-primary" aria-hidden="true" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
             <span className="hidden sm:inline">{t('nda.secureSigning')}</span>
           </div>
         </div>
-        <div
-          className="h-0.5 bg-gradient-to-r from-primary/0 via-primary to-primary/0"
-          aria-hidden="true"
-        />
       </header>
 
       <main className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 gap-5">

@@ -148,6 +148,7 @@ export function AgreementSignForm({
               disabled={submitting}
               autoComplete="name"
               required
+              className="focus:ring-1 focus:ring-primary/30"
             />
           </div>
           <div>
@@ -166,6 +167,7 @@ export function AgreementSignForm({
               disabled={submitting}
               autoComplete="organization-title"
               required
+              className="focus:ring-1 focus:ring-primary/30"
             />
           </div>
         </div>
@@ -214,6 +216,7 @@ export function AgreementSignForm({
           maxLength={NAME_MAX}
           disabled={submitting}
           autoComplete="name"
+          className="focus:ring-1 focus:ring-primary/30"
         />
       </div>
 

@@ -328,6 +328,7 @@
   "portal.entityPicker.subtitle": "Chọn tài khoản để gửi tài liệu",
   "portal.entityPicker.personal": "Cá nhân",
   "portal.entityPicker.business": "Doanh nghiệp",
+  "portal.entityPicker.kicker": "Gửi tài liệu",
   "portal.entityPicker.heading": "Giấy tờ này là gửi cho ai?",
   "portal.entityPicker.helpText": "Bấm vào tên bạn để gửi giấy tờ thuế cá nhân (W-2, 1099). Bấm vào tên doanh nghiệp để gửi giấy tờ cho doanh nghiệp đó.",
   "portal.entityPicker.uploadCount": "Đã gửi {{count}} giấy tờ ✓",

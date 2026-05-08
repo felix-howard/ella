@@ -10,19 +10,11 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { Button } from '@ella/ui'
-import {
-  portalApi,
-  type PortalEntity,
-  type UploadResponse,
-  ApiError,
-} from '../lib/api-client'
+import { portalApi, type PortalEntity, type UploadResponse, ApiError } from '../lib/api-client'
 import { entityTypeLabel } from '../lib/entity-type-label'
 import { SimpleUploader } from './simple-uploader'
 import { EntityUploadHeader } from './entity-upload-header'
-import {
-  UploadedFilesList,
-  type UploadedFilesListHandle,
-} from './uploaded-files-list'
+import { UploadedFilesList, type UploadedFilesListHandle } from './uploaded-files-list'
 
 interface EntityUploadPageProps {
   token: string
@@ -66,9 +58,7 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
       })
       .catch((err) => {
         if (cancelled) return
-        setError(
-          err instanceof ApiError ? err.message : t('portal.errorLoading')
-        )
+        setError(err instanceof ApiError ? err.message : t('portal.errorLoading'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -108,10 +98,7 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
 
   if (error || !entity) {
     return (
-      <div
-        className="flex-1 flex items-center justify-center p-6 text-center"
-        role="alert"
-      >
+      <div className="flex-1 flex items-center justify-center p-6 text-center" role="alert">
         <div className="max-w-sm">
           <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-3">
             <AlertCircle className="w-6 h-6 text-error" aria-hidden="true" />
@@ -130,32 +117,36 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
 
   return (
     <div className="flex-1 flex flex-col">
-      <EntityUploadHeader entity={entity} label={label} onBack={handleBack} />
+      <main className="mx-auto w-full max-w-4xl flex-1 pt-8 sm:pt-12 lg:pt-14">
+        <section className="rounded-[1.5rem] border border-white/80 bg-white/65 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:rounded-[2rem] sm:p-6 lg:p-8">
+          <EntityUploadHeader entity={entity} label={label} onBack={handleBack} />
 
-      <div className="px-6 pt-2 pb-4 space-y-2">
-        <p className="text-sm text-foreground">
-          {t('portal.entityUpload.helperTitle', { name: entity.name })}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {t('portal.entityUpload.helperSwitch')}
-        </p>
-      </div>
+          <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4 sm:mt-8 sm:p-5">
+            <p className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
+              {t('portal.entityUpload.helperTitle', { name: entity.name })}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {t('portal.entityUpload.helperSwitch')}
+            </p>
+          </div>
 
-      <div className="px-6 py-4">
-        <SimpleUploader
-          token={token}
-          targetCaseId={caseId}
-          onUploadComplete={handleUploadComplete}
-          onError={handleUploadError}
-        />
-      </div>
+          <div className="mt-6 sm:mt-7">
+            <SimpleUploader
+              token={token}
+              targetCaseId={caseId}
+              onUploadComplete={handleUploadComplete}
+              onError={handleUploadError}
+            />
+          </div>
 
-      <div className="px-6 py-4">
-        <UploadedFilesList ref={listRef} token={token} caseId={caseId} />
-      </div>
+          <div className="mt-8">
+            <UploadedFilesList ref={listRef} token={token} caseId={caseId} />
+          </div>
+        </section>
+      </main>
 
-      <footer className="px-6 py-4 mt-auto text-center">
-        <p className="text-xs text-muted-foreground">Ella Tax Document System</p>
+      <footer className="px-6 py-6 mt-auto text-center">
+        <p className="text-sm font-medium text-muted-foreground">Ella Tax Document System</p>
       </footer>
     </div>
   )

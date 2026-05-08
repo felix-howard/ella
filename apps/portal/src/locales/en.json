@@ -328,6 +328,7 @@
   "portal.entityPicker.subtitle": "Select which account to upload documents for",
   "portal.entityPicker.personal": "Personal",
   "portal.entityPicker.business": "Business",
+  "portal.entityPicker.kicker": "Document upload",
   "portal.entityPicker.heading": "Which one are these papers for?",
   "portal.entityPicker.helpText": "Tap your name for personal taxes (like W-2, 1099). Tap a business name to send papers for that business.",
   "portal.entityPicker.uploadCount": "{{count}} papers uploaded ✓",

@@ -13,7 +13,7 @@
  *   - BLANK_TEMPLATE / null / CUSTOM: empty editor
  *
  * Beyond content: title (defaults to type label), deposit toggle (NDA on by
- * default), deposit amount (from template default or constant), internal note.
+ * default), deposit amount (from template default or constant), link expiry.
  *
  * Validation is UX-only — server is source of truth.
  */
@@ -38,6 +38,8 @@ export interface Step3Draft {
   htmlOverride: string | null
   placeholderValues: Record<string, string>
   serviceItems: string[]
+  appliedPlaceholderValues: Record<string, string>
+  appliedServiceItems: string[]
   depositEnabledOverride: boolean | null
   depositAmountOverride: string | null
   internalNote: string
@@ -57,6 +59,8 @@ export const emptyStep3Draft: Step3Draft = {
   htmlOverride: null,
   placeholderValues: {},
   serviceItems: [],
+  appliedPlaceholderValues: {},
+  appliedServiceItems: [],
   depositEnabledOverride: null,
   depositAmountOverride: null,
   internalNote: '',
@@ -98,6 +102,10 @@ function findPlaceholders(html: string): string[] {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const text = doc.body.textContent ?? ''
   return Array.from(new Set(text.match(PLACEHOLDER_RE) ?? []))
+}
+
+function uniquePlaceholders(placeholders: string[]): string[] {
+  return Array.from(new Set(placeholders))
 }
 
 function placeholderLabel(token: string): string {
@@ -178,6 +186,90 @@ function applyEngagementPlaceholderValues(
   )
 }
 
+function replaceTextInHtmlOnce(html: string, from: string, to: string): string {
+  const oldValue = from.trim()
+  const newValue = to.trim()
+  if (!oldValue || oldValue === newValue) return html
+
+  const doc = new DOMParser().parseFromString(
+    `<div data-agreement-root="true">${html}</div>`,
+    'text/html',
+  )
+  const root = doc.querySelector('[data-agreement-root="true"]')
+  if (!root) return html
+
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node = walker.nextNode()
+  while (node) {
+    const text = node.textContent ?? ''
+    if (text.includes(oldValue)) {
+      node.textContent = text.replace(oldValue, newValue)
+      break
+    }
+    node = walker.nextNode()
+  }
+
+  return root.innerHTML
+}
+
+function replaceAppliedServiceItemsInHtml(
+  html: string,
+  previousItems: string[],
+  nextItems: string[],
+): string {
+  const oldItems = previousItems.map((item) => item.trim()).filter(Boolean)
+  const newItems = nextItems.map((item) => item.trim()).filter(Boolean)
+  if (oldItems.length === 0 || newItems.length === 0) return html
+  if (oldItems.length === newItems.length && oldItems.every((item, index) => item === newItems[index])) {
+    return html
+  }
+
+  const doc = new DOMParser().parseFromString(
+    `<div data-agreement-root="true">${html}</div>`,
+    'text/html',
+  )
+  const root = doc.querySelector('[data-agreement-root="true"]')
+  if (!root) return html
+
+  const serviceList = Array.from(root.querySelectorAll('ul')).find((list) => {
+    const texts = Array.from(list.querySelectorAll('li')).map((item) =>
+      item.textContent?.trim() ?? '',
+    )
+    return oldItems.every((item) => texts.includes(item))
+  })
+
+  if (!serviceList) return html
+
+  serviceList.replaceChildren(
+    ...newItems.map((item) => {
+      const li = doc.createElement('li')
+      li.textContent = item
+      return li
+    }),
+  )
+
+  return root.innerHTML
+}
+
+function replaceAppliedPlaceholderValues(
+  html: string,
+  previousValues: Record<string, string>,
+  nextValues: Record<string, string>,
+  previousServiceItems: string[],
+  nextServiceItems: string[],
+): string {
+  const nextHtml = Object.entries(nextValues).reduce((currentHtml, [token, value]) => {
+    if (isServiceItemPlaceholder(token)) return currentHtml
+    return replaceTextInHtmlOnce(currentHtml, previousValues[token] ?? '', value)
+  }, html)
+
+  return replaceAppliedServiceItemsInHtml(
+    nextHtml,
+    previousServiceItems,
+    nextServiceItems,
+  )
+}
+
 export function Step3ContentEditor({
   entity,
   type,
@@ -251,13 +343,22 @@ export function Step3ContentEditor({
     draft.expiryDays <= EXPIRY_DAYS_MAX
   const unresolvedPlaceholders =
     type === 'ENGAGEMENT_LETTER' ? findPlaceholders(effectiveHtml) : []
-  const servicePlaceholders = unresolvedPlaceholders
+  const editablePlaceholders =
+    type === 'ENGAGEMENT_LETTER'
+      ? uniquePlaceholders([
+          ...findPlaceholders(seedHtml),
+          ...unresolvedPlaceholders,
+          ...Object.keys(draft.placeholderValues),
+          ...Object.keys(draft.appliedPlaceholderValues),
+        ])
+      : []
+  const servicePlaceholders = editablePlaceholders
     .filter(isServiceItemPlaceholder)
     .sort((a, b) => (serviceItemIndex(a) ?? 0) - (serviceItemIndex(b) ?? 0))
-  const hasScopeDescription = unresolvedPlaceholders.includes(SCOPE_DESCRIPTION_PLACEHOLDER)
+  const hasScopeDescription = editablePlaceholders.includes(SCOPE_DESCRIPTION_PLACEHOLDER)
   const hasScopeBuilder =
     hasScopeDescription || servicePlaceholders.length > 0
-  const standardPlaceholders = unresolvedPlaceholders.filter(
+  const standardPlaceholders = editablePlaceholders.filter(
     (placeholder) =>
       placeholder !== SCOPE_DESCRIPTION_PLACEHOLDER &&
       !isServiceItemPlaceholder(placeholder),
@@ -284,13 +385,32 @@ export function Step3ContentEditor({
     (hasScopeBuilder ? Math.max(1, visibleServiceItems.length) : 0)
   const filledPlaceholderCount =
     filledStandardPlaceholderCount + filledScopeDescriptionCount + filledServiceCount
-  const canApplyPlaceholders = filledPlaceholderCount > 0 && !isSubmitting
+  const nextServiceItems = visibleServiceItems.map((item) => item.trim()).filter(Boolean)
+  const appliedServiceItems = draft.appliedServiceItems.map((item) => item.trim()).filter(Boolean)
+  const standardValuesChanged = editablePlaceholders.some(
+    (placeholder) =>
+      (draft.placeholderValues[placeholder] ?? '').trim() !==
+      (draft.appliedPlaceholderValues[placeholder] ?? '').trim(),
+  )
+  const serviceItemsChanged =
+    nextServiceItems.length !== appliedServiceItems.length ||
+    nextServiceItems.some((item, index) => item !== appliedServiceItems[index])
+  const showPlaceholderPanel = editablePlaceholders.length > 0
+  const hasUnappliedPlaceholderChanges =
+    showPlaceholderPanel &&
+    placeholdersResolved &&
+    (standardValuesChanged || serviceItemsChanged)
+  const canApplyPlaceholders =
+    filledPlaceholderCount > 0 &&
+    !isSubmitting &&
+    (unresolvedPlaceholders.length > 0 || standardValuesChanged || serviceItemsChanged)
   const canSubmit =
     !!titleTrim &&
     htmlTrim.length > 0 &&
     depositValid &&
     expiryValid &&
     placeholdersResolved &&
+    !hasUnappliedPlaceholderChanges &&
     !seedLoading &&
     !seedError &&
     !isSubmitting
@@ -335,19 +455,29 @@ export function Step3ContentEditor({
 
   const handleApplyPlaceholders = () => {
     if (!canApplyPlaceholders) return
+    const nextHtml =
+      unresolvedPlaceholders.length > 0
+        ? applyEngagementPlaceholderValues(
+            effectiveHtml,
+            draft.placeholderValues,
+            visibleServiceItems,
+          )
+        : replaceAppliedPlaceholderValues(
+            effectiveHtml,
+            draft.appliedPlaceholderValues,
+            draft.placeholderValues,
+            draft.appliedServiceItems,
+            visibleServiceItems,
+          )
     patch({
-      htmlOverride: applyEngagementPlaceholderValues(
-        effectiveHtml,
-        draft.placeholderValues,
-        visibleServiceItems,
-      ),
-      placeholderValues: {},
-      serviceItems: [],
+      htmlOverride: nextHtml,
+      appliedPlaceholderValues: { ...draft.placeholderValues },
+      appliedServiceItems: nextServiceItems,
     })
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0 space-y-4">
         <label className="block rounded-xl border border-border bg-card p-4 shadow-sm">
           <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -398,18 +528,18 @@ export function Step3ContentEditor({
       </div>
 
       <aside className="space-y-4 xl:sticky xl:top-0 xl:self-start">
-        {!placeholdersResolved && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+        {showPlaceholderPanel && (
+          <div className="rounded-xl border border-primary/20 bg-card p-4 text-sm shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="font-semibold text-foreground">
                   {t('agreements.wizard.placeholderPanel.title')}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {t('agreements.wizard.placeholderPanel.description')}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                 {t('agreements.wizard.placeholderPanel.progress', {
                   filled: filledPlaceholderCount,
                   total: placeholderInputCount,
@@ -419,7 +549,7 @@ export function Step3ContentEditor({
 
             <div className="mt-4 space-y-4">
               {hasScopeBuilder && (
-                <div className="rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-900/70 dark:bg-background">
+                <div className="rounded-lg border border-border bg-background/60 p-3">
                   {hasScopeDescription && (
                     <label className="block">
                       <span className="block text-xs font-semibold text-foreground mb-1">
@@ -501,7 +631,7 @@ export function Step3ContentEditor({
                       placeholder={t('agreements.wizard.placeholderPanel.fieldPlaceholder', {
                         label,
                       })}
-                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50 dark:border-amber-900/70 dark:bg-background"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
                     />
                   </label>
                 )
@@ -509,16 +639,23 @@ export function Step3ContentEditor({
             </div>
 
             <div className="mt-4 space-y-3">
-              <p className="text-xs leading-5 text-amber-800 dark:text-amber-200">
-                {t('agreements.wizard.placeholdersUnresolved', {
-                  placeholders: unresolvedPlaceholders.join(', '),
-                })}
-              </p>
+              {!placeholdersResolved && (
+                <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                  {t('agreements.wizard.placeholdersUnresolved', {
+                    placeholders: unresolvedPlaceholders.join(', '),
+                  })}
+                </p>
+              )}
+              {hasUnappliedPlaceholderChanges && (
+                <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs leading-5 text-primary">
+                  {t('agreements.wizard.placeholderPanel.unappliedChanges')}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleApplyPlaceholders}
                 disabled={!canApplyPlaceholders}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:hover:bg-primary"
               >
                 <Check className="w-4 h-4" />
                 {t('agreements.wizard.placeholderPanel.apply')}
@@ -626,21 +763,6 @@ export function Step3ContentEditor({
               {t('agreements.wizard.fields.expiryDaysHint')}
             </span>
           </div>
-
-          <label className="mt-4 block">
-            <span className="block text-xs font-medium text-muted-foreground mb-1">
-              {t('agreements.wizard.fields.internalNoteLabel')}
-            </span>
-            <textarea
-              value={draft.internalNote}
-              onChange={(e) => patch({ internalNote: e.target.value })}
-              rows={3}
-              maxLength={2000}
-              disabled={isSubmitting}
-              placeholder={t('agreements.wizard.fields.internalNotePlaceholder')}
-              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
-            />
-          </label>
 
           <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
             <button

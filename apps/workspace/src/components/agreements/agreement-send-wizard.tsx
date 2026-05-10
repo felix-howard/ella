@@ -5,14 +5,14 @@
  *   2. Template picker — list filtered by type, "Start Blank" option.
  *      For NDA, a synthetic "Default NDA" card surfaces the built-in template
  *      so the picker step is consistent across types.
- *   3. Content editor — rich text + title + deposit toggle + internal note
+ *   3. Content editor — rich text + title + deposit toggle + link expiry
  *
  * On submit the wizard POSTs to the entity-aware /agreements endpoint via
  * useCreateAgreement, then closes itself on success (toast + cache invalidation
  * are handled by the mutation hook).
  *
  * State machine is a simple { step, type?, templateId? | 'blank' | 'builtin',
- * html, title, depositEnabled, depositAmount, internalNote }. Back button steps
+ * html, title, depositEnabled, depositAmount, expiryDays }. Back button steps
  * backward without losing already-entered fields.
  */
 import { useEffect, useMemo, useState } from 'react'

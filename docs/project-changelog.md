@@ -7,6 +7,24 @@
 
 ## 2026-05-10
 
+### Workspace: Edit & Send Modal Details Panel Polish
+**Status:** Complete
+
+**Changed:**
+- Replaced the yellow placeholder helper panel with neutral card styling and mint progress/action states.
+- Agreement detail fields stay visible after "Apply to document" so staff can revise values and apply again.
+- Preview/send is blocked when detail fields have unapplied edits, preventing stale document content from being sent.
+- Removed the staff-only internal note field from the send settings panel.
+- English and Vietnamese copy updated from "Fill missing details" to "Document details" / "Thông tin tài liệu".
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
 ### Workspace: Edit & Send Modal Service Builder
 **Status:** Complete
 **Plan:** `plans/260510-2206-edit-send-modal-service-builder/plan.md`

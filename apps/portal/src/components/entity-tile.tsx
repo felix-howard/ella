@@ -30,19 +30,17 @@ export function EntityTile({ entity, onSelect }: EntityTileProps) {
     <button
       type="button"
       onClick={onSelect}
-      className="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:translate-y-0 sm:p-5"
+      className="group rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)] transition duration-150 hover:border-primary/25 hover:bg-primary/[0.02] hover:shadow-[0_10px_28px_rgba(15,23,42,0.07)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:bg-primary/[0.04] sm:p-5"
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary to-accent opacity-0 transition-opacity group-hover:opacity-100" />
-
       <div className="flex items-start gap-3 sm:gap-4">
         <div
-          className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 ring-1 ring-primary/10 transition group-hover:bg-primary group-hover:ring-primary sm:h-16 sm:w-16"
+          className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 ring-1 ring-primary/10 transition group-hover:bg-primary/15 group-hover:ring-primary/20 sm:h-16 sm:w-16"
           aria-hidden="true"
         >
           {isIndividual ? (
-            <User className="w-7 h-7 text-primary transition group-hover:text-white sm:h-8 sm:w-8" />
+            <User className="w-7 h-7 text-primary sm:h-8 sm:w-8" />
           ) : (
-            <Building2 className="w-7 h-7 text-primary transition group-hover:text-white sm:h-8 sm:w-8" />
+            <Building2 className="w-7 h-7 text-primary sm:h-8 sm:w-8" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -54,7 +52,7 @@ export function EntityTile({ entity, onSelect }: EntityTileProps) {
               <p className="mt-1 text-sm font-medium text-muted-foreground sm:text-base">{label}</p>
             </div>
             <span
-              className="mt-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition group-hover:bg-primary group-hover:text-white sm:flex"
+              className="mt-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary sm:flex"
               aria-hidden="true"
             >
               <ArrowRight className="h-5 w-5" />

@@ -5,12 +5,14 @@
  * Composes: back link, entity header, <SimpleUploader /> targeted at caseId,
  *           <UploadedFilesList /> showing existing uploads with delete.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ella/ui'
-import { portalApi, type PortalEntity, type UploadResponse, ApiError } from '../lib/api-client'
+import { type UploadResponse, ApiError } from '../lib/api-client'
+import { portalDataQueryKey, usePortalDataQuery } from '../lib/portal-data-query'
 import { entityTypeLabel } from '../lib/entity-type-label'
 import { SimpleUploader } from './simple-uploader'
 import { EntityUploadHeader } from './entity-upload-header'
@@ -26,47 +28,10 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const useUploadPrefix = pathname.startsWith('/upload/')
-
-  const [entity, setEntity] = useState<PortalEntity | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { data, error, isLoading } = usePortalDataQuery(token)
   const listRef = useRef<UploadedFilesListHandle>(null)
-
-  // Reset to loading when route params change (React 19 guidance:
-  // adjust state during render via stored deps key, not inside useEffect).
-  const depsKey = `${token}|${caseId}`
-  const [prevDepsKey, setPrevDepsKey] = useState(depsKey)
-  if (prevDepsKey !== depsKey) {
-    setPrevDepsKey(depsKey)
-    setEntity(null)
-    setLoading(true)
-    setError(null)
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    portalApi
-      .getData(token)
-      .then((data) => {
-        if (cancelled) return
-        const found = data.entities.find((e) => e.caseId === caseId)
-        if (!found) {
-          setError(t('portal.invalidLink'))
-        } else {
-          setEntity(found)
-        }
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setError(err instanceof ApiError ? err.message : t('portal.errorLoading'))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token, caseId, t])
+  const entity = data?.entities.find((e) => e.caseId === caseId) ?? null
 
   const handleBack = useCallback(() => {
     if (useUploadPrefix) {
@@ -78,13 +43,14 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
 
   const handleUploadComplete = useCallback((_result: UploadResponse) => {
     listRef.current?.refetch()
-  }, [])
+    queryClient.invalidateQueries({ queryKey: portalDataQueryKey(token) })
+  }, [queryClient, token])
 
   const handleUploadError = useCallback((message: string) => {
     console.error('Upload error:', message)
   }, [])
 
-  if (loading) {
+  if (isLoading && !data) {
     return (
       <div
         className="flex-1 flex items-center justify-center"
@@ -96,14 +62,17 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
     )
   }
 
-  if (error || !entity) {
+  if (!entity) {
+    const message = error instanceof ApiError ? error.message : t('portal.errorLoading')
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center" role="alert">
         <div className="max-w-sm">
           <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-3">
             <AlertCircle className="w-6 h-6 text-error" aria-hidden="true" />
           </div>
-          <p className="text-foreground mb-4">{error ?? t('portal.errorLoading')}</p>
+          <p className="text-foreground mb-4">
+            {error ? message : t('portal.invalidLink')}
+          </p>
           <Button onClick={handleBack} className="gap-2">
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             {t('portal.entityUpload.back')}

@@ -1,7 +1,25 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-06 ICT
+> **Last Updated:** 2026-05-10 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-10
+
+### Portal: Entity Upload Selection Loading Removed
+**Status:** Complete
+**Plan:** `plans/260510-1734-portal-entity-upload-navigation-cache/plan.md`
+
+**Fixed:**
+- Entity picker no longer performs duplicate full-page `/portal/:token` loading when client selects personal/business upload target.
+- Per-entity upload route now reuses cached portal data from landing page and only shows full-page loading for direct deep links with no cache.
+- Upload completion invalidates portal data cache so entity upload counts stay fresh when returning to picker.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass
+- `pnpm -F @ella/portal lint` pass with unrelated existing Fast Refresh warning in `intake-business-form.tsx`
 
 ---
 

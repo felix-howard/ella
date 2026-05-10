@@ -167,7 +167,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="agreement-wizard-title"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-full max-w-4xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-[calc(100vw-2rem)] max-w-6xl max-h-[92vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">

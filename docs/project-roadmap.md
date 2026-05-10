@@ -1,8 +1,51 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-04-22 ICT
-> **Current Phase:** Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-05-10 ICT
+> **Current Phase:** Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Edit & Send Modal Service Builder COMPLETE ✅
+**Started:** 2026-05-10
+**Completed:** 2026-05-10
+**Status:** COMPLETE
+**Plan:** [Edit & Send Modal Service Builder](../plans/260510-2206-edit-send-modal-service-builder/plan.md)
+**Objective:** Make Edit & Send easier to complete, especially Scope of Services with flexible service item counts.
+
+**Delivered:**
+- Edit & Send step widened into a two-column layout.
+- Staff can add or remove service rows for Scope of Services before applying values into the document.
+- Service rows replace the document bullet list, supporting fewer or more than 3 services.
+- Send settings grouped in a right-side panel with stronger touch targets and cleaner hierarchy.
+- English and Vietnamese UI copy added.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Engagement Letter Placeholder Fields COMPLETE ✅
+**Started:** 2026-05-10
+**Completed:** 2026-05-10
+**Status:** COMPLETE
+**Plan:** [Engagement Letter Placeholder Fields](../plans/260510-2156-engagement-letter-placeholder-fields/plan.md)
+**Objective:** Replace manual placeholder editing in the engagement letter send flow with staff-friendly form fields.
+
+**Delivered:**
+- Step 3 of the agreement send wizard detects all unresolved `[placeholder]` tokens in engagement letter content.
+- Staff can fill missing details in a normal input panel and apply values into the rich text letter before preview/send.
+- Preview/send remains blocked until every placeholder is resolved.
+- English and Vietnamese UI copy added.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
 
 ---
 

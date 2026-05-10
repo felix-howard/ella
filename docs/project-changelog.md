@@ -7,6 +7,41 @@
 
 ## 2026-05-10
 
+### Workspace: Edit & Send Modal Service Builder
+**Status:** Complete
+**Plan:** `plans/260510-2206-edit-send-modal-service-builder/plan.md`
+
+**Changed:**
+- Edit & Send step now uses a wider two-column layout with document editing on the left and completion/send controls on the right.
+- Scope of Services placeholders now render as a dynamic service builder with Add/Remove rows, supporting fewer or more than 3 services.
+- Applying placeholders replaces the service `<ul>` in the document instead of only filling fixed `[Service item 1]` style tokens.
+- English and Vietnamese copy added for the service builder and send settings panel.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Workspace: Engagement Letter Placeholder Form
+**Status:** Complete
+**Plan:** `plans/260510-2156-engagement-letter-placeholder-fields/plan.md`
+
+**Added:**
+- Agreement send wizard now shows a "Fill missing details" panel for unresolved engagement letter placeholders like `[Monthly Fee Amount]`.
+- Staff can enter values in normal form fields and apply them into the rich text letter before preview/send.
+- English and Vietnamese copy added for the new placeholder panel.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
 ### Portal: Entity Upload Selection Loading Removed
 **Status:** Complete
 **Plan:** `plans/260510-1734-portal-entity-upload-navigation-cache/plan.md`

@@ -1,10 +1,11 @@
 /**
  * Client Detail Page - Shows client info with tabbed sections
  * Tabs: Overview, Files (primary doc view), Checklist, Data Entry | Messages via header
+ * Tab state is stored in the URL query so refresh/bookmarks preserve context.
  * Status: Read-only computed status with action buttons for transitions
  */
 
-import { useState, useCallback, useRef, useTransition, lazy, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, useTransition, lazy, Suspense } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation, Trans } from 'react-i18next'
@@ -72,7 +73,7 @@ import { useOrgRole } from '../../hooks/use-org-role'
 import { useChatUnread } from '../../hooks/use-chat-unread'
 import { UI_TEXT } from '../../lib/constants'
 import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor } from '../../lib/formatters'
-import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
+import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview, type BusinessType } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
 import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
@@ -84,6 +85,24 @@ const VALID_TAB_PARAMS: TabType[] = [
   'overview', 'files', 'checklist', 'schedule-c', 'schedule-e',
   'data-entry', 'shared-docs', 'contractors', 'agreements',
 ]
+const DEFAULT_CLIENT_TAB: TabType = 'files'
+
+function getAvailableTabIds(client: { clientType: 'INDIVIDUAL' | 'BUSINESS'; businessType?: BusinessType | null } | null | undefined): TabType[] {
+  if (!client) return VALID_TAB_PARAMS
+
+  if (client.clientType === 'BUSINESS') {
+    return [
+      'overview',
+      'files',
+      'contractors',
+      'data-entry',
+      'shared-docs',
+      ...(isScheduleCEligibleBusiness(client) ? (['schedule-c'] as TabType[]) : []),
+    ]
+  }
+
+  return ['overview', 'files', 'agreements', 'data-entry', 'shared-docs', 'schedule-c', 'schedule-e']
+}
 
 export const Route = createFileRoute('/clients/$clientId')({
   component: ClientDetailPage,
@@ -99,18 +118,25 @@ export const Route = createFileRoute('/clients/$clientId')({
 function ClientDetailPage() {
   const { t } = useTranslation()
   const { clientId } = Route.useParams()
-  const { tab: initialTabFromSearch } = Route.useSearch()
+  const { tab: tabFromSearch } = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<TabType>(initialTabFromSearch ?? 'files')
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromSearch ?? DEFAULT_CLIENT_TAB)
   // Use transition so switching to lazy-loaded tabs (e.g. Shared Docs)
   // keeps the header card visible while the chunk loads instead of
   // flashing the Suspense fallback across the whole content area.
   const [, startTabTransition] = useTransition()
   const switchTab = useCallback((tab: TabType) => {
-    startTabTransition(() => setActiveTab(tab))
-  }, [])
-  const [prevClientId, setPrevClientId] = useState(clientId)
+    startTabTransition(() => {
+      setActiveTab(tab)
+      navigate({
+        to: '/clients/$clientId',
+        params: { clientId },
+        search: { tab },
+        replace: true,
+      })
+    })
+  }, [clientId, navigate])
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isBusinessDeleteWithSCOpen, setIsBusinessDeleteWithSCOpen] = useState(false)
@@ -306,6 +332,34 @@ function ClientDetailPage() {
     queryFn: () => api.clients.get(clientId),
   })
 
+  useEffect(() => {
+    const nextTab = tabFromSearch ?? DEFAULT_CLIENT_TAB
+    startTabTransition(() => setActiveTab(nextTab))
+
+    if (!tabFromSearch) {
+      navigate({
+        to: '/clients/$clientId',
+        params: { clientId },
+        search: { tab: nextTab },
+        replace: true,
+      })
+    }
+  }, [clientId, navigate, tabFromSearch, startTabTransition])
+
+  useEffect(() => {
+    const availableTabIds = getAvailableTabIds(client)
+    if (!client || availableTabIds.includes(activeTab)) return
+    startTabTransition(() => {
+      setActiveTab(DEFAULT_CLIENT_TAB)
+      navigate({
+        to: '/clients/$clientId',
+        params: { clientId },
+        search: { tab: DEFAULT_CLIENT_TAB },
+        replace: true,
+      })
+    })
+  }, [activeTab, client, clientId, navigate, startTabTransition])
+
   // Fetch engagements for this client (multi-year support)
   const { data: engagementsData } = useQuery({
     queryKey: ['engagements', clientId],
@@ -418,12 +472,6 @@ function ClientDetailPage() {
     // Refresh data
     queryClient.invalidateQueries({ queryKey: ['engagements', clientId] })
     queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-  }
-
-  // Reset active tab when navigating between clients (prevents stale tab like 'contractors' on INDIVIDUAL)
-  if (prevClientId !== clientId) {
-    setPrevClientId(clientId)
-    setActiveTab('files')
   }
 
   // Error state - only show when actual error or no data after loading complete

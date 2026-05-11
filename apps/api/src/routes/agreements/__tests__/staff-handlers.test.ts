@@ -151,7 +151,7 @@ describe('Staff NDA handlers', () => {
       expect(res.status).toBe(201)
       expect(json.success).toBe(true)
       expect(json.data.id).toBe('nda-1')
-      expect(json.url).toMatch(/\/nda\/[A-Za-z0-9]{28}$/)
+      expect(json.url).toMatch(/\/agreements\/[A-Za-z0-9]{28}$/)
       expect(mockSendSms).toHaveBeenCalledTimes(1)
       // Legacy path: contentHtml absent → row stores customContentHtml: null
       const created = (mockNdaCreate.mock.calls[0][0] as any).data
@@ -319,7 +319,7 @@ describe('Staff NDA handlers', () => {
 
       expect(res.status).toBe(200)
       expect(json.data).toHaveLength(2)
-      expect(json.data[0].url).toContain('/nda/')
+      expect(json.data[0].url).toContain('/agreements/')
       // scoped by org
       const listCall = mockNdaFindMany.mock.calls[0][0] as any
       expect(listCall.where).toEqual({ leadId: 'lead-1', organizationId: 'org-1' })

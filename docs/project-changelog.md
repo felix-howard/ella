@@ -7,6 +7,51 @@
 
 ## 2026-05-11
 
+### Workspace/API: Upload Link Placeholder Guard
+**Status:** Complete
+
+**Fixed:**
+- Create Client SMS customization now auto-restores `{{portal_link}}` before submit when staff accidentally delete it.
+- Welcome SMS backend now appends the real magic link when any caller sends a custom message without `{{portal_link}}`.
+- Confirm step preview reflects the auto-added portal link and shows existing portal-link note when placeholder is missing.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/sms/__tests__/message-sender-template.test.ts` pass (2 tests)
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
+### API: Agreement Invite Canonical Signing Links
+**Status:** Complete
+
+**Fixed:**
+- New agreement invite URLs now use canonical `/agreements/:token` links instead of `/nda/:token`.
+- Existing `/nda/:token` portal alias remains available for already-sent customer links.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-service.test.ts src/routes/agreements/__tests__/staff-handlers.test.ts src/routes/clients/__tests__/agreements.test.ts` pass (59 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+---
+
+### Portal: Agreement Signature Mobile Keyboard Resize
+**Status:** Complete
+
+**Fixed:**
+- Agreement signing canvas no longer clears the drawn client signature when a real mobile keyboard opens after focusing the legal name field.
+- Root cause was `react-signature-canvas` defaulting to clear on `window.resize`; mobile keyboards can emit resize events while desktop focus usually does not.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warnings only
+- `pnpm -F @ella/portal lint` pass with existing warning only
+
+---
+
 ### Workspace: Individual Schedule C Activity
 **Status:** Complete
 **Plan:** `plans/260511-1701-individual-schedule-c-activity/plan.md`

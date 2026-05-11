@@ -86,7 +86,7 @@ describe('GET /clients/:clientId/nda', () => {
     expect(json.success).toBe(true)
     expect(json.data).toHaveLength(2)
     expect(json.data[0].id).toBe('n1')
-    expect(json.data[0].url).toMatch(/\/nda\/tok_/)
+    expect(json.data[0].url).toMatch(/\/agreements\/tok_/)
 
     // Confirm org-scoped query parameters
     expect(mockNdaFindMany).toHaveBeenCalledWith({

@@ -153,9 +153,9 @@ describe('NDA service', () => {
       const smsArg = mockSendSms.mock.calls[0][0] as any
       expect(smsArg.orgId).toBe('org-1')
       expect(smsArg.staffId).toBe('staff-1')
-      expect(smsArg.url).toContain('/nda/tok_fixed_28_char_aaaaaaaaaa')
+      expect(smsArg.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
       expect(smsArg.lead).toEqual(lead())
-      expect(result.url).toContain('/nda/tok_fixed_28_char_aaaaaaaaaa')
+      expect(result.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
     })
 
     it('throws 404 when lead not found or cross-org', async () => {
@@ -214,6 +214,8 @@ describe('NDA service', () => {
       })
 
       expect(res.agreement.id).toBe('el-1')
+      expect(res.url).toContain('/agreements/tok_fixed_28_char_aaaaaaaaaa')
+      expect(res.url).not.toContain('/nda/')
       // Defense-in-depth: the gate query must not run for non-NDA types.
       expect(mockNdaFindFirst).not.toHaveBeenCalled()
       expect(mockNdaCreate).toHaveBeenCalledTimes(1)
@@ -505,8 +507,8 @@ describe('NDA service', () => {
   })
 
   describe('buildNdaUrl', () => {
-    it('builds a portal URL with the /nda/ path prefix', () => {
-      expect(buildNdaUrl('abcd')).toContain('/nda/abcd')
+    it('builds a portal URL with the canonical /agreements/ path prefix', () => {
+      expect(buildNdaUrl('abcd')).toContain('/agreements/abcd')
     })
   })
 

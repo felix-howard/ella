@@ -71,77 +71,81 @@ export function NdaCard({ entity, nda }: Props) {
 
   // View PDF rendered here (not via shared card) so it lines up with the
   // other entity-page actions on a single flex row.
-  return (
-    <div className="space-y-2">
-      <NdaReadonlyCard nda={nda} />
+  const hasActions = canCopyOrResend || canExtend || canViewPdf || canEditDeposit
 
-      <div className="flex flex-wrap gap-2">
-        {canCopyOrResend && (
-          <>
+  return (
+    <div className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-border">
+      <NdaReadonlyCard nda={nda} framed={false} />
+
+      {hasActions && (
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+          {canCopyOrResend && (
+            <>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {t('nda.card.copyLink')}
+              </button>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendMutation.isPending}
+                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 disabled:opacity-50"
+              >
+                {resendMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                {t('nda.card.resend')}
+              </button>
+            </>
+          )}
+          {canExtend && (
             <button
               type="button"
-              onClick={handleCopyLink}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1.5"
+              onClick={() => setExtendOpen(true)}
+              className={
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ' +
+                (extendIsUrgent
+                  ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                  : 'border border-border hover:bg-muted/70')
+              }
             >
-              <Copy className="w-3.5 h-3.5" />
-              {t('nda.card.copyLink')}
+              <Clock className="w-3.5 h-3.5" />
+              {t('nda.card.extend')}
             </button>
+          )}
+          {canViewPdf && (
             <button
               type="button"
-              onClick={handleResend}
-              disabled={resendMutation.isPending}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              onClick={handleViewPdf}
+              disabled={pdfLoading}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70 disabled:opacity-50"
             >
-              {resendMutation.isPending ? (
+              {pdfLoading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <RefreshCw className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5" />
               )}
-              {t('nda.card.resend')}
+              {t('nda.card.viewPdf')}
             </button>
-          </>
-        )}
-        {canExtend && (
-          <button
-            type="button"
-            onClick={() => setExtendOpen(true)}
-            className={
-              'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ' +
-              (extendIsUrgent
-                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                : 'border border-border hover:bg-muted')
-            }
-          >
-            <Clock className="w-3.5 h-3.5" />
-            {t('nda.card.extend')}
-          </button>
-        )}
-        {canViewPdf && (
-          <button
-            type="button"
-            onClick={handleViewPdf}
-            disabled={pdfLoading}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {pdfLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <FileText className="w-3.5 h-3.5" />
-            )}
-            {t('nda.card.viewPdf')}
-          </button>
-        )}
-        {canEditDeposit && (
-          <button
-            type="button"
-            onClick={() => setDepositModalOpen(true)}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1.5"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            {t('nda.card.updateDeposit')}
-          </button>
-        )}
-      </div>
+          )}
+          {canEditDeposit && (
+            <button
+              type="button"
+              onClick={() => setDepositModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {t('nda.card.updateDeposit')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Type-narrow nda for the modal: canEditDeposit guarantees depositStatus is non-null. */}
       {depositModalOpen && canEditDeposit && nda.depositStatus !== null && (

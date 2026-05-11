@@ -52,6 +52,30 @@ function replacePlaceholders(
   return result
 }
 
+const CLIENT_NAME_PLACEHOLDER = /\{\{\s*client_name\s*\}\}/g
+const TAX_YEAR_PLACEHOLDER = /\{\{\s*tax_year\s*\}\}/g
+const PORTAL_LINK_PLACEHOLDER = /\{\{\s*portal_link\s*\}\}/g
+const HAS_PORTAL_LINK_PLACEHOLDER = /\{\{\s*portal_link\s*\}\}/
+
+export function buildWelcomeMessageFromTemplate(
+  template: string,
+  clientName: string,
+  taxYear: number,
+  magicLink: string
+): string {
+  const body = template
+    .replace(CLIENT_NAME_PLACEHOLDER, clientName)
+    .replace(TAX_YEAR_PLACEHOLDER, String(taxYear))
+    .replace(PORTAL_LINK_PLACEHOLDER, magicLink)
+
+  if (HAS_PORTAL_LINK_PLACEHOLDER.test(template)) {
+    return body
+  }
+
+  const trimmedBody = body.trimEnd()
+  return trimmedBody ? `${trimmedBody}\n${magicLink}` : magicLink
+}
+
 /**
  * Send welcome message with magic link to new client
  * Priority: customMessage > database template > hardcoded template
@@ -70,10 +94,7 @@ export async function sendWelcomeMessage(
 
   if (customMessage) {
     // Use custom message from form with placeholder replacement
-    body = customMessage
-      .replace(/\{\{client_name\}\}/g, clientName)
-      .replace(/\{\{tax_year\}\}/g, String(taxYear))
-      .replace(/\{\{portal_link\}\}/g, magicLink)
+    body = buildWelcomeMessageFromTemplate(customMessage, clientName, taxYear, magicLink)
   } else {
     // Try to get portal link template from database
     const dbTemplate = await prisma.messageTemplate.findFirst({

@@ -16,7 +16,7 @@ export { ComputedStatusBadge } from './computed-status-badge'
 // ClientOverviewSections removed - replaced by ClientOverviewTab
 export { EngagementHistorySection } from './engagement-history-section'
 export { ReturningClientSection } from './returning-client-section'
-export { ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from './confirm-step'
+export { ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN, ensurePortalLinkPlaceholder } from './confirm-step'
 export { YearSwitcher } from './year-switcher'
 export { BusinessInfoForm, type BusinessInfoData, EMPTY_BUSINESS_INFO } from './business-info-form'
 export { BusinessAccordion } from './business-accordion'

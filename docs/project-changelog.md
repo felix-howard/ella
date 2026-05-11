@@ -7,6 +7,23 @@
 
 ## 2026-05-11
 
+### Workspace/API: Upload Link Placeholder Guard
+**Status:** Complete
+
+**Fixed:**
+- Create Client SMS customization now auto-restores `{{portal_link}}` before submit when staff accidentally delete it.
+- Welcome SMS backend now appends the real magic link when any caller sends a custom message without `{{portal_link}}`.
+- Confirm step preview reflects the auto-added portal link and shows existing portal-link note when placeholder is missing.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/sms/__tests__/message-sender-template.test.ts` pass (2 tests)
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
 ### API: Agreement Invite Canonical Signing Links
 **Status:** Complete
 

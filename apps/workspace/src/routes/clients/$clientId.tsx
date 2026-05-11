@@ -43,7 +43,7 @@ import { TieredChecklist, AddChecklistItemModal } from '../../components/cases'
 // Lazy-loading this wrapper caused full-page Suspense fallbacks that hid
 // the client header during tab switches.
 import { SharedDocsTab } from '../../components/shared-docs'
-const ScheduleCTab = lazy(() => import('../../components/cases/tabs/schedule-c-tab').then(m => ({ default: m.ScheduleCTab })))
+import { ScheduleCTab } from '../../components/cases/tabs/schedule-c-tab'
 const ScheduleETab = lazy(() => import('../../components/cases/tabs/schedule-e-tab').then(m => ({ default: m.ScheduleETab })))
 const Form1099NECTab = lazy(() => import('../../components/cases/tabs/form-1099-nec-tab').then(m => ({ default: m.Form1099NECTab })))
 import {
@@ -1043,7 +1043,7 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Schedule C Tab - Self-employment expense collection (lazy loaded). */}
+      {/* Schedule C Tab - self-employment expense collection. */}
       {activeTab === 'schedule-c' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>

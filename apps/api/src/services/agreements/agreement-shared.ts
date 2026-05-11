@@ -17,10 +17,11 @@ import type { EntityType } from './entity-loader'
  */
 export const DEFAULT_DEPOSIT_AMOUNT = '300.00'
 
-/** Public signing portal URL. Path stays `/nda/:token` for back-compat with
- *  existing customer SMS links; Phase 06 adds `/agreements/:token` alias. */
+/** Public signing portal URL. New outbound links use the canonical
+ *  `/agreements/:token` route; `/nda/:token` remains a portal alias for
+ *  previously sent customer SMS links. */
 export function buildAgreementUrl(token: string): string {
-  return `${PORTAL_URL}/nda/${token}`
+  return `${PORTAL_URL}/agreements/${token}`
 }
 
 /** Legacy alias — preserved so transitional callers compile. */

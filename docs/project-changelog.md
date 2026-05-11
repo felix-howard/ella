@@ -7,6 +7,20 @@
 
 ## 2026-05-11
 
+### API: Agreement Invite Canonical Signing Links
+**Status:** Complete
+
+**Fixed:**
+- New agreement invite URLs now use canonical `/agreements/:token` links instead of `/nda/:token`.
+- Existing `/nda/:token` portal alias remains available for already-sent customer links.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/agreement-service.test.ts src/routes/agreements/__tests__/staff-handlers.test.ts src/routes/clients/__tests__/agreements.test.ts` pass (59 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+---
+
 ### Portal: Agreement Signature Mobile Keyboard Resize
 **Status:** Complete
 

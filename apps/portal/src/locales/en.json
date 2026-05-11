@@ -50,6 +50,8 @@
   "portal.landingMessage": "Please use the link sent via SMS to access the portal.",
   "expense.formTitle": "Business Expense Form",
   "expense.greeting": "Hello <1>{{clientName}}</1>! Please fill in your business expenses below.",
+  "expense.businessContextLabel": "Business expense form",
+  "expense.businessContext": "You are entering expenses for business: {{businessName}}",
   "expense.loadingForm": "Loading expense form...",
   "expense.errorCannotLoad": "Unable to load data",
   "expense.invalidLinkTitle": "Invalid Link",

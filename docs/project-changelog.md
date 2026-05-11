@@ -7,6 +7,20 @@
 
 ## 2026-05-11
 
+### Portal: Business Expense Form Context Banner
+**Status:** Complete
+
+**Changed:**
+- Business expense form header now shows explicit business context so clients know which business they are reporting expenses for.
+- Added English and Vietnamese copy for the business context banner.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal lint` pass with existing warning only
+- Locale JSON parse check pass
+
+---
+
 ### Portal/API: Hide Schedule C Income Block For Business Links
 **Status:** Complete
 

@@ -50,6 +50,8 @@
   "portal.landingMessage": "Vui lòng sử dụng link được gửi qua tin nhắn để truy cập portal.",
   "expense.formTitle": "Form Chi Phí Kinh Doanh",
   "expense.greeting": "Xin chào <1>{{clientName}}</1>! Vui lòng điền các chi phí kinh doanh của bạn bên dưới.",
+  "expense.businessContextLabel": "Form chi phí business",
+  "expense.businessContext": "Bạn đang khai chi phí cho business: {{businessName}}",
   "expense.loadingForm": "Đang tải form chi phí...",
   "expense.errorCannotLoad": "Không thể tải dữ liệu",
   "expense.invalidLinkTitle": "Link không hợp lệ",

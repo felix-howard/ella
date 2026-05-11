@@ -182,6 +182,7 @@ export function AgreementSignForm({
             ref={sigRef}
             penColor="#111827"
             backgroundColor="#ffffff"
+            clearOnResize={false}
             onEnd={handleStrokeEnd}
             canvasProps={{
               className: 'block w-full h-36 sm:h-44 lg:h-36 touch-none',

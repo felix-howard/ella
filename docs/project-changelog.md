@@ -7,6 +7,20 @@
 
 ## 2026-05-11
 
+### Portal: Agreement Signature Mobile Keyboard Resize
+**Status:** Complete
+
+**Fixed:**
+- Agreement signing canvas no longer clears the drawn client signature when a real mobile keyboard opens after focusing the legal name field.
+- Root cause was `react-signature-canvas` defaulting to clear on `window.resize`; mobile keyboards can emit resize events while desktop focus usually does not.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass with existing chunk-size warnings only
+- `pnpm -F @ella/portal lint` pass with existing warning only
+
+---
+
 ### Workspace: Individual Schedule C Activity
 **Status:** Complete
 **Plan:** `plans/260511-1701-individual-schedule-c-activity/plan.md`

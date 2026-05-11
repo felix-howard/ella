@@ -7,6 +7,23 @@
 
 ## 2026-05-11
 
+### Workspace: Linked Business Delete Action
+**Status:** Complete
+
+**Fixed:**
+- Linked business trash action on client detail now deletes the business client via `DELETE /clients/:id` instead of only removing it from the client group.
+- Updated confirmation copy, loading text, and success/error toast copy to reflect permanent business deletion.
+- Added regression coverage for the delete action to ensure it calls client delete, not client-group unlink.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/clients/client-overview-tab/linked-business-delete.test.ts` pass (2 tests)
+- `pnpm -F @ella/workspace test` pass (18 tests)
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass with existing chunk-size/browser-compat warnings only
+
+---
+
 ### Workspace: Deposit Paid-At Picker Polish
 **Status:** Complete
 

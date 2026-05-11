@@ -8,12 +8,13 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Building2, User, Phone, Mail, FileText, ArrowRight, Plus, Trash2, Loader2 } from 'lucide-react'
 import { Button, Modal, ModalDescription, ModalFooter, ModalHeader, ModalTitle, cn } from '@ella/ui'
-import { api, type ClientPreview, type ClientType } from '../../../lib/api-client'
+import { type ClientPreview, type ClientType } from '../../../lib/api-client'
 import { formatPhone } from '../../../lib/formatters'
 import { getInitials, getAvatarColor } from '../../../lib/formatters'
 import { BUSINESS_TYPE_LABELS } from '../../../lib/business-type-helpers'
 import { toast } from '../../../stores/toast-store'
 import { AddBusinessDrawer } from './add-business-drawer'
+import { deleteLinkedBusinessClient } from './linked-business-delete'
 
 interface ClientLinkedEntityCardProps {
   clientId: string
@@ -47,13 +48,12 @@ export function ClientLinkedEntityCard({
   const isBusiness = currentClientType === 'BUSINESS'
   const hasLinked = linkedClients && linkedClients.length > 0
 
-  const unlinkBusinessMutation = useMutation({
+  const deleteBusinessMutation = useMutation({
     mutationFn: async (businessId: string) => {
-      if (!clientGroupId) throw new Error('Client group not found')
-      return api.clientGroups.update(clientGroupId, { removeClientIds: [businessId] })
+      return deleteLinkedBusinessClient(businessId)
     },
     onSuccess: (_data, businessId) => {
-      toast.success('Linked business removed')
+      toast.success('Business deleted')
       setRemoveTarget(null)
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
       queryClient.invalidateQueries({ queryKey: ['client', businessId] })
@@ -63,7 +63,7 @@ export function ClientLinkedEntityCard({
       }
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove linked business')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete business')
     },
   })
 
@@ -179,14 +179,14 @@ export function ClientLinkedEntityCard({
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                 </Link>
 
-                {isIndividual && isLinkedBusiness && clientGroupId && (
+                {isIndividual && isLinkedBusiness && (
                   <button
                     type="button"
                     onClick={() => setRemoveTarget(linked)}
-                    disabled={unlinkBusinessMutation.isPending}
+                    disabled={deleteBusinessMutation.isPending}
                     className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                    aria-label={`Remove ${linked.name} from linked businesses`}
-                    title="Remove linked business"
+                    aria-label={`Delete business ${linked.name}`}
+                    title="Delete business"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -225,14 +225,14 @@ export function ClientLinkedEntityCard({
       <Modal
         open={!!removeTarget}
         onClose={() => {
-          if (!unlinkBusinessMutation.isPending) setRemoveTarget(null)
+          if (!deleteBusinessMutation.isPending) setRemoveTarget(null)
         }}
       >
         <ModalHeader>
-          <ModalTitle>Remove linked business</ModalTitle>
+          <ModalTitle>Delete business</ModalTitle>
           <ModalDescription>
-            Remove <span className="font-semibold text-foreground">{removeTarget?.name}</span> from {clientName}.
-            This only removes the link; the business client record stays in the client list.
+            Delete <span className="font-semibold text-foreground">{removeTarget?.name}</span> permanently.
+            This removes the business from {clientName} and deletes its client record, tax cases, and linked data.
           </ModalDescription>
         </ModalHeader>
         <ModalFooter>
@@ -240,7 +240,7 @@ export function ClientLinkedEntityCard({
             type="button"
             variant="outline"
             onClick={() => setRemoveTarget(null)}
-            disabled={unlinkBusinessMutation.isPending}
+            disabled={deleteBusinessMutation.isPending}
           >
             Cancel
           </Button>
@@ -248,19 +248,19 @@ export function ClientLinkedEntityCard({
             type="button"
             variant="destructive"
             onClick={() => {
-              if (removeTarget) unlinkBusinessMutation.mutate(removeTarget.id)
+              if (removeTarget) deleteBusinessMutation.mutate(removeTarget.id)
             }}
-            disabled={unlinkBusinessMutation.isPending}
+            disabled={deleteBusinessMutation.isPending}
           >
-            {unlinkBusinessMutation.isPending ? (
+            {deleteBusinessMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Removing
+                Deleting
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                Remove
+                Delete
               </>
             )}
           </Button>

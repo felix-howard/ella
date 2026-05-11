@@ -16,7 +16,6 @@ import {
   Globe,
 } from 'lucide-react'
 import { Button, buttonVariants, cn } from '@ella/ui'
-import { LeadStatusBadge } from '../lead-status-badge'
 import { ConvertLeadDialog } from '../convert-lead-dialog'
 import { DetailHeaderCard } from '../../shared'
 import {
@@ -25,6 +24,7 @@ import {
   getInitials,
   getAvatarColor,
 } from '../../../lib/formatters'
+import { LeadStatusMenu } from './lead-status-menu'
 import type { Lead } from '../../../lib/api-client'
 
 interface Props {
@@ -56,7 +56,7 @@ export function LeadDetailHeader({ lead }: Props) {
   const nameNode = (
     <span className="inline-flex items-center gap-2 flex-wrap align-middle">
       <span>{fullName}</span>
-      <LeadStatusBadge status={lead.status} />
+      <LeadStatusMenu lead={lead} />
       {sourceLabel && (
         <>
           <span className="text-border font-normal">|</span>

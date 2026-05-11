@@ -116,20 +116,20 @@ export function SimpleUploader({
 
       {/* Progress bar - only visible during upload */}
       {uploading && (
-        <div className="space-y-2" role="status" aria-live="polite">
+        <div className="space-y-3" role="status" aria-live="polite">
           <div
-            className="h-2 bg-muted rounded-full overflow-hidden"
+            className="h-3 overflow-hidden rounded-full bg-white/80 ring-1 ring-primary/10"
             role="progressbar"
             aria-valuenow={Math.round(progress)}
             aria-valuemin={0}
             aria-valuemax={100}
           >
             <div
-              className="h-full bg-primary transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-sm text-center text-muted-foreground">
+          <p className="text-center text-sm font-medium text-muted-foreground">
             {Math.round(progress)}%
           </p>
         </div>
@@ -139,7 +139,7 @@ export function SimpleUploader({
       <Button
         onClick={handleClick}
         disabled={uploading}
-        className="w-full h-16 text-lg gap-3 rounded-2xl"
+        className="h-[72px] min-h-[72px] w-full gap-3 rounded-2xl text-lg font-semibold shadow-[0_12px_28px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(16,185,129,0.28)] active:translate-y-0 disabled:hover:translate-y-0 sm:h-20 sm:text-xl"
         size="lg"
         aria-label={uploading ? t('portal.uploading') : t('portal.tapToUpload')}
       >

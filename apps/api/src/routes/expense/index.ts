@@ -52,7 +52,7 @@ expenseRoute.get('/:token', async (c) => {
     )
   }
 
-  const { caseId, clientName, clientLanguage, taxYear } = validation
+  const { caseId, clientName, clientLanguage, clientType, taxYear } = validation
 
   // Get existing Schedule C expense (may be null if first access)
   const expense = await prisma.scheduleCExpense.findUnique({
@@ -128,6 +128,7 @@ expenseRoute.get('/:token', async (c) => {
     client: {
       name: clientName,
       language: clientLanguage,
+      clientType: clientType ?? 'INDIVIDUAL',
     },
     taxYear,
     expense: expenseData,

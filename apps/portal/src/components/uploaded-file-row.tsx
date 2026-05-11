@@ -4,7 +4,7 @@
  * Delete is disabled (greyed) when status === 'LINKED' with a tooltip explaining why.
  */
 import { useTranslation } from 'react-i18next'
-import { Trash2, Loader2 } from 'lucide-react'
+import { FileText, Loader2, Trash2 } from 'lucide-react'
 import type { UploadedFile } from '../lib/api-client'
 import { FileStatusBadge } from './file-status-badge'
 
@@ -31,9 +31,16 @@ export function UploadedFileRow({ file, onDelete, isDeleting }: UploadedFileRowP
   }
 
   return (
-    <li className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border bg-card">
+    <li className="flex items-center gap-4 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm">
+      <div
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        aria-hidden="true"
+      >
+        <FileText className="h-5 w-5" />
+      </div>
+
       <div className="flex-1 min-w-0">
-        <p className="truncate text-sm text-foreground">{display}</p>
+        <p className="truncate text-base font-semibold text-foreground">{display}</p>
         <div className="mt-1">
           <FileStatusBadge status={file.status} />
         </div>
@@ -46,7 +53,7 @@ export function UploadedFileRow({ file, onDelete, isDeleting }: UploadedFileRowP
         title={tooltip}
         aria-label={tooltip}
         aria-disabled={isLinked || isDeleting}
-        className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-error hover:bg-error/10 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-muted-foreground disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-error/10 hover:text-error disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         {isDeleting ? (
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />

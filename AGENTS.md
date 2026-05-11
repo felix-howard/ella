@@ -20,6 +20,7 @@ Your role is to analyze user requirements, delegate tasks to appropriate sub-age
 - Documentation management: `./.claude/rules/documentation-management.md`
 - And other workflows: `./.claude/rules/*`
 
+**IMPORTANT:** For any user request that is large or likely to require many code changes, do planning only first. Create one overview `plan.md` plus detailed phase plan files under a timestamped `plans/<timestamp>-<slug>/` folder, then report the relative `plan.md` path and stop. Do not implement code in the same turn. This lets the user `/clear` context and cook the plan in a fresh session.
 **IMPORTANT:** Analyze the skills catalog and activate the skills that are needed for the task during the process.
 **IMPORTANT:** You must follow strictly the development rules in `./.claude/rules/development-rules.md` file.
 **IMPORTANT:** Before you plan or proceed any implementation, always read the `./README.md` file first to get context.

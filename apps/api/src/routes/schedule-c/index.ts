@@ -22,6 +22,67 @@ const formatDecimal = (value: Prisma.Decimal | null): string | null =>
 
 const scheduleCRoute = new Hono<{ Variables: AuthVariables }>()
 
+type ScheduleCCase = Prisma.TaxCaseGetPayload<{
+  include: {
+    client: true
+    scheduleCExpense: true
+  }
+}>
+
+interface ScheduleCMessageTarget {
+  caseId: string
+  clientName: string
+  clientPhone: string | null
+  businessName: string | null
+}
+
+async function resolveScheduleCMessageTarget(
+  taxCase: ScheduleCCase,
+  organizationId: string | null | undefined
+): Promise<ScheduleCMessageTarget> {
+  const fallback = {
+    caseId: taxCase.id,
+    clientName: taxCase.client.name,
+    clientPhone: taxCase.client.phone,
+    businessName: taxCase.client.clientType === 'BUSINESS' ? taxCase.client.name : null,
+  }
+
+  if (taxCase.client.clientType !== 'BUSINESS' || !taxCase.client.clientGroupId) {
+    return fallback
+  }
+
+  const owner = await prisma.client.findFirst({
+    where: {
+      clientGroupId: taxCase.client.clientGroupId,
+      clientType: 'INDIVIDUAL',
+      ...(organizationId ? { organizationId } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      name: true,
+      phone: true,
+      taxCases: {
+        where: { taxYear: taxCase.taxYear },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true },
+      },
+    },
+  })
+
+  const ownerCase = owner?.taxCases[0]
+  if (!owner || !ownerCase) {
+    return fallback
+  }
+
+  return {
+    caseId: ownerCase.id,
+    clientName: owner.name,
+    clientPhone: owner.phone,
+    businessName: taxCase.client.name,
+  }
+}
+
 /**
  * POST /schedule-c/:caseId/send
  * Send Schedule C expense form to client
@@ -52,13 +113,16 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
     return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
   }
 
-  if (!taxCase.client.phone) {
-    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
-  }
-
   // Check if already locked
   if (taxCase.scheduleCExpense?.status === 'LOCKED') {
     return c.json({ error: 'ALREADY_LOCKED', message: 'Form đã bị khóa' }, 400)
+  }
+
+  const user = c.get('user')
+  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user.organizationId)
+
+  if (!messageTarget.clientPhone) {
+    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
   }
 
   // Calculate prefilled gross receipts from verified 1099-NECs
@@ -84,15 +148,15 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
   const { url: magicLinkUrl, expiresAt } = await createMagicLinkWithDeactivation(caseId, 'SCHEDULE_C')
 
   // Send SMS using custom message or org language preference
-  const user = c.get('user')
   const smsLanguage = await getOrgSmsLanguage(user.organizationId)
   const smsResult = await sendScheduleCFormMessage(
-    caseId,
-    taxCase.client.name,
-    taxCase.client.phone,
+    messageTarget.caseId,
+    messageTarget.clientName,
+    messageTarget.clientPhone,
     magicLinkUrl,
     smsLanguage,
     customMessage,
+    messageTarget.businessName,
     user.staffId
   )
 
@@ -297,13 +361,16 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
     return c.json({ error: 'CASE_NOT_FOUND', message: 'Case không tồn tại' }, 404)
   }
 
-  if (!taxCase.client.phone) {
-    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
-  }
-
   // Check if locked
   if (taxCase.scheduleCExpense?.status === 'LOCKED') {
     return c.json({ error: 'FORM_LOCKED', message: 'Form đã bị khóa, không thể gửi lại' }, 400)
+  }
+
+  const user = c.get('user')
+  const messageTarget = await resolveScheduleCMessageTarget(taxCase, user.organizationId)
+
+  if (!messageTarget.clientPhone) {
+    return c.json({ error: 'NO_PHONE', message: 'Client không có số điện thoại' }, 400)
   }
 
   // Get existing active magic link
@@ -311,7 +378,6 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
   let magicLinkUrl: string
 
   // Get org SMS language preference
-  const user = c.get('user')
   const smsLanguage = await getOrgSmsLanguage(user.organizationId)
 
   if (magicLink) {
@@ -321,12 +387,13 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
 
     // Send SMS
     const smsResult = await sendScheduleCFormMessage(
-      caseId,
-      taxCase.client.name,
-      taxCase.client.phone,
+      messageTarget.caseId,
+      messageTarget.clientName,
+      messageTarget.clientPhone,
       magicLinkUrl,
       smsLanguage,
       undefined,
+      messageTarget.businessName,
       user.staffId
     )
 
@@ -342,12 +409,13 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
 
     // Send SMS
     const smsResult = await sendScheduleCFormMessage(
-      caseId,
-      taxCase.client.name,
-      taxCase.client.phone,
+      messageTarget.caseId,
+      messageTarget.clientName,
+      messageTarget.clientPhone,
       magicLinkUrl,
       smsLanguage,
       undefined,
+      messageTarget.businessName,
       user.staffId
     )
 

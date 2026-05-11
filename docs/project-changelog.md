@@ -7,6 +7,21 @@
 
 ## 2026-05-11
 
+### Workspace: Schedule C Tab Lazy-Load Failure
+**Status:** Complete
+
+**Fixed:**
+- Schedule C client tab now imports its tab component directly instead of fetching a separate lazy chunk when staff open the tab.
+- Prevents intermittent `Error loading Schedule C. Please reload the page.` fallback caused by transient or stale dynamic chunk loading.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- schedule-c-activities.test.ts individual-schedule-c-activities.test.tsx` pass (5 tests)
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace build` pass with existing chunk-size warning
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
 ### Workspace/API: Upload Link Placeholder Guard
 **Status:** Complete
 

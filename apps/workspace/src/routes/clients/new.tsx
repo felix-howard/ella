@@ -15,6 +15,7 @@ import {
   ConfirmStep,
   DEFAULT_SMS_TEMPLATE_VI,
   DEFAULT_SMS_TEMPLATE_EN,
+  ensurePortalLinkPlaceholder,
   BusinessAccordion,
   BasicInfoForm,
   EMPTY_BUSINESS_INFO,
@@ -197,6 +198,7 @@ function CreateClientPage() {
   // --- Submit ---
   const handleSubmit = async () => {
     if (isSubmitting) return
+    const messageWithPortalLink = ensurePortalLinkPlaceholder(currentMessage)
     setIsSubmitting(true)
     setSubmitError(null)
     try {
@@ -225,7 +227,7 @@ function CreateClientPage() {
             profile: { taxYear: basicInfo.taxYear },
           })),
           groupName: `${basicInfo.firstName.trim()} ${basicInfo.lastName.trim()} Group`,
-          customMessage: currentMessage,
+          customMessage: messageWithPortalLink,
         })
         navigate({ to: '/clients/$clientId', params: { clientId: response.data.individual.id } })
       } else {
@@ -245,7 +247,7 @@ function CreateClientPage() {
             email: sanitizeEmail(basicInfo.email) || undefined,
             language: basicInfo.language,
             profile: { taxYear: basicInfo.taxYear, taxTypes: ['FORM_1040'] },
-            customMessage: currentMessage,
+            customMessage: messageWithPortalLink,
           })
           navigate({ to: '/clients/$clientId', params: { clientId: response.client.id } })
         }

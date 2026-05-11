@@ -7,6 +7,21 @@
 
 ## 2026-05-11
 
+### API/Workspace: Schedule C Business SMS Thread
+**Status:** Complete
+
+**Fixed:**
+- Sending or resending a Schedule C expense link from a business detail page now records the outbound SMS in the linked individual owner's conversation for the same tax year.
+- Schedule C form links still target the business tax case, so expenses submit to the correct business entity.
+- Workspace invalidates message queries after Schedule C actions so open chat panels refetch promptly.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/schedule-c/__tests__/schedule-c-routes.test.ts` pass (22 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
 ### Workspace: Linked Business Delete Action
 **Status:** Complete
 

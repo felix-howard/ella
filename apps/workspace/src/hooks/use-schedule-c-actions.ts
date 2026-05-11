@@ -19,6 +19,7 @@ export function useScheduleCActions({ caseId, onSuccess }: UseScheduleCActionsOp
   // Invalidate Schedule C query after mutation
   const invalidateScheduleC = () => {
     queryClient.invalidateQueries({ queryKey: ['schedule-c', caseId] })
+    queryClient.invalidateQueries({ queryKey: ['messages'] })
     onSuccess?.()
   }
 

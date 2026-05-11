@@ -75,7 +75,8 @@ import { formatPhone, formatPhoneInput, maskPhone, getInitials, getAvatarColor }
 import { api, type TaxCaseStatus, type RawImage, type DigitalDoc, type ClientPreview } from '../../lib/api-client'
 import { computeStatus } from '../../lib/computed-status'
 import { isScheduleCEligibleBusiness, BUSINESS_TYPE_LABELS } from '../../lib/business-type-helpers'
-import { ScheduleCBusinessSummaryList } from '../../components/cases/tabs/schedule-c-tab/schedule-c-business-summary-list'
+import { IndividualScheduleCActivities } from '../../components/cases/tabs/schedule-c-tab/individual-schedule-c-activities'
+import { getLinkedBusinessesWithScheduleC } from '../../components/cases/tabs/schedule-c-tab/schedule-c-activities'
 
 type TabType = 'overview' | 'files' | 'checklist' | 'schedule-c' | 'schedule-e' | 'data-entry' | 'shared-docs' | 'contractors' | 'agreements'
 
@@ -586,19 +587,14 @@ function ClientDetailPage() {
   const agreementsTab = { id: 'agreements' as TabType, label: t('clientDetail.tabAgreements'), icon: FileSignature }
   const isBusiness = client.clientType === 'BUSINESS'
 
-  // Schedule C eligibility & cross-entity summary computation.
+  // Schedule C eligibility & cross-entity activity computation.
   // Business: only show Schedule C when the entity actually files it (sole prop / SMLLC).
-  // Individual: always show; renders read-only summary list when no own SC but linked
-  // Schedule-C-eligible businesses already have their own SC.
+  // Individual: always show its own case-scoped Schedule C, with linked business
+  // Schedule C rows below when sibling businesses already own Schedule C records.
   const businessIsScheduleCEligible = isBusiness && isScheduleCEligibleBusiness(client)
   const eligibleBusinessesWithScheduleC: ClientPreview[] = !isBusiness
-    ? (client.clientGroup?.clients ?? []).filter(
-        (sibling) =>
-          isScheduleCEligibleBusiness(sibling) && sibling.scheduleCExpense != null
-      )
+    ? getLinkedBusinessesWithScheduleC(client.clientGroup?.clients)
     : []
-  const showIndividualBusinessSummary =
-    !isBusiness && !scheduleCExpense && eligibleBusinessesWithScheduleC.length > 0
   // Business: only when entity type is Schedule-C-eligible. Individual: always.
   const showScheduleCTab = isBusiness ? businessIsScheduleCEligible : true
 
@@ -999,23 +995,31 @@ function ClientDetailPage() {
         </div>
       )}
 
-      {/* Schedule C Tab - Self-employment expense collection (lazy loaded).
-          On individuals with no own SC but ≥1 linked Schedule-C-eligible business with SC,
-          render a read-only summary list instead of the binary form view. */}
-      {activeTab === 'schedule-c' && activeCaseId && showIndividualBusinessSummary && (
-        <ScheduleCBusinessSummaryList businesses={eligibleBusinessesWithScheduleC} />
-      )}
-      {activeTab === 'schedule-c' && activeCaseId && !showIndividualBusinessSummary && (
+      {/* Schedule C Tab - Self-employment expense collection (lazy loaded). */}
+      {activeTab === 'schedule-c' && activeCaseId && (
         <ErrorBoundary fallback={<div className="p-6 text-center text-muted-foreground">{t('clientDetail.scheduleCError')}</div>}>
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
-            <ScheduleCTab
-              caseId={activeCaseId}
-              clientName={isBusiness && ownerIndividual ? ownerIndividual.name : client.name}
-              businessName={isBusiness ? client.name : null}
-              currentClientId={clientId}
-              sourceTaxYear={selectedCase?.taxYear}
-              clientGroup={client.clientGroup ?? null}
-            />
+            {isBusiness ? (
+              <ScheduleCTab
+                caseId={activeCaseId}
+                clientName={ownerIndividual ? ownerIndividual.name : client.name}
+                businessName={client.name}
+                currentClientId={clientId}
+                sourceTaxYear={selectedCase?.taxYear}
+                clientGroup={client.clientGroup ?? null}
+              />
+            ) : (
+              <IndividualScheduleCActivities
+                ScheduleCTabComponent={ScheduleCTab}
+                caseId={activeCaseId}
+                clientName={client.name}
+                businessName={null}
+                currentClientId={clientId}
+                sourceTaxYear={selectedCase?.taxYear}
+                clientGroup={client.clientGroup ?? null}
+                linkedBusinesses={eligibleBusinessesWithScheduleC}
+              />
+            )}
           </Suspense>
         </ErrorBoundary>
       )}

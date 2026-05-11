@@ -7,6 +7,22 @@
 
 ## 2026-05-11
 
+### Workspace: Individual Schedule C Activity
+**Status:** Complete
+**Plan:** `plans/260511-1701-individual-schedule-c-activity/plan.md`
+
+**Fixed:**
+- Individual client Schedule C tab now keeps the individual's own Schedule C send/manage panel visible even when linked businesses already have Schedule C records.
+- Linked business Schedule C rows still render below the individual panel and continue to open the business detail Schedule C tab.
+- No schema/API migration needed; existing case-scoped Schedule C endpoints remain unchanged.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- schedule-c-activities.test.ts individual-schedule-c-activities.test.tsx` pass (5 tests)
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
 ### Portal: Business Expense Form Context Banner
 **Status:** Complete
 

@@ -7,6 +7,23 @@
 
 ## 2026-05-11
 
+### Portal/API: Hide Schedule C Income Block For Business Links
+**Status:** Complete
+
+**Fixed:**
+- Public expense form API now returns `client.clientType` for Schedule C magic links.
+- Portal expense form hides the 1099-NEC Income Part I card when the linked tax case belongs to a BUSINESS client.
+- Individual Schedule C links still show prefilled 1099-NEC gross receipts.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/expense/__tests__/expense-routes.test.ts` pass (17 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/portal lint` pass with existing warning only
+
+---
+
 ### API/Workspace: Schedule C Business SMS Thread
 **Status:** Complete
 

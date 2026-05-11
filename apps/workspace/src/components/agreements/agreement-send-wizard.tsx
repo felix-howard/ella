@@ -5,14 +5,14 @@
  *   2. Template picker — list filtered by type, "Start Blank" option.
  *      For NDA, a synthetic "Default NDA" card surfaces the built-in template
  *      so the picker step is consistent across types.
- *   3. Content editor — rich text + title + deposit toggle + internal note
+ *   3. Content editor — rich text + title + deposit toggle + link expiry
  *
  * On submit the wizard POSTs to the entity-aware /agreements endpoint via
  * useCreateAgreement, then closes itself on success (toast + cache invalidation
  * are handled by the mutation hook).
  *
  * State machine is a simple { step, type?, templateId? | 'blank' | 'builtin',
- * html, title, depositEnabled, depositAmount, internalNote }. Back button steps
+ * html, title, depositEnabled, depositAmount, expiryDays }. Back button steps
  * backward without losing already-entered fields.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -167,7 +167,7 @@ export function AgreementSendWizard({ entity, recipient, agreements, onClose }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby="agreement-wizard-title"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-full max-w-4xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10001] w-[calc(100vw-2rem)] max-w-6xl max-h-[92vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">

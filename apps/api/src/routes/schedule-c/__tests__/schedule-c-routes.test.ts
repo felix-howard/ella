@@ -13,6 +13,7 @@ const Decimal = Prisma.Decimal
 // actual transaction logic tested via integration tests.
 vi.mock('../../../lib/db', () => ({
   prisma: {
+    client: { findFirst: vi.fn() },
     taxCase: { findUnique: vi.fn() },
     scheduleCExpense: {
       findUnique: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('../../../services/magic-link', () => ({
   createMagicLinkWithDeactivation: vi.fn(),
   getScheduleCMagicLink: vi.fn(),
   extendMagicLinkExpiry: vi.fn(),
+  getMagicLinkUrl: vi.fn((token: string) => `http://localhost:5173/expense/${token}`),
 }))
 
 // Mock SMS service
@@ -72,6 +74,7 @@ app.use('*', async (c, next) => {
 app.route('/schedule-c', scheduleCRoute)
 
 const mockFindUnique = vi.mocked(prisma.taxCase.findUnique)
+const mockClientFindFirst = vi.mocked(prisma.client.findFirst)
 const mockExpenseFindUnique = vi.mocked(prisma.scheduleCExpense.findUnique)
 const mockExpenseUpsert = vi.mocked(prisma.scheduleCExpense.upsert)
 const mockExpenseUpdate = vi.mocked(prisma.scheduleCExpense.update)
@@ -89,7 +92,14 @@ const mockCreateMagicLink = vi.mocked(createMagicLink)
 function mockCase(overrides: Record<string, unknown> = {}) {
   return {
     id: 'case-1',
-    client: { name: 'Test Client', phone: '+1234567890', language: 'vi' },
+    taxYear: 2025,
+    client: {
+      name: 'Test Client',
+      phone: '+1234567890',
+      language: 'vi',
+      clientType: 'INDIVIDUAL',
+      clientGroupId: null,
+    },
     scheduleCExpense: null,
     ...overrides,
   }
@@ -177,6 +187,47 @@ describe('Schedule C Staff Routes', () => {
       expect(res.status).toBe(200)
       expect(json.prefilledGrossReceipts).toBe('0.00')
     })
+
+    it('records business Schedule C SMS in the linked individual owner conversation', async () => {
+      const expiresAt = new Date('2026-02-04')
+      mockFindUnique.mockResolvedValueOnce(
+        mockCase({
+          client: {
+            name: 'Amber Nails',
+            phone: '+18136442540',
+            language: 'vi',
+            clientType: 'BUSINESS',
+            clientGroupId: 'group-1',
+          },
+        }) as any
+      )
+      mockClientFindFirst.mockResolvedValueOnce({
+        name: 'Lan Vu',
+        phone: '+18136442540',
+        taxCases: [{ id: 'owner-case-1' }],
+      } as any)
+      mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('5000'))
+      mockExpenseUpsert.mockResolvedValueOnce({ id: 'exp-1' } as any)
+      mockCreateMagicLinkWithDeactivation.mockResolvedValueOnce({
+        url: 'http://localhost:5173/expense/business-token',
+        expiresAt,
+      })
+      mockSendSMS.mockResolvedValueOnce({ smsSent: true } as any)
+
+      const res = await app.request('/schedule-c/case-1/send', { method: 'POST' })
+
+      expect(res.status).toBe(200)
+      expect(mockSendSMS).toHaveBeenCalledWith(
+        'owner-case-1',
+        'Lan Vu',
+        '+18136442540',
+        'http://localhost:5173/expense/business-token',
+        'EN',
+        undefined,
+        'Amber Nails',
+        'staff-1'
+      )
+    })
   })
 
   describe('GET /schedule-c/:caseId', () => {
@@ -221,6 +272,7 @@ describe('Schedule C Staff Routes', () => {
       mockFindUnique.mockResolvedValueOnce(
         mockCase({ scheduleCExpense: expense }) as any
       )
+      mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('5000'))
       mockMagicLinkFindFirst.mockResolvedValueOnce({
         id: 'link-1',
         token: 'abc123',
@@ -389,6 +441,48 @@ describe('Schedule C Staff Routes', () => {
       expect(res.status).toBe(200)
       expect(json.success).toBe(true)
       expect(json.messageSent).toBe(true)
+    })
+
+    it('records business Schedule C resend in the linked individual owner conversation', async () => {
+      const newExpiry = new Date('2026-02-10')
+      mockFindUnique.mockResolvedValueOnce(
+        mockCase({
+          client: {
+            name: 'Amber Nails',
+            phone: '+18136442540',
+            language: 'vi',
+            clientType: 'BUSINESS',
+            clientGroupId: 'group-1',
+          },
+        }) as any
+      )
+      mockClientFindFirst.mockResolvedValueOnce({
+        name: 'Lan Vu',
+        phone: '+18136442540',
+        taxCases: [{ id: 'owner-case-1' }],
+      } as any)
+      mockGetScheduleCLink.mockResolvedValueOnce({
+        id: 'link-1',
+        token: 'business-token',
+        isActive: true,
+        expiresAt: new Date(),
+      } as any)
+      mockExtendExpiry.mockResolvedValueOnce(newExpiry)
+      mockSendSMS.mockResolvedValueOnce({ smsSent: true } as any)
+
+      const res = await app.request('/schedule-c/case-1/resend', { method: 'POST' })
+
+      expect(res.status).toBe(200)
+      expect(mockSendSMS).toHaveBeenCalledWith(
+        'owner-case-1',
+        'Lan Vu',
+        '+18136442540',
+        'http://localhost:5173/expense/business-token',
+        'EN',
+        undefined,
+        'Amber Nails',
+        'staff-1'
+      )
     })
 
     it('creates new link when none exists', async () => {

@@ -1,7 +1,191 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-06 ICT
+> **Last Updated:** 2026-05-11 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-11
+
+### Workspace: Individual Schedule C Activity
+**Status:** Complete
+**Plan:** `plans/260511-1701-individual-schedule-c-activity/plan.md`
+
+**Fixed:**
+- Individual client Schedule C tab now keeps the individual's own Schedule C send/manage panel visible even when linked businesses already have Schedule C records.
+- Linked business Schedule C rows still render below the individual panel and continue to open the business detail Schedule C tab.
+- No schema/API migration needed; existing case-scoped Schedule C endpoints remain unchanged.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- schedule-c-activities.test.ts individual-schedule-c-activities.test.tsx` pass (5 tests)
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
+### Portal: Business Expense Form Context Banner
+**Status:** Complete
+
+**Changed:**
+- Business expense form header now shows explicit business context so clients know which business they are reporting expenses for.
+- Added English and Vietnamese copy for the business context banner.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal lint` pass with existing warning only
+- Locale JSON parse check pass
+
+---
+
+### Portal/API: Hide Schedule C Income Block For Business Links
+**Status:** Complete
+
+**Fixed:**
+- Public expense form API now returns `client.clientType` for Schedule C magic links.
+- Portal expense form hides the 1099-NEC Income Part I card when the linked tax case belongs to a BUSINESS client.
+- Individual Schedule C links still show prefilled 1099-NEC gross receipts.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/expense/__tests__/expense-routes.test.ts` pass (17 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/portal lint` pass with existing warning only
+
+---
+
+### API/Workspace: Schedule C Business SMS Thread
+**Status:** Complete
+
+**Fixed:**
+- Sending or resending a Schedule C expense link from a business detail page now records the outbound SMS in the linked individual owner's conversation for the same tax year.
+- Schedule C form links still target the business tax case, so expenses submit to the correct business entity.
+- Default Schedule C SMS copy now names the business entity in Vietnamese and English, preventing confusion with personal or other-business expense links.
+- Workspace invalidates message queries after Schedule C actions so open chat panels refetch promptly.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/schedule-c/__tests__/schedule-c-routes.test.ts` pass (22 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+### Workspace: Linked Business Delete Action
+**Status:** Complete
+
+**Fixed:**
+- Linked business trash action on client detail now deletes the business client via `DELETE /clients/:id` instead of only removing it from the client group.
+- Updated confirmation copy, loading text, and success/error toast copy to reflect permanent business deletion.
+- Added regression coverage for the delete action to ensure it calls client delete, not client-group unlink.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- src/components/clients/client-overview-tab/linked-business-delete.test.ts` pass (2 tests)
+- `pnpm -F @ella/workspace test` pass (18 tests)
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass with existing chunk-size/browser-compat warnings only
+
+---
+
+### Workspace: Deposit Paid-At Picker Polish
+**Status:** Complete
+
+**Fixed:**
+- Replaced native browser `datetime-local` control in Update deposit modal with Tailwind-styled calendar/time picker.
+- Fixed Update deposit modal clipping by making the modal body scroll while keeping header/footer visible.
+- Added localized EN/VI labels for date, time, now, clear, and empty paid-at state.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- Locale JSON parse check pass
+
+---
+
+## 2026-05-10
+
+### Workspace: Agreement Deposit Update Modal
+**Status:** Complete
+
+**Changed:**
+- Replaced inline "Update deposit" prototype panel with dedicated modal flow.
+- Modal now shows agreement title, deposit amount, current deposit status, transition cards, paid-at field only for paid state, note counter, and loading-safe footer actions.
+- English and Vietnamese copy added for the new deposit flow.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Workspace: Edit & Send Modal Details Panel Polish
+**Status:** Complete
+
+**Changed:**
+- Replaced the yellow placeholder helper panel with neutral card styling and mint progress/action states.
+- Agreement detail fields stay visible after "Apply to document" so staff can revise values and apply again.
+- Preview/send is blocked when detail fields have unapplied edits, preventing stale document content from being sent.
+- Desktop Edit & Send layout now gives the document editor and details/settings panel independent scroll areas.
+- Removed the staff-only internal note field from the send settings panel.
+- English and Vietnamese copy updated from "Fill missing details" to "Document details" / "Thông tin tài liệu".
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Workspace: Edit & Send Modal Service Builder
+**Status:** Complete
+**Plan:** `plans/260510-2206-edit-send-modal-service-builder/plan.md`
+
+**Changed:**
+- Edit & Send step now uses a wider two-column layout with document editing on the left and completion/send controls on the right.
+- Scope of Services placeholders now render as a dynamic service builder with Add/Remove rows, supporting fewer or more than 3 services.
+- Applying placeholders replaces the service `<ul>` in the document instead of only filling fixed `[Service item 1]` style tokens.
+- English and Vietnamese copy added for the service builder and send settings panel.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Workspace: Engagement Letter Placeholder Form
+**Status:** Complete
+**Plan:** `plans/260510-2156-engagement-letter-placeholder-fields/plan.md`
+
+**Added:**
+- Agreement send wizard now shows a "Fill missing details" panel for unresolved engagement letter placeholders like `[Monthly Fee Amount]`.
+- Staff can enter values in normal form fields and apply them into the rich text letter before preview/send.
+- English and Vietnamese copy added for the new placeholder panel.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
+### Portal: Entity Upload Selection Loading Removed
+**Status:** Complete
+**Plan:** `plans/260510-1734-portal-entity-upload-navigation-cache/plan.md`
+
+**Fixed:**
+- Entity picker no longer performs duplicate full-page `/portal/:token` loading when client selects personal/business upload target.
+- Per-entity upload route now reuses cached portal data from landing page and only shows full-page loading for direct deep links with no cache.
+- Upload completion invalidates portal data cache so entity upload counts stay fresh when returning to picker.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal build` pass
+- `pnpm -F @ella/portal lint` pass with unrelated existing Fast Refresh warning in `intake-business-form.tsx`
 
 ---
 

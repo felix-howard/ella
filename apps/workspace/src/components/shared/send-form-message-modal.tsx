@@ -209,6 +209,20 @@ export function SendFormMessageModal({
 export const SCHEDULE_C_TEMPLATE_VI = `Xin chào {{client_name}}, vui lòng điền thông tin chi phí kinh doanh qua link: {{form_link}}`
 export const SCHEDULE_C_TEMPLATE_EN = `Hello {{client_name}}, please fill in your business expenses via the link: {{form_link}}`
 
+export function getScheduleCTemplateVI(businessName?: string | null) {
+  const name = businessName?.trim()
+  return name
+    ? `Xin chào {{client_name}}, vui lòng điền thông tin chi phí kinh doanh cho Business ${name} qua link: {{form_link}}`
+    : SCHEDULE_C_TEMPLATE_VI
+}
+
+export function getScheduleCTemplateEN(businessName?: string | null) {
+  const name = businessName?.trim()
+  return name
+    ? `Hello {{client_name}}, please fill in the business expense information for business ${name} via the link: {{form_link}}`
+    : SCHEDULE_C_TEMPLATE_EN
+}
+
 // Default templates for Schedule E
 export const SCHEDULE_E_TEMPLATE_VI = `Xin chào {{client_name}}, vui lòng điền thông tin nhà cho thuê qua link: {{form_link}}`
 export const SCHEDULE_E_TEMPLATE_EN = `Hello {{client_name}}, please fill in your rental property information via the link: {{form_link}}`

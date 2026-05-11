@@ -4,7 +4,7 @@
  */
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, AlertCircle, RefreshCw, Building2 } from 'lucide-react'
 import { Button, EllaLogoLight } from '@ella/ui'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../../lib/api-client'
@@ -131,6 +131,8 @@ function ExpenseFormPage() {
   }
 
   // Success state
+  const isBusinessExpenseForm = data.client.clientType === 'BUSINESS'
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
@@ -152,6 +154,22 @@ function ExpenseFormPage() {
               .replace('</1>', '</span>')
           }}
         />
+
+        {isBusinessExpenseForm && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/15 bg-primary/5 p-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                {t('expense.businessContextLabel')}
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-foreground">
+                {t('expense.businessContext', { businessName: data.client.name })}
+              </p>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Form with error boundary (lazy loaded) */}

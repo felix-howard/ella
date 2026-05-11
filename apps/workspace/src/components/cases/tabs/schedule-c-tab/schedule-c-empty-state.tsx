@@ -9,16 +9,17 @@ import { useTranslation } from 'react-i18next'
 import { useScheduleCActions } from '../../../../hooks/use-schedule-c-actions'
 import {
   SendFormMessageModal,
-  SCHEDULE_C_TEMPLATE_VI,
-  SCHEDULE_C_TEMPLATE_EN,
+  getScheduleCTemplateVI,
+  getScheduleCTemplateEN,
 } from '../../../shared'
 
 interface ScheduleCEmptyStateProps {
   caseId: string
   clientName: string
+  businessName?: string | null
 }
 
-export function ScheduleCEmptyState({ caseId, clientName }: ScheduleCEmptyStateProps) {
+export function ScheduleCEmptyState({ caseId, clientName, businessName }: ScheduleCEmptyStateProps) {
   const { t } = useTranslation()
   const { sendForm } = useScheduleCActions({ caseId })
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -79,8 +80,8 @@ export function ScheduleCEmptyState({ caseId, clientName }: ScheduleCEmptyStateP
         isSending={sendForm.isPending}
         formType="scheduleC"
         clientName={clientName}
-        defaultTemplateVI={SCHEDULE_C_TEMPLATE_VI}
-        defaultTemplateEN={SCHEDULE_C_TEMPLATE_EN}
+        defaultTemplateVI={getScheduleCTemplateVI(businessName)}
+        defaultTemplateEN={getScheduleCTemplateEN(businessName)}
       />
     </>
   )

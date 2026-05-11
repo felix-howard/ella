@@ -66,6 +66,7 @@ function validToken() {
     caseId: 'case-1',
     clientName: 'Test Client',
     clientLanguage: 'vi',
+    clientType: 'INDIVIDUAL' as const,
     taxYear: 2025,
     isLocked: false,
   }
@@ -153,6 +154,7 @@ describe('Public Expense Routes', () => {
 
       expect(res.status).toBe(200)
       expect(json.client.name).toBe('Test Client')
+      expect(json.client.clientType).toBe('INDIVIDUAL')
       expect(json.taxYear).toBe(2025)
       expect(json.expense).not.toBeNull()
       expect(json.expense.grossReceipts).toBe('5000.00')
@@ -172,6 +174,23 @@ describe('Public Expense Routes', () => {
       expect(json.expense).toBeNull()
       expect(json.totals).toBeNull()
       expect(json.prefilledGrossReceipts).toBe('3000.00')
+    })
+
+    it('returns business client type for business expense links', async () => {
+      mockValidateToken.mockResolvedValueOnce({
+        ...validToken(),
+        clientName: 'Amber Nails',
+        clientType: 'BUSINESS',
+      })
+      mockExpenseFindUnique.mockResolvedValueOnce(null)
+      mockCalcGrossReceipts.mockResolvedValueOnce(new Decimal('0'))
+
+      const res = await app.request('/expense/business-token')
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.client.name).toBe('Amber Nails')
+      expect(json.client.clientType).toBe('BUSINESS')
     })
 
     it('returns 401 for invalid token', async () => {

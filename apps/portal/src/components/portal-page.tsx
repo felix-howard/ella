@@ -2,16 +2,16 @@
  * Shared Portal Page Component
  * Used by both /upload/$token and /u/$token (legacy) routes
  */
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ella/ui'
-import { portalApi, type PortalData, type UploadResponse, ApiError } from '../lib/api-client'
+import { type UploadResponse, ApiError } from '../lib/api-client'
+import { portalDataQueryKey, usePortalDataQuery } from '../lib/portal-data-query'
 import { WelcomeHeader } from './landing/welcome-header'
 import { SimpleUploader } from './simple-uploader'
 import { EntityPickerPage } from './entity-picker-page'
-
-type PageState = 'loading' | 'success' | 'error'
 
 interface ErrorState {
   code: string
@@ -20,91 +20,28 @@ interface ErrorState {
 
 export function PortalPage({ token }: { token: string }) {
   const { t, i18n } = useTranslation()
+  const queryClient = useQueryClient()
+  const { data, error, isLoading, refetch } = usePortalDataQuery(token)
 
-  const [state, setState] = useState<PageState>('loading')
-  const [data, setData] = useState<PortalData | null>(null)
-  const [error, setError] = useState<ErrorState | null>(null)
-
-  // Ref to track if component is mounted (prevents stale updates)
-  const isMountedRef = useRef(true)
-
-  // Initial data load
   useEffect(() => {
-    isMountedRef.current = true
+    if (!data || localStorage.getItem('ella-language')) return
 
-    async function fetchData() {
-      setState('loading')
-      setError(null)
-
-      try {
-        const result = await portalApi.getData(token)
-        if (isMountedRef.current) {
-          setData(result)
-          setState('success')
-          // Sync language from client data only if no localStorage preference yet
-          if (!localStorage.getItem('ella-language')) {
-            const clientLang = result.client.language === 'EN' ? 'en' : 'vi'
-            if (i18n.language !== clientLang) {
-              i18n.changeLanguage(clientLang)
-            }
-          }
-        }
-      } catch (err) {
-        if (isMountedRef.current) {
-          setState('error')
-          if (err instanceof ApiError) {
-            setError({ code: err.code, message: err.message })
-          } else {
-            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
-          }
-        }
-      }
+    const clientLang = data.client.language === 'EN' ? 'en' : 'vi'
+    if (i18n.language !== clientLang) {
+      i18n.changeLanguage(clientLang)
     }
+  }, [data, i18n])
 
-    fetchData()
-    return () => { isMountedRef.current = false }
-  }, [token, i18n, t])
-
-  // Reload handler for retry button
   const handleReload = useCallback(() => {
-    if (!isMountedRef.current) return
-
-    setState('loading')
-    setError(null)
-    portalApi.getData(token)
-      .then((result) => {
-        if (isMountedRef.current) {
-          setData(result)
-          setState('success')
-        }
-      })
-      .catch((err) => {
-        if (isMountedRef.current) {
-          setState('error')
-          if (err instanceof ApiError) {
-            setError({ code: err.code, message: err.message })
-          } else {
-            setError({ code: 'UNKNOWN', message: t('portal.errorLoading') })
-          }
-        }
-      })
-  }, [token, t])
+    refetch()
+  }, [refetch])
 
   // Upload complete handler - refresh data to update missing docs list
   const handleUploadComplete = useCallback(
     (_result: UploadResponse) => {
-      portalApi
-        .getData(token)
-        .then((newData) => {
-          if (isMountedRef.current) {
-            setData(newData)
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to refresh data after upload:', err)
-        })
+      queryClient.invalidateQueries({ queryKey: portalDataQueryKey(token) })
     },
-    [token]
+    [queryClient, token]
   )
 
   // Upload error handler
@@ -113,7 +50,7 @@ export function PortalPage({ token }: { token: string }) {
   }, [])
 
   // Loading state
-  if (state === 'loading') {
+  if (isLoading) {
     return (
       <div
         className="flex-1 flex items-center justify-center"
@@ -129,8 +66,13 @@ export function PortalPage({ token }: { token: string }) {
   }
 
   // Error state
-  if (state === 'error' || !data) {
-    return <ErrorView error={error} onRetry={handleReload} />
+  if (!data) {
+    return (
+      <ErrorView
+        error={toErrorState(error, t('portal.errorLoading'))}
+        onRetry={handleReload}
+      />
+    )
   }
 
   // Multi-entity GROUP scope → tile picker (solo bypass falls through below)
@@ -230,4 +172,12 @@ function ErrorView({
       </div>
     </div>
   )
+}
+
+function toErrorState(error: unknown, fallbackMessage: string): ErrorState | null {
+  if (!error) return null
+  if (error instanceof ApiError) {
+    return { code: error.code, message: error.message }
+  }
+  return { code: 'UNKNOWN', message: fallbackMessage }
 }

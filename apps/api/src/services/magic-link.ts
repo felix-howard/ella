@@ -451,6 +451,7 @@ export interface ScheduleCValidationResult {
   caseId?: string
   clientName?: string
   clientLanguage?: string
+  clientType?: 'INDIVIDUAL' | 'BUSINESS'
   taxYear?: number
   isLocked?: boolean
 }
@@ -517,6 +518,7 @@ export async function validateScheduleCToken(token: string): Promise<ScheduleCVa
     caseId: link.taxCase.id,
     clientName: link.taxCase.client.name,
     clientLanguage: link.taxCase.client.language,
+    clientType: link.taxCase.client.clientType,
     taxYear: link.taxCase.taxYear,
     isLocked: false,
   }

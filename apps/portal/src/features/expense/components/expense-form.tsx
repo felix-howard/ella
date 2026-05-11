@@ -44,6 +44,7 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
 
   // Check if form is locked
   const isLocked = initialData.expense?.status === 'LOCKED'
+  const showIncomeSection = initialData.client.clientType !== 'BUSINESS'
 
   // Handle field change
   const handleFieldChange = useCallback((field: string, value: unknown) => {
@@ -96,10 +97,12 @@ export function ExpenseForm({ token, initialData }: ExpenseFormProps) {
         )}
 
         {/* Income section (read-only gross receipts) */}
-        <IncomeSection
-          formData={formData}
-          prefilledGrossReceipts={initialData.prefilledGrossReceipts}
-        />
+        {showIncomeSection && (
+          <IncomeSection
+            formData={formData}
+            prefilledGrossReceipts={initialData.prefilledGrossReceipts}
+          />
+        )}
 
         {/* Simplified expense fields (travel, meals, supplies) */}
         <Card variant="elevated">

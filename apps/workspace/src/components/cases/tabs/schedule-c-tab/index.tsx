@@ -13,12 +13,13 @@ import { ScheduleCSummary } from './schedule-c-summary'
 interface ScheduleCTabProps {
   caseId: string
   clientName: string
+  businessName?: string | null
   currentClientId?: string
   sourceTaxYear?: number
   clientGroup?: ClientGroup | null
 }
 
-export function ScheduleCTab({ caseId, clientName, currentClientId, sourceTaxYear, clientGroup }: ScheduleCTabProps) {
+export function ScheduleCTab({ caseId, clientName, businessName, currentClientId, sourceTaxYear, clientGroup }: ScheduleCTabProps) {
   const { expense, magicLink, totals, necBreakdown, isLoading, error, refetch } = useScheduleC({
     caseId,
     enabled: true,
@@ -54,7 +55,7 @@ export function ScheduleCTab({ caseId, clientName, currentClientId, sourceTaxYea
 
   // State 1: No Schedule C exists → Show empty state with send button
   if (!expense) {
-    return <ScheduleCEmptyState caseId={caseId} clientName={clientName} />
+    return <ScheduleCEmptyState caseId={caseId} clientName={clientName} businessName={businessName} />
   }
 
   // State 2: Schedule C exists but status is DRAFT → Show waiting state
@@ -89,7 +90,7 @@ export function ScheduleCTab({ caseId, clientName, currentClientId, sourceTaxYea
   }
 
   // State 3 & 4 handled above — this shouldn't be reached
-  return <ScheduleCEmptyState caseId={caseId} clientName={clientName} />
+  return <ScheduleCEmptyState caseId={caseId} clientName={clientName} businessName={businessName} />
 }
 
 export { ScheduleCEmptyState } from './schedule-c-empty-state'

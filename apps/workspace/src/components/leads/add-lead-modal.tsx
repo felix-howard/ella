@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
 import { api } from '../../lib/api-client'
+import { formatPhoneInput } from '../../lib/formatters'
 import { toast } from '../../stores/toast-store'
 
 interface AddLeadModalProps {
@@ -188,11 +189,12 @@ function AddLeadModalContent({ onClose }: { onClose: () => void }) {
             <input
               type="tel"
               value={form.phone}
-              onChange={(e) => updateField('phone', e.target.value)}
+              onChange={(e) => updateField('phone', formatPhoneInput(e.target.value))}
               placeholder="(555) 123-4567"
               disabled={createMutation.isPending}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary disabled:opacity-50"
               autoComplete="tel"
+              maxLength={14}
             />
             {errors.phone && <p className="mt-1 text-xs text-error">{errors.phone}</p>}
           </div>

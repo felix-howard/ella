@@ -1,21 +1,22 @@
-/**
- * Inline editor for updating an NDA's deposit status.
- * Mirrors server transition whitelist so invalid options are hidden client-side.
- * PAID → optional paidAt datetime. All statuses support a note.
- */
+/** Dedicated modal for updating an Agreement's deposit lifecycle. */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
-import { CustomSelect, type SelectOption } from '../ui/custom-select'
+import { Modal, ModalHeader, ModalTitle, ModalDescription, ModalFooter, cn } from '@ella/ui'
+import { CheckCircle2, Clock3, Loader2, RotateCcw, ShieldX, type LucideIcon } from 'lucide-react'
+import { DepositStatusBadge } from './agreement-status-badges'
 import { useUpdateDeposit } from './use-agreement-mutations'
+import { formatFullDateTime } from '../../lib/formatters'
 import type { Agreement, NdaDepositStatus } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
-const ALLOWED: Record<NdaDepositStatus, readonly NdaDepositStatus[]> = {
-  PENDING: ['PENDING', 'PAID', 'FORFEITED'],
-  PAID: ['PAID', 'REFUNDED'],
-  REFUNDED: ['REFUNDED'],
-  FORFEITED: ['FORFEITED'],
+const ALLOWED: Record<NdaDepositStatus, readonly NdaDepositStatus[]> = { PENDING: ['PENDING', 'PAID', 'FORFEITED'], PAID: ['PAID', 'REFUNDED'], REFUNDED: ['REFUNDED'], FORFEITED: ['FORFEITED'] }
+const STATUS_ICON: Record<NdaDepositStatus, LucideIcon> = { PENDING: Clock3, PAID: CheckCircle2, REFUNDED: RotateCcw, FORFEITED: ShieldX }
+
+const STATUS_TONE: Record<NdaDepositStatus, string> = {
+  PENDING: 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100',
+  PAID: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
+  REFUNDED: 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100',
+  FORFEITED: 'border-red-200 bg-red-50 text-red-800 hover:bg-red-100',
 }
 
 function toLocalInputValue(iso: string | null): string {
@@ -26,9 +27,13 @@ function toLocalInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function formatDepositAmount(amount: string | null): string {
+  if (!amount) return '-'
+  return amount.trim().startsWith('$') ? amount : `$${amount}`
+}
+
 interface Props {
   entity: EntityRef
-  /** Caller (agreement-card) gates this panel out when depositStatus is null. */
   nda: Agreement & { depositStatus: NdaDepositStatus }
   onClose: () => void
 }
@@ -42,22 +47,17 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
   const [note, setNote] = useState<string>(nda.depositNote ?? '')
   const [paidAt, setPaidAt] = useState<string>(originalPaidAt)
 
-  const options: SelectOption[] = ALLOWED[nda.depositStatus].map((s) => ({
-    value: s,
-    label: t(`nda.deposit.${s}`),
-  }))
+  const options = ALLOWED[nda.depositStatus]
 
   const resolvePaidAtIso = (): string | null => {
     if (status !== 'PAID') return null
-    // If the input wasn't changed and there's already an ISO, preserve it verbatim to avoid
-    // datetime-local minute-precision rewrites dropping seconds/ms.
     if (paidAt === originalPaidAt && nda.depositPaidAt) return nda.depositPaidAt
     if (paidAt) return new Date(paidAt).toISOString()
-    // Moving INTO PAID with no timestamp entered — default to now.
     return new Date().toISOString()
   }
 
-  const handleSave = () => {
+  const handleSave = (event: React.FormEvent) => {
+    event.preventDefault()
     mutation.mutate(
       {
         agreementId: nda.id,
@@ -72,71 +72,119 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
   const noteUnchanged = note.trim() === (nda.depositNote ?? '').trim()
   const paidAtUnchanged = paidAt === originalPaidAt
   const isNoop = status === nda.depositStatus && noteUnchanged && paidAtUnchanged
+  const paidAtHelp = nda.depositPaidAt
+    ? t('nda.deposit.paidAtExisting', { date: formatFullDateTime(nda.depositPaidAt) })
+    : t('nda.deposit.paidAtHint')
 
   return (
-    <div className="mt-3 p-3 rounded-lg border border-border/60 bg-muted/20 space-y-3">
-      <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
-          {t('nda.deposit.statusLabel')}
-        </label>
-        <CustomSelect
-          value={status}
-          onChange={(v) => setStatus(v as NdaDepositStatus)}
-          options={options}
-          disabled={mutation.isPending}
-          className="max-w-xs"
-        />
-      </div>
-
-      {status === 'PAID' && (
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
-            {t('nda.deposit.paidAtLabel')}
-          </label>
-          <input
-            type="datetime-local"
-            value={paidAt}
-            onChange={(e) => setPaidAt(e.target.value)}
-            disabled={mutation.isPending}
-            className="w-full max-w-xs px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+    <Modal open onClose={onClose} size="lg" closeOnOverlayClick={!mutation.isPending}
+      closeOnEscape={!mutation.isPending} aria-labelledby="update-deposit-title"
+      aria-describedby="update-deposit-description" className="p-0 overflow-hidden">
+      <form onSubmit={handleSave}>
+        <div className="bg-muted/30 px-6 py-5 border-b border-border">
+          <ModalHeader className="mb-0 pr-8">
+            <ModalTitle id="update-deposit-title" className="text-foreground">{t('nda.deposit.modalTitle')}</ModalTitle>
+            <ModalDescription id="update-deposit-description">
+              {t('nda.deposit.modalDescription')}
+            </ModalDescription>
+          </ModalHeader>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+            <span className="max-w-full truncate font-semibold text-foreground" title={nda.title}>
+              {nda.title}
+            </span>
+            <span className="rounded-full border border-border bg-card px-2.5 py-1 font-medium">
+              {formatDepositAmount(nda.depositAmount)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">{t('nda.deposit.currentStatusLabel')}:</span>
+              <DepositStatusBadge status={nda.depositStatus} />
+            </span>
+          </div>
         </div>
-      )}
 
-      <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
-          {t('nda.deposit.noteLabel')}
-        </label>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-          maxLength={1000}
-          disabled={mutation.isPending}
-          placeholder={t('nda.deposit.notePlaceholder')}
-          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-        />
-      </div>
+        <div className="px-6 py-5 space-y-5">
+          <section>
+            <h3 className="text-sm font-semibold text-foreground mb-2">{t('nda.deposit.nextStatusLabel')}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {options.map((option) => {
+                const Icon = STATUS_ICON[option]
+                const active = status === option
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setStatus(option)}
+                    disabled={mutation.isPending}
+                    aria-pressed={active}
+                    className={cn(
+                      'min-h-16 rounded-lg border p-3 text-left transition-colors',
+                      'focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50',
+                      active ? STATUS_TONE[option] : 'border-border bg-background hover:bg-muted',
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Icon className="w-4 h-4 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="text-sm font-semibold">{t(`nda.deposit.${option}`)}</div>
+                        <div className="text-xs opacity-80">{t(`nda.deposit.statusHint.${option}`)}</div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={mutation.isPending}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50"
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={mutation.isPending || isNoop}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {mutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
-          {t('common.save')}
-        </button>
-      </div>
-    </div>
+          {status === 'PAID' && (
+            <section>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                {t('nda.deposit.paidAtLabel')}
+              </label>
+              <input
+                type="datetime-local"
+                value={paidAt}
+                onChange={(e) => setPaidAt(e.target.value)}
+                disabled={mutation.isPending}
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">{paidAtHelp}</p>
+            </section>
+          )}
+
+          <section>
+            <label className="block text-sm font-medium text-foreground mb-1.5">{t('nda.deposit.noteLabel')}</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={4}
+              maxLength={1000}
+              disabled={mutation.isPending}
+              placeholder={t('nda.deposit.notePlaceholder')}
+              className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+            <div className="text-right text-xs text-muted-foreground mt-1">{note.length}/1000</div>
+          </section>
+        </div>
+
+        <ModalFooter className="mt-0 px-6 py-4 bg-muted/20">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="submit"
+            disabled={mutation.isPending || isNoop}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {t('nda.deposit.saveCta')}
+          </button>
+        </ModalFooter>
+      </form>
+    </Modal>
   )
 }

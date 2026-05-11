@@ -7,6 +7,21 @@
 
 ## 2026-05-10
 
+### Workspace: Agreement Deposit Update Modal
+**Status:** Complete
+
+**Changed:**
+- Replaced inline "Update deposit" prototype panel with dedicated modal flow.
+- Modal now shows agreement title, deposit amount, current deposit status, transition cards, paid-at field only for paid state, note counter, and loading-safe footer actions.
+- English and Vietnamese copy added for the new deposit flow.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace test` pass (16 tests)
+
+---
+
 ### Workspace: Edit & Send Modal Details Panel Polish
 **Status:** Complete
 

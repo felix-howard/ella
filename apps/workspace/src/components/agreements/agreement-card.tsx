@@ -25,7 +25,7 @@ interface Props {
 
 export function NdaCard({ entity, nda }: Props) {
   const { t, i18n } = useTranslation()
-  const [editing, setEditing] = useState(false)
+  const [depositModalOpen, setDepositModalOpen] = useState(false)
   const [extendOpen, setExtendOpen] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const resendMutation = useResendAgreement(entity, nda.type)
@@ -134,21 +134,21 @@ export function NdaCard({ entity, nda }: Props) {
         {canEditDeposit && (
           <button
             type="button"
-            onClick={() => setEditing((v) => !v)}
+            onClick={() => setDepositModalOpen(true)}
             className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-1.5"
           >
             <Pencil className="w-3.5 h-3.5" />
-            {editing ? t('nda.card.closeDeposit') : t('nda.card.updateDeposit')}
+            {t('nda.card.updateDeposit')}
           </button>
         )}
       </div>
 
-      {/* Type-narrow nda for the panel: canEditDeposit guarantees depositStatus is non-null. */}
-      {editing && canEditDeposit && nda.depositStatus !== null && (
+      {/* Type-narrow nda for the modal: canEditDeposit guarantees depositStatus is non-null. */}
+      {depositModalOpen && canEditDeposit && nda.depositStatus !== null && (
         <UpdateDepositPanel
           entity={entity}
           nda={{ ...nda, depositStatus: nda.depositStatus }}
-          onClose={() => setEditing(false)}
+          onClose={() => setDepositModalOpen(false)}
         />
       )}
 

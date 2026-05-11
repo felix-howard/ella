@@ -5,16 +5,19 @@
  */
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Building2, User, Phone, Mail, FileText, ArrowRight, Plus } from 'lucide-react'
-import { cn } from '@ella/ui'
-import { type ClientPreview, type ClientType } from '../../../lib/api-client'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Building2, User, Phone, Mail, FileText, ArrowRight, Plus, Trash2, Loader2 } from 'lucide-react'
+import { Button, Modal, ModalDescription, ModalFooter, ModalHeader, ModalTitle, cn } from '@ella/ui'
+import { api, type ClientPreview, type ClientType } from '../../../lib/api-client'
 import { formatPhone } from '../../../lib/formatters'
 import { getInitials, getAvatarColor } from '../../../lib/formatters'
 import { BUSINESS_TYPE_LABELS } from '../../../lib/business-type-helpers'
+import { toast } from '../../../stores/toast-store'
 import { AddBusinessDrawer } from './add-business-drawer'
 
 interface ClientLinkedEntityCardProps {
   clientId: string
+  clientGroupId?: string | null
   clientName: string
   clientPhone: string
   clientEmail?: string | null
@@ -27,6 +30,7 @@ interface ClientLinkedEntityCardProps {
 
 export function ClientLinkedEntityCard({
   clientId,
+  clientGroupId,
   clientName,
   clientPhone,
   clientEmail,
@@ -36,10 +40,32 @@ export function ClientLinkedEntityCard({
   onBusinessAdded,
 }: ClientLinkedEntityCardProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<ClientPreview | null>(null)
+  const queryClient = useQueryClient()
 
   const isIndividual = currentClientType === 'INDIVIDUAL'
   const isBusiness = currentClientType === 'BUSINESS'
   const hasLinked = linkedClients && linkedClients.length > 0
+
+  const unlinkBusinessMutation = useMutation({
+    mutationFn: async (businessId: string) => {
+      if (!clientGroupId) throw new Error('Client group not found')
+      return api.clientGroups.update(clientGroupId, { removeClientIds: [businessId] })
+    },
+    onSuccess: (_data, businessId) => {
+      toast.success('Linked business removed')
+      setRemoveTarget(null)
+      queryClient.invalidateQueries({ queryKey: ['client', clientId] })
+      queryClient.invalidateQueries({ queryKey: ['client', businessId] })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      if (clientGroupId) {
+        queryClient.invalidateQueries({ queryKey: ['client-group', clientGroupId] })
+      }
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove linked business')
+    },
+  })
 
   // Business clients with no linked owner — hide card
   if (isBusiness && !hasLinked) return null
@@ -96,59 +122,76 @@ export function ClientLinkedEntityCard({
             const isLinkedBusiness = linked.clientType === 'BUSINESS'
 
             return (
-              <Link
+              <div
                 key={linked.id}
-                to="/clients/$clientId"
-                params={{ clientId: linked.id }}
                 className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/30 transition-all group"
               >
-                {/* Avatar */}
-                <div className={cn(
-                  'w-12 h-12 flex items-center justify-center flex-shrink-0 ring-1 ring-background shadow-sm',
-                  isLinkedBusiness ? 'rounded-lg' : 'rounded-full',
-                  avatarColor.bg,
-                  avatarColor.text
-                )}>
-                  <span className="font-bold text-sm">
-                    {getInitials(linked.name)}
-                  </span>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {linked.name}
+                <Link
+                  to="/clients/$clientId"
+                  params={{ clientId: linked.id }}
+                  className="flex min-w-0 flex-1 items-center gap-4"
+                >
+                  {/* Avatar */}
+                  <div className={cn(
+                    'w-12 h-12 flex items-center justify-center flex-shrink-0 ring-1 ring-background shadow-sm',
+                    isLinkedBusiness ? 'rounded-lg' : 'rounded-full',
+                    avatarColor.bg,
+                    avatarColor.text
+                  )}>
+                    <span className="font-bold text-sm">
+                      {getInitials(linked.name)}
                     </span>
-                    {isLinkedBusiness && linked.businessType && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
-                        {BUSINESS_TYPE_LABELS[linked.businessType] || linked.businessType}
-                      </span>
-                    )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {formatPhone(linked.phone)}
-                    </span>
-                    {linked.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {linked.email}
-                      </span>
-                    )}
-                    {isLinkedBusiness && linked.einMasked && (
-                      <span className="flex items-center gap-1">
-                        <FileText className="w-3 h-3" />
-                        EIN: ***-**-{linked.einMasked}
-                      </span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Arrow */}
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-              </Link>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {linked.name}
+                      </span>
+                      {isLinkedBusiness && linked.businessType && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                          {BUSINESS_TYPE_LABELS[linked.businessType] || linked.businessType}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {formatPhone(linked.phone)}
+                      </span>
+                      {linked.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {linked.email}
+                        </span>
+                      )}
+                      {isLinkedBusiness && linked.einMasked && (
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          EIN: ***-**-{linked.einMasked}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Arrow */}
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                </Link>
+
+                {isIndividual && isLinkedBusiness && clientGroupId && (
+                  <button
+                    type="button"
+                    onClick={() => setRemoveTarget(linked)}
+                    disabled={unlinkBusinessMutation.isPending}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                    aria-label={`Remove ${linked.name} from linked businesses`}
+                    title="Remove linked business"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
@@ -178,6 +221,51 @@ export function ClientLinkedEntityCard({
           onSuccess={() => onBusinessAdded?.()}
         />
       )}
+
+      <Modal
+        open={!!removeTarget}
+        onClose={() => {
+          if (!unlinkBusinessMutation.isPending) setRemoveTarget(null)
+        }}
+      >
+        <ModalHeader>
+          <ModalTitle>Remove linked business</ModalTitle>
+          <ModalDescription>
+            Remove <span className="font-semibold text-foreground">{removeTarget?.name}</span> from {clientName}.
+            This only removes the link; the business client record stays in the client list.
+          </ModalDescription>
+        </ModalHeader>
+        <ModalFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setRemoveTarget(null)}
+            disabled={unlinkBusinessMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => {
+              if (removeTarget) unlinkBusinessMutation.mutate(removeTarget.id)
+            }}
+            disabled={unlinkBusinessMutation.isPending}
+          >
+            {unlinkBusinessMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Removing
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" />
+                Remove
+              </>
+            )}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </>
   )
 }

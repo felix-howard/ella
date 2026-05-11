@@ -224,6 +224,7 @@ describe('Schedule C Staff Routes', () => {
         'http://localhost:5173/expense/business-token',
         'EN',
         undefined,
+        'Amber Nails',
         'staff-1'
       )
     })
@@ -479,6 +480,7 @@ describe('Schedule C Staff Routes', () => {
         'http://localhost:5173/expense/business-token',
         'EN',
         undefined,
+        'Amber Nails',
         'staff-1'
       )
     })

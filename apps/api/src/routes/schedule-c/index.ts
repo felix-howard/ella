@@ -33,6 +33,7 @@ interface ScheduleCMessageTarget {
   caseId: string
   clientName: string
   clientPhone: string | null
+  businessName: string | null
 }
 
 async function resolveScheduleCMessageTarget(
@@ -43,6 +44,7 @@ async function resolveScheduleCMessageTarget(
     caseId: taxCase.id,
     clientName: taxCase.client.name,
     clientPhone: taxCase.client.phone,
+    businessName: taxCase.client.clientType === 'BUSINESS' ? taxCase.client.name : null,
   }
 
   if (taxCase.client.clientType !== 'BUSINESS' || !taxCase.client.clientGroupId) {
@@ -77,6 +79,7 @@ async function resolveScheduleCMessageTarget(
     caseId: ownerCase.id,
     clientName: owner.name,
     clientPhone: owner.phone,
+    businessName: taxCase.client.name,
   }
 }
 
@@ -153,6 +156,7 @@ scheduleCRoute.post('/:caseId/send', async (c) => {
     magicLinkUrl,
     smsLanguage,
     customMessage,
+    messageTarget.businessName,
     user.staffId
   )
 
@@ -389,6 +393,7 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       magicLinkUrl,
       smsLanguage,
       undefined,
+      messageTarget.businessName,
       user.staffId
     )
 
@@ -410,6 +415,7 @@ scheduleCRoute.post('/:caseId/resend', async (c) => {
       magicLinkUrl,
       smsLanguage,
       undefined,
+      messageTarget.businessName,
       user.staffId
     )
 

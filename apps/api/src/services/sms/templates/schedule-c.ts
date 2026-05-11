@@ -5,15 +5,27 @@
 
 export interface ScheduleCTemplateParams {
   clientName: string
+  businessName?: string | null
   magicLink: string
   language: 'VI' | 'EN'
+}
+
+function formatBusinessName(name: string | null | undefined): string | null {
+  const trimmed = name?.trim()
+  return trimmed || null
+}
+
+function formatBusinessScope(name: string | null | undefined, language: 'VI' | 'EN'): string {
+  const businessName = formatBusinessName(name)
+  if (!businessName) return ''
+  return language === 'VI' ? ` cho Business ${businessName}` : ` for business ${businessName}`
 }
 
 const TEMPLATES = {
   VI: (params: ScheduleCTemplateParams) =>
     `Chào ${params.clientName},
 
-CPA của bạn cần thông tin chi phí kinh doanh để hoàn thành Schedule C.
+CPA của bạn cần thông tin chi phí kinh doanh${formatBusinessScope(params.businessName, 'VI')} để hoàn thành Schedule C.
 
 Vui lòng điền form tại: ${params.magicLink}
 
@@ -24,7 +36,7 @@ Link có hiệu lực 7 ngày.`,
   EN: (params: ScheduleCTemplateParams) =>
     `Hi ${params.clientName},
 
-Your CPA needs business expense information to complete Schedule C.
+Your CPA needs business expense information${formatBusinessScope(params.businessName, 'EN')} to complete Schedule C.
 
 Please fill out the form at: ${params.magicLink}
 

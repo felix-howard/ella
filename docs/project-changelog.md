@@ -13,6 +13,7 @@
 **Fixed:**
 - Sending or resending a Schedule C expense link from a business detail page now records the outbound SMS in the linked individual owner's conversation for the same tax year.
 - Schedule C form links still target the business tax case, so expenses submit to the correct business entity.
+- Default Schedule C SMS copy now names the business entity in Vietnamese and English, preventing confusion with personal or other-business expense links.
 - Workspace invalidates message queries after Schedule C actions so open chat panels refetch promptly.
 
 **Validation:**

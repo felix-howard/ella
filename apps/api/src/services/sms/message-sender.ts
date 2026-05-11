@@ -300,6 +300,7 @@ export async function sendScheduleCFormMessage(
   magicLink: string,
   language: SmsLanguage = 'VI',
   customMessage?: string,
+  businessName?: string | null,
   staffId?: string | null
 ): Promise<SendMessageResult> {
   let body: string
@@ -309,9 +310,10 @@ export async function sendScheduleCFormMessage(
     body = customMessage
       .replace(/\{\{client_name\}\}/g, clientName)
       .replace(/\{\{form_link\}\}/g, magicLink)
+      .replace(/\{\{business_name\}\}/g, businessName?.trim() ?? '')
   } else {
     // Fallback to hardcoded template
-    body = generateScheduleCMessage({ clientName, magicLink, language })
+    body = generateScheduleCMessage({ clientName, businessName, magicLink, language })
   }
 
   return sendAndRecordMessage(caseId, clientPhone, body, 'schedule_c', staffId)

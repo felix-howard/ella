@@ -1010,7 +1010,8 @@ function ClientDetailPage() {
           <Suspense fallback={<div className="p-6 text-center text-muted-foreground">{t('common.loading')}</div>}>
             <ScheduleCTab
               caseId={activeCaseId}
-              clientName={client.name}
+              clientName={isBusiness && ownerIndividual ? ownerIndividual.name : client.name}
+              businessName={isBusiness ? client.name : null}
               currentClientId={clientId}
               sourceTaxYear={selectedCase?.taxYear}
               clientGroup={client.clientGroup ?? null}
@@ -1256,4 +1257,3 @@ function ClientDetailPage() {
     </PageContainer>
   )
 }
-

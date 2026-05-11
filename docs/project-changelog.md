@@ -1,7 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-10 ICT
+> **Last Updated:** 2026-05-11 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-11
+
+### Workspace: Deposit Paid-At Picker Polish
+**Status:** Complete
+
+**Fixed:**
+- Replaced native browser `datetime-local` control in Update deposit modal with Tailwind-styled calendar/time picker.
+- Fixed Update deposit modal clipping by making the modal body scroll while keeping header/footer visible.
+- Added localized EN/VI labels for date, time, now, clear, and empty paid-at state.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- Locale JSON parse check pass
 
 ---
 

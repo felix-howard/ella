@@ -6,6 +6,7 @@ import { CheckCircle2, Clock3, Loader2, RotateCcw, ShieldX, type LucideIcon } fr
 import { DepositStatusBadge } from './agreement-status-badges'
 import { useUpdateDeposit } from './use-agreement-mutations'
 import { formatFullDateTime } from '../../lib/formatters'
+import { DepositPaidAtPicker } from './deposit-paid-at-picker'
 import type { Agreement, NdaDepositStatus } from '../../lib/api-client'
 import type { EntityRef } from './types'
 
@@ -39,7 +40,7 @@ interface Props {
 }
 
 export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const mutation = useUpdateDeposit(entity)
 
   const originalPaidAt = toLocalInputValue(nda.depositPaidAt)
@@ -79,9 +80,9 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
   return (
     <Modal open onClose={onClose} size="lg" closeOnOverlayClick={!mutation.isPending}
       closeOnEscape={!mutation.isPending} aria-labelledby="update-deposit-title"
-      aria-describedby="update-deposit-description" className="p-0 overflow-hidden">
-      <form onSubmit={handleSave}>
-        <div className="bg-muted/30 px-6 py-5 border-b border-border">
+      aria-describedby="update-deposit-description" className="flex flex-col overflow-hidden p-0">
+      <form onSubmit={handleSave} className="flex max-h-[90vh] min-h-0 flex-col">
+        <div className="shrink-0 bg-muted/30 px-6 py-5 border-b border-border">
           <ModalHeader className="mb-0 pr-8">
             <ModalTitle id="update-deposit-title" className="text-foreground">{t('nda.deposit.modalTitle')}</ModalTitle>
             <ModalDescription id="update-deposit-description">
@@ -102,7 +103,7 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <section>
             <h3 className="text-sm font-semibold text-foreground mb-2">{t('nda.deposit.nextStatusLabel')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -140,12 +141,16 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 {t('nda.deposit.paidAtLabel')}
               </label>
-              <input
-                type="datetime-local"
+              <DepositPaidAtPicker
                 value={paidAt}
-                onChange={(e) => setPaidAt(e.target.value)}
+                onChange={setPaidAt}
                 disabled={mutation.isPending}
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                locale={i18n.language || 'en-US'}
+                dateLabel={t('nda.deposit.dateLabel')}
+                timeLabel={t('nda.deposit.timeLabel')}
+                placeholder={t('nda.deposit.dateTimePlaceholder')}
+                nowLabel={t('nda.deposit.useNow')}
+                clearLabel={t('nda.deposit.clearPaidAt')}
               />
               <p className="text-xs text-muted-foreground mt-1.5">{paidAtHelp}</p>
             </section>
@@ -166,7 +171,7 @@ export function UpdateDepositPanel({ entity, nda, onClose }: Props) {
           </section>
         </div>
 
-        <ModalFooter className="mt-0 px-6 py-4 bg-muted/20">
+        <ModalFooter className="mt-0 shrink-0 px-6 py-4 bg-muted/20">
           <button
             type="button"
             onClick={onClose}

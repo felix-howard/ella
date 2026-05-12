@@ -16,7 +16,16 @@ export { ComputedStatusBadge } from './computed-status-badge'
 // ClientOverviewSections removed - replaced by ClientOverviewTab
 export { EngagementHistorySection } from './engagement-history-section'
 export { ReturningClientSection } from './returning-client-section'
-export { ConfirmStep, DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN, ensurePortalLinkPlaceholder } from './confirm-step'
+export { ConfirmStep } from './confirm-step'
+export {
+  DEFAULT_SMS_TEMPLATE_VI,
+  DEFAULT_SMS_TEMPLATE_EN,
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  CLIENT_SMS_TEMPLATES,
+  getClientSmsTemplate,
+  ensurePortalLinkPlaceholder,
+} from './client-sms-templates'
+export type { ClientSmsTemplateId } from './client-sms-templates'
 export { YearSwitcher } from './year-switcher'
 export { BusinessInfoForm, type BusinessInfoData, EMPTY_BUSINESS_INFO } from './business-info-form'
 export { BusinessAccordion } from './business-accordion'

@@ -4,37 +4,32 @@
  * Part of Phase 1: Simplify Client Workflow
  */
 
-import { MessageSquare, Loader2, User, Phone, Calendar, Send, Info } from 'lucide-react'
+import { MessageSquare, Loader2, Send, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
-import { formatPhone } from '../../lib/formatters'
+import { ClientConfirmSummary } from './client-confirm-summary'
+import { ClientSmsTemplateSelector } from './client-sms-template-selector'
+import {
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  ensurePortalLinkPlaceholder,
+  getClientSmsTemplate,
+  hasPortalLinkPlaceholder,
+  type ClientSmsLanguage,
+  type ClientSmsTemplateId,
+} from './client-sms-templates'
 
 interface ConfirmStepProps {
   clientName: string
   phone: string
   taxYear: number
-  language: 'VI' | 'EN'
-  onLanguageChange: (language: 'VI' | 'EN') => void
+  language: ClientSmsLanguage
+  onLanguageChange: (language: ClientSmsLanguage) => void
   onSubmit: () => void
   isSubmitting: boolean
   customMessage?: string
   onMessageChange?: (message: string) => void
-}
-
-// Default SMS message templates with placeholders
-export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi 1040 của khai thuế năm trước, copy of ID, social, thu nhập W2/1099, bảo hiểm 1095A và các tài liệu cần thiết qua link: {{portal_link}}`
-
-export const DEFAULT_SMS_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax documents, please send your prior year 1040 tax return, copy of ID, social security card, W2/1099 income forms, 1095A insurance form, and other required documents via the link: {{portal_link}}`
-
-const PORTAL_LINK_PLACEHOLDER = /\{\{\s*portal_link\s*\}\}/
-
-export function ensurePortalLinkPlaceholder(message: string): string {
-  if (PORTAL_LINK_PLACEHOLDER.test(message)) {
-    return message
-  }
-
-  const trimmedMessage = message.trimEnd()
-  return trimmedMessage ? `${trimmedMessage}\n{{portal_link}}` : '{{portal_link}}'
+  selectedTemplateId?: ClientSmsTemplateId
+  onTemplateSelect?: (templateId: ClientSmsTemplateId) => void
 }
 
 // Replace placeholders with actual values for preview
@@ -55,48 +50,24 @@ export function ConfirmStep({
   isSubmitting,
   customMessage,
   onMessageChange,
+  selectedTemplateId = DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  onTemplateSelect,
 }: ConfirmStepProps) {
   const { t } = useTranslation()
 
   // Get the default template based on language
-  const defaultTemplate = language === 'VI' ? DEFAULT_SMS_TEMPLATE_VI : DEFAULT_SMS_TEMPLATE_EN
+  const defaultTemplate = getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, language)
 
   // Use custom message if provided, otherwise use default
   const messageTemplate = customMessage ?? defaultTemplate
-  const portalLinkIncluded = PORTAL_LINK_PLACEHOLDER.test(messageTemplate)
+  const portalLinkIncluded = hasPortalLinkPlaceholder(messageTemplate)
 
   // Preview with actual values
   const smsPreview = renderMessage(ensurePortalLinkPlaceholder(messageTemplate), clientName, taxYear)
 
   return (
     <div className="space-y-6">
-      {/* Summary Card */}
-      <div className="bg-card rounded-xl border border-border p-6">
-        <h3 className="text-lg font-semibold text-primary mb-4">{t('confirmStep.title')}</h3>
-        <dl className="space-y-3">
-          <div className="flex items-center justify-between py-2 border-b border-border">
-            <dt className="flex items-center gap-2 text-muted-foreground">
-              <User className="w-4 h-4" />
-              {t('confirmStep.name')}
-            </dt>
-            <dd className="font-medium text-foreground">{clientName}</dd>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b border-border">
-            <dt className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="w-4 h-4" />
-              {t('confirmStep.phone')}
-            </dt>
-            <dd className="font-medium text-foreground">{formatPhone(phone)}</dd>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <dt className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              {t('confirmStep.taxYear')}
-            </dt>
-            <dd className="font-medium text-foreground">{taxYear}</dd>
-          </div>
-        </dl>
-      </div>
+      <ClientConfirmSummary clientName={clientName} phone={phone} taxYear={taxYear} />
 
       {/* SMS Preview & Editor */}
       <div className="bg-muted/50 rounded-xl p-4">
@@ -133,6 +104,17 @@ export function ConfirmStep({
             </button>
           </div>
         </div>
+
+        {onMessageChange && (
+          <ClientSmsTemplateSelector
+            language={language}
+            selectedTemplateId={selectedTemplateId}
+            onSelect={(templateId, message) => {
+              onTemplateSelect?.(templateId)
+              onMessageChange(message)
+            }}
+          />
+        )}
 
         {/* Editable Message Template */}
         {onMessageChange ? (

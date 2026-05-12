@@ -351,6 +351,8 @@
   "portal.uploadedFiles.empty": "Chưa có tài liệu nào",
   "portal.uploadedFiles.deleted": "Đã xóa tài liệu",
   "portal.uploadedFiles.deleteConfirm": "Bạn có chắc muốn xóa file này?",
+  "portal.uploadedFiles.deleteModalDescription": "Thao tác này sẽ xóa {{filename}} khỏi danh sách tài liệu đã tải. Không thể hoàn tác.",
+  "portal.uploadedFiles.deleteAction": "Xóa file",
   "portal.uploadedFiles.linkedTooltip": "Vui lòng liên hệ kế toán để xóa",
   "portal.uploadedFiles.deleteAria": "Xóa {{filename}}",
   "portal.fileStatus.uploaded": "Đã gửi",

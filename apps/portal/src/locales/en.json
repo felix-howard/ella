@@ -351,6 +351,8 @@
   "portal.uploadedFiles.empty": "No documents yet",
   "portal.uploadedFiles.deleted": "File deleted",
   "portal.uploadedFiles.deleteConfirm": "Delete this file?",
+  "portal.uploadedFiles.deleteModalDescription": "This will remove {{filename}} from your uploaded documents. This action cannot be undone.",
+  "portal.uploadedFiles.deleteAction": "Delete file",
   "portal.uploadedFiles.linkedTooltip": "Contact your accountant to remove this",
   "portal.uploadedFiles.deleteAria": "Delete {{filename}}",
   "portal.fileStatus.uploaded": "Uploaded",

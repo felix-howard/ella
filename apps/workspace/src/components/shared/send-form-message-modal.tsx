@@ -206,20 +206,20 @@ export function SendFormMessageModal({
 }
 
 // Default templates for Schedule C
-export const SCHEDULE_C_TEMPLATE_VI = `Xin chào {{client_name}}, vui lòng điền thông tin chi phí kinh doanh qua link: {{form_link}}`
-export const SCHEDULE_C_TEMPLATE_EN = `Hello {{client_name}}, please fill in your business expenses via the link: {{form_link}}`
+export const SCHEDULE_C_TEMPLATE_VI = `Xin chào {{client_name}}, vui lòng điền các chi phí kinh doanh liên quan đến các form 1099-NEC bạn đã nhận để CPA hoàn tất Schedule C. Link: {{form_link}}`
+export const SCHEDULE_C_TEMPLATE_EN = `Hello {{client_name}}, please enter the business expenses related to your 1099-NEC income so your CPA can complete Schedule C. Link: {{form_link}}`
 
 export function getScheduleCTemplateVI(businessName?: string | null) {
   const name = businessName?.trim()
   return name
-    ? `Xin chào {{client_name}}, vui lòng điền thông tin chi phí kinh doanh cho Business ${name} qua link: {{form_link}}`
+    ? `Xin chào {{client_name}}, vui lòng điền các chi phí kinh doanh của ${name} liên quan đến các form 1099-NEC bạn đã nhận để CPA hoàn tất Schedule C. Link: {{form_link}}`
     : SCHEDULE_C_TEMPLATE_VI
 }
 
 export function getScheduleCTemplateEN(businessName?: string | null) {
   const name = businessName?.trim()
   return name
-    ? `Hello {{client_name}}, please fill in the business expense information for business ${name} via the link: {{form_link}}`
+    ? `Hello {{client_name}}, please enter the business expenses for ${name} related to 1099-NEC income so your CPA can complete Schedule C. Link: {{form_link}}`
     : SCHEDULE_C_TEMPLATE_EN
 }
 

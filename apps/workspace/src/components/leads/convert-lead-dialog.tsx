@@ -11,7 +11,7 @@ import { cn } from '@ella/ui'
 import { api, ApiError } from '../../lib/api-client'
 import { formatPhone } from '../../lib/formatters'
 import { toast } from '../../stores/toast-store'
-import { DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../clients/confirm-step'
+import { DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../clients/client-sms-templates'
 import type { Lead } from '../../lib/api-client'
 
 interface ConvertLeadDialogProps {

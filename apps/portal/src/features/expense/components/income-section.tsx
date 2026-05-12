@@ -18,6 +18,7 @@ export function IncomeSection({
 }: IncomeSectionProps) {
   const { t } = useTranslation()
   const grossReceipts = Number(formData.grossReceipts) || Number(prefilledGrossReceipts) || 0
+  const hasGrossReceipts = grossReceipts > 0
 
   return (
     <Card variant="elevated" className="border border-primary/10 overflow-hidden">
@@ -36,12 +37,17 @@ export function IncomeSection({
             <span className="text-sm font-medium text-foreground">
               {t('expense.grossReceipts')}
             </span>
-            <span className="text-xl font-bold text-primary tracking-tight">
-              ${grossReceipts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className={hasGrossReceipts
+              ? 'text-xl font-bold text-primary tracking-tight'
+              : 'text-sm font-semibold text-muted-foreground text-right'
+            }>
+              {hasGrossReceipts
+                ? `$${grossReceipts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : t('expense.no1099NecIncome')}
             </span>
           </div>
           <p className="text-xs text-muted-foreground/70">
-            {t('expense.autoCalculated')}
+            {hasGrossReceipts ? t('expense.autoCalculated') : t('expense.no1099NecIncomeNote')}
           </p>
         </div>
       </CardContent>

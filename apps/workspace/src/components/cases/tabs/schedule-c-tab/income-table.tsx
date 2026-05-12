@@ -19,6 +19,7 @@ export function IncomeTable({ expense, totals, showGrossIncome = false, necBreak
   const { t } = useTranslation()
 
   // Dynamic label: show count if breakdown available
+  const hasNecSources = necBreakdown.length > 0
   const grossReceiptsLabel = necBreakdown.length > 0
     ? t('scheduleC.grossReceipts', { count: necBreakdown.length })
     : t('scheduleC.grossReceiptsSimple')
@@ -36,16 +37,23 @@ export function IncomeTable({ expense, totals, showGrossIncome = false, necBreak
         // Skip if value is null/0 (except grossReceipts which should always show)
         const numValue = parseFloat(row.value || '0')
         if (!row.isGross && numValue === 0) return null
+        const showMissingNecIncome = row.isGross && !hasNecSources && numValue === 0
 
         return (
           <div key={row.label}>
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">{row.label}</span>
-              <CopyableValue
-                formatted={formatUSD(row.value)}
-                rawValue={row.value}
-                className="font-medium text-foreground"
-              />
+              {showMissingNecIncome ? (
+                <span className="font-medium text-muted-foreground">
+                  {t('scheduleC.no1099NecIncome')}
+                </span>
+              ) : (
+                <CopyableValue
+                  formatted={formatUSD(row.value)}
+                  rawValue={row.value}
+                  className="font-medium text-foreground"
+                />
+              )}
             </div>
             {/* Show per-payer breakdown under gross receipts when >1 payer */}
             {row.isGross && necBreakdown.length > 1 && (

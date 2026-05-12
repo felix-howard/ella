@@ -4,7 +4,7 @@ import { cn } from '../lib/utils'
 import { X } from 'lucide-react'
 
 const modalOverlayVariants = cva(
-  'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200',
+  'fixed inset-0 z-50 flex items-center justify-center bg-black/40 transition-opacity duration-200',
   {
     variants: {
       open: {

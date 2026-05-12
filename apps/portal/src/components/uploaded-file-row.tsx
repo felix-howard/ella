@@ -104,6 +104,7 @@ export function UploadedFileRow({ file, onDelete, isDeleting }: UploadedFileRowP
             variant="destructive"
             onClick={handleConfirmDelete}
             disabled={isDeleting}
+            className="bg-error text-white shadow-sm hover:bg-error/90 focus-visible:ring-error/40"
           >
             {isDeleting && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {t('portal.uploadedFiles.deleteAction')}

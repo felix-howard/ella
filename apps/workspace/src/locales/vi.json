@@ -981,6 +981,7 @@
   "scheduleC.netLoss": "LỖ RÒNG",
   "scheduleC.netProfit": "LỢI NHUẬN RÒNG",
   "scheduleC.noExpensesYet": "Chưa có chi phí nào được khai báo",
+  "scheduleC.no1099NecIncome": "Chưa có 1099-NEC đã xác minh",
   "scheduleC.notes": "Ghi chú: {{notes}}",
   "scheduleC.partIIncome": "Phần I - Thu nhập",
   "scheduleC.partIIExpenses": "Phần II - Chi phí",

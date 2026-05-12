@@ -984,6 +984,7 @@
   "scheduleC.netLoss": "NET LOSS",
   "scheduleC.netProfit": "NET PROFIT",
   "scheduleC.noExpensesYet": "No expenses reported yet",
+  "scheduleC.no1099NecIncome": "No verified 1099-NEC yet",
   "scheduleC.notes": "Notes: {{notes}}",
   "scheduleC.partIIncome": "Part I - Income",
   "scheduleC.partIIExpenses": "Part II - Expenses",

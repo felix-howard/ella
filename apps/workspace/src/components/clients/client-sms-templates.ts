@@ -8,9 +8,9 @@ export type ClientSmsTemplate = {
   messages: Record<ClientSmsLanguage, string>
 }
 
-export const OFFICIAL_CHANNEL_SMS_TEMPLATE_EN = `Hi {{client_name}}, this is our official communication channel. Please use the secure link below to upload your documents: {{portal_link}}`
+export const OFFICIAL_CHANNEL_SMS_TEMPLATE_EN = `Hi {{client_name}}, this is Ella Tax Services LLC'S official communication channel. Please use the secure link below to upload your documents: {{portal_link}}`
 
-export const OFFICIAL_CHANNEL_SMS_TEMPLATE_VI = `Hi {{client_name}}, đây là kênh liên lạc chính thức của chúng tôi. Vui lòng sử dụng link bảo mật sau để tải lên các tài liệu của bạn: {{portal_link}}`
+export const OFFICIAL_CHANNEL_SMS_TEMPLATE_VI = `Hi {{client_name}}, đây là kênh liên lạc chính thức của Ella Tax Services LLC. Vui lòng sử dụng link bảo mật sau để tải lên các tài liệu của bạn: {{portal_link}}`
 
 export const DEFAULT_SMS_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi 1040 của khai thuế năm trước, copy of ID, social, thu nhập W2/1099, bảo hiểm 1095A và các tài liệu cần thiết qua link: {{portal_link}}`
 

@@ -79,6 +79,25 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     [groupImagesData?.entities]
   )
 
+  const groupDocCaseIds = useMemo(
+    () => entities.map((entity) => entity.caseId),
+    [entities]
+  )
+
+  // Unified mode renders images from every entity in the group, so it also
+  // needs DigitalDoc records from every entity case. Otherwise business files
+  // look like plain files and open the lightweight viewer instead of OCR review.
+  const { data: groupDocsData, isLoading: groupDocsLoading } = useQuery({
+    queryKey: ['group-docs', clientGroupId, taxYear, groupDocCaseIds],
+    queryFn: async () => {
+      const responses = await Promise.all(
+        groupDocCaseIds.map((entityCaseId) => api.cases.getDocs(entityCaseId))
+      )
+      return { docs: responses.flatMap((response) => response.docs) }
+    },
+    enabled: isUnifiedMode && groupDocCaseIds.length > 0,
+  })
+
   // Set default selected entity to the individual client (first load only)
   useEffect(() => {
     if (!hasSetDefaultEntity && entities.length > 0) {
@@ -190,12 +209,12 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   const { data: docsData } = useQuery({
     queryKey: ['docs', caseId],
     queryFn: () => api.cases.getDocs(caseId),
-    enabled: !parentDocs, // Skip fetch if parent provides data
+    enabled: !parentDocs && !isUnifiedMode, // Skip fetch if parent provides data or unified mode fetches group docs
   })
 
   // Use parent data if provided, otherwise use fetched data
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const docs = parentDocs ?? docsData?.docs ?? []
+  const docs = isUnifiedMode ? (groupDocsData?.docs ?? []) : (parentDocs ?? docsData?.docs ?? [])
 
   // Memoize images array - unified mode > parent data > fetched
   const allImages = useMemo(() => {
@@ -213,7 +232,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   }, [allImages, isUnifiedMode, selectedEntityId, entityMap])
 
   // Loading state - only show skeleton if parent says loading OR we're fetching without parent data
-  const showLoading = parentLoading || (!parentImages && !isUnifiedMode && imagesLoading) || (isUnifiedMode && groupImagesLoading)
+  const showLoading = parentLoading || (!parentImages && !isUnifiedMode && imagesLoading) || (isUnifiedMode && (groupImagesLoading || groupDocsLoading))
 
   // Group images by DB category field (not computed from docType)
   // "Chờ phân loại" only shows docs still being processed (UPLOADED/PROCESSING)
@@ -875,7 +894,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
           doc={verifyDoc}
           isOpen={isVerifyModalOpen}
           onClose={handleCloseVerifyModal}
-          caseId={caseId}
+          caseId={verifyDoc.caseId || caseId}
           onNavigatePrev={getCurrentNavIndex() > 0 ? handleNavigatePrev : undefined}
           onNavigateNext={getCurrentNavIndex() < navItems.length - 1 ? handleNavigateNext : undefined}
           currentIndex={getCurrentNavIndex()}

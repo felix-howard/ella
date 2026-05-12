@@ -13,12 +13,13 @@ import { PageContainer } from '../../components/layout'
 import {
   ReturningClientSection,
   ConfirmStep,
-  DEFAULT_SMS_TEMPLATE_VI,
-  DEFAULT_SMS_TEMPLATE_EN,
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
   ensurePortalLinkPlaceholder,
+  getClientSmsTemplate,
   BusinessAccordion,
   BasicInfoForm,
   EMPTY_BUSINESS_INFO,
+  type ClientSmsTemplateId,
   type BusinessInfoData,
   type BasicInfoData,
 } from '../../components/clients'
@@ -101,11 +102,22 @@ function CreateClientPage() {
   }
 
   // SMS templates (for individual paths with confirm step)
-  const [customMessages, setCustomMessages] = useState({ VI: DEFAULT_SMS_TEMPLATE_VI, EN: DEFAULT_SMS_TEMPLATE_EN })
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ClientSmsTemplateId>(DEFAULT_CLIENT_SMS_TEMPLATE_ID)
+  const [customMessages, setCustomMessages] = useState(() => ({
+    VI: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'VI'),
+    EN: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'EN'),
+  }))
   const currentMessage = customMessages[basicInfo.language]
   const handleMessageChange = useCallback((message: string) => {
     setCustomMessages(prev => ({ ...prev, [basicInfo.language]: message }))
   }, [basicInfo.language])
+  const handleTemplateSelect = useCallback((templateId: ClientSmsTemplateId) => {
+    setSelectedTemplateId(templateId)
+    setCustomMessages({
+      VI: getClientSmsTemplate(templateId, 'VI'),
+      EN: getClientSmsTemplate(templateId, 'EN'),
+    })
+  }, [])
 
   // Returning client check
   const checkExistingClient = useCallback(async (phone: string) => {
@@ -363,6 +375,8 @@ function CreateClientPage() {
               isSubmitting={isSubmitting}
               customMessage={currentMessage}
               onMessageChange={handleMessageChange}
+              selectedTemplateId={selectedTemplateId}
+              onTemplateSelect={handleTemplateSelect}
             />
             {submitError && (
               <div className="mt-4 p-4 bg-error-light rounded-lg text-error text-sm">{submitError}</div>

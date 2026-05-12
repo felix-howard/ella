@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-05-12
+
+### Workspace: Create Client Message Templates
+**Status:** Complete
+
+**Changed:**
+- Create Client confirm step now lets staff choose between multiple upload-link SMS templates.
+- Added official-channel template as default in English and Vietnamese.
+- Kept existing tax-document checklist template as selectable option.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+- `pnpm -F @ella/workspace build` pass with existing chunk-size warning
+
+---
+
 ## 2026-05-11
 
 ### Workspace: Schedule C Tab Lazy-Load Failure

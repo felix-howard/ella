@@ -13,6 +13,7 @@ import type { AuthVariables } from '../../middleware/auth'
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
 
 const updateOrgSettingsSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
@@ -47,6 +48,7 @@ orgSettingsRoute.get('/', async (c) => {
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
     select: {
+      name: true,
       smsLanguage: true,
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
@@ -68,6 +70,7 @@ orgSettingsRoute.get('/', async (c) => {
   }
 
   return c.json({
+    name: org.name,
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
@@ -117,6 +120,7 @@ orgSettingsRoute.patch(
         where: { id: user.organizationId },
         data,
         select: {
+          name: true,
           smsLanguage: true,
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
@@ -140,18 +144,23 @@ orgSettingsRoute.patch(
       throw error
     }
 
-    // Sync slug to Clerk if it changed
-    if (data.slug !== undefined && updated.clerkOrgId) {
+    // Sync display metadata to Clerk if it changed
+    if ((data.name !== undefined || data.slug !== undefined) && updated.clerkOrgId) {
       try {
+        const clerkUpdate: { name?: string; slug?: string } = {}
+        if (data.name !== undefined) clerkUpdate.name = data.name
+        if (data.slug !== undefined) clerkUpdate.slug = data.slug ?? undefined
+
         await clerkClient.organizations.updateOrganization(updated.clerkOrgId, {
-          slug: data.slug ?? undefined,
+          ...clerkUpdate,
         })
       } catch (err) {
-        console.error('[OrgSettings] Failed to sync slug to Clerk:', err)
+        console.error('[OrgSettings] Failed to sync organization metadata to Clerk:', err)
       }
     }
 
     return c.json({
+      name: updated.name,
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,

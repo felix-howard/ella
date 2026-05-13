@@ -6,11 +6,13 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
+import { config } from '../../lib/config'
 import { sanitizeTextInput } from '../../lib/validation'
 import { sanitizeFormIntroContent } from '../../lib/sanitize-html'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
 import type { AuthUser } from '../../services/auth'
+import { getSignedDownloadUrl, uploadFile } from '../../services/storage'
 import {
   createCampaignSchema,
   updateCampaignSchema,
@@ -18,6 +20,15 @@ import {
 } from './schemas'
 
 const campaignsRoute = new Hono<{ Variables: AuthVariables }>()
+const INTRO_IMAGE_PREFIX = 'campaign-intro-images'
+const INTRO_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+const INTRO_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const INTRO_IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
 
 /** Extract verified orgId and staffId from auth user */
 function getVerifiedAuth(user: AuthUser): { orgId: string; staffId: string } {
@@ -28,6 +39,32 @@ function getVerifiedAuth(user: AuthUser): { orgId: string; staffId: string } {
     throw new HTTPException(403, { message: 'Staff record required' })
   }
   return { orgId: user.organizationId, staffId: user.staffId }
+}
+
+function isUploadedFile(value: unknown): value is File {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as File).arrayBuffer === 'function' &&
+    typeof (value as File).type === 'string' &&
+    typeof (value as File).size === 'number'
+  )
+}
+
+function encodeAssetKey(key: string): string {
+  return Buffer.from(key, 'utf8').toString('base64url')
+}
+
+function decodeAssetKey(token: string): string | null {
+  try {
+    return Buffer.from(token, 'base64url').toString('utf8')
+  } catch {
+    return null
+  }
+}
+
+function getApiOrigin(requestUrl: string): string {
+  return process.env.API_PUBLIC_URL || new URL(requestUrl).origin
 }
 
 // ============================================
@@ -76,6 +113,66 @@ campaignsRoute.get(
     }))
 
     return c.json({ success: true, data })
+  }
+)
+
+// ============================================
+// Public Campaign Intro Image
+// ============================================
+campaignsRoute.get('/intro-images/:token', async (c) => {
+  const token = c.req.param('token')
+  const key = decodeAssetKey(token)
+
+  if (!key || !key.startsWith(`${INTRO_IMAGE_PREFIX}/`)) {
+    return c.json({ success: false, error: 'Image not found' }, 404)
+  }
+
+  const url = await getSignedDownloadUrl(key, 300)
+  if (!url) {
+    return c.json({ success: false, error: 'Image not found' }, 404)
+  }
+
+  return c.redirect(url, 302)
+})
+
+// ============================================
+// Upload Campaign Intro Image
+// ============================================
+campaignsRoute.post(
+  '/intro-images',
+  authMiddleware,
+  requireOrgAdmin,
+  async (c) => {
+    const { orgId } = getVerifiedAuth(c.get('user'))
+    const body = await c.req.parseBody()
+    const image = body.image
+
+    if (!isUploadedFile(image) || image.size === 0) {
+      return c.json({ success: false, error: 'Image file is required' }, 400)
+    }
+
+    if (!INTRO_IMAGE_TYPES.has(image.type)) {
+      return c.json({ success: false, error: 'Unsupported image type' }, 400)
+    }
+
+    if (image.size > Math.min(INTRO_IMAGE_MAX_BYTES, config.upload.maxFileSize)) {
+      return c.json({ success: false, error: 'Image file is too large' }, 413)
+    }
+
+    const extension = INTRO_IMAGE_EXTENSIONS[image.type] ?? 'jpg'
+    const random = Math.random().toString(36).slice(2, 10)
+    const key = `${INTRO_IMAGE_PREFIX}/${orgId}/${Date.now()}-${random}.${extension}`
+    const buffer = Buffer.from(await image.arrayBuffer())
+
+    const upload = await uploadFile(key, buffer, image.type)
+    if (!upload.url) {
+      return c.json({ success: false, error: 'Image storage is not configured' }, 503)
+    }
+
+    return c.json({
+      success: true,
+      url: `${getApiOrigin(c.req.url)}/campaigns/intro-images/${encodeAssetKey(key)}`,
+    })
   }
 )
 

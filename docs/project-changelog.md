@@ -1,7 +1,46 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-11 ICT
+> **Last Updated:** 2026-05-13 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-13
+
+### Workspace/API: Organization Name Setting
+**Status:** Complete
+
+**Changed:**
+- General Settings firm card now shows and edits the active organization name for org admins.
+- `PATCH /org-settings` now validates and saves organization name to the local Organization record.
+- Organization name changes now sync to Clerk Organization and refresh Clerk org cache in workspace.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
+### Workspace/API/Portal: Campaign Form Intro Landing Content
+**Status:** Complete
+
+**Changed:**
+- Campaign form intro rich text editor now supports image upload from the staff member's computer.
+- Uploaded intro images are stored in R2 and inserted as public campaign image URLs.
+- Public campaign registration intro content now defaults left-aligned instead of forced centered.
+- Portal intro images render responsively without cropping, supporting flyer-style or text-heavy images.
+- API sanitizer now allows safe images while blocking event handlers, `javascript:`, `data:`, relative, and protocol-relative image sources.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/lib/__tests__/sanitize-html.test.ts` pass (13 tests)
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace build` pass with existing chunk-size/browser-externalization warnings only
+- `pnpm -F @ella/portal build` pass with existing chunk-size warnings only
 
 ---
 

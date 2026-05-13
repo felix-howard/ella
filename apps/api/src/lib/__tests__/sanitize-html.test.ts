@@ -33,9 +33,15 @@ describe('sanitizeFormIntroContent', () => {
     expect(out).not.toContain('<script')
   })
 
-  it('removes <img> with onerror handler', () => {
-    const out = sanitizeFormIntroContent('<img src=x onerror=alert(1)>')
-    expect(out).not.toContain('<img')
+  it('preserves safe images and strips event handlers', () => {
+    const out = sanitizeFormIntroContent(
+      '<img src="https://example.com/hero.jpg" alt="Tax workshop" title="Hero" onerror="alert(1)">',
+    )
+    expect(out).toContain('<img')
+    expect(out).toContain('src="https://example.com/hero.jpg"')
+    expect(out).toContain('alt="Tax workshop"')
+    expect(out).toContain('title="Hero"')
+    expect(out).toContain('loading="lazy"')
     expect(out).not.toContain('onerror')
   })
 
@@ -48,6 +54,21 @@ describe('sanitizeFormIntroContent', () => {
     const out = sanitizeFormIntroContent('<a href="data:text/html,<script>alert(1)</script>">x</a>')
     expect(out).not.toContain('data:')
     expect(out).not.toContain('<script')
+  })
+
+  it('strips unsafe image URLs and removes empty images', () => {
+    const out = sanitizeFormIntroContent(
+      '<img src="javascript:alert(1)" alt="bad">' +
+        '<img src="data:image/png;base64,abc" alt="bad">' +
+        '<img src="relative.jpg" alt="bad">' +
+        '<img src="/relative.jpg" alt="bad">' +
+        '<img src="//example.com/protocol-relative.jpg" alt="bad">',
+    )
+    expect(out).not.toContain('<img')
+    expect(out).not.toContain('javascript:')
+    expect(out).not.toContain('data:image')
+    expect(out).not.toContain('relative.jpg')
+    expect(out).not.toContain('protocol-relative.jpg')
   })
 
   it('preserves https anchors and forces rel="noopener noreferrer" even with target=_blank', () => {
@@ -86,15 +107,13 @@ describe('sanitizeFormIntroContent', () => {
     expect(tel).toContain('href="tel:+1"')
   })
 
-  it('removes disallowed tags (table, img, iframe, style)', () => {
+  it('removes disallowed tags (table, iframe, style)', () => {
     const html =
       '<table><tr><td>x</td></tr></table>' +
-      '<img src="a.jpg">' +
       '<iframe src="https://evil.example"></iframe>' +
       '<style>body{display:none}</style>'
     const out = sanitizeFormIntroContent(html)
     expect(out).not.toContain('<table')
-    expect(out).not.toContain('<img')
     expect(out).not.toContain('<iframe')
     expect(out).not.toContain('<style')
     expect(out).not.toContain('display:none')

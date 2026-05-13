@@ -3100,6 +3100,7 @@ export interface StaffProfile {
 }
 
 export interface OrgSettings {
+  name: string
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean

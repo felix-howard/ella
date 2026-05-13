@@ -7,6 +7,22 @@
 
 ## 2026-05-13
 
+### Workspace/API: Organization Name Setting
+**Status:** Complete
+
+**Changed:**
+- General Settings firm card now shows and edits the active organization name for org admins.
+- `PATCH /org-settings` now validates and saves organization name to the local Organization record.
+- Organization name changes now sync to Clerk Organization and refresh Clerk org cache in workspace.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+---
+
 ### Workspace/API/Portal: Campaign Form Intro Landing Content
 **Status:** Complete
 

@@ -85,6 +85,16 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
     })
   }
 
+  const handleIntroImageUpload = async (file: File) => {
+    try {
+      const result = await api.campaigns.uploadIntroImage(file)
+      return { src: result.url, alt: file.name }
+    } catch (err) {
+      toast.error(t('leads.rte.imageUploadFailed'))
+      throw err
+    }
+  }
+
   const previewUrl = orgSlug && slug
     ? `${PORTAL_BASE_URL}/register/${orgSlug}/${slug}`
     : null
@@ -92,11 +102,8 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
   const isValid = name.trim().length > 0 && /^[a-z0-9-]+$/.test(slug) && slug.length > 0 && tag.trim().length > 0
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-card rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">{t('leads.createCampaign')}</h2>
@@ -199,6 +206,8 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
               onChange={setFormIntroContent}
               placeholder={t('leads.campaignFormIntroPlaceholder')}
               maxLength={10_000}
+              enableImages
+              onImageUpload={handleIntroImageUpload}
             />
           </div>
 

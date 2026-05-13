@@ -4,6 +4,7 @@
  * used to auto-fill NDA headers.
  */
 import { useState } from 'react'
+import { useOrganization } from '@clerk/clerk-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Building2, Edit2, Check } from 'lucide-react'
 import { Button, Input } from '@ella/ui'
@@ -25,6 +26,7 @@ const QUERY_KEY = ['org-settings']
 
 export function FirmInfoCard() {
   const { isAdmin } = useOrgRole()
+  const { organization } = useOrganization()
 
   const queryClient = useQueryClient()
   const invalidateReadiness = useInvalidateNdaReadiness()
@@ -36,6 +38,7 @@ export function FirmInfoCard() {
   })
 
   const [form, setForm] = useState({
+    name: '',
     address: '',
     city: '',
     state: '',
@@ -50,6 +53,7 @@ export function FirmInfoCard() {
   // Sync form from query data when entering edit mode
   const startEditing = () => {
     setForm({
+      name: data?.name ?? '',
       address: data?.address ?? '',
       city: data?.city ?? '',
       state: data?.state ?? '',
@@ -66,6 +70,7 @@ export function FirmInfoCard() {
   const mutation = useMutation({
     mutationFn: () =>
       api.orgSettings.update({
+        name: form.name.trim(),
         address: form.address.trim() || null,
         city: form.city.trim() || null,
         state: form.state || null,
@@ -78,6 +83,7 @@ export function FirmInfoCard() {
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(QUERY_KEY, updated)
+      organization?.reload().catch(() => undefined)
       invalidateReadiness()
       toast.success('Firm info updated')
       setIsEditing(false)
@@ -92,6 +98,14 @@ export function FirmInfoCard() {
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const save = () => {
+    if (!form.name.trim()) {
+      toast.error('Organization name is required')
+      return
+    }
+    mutation.mutate()
+  }
 
   return (
     <div data-settings-focus="firm-info" className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -121,6 +135,11 @@ export function FirmInfoCard() {
         ) : isEditing ? (
           <>
             {/* Address */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Organization Name</label>
+              <Input value={form.name} onChange={set('name')} maxLength={100} placeholder="Ella Team" />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Street Address</label>
               <Input value={form.address} onChange={set('address')} maxLength={200} placeholder="10700 Richmond Ave Ste 117" />
@@ -179,7 +198,7 @@ export function FirmInfoCard() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+              <Button onClick={save} disabled={mutation.isPending || !form.name.trim()}>
                 {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                 Save
               </Button>
@@ -191,6 +210,12 @@ export function FirmInfoCard() {
         ) : (
           /* Read-only view */
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground">Organization Name</dt>
+              <dd className="text-foreground mt-0.5">
+                {data?.name || <span className="text-muted-foreground">Not set</span>}
+              </dd>
+            </div>
             <div>
               <dt className="text-muted-foreground">Address</dt>
               <dd className="text-foreground mt-0.5">

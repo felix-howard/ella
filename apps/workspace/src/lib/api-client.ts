@@ -1503,6 +1503,16 @@ export const api = {
     update: (id: string, data: { name?: string; description?: string | null; status?: 'ACTIVE' | 'ARCHIVED'; formIntroContent?: string | null }) =>
       request<{ success: boolean; data: Campaign }>(`/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+    uploadIntroImage: (file: File) => {
+      const formData = new FormData()
+      formData.append('image', file)
+      return request<{ success: boolean; url: string }>('/campaigns/intro-images', {
+        method: 'POST',
+        body: formData,
+        retries: 0,
+      })
+    },
+
     delete: (id: string) =>
       request<{ success: boolean }>(`/campaigns/${id}`, { method: 'DELETE' }),
   },

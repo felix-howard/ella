@@ -51,10 +51,12 @@ function RegisterPage() {
       <FormHeader orgName={org!.name} showDescription={false} />
 
       {formIntroContent && (
-        <div
-          className="form-intro-content px-6 pt-4 text-center text-foreground"
-          dangerouslySetInnerHTML={{ __html: formIntroContent }}
-        />
+        <section className="px-4 pt-4">
+          <div
+            className="form-intro-content mx-auto max-w-5xl text-left text-foreground"
+            dangerouslySetInnerHTML={{ __html: formIntroContent }}
+          />
+        </section>
       )}
 
       {/* Registration subtitle */}

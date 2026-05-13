@@ -43,6 +43,16 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
     })
   }
 
+  const handleIntroImageUpload = async (file: File) => {
+    try {
+      const result = await api.campaigns.uploadIntroImage(file)
+      return { src: result.url, alt: file.name }
+    } catch (err) {
+      toast.error(t('leads.rte.imageUploadFailed'))
+      throw err
+    }
+  }
+
   const isValid = name.trim().length > 0
 
   return (
@@ -131,6 +141,8 @@ export function EditCampaignDialog({ campaign, onClose }: EditCampaignDialogProp
               onChange={setFormIntroContent}
               placeholder={t('leads.campaignFormIntroPlaceholder')}
               maxLength={10_000}
+              enableImages
+              onImageUpload={handleIntroImageUpload}
             />
           </div>
 

@@ -85,6 +85,16 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
     })
   }
 
+  const handleIntroImageUpload = async (file: File) => {
+    try {
+      const result = await api.campaigns.uploadIntroImage(file)
+      return { src: result.url, alt: file.name }
+    } catch (err) {
+      toast.error(t('leads.rte.imageUploadFailed'))
+      throw err
+    }
+  }
+
   const previewUrl = orgSlug && slug
     ? `${PORTAL_BASE_URL}/register/${orgSlug}/${slug}`
     : null
@@ -199,6 +209,8 @@ export function CreateCampaignDialog({ orgSlug, onClose }: CreateCampaignDialogP
               onChange={setFormIntroContent}
               placeholder={t('leads.campaignFormIntroPlaceholder')}
               maxLength={10_000}
+              enableImages
+              onImageUpload={handleIntroImageUpload}
             />
           </div>
 

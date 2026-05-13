@@ -1,13 +1,14 @@
 /**
  * Rich Text Editor - Controlled Tiptap editor for campaign form intro content.
- * Toolbar: bold, italic, H2, H3, bullet list, ordered list, link.
+ * Toolbar: bold, italic, H2, H3, bullet list, ordered list, link, optional image.
  * Controlled via value/onChange; enforces maxLength guard on text length.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 import { useTranslation } from 'react-i18next'
 import {
   Bold,
@@ -17,6 +18,7 @@ import {
   List,
   ListOrdered,
   Link as LinkIcon,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { cn } from '@ella/ui'
 
@@ -30,6 +32,8 @@ interface RichTextEditorProps {
   placeholder?: string
   maxLength?: number
   className?: string
+  enableImages?: boolean
+  onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>
 }
 
 export function RichTextEditor({
@@ -38,6 +42,8 @@ export function RichTextEditor({
   placeholder,
   maxLength = DEFAULT_MAX_LENGTH,
   className,
+  enableImages = false,
+  onImageUpload,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -52,15 +58,25 @@ export function RichTextEditor({
           class: 'text-primary underline cursor-pointer',
         },
       }),
+      ...(enableImages
+        ? [
+            Image.configure({
+              allowBase64: false,
+              HTMLAttributes: {
+                class: 'rounded-lg border border-border max-w-full',
+              },
+            }),
+          ]
+        : []),
     ],
     content: value ?? '',
     onUpdate: ({ editor }) => {
+      const html = editor.getHTML()
       // Guard: revert if text length exceeds max. Paste and typing both hit this.
-      if (editor.getText().length > maxLength) {
+      if (editor.getText().length > maxLength || html.length > maxLength) {
         editor.commands.setContent(value ?? '', { emitUpdate: false })
         return
       }
-      const html = editor.getHTML()
       // Tiptap emits "<p></p>" for empty docs; normalize to empty string.
       onChange(html === '<p></p>' ? '' : html)
     },
@@ -85,17 +101,27 @@ export function RichTextEditor({
         className
       )}
     >
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} enableImages={enableImages} onImageUpload={onImageUpload} />
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-3 py-2 min-h-[140px] text-foreground [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[120px]"
+        className="prose prose-sm max-w-none px-3 py-2 min-h-[140px] text-foreground [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror_img]:my-3 [&_.ProseMirror_img]:h-auto [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:rounded-lg"
       />
     </div>
   )
 }
 
-function Toolbar({ editor }: { editor: Editor | null }) {
+function Toolbar({
+  editor,
+  enableImages,
+  onImageUpload,
+}: {
+  editor: Editor | null
+  enableImages: boolean
+  onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>
+}) {
   const { t } = useTranslation()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   if (!editor) return null
 
   const setLink = () => {
@@ -118,8 +144,30 @@ function Toolbar({ editor }: { editor: Editor | null }) {
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
+  const insertImage = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !onImageUpload) return
+
+    setIsUploadingImage(true)
+    try {
+      const uploaded = await onImageUpload(file)
+      editor
+        .chain()
+        .focus()
+        .setImage({ src: uploaded.src, alt: uploaded.alt ?? file.name, title: uploaded.alt ?? file.name })
+        .run()
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/30 rounded-t-lg">
+    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/30 rounded-t-lg">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive('bold')}
@@ -172,6 +220,25 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       >
         <LinkIcon className="w-4 h-4" />
       </ToolbarButton>
+      {enableImages && (
+        <>
+          <ToolbarButton
+            onClick={insertImage}
+            isActive={editor.isActive('image')}
+            title={isUploadingImage ? t('common.loading') : t('leads.rte.image')}
+            disabled={isUploadingImage || !onImageUpload}
+          >
+            <ImageIcon className="w-4 h-4" />
+          </ToolbarButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleImageFileChange}
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -180,11 +247,13 @@ function ToolbarButton({
   onClick,
   isActive,
   title,
+  disabled,
   children,
 }: {
   onClick: () => void
   isActive?: boolean
   title: string
+  disabled?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -194,8 +263,9 @@ function ToolbarButton({
       title={title}
       aria-label={title}
       aria-pressed={isActive}
+      disabled={disabled}
       className={cn(
-        'p-1.5 rounded-md hover:bg-muted transition-colors',
+        'p-1.5 rounded-md hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         isActive && 'bg-muted text-foreground'
       )}
     >

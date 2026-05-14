@@ -1,7 +1,33 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-13 ICT
+> **Last Updated:** 2026-05-14 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-14
+
+### Workspace/API: Upload Link Message Template Selection
+**Status:** Complete
+**Plan:** `plans/260514-2141-upload-link-message-template-selection/plan.md`
+
+**Changed:**
+- Manual Send Upload Link and Convert Lead flows now reuse the same upload-link SMS template cards as Create Client.
+- Org Form Links settings now persists a default upload-link template for generic form auto-send.
+- Staff personal form settings now persists a separate default upload-link template for staff-routed form auto-send.
+- Staff personal form settings can inherit the org default template or override it.
+- Public form auto-send resolves staff default template first, then org default, then built-in fallback.
+- Added Organization and Staff `defaultUploadLinkTemplateId` fields plus DB value checks with Prisma migrations.
+
+**Validation:**
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace build` pass with existing browser-externalization/chunk-size warnings only
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/services/sms/__tests__/message-sender-template.test.ts src/routes/clients/__tests__/send-upload-link.test.ts` pass (12 tests)
+- `pnpm -F @ella/workspace test` pass (23 tests)
 
 ---
 

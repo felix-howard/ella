@@ -1106,6 +1106,8 @@
   "settings.genericFormNote": "Khách hàng từ link này sẽ không được gán cho nhân viên cụ thể.",
   "settings.autoSendUploadLink": "Tự động gửi link upload",
   "settings.autoSendUploadLinkDescription": "Tự động gửi SMS link upload tài liệu khi khách hàng đăng ký qua form",
+  "settings.useOrgDefaultTemplate": "Dùng mặc định của công ty",
+  "settings.useOrgDefaultTemplateDescription": "Dùng mẫu được chọn trong cài đặt Form Links.",
   "settings.linkCopied": "Đã sao chép link",
   "settings.copyFailed": "Không thể sao chép link",
   "settings.copy": "Sao chép",

@@ -10,6 +10,9 @@ import { Card, cn } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
+import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
+import { resolveClientSmsTemplateId } from '../clients/client-sms-templates'
+import type { ClientSmsTemplateId } from '../clients/client-sms-templates'
 
 export function ClientFormLinkCard() {
   const { t } = useTranslation()
@@ -33,8 +36,21 @@ export function ClientFormLinkCard() {
     },
   })
 
+  const templateMutation = useMutation({
+    mutationFn: (templateId: ClientSmsTemplateId) =>
+      api.orgSettings.update({ defaultUploadLinkTemplateId: templateId }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['org-settings'], result)
+      toast.success(t('settings.saved'))
+    },
+    onError: () => {
+      toast.error(t('settings.saveFailed'))
+    },
+  })
+
   const formLink = data?.slug ? `${PORTAL_BASE_URL}/form/${data.slug}` : null
   const isAutoSendEnabled = data?.autoSendFormClientUploadLink ?? false
+  const selectedTemplateId = resolveClientSmsTemplateId(data?.defaultUploadLinkTemplateId)
 
   const handleCopy = async () => {
     if (!formLink) return
@@ -134,6 +150,17 @@ export function ClientFormLinkCard() {
               )}
             />
           </button>
+        </div>
+
+        <div className="mt-4">
+          <ClientSmsTemplateSelector
+            language={data?.smsLanguage ?? 'VI'}
+            selectedTemplateId={selectedTemplateId}
+            onSelect={(templateId) => templateMutation.mutate(templateId)}
+            disabled={templateMutation.isPending || toggleMutation.isPending}
+            name="orgDefaultUploadLinkTemplate"
+            className="mb-0"
+          />
         </div>
       </div>
     </Card>

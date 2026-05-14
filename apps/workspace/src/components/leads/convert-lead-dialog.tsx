@@ -11,7 +11,12 @@ import { cn } from '@ella/ui'
 import { api, ApiError } from '../../lib/api-client'
 import { formatPhone } from '../../lib/formatters'
 import { toast } from '../../stores/toast-store'
-import { DEFAULT_SMS_TEMPLATE_VI, DEFAULT_SMS_TEMPLATE_EN } from '../clients/client-sms-templates'
+import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
+import {
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  getClientSmsTemplate,
+  type ClientSmsTemplateId,
+} from '../clients/client-sms-templates'
 import type { Lead } from '../../lib/api-client'
 
 interface ConvertLeadDialogProps {
@@ -21,11 +26,6 @@ interface ConvertLeadDialogProps {
 
 const currentYear = new Date().getFullYear()
 const TAX_YEARS = [currentYear - 1, currentYear - 2, currentYear - 3]
-
-const SMS_TEMPLATES: Record<'EN' | 'VI', string> = {
-  EN: DEFAULT_SMS_TEMPLATE_EN,
-  VI: DEFAULT_SMS_TEMPLATE_VI,
-}
 
 export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
   const { t } = useTranslation()
@@ -43,7 +43,12 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
 
   // SMS customization - default to Vietnamese
   const [smsLanguage, setSmsLanguage] = useState<'EN' | 'VI'>('VI')
-  const [customMessage, setCustomMessage] = useState(SMS_TEMPLATES['VI'])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ClientSmsTemplateId>(DEFAULT_CLIENT_SMS_TEMPLATE_ID)
+  const [customMessages, setCustomMessages] = useState({
+    VI: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'VI'),
+    EN: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'EN'),
+  })
+  const customMessage = customMessages[smsLanguage]
 
   // Check for duplicate phone
   const { data: convertCheck } = useQuery({
@@ -96,12 +101,19 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
   const staffMembers = teamData?.data?.filter((m) => m.isActive) ?? []
 
   const handleSmsLanguageChange = (lang: 'EN' | 'VI') => {
-    // Only overwrite if message matches current template (not customized)
-    const isDefault = customMessage === SMS_TEMPLATES[smsLanguage]
     setSmsLanguage(lang)
-    if (isDefault) {
-      setCustomMessage(SMS_TEMPLATES[lang])
-    }
+  }
+
+  const handleTemplateSelect = (templateId: ClientSmsTemplateId) => {
+    setSelectedTemplateId(templateId)
+    setCustomMessages({
+      VI: getClientSmsTemplate(templateId, 'VI'),
+      EN: getClientSmsTemplate(templateId, 'EN'),
+    })
+  }
+
+  const handleMessageChange = (value: string) => {
+    setCustomMessages((prev) => ({ ...prev, [smsLanguage]: value }))
   }
 
   const clientName = `${editedFirstName} ${editedLastName}`
@@ -213,7 +225,10 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
               onChange={(e) => {
                 setSendWelcomeSms(e.target.checked)
                 if (e.target.checked && !customMessage) {
-                  setCustomMessage(SMS_TEMPLATES[smsLanguage])
+                  setCustomMessages((prev) => ({
+                    ...prev,
+                    [smsLanguage]: getClientSmsTemplate(selectedTemplateId, smsLanguage),
+                  }))
                 }
               }}
               className="peer sr-only"
@@ -264,9 +279,16 @@ export function ConvertLeadDialog({ lead, onClose }: ConvertLeadDialogProps) {
                 </div>
               </div>
 
+              <ClientSmsTemplateSelector
+                language={smsLanguage}
+                selectedTemplateId={selectedTemplateId}
+                onSelect={handleTemplateSelect}
+                name="convertLeadUploadLinkTemplate"
+              />
+
               <textarea
                 value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
+                onChange={(e) => handleMessageChange(e.target.value)}
                 rows={4}
                 className={cn(
                   'w-full px-3 py-2.5 rounded-lg border bg-card text-sm text-foreground',

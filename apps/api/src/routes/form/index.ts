@@ -10,6 +10,7 @@ import { prisma } from '../../lib/db'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
 import { createMagicLink } from '../../services/magic-link'
 import { sendWelcomeMessage, isSmsEnabled } from '../../services/sms'
+import { resolveUploadLinkTemplateMessage } from '../../services/sms/upload-link-template-resolver'
 import { encryptSSN } from '../../services/crypto'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import {
@@ -146,25 +147,31 @@ formRoute.post(
     // 1. Find org
     const org = await prisma.organization.findFirst({
       where: { slug: orgSlug, isActive: true },
-      select: { id: true, autoSendFormClientUploadLink: true },
+      select: { id: true, autoSendFormClientUploadLink: true, defaultUploadLinkTemplateId: true },
     })
     if (!org) return c.json({ error: 'Organization not found' }, 404)
 
     // 2. Find staff if staffSlug provided
     let staffId: string | null = null
     let staffAutoSend: boolean | null = null
+    let staffDefaultUploadLinkTemplateId: string | null = null
     if (input.staffSlug) {
       const staff = await prisma.staff.findFirst({
         where: { organizationId: org.id, formSlug: input.staffSlug, isActive: true },
-        select: { id: true, autoSendUploadLink: true },
+        select: { id: true, autoSendUploadLink: true, defaultUploadLinkTemplateId: true },
       })
       if (!staff) return c.json({ error: 'Staff member not found' }, 404)
       staffId = staff.id
       staffAutoSend = staff.autoSendUploadLink
+      staffDefaultUploadLinkTemplateId = staff.defaultUploadLinkTemplateId
     }
 
     const source: ClientSource = staffId ? 'STAFF_FORM' : 'GENERIC_FORM'
     const shouldAutoSend = staffAutoSend !== null ? staffAutoSend : org.autoSendFormClientUploadLink
+    const defaultUploadLinkTemplateId = staffDefaultUploadLinkTemplateId ?? org.defaultUploadLinkTemplateId
+    const defaultUploadLinkTemplateMessage = defaultUploadLinkTemplateId
+      ? resolveUploadLinkTemplateMessage(defaultUploadLinkTemplateId, input.language as 'VI' | 'EN')
+      : undefined
 
     // Normalize: prefer the new `businesses[]` array, fall back to legacy flat fields.
     const businesses: BusinessInput[] = normalizeBusinesses(input)
@@ -203,7 +210,17 @@ formRoute.post(
           return { client, taxCase }
         })
 
-        const smsSent = await trySendWelcomeSms(shouldAutoSend, result.taxCase.id, fullName, input.phone!, input.taxYear, input.language, staffId)
+        const smsSent = await trySendWelcomeSms(
+          shouldAutoSend,
+          result.taxCase.id,
+          fullName,
+          input.phone!,
+          input.taxYear,
+          input.language,
+          staffId,
+          undefined,
+          defaultUploadLinkTemplateMessage
+        )
         return c.json({ success: true, clientId: result.client.id, smsSent })
       }
 
@@ -285,7 +302,17 @@ formRoute.post(
         return { individual, indCase, group }
       })
 
-      const smsSent = await trySendWelcomeSms(shouldAutoSend, result.indCase.id, fullName, input.phone!, input.taxYear, input.language, staffId, result.group.id)
+      const smsSent = await trySendWelcomeSms(
+        shouldAutoSend,
+        result.indCase.id,
+        fullName,
+        input.phone!,
+        input.taxYear,
+        input.language,
+        staffId,
+        result.group.id,
+        defaultUploadLinkTemplateMessage
+      )
       return c.json({ success: true, clientId: result.individual.id, smsSent })
 
     }
@@ -334,6 +361,7 @@ async function trySendWelcomeSms(
   shouldAutoSend: boolean, caseId: string, clientName: string,
   phone: string, taxYear: number, language: string, staffId: string | null,
   clientGroupId?: string,
+  customMessage?: string,
 ): Promise<boolean> {
   if (!shouldAutoSend || !isSmsEnabled()) return false
   try {
@@ -342,7 +370,7 @@ async function trySendWelcomeSms(
       : await createMagicLink(caseId, { clientName })
     const result = await sendWelcomeMessage(
       caseId, clientName, phone, magicLink, taxYear,
-      language as 'VI' | 'EN', undefined, staffId,
+      language as 'VI' | 'EN', customMessage, staffId,
     )
     return result.smsSent
   } catch (error) {

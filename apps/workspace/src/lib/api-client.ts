@@ -1109,7 +1109,18 @@ export const api = {
   // Staff
   staff: {
     me: () =>
-      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null; avatarUrl: string | null }>('/staff/me'),
+      request<{
+        id: string
+        name: string
+        email: string
+        role: string
+        language: Language
+        orgRole: string | null
+        avatarUrl: string | null
+        formSlug: string | null
+        autoSendUploadLink: boolean
+        defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+      }>('/staff/me'),
 
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
@@ -1123,10 +1134,19 @@ export const api = {
         body: JSON.stringify({ formSlug }),
       }),
 
-    updateAutoSendUploadLink: (autoSendUploadLink: boolean) =>
-      request<{ id: string; autoSendUploadLink: boolean }>('/staff/me/auto-send-upload-link', {
+    updateAutoSendUploadLink: (
+      data: boolean | {
+        autoSendUploadLink?: boolean
+        defaultUploadLinkTemplateId?: UploadLinkTemplateId | null
+      }
+    ) =>
+      request<{
+        id: string
+        autoSendUploadLink: boolean
+        defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+      }>('/staff/me/auto-send-upload-link', {
         method: 'PATCH',
-        body: JSON.stringify({ autoSendUploadLink }),
+        body: JSON.stringify(typeof data === 'boolean' ? { autoSendUploadLink: data } : data),
       }),
 
     getSignature: () =>
@@ -3057,6 +3077,8 @@ export interface ScheduleEResendResponse {
   messageSent: boolean
 }
 
+export type UploadLinkTemplateId = 'official-channel' | 'tax-documents'
+
 // Team types
 /** Organization role values from Clerk */
 export type OrgRole = 'org:admin' | 'org:member'
@@ -3097,6 +3119,7 @@ export interface StaffProfile {
   notifyOnChat: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
 }
 
 export interface OrgSettings {
@@ -3104,6 +3127,7 @@ export interface OrgSettings {
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
   slug: string | null
   address: string | null
   city: string | null

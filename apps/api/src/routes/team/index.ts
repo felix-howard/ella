@@ -389,6 +389,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       notifyOnChat: true,
       formSlug: true,
       autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: true,
       isActive: true,
       deactivatedAt: true,
       _count: { select: { managedClients: true } },

@@ -44,6 +44,12 @@ export function getClientSmsTemplate(templateId: ClientSmsTemplateId, language: 
     ?? CLIENT_SMS_TEMPLATES[0].messages[language]
 }
 
+export function resolveClientSmsTemplateId(value: string | null | undefined): ClientSmsTemplateId {
+  return value === 'official-channel' || value === 'tax-documents'
+    ? value
+    : DEFAULT_CLIENT_SMS_TEMPLATE_ID
+}
+
 export function hasPortalLinkPlaceholder(message: string): boolean {
   return PORTAL_LINK_PLACEHOLDER.test(message)
 }

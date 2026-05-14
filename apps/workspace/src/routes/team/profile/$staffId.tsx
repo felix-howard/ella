@@ -113,6 +113,7 @@ function ProfilePage() {
   const canChangeRole = isCurrentUserAdmin && staffId !== currentUserStaffId && staff.isActive
   // Show archive/unarchive only if: admin, viewing other member
   const canArchive = isCurrentUserAdmin && staffId !== currentUserStaffId
+  const isOwnProfile = staff.id === currentUserStaffId || staffId === 'me'
   const isArchived = !staff.isActive
 
   return (
@@ -221,7 +222,10 @@ function ProfilePage() {
           formSlug={staff.formSlug}
           orgSlug={orgSettings?.slug || null}
           canEdit={canEdit}
+          canEditAutoSend={isOwnProfile}
           autoSendUploadLink={staff.autoSendUploadLink ?? false}
+          defaultUploadLinkTemplateId={staff.defaultUploadLinkTemplateId}
+          templateLanguage={orgSettings?.smsLanguage ?? 'VI'}
         />
       </div>
 

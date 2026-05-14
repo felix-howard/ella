@@ -81,7 +81,10 @@ export function SettingsProfileTab() {
         formSlug={staff.formSlug}
         orgSlug={orgSettings?.slug || null}
         canEdit={canEdit}
+        canEditAutoSend={canEdit}
         autoSendUploadLink={staff.autoSendUploadLink ?? false}
+        defaultUploadLinkTemplateId={staff.defaultUploadLinkTemplateId}
+        templateLanguage={orgSettings?.smsLanguage ?? 'VI'}
       />
     </div>
   )

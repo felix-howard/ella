@@ -439,6 +439,7 @@ model Staff {
   notifyOnUpload     Boolean @default(true) // Enable/disable SMS on client uploads
   notifyOnChat       Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
   autoSendUploadLink Boolean @default(false) // Per-staff auto-send upload link on personal form
+  defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
 
   // Audit fields
   deactivatedAt DateTime?
@@ -544,6 +545,7 @@ model Organization {
   smsLanguage                  Language @default(VI)
   missedCallTextBack           Boolean  @default(false)
   autoSendFormClientUploadLink Boolean  @default(false)
+  defaultUploadLinkTemplateId  String? // Default SMS template for generic form auto-send
 
   // Firm address + governing law (for NDA header)
   address         String? // Street address

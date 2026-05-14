@@ -1109,6 +1109,8 @@
   "settings.genericFormNote": "Clients from this link won't be assigned to a specific team member.",
   "settings.autoSendUploadLink": "Auto-send Upload Link",
   "settings.autoSendUploadLinkDescription": "Automatically send SMS with document upload link when clients register via form",
+  "settings.useOrgDefaultTemplate": "Use org default",
+  "settings.useOrgDefaultTemplateDescription": "Inherit the template selected in Form Links settings.",
   "settings.linkCopied": "Link copied to clipboard",
   "settings.copyFailed": "Failed to copy link",
   "settings.copy": "Copy",

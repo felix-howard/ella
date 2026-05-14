@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { resolveAvatarUrl } from '../../services/storage'
+import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
 import { signatureRoute } from './signature'
 import { ndaReadinessRoute } from './nda-readiness'
@@ -27,6 +28,11 @@ const updateFormSlugSchema = z.object({
     .nullable(),
 })
 
+const updateAutoSendUploadLinkSchema = z.object({
+  autoSendUploadLink: z.boolean().optional(),
+  defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
+})
+
 // GET /staff/me - Get current staff profile (including language and orgRole)
 staffRoute.get('/me', async (c) => {
   const user = c.get('user')
@@ -36,7 +42,17 @@ staffRoute.get('/me', async (c) => {
 
   const staff = await prisma.staff.findUnique({
     where: { id: user.staffId },
-    select: { id: true, name: true, email: true, role: true, language: true, avatarUrl: true, formSlug: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      language: true,
+      avatarUrl: true,
+      formSlug: true,
+      autoSendUploadLink: true,
+      defaultUploadLinkTemplateId: true,
+    },
   })
 
   if (!staff) {
@@ -148,19 +164,22 @@ staffRoute.patch(
 // PATCH /staff/me/auto-send-upload-link - Toggle auto-send upload link
 staffRoute.patch(
   '/me/auto-send-upload-link',
-  zValidator('json', z.object({ autoSendUploadLink: z.boolean() })),
+  zValidator('json', updateAutoSendUploadLinkSchema),
   async (c) => {
     const user = c.get('user')
     if (!user?.staffId) {
       return c.json({ error: 'Staff record not found' }, 404)
     }
 
-    const { autoSendUploadLink } = c.req.valid('json')
+    const { autoSendUploadLink, defaultUploadLinkTemplateId } = c.req.valid('json')
 
     const updated = await prisma.staff.update({
       where: { id: user.staffId },
-      data: { autoSendUploadLink },
-      select: { id: true, autoSendUploadLink: true },
+      data: {
+        ...(autoSendUploadLink !== undefined && { autoSendUploadLink }),
+        ...(defaultUploadLinkTemplateId !== undefined && { defaultUploadLinkTemplateId }),
+      },
+      select: { id: true, autoSendUploadLink: true, defaultUploadLinkTemplateId: true },
     })
 
     return c.json(updated)

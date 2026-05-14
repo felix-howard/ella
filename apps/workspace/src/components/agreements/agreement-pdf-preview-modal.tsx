@@ -1,17 +1,19 @@
 /**
  * PDF preview modal stacked above the editor. POSTs editor HTML to the entity's
- * preview-pdf endpoint, renders the response blob in an iframe. cancelRef gates
- * onSuccess against stale fetches; handleClose revokes the blob URL synchronously;
- * Esc uses capture-phase + stopImmediatePropagation so it doesn't dismiss the
- * editor too.
+ * preview-pdf endpoint, renders desktop through native PDF iframe and mobile
+ * through react-pdf to avoid mobile iframe scroll bugs. cancelRef gates onSuccess
+ * against stale fetches; handleClose revokes the blob URL synchronously.
  */
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2, X, Download, RotateCw, Send } from 'lucide-react'
 import { useAgreementPreview } from './use-agreement-mutations'
+import { useIsMobile } from '../../hooks'
 import type { EntityRef } from './types'
 import type { AgreementType } from '../../lib/api-client'
+
+const PdfViewer = lazy(() => import('../ui/pdf-viewer'))
 
 interface Props {
   open: boolean
@@ -29,13 +31,20 @@ interface Props {
   isSending?: boolean
 }
 
-const BTN_CLS = 'px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors flex items-center gap-2'
+const BTN_CLS = 'min-h-11 px-3 py-1.5 text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors inline-flex items-center justify-center gap-2'
+
+function isIOSDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window)
+}
 
 export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onClose, onSend, isSending }: Props) {
   const { t } = useTranslation()
   const mutation = useAgreementPreview(entity)
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const cancelRef = useRef(false)
+  const isMobile = useIsMobile()
+  const useMobilePdfViewer = isMobile || isIOSDevice()
 
   const typeLabel = t(`agreements.type.${type ?? 'NDA'}`)
   const headerTitle = t('agreements.preview.title', { type: typeLabel })
@@ -87,17 +96,17 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
         role="dialog"
         aria-modal="true"
         aria-labelledby="nda-preview-title"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10011] w-full max-w-5xl h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+        className="fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-[10011] flex w-full flex-col rounded-t-xl border border-border bg-card shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:h-[90vh] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h3 id="nda-preview-title" className="text-lg font-semibold text-foreground">
+        <div className="flex min-h-[64px] items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-6 md:py-4">
+          <h3 id="nda-preview-title" className="min-w-0 truncate text-base font-semibold text-foreground md:text-lg">
             {headerTitle}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {blobUrl && (
-              <a href={blobUrl} download="agreement-preview.pdf" className={BTN_CLS}>
+              <a href={blobUrl} download="agreement-preview.pdf" className={BTN_CLS} aria-label={t('nda.preview.download')} title={t('nda.preview.download')}>
                 <Download className="w-4 h-4" />
-                {t('nda.preview.download')}
+                <span className="hidden sm:inline">{t('nda.preview.download')}</span>
               </a>
             )}
             {onSend && (
@@ -105,13 +114,15 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
                 type="button"
                 onClick={onSend}
                 disabled={!canSend}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+                aria-label={t('nda.send.confirmCta')}
+                title={t('nda.send.confirmCta')}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {t('nda.send.confirmCta')}
+                <span className="hidden sm:inline">{t('nda.send.confirmCta')}</span>
               </button>
             )}
-            <button type="button" onClick={handleClose} disabled={mutation.isPending || isSending} aria-label={t('common.close')} className="p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50">
+            <button type="button" onClick={handleClose} disabled={mutation.isPending || isSending} aria-label={t('common.close')} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted transition-colors disabled:opacity-50">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -131,7 +142,29 @@ export function NdaPdfPreviewModal({ open, entity, contentHtml, type, title, onC
               </button>
             </div>
           )}
-          {blobUrl && !mutation.isPending && (
+          {blobUrl && !mutation.isPending && useMobilePdfViewer && (
+            <div className="h-full overflow-auto overscroll-contain bg-muted p-3">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                }
+              >
+                <PdfViewer
+                  fileUrl={blobUrl}
+                  scale={1}
+                  rotation={0}
+                  currentPage={1}
+                  onLoadSuccess={() => undefined}
+                  onLoadError={() => undefined}
+                  fitToWidth
+                  renderAllPages
+                />
+              </Suspense>
+            </div>
+          )}
+          {blobUrl && !mutation.isPending && !useMobilePdfViewer && (
             <iframe src={blobUrl} title={headerTitle} className="w-full h-full border-0" />
           )}
         </div>

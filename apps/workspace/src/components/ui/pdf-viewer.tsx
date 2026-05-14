@@ -29,6 +29,8 @@ export interface PdfViewerProps {
   fitToWidth?: boolean
   /** Callback with calculated fit scale */
   onFitScaleCalculated?: (scale: number) => void
+  /** Render every page in a vertical document flow instead of one page */
+  renderAllPages?: boolean
 }
 
 export default function PdfViewer({
@@ -40,11 +42,13 @@ export default function PdfViewer({
   onLoadError,
   fitToWidth = false,
   onFitScaleCalculated,
+  renderAllPages = false,
 }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const containerWidthRef = useRef<number>(0)
   const [fitScale, setFitScale] = useState<number>(1)
   const [isCalculatingFit, setIsCalculatingFit] = useState(fitToWidth)
+  const [loadedNumPages, setLoadedNumPages] = useState<number | null>(null)
   const hasCalculatedFit = useRef(false)
 
   // Track container width via ref (avoids race condition)
@@ -85,6 +89,7 @@ export default function PdfViewer({
 
   const handleLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
+      setLoadedNumPages(numPages)
       onLoadSuccess(numPages)
     },
     [onLoadSuccess]
@@ -108,6 +113,11 @@ export default function PdfViewer({
   const baseScale = fitToWidth ? fitScale * scale : scale
   const renderScale = baseScale * dpiMultiplier
 
+  const pagesToRender =
+    renderAllPages && loadedNumPages
+      ? Array.from({ length: loadedNumPages }, (_, index) => index + 1)
+      : [currentPage]
+
   return (
     <div ref={containerRef} className="w-full h-full relative">
       <Document
@@ -119,21 +129,24 @@ export default function PdfViewer({
             <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
           </div>
         }
-        className="inline-block"
+        className={renderAllPages ? 'inline-flex flex-col items-center gap-4 pb-4' : 'inline-block'}
       >
-        <Page
-          pageNumber={currentPage}
-          scale={renderScale}
-          rotate={rotation}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          className="shadow-md"
-          onRenderSuccess={handlePageRenderSuccess}
-          loading={
-            // Responsive skeleton for mobile
-            <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
-          }
-        />
+        {pagesToRender.map((pageNumber) => (
+          <Page
+            key={pageNumber}
+            pageNumber={pageNumber}
+            scale={renderScale}
+            rotate={rotation}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            className="shadow-md bg-white"
+            onRenderSuccess={pageNumber === 1 ? handlePageRenderSuccess : undefined}
+            loading={
+              // Responsive skeleton for mobile
+              <div className="w-full aspect-[8.5/11] max-w-[400px] bg-muted animate-pulse rounded" />
+            }
+          />
+        ))}
       </Document>
       {/* Show loading overlay while calculating fit scale */}
       {isCalculatingFit && (

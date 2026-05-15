@@ -7,6 +7,22 @@
 
 ## 2026-05-15
 
+### API: Clerk Invite Staff Bootstrap
+**Status:** Complete
+
+**Changed:**
+- Auth middleware now bootstraps Staff from the active Clerk organization membership when invite accept reaches API before webhook sync.
+- Local development no longer depends on Clerk webhook delivery to `localhost` for newly invited staff.
+- Added guard against relinking an email already owned by another Clerk user.
+- Staff terms modal now defaults to English copy while preserving the Vietnamese toggle.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- src/services/auth/__tests__/auth.test.ts src/services/clerk-webhook/__tests__/clerk-webhook.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
 ### Landing: Tax Advisory Presentation Refresh
 **Status:** Complete
 **Plan:** `plans/260515-1703-tax-advisory-presentation-refresh/plan.md`

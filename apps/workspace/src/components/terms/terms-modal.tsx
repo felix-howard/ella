@@ -16,7 +16,7 @@ interface TermsModalProps {
 
 export function TermsModal({ staffName, onAccepted }: TermsModalProps) {
   const { t } = useTranslation()
-  const [language, setLanguage] = useState<TermsLanguage>('VI')
+  const [language, setLanguage] = useState<TermsLanguage>('EN')
   const [agreed, setAgreed] = useState(false)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)

@@ -3,147 +3,167 @@ export const taxAdvisoryPasswordHash =
 export const taxAdvisoryStorageKey = "ellaTaxAdvisoryAuth";
 
 export const heroMetrics = [
-  { value: "5", label: "client experience stages" },
-  { value: "365", label: "day advisory roadmap" },
-  { value: "$58,953", label: "example planning gap" },
+  { value: "14", label: "presentation sections" },
+  { value: "365", label: "day implementation roadmap" },
+  { value: "$53,953", label: "example tax savings" },
 ];
 
 export const helpPromises = [
-  "Make smarter tax decisions before the return is due.",
-  "Maximize the strategies that provide the most benefit to the taxpayer.",
-  "Provide accountability so savings are realized through implementation tasks.",
-  "Strategize to help increase revenue and improve profit.",
-  "Keep an eye on potential tax burdens throughout the year.",
+  "Make smarter tax decisions",
+  "Maximize the tax strategies to provide the most benefit to you, the taxpayer",
+  "Provide accountability to help realize tax savings through key implementation tasks",
+  "Strategize to help increase revenue",
+  "Strategize to help increase profit",
+  "Keep an eye on potential tax burdens",
 ];
 
 export const clientExperienceStages = [
   {
     number: "01",
     title: "Initial meeting",
-    description: "Clarify facts, goals, entities, income streams, and upcoming decisions.",
+    description: "Start the advisory relationship and understand the client facts.",
   },
   {
     number: "02",
     title: "Tax plan",
-    description: "Analyze the return and books, then select strategies that fit the facts.",
+    description: "Build the strategy plan after return analysis and discovery.",
   },
   {
     number: "03",
     title: "Implementation",
-    description: "Convert recommendations into assigned tasks with documentation requirements.",
+    description: "Complete the work needed before strategies can be claimed.",
   },
   {
     number: "04",
     title: "Estimates",
-    description: "Monitor tax burden, cash needs, and quarterly payments before deadlines.",
+    description: "Calculate estimated taxes and adjust the plan during the year.",
   },
   {
     number: "05",
     title: "Filing",
-    description: "Prepare the return with support for the strategies actually completed.",
+    description: "File with the strategies, documents, and signatures complete.",
   },
 ];
 
 export const overpaymentReasons = [
   {
-    title: "Strategy gap",
-    description: "The taxpayer did not receive timely planning or qualified strategy options.",
+    title: "Lack of knowledge from tax professional.",
+    description: "The professional does not identify the right strategies early enough.",
   },
   {
-    title: "Books mismatch",
-    description: "Tax numbers do not align with bookkeeping records, entity activity, or payroll.",
+    title: "Lack of strategies",
+    description: "The client does not receive a complete strategy plan.",
   },
   {
-    title: "Implementation gap",
-    description: "A strategy was discussed but the client did not complete the required work.",
+    title: "Number does not align with book record",
+    description: "The return, books, payroll, and supporting records do not match.",
   },
   {
-    title: "Risk after filing",
-    description: "Weak records can create audit exposure, penalties, and missed deductions.",
+    title: "Audit and penalties",
+    description: "Weak documentation can create audit exposure and penalties.",
   },
+  {
+    title: "Client hasn't done the necessary work",
+    description: "A strategy cannot be claimed if the required work is not completed.",
+  },
+];
+
+export const serviceDeliverables = [
+  {
+    title: "Tax return analysis",
+    highlights: ["Compliance", "Find Saving"],
+    description: "What Tax Strategies are clients qualified",
+  },
+  {
+    title: "Tax Plan",
+    highlights: ["Confidence"],
+    description: "What firm and client agree on plan",
+  },
+  {
+    title: "Tax Strategy Report",
+    highlights: ["Certainty"],
+    description: "Document every Strategy for Compliance",
+  },
+];
+
+export const advisoryFlow = [
+  { id: "initial", label: "Initial consultation", tone: "blue" },
+  { id: "nda", label: "NDA", sublabel: "(non-disclosure agreement)", tone: "blue" },
+  { id: "analysis", label: "Analysis consultation", tone: "blue" },
+  { id: "proposal", label: "Price package proposal", tone: "blue" },
+  { id: "engagement", label: "Engagement letter", sublabel: "(contract)", tone: "blue" },
+  { id: "onboard", label: "Onboard, implement", tone: "green" },
+  { id: "bookkeeping", label: "Bookkeeping", tone: "green" },
+  { id: "oltro", label: "Data enter Oltro", tone: "green" },
+  { id: "specialist", label: "Review by tax specialist", tone: "green" },
+  {
+    id: "zoom",
+    label: "Review with client on Zoom",
+    sublabel: "by account representative",
+    tone: "purple",
+  },
+  { id: "sign", label: "Sign 8879", tone: "orange" },
+  { id: "efile", label: "Efile", tone: "lime" },
+  { id: "planning", label: "Tax planning", tone: "orange" },
 ];
 
 export const processSteps = [
   {
-    label: "Strategy consultation",
-    title: "Identify the planning opportunity",
-    description:
-      "We review goals, business activity, prior returns, pain points, and the tax burden the client wants to manage.",
+    phase: "Consultation",
+    items: ["Initial Meeting", "Faint Process", "Tax Return Analysis"],
   },
   {
-    label: "Engagement letter",
-    title: "Set scope and expectations",
-    description:
-      "The engagement letter confirms advisory scope, responsibilities, pricing, and the path from planning to filing.",
+    phase: "Strategy Session",
+    items: ["Discovery", "Proposal", "Tax Return Analysis", "Pricing Calculator", "Engagement Letter"],
   },
   {
-    label: "Document onboarding",
-    title: "Request the right records",
-    description:
-      "Ella sends an organized request list for tax returns, books, payroll, entity records, and supporting documents.",
+    phase: "Engagement Letter",
+    items: ["Engagement Letter Signed", "Payment Processed"],
   },
   {
-    label: "Questionnaire",
-    title: "Fill the fact gaps",
-    description:
-      "Client answers confirm facts that cannot be assumed from a return, including goals and year-end changes.",
+    phase: "Document Request",
+    items: ["Request List", "Questionnaire", "Client Expectation"],
   },
   {
-    label: "Proposal and pricing",
-    title: "Choose the advisory path",
-    description:
-      "The plan is translated into a proposal, pricing calculator, payment step, and implementation priorities.",
-  },
-  {
-    label: "Onboarding",
-    title: "Start books and payroll work",
-    description:
-      "Bookkeeping and payroll are connected where needed so the strategy has clean numbers behind it.",
-  },
-  {
-    label: "Tax return analysis",
-    title: "Measure the planning gap",
-    description:
-      "Ella compares the current tax picture against available strategies, documentation, and timing constraints.",
-  },
-  {
-    label: "Filing and review",
-    title: "Close the loop",
-    description:
-      "Completed strategies flow into the return, with estimates and next-year planning reviewed before reset.",
+    phase: "Onboarding",
+    items: ["Bookkeeping Onboard", "Payroll Onboard", "Implement Tasks"],
   },
 ];
 
 export const roadmapStages = [
   {
-    period: "First 30 days",
-    title: "Engage and discover",
-    items: ["Initial meeting", "Discovery request list", "Client expectation review", "Proposal"],
+    period: "First 30 Days",
+    items: ["Initial Meeting", "Tax Return Review", "Compliance / Planning Session", "Confirm"],
   },
   {
-    period: "31-90 days",
-    title: "Build the foundation",
-    items: ["Engagement signed", "Payment processed", "Bookkeeping onboard", "Payroll onboard"],
+    period: "31-90 Days",
+    items: [
+      "Implement Entity Optimization",
+      "Implement Bookkeeping",
+      "Implement Payroll",
+      "Implement Reasonable Compensation",
+      "Implement Cash Plan",
+    ],
   },
   {
-    period: "91-180 days",
-    title: "Implement core strategies",
-    items: ["Entity optimization", "Retirement setup", "Augusta Rule", "Fringe benefits"],
+    period: "91-180 Days",
+    items: [
+      "Retirement Implement",
+      "Implement Augusta Rule",
+      "Fringe Benefit Implementation",
+      "Medical Implementation",
+    ],
   },
   {
-    period: "181-270 days",
-    title: "Checkpoint review",
-    items: ["Medical planning", "Estimate review", "Documentation check", "Advanced strategy review"],
+    period: "181-270 Days",
+    items: ["Ongoing Strategy Implementation", "Advance Strategy Implementation"],
   },
   {
-    period: "271-365 days",
-    title: "File and reset",
-    items: ["Tax return analysis", "Filing support", "Year-two assessment", "New strategy selection"],
+    period: "271-365 Days",
+    items: [
+      "Ongoing Strategy Implementation",
+      "Advance Strategy Implementation",
+      "Assess New Strategy for Y2",
+    ],
   },
-];
-
-export const savingsRows = [
-  { label: "Before planning", amount: "$650,669", width: "100%" },
-  { label: "After planning", amount: "$596,717", width: "92%" },
-  { label: "Potential savings", amount: "$58,953", width: "38%", highlight: true },
 ];

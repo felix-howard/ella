@@ -1,120 +1,165 @@
-export const strategyGroups = [
-  {
-    title: "Owner and family strategies",
-    description: "Planning opportunities for owners, families, and high-income taxpayers.",
-    strategies: [
-      "Augusta Rule",
-      "401(k) planning",
-      "Child IRA or Roth IRA",
-      "Itemized deduction review",
-      "Tips and overtime planning",
-      "529 education planning",
-      "Backdoor Roth",
-      "Adoption assistance",
-    ],
-  },
-  {
-    title: "Business and profit strategies",
-    description: "Strategies tied to clean books, payroll, profit, and business documentation.",
-    strategies: [
-      "Cash plan",
-      "Home office",
-      "Business travel",
-      "Business meals",
-      "Vehicle expense",
-      "199A/QBI optimization",
-      "IRC 179",
-      "Bonus depreciation",
-    ],
-  },
-  {
-    title: "Entity and advanced planning",
-    description: "Specialized planning for complex income, real estate, and entity structures.",
-    strategies: [
-      "1031 exchange",
-      "83(b) election",
-      "C Corp optimization",
-      "Accounting method changes",
-      "Installment sale",
-      "PTE/PTET",
-      "NIIT minimization",
-      "Cost segregation",
-    ],
-  },
-  {
-    title: "Separately scoped strategies",
-    description: "Higher-touch strategies scoped separately when facts support the work.",
-    strategies: [
-      "Cash balance plan",
-      "Defined benefit plan",
-      "Deferred sales trust",
-      "Captive insurance",
-      "Buy-sell planning",
-      "Private foundation",
-      "Profit-sharing",
-      "Charitable structures",
-    ],
-  },
+export const strategyCatalogColumns = [
+  [
+    "1031 Exchange",
+    "199A Optimization",
+    "457 Mark to Market Election for Traders",
+    "529 Plan",
+    "83(b) Stock Election",
+    "Adoption Assistance Tax Benefits",
+    "American Opportunity Credit",
+    "Athletic Facilities",
+    "Backdoor Roth IRA Conversion",
+    "Bonus Depreciation",
+    "C Corporation entity optimization",
+    "Change of Accounting Methods",
+    "Child IRA",
+    "Conservation Easements (Individual)",
+  ],
+  [
+    "Cost Basis Step-Up",
+    "Coverdell ESA",
+    "Cryptocurrency Loss Harvesting",
+    "De Minimis (Minimal) Benefits",
+    "Dependent Care Credit",
+    "Distilled spirits",
+    "Donor Advised Fund (DAF)",
+    "Donor-Advised Fund",
+    "Ecomm Software Technology Leverage",
+    "Employee Achievement Award",
+    "Employee Discounts",
+    "Employee Stock Options",
+    "Employer-Provided Cell Phones",
+    "Family Office Management Company",
+  ],
+  [
+    "FICA Tip Credit",
+    "Fringe Benefits",
+    "Health Savings Account (Business)",
+    "Healthcare RTU",
+    "Historic Rehabilitation Tax Credits",
+    "Home Administrative Office",
+    "IC-DISC",
+    "Installment Sale",
+    "Inventory Accounting Method Optimization",
+    "IRC 179 Deductions",
+    "Itemized Deductions",
+    "Leveraged Asset Donation",
+    "Leveraged Technology Purchase",
+    "Lifetime Learning Credit",
+  ],
+  [
+    "Limited Partnership/General Partnership Structure",
+    "Lodging on Your Business Premises",
+    "Long-Term Rentals (LTR)",
+    "Low-Income Housing Tax Credits (LIHTC)",
+    "Management Buyout (MBO) structuring",
+    "Medical Technology Tax Credit",
+    "Net Investment Income Tax (NIIT) Minimization",
+    "No-Additional-Cost Services",
+    "Partnership entity optimization",
+    "Passive Real Estate Losses",
+    "PIGs vs PALs (Passive Income Generators vs Passive Activity Losses)",
+    "PTE/PTET (Pass-Through Entity Tax)",
+    "QBI (Qualified Business Income) Optimization",
+  ],
 ];
 
-export const implementationTracks = [
-  {
-    title: "Entity optimization",
-    description: "Review entity setup, reasonable compensation, owner distributions, and year-end elections.",
-    tasks: ["Entity review", "S corporation check", "Compensation review"],
-  },
-  {
-    title: "Retirement implementation",
-    description: "Select and coordinate plans that fit income, payroll, deadlines, and contribution goals.",
-    tasks: ["401(k)", "SEP or SIMPLE IRA", "Cash balance review"],
-  },
-  {
-    title: "Deduction documentation",
-    description: "Turn strategies into records that can support the return if questioned later.",
-    tasks: ["Augusta Rule", "Home office", "Vehicle and mileage"],
-  },
-  {
-    title: "Benefits and medical",
-    description: "Evaluate fringe benefits, accountable plans, medical reimbursement, and family payroll ideas.",
-    tasks: ["Fringe benefits", "Medical planning", "Accountable plan"],
-  },
-  {
-    title: "Revenue and profit review",
-    description: "Use the tax plan to improve business decisions, not only reduce the final tax bill.",
-    tasks: ["Cash plan", "Profit review", "Estimate updates"],
-  },
-  {
-    title: "Advanced strategy review",
-    description: "Assess strategies that need more time, documents, vendors, or legal coordination.",
-    tasks: ["Cost segregation", "1031 exchange", "Buy-sell planning"],
-  },
+export const additionalCostStrategyColumns = [
+  [
+    "Accident and Health Benefits Plan",
+    "Buy-Sell Agreement Planning",
+    "Cafeteria Plans",
+    "Captive Insurance",
+    "Cash Balance Plan",
+    "Charitable Gift Financing",
+    "Charitable Holding LLC",
+    "Charitable Lead Annuity Trusts (CLAT's)",
+    "Charitable Pooled Income Fund",
+    "Charitable Remainder Trust (CRT)",
+    "Cost Segregation",
+    "Deferred Compensation Plan (Individual)",
+    "Deferred Sales Trust",
+    "Defined Benefit Plan",
+  ],
+  [
+    "Delaware Statutory Trusts (DSTs)",
+    "Film Debt Financing",
+    "Film Deduction (IRC 181)",
+    "Financed Business Insurance",
+    "Grantor Retained Annuity Trust (GRAT)",
+    "Group-Term Life Insurance Coverage",
+    "Leveraged Charitable Deductions",
+    "Life Insurance Cost Reduction Strategy",
+    "MERP (Medical Expense Reimbursement Plan)",
+    "New Markets Tax Credits (NMTC)",
+    "Private Family Foundation",
+    "Private Foundation",
+    "Profit-Sharing Plan",
+    "Qualified Charitable Distributions (QCDs)",
+  ],
 ];
 
-export const deliverables = [
-  "Strategy consultation session",
-  "Engagement letter and proposal",
-  "Document onboarding request",
-  "Client questionnaire and expectation review",
-  "Tax return analysis",
-  "365-day implementation roadmap",
-  "Estimated payment and filing support",
+export const estimatedTaxRows = [
+  { label: "Federal", before: "$584,269", after: "$531,632", savings: "$52,638" },
+  { label: "State", before: "$66,400", after: "$65,085", savings: "$1,315" },
+  { label: "Total tax", before: "$650,669", after: "$596,717", savings: "$53,953", total: true },
 ];
 
-export const partnershipRows = [
-  {
-    ella: "Analyze the return, books, payroll, and entity facts for qualified planning opportunities.",
-    client: "Provide complete documents and accurate context about business and household changes.",
-  },
-  {
-    ella: "Turn recommendations into ordered tasks with deadlines and required documentation.",
-    client: "Complete agreed implementation tasks before the deadline, not after filing starts.",
-  },
-  {
-    ella: "Review estimates, tax burden, deadlines, and documentation needs throughout the year.",
-    client: "Contact Ella before major purchases, entity changes, payroll changes, or large income events.",
-  },
-  {
-    ella: "Prepare the return based on strategies that were properly implemented and documented.",
-    client: "Keep records organized and approve filing only after reviewing the completed tax picture.",
-  },
+export const estimatedTaxInputs = [
+  ["Taxpayer name", "Sarah Jones"],
+  ["Tax Year", "2025"],
+  ["Are you a farmer/fisherman?", "No"],
+  ["Tax Filing Status", "Married filing jointly ..."],
+  ["Deductible type", "Standard"],
+  ["Itemized amount", "$45,000", "Value should be $0"],
+  ["Federal Wages", "$90,000"],
+  [
+    "Qualified dividends/capital gains",
+    "$800,000",
+    "Note Federal Capital gains in scope. Add the state cap gains tax when needed",
+  ],
+  ["Other federal adjustments", "$15,000"],
+  ["Other federal credits", "$3,000"],
+  ["Other federal taxes", "$5,000"],
+  ["Federal taxes withheld", "$1,000"],
+  ["Prior year federal estimated overpayments", "$2,000"],
+];
+
+export const clientResponsibilities = [
+  "Provide key information required to complete the tax planning engagement",
+  "Take action on agreed upon next steps",
+  "Be transparent & honest with setbacks to help determine the right tax strategies",
+  "Contact us before making major financial decisions",
+  "Come prepared with action steps taken on each quarterly planning meeting",
+];
+
+export const actionItems = [
+  "Will be sending over a request list of key items needed to begin the engagement.",
+  "You will look for an email from Corvee and be able to see the items requested.",
+];
+
+export const nextSteps = {
+  forYou: [
+    "Sent request list with key info needed via Corvee",
+    "Attend tax plan call and select strategies recommended by us",
+  ],
+  forUs: ["Review documents in detail", "Build tax plan", "Present tax plan"],
+};
+
+export const individualStrategies = [
+  "Augusta Rule",
+  "Child IRA & Roth",
+  "Itemize",
+  "No Tax on Tips",
+  "No Tax on Overtime",
+  "No Tax on Car Loan",
+  "401K",
+];
+
+export const businessStrategies = [
+  "Cash Plan",
+  "Home Office",
+  "Business Travel",
+  "Business Meal",
+  "Vehicle Expense",
 ];

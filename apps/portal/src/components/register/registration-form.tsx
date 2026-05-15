@@ -1,16 +1,11 @@
-/**
- * Registration Form - Lead capture form with validation
- * Fields: firstName, lastName, phone (required), email, businessName (optional)
- */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AlertCircle, BriefcaseBusiness, Loader2, Mail, Phone, UserRound } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { RegistrationFormData } from '../../lib/form-api'
 
-interface RegistrationFormProps {
-  onSubmit: (data: RegistrationFormData) => void
-  isSubmitting: boolean
-  error?: string
-}
+interface RegistrationFormProps { onSubmit: (data: RegistrationFormData) => void; isSubmitting: boolean; error?: string }
+type FieldProps = { id: string; label: string; value: string; onChange: (value: string) => void; placeholder: string; icon: LucideIcon; autoComplete: string; type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; required?: boolean; fullWidth?: boolean }
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 10)
@@ -61,116 +56,140 @@ export function RegistrationForm({ onSubmit, isSubmitting, error }: Registration
   }
 
   const inputClass = (hasError: boolean) =>
-    `w-full px-4 py-3 rounded-lg border bg-background text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-muted-foreground/50 ${hasError ? 'border-destructive' : 'border-border'}`
+    `peer h-12 w-full rounded-xl border bg-white px-11 text-base text-foreground shadow-sm transition duration-200 placeholder:text-muted-foreground/45 focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${
+      hasError
+        ? 'border-destructive/70 focus:border-destructive focus:ring-destructive/10'
+        : 'border-border/80 hover:border-primary/40 focus:border-primary focus:ring-primary/15'
+    }`
+
+  const iconClass = (hasError: boolean) =>
+    `pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors ${
+      hasError ? 'text-destructive' : 'text-muted-foreground/65 peer-focus:text-primary'
+    }`
+
+  const errorMessage = (field: string) =>
+    errors[field] ? (
+      <p id={`${field}-error`} className="mt-1.5 flex items-center gap-1.5 text-sm text-destructive">
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {errors[field]}
+      </p>
+    ) : null
+
+  const renderField = ({
+    id,
+    label,
+    value,
+    onChange,
+    placeholder,
+    icon: Icon,
+    autoComplete,
+    type = 'text',
+    inputMode,
+    required = false,
+    fullWidth = false,
+  }: FieldProps) => {
+    const hasError = !!errors[id]
+
+    return (
+      <div className={fullWidth ? 'sm:col-span-2' : undefined}>
+        <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-foreground">
+          {label} {required && <span className="text-destructive">*</span>}
+        </label>
+        <div className="relative">
+          <input
+            id={id}
+            type={type}
+            inputMode={inputMode}
+            autoComplete={autoComplete}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={inputClass(hasError)}
+            disabled={isSubmitting}
+            aria-invalid={hasError}
+            aria-describedby={hasError ? `${id}-error` : undefined}
+          />
+          <Icon className={iconClass(hasError)} aria-hidden="true" />
+        </div>
+        {errorMessage(id)}
+      </div>
+    )
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-6">
-      {/* First Name */}
-      <div>
-        <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-1">
-          {t('register.firstName')} <span className="text-destructive">*</span>
-        </label>
-        <input
-          id="firstName"
-          type="text"
-          autoComplete="given-name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          placeholder={t('register.firstNamePlaceholder')}
-          className={inputClass(!!errors.firstName)}
-          disabled={isSubmitting}
-        />
-        {errors.firstName && <p className="text-sm text-destructive mt-1">{errors.firstName}</p>}
+    <form onSubmit={handleSubmit} className="p-5 sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+        {renderField({
+          id: 'firstName',
+          label: t('register.firstName'),
+          value: firstName,
+          onChange: setFirstName,
+          placeholder: t('register.firstNamePlaceholder'),
+          icon: UserRound,
+          autoComplete: 'given-name',
+          required: true,
+        })}
+        {renderField({
+          id: 'lastName',
+          label: t('register.lastName'),
+          value: lastName,
+          onChange: setLastName,
+          placeholder: t('register.lastNamePlaceholder'),
+          icon: UserRound,
+          autoComplete: 'family-name',
+          required: true,
+        })}
+        {renderField({
+          id: 'phone',
+          label: t('register.phone'),
+          value: phone,
+          onChange: (value) => setPhone(formatPhone(value)),
+          placeholder: t('register.phonePlaceholder'),
+          icon: Phone,
+          autoComplete: 'tel',
+          type: 'tel',
+          inputMode: 'tel',
+          required: true,
+        })}
+        {renderField({
+          id: 'email',
+          label: t('register.email'),
+          value: email,
+          onChange: setEmail,
+          placeholder: t('register.emailPlaceholder'),
+          icon: Mail,
+          autoComplete: 'email',
+          type: 'email',
+        })}
+        {renderField({
+          id: 'businessName',
+          label: t('register.businessName'),
+          value: businessName,
+          onChange: setBusinessName,
+          placeholder: t('register.businessNamePlaceholder'),
+          icon: BriefcaseBusiness,
+          autoComplete: 'organization',
+          fullWidth: true,
+        })}
       </div>
 
-      {/* Last Name */}
-      <div>
-        <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-1">
-          {t('register.lastName')} <span className="text-destructive">*</span>
-        </label>
-        <input
-          id="lastName"
-          type="text"
-          autoComplete="family-name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          placeholder={t('register.lastNamePlaceholder')}
-          className={inputClass(!!errors.lastName)}
-          disabled={isSubmitting}
-        />
-        {errors.lastName && <p className="text-sm text-destructive mt-1">{errors.lastName}</p>}
-      </div>
-
-      {/* Phone */}
-      <div>
-        <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-1">
-          {t('register.phone')} <span className="text-destructive">*</span>
-        </label>
-        <input
-          id="phone"
-          type="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(e) => setPhone(formatPhone(e.target.value))}
-          placeholder={t('register.phonePlaceholder')}
-          className={inputClass(!!errors.phone)}
-          disabled={isSubmitting}
-        />
-        {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone}</p>}
-      </div>
-
-      {/* Email (optional) */}
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
-          {t('register.email')}
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t('register.emailPlaceholder')}
-          className={inputClass(!!errors.email)}
-          disabled={isSubmitting}
-        />
-        {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
-      </div>
-
-      {/* Business Name (optional) */}
-      <div>
-        <label htmlFor="businessName" className="block text-sm font-medium text-foreground mb-1">
-          {t('register.businessName')}
-        </label>
-        <input
-          id="businessName"
-          type="text"
-          autoComplete="organization"
-          value={businessName}
-          onChange={(e) => setBusinessName(e.target.value)}
-          placeholder={t('register.businessNamePlaceholder')}
-          className={inputClass(false)}
-          disabled={isSubmitting}
-        />
-      </div>
-
-      {/* Submit Error */}
       {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+        <div className="mt-5 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
         </div>
       )}
 
-      {/* Submit Button */}
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full py-3 px-4 rounded-lg text-primary-foreground font-medium transition-colors ${
+        className={`mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 ${
           isSubmitting
-            ? 'bg-primary/70 cursor-not-allowed'
-            : 'bg-primary hover:bg-primary/90'
+            ? 'cursor-not-allowed bg-primary/70 shadow-none'
+            : 'cursor-pointer bg-primary hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/25 active:translate-y-0'
         }`}
       >
+        {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
         {isSubmitting ? t('register.submitting') : t('register.submit')}
       </button>
     </form>

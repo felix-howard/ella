@@ -48,10 +48,10 @@ function RegisterPage() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <FormHeader orgName={org!.name} showDescription={false} />
+      <FormHeader orgName={org!.name} showDescription={false} variant="compact" />
 
       {formIntroContent && (
-        <section className="px-4 pt-4">
+        <section className="px-4 pt-2">
           <div
             className="form-intro-content mx-auto max-w-5xl text-left text-foreground"
             dangerouslySetInnerHTML={{ __html: formIntroContent }}

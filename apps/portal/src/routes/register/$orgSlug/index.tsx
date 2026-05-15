@@ -49,7 +49,7 @@ function RegisterPage() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <FormHeader orgName={org!.name} showDescription={false} />
+      <FormHeader orgName={org!.name} showDescription={false} variant="compact" />
 
       <div className="px-6 py-4 text-center">
         <h2 className="text-lg font-semibold text-foreground">

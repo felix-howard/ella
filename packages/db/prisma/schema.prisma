@@ -426,19 +426,20 @@ enum ClientType {
 // ============================================
 
 model Staff {
-  id          String    @id @default(cuid())
-  clerkId     String?   @unique // Clerk user ID for auth sync
-  email       String    @unique
-  name        String
-  role        StaffRole @default(STAFF)
-  avatarUrl   String?
-  phoneNumber String? // E.164 format (+84901234567)
-  isActive    Boolean   @default(true)
+  id                String    @id @default(cuid())
+  clerkId           String?   @unique // Clerk user ID for auth sync
+  email             String    @unique
+  name              String
+  role              StaffRole @default(STAFF)
+  avatarUrl         String?
+  phoneNumber       String? // E.164 format (+84901234567)
+  isActive          Boolean   @default(true)
+  isContractorAgent Boolean   @default(false)
 
   // Notification preferences
-  notifyOnUpload     Boolean @default(true) // Enable/disable SMS on client uploads
-  notifyOnChat       Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
-  autoSendUploadLink Boolean @default(false) // Per-staff auto-send upload link on personal form
+  notifyOnUpload              Boolean @default(true) // Enable/disable SMS on client uploads
+  notifyOnChat                Boolean @default(false) // Enable/disable SMS when monitored staff sends messages
+  autoSendUploadLink          Boolean @default(false) // Per-staff auto-send upload link on personal form
   defaultUploadLinkTemplateId String? // Default SMS template for personal form auto-send
 
   // Audit fields
@@ -446,8 +447,8 @@ model Staff {
   lastLoginAt   DateTime?
 
   // NDA signing identity
-  title              String?   // e.g. "Managing Partner, CPA"
-  signaturePngKey    String?   // R2 key: staff-signatures/{staffId}/{nonce}.png
+  title              String? // e.g. "Managing Partner, CPA"
+  signaturePngKey    String? // R2 key: staff-signatures/{staffId}/{nonce}.png
   signatureUpdatedAt DateTime?
 
   actions               Action[]        @relation("AssignedStaff")
@@ -471,11 +472,12 @@ model Staff {
   notificationSubscriptions NotificationSubscription[] @relation("NotificationSubscriber")
   notificationSubscribers   NotificationSubscription[] @relation("NotificationTarget")
 
-  termsAcceptances     TermsAcceptance[]
-  sentSmsLogs          SmsSendLog[]      @relation("SentSmsLogs")
-  createdCampaigns     Campaign[]        @relation("CreatedCampaigns")
-  agreementsCreated         Agreement[]         @relation("AgreementCreatedBy")
-  agreementTemplatesCreated AgreementTemplate[] @relation("AgreementTemplateCreatedBy")
+  termsAcceptances               TermsAcceptance[]
+  contractorAgreementAcceptances ContractorAgreementAcceptance[]
+  sentSmsLogs                    SmsSendLog[]                    @relation("SentSmsLogs")
+  createdCampaigns               Campaign[]                      @relation("CreatedCampaigns")
+  agreementsCreated              Agreement[]                     @relation("AgreementCreatedBy")
+  agreementTemplatesCreated      AgreementTemplate[]             @relation("AgreementTemplateCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -517,6 +519,34 @@ model TermsAcceptance {
   @@index([version])
 }
 
+// Independent Contractor agreement acceptance tracking for staff marked as Contractor Agent
+model ContractorAgreementAcceptance {
+  id                  String       @id @default(cuid())
+  staffId             String
+  staff               Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version             String
+  signedAt            DateTime     @default(now())
+  signedPdfR2Key      String
+  sourceTemplateR2Key String?
+  pdfSha256           String
+  signerName          String
+  signerEmail         String
+  signerIpAddress     String?
+  signerUserAgent     String?      @db.Text
+  firmSignerName      String
+  firmSignerEmail     String
+  firmSignerTitle     String?
+  firmSignaturePngKey String?
+  createdAt           DateTime     @default(now())
+
+  @@unique([staffId, version])
+  @@index([staffId])
+  @@index([organizationId])
+  @@index([version])
+}
+
 // Tracks which staff's client uploads an admin subscribes to for SMS notifications
 model NotificationSubscription {
   id            String           @id @default(cuid())
@@ -554,18 +584,19 @@ model Organization {
   zip             String?
   governingState  String? // e.g. "Texas"
   governingCounty String? // e.g. "Harris County"
-  firmPhone        String?
-  firmEmail        String?
-  firmWebsite      String?
+  firmPhone       String?
+  firmEmail       String?
+  firmWebsite     String?
 
-  staff              Staff[]
-  clients            Client[]
-  clientGroups       ClientGroup[]
-  leads              Lead[]
-  smsSendLogs        SmsSendLog[]
-  campaigns          Campaign[]
-  agreements         Agreement[]
-  agreementTemplates AgreementTemplate[]
+  staff                          Staff[]
+  clients                        Client[]
+  clientGroups                   ClientGroup[]
+  leads                          Lead[]
+  smsSendLogs                    SmsSendLog[]
+  campaigns                      Campaign[]
+  agreements                     Agreement[]
+  agreementTemplates             AgreementTemplate[]
+  contractorAgreementAcceptances ContractorAgreementAcceptance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1502,9 +1533,9 @@ model Lead {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Relations
-  smsSendLogs   SmsSendLog[]
-  agreements    Agreement[]
-  messages      Message[]
+  smsSendLogs SmsSendLog[]
+  agreements  Agreement[]
+  messages    Message[]
 
   // Staff-side "last read" marker for inbound SMS unread count
   messagesLastReadAt DateTime?
@@ -1576,8 +1607,10 @@ model Agreement {
   // Public access token (replaces MagicLink for NDA)
   token      String    @unique
   expiresAt  DateTime?
-  /** Validity window in days from send/rotation. Persisted so resend reuses
-   *  the originally-chosen duration and Extend can also default to it. */
+  /**
+   * Validity window in days from send/rotation. Persisted so resend reuses
+   * the originally-chosen duration and Extend can also default to it.
+   */
   expiryDays Int       @default(30)
   isActive   Boolean   @default(true)
   lastUsedAt DateTime?
@@ -1625,9 +1658,9 @@ model AgreementTemplate {
   type AgreementType
   name String        @db.VarChar(200)
 
-  contentHtml          String  @db.Text
+  contentHtml          String   @db.Text
   defaultDepositAmount Decimal? @db.Decimal(10, 2)
-  isArchived           Boolean @default(false)
+  isArchived           Boolean  @default(false)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

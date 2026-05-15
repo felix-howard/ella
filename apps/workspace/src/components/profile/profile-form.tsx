@@ -14,6 +14,7 @@ import { toast } from '../../stores/toast-store'
 import { formatPhone } from '../../lib/formatters'
 import { NotificationSubscriptions } from './notification-subscriptions'
 import { TermsDownloadButton } from './terms-download-button'
+import { ContractorAgreementDownloadButton } from './contractor-agreement-download-button'
 import { useInvalidateNdaReadiness } from '../agreements/use-nda-readiness'
 
 // Phone input styles
@@ -24,12 +25,24 @@ interface ProfileFormProps {
   canEdit: boolean
   staffId: string
   canChangeRole: boolean
-  onRoleChange?: (role: 'org:admin' | 'org:member') => void
+  onRoleChange?: (role: 'org:admin' | 'org:member') => Promise<void>
   isRoleChangePending?: boolean
+  canManageContractorAgent?: boolean
+  canViewContractorAgreement?: boolean
   hideNotifications?: boolean
 }
 
-export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChange, isRoleChangePending, hideNotifications }: ProfileFormProps) {
+export function ProfileForm({
+  staff,
+  canEdit,
+  staffId,
+  canChangeRole,
+  onRoleChange,
+  isRoleChangePending,
+  canManageContractorAgent = false,
+  canViewContractorAgreement = false,
+  hideNotifications,
+}: ProfileFormProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const invalidateReadiness = useInvalidateNdaReadiness()
@@ -46,36 +59,57 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
   const [editRole, setEditRole] = useState<'org:admin' | 'org:member'>(
     staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
   )
+  const [editIsContractorAgent, setEditIsContractorAgent] = useState(staff.isContractorAgent)
 
   // Validation errors
   const [firstNameError, setFirstNameError] = useState<string | null>(null)
   const [lastNameError, setLastNameError] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
+  const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
+  const isProfileDirty =
+    editFirstName !== staff.firstName ||
+    editLastName !== staff.lastName ||
+    editTitle !== (staff.title ?? '') ||
+    editPhoneNumber !== staff.phoneNumber ||
+    editNotifyOnUpload !== staff.notifyOnUpload
+  const isRoleDirty = editRole !== currentClerkRole
+  const isContractorAgentDirty =
+    canManageContractorAgent && editIsContractorAgent !== staff.isContractorAgent
+
   const updateMutation = useMutation({
-    mutationFn: () =>
-      api.team.updateProfile(staffId, {
-        firstName: editFirstName.trim(),
-        lastName: editLastName.trim(),
-        phoneNumber: editPhoneNumber || null,
-        title: editTitle.trim() || null,
-        notifyOnUpload: editNotifyOnUpload,
-      }),
-    onSuccess: () => {
-      // If role changed, trigger role update too
-      const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
-      if (editRole !== currentClerkRole && onRoleChange) {
-        onRoleChange(editRole)
+    mutationFn: async () => {
+      if (isProfileDirty) {
+        await api.team.updateProfile(staffId, {
+          firstName: editFirstName.trim(),
+          lastName: editLastName.trim(),
+          phoneNumber: editPhoneNumber || null,
+          title: editTitle.trim() || null,
+          notifyOnUpload: editNotifyOnUpload,
+        })
       }
+
+      if (isContractorAgentDirty) {
+        await api.team.updateContractorAgent(staffId, editIsContractorAgent)
+      }
+
+      if (isRoleDirty && onRoleChange) {
+        await onRoleChange(editRole)
+      }
+    },
+    onSuccess: () => {
       toast.success(t('profile.updateSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
       queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+      queryClient.invalidateQueries({ queryKey: ['contractor-agreement-status'] })
+      queryClient.invalidateQueries({ queryKey: ['contractor-agreement-acceptance'] })
       // Title changes affect NDA readiness for the current staff.
       if (staffId === 'me') invalidateReadiness()
       setIsEditing(false)
     },
-    onError: () => {
-      toast.error(t('profile.updateError'))
+    onError: (error: Error) => {
+      toast.error(error.message || t('profile.updateError'))
     },
   })
 
@@ -118,20 +152,19 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
     setEditPhoneNumber(staff.phoneNumber as E164Number | undefined)
     setEditNotifyOnUpload(staff.notifyOnUpload)
     setEditRole(staff.role === 'ADMIN' ? 'org:admin' : 'org:member')
+    setEditIsContractorAgent(staff.isContractorAgent)
     setFirstNameError(null)
     setLastNameError(null)
     setPhoneError(null)
     setIsEditing(false)
   }
 
-  const currentClerkRole = staff.role === 'ADMIN' ? 'org:admin' : 'org:member'
-  const isDirty =
-    editFirstName !== staff.firstName ||
-    editLastName !== staff.lastName ||
-    editTitle !== (staff.title ?? '') ||
-    editPhoneNumber !== staff.phoneNumber ||
-    editNotifyOnUpload !== staff.notifyOnUpload ||
-    editRole !== currentClerkRole
+  const roleLabel = staff.role === 'ADMIN'
+    ? t('team.admin')
+    : staff.role === 'CPA'
+      ? t('team.cpa', 'CPA')
+      : t('team.member')
+  const isDirty = isProfileDirty || isRoleDirty || isContractorAgentDirty
 
   return (
     <div className="bg-card rounded-xl shadow-sm overflow-hidden">
@@ -216,7 +249,35 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
             </select>
           ) : (
             <p className="text-foreground">
-              {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+              {roleLabel}
+            </p>
+          )}
+        </div>
+
+        {/* Contractor Agent flag */}
+        <div>
+          <label htmlFor="contractorAgent" className="block text-sm font-medium text-foreground mb-1.5">
+            {t('profile.contractorAgent', 'Contractor Agent')}
+          </label>
+          {isEditing && canManageContractorAgent ? (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-3 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {t('profile.contractorAgent', 'Contractor Agent')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('profile.contractorAgentHelp', 'Requires Independent Contractor agreement on next login.')}
+                </p>
+              </div>
+              <Switch
+                id="contractorAgent"
+                checked={editIsContractorAgent}
+                onCheckedChange={setEditIsContractorAgent}
+              />
+            </div>
+          ) : (
+            <p className="text-foreground">
+              {staff.isContractorAgent ? t('common.yes') : t('common.no')}
             </p>
           )}
         </div>
@@ -330,6 +391,16 @@ export function ProfileForm({ staff, canEdit, staffId, canChangeRole, onRoleChan
             {t('profile.termsAndConditions', 'Terms & Conditions')}
           </h3>
           <TermsDownloadButton staffId={staffId} />
+          <div className="mt-5 pt-5 border-t border-border/60">
+            <h3 className="text-sm font-medium text-foreground mb-4">
+              {t('profile.independentContractorAgreement', 'Independent Contractor Agreement')}
+            </h3>
+            <ContractorAgreementDownloadButton
+              staffId={staffId}
+              isContractorAgent={staff.isContractorAgent}
+              canViewAgreement={canViewContractorAgreement}
+            />
+          </div>
         </div>
 
         {/* Actions */}

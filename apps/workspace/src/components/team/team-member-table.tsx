@@ -80,6 +80,11 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
   const navigate = useNavigate()
   const avatarColor = getAvatarColor(member.name)
   const isAdmin = member.role === 'ADMIN'
+  const roleLabel = member.role === 'ADMIN'
+    ? t('team.admin')
+    : member.role === 'CPA'
+      ? t('team.cpa', 'CPA')
+      : t('team.member')
 
   const handleRowClick = () => {
     navigate({ to: '/team/profile/$staffId', params: { staffId: member.id } })
@@ -130,10 +135,17 @@ const MemberRow = memo(function MemberRow({ member, isLast, isArchived }: Member
 
       {/* Role */}
       <td className="px-4 py-3">
-        <Badge variant={isAdmin ? 'default' : 'outline'} className={cn(isAdmin && 'bg-primary/10 text-primary border-primary/30')}>
-          <Shield className="w-3 h-3 mr-1" />
-          {isAdmin ? t('team.admin') : t('team.member')}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={isAdmin ? 'default' : 'outline'} className={cn(isAdmin && 'bg-primary/10 text-primary border-primary/30')}>
+            <Shield className="w-3 h-3 mr-1" />
+            {roleLabel}
+          </Badge>
+          {member.isContractorAgent && (
+            <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-300 dark:border-amber-800 dark:bg-amber-950/30">
+              {t('team.contractorAgent', 'Contractor Agent')}
+            </Badge>
+          )}
+        </div>
       </td>
 
       {/* Client count */}

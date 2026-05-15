@@ -57,10 +57,16 @@ vi.mock('../../../services/audit-logger', () => ({
   logTeamAction: vi.fn(),
 }))
 
-// Mock auth middleware - pass through (user already set in test app)
+// Mock auth middleware against the injected test user.
 vi.mock('../../../middleware/auth', () => ({
   requireOrg: async (_c: unknown, next: () => Promise<void>) => next(),
-  requireOrgAdmin: async (_c: unknown, next: () => Promise<void>) => next(),
+  requireOrgAdmin: async (c: { get: (key: string) => { orgRole?: string | null; role?: string | null }; json: (body: unknown, status?: number) => Response }, next: () => Promise<void>) => {
+    const user = c.get('user')
+    if (user?.orgRole !== 'org:admin' && user?.role !== 'ADMIN') {
+      return c.json({ error: 'Chỉ admin mới có quyền' }, 403)
+    }
+    return next()
+  },
 }))
 
 import { Hono } from 'hono'
@@ -118,8 +124,32 @@ describe('Team Routes', () => {
   describe('GET /team/members', () => {
     it('returns active staff in org', async () => {
       const mockMembers = [
-        { id: 's1', clerkId: 'c1', email: 'a@t.com', name: 'A', role: 'ADMIN', avatarUrl: null, lastLoginAt: null, _count: { managedClients: 3 } },
-        { id: 's2', clerkId: 'c2', email: 'b@t.com', name: 'B', role: 'STAFF', avatarUrl: null, lastLoginAt: null, _count: { managedClients: 1 } },
+        {
+          id: 's1',
+          clerkId: 'c1',
+          email: 'a@t.com',
+          name: 'A',
+          role: 'ADMIN',
+          avatarUrl: null,
+          lastLoginAt: null,
+          isActive: true,
+          isContractorAgent: false,
+          formSlug: null,
+          _count: { managedClients: 3 },
+        },
+        {
+          id: 's2',
+          clerkId: 'c2',
+          email: 'b@t.com',
+          name: 'B',
+          role: 'STAFF',
+          avatarUrl: null,
+          lastLoginAt: null,
+          isActive: true,
+          isContractorAgent: true,
+          formSlug: null,
+          _count: { managedClients: 1 },
+        },
       ]
       vi.mocked(prisma.client.count).mockResolvedValueOnce(5)
       vi.mocked(prisma.staff.findMany).mockResolvedValueOnce(mockMembers as never)
@@ -130,9 +160,14 @@ describe('Team Routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data).toHaveLength(2)
+      expect(body.data).toEqual([
+        expect.objectContaining({ id: 's1', isContractorAgent: false }),
+        expect.objectContaining({ id: 's2', isContractorAgent: true }),
+      ])
       expect(vi.mocked(prisma.staff.findMany)).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { organizationId: 'org_db_1', isActive: true },
+          select: expect.objectContaining({ isContractorAgent: true }),
         })
       )
     })
@@ -249,6 +284,77 @@ describe('Team Routes', () => {
   })
 
   // ============================================
+  // PATCH /team/members/:staffId/contractor-agent
+  // ============================================
+  describe('PATCH /team/members/:staffId/contractor-agent', () => {
+    it('toggles contractor agent flag and writes audit log', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce({
+        id: 's2',
+        organizationId: 'org_db_1',
+        isActive: true,
+        isContractorAgent: false,
+      } as never)
+      vi.mocked(prisma.staff.update).mockResolvedValueOnce({
+        id: 's2',
+        isContractorAgent: true,
+      } as never)
+
+      const app = createApp()
+      const res = await app.request('/team/members/s2/contractor-agent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isContractorAgent: true }),
+      })
+      const body = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(body.staff.isContractorAgent).toBe(true)
+      expect(vi.mocked(prisma.staff.update)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 's2' },
+          data: { isContractorAgent: true },
+        }),
+      )
+      expect(logTeamAction).toHaveBeenCalledWith(
+        'CONTRACTOR_AGENT_CHANGED',
+        's2',
+        'staff_1',
+        {
+          oldValue: { isContractorAgent: false },
+          newValue: { isContractorAgent: true },
+        },
+      )
+    })
+
+    it('returns 404 for contractor agent toggle outside org', async () => {
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(null)
+
+      const app = createApp()
+      const res = await app.request('/team/members/unknown/contractor-agent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isContractorAgent: true }),
+      })
+
+      expect(res.status).toBe(404)
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+
+    it('forbids non-admin contractor agent toggle', async () => {
+      const app = createApp(memberUser())
+      const res = await app.request('/team/members/s2/contractor-agent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isContractorAgent: true }),
+      })
+
+      expect(res.status).toBe(403)
+      expect(vi.mocked(prisma.staff.findFirst)).not.toHaveBeenCalled()
+      expect(vi.mocked(prisma.staff.update)).not.toHaveBeenCalled()
+    })
+  })
+
+  // ============================================
   // DELETE /team/members/:staffId
   // ============================================
   describe('DELETE /team/members/:staffId', () => {
@@ -328,6 +434,8 @@ describe('Team Routes', () => {
     const targetStaff = {
       id: 'staff_2', name: 'Member B', email: 'b@t.com', role: 'STAFF',
       avatarUrl: null, phoneNumber: '+84123456789', notifyOnUpload: false,
+      notifyOnChat: false, title: null, formSlug: null, autoSendUploadLink: false,
+      defaultUploadLinkTemplateId: null, deactivatedAt: null, isContractorAgent: true,
       organizationId: 'org_db_1', isActive: true, clerkId: 'c2',
       _count: { managedClients: 2 },
     }
@@ -342,6 +450,12 @@ describe('Team Routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.canEdit).toBe(true)
+      expect(body.staff.isContractorAgent).toBe(true)
+      expect(vi.mocked(prisma.staff.findFirst)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ isContractorAgent: true }),
+        })
+      )
     })
 
     it('GET profile returns canEdit=false for non-admin viewing another member', async () => {

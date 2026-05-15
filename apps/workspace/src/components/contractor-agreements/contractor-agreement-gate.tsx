@@ -1,21 +1,25 @@
 import { useAuth, useUser } from '@clerk/clerk-react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
-import { useTermsStatus } from './use-terms'
-import { TermsModal } from './terms-modal'
+import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
+import { useContractorAgreementStatus } from './use-contractor-agreements'
+import { ContractorAgreementModal } from './contractor-agreement-modal'
 
-interface TermsGateProps {
+interface ContractorAgreementGateProps {
   children: React.ReactNode
 }
 
-export function TermsGate({ children }: TermsGateProps) {
+export function ContractorAgreementGate({ children }: ContractorAgreementGateProps) {
   const { t } = useTranslation()
   const { isLoaded, isSignedIn } = useAuth()
   const { user } = useUser()
   const shouldCheckStatus = isLoaded && !!isSignedIn
-  const { data: status, isLoading, isError, refetch } = useTermsStatus(shouldCheckStatus)
+  const {
+    data: status,
+    isLoading,
+    isError,
+    refetch,
+  } = useContractorAgreementStatus(shouldCheckStatus)
 
-  // Not signed in - skip gate (login page needs to render)
   if (isLoaded && !isSignedIn) {
     return <>{children}</>
   }
@@ -25,31 +29,29 @@ export function TermsGate({ children }: TermsGateProps) {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <p className="text-sm text-muted-foreground">
-          {t('terms.checkingStatus', 'Checking terms status...')}
+          {t('contractorAgreement.checkingStatus', 'Checking contractor agreement status...')}
         </p>
       </div>
     )
   }
 
-  // Loading status (includes active retries - show spinner while webhook processes)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <p className="text-sm text-muted-foreground">
-          {t('terms.checkingStatus', 'Checking terms status...')}
+          {t('contractorAgreement.checkingStatus', 'Checking contractor agreement status...')}
         </p>
       </div>
     )
   }
 
-  // Error state - fail closed (block app, don't let through)
   if (isError || !status) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
         <AlertTriangle className="w-8 h-8 text-destructive" />
         <p className="text-sm text-muted-foreground">
-          {t('terms.statusError', 'Unable to verify terms status')}
+          {t('contractorAgreement.statusError', 'Unable to verify contractor agreement status')}
         </p>
         <button
           type="button"
@@ -63,12 +65,19 @@ export function TermsGate({ children }: TermsGateProps) {
     )
   }
 
-  // Not accepted - show modal
-  if (!status.hasAccepted) {
-    const staffName = user?.fullName || user?.firstName || 'Staff Member'
-    return <TermsModal staffName={staffName} onAccepted={() => refetch()} />
+  if (!status.required || status.hasAccepted) {
+    return <>{children}</>
   }
 
-  // Accepted - render children
-  return <>{children}</>
+  const staffName = user?.fullName || user?.firstName || 'Staff Member'
+
+  return (
+    <ContractorAgreementModal
+      firmSigner={status.firmSigner}
+      organization={status.organization}
+      staffName={staffName}
+      version={status.currentVersion}
+      onStatusRefresh={() => refetch()}
+    />
+  )
 }

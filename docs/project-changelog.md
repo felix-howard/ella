@@ -73,6 +73,23 @@
 
 ---
 
+### API/Workspace: Contractor Agent Agreement Rollout
+**Status:** Complete
+**Plan:** `plans/20260515-1040-contractor-agent-agreement/plan.md`
+
+**Changed:**
+- `Staff.isContractorAgent` now gates the workspace compliance flow.
+- `ContractorAgreementAcceptance` stores the signed PDF metadata, signer snapshots, and source template key.
+- Contractor agreement routes are finalized at `/contractor-agreements/status`, `/contractor-agreements/accept`, `/contractor-agreements/acceptance/:staffId`, `/contractor-agreements/download/:acceptanceId`, and `/team/members/:staffId/contractor-agent`.
+- Signed PDFs store in R2 under `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`.
+- Workspace profile now shows the signed agreement download state for contractor agents.
+- Rollout notes: verify exact firm signer account/signature/title in production, confirm source PDF version, confirm migration applied/status clean, deploy API + workspace together, mark staff, sign, verify profile download.
+
+**Validation:**
+- Phase 05 validation confirmed: targeted API/workspace tests pass, `pnpm type-check` pass, `pnpm build` pass, DB migrate/status pass.
+
+---
+
 ## 2026-05-14
 
 ### Workspace/API: Upload Link Message Template Selection

@@ -1185,6 +1185,12 @@ export const api = {
         method: 'PATCH', body: JSON.stringify({ role }),
       }),
 
+    updateContractorAgent: (staffId: string, isContractorAgent: boolean) =>
+      request<{ success: boolean; staff: { id: string; isContractorAgent: boolean } }>(
+        `/team/members/${staffId}/contractor-agent`,
+        { method: 'PATCH', body: JSON.stringify({ isContractorAgent }) }
+      ),
+
     deactivate: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
 
@@ -1375,6 +1381,25 @@ export const api = {
 
     getAcceptance: (staffId: string) =>
       request<{ id: string; version: string; signedAt: string }>(`/terms/acceptance/${staffId}`),
+  },
+
+  // Contractor Agreements
+  contractorAgreements: {
+    getStatus: () =>
+      request<ContractorAgreementStatus>('/contractor-agreements/status'),
+
+    accept: (data: AcceptContractorAgreementInput) =>
+      request<ContractorAgreementAcceptance>('/contractor-agreements/accept', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    getDownloadUrl: (acceptanceId: string) =>
+      request<{ url: string }>(`/contractor-agreements/download/${acceptanceId}`),
+
+    getAcceptance: (staffId: string) =>
+      request<ContractorAgreementAcceptance>(`/contractor-agreements/acceptance/${staffId}`),
   },
 
   // Leads management (admin-only)
@@ -3092,6 +3117,7 @@ export interface TeamMember {
   avatarUrl: string | null
   lastLoginAt: string | null
   isActive?: boolean
+  isContractorAgent: boolean
   formSlug: string | null
   _count: { managedClients: number }
 }
@@ -3112,6 +3138,7 @@ export interface StaffProfile {
   lastName: string
   email: string
   role: string
+  isContractorAgent: boolean
   avatarUrl: string | null
   phoneNumber: string | null
   title: string | null
@@ -3158,6 +3185,50 @@ export interface UpdateStaffProfileInput {
   title?: string | null
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
+}
+
+export interface ContractorAgreementStatus {
+  required: boolean
+  hasAccepted: boolean
+  currentVersion: string
+  acceptedVersion?: string
+  acceptedAt?: string
+  acceptanceId?: string
+  organization: Pick<
+    OrgSettings,
+    | 'name'
+    | 'address'
+    | 'city'
+    | 'state'
+    | 'zip'
+    | 'governingState'
+    | 'governingCounty'
+    | 'firmPhone'
+    | 'firmEmail'
+    | 'firmWebsite'
+  >
+  firmSigner: {
+    name: string
+    email: string
+    title: string
+    signatureUrl: string | null
+  } | null
+}
+
+export interface ContractorAgreementAcceptance {
+  id: string
+  version: string
+  signedAt: string
+  signerName: string
+  signerEmail: string
+  firmSignerName: string
+  firmSignerEmail: string
+  firmSignerTitle: string | null
+}
+
+export interface AcceptContractorAgreementInput {
+  version: string
+  signaturePngDataUrl: string
 }
 
 export interface NotificationSubscriptionsResponse {

@@ -15,6 +15,7 @@ import type { AuthVariables } from '../../middleware/auth'
 import {
   inviteMemberSchema,
   updateMemberRoleSchema,
+  updateContractorAgentSchema,
   updateProfileSchema,
   updateNotificationSubscriptionsSchema,
   avatarPresignedUrlSchema,
@@ -55,6 +56,7 @@ teamRoute.get('/members', async (c) => {
       avatarUrl: true,
       lastLoginAt: true,
       isActive: true,
+      isContractorAgent: true,
       formSlug: true,
       _count: { select: { managedClients: true } },
     },
@@ -171,6 +173,40 @@ teamRoute.patch(
       const message = error instanceof Error ? error.message : 'Failed to update role'
       return c.json({ error: message }, 400)
     }
+  }
+)
+
+// PATCH /team/members/:staffId/contractor-agent - Toggle Contractor Agent flag (admin only)
+teamRoute.patch(
+  '/members/:staffId/contractor-agent',
+  requireOrgAdmin,
+  zValidator('json', updateContractorAgentSchema),
+  async (c) => {
+    const user = c.get('user')
+    const staffId = c.req.param('staffId')
+    const { isContractorAgent } = c.req.valid('json')
+
+    const staff = await prisma.staff.findFirst({
+      where: { id: staffId, organizationId: user.organizationId, isActive: true },
+      select: { id: true, isContractorAgent: true },
+    })
+
+    if (!staff) {
+      return c.json({ error: 'Staff not found' }, 404)
+    }
+
+    const updated = await prisma.staff.update({
+      where: { id: staffId },
+      data: { isContractorAgent },
+      select: { id: true, isContractorAgent: true },
+    })
+
+    logTeamAction('CONTRACTOR_AGENT_CHANGED', staffId, user.staffId, {
+      oldValue: { isContractorAgent: staff.isContractorAgent },
+      newValue: { isContractorAgent },
+    })
+
+    return c.json({ success: true, staff: updated })
   }
 )
 
@@ -382,6 +418,7 @@ teamRoute.get('/members/:staffId/profile', async (c) => {
       name: true,
       email: true,
       role: true,
+      isContractorAgent: true,
       avatarUrl: true,
       phoneNumber: true,
       title: true,

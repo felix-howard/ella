@@ -137,6 +137,17 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 
 **Endpoints (80+ total):**
 
+**Contractor Agent Agreements (Staff Compliance):**
+- `PATCH /team/members/:staffId/contractor-agent` - Admin-only toggle for `Staff.isContractorAgent`.
+- `GET /contractor-agreements/status` - Authenticated staff status for current Independent Contractor agreement version.
+- `POST /contractor-agreements/accept` - Accept current version. Server accepts contractor PNG signature data URL, loads versioned repo PDF template, overlays Ella firm signer + contractor signer fields, uploads immutable signed PDF to R2, and persists SHA-256/signature snapshots.
+- `GET /contractor-agreements/acceptance/:staffId` - Owner/admin scoped current-version acceptance lookup.
+- `GET /contractor-agreements/download/:acceptanceId` - Owner/admin scoped signed PDF download URL.
+- Template asset: `apps/api/src/assets/agreements/independent-contractor-obamacare-2026-05-15.pdf`; API build copies assets into `dist/assets` and fails if the template is missing.
+- Storage keys: `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`; unique DB acceptance on `[staffId, version]` makes duplicate signing idempotent.
+- Firm signer lookup prefers `kaytax76@gmail.com` with a stored signature, then falls back to the first active admin with a stored signature. Production rollout must verify the exact signer account/title/signature before contractor staff sign.
+- Data model: `Staff.isContractorAgent` gates the workspace compliance flow; `ContractorAgreementAcceptance` stores the signed PDF, source template, SHA-256, signer snapshots, IP/User-Agent, and firm signer snapshot.
+
 **Shared Docs (Multi-Section Document Sharing - Phase 02 Backend Complete, Phase 01 Actions Rework Complete, Phase 03 UI Refactor Complete):**
 - `POST /shared-docs/:caseId` - Create section with title + initial PDF (ShareableDocument + MagicLink)
 - `GET /shared-docs/case/:caseId` - List non-deleted sections for case (status=ACTIVE only)
@@ -221,6 +232,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `POST /team/invite` - Send Clerk org invitation via Backend API (webhook syncs results to DB)
 - `PATCH /team/members/:staffId/role` - Update role via Clerk Backend API (webhook syncs to DB)
 - `DELETE /team/members/:staffId` - Deactivate staff via Clerk Backend API (webhook syncs to DB)
+- `PATCH /team/members/:staffId/contractor-agent` - Toggle `Staff.isContractorAgent` via admin-only backend API (webhook-independent, DB-backed)
 - `GET /team/members/:staffId/profile` - Get member profile with assigned clients (Phase 02)
 - `PATCH /team/members/:staffId/profile` - Update name/phone (self only, Phase 02)
 - `POST /team/members/:staffId/avatar/presigned-url` - Get R2 upload URL (self only, Phase 02)
@@ -379,7 +391,7 @@ Organization (root entity)
 
 **Key Models (Multi-Tenant):**
 - **Organization** - Org root with Clerk integration, autoSendFormClientUploadLink (bool, Phase 02 Intake Form - auto-send SMS to staff on form submission)
-- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts.
+- **Staff** - organizationId FK, clerkId (unique), role (ADMIN|STAFF|CPA), notifyOnUpload (default: true), notifyAllClients (default: false), isContractorAgent (default: false), title, signaturePngKey, formSlug (optional unique slug for public form routing, Phase 02 Intake Form). Notification preferences for client upload alerts and contractor-agent compliance.
 - **Client** - organizationId FK, managedById FK (Staff, single manager), firstName, lastName, phone, email, language, profile data, intakeAnswers Json, avatarUrl (optional signed R2 URL), notes (HTML up to 50KB), notesUpdatedAt, source (enum: MANUAL|FORM|GENERIC_FORM|STAFF_FORM|CONVERTED, Phase 02 Intake Form), clientType (enum: INDIVIDUAL|BUSINESS, default INDIVIDUAL). For clientType=BUSINESS: businessType (BusinessType enum, required), einEncrypted (encrypted, required), businessAddress, businessCity, businessState, businessZip (all required). Database stores einEncrypted; API returns einMasked (XX-XXX####). clientGroupId FK (optional, links related clients like individual+business or partnerships). Relations: contractors, filingBatches, intakeTokens (all BUSINESS-type specific).
 - **ClientGroup** - organizationId FK (optional, org-scoped grouping), name (group name), clients array relation. Phase 01 Entity Separation: new entity enables flexible grouping of related clients (e.g., family businesses, partnerships, multi-entity tax arrangements). Indexed on organizationId for fast group lookups.
 - **Business** - REMOVED in Phase 15. Business model deleted from schema. All business information now stored directly on Client(clientType=BUSINESS) records.
@@ -388,6 +400,7 @@ Organization (root entity)
 - **ScheduleCExpense** - 20+ fields, version history
 - **ScheduleEExpense** - 1:1 with TaxCase. Status (DRAFT/SUBMITTED/LOCKED), up to 3 rental properties (JSON array), 7 IRS expense fields (insurance, mortgage interest, repairs, taxes, utilities, management fees, cleaning/maintenance), custom expense list, version history, property-level totals
 - **Contractor** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). firstName, lastName, tinType (SSN|EIN), ssnEncrypted (encrypted), ssnLast4, address, city, state, zip, email, phone.
+- **ContractorAgreementAcceptance** - staffId FK + organizationId FK. Independent Contractor agreement acceptance for Contractor Agent staff. Fields: version, signedAt, signedPdfR2Key, sourceTemplateR2Key, pdfSha256, signerName, signerEmail, signerIpAddress, signerUserAgent, firmSignerName, firmSignerEmail, firmSignerTitle, firmSignaturePngKey. Unique on `[staffId, version]`.
 - **FilingBatch** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). taxYear, status (PENDING|SUBMITTED|PROCESSING|ACCEPTED|PARTIALLY_ACCEPTED|REJECTED), TaxBandits submission tracking (taxbanditsSubmissionId, submittedAt, acceptedAt, rejectedAt, rejectionReason), form counts (totalForms, acceptedForms, rejectedForms), e-file settings (tinCheckEnabled, uspsEnabled, eDeliveryEnabled).
 - **ContractorIntakeToken** - clientId FK (Cascade delete, only parent). Links to Client(clientType=BUSINESS). Public intake form token for contractors. token (unique), taxYear, isActive (default true), expiresAt (optional TTL). Indexes: token (unique), clientId+isActive.
 - **RawImage** - Classification states, AI confidence, perceptual hash, re-upload tracking, relationships to documentViews, documentGroupId FK (Phase 2/3 multi-page grouping), pageNumber (Phase 3 page order detection), aiMetadata JSON (Phase 1 metadata extraction: taxpayerName, ssn4, pageMarker with currentPage/totalPages, continuationMarker). Phase 01 Entity Routing: entityConfidence (AI confidence 0-1 for entity detection), routedFromCaseId (audit trail for docs re-routed to correct ClientGroup member, indexed for fast lookups)

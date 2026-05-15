@@ -1,8 +1,8 @@
 # Ella Tax Document Management - Project Roadmap
 
 > **Last Updated:** 2026-05-15 ICT
-> **Current Phase:** Tax Advisory Presentation Landing COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Current Phase:** Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
 
 ---
 
@@ -24,6 +24,24 @@
 - `pnpm -F @ella/landing lint` pass
 - `pnpm -F @ella/landing build` pass
 - Generated sitemap excludes `/tax-advisory`; built page includes `noindex, nofollow`.
+
+---
+
+### Contractor Agent Agreement Phase 06 COMPLETE ✅
+**Started:** 2026-05-15
+**Completed:** 2026-05-15
+**Status:** COMPLETE
+**Plan:** [Contractor Agent Agreement](../plans/20260515-1040-contractor-agent-agreement/plan.md)
+**Objective:** Finalize the Contractor Agent agreement rollout and docs after validation.
+
+**Delivered:**
+- `Staff.isContractorAgent` now gates the workspace compliance flow.
+- `ContractorAgreementAcceptance` stores the signed PDF metadata, signer snapshots, and source template key.
+- Final API and workspace surfaces are documented in the codebase summary and architecture docs.
+- Rollout notes: verify exact firm signer account/signature/title in production, confirm source PDF version, confirm migration applied/status clean, deploy API + workspace together, mark staff, sign, verify profile download.
+
+**Validation:**
+- Phase 05 validation confirmed: targeted API/workspace tests pass, `pnpm type-check` pass, `pnpm build` pass, DB migrate/status pass.
 
 ---
 

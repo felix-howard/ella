@@ -7,6 +7,21 @@
 
 ## 2026-05-15
 
+### API: Staff Invitation Dashboard Access Fix
+**Status:** Complete
+
+**Changed:**
+- Scoped client agreement admin middleware to agreement endpoints only.
+- Fixed invited org members hitting `403 Chỉ admin mới có quyền` when dashboard loads `GET /clients`.
+- Added regression test covering non-admin client list access and admin-only agreement mutation guard.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/agreements-staff-auth.test.ts` pass
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__` pass
+- `pnpm -F @ella/api type-check` pass
+
+---
+
 ### API: Clerk Invite Staff Bootstrap
 **Status:** Complete
 

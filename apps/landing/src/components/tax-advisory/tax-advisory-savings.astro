@@ -1,0 +1,77 @@
+---
+import { savingsRows } from "@/config/tax-advisory-presentation";
+---
+
+<section class="bg-white py-16 sm:py-20">
+  <div class="mx-auto grid max-w-7xl gap-10 px-5 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+    <div data-animate="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-800 sm:text-sm">
+        Estimated tax calculator
+      </p>
+      <h2 class="mt-4 font-heading text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+        Make the savings conversation concrete.
+      </h2>
+      <p class="mt-5 text-base leading-7 text-gray-600">
+        The presentation example compares a before-tax scenario with an
+        after-strategy estimate, then turns the difference into a planning target
+        clients can understand.
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm sm:p-5" data-animate="scale-in">
+      <div class="rounded-lg bg-white p-5">
+        <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">
+              Example analysis
+            </p>
+            <h3 class="mt-1 font-heading text-xl font-bold text-gray-950">
+              Tax strategy estimate
+            </h3>
+          </div>
+          <span class="rounded-full bg-accent-100 px-3 py-1 text-sm font-semibold text-accent-700">
+            Draft
+          </span>
+        </div>
+        <dl class="mt-5 grid gap-4">
+          {savingsRows.map((number) => (
+            <div
+              class:list={[
+                "rounded-lg border p-4",
+                number.highlight
+                  ? "border-primary-200 bg-primary-50"
+                  : "border-gray-100 bg-white",
+              ]}
+            >
+              <div class="flex items-center justify-between gap-4">
+                <dt class="text-sm font-medium text-gray-600">{number.label}</dt>
+                <dd
+                  class:list={[
+                    "font-heading text-xl font-bold sm:text-2xl",
+                    number.highlight ? "text-primary-800" : "text-gray-950",
+                  ]}
+                >
+                  {number.amount}
+                </dd>
+              </div>
+              <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                <div
+                  class:list={[
+                    "h-full rounded-full",
+                    number.highlight ? "bg-accent-500" : "bg-primary-500",
+                  ]}
+                  style={`width: ${number.width}`}
+                >
+                </div>
+              </div>
+            </div>
+          ))}
+        </dl>
+        <p class="mt-4 text-sm leading-6 text-gray-600">
+          Example only. Actual recommendations depend on facts, timing, entity
+          structure, income, documentation, and implementation.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>

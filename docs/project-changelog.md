@@ -1,7 +1,27 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-14 ICT
+> **Last Updated:** 2026-05-15 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-15
+
+### Landing: Tax Advisory Presentation Page
+**Status:** Complete
+**Plan:** `plans/20260515-1505-ella-tax-presentation-landing/plan.md`
+
+**Changed:**
+- Added private-ish `/tax-advisory` Astro landing page that converts the tax presentation PDF into a client-facing advisory narrative.
+- Added password gate with SHA-256 client-side check for preview password `1233` and localStorage unlock.
+- Added modular tax advisory sections for process, roadmap, strategy catalog, savings estimate, and client responsibilities.
+- Excluded `/tax-advisory` from sitemap and set `noindex, nofollow`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass with non-blocking existing Astro hints only
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass
+- Verified generated sitemap excludes `/tax-advisory`; built page includes `noindex, nofollow`; tax advisory route does not ship raw password text.
 
 ---
 

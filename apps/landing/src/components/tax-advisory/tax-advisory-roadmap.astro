@@ -1,0 +1,51 @@
+---
+import { roadmapStages } from "@/config/tax-advisory-presentation";
+---
+
+<section id="tax-roadmap" class="bg-gray-950 py-16 text-white sm:py-20">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6">
+    <div class="max-w-3xl" data-animate="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-300 sm:text-sm">
+        365-day roadmap
+      </p>
+      <h2 class="mt-4 font-heading text-3xl font-bold tracking-tight sm:text-4xl">
+        Tax planning stays active all year, not just during filing season.
+      </h2>
+      <p class="mt-5 text-base leading-7 text-gray-300">
+        The first six months focus on foundations and core strategies. The rest
+        of the year keeps estimates, documentation, and advanced planning on track.
+      </p>
+    </div>
+
+    <div class="relative mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-stagger>
+      <div
+        class="absolute top-8 left-[10%] right-[10%] hidden h-px bg-gradient-to-r from-primary-300/30 via-primary-200 to-accent-300/40 xl:block"
+        aria-hidden="true"
+      >
+      </div>
+      {roadmapStages.map((stage, index) => (
+        <article
+          class="relative rounded-lg border border-white/10 bg-white/[0.04] p-5 transition hover:border-primary-300/50 hover:bg-white/[0.06] motion-safe:hover:-translate-y-1"
+          data-animate="fade-up"
+        >
+          <span
+            class="flex h-10 w-10 items-center justify-center rounded-full border border-primary-200/40 bg-gray-950 text-sm font-bold text-primary-200"
+            aria-hidden="true"
+          >
+            {index + 1}
+          </span>
+          <p class="mt-5 text-sm font-semibold text-primary-300">{stage.period}</p>
+          <h3 class="mt-3 font-heading text-xl font-bold">{stage.title}</h3>
+          <ul class="mt-5 grid gap-3">
+            {stage.items.map((item) => (
+              <li class="flex gap-3 text-sm leading-6 text-gray-300">
+                <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" aria-hidden="true"></span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

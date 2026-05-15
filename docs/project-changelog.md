@@ -7,6 +7,23 @@
 
 ## 2026-05-15
 
+### Landing: Tax Advisory Presentation Refresh
+**Status:** Complete
+**Plan:** `plans/260515-1703-tax-advisory-presentation-refresh/plan.md`
+
+**Changed:**
+- Expanded `/tax-advisory` to follow the uploaded presentation more closely.
+- Added deck-aligned sections for "We will help you", 5-step client experience, overpayment reasons, and implementation task tracks.
+- Reworked process, 365-day roadmap, strategy catalog, savings estimate, and responsibility copy around the presentation flow.
+- Split tax advisory content config into smaller files to keep files under the repo line-count target.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass with existing non-blocking Astro hints only
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+---
+
 ### Landing: Tax Advisory Presentation Page
 **Status:** Complete
 **Plan:** `plans/20260515-1505-ella-tax-presentation-landing/plan.md`

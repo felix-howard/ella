@@ -1,0 +1,71 @@
+---
+import {
+  clientExperienceStages,
+  helpPromises,
+  overpaymentReasons,
+} from "@/config/tax-advisory-presentation";
+---
+
+<section class="bg-white py-16 sm:py-20">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6">
+    <div class="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+      <div data-animate="fade-up">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-800 sm:text-sm">
+          We will help you
+        </p>
+        <h2 class="mt-4 font-heading text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+          Tax advisory is decision support, not just return preparation.
+        </h2>
+        <p class="mt-5 text-base leading-7 text-gray-600">
+          The presentation starts with a simple promise: help clients make smarter
+          tax decisions, use the right strategies, and stay accountable to the
+          work required to realize the benefit.
+        </p>
+        <ul class="mt-8 grid gap-3">
+          {helpPromises.map((item) => (
+            <li class="flex gap-3 rounded-lg border border-primary-100 bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950">
+              <span class="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-500" aria-hidden="true"></span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div data-stagger>
+        <div class="grid gap-4 sm:grid-cols-5">
+          {clientExperienceStages.map((stage) => (
+            <article
+              class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-primary-200 hover:shadow-lg motion-safe:hover:-translate-y-1"
+              data-animate="fade-up"
+            >
+              <p class="font-heading text-2xl font-bold text-primary-800">{stage.number}</p>
+              <h3 class="mt-4 min-h-[48px] font-heading text-base font-bold leading-6 text-gray-950">
+                {stage.title}
+              </h3>
+              <p class="mt-3 text-sm leading-6 text-gray-600">{stage.description}</p>
+            </article>
+          ))}
+        </div>
+
+        <div class="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5 sm:p-6" data-animate="fade-up">
+          <div class="max-w-3xl">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-800">
+              Why clients overpay
+            </p>
+            <h3 class="mt-3 font-heading text-2xl font-bold tracking-tight text-gray-950">
+              Overpayment usually comes from missing strategy, weak records, or late action.
+            </h3>
+          </div>
+          <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            {overpaymentReasons.map((reason) => (
+              <article class="rounded-lg border border-gray-200 bg-white p-4">
+                <h4 class="font-heading text-lg font-bold text-gray-950">{reason.title}</h4>
+                <p class="mt-2 text-sm leading-6 text-gray-600">{reason.description}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

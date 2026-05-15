@@ -1,6 +1,6 @@
 export const taxAdvisoryPasswordHash =
   "4654d793972c3b6a1d48fb0ab58d9cb0de46c3d33d605f9222c283dfaa12d420";
-export const taxAdvisoryStorageKey = "ellaTaxAdvisoryAuth";
+export const taxAdvisoryStorageKey = "ellaTaxAdvisoryAuth:1233";
 
 export const heroMetrics = [
   { value: "14", label: "presentation sections" },

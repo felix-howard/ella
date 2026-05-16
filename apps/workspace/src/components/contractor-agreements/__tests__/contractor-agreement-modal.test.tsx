@@ -40,7 +40,10 @@ describe('ContractorAgreementModal', () => {
     expect(markup).toContain('Independent Contractor Agreement for Obamacare Contractor Agents')
     expect(markup).toContain('1. Purpose of Agreement')
     expect(markup).toContain('29. Acknowledgment')
-    expect(markup).toContain('Scroll to review the full agreement before signing.')
+    expect(markup).toContain('Review the agreement before signing.')
     expect(markup).toContain('Your Signature')
+
+    const signButtonTag = markup.match(/<button[^>]*>/)
+    expect(signButtonTag?.[0]).not.toMatch(/\sdisabled(=|>|\s)/)
   })
 })

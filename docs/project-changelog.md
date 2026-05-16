@@ -7,6 +7,21 @@
 
 ## 2026-05-15
 
+### Workspace: Contractor Agreement PDF-Style Preview
+**Status:** Complete
+
+**Changed:**
+- Restyled contractor agreement preview to read like a standard PDF page instead of stacked UI cards.
+- Removed the agreement acknowledgment gate from `Sign and Continue`; staff can submit without scrolling the full preview.
+- Added typed-signature fallback from staff name when no drawn signature is provided.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- contractor-agreement-modal` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings only
+
+---
+
 ### API: Staff Invitation Dashboard Access Fix
 **Status:** Complete
 

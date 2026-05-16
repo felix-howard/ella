@@ -18,6 +18,31 @@ interface ContractorAgreementModalProps {
   onStatusRefresh: () => void
 }
 
+function createTypedSignatureDataUrl(name: string) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 720
+  canvas.height = 220
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('Signature canvas is not available')
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  context.fillStyle = '#111827'
+  context.font = 'italic 64px "Brush Script MT", "Segoe Script", cursive'
+  context.textBaseline = 'middle'
+  context.fillText(name, 48, 100, 624)
+  context.strokeStyle = '#111827'
+  context.lineWidth = 2
+  context.beginPath()
+  context.moveTo(48, 158)
+  context.lineTo(520, 158)
+  context.stroke()
+
+  return canvas.toDataURL('image/png')
+}
+
 export function ContractorAgreementModal({
   firmSigner,
   organization,
@@ -26,18 +51,16 @@ export function ContractorAgreementModal({
   onStatusRefresh,
 }: ContractorAgreementModalProps) {
   const { t } = useTranslation()
-  const [agreed, setAgreed] = useState(false)
   const [signaturePngDataUrl, setSignaturePngDataUrl] = useState<string | null>(null)
   const acceptMutation = useAcceptContractorAgreement()
 
   const isSubmitting = acceptMutation.isPending
-  const canSubmit = agreed && !!signaturePngDataUrl && !isSubmitting
+  const canSubmit = !isSubmitting
 
   const handleSubmit = useCallback(async () => {
-    if (!signaturePngDataUrl) return
-
     try {
-      await acceptMutation.mutateAsync({ version, signaturePngDataUrl })
+      const signatureDataUrl = signaturePngDataUrl ?? createTypedSignatureDataUrl(staffName)
+      await acceptMutation.mutateAsync({ version, signaturePngDataUrl: signatureDataUrl })
       toast.success(t('contractorAgreement.acceptSuccess', 'Contractor agreement signed'))
       onStatusRefresh()
     } catch (error) {
@@ -49,7 +72,7 @@ export function ContractorAgreementModal({
       toast.error(error instanceof Error ? error.message : fallbackMessage)
       onStatusRefresh()
     }
-  }, [acceptMutation, onStatusRefresh, signaturePngDataUrl, t, version])
+  }, [acceptMutation, onStatusRefresh, signaturePngDataUrl, staffName, t, version])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
@@ -82,26 +105,6 @@ export function ContractorAgreementModal({
             firmSigner={firmSigner}
             organization={organization}
           />
-
-          <div className="flex items-start gap-3 py-5">
-            <input
-              type="checkbox"
-              id="agree-contractor-agreement"
-              checked={agreed}
-              onChange={(event) => setAgreed(event.target.checked)}
-              disabled={isSubmitting}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-            />
-            <label
-              htmlFor="agree-contractor-agreement"
-              className="text-sm text-foreground cursor-pointer leading-relaxed"
-            >
-              {t(
-                'contractorAgreement.acknowledgment',
-                'I have reviewed the Independent Contractor agreement and agree to sign it electronically.'
-              )}
-            </label>
-          </div>
 
           <div className="py-2">
             <h2 className="font-medium text-foreground mb-3">

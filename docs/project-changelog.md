@@ -7,6 +7,21 @@
 
 ## 2026-05-16
 
+### Workspace: Contractor Agreement Signing UX Fix
+**Status:** Complete
+
+**Changed:**
+- Split contractor agreement modal into a document reading area and always-visible signing panel.
+- Moved acknowledgment checkbox, signature pad, submit button, and hint into the signing panel.
+- Signing panel appears before the scrollable document so staff can find signing controls immediately.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/contractor-agreements/__tests__/contractor-agreement-modal.test.tsx` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings only
+
+---
+
 ### API: Contractor Agreement PDF Layout Fix
 **Status:** Complete
 

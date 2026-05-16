@@ -52,8 +52,8 @@ export function ContractorAgreementModal({
   }, [acceptMutation, agreed, onStatusRefresh, signaturePngDataUrl, t, version])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      <div className="w-full max-w-2xl mx-4 bg-card rounded-xl shadow-2xl max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4">
+      <div className="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-card shadow-2xl">
         <div className="flex items-start gap-3 px-6 py-4 border-b border-border shrink-0">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <FileText className="h-5 w-5" />
@@ -68,74 +68,80 @@ export function ContractorAgreementModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          <p className="text-sm text-foreground/80 leading-relaxed">
-            {t(
-              'contractorAgreement.intro',
-              '{{name}}, your staff profile is marked as a Contractor Agent. Sign the current Independent Contractor agreement before entering the workspace.',
-              { name: staffName }
-            )}
-          </p>
+        <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-none">
+          <aside className="flex min-h-0 flex-col border-b border-border bg-muted/20 px-6 py-5 lg:border-b-0 lg:border-r lg:bg-background">
+            <div className="space-y-5">
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="agree-contractor-agreement"
+                  checked={agreed}
+                  onChange={(event) => setAgreed(event.target.checked)}
+                  disabled={isSubmitting}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label
+                  htmlFor="agree-contractor-agreement"
+                  className="cursor-pointer text-sm leading-relaxed text-foreground"
+                >
+                  {t(
+                    'contractorAgreement.acknowledgment',
+                    'I have reviewed the Independent Contractor agreement and agree to sign it electronically.'
+                  )}
+                </label>
+              </div>
 
-          <ContractorAgreementDocument
-            contractorName={staffName}
-            firmSigner={firmSigner}
-            organization={organization}
-          />
+              <div>
+                <h2 className="mb-3 font-medium text-foreground">
+                  {t('terms.signature', 'Your Signature')}
+                </h2>
+                <SignaturePad onSignatureChange={setSignaturePngDataUrl} disabled={isSubmitting} />
+              </div>
+            </div>
 
-          <div className="flex items-start gap-3 border-t border-border py-4">
-            <input
-              type="checkbox"
-              id="agree-contractor-agreement"
-              checked={agreed}
-              onChange={(event) => setAgreed(event.target.checked)}
-              disabled={isSubmitting}
-              className="mt-1 h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label
-              htmlFor="agree-contractor-agreement"
-              className="cursor-pointer text-sm leading-relaxed text-foreground"
-            >
+            <div className="mt-5 border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('terms.submitting', 'Submitting...')}
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    {t('contractorAgreement.signAndContinue', 'Sign and Continue')}
+                  </>
+                )}
+              </button>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                {t(
+                  'contractorAgreement.submitHint',
+                  'Your signature will be applied to the agreement PDF and stored with your staff profile.'
+                )}
+              </p>
+            </div>
+          </aside>
+
+          <div className="min-h-0 overflow-y-auto px-6 py-5">
+            <p className="text-sm text-foreground/80 leading-relaxed">
               {t(
-                'contractorAgreement.acknowledgment',
-                'I have reviewed the Independent Contractor agreement and agree to sign it electronically.'
+                'contractorAgreement.intro',
+                '{{name}}, your staff profile is marked as a Contractor Agent. Sign the current Independent Contractor agreement before entering the workspace.',
+                { name: staffName }
               )}
-            </label>
-          </div>
+            </p>
 
-          <div className="py-4">
-            <h2 className="font-medium text-foreground mb-3">
-              {t('terms.signature', 'Your Signature')}
-            </h2>
-            <SignaturePad onSignatureChange={setSignaturePngDataUrl} disabled={isSubmitting} />
+            <ContractorAgreementDocument
+              contractorName={staffName}
+              firmSigner={firmSigner}
+              organization={organization}
+            />
           </div>
-        </div>
-
-        <div className="px-6 py-4 border-t border-border shrink-0">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t('terms.submitting', 'Submitting...')}
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                {t('contractorAgreement.signAndContinue', 'Sign and Continue')}
-              </>
-            )}
-          </button>
-          <p className="text-xs text-muted-foreground text-center mt-3">
-            {t(
-              'contractorAgreement.submitHint',
-              'Your signature will be applied to the agreement PDF and stored with your staff profile.'
-            )}
-          </p>
         </div>
       </div>
     </div>

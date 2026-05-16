@@ -104,7 +104,7 @@ export function htmlToPdfNodes(html: string): React.ReactElement[] {
     const key = `n-${i}`
     if (name === 'p') {
       out.push(
-        <View key={key} style={pdfStyles.section} wrap={false}>
+        <View key={key} style={pdfStyles.section}>
           <Text style={pdfStyles.paragraph}>{renderInline(node.children, key)}</Text>
         </View>,
       )
@@ -122,13 +122,13 @@ export function htmlToPdfNodes(html: string): React.ReactElement[] {
       )
     } else if (name === 'ul') {
       out.push(
-        <View key={key} style={pdfStyles.section} wrap={false}>
+        <View key={key} style={pdfStyles.section}>
           {renderListItems(node, key, false)}
         </View>,
       )
     } else if (name === 'ol') {
       out.push(
-        <View key={key} style={pdfStyles.section} wrap={false}>
+        <View key={key} style={pdfStyles.section}>
           {renderListItems(node, key, true)}
         </View>,
       )

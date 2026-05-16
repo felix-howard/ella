@@ -1,12 +1,12 @@
 /**
  * Auth Middleware - Clerk authentication and role-based access control
  * Uses @hono/clerk-auth official middleware
- * Read-only: webhook handles DB sync (see services/clerk-webhook)
+ * Webhooks handle normal DB sync; middleware has invite-accept fallback sync.
  */
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
-import { type AuthUser } from '../services/auth'
+import { syncStaffFromClerkMembership, type AuthUser } from '../services/auth'
 import { prisma } from '../lib/db'
 
 export type { AuthUser }
@@ -22,7 +22,7 @@ export { clerkMiddleware }
 
 /**
  * Auth middleware that requires authentication
- * Looks up Staff by clerkId (no sync - webhook handles DB writes)
+ * Looks up Staff by clerkId and bootstraps from Clerk membership if webhook sync is pending.
  */
 export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(async (c, next) => {
   const auth = getAuth(c)
@@ -31,11 +31,24 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
     throw new HTTPException(401, { message: 'Yêu cầu xác thực' })
   }
 
-  // Look up staff by Clerk ID (no sync - webhook handles it)
-  const staff = await prisma.staff.findUnique({
+  // Look up staff by Clerk ID. Webhooks are the primary sync path, but the
+  // invite-accept redirect can reach the API before Clerk delivers the webhook.
+  let staff = await prisma.staff.findUnique({
     where: { clerkId: auth.userId },
     include: { organization: true },
   })
+
+  const clerkOrgId = auth.orgId || null
+  const needsMembershipSync = clerkOrgId && (
+    !staff ||
+    !staff.organizationId ||
+    staff.organization?.clerkOrgId !== clerkOrgId ||
+    !staff.isActive
+  )
+
+  if (needsMembershipSync) {
+    staff = await syncStaffFromClerkMembership(auth.userId, clerkOrgId, auth.orgRole)
+  }
 
   // Staff record should exist (created by webhook on membership.created)
   // If not found, webhook may be pending
@@ -49,7 +62,6 @@ export const authMiddleware = createMiddleware<{ Variables: AuthVariables }>(asy
   }
 
   // Extract org context from JWT (for validation)
-  const clerkOrgId = auth.orgId || null
   const orgRole = auth.orgRole || null
 
   c.set('user', {

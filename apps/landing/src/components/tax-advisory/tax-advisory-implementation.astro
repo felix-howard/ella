@@ -1,0 +1,70 @@
+---
+import {
+  businessStrategies,
+  individualStrategies,
+} from "@/config/tax-advisory-presentation";
+---
+
+<section class="bg-slate-950 py-16 text-white sm:py-20">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6">
+    <div class="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <div data-animate="fade-up">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          Individual
+        </p>
+        <h2 class="mt-4 font-heading text-4xl font-bold tracking-tight sm:text-5xl">
+          Individual strategy circle
+        </h2>
+      </div>
+
+      <div class="relative mx-auto aspect-square w-full max-w-xl" data-animate="scale-in">
+        <div class="absolute inset-[16%] rounded-full border-[22px] border-slate-200" aria-hidden="true"></div>
+        {individualStrategies.map((strategy, index) => {
+          const positions = [
+            "left-[40%] top-[3%]",
+            "right-[1%] top-[23%]",
+            "right-[-4%] top-[48%]",
+            "right-[26%] bottom-[5%]",
+            "left-[28%] bottom-[5%]",
+            "left-[-4%] top-[48%]",
+            "left-[8%] top-[23%]",
+          ];
+          return (
+            <div
+              class:list={[
+                "absolute flex min-h-[72px] w-[42%] items-center justify-center rounded-lg bg-gradient-to-b from-slate-600 to-sky-950 px-3 text-center font-heading text-lg font-bold uppercase leading-tight shadow-xl shadow-black/25 sm:text-2xl",
+                positions[index],
+              ]}
+            >
+              {strategy}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    <div class="mt-20 grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
+      <div data-animate="fade-up">
+        <h2 class="font-heading text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+          Business
+        </h2>
+      </div>
+      <div class="grid gap-4" data-stagger>
+        {businessStrategies.map((strategy, index) => {
+          const colors = ["bg-fuchsia-700", "bg-violet-800", "bg-sky-700", "bg-emerald-600", "bg-green-700"];
+          return (
+            <div
+              class:list={[
+                "rounded-lg border-2 border-white px-6 py-5 font-heading text-3xl font-medium uppercase tracking-wide text-white shadow-sm sm:text-5xl",
+                colors[index],
+              ]}
+              data-animate="fade-up"
+            >
+              {strategy}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+</section>

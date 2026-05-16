@@ -51,7 +51,7 @@ describe('Clerk Webhook Service', () => {
       expect(prisma.staff.upsert).toHaveBeenCalledWith({
         where: { clerkId: 'user_new' },
         update: { email: 'new@test.com', name: 'Jane Smith', avatarUrl: 'https://img.clerk.com/jane.jpg' },
-        create: { clerkId: 'user_new', email: 'new@test.com', name: 'Jane Smith', avatarUrl: 'https://img.clerk.com/jane.jpg' },
+        create: { clerkId: 'user_new', email: 'new@test.com', name: 'Jane Smith', avatarUrl: 'https://img.clerk.com/jane.jpg', language: 'EN' },
       })
     })
 
@@ -261,6 +261,7 @@ describe('Clerk Webhook Service', () => {
           clerkId: 'user_123',
           email: 'john@test.com',
           role: 'ADMIN',
+          language: 'EN',
         }),
       })
     })

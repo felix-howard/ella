@@ -1,7 +1,201 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-13 ICT
+> **Last Updated:** 2026-05-16 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-16
+
+### API: Contractor Agreement PDF Layout Fix
+**Status:** Complete
+
+**Changed:**
+- Removed the fixed `located at [Contractor Address]` placeholder from generated contractor agreement PDFs.
+- Realigned agency and contractor signature values to their matching signature/name/title/date rows.
+- Covered the signature-page contractor legal-name placeholder before writing the signer name.
+- Removed the trailing blank template page from generated PDFs.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/contractor-agreements/__tests__/contractor-agreement-pdf.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api exec eslint src/services/contractor-agreements/contractor-agreement-pdf.ts src/services/contractor-agreements/__tests__/contractor-agreement-pdf.test.ts` pass
+
+---
+
+### Workspace: Settings Contractor Agreement Download Fix
+**Status:** Complete
+
+**Changed:**
+- Settings Profile now treats `staffId="me"` as own profile for contractor agreement download access.
+- Added regression coverage so the current user's signed contractor agreement does not render as restricted in Settings.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/settings/__tests__/settings-profile-tab.test.tsx src/components/profile/__tests__/contractor-agreement-download-button.test.tsx` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace exec eslint src/components/settings/settings-profile-tab.tsx src/components/settings/__tests__/settings-profile-tab.test.tsx` pass
+
+---
+
+### Workspace/API: Contractor Agreement Signing Gate + Staff Language Default
+**Status:** Complete
+
+**Changed:**
+- Contractor agreement modal now requires acknowledgment checkbox plus drawn signature before `Sign and Continue` enables.
+- Removed typed-signature fallback so staff cannot complete contractor agreement by button click alone.
+- New staff accounts now default workspace language to English in i18n fallback, Clerk webhook sync, auth membership bootstrap, and Staff DB default.
+- Added Prisma migration `20260516034954_default_staff_language_english`.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/contractor-agreements/__tests__/contractor-agreement-modal.test.tsx` pass
+- `pnpm -F @ella/api test -- src/services/clerk-webhook/__tests__/clerk-webhook.test.ts src/services/auth/__tests__/auth.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+
+---
+
+### API: Auto-Generated Staff Form Slugs
+**Status:** Complete
+
+**Changed:**
+- Added six-digit random personal form slug generation for new staff membership sync and self-service signup.
+- Preserved manual slug edits; existing slugs are not overwritten.
+- Added DB migration to backfill missing staff form slugs for existing organization members.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/staff-form-slug.test.ts src/services/auth/__tests__/auth.test.ts src/services/clerk-webhook/__tests__/clerk-webhook.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate dev --name backfill_staff_form_slugs` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+
+---
+
+## 2026-05-15
+
+### Workspace: Contractor Agreement PDF-Style Preview
+**Status:** Complete
+
+**Changed:**
+- Restyled contractor agreement preview to read like a standard PDF page instead of stacked UI cards.
+- Removed the agreement acknowledgment gate from `Sign and Continue`; staff can submit without scrolling the full preview.
+- Added typed-signature fallback from staff name when no drawn signature is provided.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- contractor-agreement-modal` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings only
+
+---
+
+### API: Staff Invitation Dashboard Access Fix
+**Status:** Complete
+
+**Changed:**
+- Scoped client agreement admin middleware to agreement endpoints only.
+- Fixed invited org members hitting `403 Chỉ admin mới có quyền` when dashboard loads `GET /clients`.
+- Added regression test covering non-admin client list access and admin-only agreement mutation guard.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/agreements-staff-auth.test.ts` pass
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__` pass
+- `pnpm -F @ella/api type-check` pass
+
+---
+
+### API: Clerk Invite Staff Bootstrap
+**Status:** Complete
+
+**Changed:**
+- Auth middleware now bootstraps Staff from the active Clerk organization membership when invite accept reaches API before webhook sync.
+- Local development no longer depends on Clerk webhook delivery to `localhost` for newly invited staff.
+- Added guard against relinking an email already owned by another Clerk user.
+- Staff terms modal now defaults to English copy while preserving the Vietnamese toggle.
+
+**Validation:**
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api test -- src/services/auth/__tests__/auth.test.ts src/services/clerk-webhook/__tests__/clerk-webhook.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+### Landing: Tax Advisory Presentation Refresh
+**Status:** Complete
+**Plan:** `plans/260515-1703-tax-advisory-presentation-refresh/plan.md`
+
+**Changed:**
+- Expanded `/tax-advisory` to follow the uploaded presentation more closely.
+- Added deck-aligned sections for "We will help you", 5-step client experience, overpayment reasons, and implementation task tracks.
+- Reworked process, 365-day roadmap, strategy catalog, savings estimate, and responsibility copy around the presentation flow.
+- Split tax advisory content config into smaller files to keep files under the repo line-count target.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass with existing non-blocking Astro hints only
+- `pnpm -F @ella/landing build` pass
+- `pnpm -F @ella/landing lint` pass
+
+---
+
+### Landing: Tax Advisory Presentation Page
+**Status:** Complete
+**Plan:** `plans/20260515-1505-ella-tax-presentation-landing/plan.md`
+
+**Changed:**
+- Added private-ish `/tax-advisory` Astro landing page that converts the tax presentation PDF into a client-facing advisory narrative.
+- Added password gate with SHA-256 client-side check for preview password `1233` and localStorage unlock.
+- Added modular tax advisory sections for process, roadmap, strategy catalog, savings estimate, and client responsibilities.
+- Excluded `/tax-advisory` from sitemap and set `noindex, nofollow`.
+
+**Validation:**
+- `pnpm -F @ella/landing type-check` pass with non-blocking existing Astro hints only
+- `pnpm -F @ella/landing lint` pass
+- `pnpm -F @ella/landing build` pass
+- Verified generated sitemap excludes `/tax-advisory`; built page includes `noindex, nofollow`; tax advisory route does not ship raw password text.
+
+---
+
+### API/Workspace: Contractor Agent Agreement Rollout
+**Status:** Complete
+**Plan:** `plans/20260515-1040-contractor-agent-agreement/plan.md`
+
+**Changed:**
+- `Staff.isContractorAgent` now gates the workspace compliance flow.
+- `ContractorAgreementAcceptance` stores the signed PDF metadata, signer snapshots, and source template key.
+- Contractor agreement routes are finalized at `/contractor-agreements/status`, `/contractor-agreements/accept`, `/contractor-agreements/acceptance/:staffId`, `/contractor-agreements/download/:acceptanceId`, and `/team/members/:staffId/contractor-agent`.
+- Signed PDFs store in R2 under `contractor-agreements/{orgId}/{staffId}/{version}/{uuid}.pdf`.
+- Workspace profile now shows the signed agreement download state for contractor agents.
+- Rollout notes: verify exact firm signer account/signature/title in production, confirm source PDF version, confirm migration applied/status clean, deploy API + workspace together, mark staff, sign, verify profile download.
+
+**Validation:**
+- Phase 05 validation confirmed: targeted API/workspace tests pass, `pnpm type-check` pass, `pnpm build` pass, DB migrate/status pass.
+
+---
+
+## 2026-05-14
+
+### Workspace/API: Upload Link Message Template Selection
+**Status:** Complete
+**Plan:** `plans/260514-2141-upload-link-message-template-selection/plan.md`
+
+**Changed:**
+- Manual Send Upload Link and Convert Lead flows now reuse the same upload-link SMS template cards as Create Client.
+- Org Form Links settings now persists a default upload-link template for generic form auto-send.
+- Staff personal form settings now persists a separate default upload-link template for staff-routed form auto-send.
+- Staff personal form settings can inherit the org default template or override it.
+- Public form auto-send resolves staff default template first, then org default, then built-in fallback.
+- Added Organization and Staff `defaultUploadLinkTemplateId` fields plus DB value checks with Prisma migrations.
+
+**Validation:**
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace build` pass with existing browser-externalization/chunk-size warnings only
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+- `pnpm -F @ella/api test -- src/routes/form/__tests__/form-template-selection.test.ts src/services/sms/__tests__/message-sender-template.test.ts src/routes/clients/__tests__/send-upload-link.test.ts` pass (12 tests)
+- `pnpm -F @ella/workspace test` pass (23 tests)
 
 ---
 

@@ -1,0 +1,218 @@
+1. Purpose of Agreement
+Agency is engaged in the business of providing health insurance enrollment, Affordable Care Act / Marketplace enrollment support, Obamacare-related services, client servicing, customer support, insurance referral services, lead management, and related administrative and back-office services.
+Agency desires to engage Contractor as an independent subcontractor to assist with sales, referrals, enrollments, client servicing, customer support, and related activities. Contractor desires to provide such services under the terms of this Agreement.
+
+2. Independent Contractor Status
+Contractor is engaged as an independent contractor and not as an employee, partner, joint venturer, agent with binding authority, or legal representative of Agency.
+Contractor understands and agrees that:
+1. Contractor will receive IRS Form 1099-NEC if legally required.
+2. Agency will not withhold federal, state, or local taxes from Contractor's compensation.
+3. Contractor is not entitled to employee benefits, unemployment insurance, workers' compensation, paid leave, health benefits, retirement benefits, or any other employee benefit from Agency.
+4. Contractor has no authority to bind Agency to any agreement, debt, obligation, representation, promise, or contract unless Agency gives prior written authorization.
+
+3. Services
+Contractor may perform some or all of the following services, as authorized by Agency:
+1. Obamacare-related services.
+2. Assisting with client intake and documentation.
+3. Helping clients complete enrollment or renewal processes.
+4. Servicing Contractor-generated clients.
+5. Servicing Agency-assigned clients.
+6. Communicating with clients under Agency's policies.
+7. Providing follow-up and retention support.
+8. Performing other related services requested by Agency.
+Contractor shall perform services in a professional, ethical, lawful, and compliant manner.
+
+4. Compensation and Commission
+Subject to the terms of this Agreement, Contractor shall be paid commission equal to fifty percent (50%) of the net commission or net compensation actually received by Agency from eligible business personally produced by Contractor and accepted by Agency.
+Unless otherwise agreed in writing:
+1. Contractor is only paid after Agency actually receives payment.
+2. No commission is earned on cancelled, declined, terminated, chargeback, rescinded, duplicate, fraudulent, non-compliant, or unpaid business.
+3. Agency may deduct chargebacks, refunds, carrier reversals, compliance penalties, advance recoveries, or client cancellations from Contractor's current or future commissions.
+4. Agency reserves the right to determine whether business is valid, payable, compliant, and eligible for commission.
+5. Commission payment timing shall be monthly, subject to reconciliation.
+
+5. Back-End Support and Agency Ownership of Client Relationships
+Agency may provide Contractor with back-office support, client service support, administrative systems, CRM access, enrollment support, compliance support, training, leads, carrier relationships, firm clientele, marketing materials, customer service staff, or other resources. Contractor acknowledges that all such resources are valuable business assets of Agency.
+Unless otherwise stated in writing:
+1. All Agency-generated clients are and remain the property and client relationships of Agency.
+2. All firm clientele, house accounts, reassigned accounts, existing clients, leads, referral sources, and databases are Agency property.
+3. Contractor shall not claim ownership over Agency clients, lead lists, records, applications, files, CRM data, phone numbers, email addresses, policy data, or account information.
+4. Contractor shall not remove, copy, export, download, transfer, screenshot, scrape, or retain Agency data except as needed to perform authorized services for Agency.
+
+6. Compliance Obligations
+Contractor shall comply with all applicable federal, state, and local laws, rules, regulations, carrier rules, Marketplace rules, Centers for Medicare & Medicaid Services rules, HIPAA/privacy requirements where applicable, TCPA telemarketing rules, Do-Not-Call rules, anti-fraud rules, licensing requirements, certification requirements, advertising rules, and Agency policies.
+Contractor agrees that Contractor shall not:
+1. Submit false, misleading, incomplete, or unauthorized applications.
+2. Enroll or change a consumer's plan without the consumer's knowledge and consent.
+3. Misrepresent premium amounts, subsidies, tax credits, benefits, plan terms, provider networks, deductibles, copays, or coverage.
+4. Use deceptive, aggressive, or misleading sales tactics.
+5. Falsify income, household size, address, immigration status, tax filing status, or other application information.
+6. Contact consumers in violation of telemarketing, consent, privacy, or Do-Not-Call rules.
+7. Use unapproved marketing scripts, ads, websites, flyers, texts, emails, social media posts, robocalls, or lead sources.
+8. Accept payment directly from clients unless authorized in writing by Agency.
+9. Make guarantees about approval, subsidy amounts, coverage, or tax consequences.
+10. Engage in fraud, waste, abuse, identity misuse, or unauthorized plan switching.
+Contractor must immediately report to Agency any complaint, suspected compliance issue, carrier inquiry, Marketplace inquiry, consumer dispute, government inquiry, privacy incident, or suspected unauthorized enrollment.
+
+7. Confidential Information
+"Confidential Information" includes, but is not limited to:
+1. Client names, phone numbers, emails, addresses, Social Security numbers, dates of birth, income information, household information, health plan information, subsidy information, application information, and policy information.
+2. Agency leads, lead sources, referral sources, marketing methods, scripts, systems, CRM data, pricing, commissions, carrier relationships, vendors, business strategies, and training materials.
+3. Agency contracts, commission schedules, business processes, software access, passwords, reports, customer lists, and financial information.
+4. Any non-public information received from Agency or learned through Contractor's relationship with Agency.
+Contractor shall not use, disclose, copy, sell, transfer, publish, or exploit Confidential Information except as necessary to perform authorized services for Agency.
+This obligation continues during and after termination of this Agreement.
+
+9. Data Security and Privacy
+Contractor shall protect all client and Agency information using reasonable administrative, technical, and physical safeguards.
+Contractor shall not:
+1. Store client information on unsecured personal devices.
+2. Send sensitive client information through unsecured channels.
+3. Share client data with unauthorized persons.
+4. Use client data for personal benefit or outside business.
+5. Retain client records after termination unless legally required and authorized by Agency.
+Upon request or termination, Contractor must immediately return or permanently delete all Agency and client information and certify in writing that all such information has been returned or deleted.
+
+10. Non-Solicitation of Agency Clients
+To the maximum extent permitted by law, during the term of this Agreement and for twenty-four (24) months after termination, Contractor shall not directly or indirectly solicit, divert, contact, market to, enroll, service, replace, transfer, move, or attempt to move any Agency client, Agency lead, firm client, house account, referral source, or prospect that Contractor learned of through Agency.
+This restriction applies whether the client was:
+1. Assigned by Agency;
+2. Serviced by Contractor through Agency;
+3. Introduced through Agency systems;
+4. Listed in Agency CRM or records;
+5. Generated through Agency advertising, staff, lead vendors, referral partners, or marketing; or
+6. Part of Agency's firm clientele.
+Contractor may continue to service clients that Contractor can prove were independently known to Contractor before this Agreement and were not obtained through Agency resources.
+
+11. Non-Solicitation of Agency Workers, Contractors, and Partners
+During the term of this Agreement and for twenty-four (24) months after termination, Contractor shall not directly or indirectly recruit, hire, solicit, induce, encourage, or attempt to cause any Agency employee, contractor, subcontractor, agent, vendor, referral source, call center, lead vendor, administrative staff, or business partner to leave, reduce, or alter their relationship with Agency.
+
+12. Non-Compete Covenant
+To the maximum extent permitted by applicable law, during the term of this Agreement and for twelve (12) months after termination, Contractor shall not directly or indirectly compete with Agency by engaging in the same or substantially similar ACA / Marketplace / Obamacare enrollment, referral, client servicing, or health insurance enrollment business within the restricted territory described below, if such activity involves:
+1. Agency clients;
+2. Agency leads;
+3. Agency referral sources;
+4. Agency house accounts;
+5. Firm clientele;
+6. Carrier relationships introduced by Agency;
+7. Agency confidential information;
+8. Agency marketing systems; or
+9. Business opportunities Contractor learned of through Agency.
+The restricted territory shall be: all 50 states where Agency operates or where Contractor worked.
+This clause is intended to protect Agency's legitimate business interests, including client relationships, goodwill, confidential information, referral relationships, training, systems, and back-office investment.
+This clause shall not prohibit Contractor from earning a living in a lawful occupation, but it does prohibit Contractor from unfairly using Agency's confidential information, clientele, leads, goodwill, and business relationships to compete against Agency.
+
+13. Alternative Limited Non-Compete Language
+If a court determines that the non-compete clause above is too broad, the Parties agree that the following narrower restriction shall apply:
+For twelve (12) months after termination, Contractor shall not directly or indirectly provide ACA, Marketplace, Obamacare, individual health insurance enrollment, renewal, or servicing assistance to any client, prospect, lead, referral source, or account that Contractor obtained, serviced, accessed, contacted, or learned about through Agency.
+
+14. No Circumvention
+Contractor shall not bypass, circumvent, avoid, or cut out Agency from any client, lead, carrier, referral source, vendor, business partner, opportunity, or account introduced by or through Agency.
+Contractor shall not move Agency business to another agency, broker, upline, FMO, IMO, platform, carrier, call center, or personal business for the purpose of avoiding commission sharing, replacing Agency, or taking over Agency relationships.
+
+15. Ownership of Work Product
+All documents, applications, forms, notes, call recordings, client files, CRM entries, spreadsheets, reports, marketing materials, scripts, training materials, client communications, and other work product created, received, or maintained in connection with Contractor's services for Agency shall belong to Agency.
+
+16. Return of Property
+Upon termination or request by Agency, Contractor shall immediately return all Agency property, including but not limited to:
+1. Client lists;
+2. Lead lists;
+3. Applications;
+4. Login credentials;
+5. Marketing materials;
+6. Training materials;
+7. Commission reports;
+8. Devices, if any;
+9. Documents;
+10. Confidential information;
+11. CRM exports;
+12. Client communications; and
+13. Any copies, backups, screenshots, or downloads.
+
+17. Chargebacks and Commission Adjustments
+Contractor is responsible for any chargebacks, reversals, cancellations, duplicate enrollments, compliance violations, carrier denials, Marketplace issues, or refunds related to Contractor's business.
+Agency may offset such amounts against any commissions owed or future commissions. If chargebacks exceed commissions due, Contractor shall repay Agency within ten (10) days of written notice.
+
+18. Compliance Audits
+Agency may audit Contractor's work, communications, files, applications, recordings, marketing, client interactions, and compliance practices at any time.
+Contractor agrees to cooperate fully with Agency, carriers, government agencies, Marketplace administrators, auditors, and regulators.
+Failure to cooperate is a material breach of this Agreement.
+
+19. Prohibited Conduct
+Contractor shall not:
+1. Make false statements about Agency.
+2. Damage Agency's reputation or goodwill.
+3. Steal, copy, misuse, or sell Agency leads or client data.
+4. Use Agency branding without written permission.
+5. Represent that Contractor owns Agency clients.
+6. Transfer clients away from Agency without written consent.
+7. Contact Agency clients after termination except with written permission.
+8. Create confusion between Contractor's business and Agency.
+9. Use Agency systems for outside business.
+10. Engage in any conduct that may expose Agency to liability, penalties, complaints, or regulatory action.
+
+20. Term and Termination
+This Agreement begins on the Effective Date and continues until terminated by either Party.
+Either Party may terminate this Agreement with 30 days' written notice.
+Agency may terminate immediately for cause, including but not limited to:
+1. Compliance violation;
+2. Fraud or suspected fraud;
+3. Misuse of client information;
+4. Unauthorized enrollment;
+5. Breach of confidentiality;
+6. Breach of non-solicitation or non-compete obligations;
+7. Loss of license or certification;
+8. Misrepresentation;
+9. Client complaint;
+10. Regulatory inquiry;
+11. Damage to Agency's business or reputation; or
+12. Violation of law or Agency policy.
+
+21. Effect of Termination
+Upon termination:
+1. Contractor shall stop representing Agency.
+2. Contractor shall stop using Agency name, systems, materials, and credentials.
+3. Contractor shall return all Agency property.
+4. Contractor shall not contact Agency clients except as authorized in writing.
+5. Contractor shall remain bound by confidentiality, non-solicitation, non-circumvention, compliance, data security, chargeback, and restrictive covenant obligations.
+6. Agency may withhold commissions pending compliance review, chargeback review, carrier reconciliation, or investigation.
+
+22. Injunctive Relief
+Contractor agrees that a breach of confidentiality, non-solicitation, non-compete, non-circumvention, or data security obligations may cause Agency irreparable harm that cannot be fully compensated by money damages.
+Agency shall be entitled to seek temporary restraining orders, preliminary injunctions, permanent injunctions, damages, attorney's fees, costs, and any other legal or equitable relief available.
+
+23. Indemnification
+Contractor shall indemnify, defend, and hold harmless Agency, its owners, officers, employees, agents, affiliates, partners, and representatives from and against any claims, damages, fines, penalties, chargebacks, losses, costs, attorney's fees, complaints, investigations, regulatory actions, lawsuits, or liabilities arising from:
+1. Contractor's services;
+2. Contractor's negligence or misconduct;
+3. Contractor's violation of law;
+4. Contractor's compliance violations;
+5. Contractor's unauthorized enrollment activity;
+6. Contractor's privacy or data security breach;
+7. Contractor's misrepresentations;
+8. Contractor's tax obligations;
+9. Contractor's breach of this Agreement.
+
+24. No Guaranteed Work or Income
+Agency does not guarantee any minimum number of leads, clients, referrals, hours, assignments, enrollments, commissions, or income.
+Contractor is paid only according to the compensation terms of this Agreement.
+
+25. Taxes
+Contractor is solely responsible for all federal, state, and local taxes, self-employment taxes, business taxes, tax filings, and reporting obligations related to compensation received under this Agreement.
+Contractor shall indemnify Agency from any claim, assessment, penalty, or tax liability arising from Contractor's tax obligations.
+
+26. Governing Law and Venue
+This Agreement shall be governed by the laws of the State of Texas, without regard to conflict-of-law rules.
+Any lawsuit, claim, or legal proceeding shall be brought exclusively in the state or federal courts located in Harris County, unless otherwise required by law.
+
+27. Severability and Reformation
+If any provision of this Agreement is found invalid, illegal, overbroad, or unenforceable, the remaining provisions shall remain in full force and effect.
+The Parties request that any court modify, narrow, reform, or enforce the provision to the maximum extent permitted by law rather than voiding it entirely.
+
+28. Entire Agreement
+This Agreement contains the entire understanding between the Parties and supersedes all prior oral or written discussions, agreements, promises, or representations.
+Any amendment must be in writing and signed by both Parties.
+
+29. Acknowledgment
+Contractor acknowledges that Contractor has read this Agreement, understands it, had the opportunity to consult an attorney, and voluntarily agrees to be bound by its terms.
+Contractor further acknowledges that the restrictions in this Agreement are reasonable and necessary to protect Agency's client relationships, confidential information, goodwill, business systems, referral sources, and back-office investment.

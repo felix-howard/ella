@@ -1,12 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api-client'
 
-export function useTermsStatus() {
+function shouldRetryStatus(failureCount: number, error: Error) {
+  if ('status' in error && (error.status === 401 || error.status === 403)) {
+    return false
+  }
+  return failureCount < 5
+}
+
+export function useTermsStatus(enabled = true) {
   return useQuery({
     queryKey: ['terms-status'],
     queryFn: () => api.terms.getStatus(),
+    enabled,
     staleTime: 5 * 60 * 1000,
-    retry: 5,
+    retry: shouldRetryStatus,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   })
 }

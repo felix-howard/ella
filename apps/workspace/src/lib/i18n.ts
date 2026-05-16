@@ -1,6 +1,6 @@
 /**
  * Workspace i18n configuration
- * Vietnamese-first with English support
+ * English-first with Vietnamese support
  * Uses react-i18next with bundled translations
  */
 import i18n from 'i18next'
@@ -17,10 +17,10 @@ i18n
       vi: { translation: vi },
       en: { translation: en },
     },
-    fallbackLng: 'vi',
+    fallbackLng: 'en',
     interpolation: { escapeValue: false },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['localStorage'],
       lookupLocalStorage: 'ella-language',
       caches: ['localStorage'],
     },

@@ -353,14 +353,6 @@ export const portalApi = {
       `/portal/${token}?caseId=${encodeURIComponent(caseId)}`
     ),
 
-  // Self-service delete an uploaded file (only when status !== LINKED)
-  // 403 LINKED_DOC means CPA has linked the doc; client cannot remove it.
-  deleteFile: (token: string, rawImageId: string) =>
-    request<{ deleted: true; id: string }>(
-      `/portal/${token}/uploads/${encodeURIComponent(rawImageId)}`,
-      { method: 'DELETE' }
-    ),
-
   // Get draft return data for portal viewing
   getDraft: (token: string) => request<DraftReturnData>(`/portal/draft/${token}`),
 

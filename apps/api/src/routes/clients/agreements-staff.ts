@@ -42,8 +42,6 @@ import {
 
 const clientsAgreementsStaffRoute = new Hono<{ Variables: AuthVariables }>()
 
-clientsAgreementsStaffRoute.use('*', requireOrgAdmin)
-
 const defaultHtmlQuerySchema = z.object({
   type: z.enum(['NDA', 'ENGAGEMENT_LETTER']).default('NDA'),
 }).strict()
@@ -61,6 +59,7 @@ function getAuth(user: AuthUser): { orgId: string; staffId: string } {
 // POST /:clientId/agreements — create agreement, generate token, send SMS.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements',
+  requireOrgAdmin,
   zValidator('param', clientIdParamSchema),
   zValidator('json', createAgreementBodySchema),
   async (c) => {
@@ -87,6 +86,7 @@ clientsAgreementsStaffRoute.post(
 // GET /:clientId/agreements/default-html — built-in type-specific HTML for editor seed.
 clientsAgreementsStaffRoute.get(
   '/:clientId/agreements/default-html',
+  requireOrgAdmin,
   zValidator('param', clientIdParamSchema),
   zValidator('query', defaultHtmlQuerySchema),
   async (c) => {
@@ -106,6 +106,7 @@ clientsAgreementsStaffRoute.get(
 // POST /:clientId/agreements/preview-pdf — in-memory preview render. No DB write.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/preview-pdf',
+  requireOrgAdmin,
   zValidator('param', clientIdParamSchema),
   zValidator('json', previewAgreementBodySchema),
   async (c) => {
@@ -134,6 +135,7 @@ clientsAgreementsStaffRoute.post(
 // PATCH /:clientId/agreements/:id/deposit — update deposit state + note
 clientsAgreementsStaffRoute.patch(
   '/:clientId/agreements/:id/deposit',
+  requireOrgAdmin,
   zValidator('param', clientAndAgreementIdParamSchema),
   zValidator('json', updateDepositBodySchema),
   async (c) => {
@@ -156,6 +158,7 @@ clientsAgreementsStaffRoute.patch(
 // GET /:clientId/agreements/:id/pdf — presigned R2 URL (15-min TTL)
 clientsAgreementsStaffRoute.get(
   '/:clientId/agreements/:id/pdf',
+  requireOrgAdmin,
   zValidator('param', clientAndAgreementIdParamSchema),
   async (c) => {
     const { orgId } = getAuth(c.get('user'))
@@ -173,6 +176,7 @@ clientsAgreementsStaffRoute.get(
 // POST /:clientId/agreements/:id/resend — reuse token if active, rotate if expired
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/:id/resend',
+  requireOrgAdmin,
   zValidator('param', clientAndAgreementIdParamSchema),
   async (c) => {
     const { orgId, staffId } = getAuth(c.get('user'))
@@ -197,6 +201,7 @@ clientsAgreementsStaffRoute.post(
 // the token or sending SMS.
 clientsAgreementsStaffRoute.post(
   '/:clientId/agreements/:id/extend',
+  requireOrgAdmin,
   zValidator('param', clientAndAgreementIdParamSchema),
   zValidator('json', extendAgreementBodySchema),
   async (c) => {

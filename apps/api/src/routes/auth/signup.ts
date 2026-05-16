@@ -10,6 +10,7 @@ import { clerkClient } from '../../lib/clerk-client'
 import { config } from '../../lib/config'
 import { prisma } from '../../lib/db'
 import { rateLimiter } from '../../middleware/rate-limiter'
+import { getStaffFormSlugData } from '../../services/staff-form-slug'
 
 const signupSchema = z.object({
   firstName: z.string().min(1),
@@ -57,9 +58,10 @@ authSignupRoute.post(
         update: {},
         create: { clerkOrgId: orgId, name: orgName },
       })
+      const formSlugData = await getStaffFormSlugData(prisma, dbOrg.id)
       await prisma.staff.upsert({
         where: { clerkId: userId },
-        update: { organizationId: dbOrg.id },
+        update: { organizationId: dbOrg.id, ...formSlugData },
         create: {
           clerkId: userId,
           email,
@@ -67,6 +69,7 @@ authSignupRoute.post(
           role: 'ADMIN',
           avatarUrl: user.imageUrl,
           organizationId: dbOrg.id,
+          ...formSlugData,
         },
       })
 

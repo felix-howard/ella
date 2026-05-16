@@ -5,6 +5,7 @@
  */
 import type { WebhookEvent } from '@clerk/backend'
 import { prisma } from '../../lib/db'
+import { getStaffFormSlugData } from '../staff-form-slug'
 
 // --- Type definitions for Clerk event data ---
 
@@ -189,6 +190,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
     : null
 
   if (existingByEmail) {
+    const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByEmail)
     await prisma.staff.update({
       where: { id: existingByEmail.id },
       data: {
@@ -198,9 +200,12 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         avatarUrl: image_url,
         organizationId: org.id,
         isActive: true,
+        ...formSlugData,
       },
     })
   } else {
+    const existingByClerk = await prisma.staff.findUnique({ where: { clerkId: user_id } })
+    const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByClerk)
     await prisma.staff.upsert({
       where: { clerkId: user_id },
       update: {
@@ -210,6 +215,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         avatarUrl: image_url,
         organizationId: org.id,
         isActive: true,
+        ...formSlugData,
       },
       create: {
         clerkId: user_id,
@@ -218,6 +224,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         role,
         avatarUrl: image_url,
         organizationId: org.id,
+        ...formSlugData,
       },
     })
   }

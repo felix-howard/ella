@@ -1,7 +1,26 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-15 ICT
+> **Last Updated:** 2026-05-16 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-16
+
+### API: Auto-Generated Staff Form Slugs
+**Status:** Complete
+
+**Changed:**
+- Added six-digit random personal form slug generation for new staff membership sync and self-service signup.
+- Preserved manual slug edits; existing slugs are not overwritten.
+- Added DB migration to backfill missing staff form slugs for existing organization members.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/staff-form-slug.test.ts src/services/auth/__tests__/auth.test.ts src/services/clerk-webhook/__tests__/clerk-webhook.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate dev --name backfill_staff_form_slugs` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
 
 ---
 

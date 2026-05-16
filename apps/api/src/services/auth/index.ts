@@ -5,6 +5,7 @@
 import type { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
+import { getStaffFormSlugData } from '../staff-form-slug'
 
 export interface AuthUser {
   id: string // Clerk user ID
@@ -118,15 +119,18 @@ export async function syncStaffFromClerkMembership(
   }
 
   if (existingByEmail) {
+    const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByEmail)
     await prisma.staff.update({
       where: { id: existingByEmail.id },
-      data: staffData,
+      data: { ...staffData, ...formSlugData },
     })
   } else {
+    const existingByClerk = await prisma.staff.findUnique({ where: { clerkId } })
+    const formSlugData = await getStaffFormSlugData(prisma, org.id, existingByClerk)
     await prisma.staff.upsert({
       where: { clerkId },
-      update: staffData,
-      create: staffData,
+      update: { ...staffData, ...formSlugData },
+      create: { ...staffData, ...formSlugData },
     })
   }
 

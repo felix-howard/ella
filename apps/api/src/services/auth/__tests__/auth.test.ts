@@ -7,6 +7,7 @@ vi.mock('../../../lib/db', () => ({
     },
     staff: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       upsert: vi.fn(),
       updateMany: vi.fn(),
@@ -62,7 +63,9 @@ describe('Auth service', () => {
         data: [membership],
       } as never)
       vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(null as never)
       vi.mocked(prisma.staff.findUnique)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: 'staff_1', clerkId: 'user_1', organizationId: 'org_db_1' } as never)
       vi.mocked(prisma.staff.upsert).mockResolvedValueOnce({} as never)
@@ -98,6 +101,7 @@ describe('Auth service', () => {
           clerkId: 'user_1',
           email: 'member@test.com',
           role: 'STAFF',
+          formSlug: expect.stringMatching(/^\d{6}$/),
         }),
       })
     })
@@ -107,8 +111,9 @@ describe('Auth service', () => {
         data: [{ ...membership, role: 'org:admin' }],
       } as never)
       vi.mocked(prisma.organization.upsert).mockResolvedValueOnce({ id: 'org_db_1' } as never)
+      vi.mocked(prisma.staff.findFirst).mockResolvedValueOnce(null as never)
       vi.mocked(prisma.staff.findUnique)
-        .mockResolvedValueOnce({ id: 'staff_existing', email: 'member@test.com', clerkId: null } as never)
+        .mockResolvedValueOnce({ id: 'staff_existing', email: 'member@test.com', clerkId: null, formSlug: null } as never)
         .mockResolvedValueOnce({ id: 'staff_existing', clerkId: 'user_1', organizationId: 'org_db_1' } as never)
       vi.mocked(prisma.staff.update).mockResolvedValueOnce({} as never)
 
@@ -121,6 +126,7 @@ describe('Auth service', () => {
           role: 'ADMIN',
           organizationId: 'org_db_1',
           isActive: true,
+          formSlug: expect.stringMatching(/^\d{6}$/),
         }),
       })
       expect(prisma.staff.upsert).not.toHaveBeenCalled()

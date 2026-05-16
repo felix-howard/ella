@@ -50,6 +50,8 @@ When the user runs `$ck:cook @plan.md` or `/ck:cook <plan.md>`:
 
 When the user asks to create a plan, generate a plan file, or prepare implementation instructions, create or update the plan files only, then output the relative `plan.md` location and stop. Do not implement code changes in the same turn unless the user explicitly asks to implement in that same request.
 
+- When the user says `commit`, commit all current code changes in the worktree, not only the latest assistant-made change, while still excluding secrets and unrelated generated noise.
+
 ## Development Principles
 
 - **YAGNI**: You Aren't Gonna Need It - avoid over-engineering

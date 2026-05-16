@@ -45,6 +45,10 @@ describe('ContractorAgreementModal', () => {
       'I have reviewed the Independent Contractor agreement and agree to sign it electronically.'
     )
     expect(markup).toContain('Your Signature')
+    expect(markup).toContain(
+      '<li value="1" class="pl-2">Contractor will receive IRS Form 1099-NEC'
+    )
+    expect(markup).not.toContain('>1. Contractor will receive IRS Form 1099-NEC')
 
     const signButtonTag = markup.match(/<button[^>]*>/)
     expect(signButtonTag?.[0]).toMatch(/\sdisabled(=|>|\s)/)

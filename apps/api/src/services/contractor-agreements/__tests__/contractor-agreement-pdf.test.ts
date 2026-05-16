@@ -46,7 +46,7 @@ describe('contractor agreement PDF generation', () => {
       loadContractorAgreementTemplate().then((bytes) => PDFDocument.load(bytes)),
       PDFDocument.load(pdf),
     ])
-    expect(signedDoc.getPageCount()).toBe(12)
+    expect(signedDoc.getPageCount()).toBe(11)
     expect(pageImageCount(signedDoc, 10) - pageImageCount(templateDoc, 10)).toBe(2)
     expect(sha256Hex(pdf)).toMatch(/^[a-f0-9]{64}$/)
   })

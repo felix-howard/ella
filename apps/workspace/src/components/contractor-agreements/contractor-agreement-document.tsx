@@ -15,7 +15,7 @@ interface ContractorAgreementDocumentProps {
 function parseClauses(text: string): ContractorAgreementClause[] {
   return text
     .trim()
-    .split(/\n(?=\d+\.\s)/)
+    .split(/\n{2,}(?=\d+\.\s)/)
     .map((block) => {
       const [title, ...lines] = block
         .split('\n')

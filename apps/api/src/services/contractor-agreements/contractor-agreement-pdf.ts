@@ -10,18 +10,25 @@ const MAX_SIGNATURE_BYTES = 500_000
 
 // Source PDF is US Letter, 612 x 792. Coordinates use pdf-lib's bottom-left origin.
 const SIGNATURE_PAGE_INDEX = 10
+const TRAILING_BLANK_PAGE_INDEX = 11
+const FIRST_PAGE_REDACTIONS = [
+  // Remove ", located at [Contractor Address]" from the fixed source template.
+  { x: 311, y: 497, width: 170, height: 18 },
+]
 const FIRM_FIELDS = {
   signature: { x: 100, y: 240, width: 180, height: 42 },
-  name: { x: 100, y: 225 },
-  title: { x: 100, y: 211 },
-  date: { x: 100, y: 197 },
+  name: { x: 100, y: 250.94 },
+  title: { x: 100, y: 237.14 },
+  date: { x: 100, y: 223.34 },
 }
 const CONTRACTOR_FIELDS = {
-  legalName: { x: 72, y: 151 },
+  legalNameMask: { x: 70, y: 150, width: 145, height: 17 },
+  legalName: { x: 72, y: 153.98 },
   signature: { x: 124, y: 114, width: 160, height: 36 },
-  name: { x: 106, y: 101 },
-  date: { x: 100, y: 87 },
+  name: { x: 106, y: 112.34 },
+  date: { x: 100, y: 98.52 },
 }
+const WHITE = rgb(1, 1, 1)
 
 export interface ContractorAgreementSigner {
   name: string
@@ -104,12 +111,17 @@ export async function generateContractorAgreementPdf(
 
   const templateBytes = await loadContractorAgreementTemplate()
   const pdfDoc = await PDFDocument.load(templateBytes)
+  const firstPage = pdfDoc.getPage(0)
   const page = pdfDoc.getPage(SIGNATURE_PAGE_INDEX)
   const font = await pdfDoc.embedFont(StandardFonts.TimesRoman)
   const firmSignature = await pdfDoc.embedPng(input.firmSigner.signaturePngBuffer)
   const signerSignature = await pdfDoc.embedPng(contractorSignature)
   const signedDate = formatAgreementDate(input.signedAt)
   const textOptions = { size: 11, font, color: rgb(0, 0, 0) }
+
+  for (const redaction of FIRST_PAGE_REDACTIONS) {
+    firstPage.drawRectangle({ ...redaction, color: WHITE })
+  }
 
   page.drawImage(firmSignature, FIRM_FIELDS.signature)
   page.drawText(input.firmSigner.name, { ...FIRM_FIELDS.name, ...textOptions })
@@ -119,10 +131,15 @@ export async function generateContractorAgreementPdf(
   })
   page.drawText(signedDate, { ...FIRM_FIELDS.date, ...textOptions })
 
+  page.drawRectangle({ ...CONTRACTOR_FIELDS.legalNameMask, color: WHITE })
   page.drawText(input.contractor.name, { ...CONTRACTOR_FIELDS.legalName, ...textOptions })
   page.drawImage(signerSignature, CONTRACTOR_FIELDS.signature)
   page.drawText(input.contractor.name, { ...CONTRACTOR_FIELDS.name, ...textOptions })
   page.drawText(signedDate, { ...CONTRACTOR_FIELDS.date, ...textOptions })
+
+  if (pdfDoc.getPageCount() > TRAILING_BLANK_PAGE_INDEX) {
+    pdfDoc.removePage(TRAILING_BLANK_PAGE_INDEX)
+  }
 
   const bytes = await pdfDoc.save()
   return Buffer.from(bytes)

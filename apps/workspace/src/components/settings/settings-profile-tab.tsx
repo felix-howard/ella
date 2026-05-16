@@ -69,6 +69,7 @@ export function SettingsProfileTab() {
         canEdit={canEdit}
         staffId="me"
         canChangeRole={false}
+        canViewContractorAgreement
         hideNotifications
       />
 

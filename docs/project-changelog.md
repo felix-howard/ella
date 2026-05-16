@@ -7,6 +7,36 @@
 
 ## 2026-05-16
 
+### API: Contractor Agreement PDF Layout Fix
+**Status:** Complete
+
+**Changed:**
+- Removed the fixed `located at [Contractor Address]` placeholder from generated contractor agreement PDFs.
+- Realigned agency and contractor signature values to their matching signature/name/title/date rows.
+- Covered the signature-page contractor legal-name placeholder before writing the signer name.
+- Removed the trailing blank template page from generated PDFs.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/contractor-agreements/__tests__/contractor-agreement-pdf.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api exec eslint src/services/contractor-agreements/contractor-agreement-pdf.ts src/services/contractor-agreements/__tests__/contractor-agreement-pdf.test.ts` pass
+
+---
+
+### Workspace: Settings Contractor Agreement Download Fix
+**Status:** Complete
+
+**Changed:**
+- Settings Profile now treats `staffId="me"` as own profile for contractor agreement download access.
+- Added regression coverage so the current user's signed contractor agreement does not render as restricted in Settings.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/settings/__tests__/settings-profile-tab.test.tsx src/components/profile/__tests__/contractor-agreement-download-button.test.tsx` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace exec eslint src/components/settings/settings-profile-tab.tsx src/components/settings/__tests__/settings-profile-tab.test.tsx` pass
+
+---
+
 ### Workspace/API: Contractor Agreement Signing Gate + Staff Language Default
 **Status:** Complete
 

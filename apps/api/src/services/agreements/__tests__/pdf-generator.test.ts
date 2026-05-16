@@ -3,12 +3,17 @@
  * and produces a valid PDF byte stream.
  */
 import { describe, expect, it } from 'vitest'
-import { generateSignedPdf, type GenerateSignedPdfInput } from '../pdf-generator'
+import {
+  generateSignedPdf,
+  resolveAgreementPdfSubtitle,
+  shouldRenderAgreementPdfHeader,
+  type GenerateSignedPdfInput,
+} from '../pdf-generator'
 
 // 1x1 transparent PNG (valid minimal PNG for signature placeholder).
 const TRANSPARENT_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-  'base64',
+  'base64'
 )
 
 function buildInput(overrides: Partial<GenerateSignedPdfInput> = {}): GenerateSignedPdfInput {
@@ -50,8 +55,8 @@ describe('generateSignedPdf', () => {
       generateSignedPdf(
         buildInput({
           agreement: { templateVersion: 'v999', depositAmount: '300.00' },
-        }),
-      ),
+        })
+      )
     ).rejects.toThrow(/Unknown agreement template version/)
   })
 
@@ -60,8 +65,8 @@ describe('generateSignedPdf', () => {
       generateSignedPdf(
         buildInput({
           agreement: { templateVersion: 'v1', depositAmount: 'not-a-number' },
-        }),
-      ),
+        })
+      )
     ).rejects.toThrow(/Invalid deposit amount/)
   })
 
@@ -73,7 +78,7 @@ describe('generateSignedPdf', () => {
           depositAmount: '300.00',
           customContentHtml: '<h2>Custom Section</h2><p>Custom paragraph.</p>',
         },
-      }),
+      })
     )
     expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
     // Sanity: custom-HTML output diverges from legacy template output
@@ -103,10 +108,24 @@ describe('generateSignedPdf', () => {
           address: '[Address]',
           clientType: 'INDIVIDUAL',
         },
-      }),
+      })
     )
 
     expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+  })
+
+  it('omits the generated parties header and subtitle for engagement letters', () => {
+    expect(shouldRenderAgreementPdfHeader('ENGAGEMENT_LETTER')).toBe(false)
+    expect(
+      resolveAgreementPdfSubtitle('ENGAGEMENT_LETTER', 'Professional Services Engagement')
+    ).toBeUndefined()
+  })
+
+  it('keeps the generated parties header and subtitle for NDA PDFs', () => {
+    expect(shouldRenderAgreementPdfHeader('NDA')).toBe(true)
+    expect(resolveAgreementPdfSubtitle('NDA', 'Mutual Confidentiality')).toBe(
+      'Mutual Confidentiality'
+    )
   })
 
   it('renders long pasted custom HTML across multiple pages', async () => {
@@ -114,7 +133,7 @@ describe('generateSignedPdf', () => {
       'To the fullest extent permitted by law, Firm liability for any claim arising out of this engagement shall be limited to the fees paid by Client to Firm for the services giving rise to the claim. Firm shall not be liable for indirect, incidental, consequential, special, punitive, or exemplary damages, including lost profits, business interruption, penalties, assessments, or government findings, except to the extent prohibited by law.'
     const customContentHtml = Array.from(
       { length: 70 },
-      (_, i) => `<p>${i + 1}. ${paragraph}</p>`,
+      (_, i) => `<p>${i + 1}. ${paragraph}</p>`
     ).join('')
 
     const buffer = await generateSignedPdf(
@@ -138,7 +157,7 @@ describe('generateSignedPdf', () => {
           address: '[Address]',
           clientType: 'INDIVIDUAL',
         },
-      }),
+      })
     )
 
     expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
@@ -188,7 +207,7 @@ describe('generateSignedPdf', () => {
           address: '[Address]',
           clientType: 'INDIVIDUAL',
         },
-      }),
+      })
     )
 
     expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')

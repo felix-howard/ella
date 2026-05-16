@@ -90,7 +90,7 @@ async function handleUserCreated(data: unknown): Promise<void> {
   await prisma.staff.upsert({
     where: { clerkId: d.id },
     update: { email, name, avatarUrl: d.image_url },
-    create: { clerkId: d.id, email, name, avatarUrl: d.image_url },
+    create: { clerkId: d.id, email, name, avatarUrl: d.image_url, language: 'EN' },
   })
   console.log(`[ClerkWebhook] user.created: ${d.id}`)
 }
@@ -224,6 +224,7 @@ async function handleMembershipCreated(data: unknown): Promise<void> {
         role,
         avatarUrl: image_url,
         organizationId: org.id,
+        language: 'EN',
         ...formSlugData,
       },
     })

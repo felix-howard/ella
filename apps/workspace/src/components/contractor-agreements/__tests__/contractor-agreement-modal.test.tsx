@@ -41,9 +41,12 @@ describe('ContractorAgreementModal', () => {
     expect(markup).toContain('1. Purpose of Agreement')
     expect(markup).toContain('29. Acknowledgment')
     expect(markup).toContain('Review the agreement before signing.')
+    expect(markup).toContain(
+      'I have reviewed the Independent Contractor agreement and agree to sign it electronically.'
+    )
     expect(markup).toContain('Your Signature')
 
     const signButtonTag = markup.match(/<button[^>]*>/)
-    expect(signButtonTag?.[0]).not.toMatch(/\sdisabled(=|>|\s)/)
+    expect(signButtonTag?.[0]).toMatch(/\sdisabled(=|>|\s)/)
   })
 })

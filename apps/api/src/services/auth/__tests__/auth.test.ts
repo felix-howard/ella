@@ -101,6 +101,7 @@ describe('Auth service', () => {
           clerkId: 'user_1',
           email: 'member@test.com',
           role: 'STAFF',
+          language: 'EN',
           formSlug: expect.stringMatching(/^\d{6}$/),
         }),
       })

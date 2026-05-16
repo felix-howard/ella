@@ -130,7 +130,7 @@ export async function syncStaffFromClerkMembership(
     await prisma.staff.upsert({
       where: { clerkId },
       update: { ...staffData, ...formSlugData },
-      create: { ...staffData, ...formSlugData },
+      create: { ...staffData, language: 'EN' as const, ...formSlugData },
     })
   }
 

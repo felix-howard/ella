@@ -7,6 +7,25 @@
 
 ## 2026-05-16
 
+### Workspace/API: Contractor Agreement Signing Gate + Staff Language Default
+**Status:** Complete
+
+**Changed:**
+- Contractor agreement modal now requires acknowledgment checkbox plus drawn signature before `Sign and Continue` enables.
+- Removed typed-signature fallback so staff cannot complete contractor agreement by button click alone.
+- New staff accounts now default workspace language to English in i18n fallback, Clerk webhook sync, auth membership bootstrap, and Staff DB default.
+- Added Prisma migration `20260516034954_default_staff_language_english`.
+
+**Validation:**
+- `pnpm -F @ella/workspace test -- src/components/contractor-agreements/__tests__/contractor-agreement-modal.test.tsx` pass
+- `pnpm -F @ella/api test -- src/services/clerk-webhook/__tests__/clerk-webhook.test.ts src/services/auth/__tests__/auth.test.ts` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/db type-check` pass
+- `pnpm -F @ella/db exec dotenv -e ../../.env -- prisma migrate status` pass
+
+---
+
 ### API: Auto-Generated Staff Form Slugs
 **Status:** Complete
 

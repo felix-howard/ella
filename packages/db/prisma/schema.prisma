@@ -455,7 +455,7 @@ model Staff {
   addedChecklistItems   ChecklistItem[] @relation("AddedChecklistItems")
   skippedChecklistItems ChecklistItem[] @relation("SkippedChecklistItems")
   auditLogs             AuditLog[]
-  language              Language        @default(VI)
+  language              Language        @default(EN)
   formSlug              String? // URL slug for public intake form (/form/:orgSlug/:staffSlug)
   presence              StaffPresence?
 

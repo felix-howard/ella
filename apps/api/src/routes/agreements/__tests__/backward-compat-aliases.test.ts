@@ -78,6 +78,7 @@ function activeAgreement(token: string, overrides: Record<string, unknown> = {})
 function signBody() {
   return {
     signerName: 'Jane Doe',
+    signerTitle: 'Manager',
     signaturePngDataUrl: VALID_PNG_DATA_URL,
     agreementChecked: true,
   }

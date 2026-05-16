@@ -304,10 +304,11 @@ export async function toPublicView(agreement: LoadedAgreement): Promise<PublicAg
 export interface SignAgreementInput {
   token: string
   signerName: string
+  signerTitle: string
   signaturePngDataUrl: string
   ip: string
   userAgent: string
-  /** v2 BUSINESS-only. Required when Client.clientType === 'BUSINESS'. */
+  /** Back-compat: older portal builds supplied business rep fields. */
   clientAuthRepName?: string
   clientAuthRepTitle?: string
 }
@@ -324,22 +325,30 @@ export async function signAgreement(input: SignAgreementInput) {
   }
 
   const isV2 = Boolean(agreement.firmSignaturePngKey)
+  const signerName = input.signerName.trim()
+  const signerTitle = input.signerTitle.trim()
+
+  if (signerName.length < 2 || signerTitle.length < 2) {
+    throw new HTTPException(400, {
+      message: 'Signer full name and title are required',
+    })
+  }
 
   // Server reads clientType from DB, never trusts the payload. INDIVIDUAL
-  // signers cannot supply auth-rep fields (silently dropped); BUSINESS signers
-  // MUST supply both.
+  // signers do not get an auth-rep row, while BUSINESS signers use the same
+  // full-name/title pair as authorized representative metadata.
   const dbClientType: 'INDIVIDUAL' | 'BUSINESS' = agreement.client?.clientType ?? 'INDIVIDUAL'
-  const repName = input.clientAuthRepName?.trim() || null
-  const repTitle = input.clientAuthRepTitle?.trim() || null
+  const repName = input.clientAuthRepName?.trim() || signerName
+  const repTitle = input.clientAuthRepTitle?.trim() || signerTitle
   if (dbClientType === 'BUSINESS' && (!repName || !repTitle)) {
     throw new HTTPException(400, {
       message: 'Authorized representative name and title are required for business clients',
     })
   }
-  // For INDIVIDUAL clients, drop any rep fields the caller may have supplied
-  // — they're not relevant and shouldn't be persisted as noise.
+  // For INDIVIDUAL clients, drop the auth-rep name; keep title because the
+  // client signature block now requires it for every signer.
   const persistRepName = dbClientType === 'BUSINESS' ? repName : null
-  const persistRepTitle = dbClientType === 'BUSINESS' ? repTitle : null
+  const persistRepTitle = repTitle
 
   const decoded = decodeSignaturePng(input.signaturePngDataUrl)
   const signedAt = new Date()
@@ -405,7 +414,7 @@ export async function signAgreement(input: SignAgreementInput) {
       address: clientAddressLine,
       clientType: dbClientType,
       authRepName: persistRepName ?? undefined,
-      authRepTitle: persistRepTitle ?? undefined,
+      authRepTitle: persistRepTitle,
       signaturePngBuffer: decoded.buffer,
       signedAt: formatHumanDate(signedAt),
     }
@@ -427,7 +436,7 @@ export async function signAgreement(input: SignAgreementInput) {
     },
     signature: {
       pngBuffer: decoded.buffer,
-      typedName: input.signerName,
+      typedName: signerName,
       ipAddress: input.ip,
       userAgent: input.userAgent,
       signedAt,
@@ -443,7 +452,7 @@ export async function signAgreement(input: SignAgreementInput) {
     data: {
       status: 'SIGNED',
       signedAt,
-      signerName: input.signerName,
+      signerName,
       signerIpAddress: input.ip,
       signerUserAgent: input.userAgent,
       signaturePngKey,

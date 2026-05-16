@@ -67,6 +67,7 @@ function activeNda(token: string, overrides: Record<string, unknown> = {}) {
 function signBody(overrides: Record<string, unknown> = {}) {
   return {
     signerName: 'Jane Doe',
+    signerTitle: 'Manager',
     signaturePngDataUrl: VALID_PNG_DATA_URL,
     agreementChecked: true,
     ...overrides,

@@ -111,7 +111,7 @@ describe('loadNdaByToken', () => {
 
   it('returns null when both lead and client are detached', async () => {
     mockFindUnique.mockResolvedValueOnce(
-      activeNda({ leadId: null, lead: null, clientId: null, client: null }) as any,
+      activeNda({ leadId: null, lead: null, clientId: null, client: null }) as any
     )
     expect(await loadNdaByToken('tok-abc')).toBeNull()
   })
@@ -138,7 +138,7 @@ describe('toPublicView', () => {
 
   it('flags expired=true when expiresAt is in the past', async () => {
     const view = await toPublicView(
-      activeNda({ expiresAt: new Date('2020-01-01T00:00:00Z') }) as any,
+      activeNda({ expiresAt: new Date('2020-01-01T00:00:00Z') }) as any
     )
     expect(view.expired).toBe(true)
   })
@@ -148,7 +148,7 @@ describe('toPublicView', () => {
       activeNda({
         lead: { id: 'lead-1', firstName: 'Jane', lastName: '' },
         signer: { id: 'lead-1', firstName: 'Jane', lastName: '', kind: 'lead' },
-      }) as any,
+      }) as any
     )
     const body = JSON.stringify(view.templateSections)
     expect(body).toContain('Jane')
@@ -165,7 +165,7 @@ describe('toPublicView', () => {
 
   it('exposes templateHtml when customContentHtml is set', async () => {
     const view = await toPublicView(
-      activeNda({ customContentHtml: '<p>Custom NDA content</p>' }) as any,
+      activeNda({ customContentHtml: '<p>Custom NDA content</p>' }) as any
     )
     expect(view.templateHtml).toBe('<p>Custom NDA content</p>')
     // Legacy field still populated for back-compat
@@ -209,7 +209,7 @@ describe('toPublicView', () => {
         },
         client: null,
         lead: { id: 'lead-1', firstName: 'Jane', lastName: 'Doe', businessName: null },
-      }) as any,
+      }) as any
     )
     expect(view.firmSnapshot).not.toBeNull()
     expect(view.firmSnapshot?.name).toBe('Acme Tax LLC')
@@ -231,6 +231,7 @@ describe('signNda', () => {
   const baseInput = {
     token: 'tok-abc',
     signerName: 'Jane Doe',
+    signerTitle: 'Manager',
     signaturePngDataUrl: VALID_PNG_DATA_URL,
     ip: '203.0.113.1',
     userAgent: 'Mozilla/5.0 Test',
@@ -264,6 +265,7 @@ describe('signNda', () => {
     expect(updateArgs.data).toMatchObject({
       status: 'SIGNED',
       signerName: 'Jane Doe',
+      clientAuthRepTitle: 'Manager',
       signerIpAddress: '203.0.113.1',
       signerUserAgent: 'Mozilla/5.0 Test',
       isActive: false,
@@ -302,7 +304,7 @@ describe('signNda', () => {
 
   it('returns 410 when NDA is expired', async () => {
     mockFindUnique.mockResolvedValueOnce(
-      activeNda({ expiresAt: new Date('2020-01-01T00:00:00Z') }) as any,
+      activeNda({ expiresAt: new Date('2020-01-01T00:00:00Z') }) as any
     )
     await expect(signNda(baseInput)).rejects.toMatchObject({ status: 410 })
   })
@@ -318,7 +320,7 @@ describe('signNda', () => {
   it('rejects non-PNG signature data URL (400)', async () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)
     await expect(
-      signNda({ ...baseInput, signaturePngDataUrl: 'data:image/jpeg;base64,AAAA' }),
+      signNda({ ...baseInput, signaturePngDataUrl: 'data:image/jpeg;base64,AAAA' })
     ).rejects.toMatchObject({ status: 400 })
     expect(mockUpload).not.toHaveBeenCalled()
   })
@@ -326,9 +328,9 @@ describe('signNda', () => {
   it('rejects payload without PNG magic bytes (400)', async () => {
     mockFindUnique.mockResolvedValueOnce(activeNda() as any)
     const junk = 'data:image/png;base64,' + Buffer.from('not-a-png-yikes').toString('base64')
-    await expect(
-      signNda({ ...baseInput, signaturePngDataUrl: junk }),
-    ).rejects.toMatchObject({ status: 400 })
+    await expect(signNda({ ...baseInput, signaturePngDataUrl: junk })).rejects.toMatchObject({
+      status: 400,
+    })
   })
 
   it('passes signerName, IP, UA, and PNG buffer into PDF generator', async () => {
@@ -346,6 +348,14 @@ describe('signNda', () => {
     expect(arg.signature.pngBuffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true)
     expect(arg.lead).toEqual({ firstName: 'Jane', lastName: 'Doe' })
     expect(arg.organization).toEqual({ name: 'Acme Tax LLC' })
+  })
+
+  it('rejects missing signer title before upload', async () => {
+    mockFindUnique.mockResolvedValueOnce(activeNda() as any)
+    await expect(signNda({ ...baseInput, signerTitle: ' ' })).rejects.toMatchObject({
+      status: 400,
+    })
+    expect(mockUpload).not.toHaveBeenCalled()
   })
 
   it('uploads under clients/ prefix when NDA is client-scoped', async () => {

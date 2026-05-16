@@ -43,7 +43,9 @@ export interface ClientSnapshot {
   /** Full composed address string. "[Address]" in preview. */
   address: string
   clientType: 'INDIVIDUAL' | 'BUSINESS'
+  /** BUSINESS-only signer name row. The typed signerName is also stored in audit metadata. */
   authRepName?: string
+  /** Required signer title rendered in the client signature block for all client types. */
   authRepTitle?: string
   /** PNG bytes from R2. Required in 'signed' mode. */
   signaturePngBuffer?: Buffer

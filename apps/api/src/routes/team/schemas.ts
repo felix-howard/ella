@@ -13,6 +13,10 @@ export const updateMemberRoleSchema = z.object({
   role: z.enum(['org:admin', 'org:member']),
 })
 
+export const updateContractorAgentSchema = z.object({
+  isContractorAgent: z.boolean(),
+})
+
 export const staffIdParamSchema = z.object({
   staffId: z.string().min(1),
 })

@@ -79,8 +79,8 @@ app.use(requireOrgAdmin) // Verify org:admin role (Clerk)
 
 **Token Parsing (Read-Only):**
 - `userId`, `orgId`, `orgRole` extracted from Clerk JWT
-- Middleware looks up Staff by clerkId from DB (no request-time sync)
-- Role mapping via Clerk webhooks (event-driven DB writes)
+- Middleware looks up Staff by clerkId from DB; if an invite accept reaches API before webhook sync, it bootstraps Staff from the active Clerk organization membership
+- Role mapping normally syncs via Clerk webhooks, with auth bootstrap as a race/local-dev fallback
 
 **Backend Middleware:**
 - `requireOrg` - Verify orgId in JWT, attach to context

@@ -30,6 +30,7 @@ import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
 import { termsRoute } from './routes/terms'
+import { contractorAgreementsRoute } from './routes/contractor-agreements'
 import { leadsRoute } from './routes/leads'
 import { contractorIntakeRoute } from './routes/contractor-intake'
 import { clientContractorsRoute } from './routes/contractors/client-contractors'
@@ -97,6 +98,7 @@ app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/shared-docs/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
+app.use('/contractor-agreements/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
 app.use('/agreement-templates/*', authMiddleware)
 
@@ -124,6 +126,7 @@ app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/shared-docs', sharedDocsRoute)
 app.route('/terms', termsRoute)
+app.route('/contractor-agreements', contractorAgreementsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware
 app.route('/client-groups', clientGroupsRoute)
 app.route('/agreement-templates', agreementTemplatesRoute)

@@ -7,7 +7,7 @@ import { prisma } from '../../lib/db'
 import { validateMagicLink } from '../../services/magic-link'
 import { validateUploadedFiles } from '../../lib/validation'
 import { isGeminiConfigured } from '../../services/ai'
-import { uploadFile, deleteFile, generateFileKey } from '../../services/storage'
+import { uploadFile, generateFileKey } from '../../services/storage'
 import { inngest } from '../../lib/inngest'
 import { updateLastActivity } from '../../services/activity-tracker'
 import {
@@ -303,75 +303,6 @@ portalRoute.post('/:token/upload', async (c) => {
       ? `Đã nhận ${createdImages.length} file. Đang xử lý tự động...`
       : `Đã nhận ${createdImages.length} file. Cảm ơn bạn!`,
   })
-})
-
-// DELETE /portal/:token/uploads/:rawImageId - Client self-delete (only before LINKED)
-portalRoute.delete('/:token/uploads/:rawImageId', async (c) => {
-  const token = c.req.param('token')
-  const rawImageId = c.req.param('rawImageId')
-
-  const result = await validateMagicLink(token)
-  if (!result.valid || !result.data) {
-    return c.json(
-      { error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' },
-      401
-    )
-  }
-
-  const { scope, clientGroupId, taxCase } = result.data
-
-  const rawImage = await prisma.rawImage.findUnique({
-    where: { id: rawImageId },
-    select: {
-      id: true,
-      status: true,
-      r2Key: true,
-      caseId: true,
-      taxCase: {
-        select: {
-          client: { select: { clientGroupId: true } },
-        },
-      },
-    },
-  })
-
-  if (!rawImage) {
-    return c.json({ error: 'NOT_FOUND', message: 'Không tìm thấy tài liệu' }, 404)
-  }
-
-  // Scope check: image must belong to the case (CASE) or any case in the group (GROUP)
-  if (scope === 'CASE') {
-    if (!taxCase || rawImage.caseId !== taxCase.id) {
-      return c.json({ error: 'FORBIDDEN', message: 'Không có quyền xóa tài liệu này' }, 403)
-    }
-  } else {
-    if (
-      !clientGroupId ||
-      rawImage.taxCase.client.clientGroupId !== clientGroupId
-    ) {
-      return c.json({ error: 'FORBIDDEN', message: 'Không có quyền xóa tài liệu này' }, 403)
-    }
-  }
-
-  if (rawImage.status === 'LINKED') {
-    return c.json(
-      {
-        error: 'LINKED_DOC',
-        message: 'Vui lòng liên hệ kế toán để xóa tài liệu đã liên kết',
-      },
-      403
-    )
-  }
-
-  // Best-effort R2 delete; orphan blob is acceptable, DB row must be removed
-  await deleteFile(rawImage.r2Key).catch((err) => {
-    console.error('[Portal] R2 delete failed (continuing):', err)
-  })
-
-  await prisma.rawImage.delete({ where: { id: rawImage.id } })
-  await updateLastActivity(rawImage.caseId)
-
-  return c.json({ deleted: true, id: rawImage.id })
 })
 
 export { portalRoute }

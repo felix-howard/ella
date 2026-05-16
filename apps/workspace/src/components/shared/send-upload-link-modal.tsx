@@ -8,6 +8,12 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@ella/ui'
 import { cn } from '@ella/ui'
 import type { Language } from '../../lib/api-client'
+import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
+import {
+  DEFAULT_CLIENT_SMS_TEMPLATE_ID,
+  getClientSmsTemplate,
+  type ClientSmsTemplateId,
+} from '../clients/client-sms-templates'
 
 interface SendUploadLinkModalProps {
   isOpen: boolean
@@ -17,9 +23,6 @@ interface SendUploadLinkModalProps {
   clientName: string
   taxYear: number
 }
-
-export const UPLOAD_LINK_TEMPLATE_VI = `Xin chào {{client_name}}, để chuẩn bị hồ sơ thuế năm {{tax_year}}, vui lòng gửi 1040 của khai thuế năm trước, copy of ID, social, thu nhập W2/1099, bảo hiểm 1095A và các tài liệu cần thiết qua link: {{portal_link}}`
-export const UPLOAD_LINK_TEMPLATE_EN = `Hello {{client_name}}, to prepare your {{tax_year}} tax return, please upload your prior year 1040, copy of ID, social, W2/1099 income, 1095A insurance, and other required documents via the link: {{portal_link}}`
 
 export function SendUploadLinkModal({
   isOpen,
@@ -32,9 +35,10 @@ export function SendUploadLinkModal({
   const { t } = useTranslation()
 
   const [language, setLanguage] = useState<Language>('VI')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ClientSmsTemplateId>(DEFAULT_CLIENT_SMS_TEMPLATE_ID)
   const [messages, setMessages] = useState({
-    VI: UPLOAD_LINK_TEMPLATE_VI,
-    EN: UPLOAD_LINK_TEMPLATE_EN,
+    VI: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'VI'),
+    EN: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'EN'),
   })
 
   // Reset when modal opens (adjust state during render pattern)
@@ -43,9 +47,10 @@ export function SendUploadLinkModal({
     setPrevIsOpen(isOpen)
     if (isOpen) {
       setMessages({
-        VI: UPLOAD_LINK_TEMPLATE_VI,
-        EN: UPLOAD_LINK_TEMPLATE_EN,
+        VI: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'VI'),
+        EN: getClientSmsTemplate(DEFAULT_CLIENT_SMS_TEMPLATE_ID, 'EN'),
       })
+      setSelectedTemplateId(DEFAULT_CLIENT_SMS_TEMPLATE_ID)
       setLanguage('VI')
     }
   }
@@ -54,6 +59,14 @@ export function SendUploadLinkModal({
 
   const handleMessageChange = (value: string) => {
     setMessages((prev) => ({ ...prev, [language]: value }))
+  }
+
+  const handleTemplateSelect = (templateId: ClientSmsTemplateId) => {
+    setSelectedTemplateId(templateId)
+    setMessages({
+      VI: getClientSmsTemplate(templateId, 'VI'),
+      EN: getClientSmsTemplate(templateId, 'EN'),
+    })
   }
 
   if (!isOpen) return null
@@ -117,6 +130,14 @@ export function SendUploadLinkModal({
               </button>
             </div>
           </div>
+
+          <ClientSmsTemplateSelector
+            language={language}
+            selectedTemplateId={selectedTemplateId}
+            onSelect={handleTemplateSelect}
+            disabled={isSending}
+            name="sendUploadLinkTemplate"
+          />
 
           {/* Editable Message */}
           <div>

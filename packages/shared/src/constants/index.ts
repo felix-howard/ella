@@ -9,4 +9,4 @@ export {
   getValidNextStatuses,
 } from './case-status'
 
-export { CURRENT_TERMS_VERSION } from './terms'
+export { CURRENT_TERMS_VERSION, CURRENT_CONTRACTOR_AGREEMENT_VERSION } from './terms'

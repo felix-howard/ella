@@ -1109,7 +1109,18 @@ export const api = {
   // Staff
   staff: {
     me: () =>
-      request<{ id: string; name: string; email: string; role: string; language: Language; orgRole: string | null; avatarUrl: string | null }>('/staff/me'),
+      request<{
+        id: string
+        name: string
+        email: string
+        role: string
+        language: Language
+        orgRole: string | null
+        avatarUrl: string | null
+        formSlug: string | null
+        autoSendUploadLink: boolean
+        defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+      }>('/staff/me'),
 
     updateLanguage: (language: Language) =>
       request<{ id: string; language: Language }>('/staff/me/language', {
@@ -1123,10 +1134,19 @@ export const api = {
         body: JSON.stringify({ formSlug }),
       }),
 
-    updateAutoSendUploadLink: (autoSendUploadLink: boolean) =>
-      request<{ id: string; autoSendUploadLink: boolean }>('/staff/me/auto-send-upload-link', {
+    updateAutoSendUploadLink: (
+      data: boolean | {
+        autoSendUploadLink?: boolean
+        defaultUploadLinkTemplateId?: UploadLinkTemplateId | null
+      }
+    ) =>
+      request<{
+        id: string
+        autoSendUploadLink: boolean
+        defaultUploadLinkTemplateId: UploadLinkTemplateId | null
+      }>('/staff/me/auto-send-upload-link', {
         method: 'PATCH',
-        body: JSON.stringify({ autoSendUploadLink }),
+        body: JSON.stringify(typeof data === 'boolean' ? { autoSendUploadLink: data } : data),
       }),
 
     getSignature: () =>
@@ -1164,6 +1184,12 @@ export const api = {
       request<{ success: boolean }>(`/team/members/${staffId}/role`, {
         method: 'PATCH', body: JSON.stringify({ role }),
       }),
+
+    updateContractorAgent: (staffId: string, isContractorAgent: boolean) =>
+      request<{ success: boolean; staff: { id: string; isContractorAgent: boolean } }>(
+        `/team/members/${staffId}/contractor-agent`,
+        { method: 'PATCH', body: JSON.stringify({ isContractorAgent }) }
+      ),
 
     deactivate: (staffId: string) =>
       request<{ success: boolean }>(`/team/members/${staffId}`, { method: 'DELETE' }),
@@ -1355,6 +1381,25 @@ export const api = {
 
     getAcceptance: (staffId: string) =>
       request<{ id: string; version: string; signedAt: string }>(`/terms/acceptance/${staffId}`),
+  },
+
+  // Contractor Agreements
+  contractorAgreements: {
+    getStatus: () =>
+      request<ContractorAgreementStatus>('/contractor-agreements/status'),
+
+    accept: (data: AcceptContractorAgreementInput) =>
+      request<ContractorAgreementAcceptance>('/contractor-agreements/accept', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        retries: 0,
+      }),
+
+    getDownloadUrl: (acceptanceId: string) =>
+      request<{ url: string }>(`/contractor-agreements/download/${acceptanceId}`),
+
+    getAcceptance: (staffId: string) =>
+      request<ContractorAgreementAcceptance>(`/contractor-agreements/acceptance/${staffId}`),
   },
 
   // Leads management (admin-only)
@@ -3057,6 +3102,8 @@ export interface ScheduleEResendResponse {
   messageSent: boolean
 }
 
+export type UploadLinkTemplateId = 'official-channel' | 'tax-documents'
+
 // Team types
 /** Organization role values from Clerk */
 export type OrgRole = 'org:admin' | 'org:member'
@@ -3070,6 +3117,7 @@ export interface TeamMember {
   avatarUrl: string | null
   lastLoginAt: string | null
   isActive?: boolean
+  isContractorAgent: boolean
   formSlug: string | null
   _count: { managedClients: number }
 }
@@ -3090,6 +3138,7 @@ export interface StaffProfile {
   lastName: string
   email: string
   role: string
+  isContractorAgent: boolean
   avatarUrl: string | null
   phoneNumber: string | null
   title: string | null
@@ -3097,6 +3146,7 @@ export interface StaffProfile {
   notifyOnChat: boolean
   formSlug: string | null
   autoSendUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
 }
 
 export interface OrgSettings {
@@ -3104,6 +3154,7 @@ export interface OrgSettings {
   smsLanguage: Language
   missedCallTextBack: boolean
   autoSendFormClientUploadLink: boolean
+  defaultUploadLinkTemplateId: UploadLinkTemplateId | null
   slug: string | null
   address: string | null
   city: string | null
@@ -3134,6 +3185,50 @@ export interface UpdateStaffProfileInput {
   title?: string | null
   notifyOnUpload?: boolean
   notifyOnChat?: boolean
+}
+
+export interface ContractorAgreementStatus {
+  required: boolean
+  hasAccepted: boolean
+  currentVersion: string
+  acceptedVersion?: string
+  acceptedAt?: string
+  acceptanceId?: string
+  organization: Pick<
+    OrgSettings,
+    | 'name'
+    | 'address'
+    | 'city'
+    | 'state'
+    | 'zip'
+    | 'governingState'
+    | 'governingCounty'
+    | 'firmPhone'
+    | 'firmEmail'
+    | 'firmWebsite'
+  >
+  firmSigner: {
+    name: string
+    email: string
+    title: string
+    signatureUrl: string | null
+  } | null
+}
+
+export interface ContractorAgreementAcceptance {
+  id: string
+  version: string
+  signedAt: string
+  signerName: string
+  signerEmail: string
+  firmSignerName: string
+  firmSignerEmail: string
+  firmSignerTitle: string | null
+}
+
+export interface AcceptContractorAgreementInput {
+  version: string
+  signaturePngDataUrl: string
 }
 
 export interface NotificationSubscriptionsResponse {

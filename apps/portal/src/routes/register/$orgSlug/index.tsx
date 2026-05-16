@@ -49,19 +49,19 @@ function RegisterPage() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <FormHeader orgName={org!.name} showDescription={false} />
+      <FormHeader orgName={org!.name} showDescription={false} variant="compact" />
 
-      <div className="px-6 py-4 text-center">
-        <h2 className="text-lg font-semibold text-foreground">
+      <section className="mx-auto w-full max-w-3xl px-4 pb-5 pt-4 text-center sm:px-6 sm:pb-6">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {t('register.title')}
         </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="mx-auto mt-2 max-w-xl text-base leading-6 text-muted-foreground">
           {t('register.subtitle')}
         </p>
-      </div>
+      </section>
 
-      <div className="px-4 pb-6">
-        <div className="bg-card rounded-xl shadow-sm border border-border">
+      <div className="mx-auto w-full max-w-3xl px-4 pb-8 sm:px-6">
+        <div className="overflow-hidden rounded-2xl border border-white/80 bg-white/90 shadow-[0_1px_3px_rgba(15,23,42,0.06),0_20px_50px_rgba(15,23,42,0.10)] backdrop-blur">
           <RegistrationForm
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}

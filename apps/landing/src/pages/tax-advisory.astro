@@ -1,0 +1,35 @@
+---
+import BaseLayout from "@/layouts/base-layout.astro";
+import HeadSEO from "@/components/seo/head-seo.astro";
+import PasswordGate from "@/components/tax-advisory/password-gate.astro";
+import TaxAdvisoryClientExperience from "@/components/tax-advisory/tax-advisory-client-experience.astro";
+import TaxAdvisoryHero from "@/components/tax-advisory/tax-advisory-hero.astro";
+import TaxAdvisoryImplementation from "@/components/tax-advisory/tax-advisory-implementation.astro";
+import TaxAdvisoryNextSteps from "@/components/tax-advisory/tax-advisory-next-steps.astro";
+import TaxAdvisoryProcess from "@/components/tax-advisory/tax-advisory-process.astro";
+import TaxAdvisoryRoadmap from "@/components/tax-advisory/tax-advisory-roadmap.astro";
+import TaxAdvisorySavings from "@/components/tax-advisory/tax-advisory-savings.astro";
+import TaxAdvisoryStrategies from "@/components/tax-advisory/tax-advisory-strategies.astro";
+---
+
+<BaseLayout>
+  <HeadSEO
+    slot="head"
+    title="Tax Advisory Planning"
+    description="Private Ella tax advisory presentation page showing the planning process, strategy roadmap, estimated savings, and client responsibilities."
+    noindex={true}
+  />
+
+  <PasswordGate />
+
+  <main id="tax-advisory-main" class="tax-advisory-content" tabindex="-1">
+    <TaxAdvisoryHero />
+    <TaxAdvisoryClientExperience />
+    <TaxAdvisoryProcess />
+    <TaxAdvisoryRoadmap />
+    <TaxAdvisoryImplementation />
+    <TaxAdvisoryStrategies />
+    <TaxAdvisorySavings />
+    <TaxAdvisoryNextSteps />
+  </main>
+</BaseLayout>

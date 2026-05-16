@@ -10,13 +10,25 @@ interface TermsGateProps {
 
 export function TermsGate({ children }: TermsGateProps) {
   const { t } = useTranslation()
-  const { isSignedIn } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
   const { user } = useUser()
-  const { data: status, isLoading, isError, refetch } = useTermsStatus()
+  const shouldCheckStatus = isLoaded && !!isSignedIn
+  const { data: status, isLoading, isError, refetch } = useTermsStatus(shouldCheckStatus)
 
   // Not signed in - skip gate (login page needs to render)
-  if (!isSignedIn) {
+  if (isLoaded && !isSignedIn) {
     return <>{children}</>
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">
+          {t('terms.checkingStatus', 'Checking terms status...')}
+        </p>
+      </div>
+    )
   }
 
   // Loading status (includes active retries - show spinner while webhook processes)

@@ -7,7 +7,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, User, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react'
-import { cn, Button } from '@ella/ui'
+import { cn, Button, Badge } from '@ella/ui'
 import { PageContainer } from '../../../components/layout'
 import { ProfileForm } from '../../../components/profile/profile-form'
 import { AssignedClientsList } from '../../../components/profile/assigned-clients-list'
@@ -46,12 +46,8 @@ function ProfilePage() {
     mutationFn: (newRole: 'org:admin' | 'org:member') =>
       api.team.updateRole(staffId, newRole),
     onSuccess: () => {
-      toast.success(t('team.roleChangeSuccess'))
       queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
       queryClient.invalidateQueries({ queryKey: ['team-members'] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || t('team.roleChangeFailed'))
     },
   })
 
@@ -113,7 +109,13 @@ function ProfilePage() {
   const canChangeRole = isCurrentUserAdmin && staffId !== currentUserStaffId && staff.isActive
   // Show archive/unarchive only if: admin, viewing other member
   const canArchive = isCurrentUserAdmin && staffId !== currentUserStaffId
+  const isOwnProfile = staff.id === currentUserStaffId || staffId === 'me'
   const isArchived = !staff.isActive
+  const roleLabel = staff.role === 'ADMIN'
+    ? t('team.admin')
+    : staff.role === 'CPA'
+      ? t('team.cpa', 'CPA')
+      : t('team.member')
 
   return (
     <PageContainer>
@@ -172,7 +174,7 @@ function ProfilePage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-foreground">{staff.name}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{staff.email}</p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className={cn(
                 'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full',
                 staff.role === 'ADMIN'
@@ -183,8 +185,13 @@ function ProfilePage() {
                   'w-1.5 h-1.5 rounded-full',
                   staff.role === 'ADMIN' ? 'bg-primary' : 'bg-muted-foreground'
                 )} />
-                {staff.role === 'ADMIN' ? t('team.admin') : t('team.member')}
+                {roleLabel}
               </span>
+              {staff.isContractorAgent && (
+                <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-300 dark:border-amber-800 dark:bg-amber-950/30">
+                  {t('team.contractorAgent', 'Contractor Agent')}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -199,8 +206,12 @@ function ProfilePage() {
             canEdit={canEdit}
             staffId={staffId}
             canChangeRole={canChangeRole}
-            onRoleChange={(role) => roleMutation.mutate(role)}
+            onRoleChange={async (role) => {
+              await roleMutation.mutateAsync(role)
+            }}
             isRoleChangePending={roleMutation.isPending}
+            canManageContractorAgent={isCurrentUserAdmin}
+            canViewContractorAgreement={isOwnProfile || isCurrentUserAdmin}
             hideNotifications
           />
         </div>
@@ -221,7 +232,10 @@ function ProfilePage() {
           formSlug={staff.formSlug}
           orgSlug={orgSettings?.slug || null}
           canEdit={canEdit}
+          canEditAutoSend={isOwnProfile}
           autoSendUploadLink={staff.autoSendUploadLink ?? false}
+          defaultUploadLinkTemplateId={staff.defaultUploadLinkTemplateId}
+          templateLanguage={orgSettings?.smsLanguage ?? 'VI'}
         />
       </div>
 

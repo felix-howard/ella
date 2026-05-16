@@ -2,6 +2,8 @@ import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import sitemap from "@astrojs/sitemap";
 
+const hiddenSitemapPaths = new Set(["/tax-advisory"]);
+
 export default defineConfig({
   // Replace with your production domain
   site: "https://ella.tax",
@@ -13,7 +15,10 @@ export default defineConfig({
     sitemap({
       changefreq: "weekly",
       priority: 0.7,
-      lastmod: new Date(),
+      filter: (page) => {
+        const pathname = new URL(page).pathname.replace(/\/$/, "");
+        return !hiddenSitemapPaths.has(pathname);
+      },
     }),
   ],
   build: {

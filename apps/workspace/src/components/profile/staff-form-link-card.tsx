@@ -10,13 +10,19 @@ import { Card, Button, Input } from '@ella/ui'
 import { api } from '../../lib/api-client'
 import { PORTAL_BASE_URL } from '../../lib/constants'
 import { toast } from '../../stores/toast-store'
+import { ClientSmsTemplateSelector } from '../clients/client-sms-template-selector'
+import { resolveClientSmsTemplateId } from '../clients/client-sms-templates'
+import type { ClientSmsLanguage, ClientSmsTemplateId } from '../clients/client-sms-templates'
 
 interface StaffFormLinkCardProps {
   staffId: string
   formSlug: string | null
   orgSlug: string | null
   canEdit: boolean
+  canEditAutoSend: boolean
   autoSendUploadLink: boolean
+  defaultUploadLinkTemplateId: ClientSmsTemplateId | null
+  templateLanguage: ClientSmsLanguage
 }
 
 export function StaffFormLinkCard({
@@ -24,7 +30,10 @@ export function StaffFormLinkCard({
   formSlug,
   orgSlug,
   canEdit,
+  canEditAutoSend,
   autoSendUploadLink,
+  defaultUploadLinkTemplateId,
+  templateLanguage,
 }: StaffFormLinkCardProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -85,9 +94,25 @@ export function StaffFormLinkCard({
     },
   })
 
+  const templateMutation = useMutation({
+    mutationFn: (templateId: ClientSmsTemplateId | null) =>
+      api.staff.updateAutoSendUploadLink({ defaultUploadLinkTemplateId: templateId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-member-profile', staffId] })
+      queryClient.invalidateQueries({ queryKey: ['staff-me'] })
+      toast.success(t('settings.saved'))
+    },
+    onError: () => {
+      toast.error(t('settings.saveFailed'))
+    },
+  })
+
   const formLink = orgSlug && formSlug
     ? `${PORTAL_BASE_URL}/form/${orgSlug}/${formSlug}`
     : null
+  const selectedTemplateId = defaultUploadLinkTemplateId
+    ? resolveClientSmsTemplateId(defaultUploadLinkTemplateId)
+    : 'inherit'
 
   const handleCopy = async () => {
     if (!formLink) return
@@ -235,32 +260,46 @@ export function StaffFormLinkCard({
         </p>
       )}
       {/* Auto-send Upload Link Toggle - only for own profile (API is /staff/me/) */}
-      {canEdit && formLink && staffId === 'me' && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-              <Send className="w-4 h-4 text-primary" />
+      {canEditAutoSend && formLink && (
+        <div className="mt-4 pt-4 border-t border-border space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+                <Send className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('settings.autoSendUploadLink')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.autoSendUploadLinkDescription')}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {t('settings.autoSendUploadLink')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.autoSendUploadLinkDescription')}
-              </p>
-            </div>
+            <button
+              onClick={() => toggleMutation.mutate(!optimisticAutoSend)}
+              disabled={toggleMutation.isPending}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                optimisticAutoSend ? 'bg-primary' : 'bg-muted-foreground/40'
+              }`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                optimisticAutoSend ? 'translate-x-5' : 'translate-x-0.5'
+              }`} />
+            </button>
           </div>
-          <button
-            onClick={() => toggleMutation.mutate(!optimisticAutoSend)}
-            disabled={toggleMutation.isPending}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              optimisticAutoSend ? 'bg-primary' : 'bg-muted-foreground/40'
-            }`}
-          >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-              optimisticAutoSend ? 'translate-x-5' : 'translate-x-0.5'
-            }`} />
-          </button>
+
+          <ClientSmsTemplateSelector
+            language={templateLanguage}
+            selectedTemplateId={selectedTemplateId}
+            onSelect={(templateId) => templateMutation.mutate(templateId)}
+            onInherit={() => templateMutation.mutate(null)}
+            inheritLabelKey="settings.useOrgDefaultTemplate"
+            inheritDescriptionKey="settings.useOrgDefaultTemplateDescription"
+            disabled={templateMutation.isPending || toggleMutation.isPending}
+            name="staffDefaultUploadLinkTemplate"
+            className="mb-0"
+          />
         </div>
       )}
     </Card>

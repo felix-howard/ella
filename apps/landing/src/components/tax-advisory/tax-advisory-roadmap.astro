@@ -1,0 +1,38 @@
+---
+import { roadmapStages } from "@/config/tax-advisory-presentation";
+---
+
+<section id="tax-roadmap" class="bg-white py-16 sm:py-20">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6">
+    <div class="max-w-3xl" data-animate="fade-up">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-800">
+        365-day implementation timeline
+      </p>
+      <h2 class="mt-4 font-heading text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+        First 30 days through year-two strategy assessment.
+      </h2>
+    </div>
+
+    <div class="mt-12 grid gap-6 lg:grid-cols-5" data-stagger>
+      {roadmapStages.map((stage, index) => (
+        <article class="rounded-lg border border-slate-300 bg-slate-50 p-4 shadow-sm" data-animate="fade-up">
+          <h3
+            class:list={[
+              "flex min-h-[74px] items-center justify-center rounded-none border-2 p-3 text-center font-heading text-xl font-bold uppercase leading-tight text-slate-950",
+              index === 0 ? "border-sky-500 bg-sky-200" : "border-slate-900 bg-sky-200",
+            ]}
+          >
+            {stage.period}
+          </h3>
+          <ul class="mt-6 grid gap-5">
+            {stage.items.map((item) => (
+              <li class="flex min-h-[86px] items-center justify-center rounded-none border-2 border-slate-900 bg-orange-50 p-3 text-center text-base font-semibold uppercase leading-tight text-slate-950">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

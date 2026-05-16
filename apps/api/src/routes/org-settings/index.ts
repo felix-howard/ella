@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Prisma } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { clerkClient } from '../../lib/clerk-client'
+import { UPLOAD_LINK_TEMPLATE_IDS } from '../../services/sms/upload-link-template-resolver'
 import type { AuthVariables } from '../../middleware/auth'
 
 const orgSettingsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -17,6 +18,7 @@ const updateOrgSettingsSchema = z.object({
   smsLanguage: z.enum(['VI', 'EN']).optional(),
   missedCallTextBack: z.boolean().optional(),
   autoSendFormClientUploadLink: z.boolean().optional(),
+  defaultUploadLinkTemplateId: z.enum(UPLOAD_LINK_TEMPLATE_IDS).nullable().optional(),
   slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional().nullable(),
   // Firm address + governing law (NDA header)
   address: z.string().max(200).nullable().optional(),
@@ -52,6 +54,7 @@ orgSettingsRoute.get('/', async (c) => {
       smsLanguage: true,
       missedCallTextBack: true,
       autoSendFormClientUploadLink: true,
+      defaultUploadLinkTemplateId: true,
       slug: true,
       address: true,
       city: true,
@@ -74,6 +77,7 @@ orgSettingsRoute.get('/', async (c) => {
     smsLanguage: org.smsLanguage,
     missedCallTextBack: org.missedCallTextBack,
     autoSendFormClientUploadLink: org.autoSendFormClientUploadLink,
+    defaultUploadLinkTemplateId: org.defaultUploadLinkTemplateId,
     slug: org.slug,
     address: org.address,
     city: org.city,
@@ -124,6 +128,7 @@ orgSettingsRoute.patch(
           smsLanguage: true,
           missedCallTextBack: true,
           autoSendFormClientUploadLink: true,
+          defaultUploadLinkTemplateId: true,
           slug: true,
           clerkOrgId: true,
           address: true,
@@ -164,6 +169,7 @@ orgSettingsRoute.patch(
       smsLanguage: updated.smsLanguage,
       missedCallTextBack: updated.missedCallTextBack,
       autoSendFormClientUploadLink: updated.autoSendFormClientUploadLink,
+      defaultUploadLinkTemplateId: updated.defaultUploadLinkTemplateId,
       slug: updated.slug,
       address: updated.address,
       city: updated.city,

@@ -1,9 +1,8 @@
 /**
  * Signature capture + typed name + agree checkbox.
  * Guards the submit button: only enabled when parent opened the gate
- * (`canSubmit=true` after scroll-to-bottom), signature is drawn, typed name
- * meets length rules, agree checkbox is checked, and any required v2 BUSINESS
- * auth-rep fields are populated.
+ * (`canSubmit=true` after scroll-to-bottom), signature is drawn, full name +
+ * title meet length rules, and the agree checkbox is checked.
  */
 import { useRef, useState } from 'react'
 import SignatureCanvas from 'react-signature-canvas'
@@ -14,10 +13,9 @@ import type { AgreementFirmSnapshot, AgreementClientType } from '../../lib/api-c
 
 export interface AgreementSignSubmission {
   signerName: string
+  signerTitle: string
   signaturePngDataUrl: string
   agreementChecked: true
-  clientAuthRepName?: string
-  clientAuthRepTitle?: string
 }
 
 interface AgreementSignFormProps {
@@ -26,45 +24,33 @@ interface AgreementSignFormProps {
   onSubmit: (payload: AgreementSignSubmission) => void
   /** When provided (v2), the form shows the firm's pre-signed signature image. */
   firmSnapshot?: AgreementFirmSnapshot | null
-  /** When 'BUSINESS', the form requires + submits clientAuthRepName/Title. */
+  /** Passed by the page for future client-type-specific copy. */
   clientType?: AgreementClientType | null
 }
 
 const NAME_MIN = 2
 const NAME_MAX = 120
-const REP_NAME_MIN = 2
-const REP_NAME_MAX = 120
-const REP_TITLE_MIN = 2
-const REP_TITLE_MAX = 80
+const TITLE_MIN = 2
+const TITLE_MAX = 80
 
 export function AgreementSignForm({
   canSubmit,
   submitting,
   onSubmit,
   firmSnapshot,
-  clientType,
 }: AgreementSignFormProps) {
   const { t } = useTranslation()
   const sigRef = useRef<SignatureCanvas>(null)
   const [signerName, setSignerName] = useState('')
+  const [signerTitle, setSignerTitle] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [hasStroke, setHasStroke] = useState(false)
-  const [authRepName, setAuthRepName] = useState('')
-  const [authRepTitle, setAuthRepTitle] = useState('')
 
   const trimmedName = signerName.trim()
+  const trimmedTitle = signerTitle.trim()
   const nameValid = trimmedName.length >= NAME_MIN && trimmedName.length <= NAME_MAX
-  const isBusiness = clientType === 'BUSINESS'
-  const trimmedRepName = authRepName.trim()
-  const trimmedRepTitle = authRepTitle.trim()
-  const repNameValid =
-    !isBusiness ||
-    (trimmedRepName.length >= REP_NAME_MIN && trimmedRepName.length <= REP_NAME_MAX)
-  const repTitleValid =
-    !isBusiness ||
-    (trimmedRepTitle.length >= REP_TITLE_MIN && trimmedRepTitle.length <= REP_TITLE_MAX)
-  const formReady =
-    canSubmit && hasStroke && nameValid && agreed && repNameValid && repTitleValid && !submitting
+  const titleValid = trimmedTitle.length >= TITLE_MIN && trimmedTitle.length <= TITLE_MAX
+  const formReady = canSubmit && hasStroke && nameValid && titleValid && agreed && !submitting
 
   const handleClear = () => {
     sigRef.current?.clear()
@@ -89,11 +75,9 @@ export function AgreementSignForm({
     const dataUrl = canvas.toDataURL('image/png')
     onSubmit({
       signerName: trimmedName,
+      signerTitle: trimmedTitle,
       signaturePngDataUrl: dataUrl,
       agreementChecked: true,
-      ...(isBusiness
-        ? { clientAuthRepName: trimmedRepName, clientAuthRepTitle: trimmedRepTitle }
-        : {}),
     })
   }
 
@@ -126,49 +110,6 @@ export function AgreementSignForm({
                 <div className="text-muted-foreground mt-0.5">{firmSnapshot.signedAt}</div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {isBusiness && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label
-              className="block text-sm font-medium text-foreground mb-1.5"
-              htmlFor="nda-auth-rep-name"
-            >
-              {t('nda.authRepNameLabel', { defaultValue: 'Authorized Representative' })}
-            </label>
-            <Input
-              id="nda-auth-rep-name"
-              value={authRepName}
-              onChange={(e) => setAuthRepName(e.target.value)}
-              placeholder={t('nda.authRepNamePlaceholder', { defaultValue: 'Full name' })}
-              maxLength={REP_NAME_MAX}
-              disabled={submitting}
-              autoComplete="name"
-              required
-              className="focus:ring-1 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label
-              className="block text-sm font-medium text-foreground mb-1.5"
-              htmlFor="nda-auth-rep-title"
-            >
-              {t('nda.authRepTitleLabel', { defaultValue: 'Title' })}
-            </label>
-            <Input
-              id="nda-auth-rep-title"
-              value={authRepTitle}
-              onChange={(e) => setAuthRepTitle(e.target.value)}
-              placeholder={t('nda.authRepTitlePlaceholder', { defaultValue: 'e.g. Owner, CEO' })}
-              maxLength={REP_TITLE_MAX}
-              disabled={submitting}
-              autoComplete="organization-title"
-              required
-              className="focus:ring-1 focus:ring-primary/30"
-            />
           </div>
         </div>
       )}
@@ -217,6 +158,29 @@ export function AgreementSignForm({
           maxLength={NAME_MAX}
           disabled={submitting}
           autoComplete="name"
+          required
+          aria-required="true"
+          className="focus:ring-1 focus:ring-primary/30"
+        />
+      </div>
+
+      <div>
+        <label
+          className="block text-sm font-medium text-foreground mb-1.5"
+          htmlFor="nda-signer-title"
+        >
+          {t('nda.signerTitleLabel')}
+        </label>
+        <Input
+          id="nda-signer-title"
+          value={signerTitle}
+          onChange={(e) => setSignerTitle(e.target.value)}
+          placeholder={t('nda.signerTitlePlaceholder')}
+          maxLength={TITLE_MAX}
+          disabled={submitting}
+          autoComplete="organization-title"
+          required
+          aria-required="true"
           className="focus:ring-1 focus:ring-primary/30"
         />
       </div>

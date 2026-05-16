@@ -146,7 +146,8 @@ const PNG_DATA_URL_PREFIX = 'data:image/png;base64,'
 
 export const signAgreementBodySchema = z
   .object({
-    signerName: z.string().min(1).max(120),
+    signerName: z.string().min(2).max(120),
+    signerTitle: z.string().min(2).max(80),
     signaturePngDataUrl: z
       .string()
       .startsWith(PNG_DATA_URL_PREFIX, {
@@ -154,9 +155,8 @@ export const signAgreementBodySchema = z
       })
       .max(800_000),
     agreementChecked: z.literal(true),
-    // v2 NDA: business clients must supply auth-rep + title. Server still
-    // re-enforces against Client.clientType after loading the row, so a
-    // BUSINESS client cannot omit these even if they fake the schema.
+    // Back-compat: older portal builds supplied business rep fields. New
+    // signing UI sends signerName + signerTitle for every client type.
     clientAuthRepName: z.string().min(2).max(120).optional(),
     clientAuthRepTitle: z.string().min(2).max(80).optional(),
   })

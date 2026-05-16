@@ -112,9 +112,10 @@ export interface AgreementPublicView {
 
 export interface AgreementSignPayload {
   signerName: string
+  signerTitle: string
   signaturePngDataUrl: string
   agreementChecked: true
-  /** v2 BUSINESS-only. Required when clientSnapshot.clientType === 'BUSINESS'. */
+  /** Back-compat fields accepted by older API builds. New clients send signerName/signerTitle. */
   clientAuthRepName?: string
   clientAuthRepTitle?: string
 }

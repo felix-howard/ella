@@ -43,7 +43,9 @@ export interface ClientSnapshot {
   /** Full composed address string. "[Address]" in preview. */
   address: string
   clientType: 'INDIVIDUAL' | 'BUSINESS'
+  /** BUSINESS-only signer name row. The typed signerName is also stored in audit metadata. */
   authRepName?: string
+  /** Required signer title rendered in the client signature block for all client types. */
   authRepTitle?: string
   /** PNG bytes from R2. Required in 'signed' mode. */
   signaturePngBuffer?: Buffer
@@ -95,7 +97,9 @@ function formatDepositAmount(amount: GenerateSignedPdfInput['agreement']['deposi
 }
 
 function formatFullName(lead: GenerateSignedPdfInput['lead']): string {
-  const parts = [lead.firstName, lead.lastName].filter((p): p is string => !!p && p.trim().length > 0)
+  const parts = [lead.firstName, lead.lastName].filter(
+    (p): p is string => !!p && p.trim().length > 0
+  )
   return parts.join(' ').trim() || 'Unnamed Lead'
 }
 
@@ -107,6 +111,17 @@ function formatDate(date: Date): string {
 function truncateUserAgent(ua: string): string {
   if (ua.length <= MAX_USER_AGENT_LENGTH) return ua
   return `${ua.slice(0, MAX_USER_AGENT_LENGTH - 3)}...`
+}
+
+export function shouldRenderAgreementPdfHeader(type?: AgreementType): boolean {
+  return type !== 'ENGAGEMENT_LETTER'
+}
+
+export function resolveAgreementPdfSubtitle(
+  type: AgreementType | undefined,
+  subtitle?: string
+): string | undefined {
+  return type === 'ENGAGEMENT_LETTER' ? undefined : subtitle
 }
 
 // ── Main export ───────────────────────────────────────────────────────────
@@ -144,14 +159,13 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
 
     const firm = input.firmSnapshot
     const client = input.clientSnapshot
-    const agreementLabel =
-      input.agreement.type === 'NDA' || !input.agreement.type
-        ? 'Confidentiality and Non-Disclosure Agreement ("Agreement")'
-        : heading
-
-    const headerBlock = (
+    const headerBlock = shouldRenderAgreementPdfHeader(input.agreement.type) ? (
       <PdfHeaderBlock
-        agreementLabel={agreementLabel}
+        agreementLabel={
+          input.agreement.type === 'NDA' || !input.agreement.type
+            ? 'Confidentiality and Non-Disclosure Agreement ("Agreement")'
+            : heading
+        }
         date={firm?.signedAt ?? '[Date]'}
         firmName={firm?.name ?? input.organization.name}
         firmAddress={firm?.address ?? '[Address]'}
@@ -159,7 +173,7 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
         clientNameOrBusiness={client?.nameOrBusiness ?? formatFullName(input.lead)}
         clientAddress={client?.address ?? '[Address]'}
       />
-    )
+    ) : undefined
 
     const signatureBlock = (
       <PdfSignatureBlock
@@ -191,10 +205,10 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
         bodyNodes={bodyNodes}
         mode={mode}
         title={input.agreement.title ?? undefined}
-        subtitle={template.subtitle}
+        subtitle={resolveAgreementPdfSubtitle(input.agreement.type, template.subtitle)}
         headerBlock={headerBlock}
         signatureBlock={signatureBlock}
-      />,
+      />
     )
   }
 
@@ -207,6 +221,6 @@ export async function generateSignedPdf(input: GenerateSignedPdfInput): Promise<
       bodyNodes={bodyNodes}
       mode={input.mode ?? 'signed'}
       title={input.agreement.title ?? undefined}
-    />,
+    />
   )
 }

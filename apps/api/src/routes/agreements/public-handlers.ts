@@ -56,6 +56,7 @@ publicRoute.post(
     const result = await signAgreement({
       token,
       signerName: body.signerName,
+      signerTitle: body.signerTitle,
       signaturePngDataUrl: body.signaturePngDataUrl,
       ip: extractIp(c),
       userAgent: extractUserAgent(c),

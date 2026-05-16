@@ -14,7 +14,7 @@ import { parseDocument } from 'htmlparser2'
 import React from 'react'
 import { pdfStyles } from '../../services/agreements/pdf-styles'
 
-const BOLD_STYLE = { fontFamily: 'Helvetica-Bold' }
+const BOLD_STYLE = { fontFamily: 'Helvetica', fontWeight: 700 }
 const ITALIC_STYLE = { fontStyle: 'italic' as const }
 const H2_STYLE = [pdfStyles.heading, { fontSize: 13 }]
 

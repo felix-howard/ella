@@ -94,12 +94,12 @@ describe('htmlToPdfNodes', () => {
     expect(collectText(items[1])).toBe('2. b')
   })
 
-  it('wraps <strong> as nested Text with bold fontFamily', () => {
+  it('wraps <strong> as nested Text with bold font weight', () => {
     const out = htmlToPdfNodes('<p><strong>bold</strong> rest</p>')
     const bold = findDescendant(out[0], (el) => {
       if (el.type !== Text) return false
-      const style = el.props.style as { fontFamily?: string } | undefined
-      return style?.fontFamily === 'Helvetica-Bold'
+      const style = el.props.style as { fontWeight?: number } | undefined
+      return style?.fontWeight === 700
     })
     expect(bold).not.toBeNull()
     expect(collectText(bold!)).toBe('bold')

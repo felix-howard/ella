@@ -81,6 +81,34 @@ describe('generateSignedPdf', () => {
     expect(Buffer.compare(buffer, legacy)).not.toBe(0)
   })
 
+  it('renders custom HTML with nested bold italic marks', async () => {
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'ENGAGEMENT_LETTER',
+          templateVersion: 'engagement-letter-v1',
+          depositAmount: '15000.00',
+          customContentHtml: '<p><strong><em>Firm will provide document review.</em></strong></p>',
+          title: 'Engagement Letter',
+        },
+        mode: 'preview',
+        firmSnapshot: {
+          name: 'Acme Tax LLC',
+          address: '123 Main St, Houston, TX 77001',
+          signerName: '',
+          signerTitle: '',
+        },
+        clientSnapshot: {
+          nameOrBusiness: 'Jane Doe',
+          address: '[Address]',
+          clientType: 'INDIVIDUAL',
+        },
+      }),
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+  })
+
   it('renders long pasted custom HTML across multiple pages', async () => {
     const paragraph =
       'To the fullest extent permitted by law, Firm liability for any claim arising out of this engagement shall be limited to the fees paid by Client to Firm for the services giving rise to the claim. Firm shall not be liable for indirect, incidental, consequential, special, punitive, or exemplary damages, including lost profits, business interruption, penalties, assessments, or government findings, except to the extent prohibited by law.'

@@ -112,7 +112,11 @@ export function PdfSignatureBlock({
       <Text style={s.sigColumnHeader}>Firm</Text>
 
       <SigRow label="Firm Name" value={firmName} showPlaceholder={isPreview} />
-      <SigRow label="Authorized Representative" value={firmSignerName} showPlaceholder={isPreview} />
+      <SigRow
+        label="Authorized Representative"
+        value={firmSignerName}
+        showPlaceholder={isPreview}
+      />
       <SigRow label="Title" value={firmSignerTitle} showPlaceholder={isPreview} />
       <SigImageRow
         label="Signature"
@@ -132,21 +136,20 @@ export function PdfSignatureBlock({
         showPlaceholder={isPreview}
       />
 
-      {/* Business-only rows */}
+      {/* Business-only representative name. Title is required for every signer. */}
       {clientType === 'BUSINESS' && (
-        <>
-          <SigRow
-            label="Authorized Representative"
-            value={clientAuthRepName}
-            showPlaceholder={isPreview || !clientSigned}
-          />
-          <SigRow
-            label="Title, if applicable"
-            value={clientAuthRepTitle}
-            showPlaceholder={isPreview || !clientSigned}
-          />
-        </>
+        <SigRow
+          label="Authorized Representative"
+          value={clientAuthRepName}
+          showPlaceholder={isPreview || !clientSigned}
+        />
       )}
+
+      <SigRow
+        label="Title"
+        value={clientAuthRepTitle}
+        showPlaceholder={isPreview || !clientSigned}
+      />
 
       <SigImageRow
         label="Signature"

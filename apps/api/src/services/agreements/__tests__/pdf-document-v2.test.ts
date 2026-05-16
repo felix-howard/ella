@@ -42,6 +42,7 @@ const CLIENT_INDIVIDUAL: ClientSnapshot = {
   nameOrBusiness: 'Jane Doe',
   address: '456 Oak Ave, Austin, TX 78701',
   clientType: 'INDIVIDUAL',
+  authRepTitle: 'Manager',
   signaturePngBuffer: TRANSPARENT_PNG,
   signedAt: SIGNED_AT_STR,
 }

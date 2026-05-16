@@ -1632,7 +1632,7 @@ model Agreement {
   firmSignaturePngKey String? // copied from Staff.signaturePngKey at send time
   firmSignedAt        DateTime?
 
-  // Client business representative (populated only when clientType = BUSINESS)
+  // Client signer metadata. Rep name is business-only; title is required for all client signatures.
   clientAuthRepName  String?
   clientAuthRepTitle String?
 

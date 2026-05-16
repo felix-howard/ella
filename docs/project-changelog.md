@@ -1,7 +1,24 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-16 ICT
+> **Last Updated:** 2026-05-17 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-17
+
+### API: Engagement Letter PDF Header Cleanup
+**Status:** Complete
+
+**Changed:**
+- Engagement Letter PDF preview no longer injects the generated parties header block.
+- Engagement Letter generated PDFs no longer render the `Professional Services Engagement` subtitle under the title.
+- NDA PDF header/subtitle behavior remains unchanged.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/pdf-generator.test.ts src/services/agreements/__tests__/pdf-document-v2.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api exec eslint src/services/agreements/pdf-generator.tsx src/services/agreements/__tests__/pdf-generator.test.ts` pass
 
 ---
 

@@ -8,15 +8,11 @@
  */
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { sanitizeAgreementHtmlClient } from '../../lib/sanitize-agreement-html'
-import type { AgreementFirmSnapshot, AgreementClientSnapshot } from '../../lib/api-client'
-import { AgreementHeaderBlock } from './agreement-header-block'
 
 interface AgreementCustomHtmlViewProps {
   title: string
   html: string
   onReachBottom: () => void
-  firmSnapshot?: AgreementFirmSnapshot | null
-  clientSnapshot?: AgreementClientSnapshot | null
   /** When true, suppresses the inner H2 (page hero already shows the title). */
   hideTitle?: boolean
 }
@@ -25,8 +21,6 @@ export function AgreementCustomHtmlView({
   title,
   html,
   onReachBottom,
-  firmSnapshot,
-  clientSnapshot,
   hideTitle = false,
 }: AgreementCustomHtmlViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -92,9 +86,6 @@ export function AgreementCustomHtmlView({
     >
       {!hideTitle && (
         <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
-      )}
-      {firmSnapshot && clientSnapshot && (
-        <AgreementHeaderBlock title={title} firm={firmSnapshot} client={clientSnapshot} />
       )}
       <div
         className="agreement-custom-html-content text-foreground/90"

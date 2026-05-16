@@ -5,19 +5,12 @@
  * events on iOS Safari).
  */
 import { useEffect, useRef, useCallback, useState } from 'react'
-import type {
-  AgreementTemplateSection,
-  AgreementFirmSnapshot,
-  AgreementClientSnapshot,
-} from '../../lib/api-client'
-import { AgreementHeaderBlock } from './agreement-header-block'
+import type { AgreementTemplateSection } from '../../lib/api-client'
 
 interface AgreementTemplateViewProps {
   title: string
   sections: AgreementTemplateSection[]
   onReachBottom: () => void
-  firmSnapshot?: AgreementFirmSnapshot | null
-  clientSnapshot?: AgreementClientSnapshot | null
   /** When true, suppresses the inner H2 (page hero already shows the title). */
   hideTitle?: boolean
 }
@@ -26,8 +19,6 @@ export function AgreementTemplateView({
   title,
   sections,
   onReachBottom,
-  firmSnapshot,
-  clientSnapshot,
   hideTitle = false,
 }: AgreementTemplateViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -91,9 +82,6 @@ export function AgreementTemplateView({
     >
       {!hideTitle && (
         <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
-      )}
-      {firmSnapshot && clientSnapshot && (
-        <AgreementHeaderBlock title={title} firm={firmSnapshot} client={clientSnapshot} />
       )}
       {sections.map((section, i) => (
         <section key={`sec-${i}`} className="mb-6 last:mb-0">

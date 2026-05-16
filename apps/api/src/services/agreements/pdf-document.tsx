@@ -114,15 +114,9 @@ export function NdaPdfDocument({
           </View>
         )}
 
-        <Text
-          style={s.footer}
-          render={({ pageNumber, totalPages }) =>
-            isPreview
-              ? `PREVIEW — NOT A SIGNED DOCUMENT — Page ${pageNumber} of ${totalPages}`
-              : `Template ${vars.templateVersion} — Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
+        <Text style={s.footer} fixed>
+          {isPreview ? 'PREVIEW — NOT A SIGNED DOCUMENT' : `Template ${vars.templateVersion}`}
+        </Text>
       </Page>
     </Document>
   )

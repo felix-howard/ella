@@ -81,6 +81,120 @@ describe('generateSignedPdf', () => {
     expect(Buffer.compare(buffer, legacy)).not.toBe(0)
   })
 
+  it('renders custom HTML with nested bold italic marks', async () => {
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'ENGAGEMENT_LETTER',
+          templateVersion: 'engagement-letter-v1',
+          depositAmount: '15000.00',
+          customContentHtml: '<p><strong><em>Firm will provide document review.</em></strong></p>',
+          title: 'Engagement Letter',
+        },
+        mode: 'preview',
+        firmSnapshot: {
+          name: 'Acme Tax LLC',
+          address: '123 Main St, Houston, TX 77001',
+          signerName: '',
+          signerTitle: '',
+        },
+        clientSnapshot: {
+          nameOrBusiness: 'Jane Doe',
+          address: '[Address]',
+          clientType: 'INDIVIDUAL',
+        },
+      }),
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+  })
+
+  it('renders long pasted custom HTML across multiple pages', async () => {
+    const paragraph =
+      'To the fullest extent permitted by law, Firm liability for any claim arising out of this engagement shall be limited to the fees paid by Client to Firm for the services giving rise to the claim. Firm shall not be liable for indirect, incidental, consequential, special, punitive, or exemplary damages, including lost profits, business interruption, penalties, assessments, or government findings, except to the extent prohibited by law.'
+    const customContentHtml = Array.from(
+      { length: 70 },
+      (_, i) => `<p>${i + 1}. ${paragraph}</p>`,
+    ).join('')
+
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'ENGAGEMENT_LETTER',
+          templateVersion: 'engagement-letter-v1',
+          depositAmount: '15000.00',
+          customContentHtml,
+          title: 'Engagement Letter',
+        },
+        mode: 'preview',
+        firmSnapshot: {
+          name: 'Acme Tax LLC',
+          address: '123 Main St, Houston, TX 77001',
+          signerName: '',
+          signerTitle: '',
+        },
+        clientSnapshot: {
+          nameOrBusiness: 'Jane Doe',
+          address: '[Address]',
+          clientType: 'INDIVIDUAL',
+        },
+      }),
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    expect(buffer.length).toBeGreaterThan(10_000)
+  }, 15_000)
+
+  it('renders one large pasted paragraph with line breaks', async () => {
+    const section = [
+      '1. Scope of Services',
+      '',
+      'Firm will provide document review, organization, and reconstruction services related to Client’s DOL matter.',
+      '',
+      'The scope of services includes:',
+      '',
+      '1. Initial review of DOL request;',
+      '2. Document checklist and project setup;',
+      '3. Review of records for up to 10 employees;',
+      '4. Reconstruction and organization of documents for up to 3 years;',
+      '5. Payroll detail review and reconstruction;',
+      '6. Employee compliance document reconstruction and organization;',
+      '7. Final package review and organization.',
+      '',
+      'The services are limited to the above scope unless otherwise agreed in writing by both parties.',
+    ].join('\n')
+    const customContentHtml = `<p>${Array.from({ length: 18 }, (_, i) => `${i + 1}. ${section}`)
+      .join('\n\n')
+      .replace(/\n/g, '<br>')}</p>`
+
+    const buffer = await generateSignedPdf(
+      buildInput({
+        agreement: {
+          type: 'ENGAGEMENT_LETTER',
+          templateVersion: 'engagement-letter-v1',
+          depositAmount: '15000.00',
+          customContentHtml,
+          title: 'Engagement Letter',
+        },
+        mode: 'preview',
+        firmSnapshot: {
+          name: 'Acme Tax LLC',
+          address: '123 Main St, Houston, TX 77001',
+          signerName: '',
+          signerTitle: '',
+        },
+        clientSnapshot: {
+          nameOrBusiness: 'Jane Doe',
+          address: '[Address]',
+          clientType: 'INDIVIDUAL',
+        },
+      }),
+    )
+
+    expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    expect(buffer.length).toBeGreaterThan(10_000)
+  }, 15_000)
+
   it('preview mode produces PDF differing from signed mode (no signature block)', async () => {
     const preview = await generateSignedPdf(buildInput({ mode: 'preview' }))
     const signed = await generateSignedPdf(buildInput())

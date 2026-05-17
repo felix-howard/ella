@@ -7,6 +7,20 @@
 
 ## 2026-05-17
 
+### API: Engagement Letter PDF Title Spacing
+**Status:** Complete
+
+**Changed:**
+- Engagement Letter PDF preview now inserts default spacing between the document title and first content block when no subtitle/header is rendered.
+- NDA PDFs and PDFs with subtitle/header keep existing spacing behavior.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/pdf-document-v2.test.ts src/services/agreements/__tests__/pdf-generator.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+---
+
 ### API: Engagement Letter PDF Header Cleanup
 **Status:** Complete
 

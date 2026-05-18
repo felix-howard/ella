@@ -11,11 +11,11 @@ Ella streamlines tax preparation workflows by automating document collection, cl
 ## Key Features
 
 ### Document Management
-- Client magic link upload portal (passwordless access)
+- Client magic link upload portal with random expiring links, revoke/extend controls, rate limits, and filename privacy
 - AI-powered document classification (180+ tax document types)
 - OCR data extraction (W2, 1099s, K-1, bank statements)
 - Document verification workflow with staff review
-- Duplicate detection and auto-categorization
+- Duplicate detection, auto-categorization, content signature validation, and identity document retention controls
 
 ### Multi-Tenancy & Team Management
 - Organization-based data isolation (Clerk integration)
@@ -120,6 +120,9 @@ TWILIO_AUTH_TOKEN=xxxxxx
 TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
+MAGIC_LINK_EXPIRY_DAYS=60
+IDENTITY_DOC_RETENTION_DAYS=90
+TRUST_PROXY_HEADERS=false
 ```
 
 ## Architecture

@@ -27,7 +27,98 @@ export function sanitizeSearchInput(input: string): string {
 export interface FileValidationResult {
   valid: boolean
   error?: string
-  errorCode?: 'INVALID_TYPE' | 'FILE_TOO_LARGE' | 'TOO_MANY_FILES' | 'NO_FILES'
+  errorCode?:
+    | 'INVALID_TYPE'
+    | 'INVALID_FILE_CONTENT'
+    | 'FILE_TOO_LARGE'
+    | 'TOO_MANY_FILES'
+    | 'NO_FILES'
+}
+
+export type DetectedFileType =
+  | 'application/pdf'
+  | 'image/jpeg'
+  | 'image/png'
+  | 'image/webp'
+  | 'image/heic'
+  | 'image/heif'
+
+interface UploadedFileWithBuffer {
+  file: File
+  buffer: Buffer
+}
+
+const ALLOWED_HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'])
+const MAX_PDF_HEADER_PREFIX_BYTES = 16
+
+function startsWithBytes(buffer: Buffer, bytes: number[], offset = 0): boolean {
+  if (buffer.length < offset + bytes.length) return false
+  return bytes.every((byte, index) => buffer[offset + index] === byte)
+}
+
+function findPdfHeaderOffset(buffer: Buffer): number {
+  let offset = 0
+
+  if (startsWithBytes(buffer, [0xef, 0xbb, 0xbf])) {
+    offset = 3
+  }
+
+  while (offset < buffer.length && [0x09, 0x0a, 0x0c, 0x0d, 0x20].includes(buffer[offset])) {
+    offset++
+  }
+
+  return offset <= MAX_PDF_HEADER_PREFIX_BYTES ? offset : -1
+}
+
+function detectHeifType(buffer: Buffer): DetectedFileType | null {
+  if (buffer.length < 12 || buffer.toString('ascii', 4, 8) !== 'ftyp') return null
+
+  const majorBrand = buffer.toString('ascii', 8, 12)
+  const compatibleBrands: string[] = []
+  for (let offset = 16; offset + 4 <= Math.min(buffer.length, 64); offset += 4) {
+    compatibleBrands.push(buffer.toString('ascii', offset, offset + 4))
+  }
+
+  const brands = [majorBrand, ...compatibleBrands]
+  const heifBrand = brands.find((brand) => ALLOWED_HEIF_BRANDS.has(brand))
+  if (!heifBrand) return null
+
+  return ['heic', 'heix', 'hevc', 'hevx'].includes(heifBrand) ? 'image/heic' : 'image/heif'
+}
+
+/**
+ * Detect supported upload content using file signatures.
+ */
+export function detectFileType(buffer: Buffer): DetectedFileType | null {
+  const pdfOffset = findPdfHeaderOffset(buffer)
+  if (pdfOffset >= 0 && buffer.toString('ascii', pdfOffset, pdfOffset + 5) === '%PDF-') {
+    return 'application/pdf'
+  }
+
+  if (startsWithBytes(buffer, [0xff, 0xd8, 0xff])) {
+    return 'image/jpeg'
+  }
+
+  if (startsWithBytes(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return 'image/png'
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return 'image/webp'
+  }
+
+  return detectHeifType(buffer)
+}
+
+function mimeTypesMatch(declaredMimeType: string, detectedMimeType: DetectedFileType): boolean {
+  if (declaredMimeType === detectedMimeType) return true
+
+  const heifFamily = new Set(['image/heic', 'image/heif'])
+  return heifFamily.has(declaredMimeType) && heifFamily.has(detectedMimeType)
 }
 
 /**
@@ -68,6 +159,28 @@ export function validateUploadedFiles(files: File[]): FileValidationResult {
         valid: false,
         error: `File type "${mimeType}" is not allowed. Allowed: images (JPEG, PNG, WebP, HEIC) and PDF`,
         errorCode: 'INVALID_TYPE',
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Validate uploaded file buffers against supported content signatures.
+ */
+export function validateUploadedFileContent(
+  filesWithBuffers: UploadedFileWithBuffer[]
+): FileValidationResult {
+  for (const { file, buffer } of filesWithBuffers) {
+    const declaredMimeType = file.type || 'application/octet-stream'
+    const detectedMimeType = detectFileType(buffer)
+
+    if (!detectedMimeType || !mimeTypesMatch(declaredMimeType, detectedMimeType)) {
+      return {
+        valid: false,
+        error: 'File content does not match an allowed document or image type',
+        errorCode: 'INVALID_FILE_CONTENT',
       }
     }
   }

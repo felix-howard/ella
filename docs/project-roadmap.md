@@ -1,8 +1,35 @@
 # Ella Tax Document Management - Project Roadmap
 
-> **Last Updated:** 2026-05-15 ICT
-> **Current Phase:** Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL COMPLETE (All 2 Phases) ✅ | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
-> **Overall Project Progress:** Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Friendly Upload Link URL COMPLETE (All 2 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+> **Last Updated:** 2026-05-18 ICT
+> **Current Phase:** Upload Portal Security Hardening COMPLETE ✅ | Tax Advisory Presentation Landing COMPLETE ✅ | Contractor Agent Agreement Phase 06 COMPLETE ✅ | Upload Link Message Template Selection COMPLETE ✅ | Campaign Form Intro Landing Content COMPLETE ✅ | Individual Schedule C Activity COMPLETE ✅ | Edit & Send Modal Service Builder COMPLETE ✅ | Engagement Letter Placeholder Fields COMPLETE ✅ | Shared Docs Actions Rework COMPLETE (All 5 Phases) ✅ | Unified Conversation & Business UX IN PROGRESS (Phase 1 of 5 Done) | Business Entity Separation Approach B COMPLETE (All 15 Phases) ✅ | Friendly Upload Link URL SUPERSEDED BY SECURITY HARDENING | Client-Business Entity Separation COMPLETE (All 6 Phases) | TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) | Complete OCR Extraction Prompts IN PROGRESS (Phase 3 of 10 Done) | Tag-Based Lead & Client Categorization COMPLETE (All 5 Phases) | Lead Page Redesign IN PROGRESS (Phase 1 Done) | Lead Registration Form Link COMPLETE (All 2 Phases) | ClientAssignment Refactor COMPLETE (All 3 Phases) | Clerk Webhook Sync Migration COMPLETE (All 5 Phases) | Admin Edit Member Profiles COMPLETE | Self-Service Org Signup COMPLETE | Landing Page Killer Features COMPLETE | Multi-Tenancy COMPLETE
+> **Overall Project Progress:** Upload Portal Security Hardening COMPLETE (10 phases, 100% done) ✅ + Tax Advisory Presentation Landing COMPLETE (3 phases, 100% done) ✅ + Contractor Agent Agreement Phase 06 COMPLETE (6 of 6 phases done; migration applied/status clean) ✅ + Upload Link Message Template Selection COMPLETE (4 phases, 100% done) ✅ + Campaign Form Intro Landing Content COMPLETE (single-phase conversion UX enhancement, 100% done) ✅ + Individual Schedule C Activity COMPLETE (5 phases, 100% done) ✅ + Edit & Send Modal Service Builder COMPLETE (single-phase UX enhancement, 100% done) ✅ + Engagement Letter Placeholder Fields COMPLETE (single-phase UX enhancement, 100% done) ✅ + Shared Docs Actions Rework COMPLETE (All 5 Phases, 100% done) ✅ + Unified Conversation & Business UX Phase 1 COMPLETE (1 of 5 Phases) + Business Entity Separation Approach B COMPLETE (All 15 Phases, 100% done) ✅ + Client-Business Entity Separation COMPLETE (All 6 Phases) + TaxBandits API Integration COMPLETE (Phase 3 + Phase 4 Schema Cleanup) + OCR Extraction Prompts Phase 3 COMPLETE (Phase 3 of 10) + Tag-Based Categorization COMPLETE (All 5 Phases) + Lead Page Redesign Phase 1 COMPLETE + Lead Registration Form Link COMPLETE (All 2 Phases) + ClientAssignment Refactor COMPLETE (All 3 Phases) + Clerk Webhook Sync Migration (All 5 Phases) COMPLETE + Admin Edit Member Profiles COMPLETE + Self-Service Org Signup COMPLETE + Landing Page Killer Features COMPLETE + Multi-Tenancy COMPLETE + All prior enhancements
+
+---
+
+### Upload Portal Security Hardening COMPLETE ✅
+**Started:** 2026-05-17
+**Completed:** 2026-05-18
+**Status:** COMPLETE
+**Plan:** [Upload Portal Security Hardening](../plans/260517-1434-security-hardening-upload-portal/plan.md)
+**Objective:** Reduce exposure for sensitive taxpayer document collection without adding malware scanning in this phase.
+
+**Delivered:**
+- Activity log foundation for document access, upload link lifecycle, and retention actions.
+- Random 32-character portal tokens with default 60-day expiry, revoke/extend/replace lifecycle, active-link reuse, replacement locking, and Files tab management UI.
+- Public portal filename privacy: safe labels only, no original/display/AI filenames in public list or upload response.
+- Identity document retention metadata, default 90-day filed-case deletion schedule, storage-deleted guards, staff countdown badges, and audit trail.
+- Portal abuse controls: token+IP rate limits with trusted proxy configuration, invalid-token pre-validation throttling, `Retry-After`, and non-retriable 429 portal UX. Current limiter storage is process-local unless replaced by shared infrastructure.
+- Signature-based content validation for PDF/JPEG/PNG/WebP/HEIC/HEIF before storage/DB writes.
+- Storage logging redaction and 900-second sensitive document signed URL TTL with no-store/private proxy headers.
+- Production rollout checklist in `docs/security-upload-portal-hardening.md`.
+
+**Validation:**
+- Prisma migrate status clean.
+- API, workspace, portal, and root type-check pass.
+- Full API tests pass after updating stale expectations for current category names, copy-only rename behavior, identity filename year omission, and prompt length budget.
+
+**Future:**
+- Add malware scanning/quarantine before CPA preview/download.
 
 ---
 
@@ -303,10 +330,10 @@ function computeLinkState(input: {
 ### Friendly Upload Link URL (2 Phases) COMPLETE ✅
 **Started:** 2026-04-10
 **Completed:** 2026-04-10 (All 2 Phases)
-**Status:** Complete — All phases delivered and verified
+**Status:** SUPERSEDED — `/upload/:token` route remains; client-name slug tokens were replaced by random security tokens in Upload Portal Security Hardening.
 **Branch:** feature/enhance-business-record
 **Plan:** [Friendly Upload Link URL](../plans/260410-friendly-upload-link-url/plan.md)
-**Objective:** Change magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better client trust and UX. Legacy `/u/` route preserved for backward compatibility.
+**Original Objective:** Change magic link URL format from `/u/{random12}` to `/upload/{name-slug}-{random6}` for better client trust and UX. Legacy `/u/` route preserved for backward compatibility. Current behavior uses random 32-character `/upload/:token` portal links with expiry.
 
 **Phase Breakdown:**
 | Phase | Component | Status | Effort | Completion |
@@ -314,9 +341,9 @@ function computeLinkState(input: {
 | 1 | Backend: slug token generation | ✅ DONE | 1h | 2026-04-10 |
 | 2 | Portal: new `/upload` route + legacy fallback | ✅ DONE | 1h | 2026-04-10 |
 
-**What Changed:**
-- Token format: `{client-name-slug}-{4-char-random}` instead of 12-char random (e.g., `tuyet-nguyen-7k3m`)
-- New route: `/upload/:token` with friendly URLs
+**Historical Changes (superseded token format):**
+- Historical token format: `{client-name-slug}-{4-char-random}` instead of 12-char random. This was superseded by random 32-character portal tokens.
+- New route: `/upload/:token`; route remains active with random security tokens.
 - Legacy route: `/u/:token` preserved for existing links (backward compatible)
 - `createMagicLink()` and `createMagicLinkWithDeactivation()` now accept optional `clientName` param
 - `getMagicLinkUrl()` PORTAL path changed from `/u/` to `/upload/`

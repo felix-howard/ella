@@ -13,7 +13,14 @@ import { toast } from '../lib/toast-store'
 
 // Hidden validation - user doesn't see these limits
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const VALID_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+const VALID_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+]
 
 interface SimpleUploaderProps {
   token: string
@@ -89,7 +96,14 @@ export function SimpleUploader({
         toast.success(t('portal.uploadedSuccess'))
         onUploadComplete(result)
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : t('portal.errorUploading')
+        const message =
+          err instanceof ApiError && err.code === 'RATE_LIMITED'
+            ? t('portal.rateLimited')
+            : err instanceof ApiError && err.code === 'INVALID_FILE_CONTENT'
+              ? t('portal.invalidFileContent')
+            : err instanceof ApiError
+              ? err.message
+              : t('portal.errorUploading')
         toast.error(message)
         onError(message)
       } finally {

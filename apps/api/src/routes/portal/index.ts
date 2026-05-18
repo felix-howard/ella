@@ -3,27 +3,151 @@
  * Magic link access and document upload for clients
  */
 import { Hono } from 'hono'
+import { ActivityActorType, ActivityRiskLevel } from '@ella/db'
+import { createHash } from 'node:crypto'
 import { prisma } from '../../lib/db'
-import { validateMagicLink } from '../../services/magic-link'
-import { validateUploadedFiles } from '../../lib/validation'
+import {
+  recordMagicLinkUsage,
+  validateMagicLink,
+  type MagicLinkValidationResult,
+} from '../../services/magic-link'
+import { validateUploadedFileContent, validateUploadedFiles } from '../../lib/validation'
 import { isGeminiConfigured } from '../../services/ai'
 import { uploadFile, generateFileKey } from '../../services/storage'
 import { inngest } from '../../lib/inngest'
 import { updateLastActivity } from '../../services/activity-tracker'
 import {
-  PORTAL_ERROR_MESSAGES,
-  assertCaseInScope,
-  buildCaseChecklistPayload,
-} from './helpers'
+  checkRateLimit,
+  getClientIp,
+  getRateLimitRetryAfterSeconds,
+  isRateLimitExceeded,
+} from '../../middleware/rate-limiter'
+import { getAuditRequestContext, logActivity } from '../../services/activity-log'
+import { PORTAL_ERROR_MESSAGES, assertCaseInScope, buildCaseChecklistPayload } from './helpers'
 
 const portalRoute = new Hono()
+
+export const PORTAL_READ_RATE_LIMIT = {
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 120,
+}
+
+export const PORTAL_UPLOAD_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 20,
+}
+
+const PORTAL_INVALID_TOKEN_RATE_LIMIT = {
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 30,
+}
+
+type ValidPortalLinkData = NonNullable<MagicLinkValidationResult['data']>
+
+interface PortalUploadRecord {
+  id: string
+  status: string
+  createdAt: Date
+}
+
+interface PortalUploadSummary {
+  id: string
+  safeLabel: string
+  status: string
+  createdAt: string
+  sequenceNumber: number
+}
+
+function buildPortalUploadSummary(
+  upload: PortalUploadRecord,
+  sequenceNumber: number
+): PortalUploadSummary {
+  return {
+    id: upload.id,
+    safeLabel: `Document ${sequenceNumber}`,
+    status: upload.status,
+    createdAt: upload.createdAt.toISOString(),
+    sequenceNumber,
+  }
+}
+
+function mapPortalUploads(uploads: PortalUploadRecord[]): PortalUploadSummary[] {
+  return uploads.map((upload, index) => buildPortalUploadSummary(upload, index + 1)).reverse()
+}
+
+function rateLimitedResponse(c: Parameters<typeof getClientIp>[0], retryAfterSeconds?: number) {
+  if (retryAfterSeconds) c.header('Retry-After', String(retryAfterSeconds))
+
+  return c.json(
+    {
+      error: 'RATE_LIMITED',
+      message: 'Quá nhiều yêu cầu. Vui lòng đợi một chút.',
+    },
+    429
+  )
+}
+
+function checkPortalRateLimit(
+  key: string,
+  config: { windowMs: number; maxRequests: number }
+): boolean {
+  return checkRateLimit(key, config.windowMs, config.maxRequests)
+}
+
+function invalidTokenRateLimitKey(route: 'read' | 'upload', ip: string): string {
+  return `portal-invalid-${route}:${ip}`
+}
+
+function validTokenRateLimitKey(route: 'read' | 'upload', token: string, ip: string): string {
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  return `portal-${route}:${tokenHash}:${ip}`
+}
+
+function alreadyRateLimited(
+  key: string,
+  config: { windowMs: number; maxRequests: number }
+): boolean {
+  return isRateLimitExceeded(key, config.windowMs, config.maxRequests)
+}
+
+async function logPortalRateLimitHit(
+  c: Parameters<typeof getAuditRequestContext>[0],
+  data: ValidPortalLinkData,
+  route: 'read' | 'upload'
+): Promise<void> {
+  await logActivity({
+    organizationId: data.clientGroup?.organizationId ?? data.taxCase?.client.organizationId ?? null,
+    clientId: data.taxCase?.client.id ?? null,
+    caseId: data.taxCase?.id ?? null,
+    magicLinkId: data.magicLinkId,
+    actorType: ActivityActorType.CLIENT_PORTAL,
+    action: `portal.${route}.rate_limited`,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      scope: data.scope,
+      route,
+    },
+    request: getAuditRequestContext(c),
+  })
+}
 
 // GET /portal/:token - Get portal data via magic link
 portalRoute.get('/:token', async (c) => {
   const token = c.req.param('token')
-  const result = await validateMagicLink(token)
+  const ip = getClientIp(c)
+  const invalidKey = invalidTokenRateLimitKey('read', ip)
+  const validKey = validTokenRateLimitKey('read', token, ip)
+
+  if (alreadyRateLimited(invalidKey, PORTAL_INVALID_TOKEN_RATE_LIMIT)) {
+    return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(invalidKey))
+  }
+
+  const result = await validateMagicLink(token, { recordUsage: false })
 
   if (!result.valid || !result.data) {
+    if (!checkPortalRateLimit(invalidKey, PORTAL_INVALID_TOKEN_RATE_LIMIT)) {
+      return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(invalidKey))
+    }
     const errorCode = result.error || 'INVALID_TOKEN'
     return c.json(
       {
@@ -33,6 +157,12 @@ portalRoute.get('/:token', async (c) => {
       401
     )
   }
+
+  if (!checkPortalRateLimit(validKey, PORTAL_READ_RATE_LIMIT)) {
+    await logPortalRateLimitHit(c, result.data, 'read')
+    return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(validKey))
+  }
+  await recordMagicLinkUsage(result.data.magicLinkId)
 
   const { scope, entities, taxCase, clientGroup, clientGroupId } = result.data
 
@@ -46,10 +176,7 @@ portalRoute.get('/:token', async (c) => {
     if (scope === 'CASE') {
       // CASE-scope link only authorizes its own case
       if (!taxCase || taxCase.id !== queryCaseId) {
-        return c.json(
-          { error: 'INVALID_TARGET_CASE', message: 'Loại tài liệu không hợp lệ' },
-          403
-        )
+        return c.json({ error: 'INVALID_TARGET_CASE', message: 'Loại tài liệu không hợp lệ' }, 403)
       }
     } else {
       const scopeCheck = await assertCaseInScope(queryCaseId, {
@@ -66,28 +193,19 @@ portalRoute.get('/:token', async (c) => {
       where: { caseId: queryCaseId },
       select: {
         id: true,
-        filename: true,
-        displayName: true,
         status: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     })
 
     return c.json({
-      uploads: uploads.map((u) => ({
-        ...u,
-        createdAt: u.createdAt.toISOString(),
-      })),
+      uploads: mapPortalUploads(uploads),
     })
   }
 
   // Resolve client display info from anchor case (CASE) or first entity (GROUP)
-  const displayName =
-    taxCase?.client.name ||
-    clientGroup?.name ||
-    entities[0]?.name ||
-    'Khách hàng'
+  const displayName = taxCase?.client.name || clientGroup?.name || entities[0]?.name || 'Khách hàng'
   const displayLanguage = taxCase?.client.language || 'VI'
   const displayTaxYear = taxCase?.taxYear ?? entities[0]?.taxYear
 
@@ -105,9 +223,7 @@ portalRoute.get('/:token', async (c) => {
     return c.json({
       ...basePayload,
       taxYear: displayTaxYear,
-      clientGroup: clientGroup
-        ? { id: clientGroup.id, name: clientGroup.name }
-        : null,
+      clientGroup: clientGroup ? { id: clientGroup.id, name: clientGroup.name } : null,
     })
   }
 
@@ -129,14 +245,28 @@ portalRoute.get('/:token', async (c) => {
 // POST /portal/:token/upload - Upload documents via portal
 portalRoute.post('/:token/upload', async (c) => {
   const token = c.req.param('token')
-  const result = await validateMagicLink(token)
+  const ip = getClientIp(c)
+  const invalidKey = invalidTokenRateLimitKey('upload', ip)
+  const validKey = validTokenRateLimitKey('upload', token, ip)
+
+  if (alreadyRateLimited(invalidKey, PORTAL_INVALID_TOKEN_RATE_LIMIT)) {
+    return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(invalidKey))
+  }
+
+  const result = await validateMagicLink(token, { recordUsage: false })
 
   if (!result.valid || !result.data) {
-    return c.json(
-      { error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' },
-      401
-    )
+    if (!checkPortalRateLimit(invalidKey, PORTAL_INVALID_TOKEN_RATE_LIMIT)) {
+      return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(invalidKey))
+    }
+    return c.json({ error: 'INVALID_TOKEN', message: 'Link không hợp lệ hoặc đã hết hạn' }, 401)
   }
+
+  if (!checkPortalRateLimit(validKey, PORTAL_UPLOAD_RATE_LIMIT)) {
+    await logPortalRateLimitHit(c, result.data, 'upload')
+    return rateLimitedResponse(c, getRateLimitRetryAfterSeconds(validKey))
+  }
+  await recordMagicLinkUsage(result.data.magicLinkId)
 
   const { scope, clientGroupId, taxCase, clientGroup } = result.data
 
@@ -145,9 +275,7 @@ portalRoute.post('/:token/upload', async (c) => {
   const files = formData.getAll('files') as File[]
   const targetCaseIdRaw = formData.get('targetCaseId')
   const targetCaseId =
-    typeof targetCaseIdRaw === 'string' && targetCaseIdRaw.trim()
-      ? targetCaseIdRaw.trim()
-      : null
+    typeof targetCaseIdRaw === 'string' && targetCaseIdRaw.trim() ? targetCaseIdRaw.trim() : null
 
   // GROUP-scoped tokens require an explicit targetCaseId
   if (scope === 'GROUP' && !targetCaseId) {
@@ -175,10 +303,7 @@ portalRoute.post('/:token/upload', async (c) => {
   // For scope=CASE without targetCaseId, fall back to the link's own caseId
   const effectiveCaseId = targetCaseId || taxCase?.id
   if (!effectiveCaseId) {
-    return c.json(
-      { error: 'TARGET_CASE_REQUIRED', message: 'Không xác định được hồ sơ thuế' },
-      400
-    )
+    return c.json({ error: 'TARGET_CASE_REQUIRED', message: 'Không xác định được hồ sơ thuế' }, 400)
   }
 
   // Validate uploaded files (type, size, count)
@@ -188,8 +313,9 @@ portalRoute.post('/:token/upload', async (c) => {
       NO_FILES: 'Vui lòng chọn ít nhất một file',
       TOO_MANY_FILES: 'Quá nhiều file. Tối đa 50 file mỗi lần tải lên',
       FILE_TOO_LARGE: 'File quá lớn. Tối đa 10MB mỗi file',
-      INVALID_TYPE:
-        'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
+      INVALID_TYPE: 'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
+      INVALID_FILE_CONTENT:
+        'Nội dung file không đúng định dạng. Vui lòng tải lên PDF hoặc ảnh hợp lệ',
     }
     return c.json(
       {
@@ -200,11 +326,29 @@ portalRoute.post('/:token/upload', async (c) => {
     )
   }
 
+  const fileSignatures = await Promise.all(
+    files.map(async (file) => ({
+      file,
+      buffer: Buffer.from(await file.slice(0, 64).arrayBuffer()),
+    }))
+  )
+
+  const contentValidation = validateUploadedFileContent(fileSignatures)
+  if (!contentValidation.valid) {
+    return c.json(
+      {
+        error: 'INVALID_FILE_CONTENT',
+        message: 'Nội dung file không đúng định dạng. Vui lòng tải lên PDF hoặc ảnh hợp lệ',
+      },
+      400
+    )
+  }
+
   // Owner explicitly picked entity → skip AI entity routing downstream
   const uploadSource = targetCaseId ? 'PORTAL_EXPLICIT' : 'PORTAL_AI'
 
   // Process each file: upload to R2 + trigger background classification
-  const createdImages: { id: string; filename: string; status: string; createdAt: string }[] = []
+  const createdImages: PortalUploadSummary[] = []
   const inngestEvents: {
     name: 'document/uploaded'
     data: {
@@ -217,31 +361,38 @@ portalRoute.post('/:token/upload', async (c) => {
   }[] = []
 
   for (const file of files) {
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const buffer = Buffer.from(await file.arrayBuffer())
     const mimeType = file.type || 'image/jpeg'
 
     const r2Key = generateFileKey(effectiveCaseId, file.name, 'raw')
     await uploadFile(r2Key, buffer, mimeType)
 
-    const rawImage = await prisma.rawImage.create({
-      data: {
-        caseId: effectiveCaseId,
-        r2Key,
-        filename: file.name,
-        mimeType,
-        fileSize: file.size,
-        status: 'UPLOADED',
-        uploadedVia: 'PORTAL',
-        uploadSource,
-      },
+    const { rawImage, sequenceNumber } = await prisma.$transaction(async (tx) => {
+      const lockKey = `portal-upload-sequence:${effectiveCaseId}`
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+      const sequenceNumber = (await tx.rawImage.count({ where: { caseId: effectiveCaseId } })) + 1
+      const rawImage = await tx.rawImage.create({
+        data: {
+          caseId: effectiveCaseId,
+          r2Key,
+          filename: file.name,
+          mimeType,
+          fileSize: file.size,
+          status: 'UPLOADED',
+          uploadedVia: 'PORTAL',
+          uploadSource,
+        },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+        },
+      })
+      return { rawImage, sequenceNumber }
     })
 
     createdImages.push({
-      id: rawImage.id,
-      filename: rawImage.filename,
-      status: rawImage.status,
-      createdAt: rawImage.createdAt.toISOString(),
+      ...buildPortalUploadSummary(rawImage, sequenceNumber),
     })
 
     if (isGeminiConfigured) {

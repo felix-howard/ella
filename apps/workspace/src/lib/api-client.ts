@@ -287,10 +287,10 @@ export const api = {
         { method: 'POST' }
       ),
 
-    sendUploadLink: (id: string, customMessage?: string) =>
-      request<{ success: boolean; messageId?: string }>(
+    sendUploadLink: (id: string, customMessage?: string, targetCaseId?: string) =>
+      request<{ success: boolean; messageId?: string; targetCaseId?: string }>(
         `/clients/${id}/send-upload-link`,
-        { method: 'POST', body: JSON.stringify({ customMessage }) }
+        { method: 'POST', body: JSON.stringify({ customMessage, targetCaseId }) }
       ),
 
     // Cascade cleanup when parent answer changes to false
@@ -1250,6 +1250,28 @@ export const api = {
       }),
   },
 
+  // Upload Links - Portal upload link lifecycle per tax case
+  uploadLinks: {
+    listForCase: (caseId: string) =>
+      request<ListUploadLinksResponse>(`/upload-links/cases/${caseId}`),
+
+    revoke: (id: string) =>
+      request<UploadLinkMutationResponse>(`/upload-links/${id}/revoke`, {
+        method: 'POST',
+      }),
+
+    extend: (id: string, days: 7 | 14 | 30 | 60) =>
+      request<UploadLinkMutationResponse & { expiresAt: string }>(`/upload-links/${id}/extend`, {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      }),
+
+    generate: (caseId: string) =>
+      request<UploadLinkMutationResponse>(`/upload-links/cases/${caseId}/generate`, {
+        method: 'POST',
+      }),
+  },
+
   // Shared Docs - Multi-section document sharing per tax case
   sharedDocs: {
     list: (caseId: string) =>
@@ -1824,6 +1846,7 @@ export interface ClientPreview {
   einMasked?: string | null
   latestCaseId?: string | null
   latestCaseTaxYear?: number | null
+  taxCases?: { id: string; taxYear: number; portalUrl?: string | null }[]
   portalUrl?: string | null
   scheduleCExpense?: ScheduleCExpenseSummary | null
 }
@@ -2233,6 +2256,12 @@ export interface RawImage {
   // Entity routing fields
   entityConfidence?: number | null
   routedFromCaseId?: string | null
+  // Identity document retention metadata
+  retentionPolicy?: string | null
+  retentionDeleteAt?: string | null
+  retentionDeletedAt?: string | null
+  storageDeletedAt?: string | null
+  isStorageDeleted?: boolean
 }
 
 // Image group for duplicate detection
@@ -3281,6 +3310,40 @@ export interface SharedDocMagicLinkData {
   isActive: boolean
   usageCount: number
   lastUsedAt: string | null
+}
+
+export type UploadLinkStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REPLACED'
+
+export interface UploadLinkData {
+  id: string
+  status: UploadLinkStatus
+  url: string | null
+  scope: 'CASE' | 'GROUP'
+  clientGroupId: string | null
+  expiresAt: string | null
+  revokedAt: string | null
+  extendedAt: string | null
+  lastUsedAt: string | null
+  usageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ListUploadLinksResponse {
+  data: UploadLinkData[]
+  taxCase: {
+    id: string
+    taxYear: number
+    client: {
+      id: string
+      name: string
+    }
+  }
+}
+
+export interface UploadLinkMutationResponse {
+  success: boolean
+  magicLink: UploadLinkData
 }
 
 export interface SharedDocVersionData {

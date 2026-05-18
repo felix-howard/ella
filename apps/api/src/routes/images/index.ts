@@ -12,7 +12,14 @@ import { sanitizeReuploadReason } from '../../lib/validation'
 import { sendBlurryResendRequest, isSmsEnabled } from '../../services/sms'
 import { deleteFile } from '../../services/storage'
 import { updateLastActivity } from '../../services/activity-tracker'
+import { ActivityRiskLevel } from '@ella/db'
 import type { DocType, ChecklistItemStatus, RawImageStatus, Language, DocCategory } from '@ella/db'
+import {
+  getAuditRequestContext,
+  logStaffActivities,
+  logStaffActivity,
+} from '../../services/activity-log'
+import { refreshIdentityRetentionForImage } from '../../services/identity-doc-retention'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import type { AuthVariables } from '../../middleware/auth'
 
@@ -43,13 +50,34 @@ const renameSchema = z.object({
 
 // Schema for changing category
 const changeCategorySchema = z.object({
-  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+  category: z.enum([
+    'IDENTITY',
+    'INCOME',
+    'TAX_RETURNS',
+    'EXPENSE',
+    'ASSET',
+    'EDUCATION',
+    'HEALTHCARE',
+    'OTHER',
+  ]),
 })
 
 // Schema for batch category change
 const batchCategorySchema = z.object({
-  imageIds: z.array(z.string()).min(1, 'At least one image ID required').max(20, 'Maximum 20 images per batch'),
-  category: z.enum(['IDENTITY', 'INCOME', 'TAX_RETURNS', 'EXPENSE', 'ASSET', 'EDUCATION', 'HEALTHCARE', 'OTHER']),
+  imageIds: z
+    .array(z.string())
+    .min(1, 'At least one image ID required')
+    .max(20, 'Maximum 20 images per batch'),
+  category: z.enum([
+    'IDENTITY',
+    'INCOME',
+    'TAX_RETURNS',
+    'EXPENSE',
+    'ASSET',
+    'EDUCATION',
+    'HEALTHCARE',
+    'OTHER',
+  ]),
 })
 
 // Schema for reassigning entity
@@ -64,10 +92,12 @@ const moveToCaseSchema = z.object({
 
 // Schema for updating rotation
 const updateRotationSchema = z.object({
-  rotation: z.number().int().refine(
-    (val) => [0, 90, 180, 270].includes(val),
-    { message: 'Rotation must be 0, 90, 180, or 270' }
-  ),
+  rotation: z
+    .number()
+    .int()
+    .refine((val) => [0, 90, 180, 270].includes(val), {
+      message: 'Rotation must be 0, 90, 180, or 270',
+    }),
 })
 
 /**
@@ -89,10 +119,7 @@ imagesRoute.patch(
     })
 
     if (!rawImage) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Image not found' },
-        404
-      )
+      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
     }
 
     if (action === 'approve') {
@@ -111,7 +138,8 @@ imagesRoute.patch(
         })
 
         // Prefer item with existing images, otherwise first by sortOrder
-        const checklistItem = checklistItems.find(item => item._count.rawImages > 0) || checklistItems[0] || null
+        const checklistItem =
+          checklistItems.find((item) => item._count.rawImages > 0) || checklistItems[0] || null
 
         // Update raw image with approved classification
         const updatedImage = await tx.rawImage.update({
@@ -157,6 +185,7 @@ imagesRoute.patch(
 
       // Update case activity timestamp on classification approval
       await updateLastActivity(rawImage.caseId)
+      await refreshIdentityRetentionForImage(id)
 
       return c.json({
         success: true,
@@ -201,10 +230,7 @@ imagesRoute.patch(
       })
     }
 
-    return c.json(
-      { error: 'INVALID_ACTION', message: 'Invalid action' },
-      400
-    )
+    return c.json({ error: 'INVALID_ACTION', message: 'Invalid action' }, 400)
   }
 )
 
@@ -231,10 +257,7 @@ imagesRoute.post('/:id/reclassify', async (c) => {
   })
 
   if (!rawImage) {
-    return c.json(
-      { error: 'NOT_FOUND', message: 'Image not found' },
-      404
-    )
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
 
   // Allow reclassification for:
@@ -242,7 +265,8 @@ imagesRoute.post('/:id/reclassify', async (c) => {
   // 2. CLASSIFIED images that are in "Other" category (AI re-try)
   const allowedStatuses = ['UPLOADED', 'UNCLASSIFIED']
   const isOtherCategory = rawImage.classifiedType === 'OTHER' || rawImage.category === 'OTHER'
-  const canReclassify = allowedStatuses.includes(rawImage.status) ||
+  const canReclassify =
+    allowedStatuses.includes(rawImage.status) ||
     (rawImage.status === 'CLASSIFIED' && isOtherCategory)
 
   if (!canReclassify) {
@@ -298,375 +322,334 @@ imagesRoute.post('/:id/reclassify', async (c) => {
  * PATCH /images/:id/move - Move image to a different checklist item
  * Used by CPA to manually group/re-group multi-page documents
  */
-imagesRoute.patch(
-  '/:id/move',
-  zValidator('json', moveImageSchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { targetChecklistItemId } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/:id/move', zValidator('json', moveImageSchema), async (c) => {
+  const id = c.req.param('id')
+  const { targetChecklistItemId } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Find the raw image (org-scoped)
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: {
-        id: true,
-        caseId: true,
-        checklistItemId: true,
-        classifiedType: true,
+  // Find the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: {
+      id: true,
+      caseId: true,
+      checklistItemId: true,
+      classifiedType: true,
+    },
+  })
+
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  // Find target checklist item and verify it belongs to same case
+  const targetItem = await prisma.checklistItem.findUnique({
+    where: { id: targetChecklistItemId },
+    include: { template: true },
+  })
+
+  if (!targetItem) {
+    return c.json({ error: 'NOT_FOUND', message: 'Target checklist item not found' }, 404)
+  }
+
+  if (targetItem.caseId !== rawImage.caseId) {
+    return c.json({ error: 'INVALID_CASE', message: 'Cannot move image to a different case' }, 400)
+  }
+
+  // Skip if already in target
+  if (rawImage.checklistItemId === targetChecklistItemId) {
+    return c.json({
+      success: true,
+      message: 'Image already in target checklist item',
+    })
+  }
+
+  // Transaction: update image and both checklist items
+  await prisma.$transaction(async (tx) => {
+    // Decrement count on old checklist item if exists
+    if (rawImage.checklistItemId) {
+      const oldItem = await tx.checklistItem.findUnique({
+        where: { id: rawImage.checklistItemId },
+        select: { receivedCount: true },
+      })
+
+      if (oldItem) {
+        await tx.checklistItem.update({
+          where: { id: rawImage.checklistItemId },
+          data: {
+            receivedCount: Math.max(0, oldItem.receivedCount - 1),
+            // Reset status to MISSING if no more images
+            ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+          },
+        })
+      }
+    }
+
+    // Update raw image with new checklist item and doc type
+    await tx.rawImage.update({
+      where: { id },
+      data: {
+        checklistItemId: targetChecklistItemId,
+        classifiedType: targetItem.template?.docType as DocType,
+        status: 'LINKED' as RawImageStatus,
       },
     })
 
-    if (!rawImage) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Image not found' },
-        404
-      )
-    }
-
-    // Find target checklist item and verify it belongs to same case
-    const targetItem = await prisma.checklistItem.findUnique({
+    // Increment count on new checklist item
+    await tx.checklistItem.update({
       where: { id: targetChecklistItemId },
-      include: { template: true },
+      data: {
+        receivedCount: { increment: 1 },
+        status: 'HAS_RAW' as ChecklistItemStatus,
+      },
     })
+  })
 
-    if (!targetItem) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Target checklist item not found' },
-        404
-      )
-    }
-
-    if (targetItem.caseId !== rawImage.caseId) {
-      return c.json(
-        { error: 'INVALID_CASE', message: 'Cannot move image to a different case' },
-        400
-      )
-    }
-
-    // Skip if already in target
-    if (rawImage.checklistItemId === targetChecklistItemId) {
-      return c.json({
-        success: true,
-        message: 'Image already in target checklist item',
-      })
-    }
-
-    // Transaction: update image and both checklist items
-    await prisma.$transaction(async (tx) => {
-      // Decrement count on old checklist item if exists
-      if (rawImage.checklistItemId) {
-        const oldItem = await tx.checklistItem.findUnique({
-          where: { id: rawImage.checklistItemId },
-          select: { receivedCount: true },
-        })
-
-        if (oldItem) {
-          await tx.checklistItem.update({
-            where: { id: rawImage.checklistItemId },
-            data: {
-              receivedCount: Math.max(0, oldItem.receivedCount - 1),
-              // Reset status to MISSING if no more images
-              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
-            },
-          })
-        }
-      }
-
-      // Update raw image with new checklist item and doc type
-      await tx.rawImage.update({
-        where: { id },
-        data: {
-          checklistItemId: targetChecklistItemId,
-          classifiedType: targetItem.template?.docType as DocType,
-          status: 'LINKED' as RawImageStatus,
-        },
-      })
-
-      // Increment count on new checklist item
-      await tx.checklistItem.update({
-        where: { id: targetChecklistItemId },
-        data: {
-          receivedCount: { increment: 1 },
-          status: 'HAS_RAW' as ChecklistItemStatus,
-        },
-      })
-    })
-
-    return c.json({
-      success: true,
-      message: 'Image moved successfully',
-      newChecklistItemId: targetChecklistItemId,
-      newDocType: targetItem.template?.docType,
-    })
-  }
-)
+  return c.json({
+    success: true,
+    message: 'Image moved successfully',
+    newChecklistItemId: targetChecklistItemId,
+    newDocType: targetItem.template?.docType,
+  })
+})
 
 /**
  * POST /images/:id/request-reupload - Request document re-upload
  * Used when document is unreadable/blurry and needs client to resend
  * Optionally sends SMS notification to client
  */
-imagesRoute.post(
-  '/:id/request-reupload',
-  zValidator('json', requestReuploadSchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { reason, fields, sendSms } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.post('/:id/request-reupload', zValidator('json', requestReuploadSchema), async (c) => {
+  const id = c.req.param('id')
+  const { reason, fields, sendSms } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Sanitize reason to prevent XSS
-    const sanitizedReason = sanitizeReuploadReason(reason)
+  // Sanitize reason to prevent XSS
+  const sanitizedReason = sanitizeReuploadReason(reason)
 
-    // Verify access (org-scoped)
-    const accessCheck = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: { id: true },
-    })
-    if (!accessCheck) {
-      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
-    }
+  // Verify access (org-scoped)
+  const accessCheck = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
+  if (!accessCheck) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
 
-    // Use transaction for atomic database operations
-    const result = await prisma.$transaction(async (tx) => {
-      // Find image with case and client info for SMS
-      const image = await tx.rawImage.findUnique({
-        where: { id },
-        include: {
-          taxCase: {
-            include: {
-              client: true,
-              magicLinks: {
-                // Only PORTAL — blurry resend SMS must reuse the upload portal.
-                where: { isActive: true, type: 'PORTAL' },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              },
+  // Use transaction for atomic database operations
+  const result = await prisma.$transaction(async (tx) => {
+    // Find image with case and client info for SMS
+    const image = await tx.rawImage.findUnique({
+      where: { id },
+      include: {
+        taxCase: {
+          include: {
+            client: true,
+            magicLinks: {
+              // Only PORTAL — blurry resend SMS must reuse the upload portal.
+              where: { isActive: true, type: 'PORTAL' },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
             },
           },
         },
-      })
-
-      if (!image) {
-        return { error: 'NOT_FOUND' as const }
-      }
-
-      // Update image with reupload request tracking
-      await tx.rawImage.update({
-        where: { id },
-        data: {
-          reuploadRequested: true,
-          reuploadRequestedAt: new Date(),
-          reuploadReason: sanitizedReason,
-          reuploadFields: fields,
-          status: 'BLURRY' as RawImageStatus,
-        },
-      })
-
-      // Create action for follow-up
-      const docTypeLabel = image.classifiedType
-        ? DOC_TYPE_LABELS_VI[image.classifiedType] || image.classifiedType
-        : 'tài liệu'
-
-      await tx.action.create({
-        data: {
-          caseId: image.caseId,
-          type: 'BLURRY_DETECTED',
-          priority: 'HIGH',
-          title: 'Yêu cầu gửi lại tài liệu',
-          description: `${docTypeLabel}: ${sanitizedReason}. Các trường cần gửi lại: ${fields.join(', ')}`,
-          metadata: {
-            rawImageId: id,
-            docType: image.classifiedType,
-            reason: sanitizedReason,
-            fields,
-          },
-        },
-      })
-
-      return { success: true, image }
+      },
     })
 
-    if ('error' in result) {
-      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+    if (!image) {
+      return { error: 'NOT_FOUND' as const }
     }
 
-    // Send SMS if requested and configured (outside transaction)
-    let smsSent = false
-    let smsError: string | undefined
-
-    if (sendSms && isSmsEnabled() && result.image.taxCase?.client) {
-      const client = result.image.taxCase.client
-      const magicLink = result.image.taxCase.magicLinks[0]
-
-      if (client.phone && magicLink) {
-        const portalUrl = process.env.PORTAL_URL || 'http://localhost:5174'
-        const fullMagicLink = `${portalUrl}/u/${magicLink.token}/upload`
-
-        // Convert field names to Vietnamese doc type labels for SMS
-        const docTypesForSms = result.image.classifiedType
-          ? [DOC_TYPE_LABELS_VI[result.image.classifiedType] || result.image.classifiedType]
-          : fields
-
-        const smsResult = await sendBlurryResendRequest(
-          result.image.caseId,
-          client.name,
-          client.phone,
-          fullMagicLink,
-          docTypesForSms,
-          (client.language as Language) || 'VI',
-          user.staffId
-        )
-
-        smsSent = smsResult.smsSent
-        if (!smsResult.success) {
-          smsError = smsResult.error
-        }
-      }
-    }
-
-    return c.json({
-      success: true,
-      message: 'Reupload requested',
-      smsSent,
-      smsError,
+    // Update image with reupload request tracking
+    await tx.rawImage.update({
+      where: { id },
+      data: {
+        reuploadRequested: true,
+        reuploadRequestedAt: new Date(),
+        reuploadReason: sanitizedReason,
+        reuploadFields: fields,
+        status: 'BLURRY' as RawImageStatus,
+      },
     })
+
+    // Create action for follow-up
+    const docTypeLabel = image.classifiedType
+      ? DOC_TYPE_LABELS_VI[image.classifiedType] || image.classifiedType
+      : 'tài liệu'
+
+    await tx.action.create({
+      data: {
+        caseId: image.caseId,
+        type: 'BLURRY_DETECTED',
+        priority: 'HIGH',
+        title: 'Yêu cầu gửi lại tài liệu',
+        description: `${docTypeLabel}: ${sanitizedReason}. Các trường cần gửi lại: ${fields.join(', ')}`,
+        metadata: {
+          rawImageId: id,
+          docType: image.classifiedType,
+          reason: sanitizedReason,
+          fields,
+        },
+      },
+    })
+
+    return { success: true, image }
+  })
+
+  if ('error' in result) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
-)
+
+  // Send SMS if requested and configured (outside transaction)
+  let smsSent = false
+  let smsError: string | undefined
+
+  if (sendSms && isSmsEnabled() && result.image.taxCase?.client) {
+    const client = result.image.taxCase.client
+    const magicLink = result.image.taxCase.magicLinks[0]
+
+    if (client.phone && magicLink) {
+      const portalUrl = process.env.PORTAL_URL || 'http://localhost:5174'
+      const fullMagicLink = `${portalUrl}/u/${magicLink.token}/upload`
+
+      // Convert field names to Vietnamese doc type labels for SMS
+      const docTypesForSms = result.image.classifiedType
+        ? [DOC_TYPE_LABELS_VI[result.image.classifiedType] || result.image.classifiedType]
+        : fields
+
+      const smsResult = await sendBlurryResendRequest(
+        result.image.caseId,
+        client.name,
+        client.phone,
+        fullMagicLink,
+        docTypesForSms,
+        (client.language as Language) || 'VI',
+        user.staffId
+      )
+
+      smsSent = smsResult.smsSent
+      if (!smsResult.success) {
+        smsError = smsResult.error
+      }
+    }
+  }
+
+  return c.json({
+    success: true,
+    message: 'Reupload requested',
+    smsSent,
+    smsError,
+  })
+})
 
 /**
  * PATCH /images/:id/rename - Rename an image file
  * Updates the filename in database (display name only, R2 key unchanged)
  */
-imagesRoute.patch(
-  '/:id/rename',
-  zValidator('json', renameSchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { filename } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/:id/rename', zValidator('json', renameSchema), async (c) => {
+  const id = c.req.param('id')
+  const { filename } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Sanitize filename - remove path separators and dangerous chars
-    const sanitizedFilename = filename
-      .replace(/[/\\:*?"<>|]/g, '_')
-      .trim()
+  // Sanitize filename - remove path separators and dangerous chars
+  const sanitizedFilename = filename.replace(/[/\\:*?"<>|]/g, '_').trim()
 
-    if (!sanitizedFilename) {
-      return c.json(
-        { error: 'INVALID_FILENAME', message: 'Invalid filename' },
-        400
-      )
-    }
-
-    // Find and update the raw image (org-scoped)
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: { id: true, filename: true },
-    })
-
-    if (!rawImage) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Image not found' },
-        404
-      )
-    }
-
-    // Update displayName (user-visible name shown in UI)
-    // Note: `filename` is the original upload name, `displayName` is what's shown in UI
-    const updated = await prisma.rawImage.update({
-      where: { id },
-      data: { displayName: sanitizedFilename },
-      select: { id: true, filename: true, displayName: true },
-    })
-
-    return c.json({
-      success: true,
-      id: updated.id,
-      filename: updated.displayName || updated.filename,
-      displayName: updated.displayName,
-    })
+  if (!sanitizedFilename) {
+    return c.json({ error: 'INVALID_FILENAME', message: 'Invalid filename' }, 400)
   }
-)
+
+  // Find and update the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true, filename: true },
+  })
+
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
+  }
+
+  // Update displayName (user-visible name shown in UI)
+  // Note: `filename` is the original upload name, `displayName` is what's shown in UI
+  const updated = await prisma.rawImage.update({
+    where: { id },
+    data: { displayName: sanitizedFilename },
+    select: { id: true, filename: true, displayName: true },
+  })
+
+  return c.json({
+    success: true,
+    id: updated.id,
+    filename: updated.displayName || updated.filename,
+    displayName: updated.displayName,
+  })
+})
 
 /**
  * PATCH /images/:id/category - Change document category
  * Used for drag-and-drop between categories in Files tab
  */
-imagesRoute.patch(
-  '/:id/category',
-  zValidator('json', changeCategorySchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { category } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/:id/category', zValidator('json', changeCategorySchema), async (c) => {
+  const id = c.req.param('id')
+  const { category } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Find and update the raw image (org-scoped)
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: { id: true, category: true, caseId: true },
-    })
+  // Find and update the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true, category: true, caseId: true },
+  })
 
-    if (!rawImage) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Image not found' },
-        404
-      )
-    }
-
-    // Update category
-    const updated = await prisma.rawImage.update({
-      where: { id },
-      data: { category: category as DocCategory },
-      select: { id: true, category: true },
-    })
-
-    return c.json({
-      success: true,
-      id: updated.id,
-      category: updated.category,
-    })
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
-)
+
+  // Update category
+  const updated = await prisma.rawImage.update({
+    where: { id },
+    data: { category: category as DocCategory },
+    select: { id: true, category: true },
+  })
+  await refreshIdentityRetentionForImage(id)
+
+  return c.json({
+    success: true,
+    id: updated.id,
+    category: updated.category,
+  })
+})
 
 /**
  * PATCH /images/batch-category - Change category for multiple images
  * Used for group drag-and-drop in Files tab (multi-page documents)
  */
-imagesRoute.patch(
-  '/batch-category',
-  zValidator('json', batchCategorySchema),
-  async (c) => {
-    const { imageIds, category } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/batch-category', zValidator('json', batchCategorySchema), async (c) => {
+  const { imageIds, category } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Verify all images exist and user has access (org-scoped)
-    const images = await prisma.rawImage.findMany({
-      where: {
-        id: { in: imageIds },
-        taxCase: { client: buildClientScopeFilter(user) },
-      },
-      select: { id: true },
-    })
+  // Verify all images exist and user has access (org-scoped)
+  const images = await prisma.rawImage.findMany({
+    where: {
+      id: { in: imageIds },
+      taxCase: { client: buildClientScopeFilter(user) },
+    },
+    select: { id: true },
+  })
 
-    if (images.length !== imageIds.length) {
-      return c.json(
-        { error: 'FORBIDDEN', message: 'Some images not found or not accessible' },
-        403
-      )
-    }
-
-    // Batch update category for all images
-    const result = await prisma.rawImage.updateMany({
-      where: { id: { in: imageIds } },
-      data: { category: category as DocCategory },
-    })
-
-    return c.json({
-      success: true,
-      updated: result.count,
-    })
+  if (images.length !== imageIds.length) {
+    return c.json({ error: 'FORBIDDEN', message: 'Some images not found or not accessible' }, 403)
   }
-)
+
+  // Batch update category for all images
+  const result = await prisma.rawImage.updateMany({
+    where: { id: { in: imageIds } },
+    data: { category: category as DocCategory },
+  })
+  await Promise.all(imageIds.map((imageId) => refreshIdentityRetentionForImage(imageId)))
+
+  return c.json({
+    success: true,
+    updated: result.count,
+  })
+})
 
 /**
  * DELETE /images/:id - Delete a raw image (for duplicates)
@@ -675,10 +658,28 @@ imagesRoute.patch(
 imagesRoute.delete('/:id', async (c) => {
   const id = c.req.param('id')
   const user = c.get('user')
+  const staffId = user.staffId
+
+  if (!staffId) {
+    return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+  }
 
   const image = await prisma.rawImage.findFirst({
     where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, status: true, r2Key: true, caseId: true },
+    select: {
+      id: true,
+      status: true,
+      r2Key: true,
+      caseId: true,
+      mimeType: true,
+      classifiedType: true,
+      category: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
   })
 
   if (!image) {
@@ -690,6 +691,24 @@ imagesRoute.delete('/:id', async (c) => {
 
   // Delete from database
   await prisma.rawImage.delete({ where: { id } })
+
+  void logStaffActivity({
+    organizationId: image.taxCase.client.organizationId,
+    clientId: image.taxCase.client.id,
+    caseId: image.caseId,
+    rawImageId: image.id,
+    actorStaffId: staffId,
+    action: 'DOCUMENT_DELETED',
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      rawImageId: image.id,
+      docType: image.classifiedType,
+      category: image.category,
+      mimeType: image.mimeType,
+      status: image.status,
+    },
+    request: getAuditRequestContext(c),
+  })
 
   return c.json({ success: true, message: 'Image deleted' })
 })
@@ -741,8 +760,9 @@ imagesRoute.post('/:id/classify-anyway', async (c) => {
  */
 imagesRoute.post('/batch-mark-viewed', async (c) => {
   const user = c.get('user')
+  const staffId = user.staffId
 
-  if (!user.staffId) {
+  if (!staffId) {
     return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
   }
 
@@ -766,7 +786,19 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
         client: buildClientScopeFilter(user),
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      caseId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
   })
 
   const validImageIds = validImages.map((img) => img.id)
@@ -779,11 +811,32 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
   // Using createMany with skipDuplicates for efficiency
   await prisma.documentView.createMany({
     data: validImageIds.map((rawImageId) => ({
-      staffId: user.staffId!,
+      staffId,
       rawImageId,
     })),
     skipDuplicates: true,
   })
+
+  void logStaffActivities(
+    validImages.map((image) => ({
+      organizationId: image.taxCase.client.organizationId,
+      clientId: image.taxCase.client.id,
+      caseId: image.caseId,
+      rawImageId: image.id,
+      actorStaffId: staffId,
+      action: 'DOCUMENT_MARKED_VIEWED',
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        rawImageId: image.id,
+        docType: image.classifiedType,
+        category: image.category,
+        mimeType: image.mimeType,
+        status: image.status,
+        batch: true,
+      },
+      request: getAuditRequestContext(c),
+    }))
+  )
 
   return c.json({ success: true, marked: validImageIds.length })
 })
@@ -796,8 +849,9 @@ imagesRoute.post('/batch-mark-viewed', async (c) => {
 imagesRoute.post('/:id/mark-viewed', async (c) => {
   const id = c.req.param('id')
   const user = c.get('user')
+  const staffId = user.staffId
 
-  if (!user.staffId) {
+  if (!staffId) {
     return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
   }
 
@@ -809,7 +863,19 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
         client: buildClientScopeFilter(user),
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      caseId: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
   })
 
   if (!image) {
@@ -820,17 +886,35 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
   await prisma.documentView.upsert({
     where: {
       staffId_rawImageId: {
-        staffId: user.staffId,
+        staffId,
         rawImageId: id,
       },
     },
     create: {
-      staffId: user.staffId,
+      staffId,
       rawImageId: id,
     },
     update: {
       viewedAt: new Date(),
     },
+  })
+
+  void logStaffActivity({
+    organizationId: image.taxCase.client.organizationId,
+    clientId: image.taxCase.client.id,
+    caseId: image.caseId,
+    rawImageId: image.id,
+    actorStaffId: staffId,
+    action: 'DOCUMENT_MARKED_VIEWED',
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      rawImageId: image.id,
+      docType: image.classifiedType,
+      category: image.category,
+      mimeType: image.mimeType,
+      status: image.status,
+    },
+    request: getAuditRequestContext(c),
   })
 
   return c.json({ success: true })
@@ -840,286 +924,269 @@ imagesRoute.post('/:id/mark-viewed', async (c) => {
  * PATCH /images/:id/reassign-entity - Reassign document to another entity
  * Moves document from one entity's TaxCase to another within the same ClientGroup
  */
-imagesRoute.patch(
-  '/:id/reassign-entity',
-  zValidator('json', reassignEntitySchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { targetClientId } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/:id/reassign-entity', zValidator('json', reassignEntitySchema), async (c) => {
+  const id = c.req.param('id')
+  const { targetClientId } = c.req.valid('json')
+  const user = c.get('user')
 
-    // 1. Fetch image with only needed fields
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: {
-        id: true,
-        caseId: true,
-        checklistItemId: true,
-        taxCase: {
-          select: {
-            taxYear: true,
-            client: { select: { id: true, clientGroupId: true } },
-          },
+  // 1. Fetch image with only needed fields
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: {
+      id: true,
+      caseId: true,
+      checklistItemId: true,
+      taxCase: {
+        select: {
+          taxYear: true,
+          client: { select: { id: true, clientGroupId: true } },
         },
       },
-    })
+    },
+  })
 
-    if (!rawImage) {
-      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
-    }
-
-    // 2. Validate client is in a group
-    const currentGroupId = rawImage.taxCase.client.clientGroupId
-    if (!currentGroupId) {
-      return c.json(
-        { error: 'NO_GROUP', message: 'Client is not in a group' },
-        400
-      )
-    }
-
-    // 3. Early exit if reassigning to same client
-    if (rawImage.taxCase.client.id === targetClientId) {
-      return c.json({ success: true, message: 'Already in target entity' })
-    }
-
-    // 4. Validate target is in same group and has a TaxCase for the same year
-    const targetClient = await prisma.client.findFirst({
-      where: {
-        id: targetClientId,
-        clientGroupId: currentGroupId,
-        ...buildClientScopeFilter(user),
-      },
-      include: {
-        taxCases: {
-          where: { taxYear: rawImage.taxCase.taxYear },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    })
-
-    if (!targetClient || targetClient.taxCases.length === 0) {
-      return c.json(
-        { error: 'INVALID_TARGET', message: 'Target client not found in same group or has no case for this tax year' },
-        400
-      )
-    }
-
-    const targetCaseId = targetClient.taxCases[0].id
-
-    // 5. Update in transaction: move image + clean up old checklist item
-    const updated = await prisma.$transaction(async (tx) => {
-      // Decrement old checklist item count if linked
-      if (rawImage.checklistItemId) {
-        const oldItem = await tx.checklistItem.findUnique({
-          where: { id: rawImage.checklistItemId },
-          select: { receivedCount: true },
-        })
-        if (oldItem) {
-          await tx.checklistItem.update({
-            where: { id: rawImage.checklistItemId },
-            data: {
-              receivedCount: Math.max(0, oldItem.receivedCount - 1),
-              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
-            },
-          })
-        }
-      }
-
-      return tx.rawImage.update({
-        where: { id },
-        data: {
-          caseId: targetCaseId,
-          routedFromCaseId: rawImage.caseId,
-          entityConfidence: null, // Manual override
-          checklistItemId: null, // Detach from old case's checklist
-        },
-        select: { id: true, caseId: true, routedFromCaseId: true },
-      })
-    })
-
-    return c.json({
-      success: true,
-      id: updated.id,
-      caseId: updated.caseId,
-      routedFromCaseId: updated.routedFromCaseId,
-    })
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
-)
+
+  // 2. Validate client is in a group
+  const currentGroupId = rawImage.taxCase.client.clientGroupId
+  if (!currentGroupId) {
+    return c.json({ error: 'NO_GROUP', message: 'Client is not in a group' }, 400)
+  }
+
+  // 3. Early exit if reassigning to same client
+  if (rawImage.taxCase.client.id === targetClientId) {
+    return c.json({ success: true, message: 'Already in target entity' })
+  }
+
+  // 4. Validate target is in same group and has a TaxCase for the same year
+  const targetClient = await prisma.client.findFirst({
+    where: {
+      id: targetClientId,
+      clientGroupId: currentGroupId,
+      ...buildClientScopeFilter(user),
+    },
+    include: {
+      taxCases: {
+        where: { taxYear: rawImage.taxCase.taxYear },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+  })
+
+  if (!targetClient || targetClient.taxCases.length === 0) {
+    return c.json(
+      {
+        error: 'INVALID_TARGET',
+        message: 'Target client not found in same group or has no case for this tax year',
+      },
+      400
+    )
+  }
+
+  const targetCaseId = targetClient.taxCases[0].id
+
+  // 5. Update in transaction: move image + clean up old checklist item
+  const updated = await prisma.$transaction(async (tx) => {
+    // Decrement old checklist item count if linked
+    if (rawImage.checklistItemId) {
+      const oldItem = await tx.checklistItem.findUnique({
+        where: { id: rawImage.checklistItemId },
+        select: { receivedCount: true },
+      })
+      if (oldItem) {
+        await tx.checklistItem.update({
+          where: { id: rawImage.checklistItemId },
+          data: {
+            receivedCount: Math.max(0, oldItem.receivedCount - 1),
+            ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+          },
+        })
+      }
+    }
+
+    return tx.rawImage.update({
+      where: { id },
+      data: {
+        caseId: targetCaseId,
+        routedFromCaseId: rawImage.caseId,
+        entityConfidence: null, // Manual override
+        checklistItemId: null, // Detach from old case's checklist
+      },
+      select: { id: true, caseId: true, routedFromCaseId: true },
+    })
+  })
+
+  await refreshIdentityRetentionForImage(id)
+
+  return c.json({
+    success: true,
+    id: updated.id,
+    caseId: updated.caseId,
+    routedFromCaseId: updated.routedFromCaseId,
+  })
+})
 
 /**
  * PATCH /images/:id/rotation - Update image rotation
  * Persists rotation (0, 90, 180, 270) so documents display correctly on re-open
  */
-imagesRoute.patch(
-  '/:id/rotation',
-  zValidator('json', updateRotationSchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { rotation } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.patch('/:id/rotation', zValidator('json', updateRotationSchema), async (c) => {
+  const id = c.req.param('id')
+  const { rotation } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Find and update the raw image (org-scoped)
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: { id: true },
-    })
+  // Find and update the raw image (org-scoped)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: { id: true },
+  })
 
-    if (!rawImage) {
-      return c.json(
-        { error: 'NOT_FOUND', message: 'Image not found' },
-        404
-      )
-    }
-
-    // Update rotation
-    const updated = await prisma.rawImage.update({
-      where: { id },
-      data: { rotation },
-      select: { id: true, rotation: true },
-    })
-
-    return c.json({
-      success: true,
-      id: updated.id,
-      rotation: updated.rotation,
-    })
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
-)
+
+  // Update rotation
+  const updated = await prisma.rawImage.update({
+    where: { id },
+    data: { rotation },
+    select: { id: true, rotation: true },
+  })
+
+  return c.json({
+    success: true,
+    id: updated.id,
+    rotation: updated.rotation,
+  })
+})
 
 /**
  * POST /images/:id/move-to-case - Move a RawImage to a different TaxCase in same group
  * Owner-explicit alternative to /reassign-entity: caller targets a specific case (not a client)
  * Writes audit Action on destination case so CPA sees the move in the action queue
  */
-imagesRoute.post(
-  '/:id/move-to-case',
-  zValidator('json', moveToCaseSchema),
-  async (c) => {
-    const id = c.req.param('id')
-    const { targetCaseId } = c.req.valid('json')
-    const user = c.get('user')
+imagesRoute.post('/:id/move-to-case', zValidator('json', moveToCaseSchema), async (c) => {
+  const id = c.req.param('id')
+  const { targetCaseId } = c.req.valid('json')
+  const user = c.get('user')
 
-    // Load source image (org-scoped via case→client)
-    const rawImage = await prisma.rawImage.findFirst({
-      where: { id, taxCase: { client: buildClientScopeFilter(user) } },
-      select: {
-        id: true,
-        caseId: true,
-        checklistItemId: true,
-        taxCase: {
-          select: {
-            client: {
-              select: {
-                clientGroupId: true,
-                clientGroup: { select: { organizationId: true } },
-              },
+  // Load source image (org-scoped via case→client)
+  const rawImage = await prisma.rawImage.findFirst({
+    where: { id, taxCase: { client: buildClientScopeFilter(user) } },
+    select: {
+      id: true,
+      caseId: true,
+      checklistItemId: true,
+      taxCase: {
+        select: {
+          client: {
+            select: {
+              clientGroupId: true,
+              clientGroup: { select: { organizationId: true } },
             },
           },
         },
       },
-    })
+    },
+  })
 
-    if (!rawImage) {
-      return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
-    }
-
-    const sourceGroupId = rawImage.taxCase.client.clientGroupId
-    const sourceOrgId = rawImage.taxCase.client.clientGroup?.organizationId
-
-    if (!sourceGroupId || !sourceOrgId) {
-      return c.json(
-        { error: 'NO_GROUP', message: 'Source case is not in a client group' },
-        400
-      )
-    }
-
-    // Early exit if already on target case
-    if (rawImage.caseId === targetCaseId) {
-      return c.json({ moved: false, reason: 'ALREADY_ON_TARGET' })
-    }
-
-    // Validate target case is in same group + org
-    const targetCase = await prisma.taxCase.findFirst({
-      where: {
-        id: targetCaseId,
-        client: {
-          clientGroupId: sourceGroupId,
-          clientGroup: { organizationId: sourceOrgId },
-        },
-      },
-      select: { id: true },
-    })
-
-    if (!targetCase) {
-      return c.json(
-        { error: 'INVALID_TARGET_CASE', message: 'Target case not in same client group' },
-        400
-      )
-    }
-
-    const previousCaseId = rawImage.caseId
-    const previousChecklistItemId = rawImage.checklistItemId
-
-    await prisma.$transaction(async (tx) => {
-      // Decrement source checklist item count (mirror /reassign-entity behavior)
-      // Prevents stale receivedCount on source case until next reconcile
-      if (previousChecklistItemId) {
-        const oldItem = await tx.checklistItem.findUnique({
-          where: { id: previousChecklistItemId },
-          select: { receivedCount: true },
-        })
-        if (oldItem) {
-          await tx.checklistItem.update({
-            where: { id: previousChecklistItemId },
-            data: {
-              receivedCount: Math.max(0, oldItem.receivedCount - 1),
-              ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
-            },
-          })
-        }
-      }
-
-      await tx.rawImage.update({
-        where: { id },
-        data: {
-          caseId: targetCaseId,
-          routedFromCaseId: previousCaseId,
-          checklistItemId: null,
-          entityConfidence: null,
-        },
-      })
-
-      await tx.action.create({
-        data: {
-          caseId: targetCaseId,
-          type: 'VERIFY_DOCS',
-          priority: 'NORMAL',
-          title: 'Tài liệu đã chuyển từ entity khác',
-          description: `Chuyển từ case ${previousCaseId} sang case ${targetCaseId}`,
-          metadata: {
-            rawImageId: id,
-            fromCaseId: previousCaseId,
-            toCaseId: targetCaseId,
-            movedById: user.staffId,
-          },
-        },
-      })
-    })
-
-    // Refresh activity timestamps on both cases (best-effort)
-    await Promise.all([
-      updateLastActivity(previousCaseId),
-      updateLastActivity(targetCaseId),
-    ])
-
-    return c.json({
-      moved: true,
-      rawImageId: id,
-      fromCaseId: previousCaseId,
-      toCaseId: targetCaseId,
-    })
+  if (!rawImage) {
+    return c.json({ error: 'NOT_FOUND', message: 'Image not found' }, 404)
   }
-)
+
+  const sourceGroupId = rawImage.taxCase.client.clientGroupId
+  const sourceOrgId = rawImage.taxCase.client.clientGroup?.organizationId
+
+  if (!sourceGroupId || !sourceOrgId) {
+    return c.json({ error: 'NO_GROUP', message: 'Source case is not in a client group' }, 400)
+  }
+
+  // Early exit if already on target case
+  if (rawImage.caseId === targetCaseId) {
+    return c.json({ moved: false, reason: 'ALREADY_ON_TARGET' })
+  }
+
+  // Validate target case is in same group + org
+  const targetCase = await prisma.taxCase.findFirst({
+    where: {
+      id: targetCaseId,
+      client: {
+        clientGroupId: sourceGroupId,
+        clientGroup: { organizationId: sourceOrgId },
+      },
+    },
+    select: { id: true },
+  })
+
+  if (!targetCase) {
+    return c.json(
+      { error: 'INVALID_TARGET_CASE', message: 'Target case not in same client group' },
+      400
+    )
+  }
+
+  const previousCaseId = rawImage.caseId
+  const previousChecklistItemId = rawImage.checklistItemId
+
+  await prisma.$transaction(async (tx) => {
+    // Decrement source checklist item count (mirror /reassign-entity behavior)
+    // Prevents stale receivedCount on source case until next reconcile
+    if (previousChecklistItemId) {
+      const oldItem = await tx.checklistItem.findUnique({
+        where: { id: previousChecklistItemId },
+        select: { receivedCount: true },
+      })
+      if (oldItem) {
+        await tx.checklistItem.update({
+          where: { id: previousChecklistItemId },
+          data: {
+            receivedCount: Math.max(0, oldItem.receivedCount - 1),
+            ...(oldItem.receivedCount <= 1 && { status: 'MISSING' as ChecklistItemStatus }),
+          },
+        })
+      }
+    }
+
+    await tx.rawImage.update({
+      where: { id },
+      data: {
+        caseId: targetCaseId,
+        routedFromCaseId: previousCaseId,
+        checklistItemId: null,
+        entityConfidence: null,
+      },
+    })
+
+    await tx.action.create({
+      data: {
+        caseId: targetCaseId,
+        type: 'VERIFY_DOCS',
+        priority: 'NORMAL',
+        title: 'Tài liệu đã chuyển từ entity khác',
+        description: `Chuyển từ case ${previousCaseId} sang case ${targetCaseId}`,
+        metadata: {
+          rawImageId: id,
+          fromCaseId: previousCaseId,
+          toCaseId: targetCaseId,
+          movedById: user.staffId,
+        },
+      },
+    })
+  })
+
+  await refreshIdentityRetentionForImage(id)
+
+  // Refresh activity timestamps on both cases (best-effort)
+  await Promise.all([updateLastActivity(previousCaseId), updateLastActivity(targetCaseId)])
+
+  return c.json({
+    moved: true,
+    rawImageId: id,
+    fromCaseId: previousCaseId,
+    toCaseId: targetCaseId,
+  })
+})
 
 export { imagesRoute }

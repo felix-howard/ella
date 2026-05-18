@@ -58,7 +58,10 @@ export function PortalPage({ token }: { token: string }) {
         aria-label={t('common.processing')}
       >
         <div className="text-center">
-          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" aria-hidden="true" />
+          <Loader2
+            className="w-10 h-10 text-primary animate-spin mx-auto mb-4"
+            aria-hidden="true"
+          />
           <p className="text-muted-foreground">{t('common.processing')}</p>
         </div>
       </div>
@@ -69,7 +72,7 @@ export function PortalPage({ token }: { token: string }) {
   if (!data) {
     return (
       <ErrorView
-        error={toErrorState(error, t('portal.errorLoading'))}
+        error={toErrorState(error, t('portal.errorLoading'), t('portal.rateLimited'))}
         onRetry={handleReload}
       />
     )
@@ -90,13 +93,10 @@ export function PortalPage({ token }: { token: string }) {
   // GROUP with single entity → bypass picker, but still send targetCaseId
   // so backend tags the upload as PORTAL_EXPLICIT (no AI entity routing).
   const soloTargetCaseId =
-    data.scope === 'GROUP' && data.entities.length === 1
-      ? data.entities[0].caseId
-      : undefined
+    data.scope === 'GROUP' && data.entities.length === 1 ? data.entities[0].caseId : undefined
 
   // Header tax year: prefer taxCase (CASE), then top-level taxYear (GROUP), then first entity (defensive).
-  const headerTaxYear =
-    data.taxCase?.taxYear ?? data.taxYear ?? data.entities[0]?.taxYear
+  const headerTaxYear = data.taxCase?.taxYear ?? data.taxYear ?? data.entities[0]?.taxYear
 
   // Success state — solo individual / legacy CASE scope (zero regression)
   return (
@@ -125,31 +125,20 @@ export function PortalPage({ token }: { token: string }) {
       </div>
 
       <footer className="px-6 py-4 text-center">
-        <p className="text-xs text-muted-foreground">
-          Ella Tax Document System
-        </p>
+        <p className="text-xs text-muted-foreground">Ella Tax Document System</p>
       </footer>
     </div>
   )
 }
 
-function ErrorView({
-  error,
-  onRetry,
-}: {
-  error: ErrorState | null
-  onRetry: () => void
-}) {
+function ErrorView({ error, onRetry }: { error: ErrorState | null; onRetry: () => void }) {
   const { t } = useTranslation()
 
   const isInvalidLink = error?.code === 'INVALID_TOKEN' || error?.code === 'EXPIRED_TOKEN'
+  const isRateLimited = error?.code === 'RATE_LIMITED'
 
   return (
-    <div
-      className="flex-1 flex items-center justify-center p-6"
-      role="alert"
-      aria-live="polite"
-    >
+    <div className="flex-1 flex items-center justify-center p-6" role="alert" aria-live="polite">
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-8 h-8 text-error" aria-hidden="true" />
@@ -159,11 +148,9 @@ function ErrorView({
           {isInvalidLink ? t('portal.invalidLink') : t('portal.errorLoading')}
         </h2>
 
-        <p className="text-muted-foreground mb-6">
-          {error?.message || t('portal.contactOffice')}
-        </p>
+        <p className="text-muted-foreground mb-6">{error?.message || t('portal.contactOffice')}</p>
 
-        {!isInvalidLink && (
+        {!isInvalidLink && !isRateLimited && (
           <Button onClick={onRetry} className="gap-2" aria-label={t('common.tryAgain')}>
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
             {t('common.tryAgain')}
@@ -174,10 +161,17 @@ function ErrorView({
   )
 }
 
-function toErrorState(error: unknown, fallbackMessage: string): ErrorState | null {
+function toErrorState(
+  error: unknown,
+  fallbackMessage: string,
+  rateLimitedMessage: string
+): ErrorState | null {
   if (!error) return null
   if (error instanceof ApiError) {
-    return { code: error.code, message: error.message }
+    return {
+      code: error.code,
+      message: error.code === 'RATE_LIMITED' ? rateLimitedMessage : error.message,
+    }
   }
   return { code: 'UNKNOWN', message: fallbackMessage }
 }

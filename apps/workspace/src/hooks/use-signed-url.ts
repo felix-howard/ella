@@ -8,10 +8,13 @@ import { useCallback } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 
+export const SIGNED_URL_STALE_TIME_MS = 12 * 60 * 1000
+export const SIGNED_URL_GC_TIME_MS = 15 * 60 * 1000
+
 interface UseSignedUrlOptions {
   /** Enable/disable the query */
   enabled?: boolean
-  /** Stale time in ms (default: 50 minutes, since URLs expire in 1 hour) */
+  /** Stale time in ms (default: 12 minutes, since document URLs expire in 15 minutes) */
   staleTime?: number
 }
 
@@ -20,7 +23,8 @@ interface UseSignedUrlOptions {
  * Caches the URL and automatically refreshes before expiry
  */
 export function useSignedUrl(imageId: string | null, options: UseSignedUrlOptions = {}) {
-  const { enabled = true, staleTime = 50 * 60 * 1000 } = options // 50 minutes default
+  const { enabled = true } = options
+  const staleTime = Math.min(options.staleTime ?? SIGNED_URL_STALE_TIME_MS, SIGNED_URL_STALE_TIME_MS)
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -30,8 +34,8 @@ export function useSignedUrl(imageId: string | null, options: UseSignedUrlOption
       return api.cases.getImageSignedUrl(imageId)
     },
     enabled: enabled && !!imageId,
-    staleTime, // URL valid for ~1 hour, refresh at 50 min
-    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
+    staleTime,
+    gcTime: SIGNED_URL_GC_TIME_MS,
     retry: 3, // Increased for better resilience with R2 signed URLs
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff for new uploads
     refetchOnWindowFocus: false,
@@ -63,7 +67,8 @@ export async function prefetchSignedUrls(
       queryClient.prefetchQuery({
         queryKey: ['signedUrl', id],
         queryFn: () => api.cases.getImageSignedUrl(id),
-        staleTime: 50 * 60 * 1000,
+        staleTime: SIGNED_URL_STALE_TIME_MS,
+        gcTime: SIGNED_URL_GC_TIME_MS,
       })
     )
   )

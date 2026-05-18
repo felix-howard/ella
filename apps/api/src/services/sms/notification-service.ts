@@ -3,8 +3,6 @@
  * Automated SMS notifications triggered by system events (blurry docs, missing docs)
  */
 import { prisma } from '../../lib/db'
-import { getMagicLinksForCase } from '../magic-link'
-import { PORTAL_URL } from '../../lib/constants'
 import {
   sendBlurryResendRequest,
   sendMissingDocsReminder,
@@ -14,6 +12,7 @@ import {
 import { generateStaffUploadMessage, generateStaffChatMonitorMessage } from './templates'
 import { sendSms, formatPhoneToE164, isValidPhoneNumber } from './twilio-client'
 import type { Language } from '@ella/db'
+import { getMagicLinkUrl } from '../magic-link'
 
 // Throttle window constants (in milliseconds)
 const BLURRY_THROTTLE_MS = 60 * 60 * 1000 // 1 hour
@@ -25,12 +24,23 @@ const BATCH_CONCURRENCY = 5 // Max concurrent SMS sends in batch
  * Get or create active magic link URL for a case
  */
 async function getActiveMagicLink(caseId: string): Promise<string | null> {
-  const links = await getMagicLinksForCase(caseId)
-  const activeLink = links.find((l) => l.isActive)
-  if (activeLink) {
-    return `${PORTAL_URL}/u/${activeLink.token}`
-  }
-  return null
+  const now = new Date()
+  const activeLink = await prisma.magicLink.findFirst({
+    where: {
+      caseId,
+      type: 'PORTAL',
+      isActive: true,
+      revokedAt: null,
+      replacedById: null,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: now } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { token: true },
+  })
+  return activeLink ? getMagicLinkUrl(activeLink.token, 'PORTAL') : null
 }
 
 /**

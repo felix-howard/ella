@@ -14,6 +14,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { generateDocumentName, type DocumentNamingComponents } from '@ella/shared'
+import { createHash } from 'node:crypto'
 import { prisma } from '../lib/db'
 
 // R2 client configuration
@@ -29,12 +30,43 @@ const s3Client = new S3Client({
 })
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'ella-documents'
+export const SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS = 900
+export const AVATAR_SIGNED_URL_TTL_SECONDS = 3600
 
 // Check if R2 is configured
 const isR2Configured =
   process.env.R2_ACCOUNT_ID &&
   process.env.R2_ACCESS_KEY_ID &&
   process.env.R2_SECRET_ACCESS_KEY
+
+const STORAGE_PATH_PATTERN =
+  /\b(?:avatars|client-avatars|cases|terms|agreements|staff-signatures|contractor-agreements|raw-images|portal)\/[^\s"'<>]+/g
+const URL_PATTERN = /https?:\/\/[^\s"'<>]+/g
+
+export function getSafeStorageReference(key: string): {
+  objectType: string
+  keyHash: string
+} {
+  const [objectType = 'unknown'] = key.split('/')
+  return {
+    objectType,
+    keyHash: createHash('sha256').update(key).digest('hex').slice(0, 12),
+  }
+}
+
+function sanitizeStorageLogText(value: string): string {
+  return value.replace(URL_PATTERN, '[REDACTED_URL]').replace(STORAGE_PATH_PATTERN, '[REDACTED_KEY]')
+}
+
+export function getSafeStorageError(error: unknown): { name?: string; message: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: sanitizeStorageLogText(error.message),
+    }
+  }
+  return { message: sanitizeStorageLogText(String(error)) }
+}
 
 /**
  * Upload a file to R2 storage
@@ -45,13 +77,15 @@ export async function uploadFile(
   body: Buffer | Uint8Array,
   contentType: string
 ): Promise<{ key: string; url: string | null }> {
+  const object = getSafeStorageReference(key)
+
   if (!isR2Configured) {
-    console.warn('[Storage] R2 not configured, skipping upload for key:', key)
+    console.warn('[Storage] R2 not configured, skipping upload', { object })
     return { key, url: null }
   }
 
   try {
-    console.log(`[Storage] Uploading to R2: ${key} (${body.length} bytes, ${contentType})`)
+    console.log('[Storage] Uploading to R2', { object, bytes: body.length, contentType })
 
     await s3Client.send(
       new PutObjectCommand({
@@ -62,19 +96,19 @@ export async function uploadFile(
       })
     )
 
-    console.log(`[Storage] Upload successful: ${key}`)
+    console.log('[Storage] Upload successful', { object })
 
     // Generate signed URL for immediate access
     const url = await getSignedDownloadUrl(key)
     if (!url) {
-      console.error(`[Storage] Failed to generate signed URL for: ${key}`)
+      console.error('[Storage] Failed to generate signed URL', { object })
       return { key, url: null }
     }
 
-    console.log(`[Storage] Generated signed URL for: ${key}`)
+    console.log('[Storage] Generated signed URL', { object })
     return { key, url }
   } catch (error) {
-    console.error(`[Storage] Upload failed for key: ${key}`, error)
+    console.error('[Storage] Upload failed', { object, error: getSafeStorageError(error) })
     // Re-throw to let caller handle the error
     throw error
   }
@@ -90,6 +124,8 @@ export async function getSignedUploadUrl(
   contentLength: number,
   expiresIn = 900 // 15 minutes
 ): Promise<string | null> {
+  const object = getSafeStorageReference(key)
+
   if (!isR2Configured) {
     console.warn('[Storage] R2 not configured, cannot generate upload URL')
     return null
@@ -105,7 +141,10 @@ export async function getSignedUploadUrl(
 
     return await getSignedUrl(s3Client, command, { expiresIn })
   } catch (error) {
-    console.error('[Storage] Failed to generate upload URL:', key, error)
+    console.error('[Storage] Failed to generate upload URL', {
+      object,
+      error: getSafeStorageError(error),
+    })
     return null
   }
 }
@@ -146,7 +185,7 @@ export async function resolveAvatarUrl(avatarUrl: string | null | undefined): Pr
   if (!avatarUrl) return null
   if (avatarUrl.startsWith('http')) return avatarUrl
   if (avatarUrl.startsWith('avatars/') || avatarUrl.startsWith('client-avatars/')) {
-    return getSignedDownloadUrl(avatarUrl, 3600) // 1-hour TTL
+    return getSignedDownloadUrl(avatarUrl, AVATAR_SIGNED_URL_TTL_SECONDS)
   }
   return avatarUrl
 }
@@ -156,10 +195,12 @@ export async function resolveAvatarUrl(avatarUrl: string | null | undefined): Pr
  */
 export async function getSignedDownloadUrl(
   key: string,
-  expiresIn = 3600
+  expiresIn = SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS
 ): Promise<string | null> {
+  const object = getSafeStorageReference(key)
+
   if (!isR2Configured) {
-    console.warn('R2 not configured, cannot generate signed URL for:', key)
+    console.warn('[Storage] R2 not configured, cannot generate signed URL', { object })
     return null
   }
 
@@ -171,7 +212,10 @@ export async function getSignedDownloadUrl(
 
     return await getSignedUrl(s3Client, command, { expiresIn })
   } catch (error) {
-    console.error('[Storage] Failed to generate signed URL:', key, error)
+    console.error('[Storage] Failed to generate signed URL', {
+      object,
+      error: getSafeStorageError(error),
+    })
     return null
   }
 }
@@ -189,7 +233,10 @@ export async function copyR2Object(input: {
   to: string
 }): Promise<{ key: string }> {
   if (!isR2Configured) {
-    console.warn(`[Storage] R2 not configured, skipping copy: ${input.from} -> ${input.to}`)
+    console.warn('[Storage] R2 not configured, skipping copy', {
+      from: getSafeStorageReference(input.from),
+      to: getSafeStorageReference(input.to),
+    })
     return { key: input.to }
   }
   await s3Client.send(
@@ -230,9 +277,15 @@ export function getThumbnailKey(originalKey: string): string {
 /**
  * Delete a file from R2 storage
  */
-export async function deleteFile(key: string): Promise<boolean> {
+export async function deleteFile(
+  key: string,
+  options: { logKey?: boolean } = {}
+): Promise<boolean> {
+  void options
+  const object = getSafeStorageReference(key)
+
   if (!isR2Configured) {
-    console.warn('R2 not configured, cannot delete:', key)
+    console.warn('[Storage] R2 not configured, cannot delete', { object })
     return false
   }
 
@@ -245,7 +298,7 @@ export async function deleteFile(key: string): Promise<boolean> {
     )
     return true
   } catch (error) {
-    console.error('Failed to delete file:', key, error)
+    console.error('[Storage] Failed to delete file', { object, error: getSafeStorageError(error) })
     return false
   }
 }
@@ -294,22 +347,39 @@ export async function fetchImageBuffer(r2Key: string): Promise<{
       // 404 = file may not be replicated yet, retry with backoff
       if (response.status === 404 && attempt < MAX_RETRIES - 1) {
         const delay = BASE_DELAY_MS * Math.pow(2, attempt) // 500ms, 1s, 2s, 4s
-        console.warn(`[Storage] R2 returned 404 for ${r2Key}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`)
+        console.warn('[Storage] R2 returned 404, retrying fetch', {
+          object: getSafeStorageReference(r2Key),
+          delayMs: delay,
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+        })
         await new Promise((resolve) => setTimeout(resolve, delay))
         continue
       }
 
       // Non-404 error or final attempt
-      console.error(`[Storage] Failed to fetch from R2: ${r2Key} (status ${response.status})`)
+      console.error('[Storage] Failed to fetch from R2', {
+        object: getSafeStorageReference(r2Key),
+        status: response.status,
+      })
       return null
     } catch (error) {
       if (attempt < MAX_RETRIES - 1) {
         const delay = BASE_DELAY_MS * Math.pow(2, attempt)
-        console.warn(`[Storage] Network error fetching ${r2Key}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`, error)
+        console.warn('[Storage] Network error fetching object, retrying', {
+          object: getSafeStorageReference(r2Key),
+          delayMs: delay,
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+          error: getSafeStorageError(error),
+        })
         await new Promise((resolve) => setTimeout(resolve, delay))
         continue
       }
-      console.error('[Storage] Failed to fetch image:', r2Key, error)
+      console.error('[Storage] Failed to fetch image', {
+        object: getSafeStorageReference(r2Key),
+        error: getSafeStorageError(error),
+      })
       return null
     }
   }
@@ -353,7 +423,9 @@ export async function renameFileRaw(
 
   // Skip if same key (no rename needed)
   if (oldKey === newKey) {
-    console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
+    console.log('[Storage] Key unchanged, skipping rename', {
+      object: getSafeStorageReference(oldKey),
+    })
     return { success: true, newKey, oldKey }
   }
 
@@ -367,11 +439,17 @@ export async function renameFileRaw(
     if (!existing) break
 
     newKey = `cases/${caseId}/docs/${newFilename} (${seq}).${ext}`
-    console.log(`[Storage] Key collision detected, trying: ${newKey}`)
+    console.log('[Storage] Key collision detected', {
+      object: getSafeStorageReference(newKey),
+      sequence: seq,
+    })
   }
 
   try {
-    console.log(`[Storage] Copying: ${oldKey} -> ${newKey}`)
+    console.log('[Storage] Copying object for rename', {
+      from: getSafeStorageReference(oldKey),
+      to: getSafeStorageReference(newKey),
+    })
     await s3Client.send(
       new CopyObjectCommand({
         Bucket: BUCKET_NAME,
@@ -381,11 +459,16 @@ export async function renameFileRaw(
     )
 
     // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
-    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
+    console.log('[Storage] Copy complete; caller should delete old after DB update', {
+      object: getSafeStorageReference(newKey),
+    })
     return { success: true, newKey, oldKey }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[Storage] Rename failed: ${oldKey}`, error)
+    console.error('[Storage] Rename failed', {
+      object: getSafeStorageReference(oldKey),
+      error: getSafeStorageError(error),
+    })
     return { success: false, newKey: oldKey, oldKey, error: errorMessage }
   }
 }
@@ -433,7 +516,9 @@ export async function renameFile(
 
   // Skip if same key (no rename needed)
   if (oldKey === newKey) {
-    console.log(`[Storage] Key unchanged, skipping rename: ${oldKey}`)
+    console.log('[Storage] Key unchanged, skipping rename', {
+      object: getSafeStorageReference(oldKey),
+    })
     return { success: true, newKey, oldKey }
   }
 
@@ -449,12 +534,18 @@ export async function renameFile(
 
     // Append sequence number
     newKey = `cases/${caseId}/docs/${displayName} (${seq}).${ext}`
-    console.log(`[Storage] Key collision detected, trying: ${newKey}`)
+    console.log('[Storage] Key collision detected', {
+      object: getSafeStorageReference(newKey),
+      sequence: seq,
+    })
   }
 
   try {
     // Step 1: Copy to new location
-    console.log(`[Storage] Copying: ${oldKey} -> ${newKey}`)
+    console.log('[Storage] Copying object for rename', {
+      from: getSafeStorageReference(oldKey),
+      to: getSafeStorageReference(newKey),
+    })
     await s3Client.send(
       new CopyObjectCommand({
         Bucket: BUCKET_NAME,
@@ -466,12 +557,16 @@ export async function renameFile(
     // NOTE: Old file deletion is now done by caller AFTER DB update succeeds
     // This prevents data loss if job fails between copy and DB update
     // The caller should call deleteFile(oldKey) after updating the DB
-    console.log(`[Storage] Copy complete (caller should delete old after DB update): ${newKey}`)
+    console.log('[Storage] Copy complete; caller should delete old after DB update', {
+      object: getSafeStorageReference(newKey),
+    })
     return { success: true, newKey, oldKey }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[Storage] Rename failed: ${oldKey}`, error)
+    console.error('[Storage] Rename failed', {
+      object: getSafeStorageReference(oldKey),
+      error: getSafeStorageError(error),
+    })
     return { success: false, newKey: oldKey, oldKey, error: errorMessage }
   }
 }
-

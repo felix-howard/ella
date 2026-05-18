@@ -22,6 +22,8 @@ import { getEntityColor } from './entity-filter-bar'
 import type { DocCategoryKey, DocCategoryConfig } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
 import { GroupedFileRow, GroupConnector, PageBadge } from './grouped-file-row'
+import { IdentityRetentionBadge } from './identity-retention-badge'
+import { getIdentityRetentionState, isRetentionStorageDeleted } from './identity-retention'
 
 export interface FileCategorySectionProps {
   categoryKey: DocCategoryKey
@@ -59,6 +61,7 @@ export function FileCategorySection({
   entityMap,
   entities,
 }: FileCategorySectionProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(!defaultCollapsed)
   const [isDragOver, setIsDragOver] = useState(false)
   const Icon = config.icon
@@ -75,6 +78,11 @@ export function FileCategorySection({
 
   // Group multi-page documents
   const { groups, ungrouped } = useMemo(() => groupDocuments(images), [images])
+  const hasIdentityRetentionCountdown = useMemo(
+    () =>
+      images.some((img) => getIdentityRetentionState(img)?.kind === 'active'),
+    [images]
+  )
 
   // Count verified documents using O(1) map lookup
   const verifiedCount = useMemo(() => images.filter((img) => {
@@ -175,6 +183,18 @@ export function FileCategorySection({
         'border-t border-border/50 divide-y divide-border/50 bg-card',
         !isExpanded && 'hidden'
       )}>
+        {hasIdentityRetentionCountdown && (
+          <div className="flex items-start gap-2 px-4 py-3 bg-amber-50/70 text-amber-900 dark:bg-amber-950/25 dark:text-amber-200">
+            <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium">{t('files.retention.noticeTitle')}</p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
+                {t('files.retention.noticeBody')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Render grouped documents */}
         {groups.map((group) => (
           <GroupedFileRow
@@ -311,6 +331,8 @@ const FileItemRow = memo(function FileItemRow({
   // File is done processing but has no DigitalDoc (e.g., irrelevant files in "Khác")
   const isProcessedNoDoc = !doc && image.status !== 'UPLOADED' && image.status !== 'PROCESSING'
   const isStillProcessing = !doc && !isProcessedNoDoc
+  const isStorageDeleted = isRetentionStorageDeleted(image)
+  const canOpenFile = Boolean((doc || isProcessedNoDoc) && !isRenaming && !isStorageDeleted)
   const docLabel = DOC_TYPE_LABELS[image.classifiedType ?? ''] ?? image.classifiedType ?? t('classify.unclassified')
 
   // Show displayName if available, fallback to original filename
@@ -461,10 +483,11 @@ const FileItemRow = memo(function FileItemRow({
       <div
         className={cn(
           'flex items-center gap-4 flex-1 min-w-0',
-          (doc || isProcessedNoDoc) && !isRenaming && 'cursor-pointer'
+          canOpenFile && 'cursor-pointer',
+          isStorageDeleted && 'opacity-75'
         )}
         onClick={() => {
-          if (isRenaming) return
+          if (!canOpenFile) return
           // Mark as viewed when opening (fire and forget with optimistic update)
           if (image.isNew) {
             // Optimistic update - remove NEW badge immediately
@@ -485,10 +508,10 @@ const FileItemRow = memo(function FileItemRow({
           if (doc) onVerify(doc)
           else if (isProcessedNoDoc) onViewImage?.(image.id)
         }}
-        role={(doc || isProcessedNoDoc) && !isRenaming ? 'button' : undefined}
-        tabIndex={(doc || isProcessedNoDoc) && !isRenaming ? 0 : undefined}
+        role={canOpenFile ? 'button' : undefined}
+        tabIndex={canOpenFile ? 0 : undefined}
         onKeyDown={(e) => {
-          if (isRenaming) return
+          if (!canOpenFile) return
           if ((e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // Mark as viewed when opening via keyboard
@@ -511,12 +534,12 @@ const FileItemRow = memo(function FileItemRow({
             else if (isProcessedNoDoc) onViewImage?.(image.id)
           }
         }}
-        aria-label={(doc || isProcessedNoDoc) && !isRenaming ? `Mở ${displayName}` : undefined}
+        aria-label={canOpenFile ? t('files.openFile', { filename: displayName }) : undefined}
       >
         {/* Thumbnail with NEW badge */}
         <div className="relative w-12 h-12 flex-shrink-0">
           <div className="w-full h-full rounded-lg overflow-hidden bg-muted">
-            <ImageThumbnail imageId={image.id} filename={image.filename} />
+            <ImageThumbnail imageId={image.id} filename={image.filename} disabled={isStorageDeleted} />
           </div>
           {/* NEW badge overlay */}
           {image.isNew && (
@@ -590,6 +613,7 @@ const FileItemRow = memo(function FileItemRow({
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
                 {entityInfo && <EntityBadge name={entityInfo.entityName} index={entityInfo.entityIndex} />}
+                <IdentityRetentionBadge image={image} />
               </div>
             </>
           )}
@@ -599,7 +623,7 @@ const FileItemRow = memo(function FileItemRow({
       {/* Status & Action - hide when renaming */}
       {!isRenaming && (
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isVerified && (
+          {isVerified && !isStorageDeleted && (
             <button
               onClick={() => onVerify(doc)}
               aria-label={t('docVerification.verify', { filename: docLabel })}
@@ -609,7 +633,7 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">{t('checklistStatus.verified')}</span>
             </button>
           )}
-          {needsVerification && (
+          {needsVerification && !isStorageDeleted && (
             <button
               onClick={() => onVerify(doc)}
               aria-label={t('docVerification.verify', { filename: docLabel })}
@@ -625,7 +649,7 @@ const FileItemRow = memo(function FileItemRow({
               <span className="hidden sm:inline">{t('uploads.statusProcessing')}</span>
             </span>
           )}
-          {isProcessedNoDoc && (
+          {isProcessedNoDoc && !isStorageDeleted && (
             <button
               onClick={() => onViewImage?.(image.id)}
               aria-label={t('checklist.viewFile')}

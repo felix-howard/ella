@@ -322,6 +322,11 @@ clientGroupsRoute.get(
         entityClientId: tc.client.id,
         entityName: tc.client.name,
         entityType: tc.client.clientType,
+        createdAt: img.createdAt.toISOString(),
+        updatedAt: img.updatedAt.toISOString(),
+        retentionDeleteAt: img.retentionDeleteAt?.toISOString() ?? null,
+        retentionDeletedAt: img.retentionDeletedAt?.toISOString() ?? null,
+        storageDeletedAt: img.storageDeletedAt?.toISOString() ?? null,
       }))
     )
 

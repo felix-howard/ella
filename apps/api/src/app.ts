@@ -26,6 +26,7 @@ import { staffRoute } from './routes/staff'
 import { teamRoute } from './routes/team'
 import { orgSettingsRoute } from './routes/org-settings'
 import { sharedDocsRoute } from './routes/shared-docs'
+import { uploadLinksRoute } from './routes/upload-links'
 import { portalDraftRoute } from './routes/portal/draft'
 import { authSignupRoute } from './routes/auth/signup'
 import { formRoute } from './routes/form'
@@ -97,6 +98,7 @@ app.use('/staff/*', authMiddleware)
 app.use('/team/*', authMiddleware)
 app.use('/org-settings/*', authMiddleware)
 app.use('/shared-docs/*', authMiddleware)
+app.use('/upload-links/*', authMiddleware)
 app.use('/terms/*', authMiddleware)
 app.use('/contractor-agreements/*', authMiddleware)
 app.use('/client-groups/*', authMiddleware)
@@ -125,6 +127,7 @@ app.route('/staff', staffRoute)
 app.route('/team', teamRoute)
 app.route('/org-settings', orgSettingsRoute)
 app.route('/shared-docs', sharedDocsRoute)
+app.route('/upload-links', uploadLinksRoute)
 app.route('/terms', termsRoute)
 app.route('/contractor-agreements', contractorAgreementsRoute)
 app.route('/campaigns', campaignsRoute) // Admin-only, inline auth middleware

@@ -265,15 +265,15 @@ function ClientDetailPage() {
 
   // Send upload link mutation with optimistic update to chatbox
   const sendUploadLinkMutation = useMutation({
-    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage),
+    mutationFn: (customMessage?: string) => api.clients.sendUploadLink(clientId, customMessage, activeCaseId),
     onMutate: async (customMessage) => {
       // Close modal immediately for snappy UX
       setIsSendUploadLinkOpen(false)
 
-      if (!activeCaseId) return
+      if (!uploadLinkCaseId) return
 
       // Query key aligned with useChatMessages hook — ['messages', 'case', caseId].
-      const messagesKey = ['messages', 'case', activeCaseId] as const
+      const messagesKey = ['messages', 'case', uploadLinkCaseId] as const
 
       // Cancel outgoing refetches so they don't overwrite optimistic update
       await queryClient.cancelQueries({ queryKey: messagesKey })
@@ -288,7 +288,7 @@ function ClientDetailPage() {
 
       const tempMessage = {
         id: `temp-upload-link-${++tempIdCounterRef.current}`,
-        conversationId: activeCaseId,
+        conversationId: uploadLinkCaseId,
         channel: 'SMS' as const,
         direction: 'OUTBOUND' as const,
         content: previewContent,
@@ -301,19 +301,21 @@ function ClientDetailPage() {
         messages: [...(old?.messages ?? []), tempMessage],
       }))
 
-      return { previous }
+      return { previous, messagesKey }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success(t('clients.uploadLinkSent'))
+      const targetCaseId = data.targetCaseId || uploadLinkCaseId || activeCaseId
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
-      if (activeCaseId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'case', activeCaseId] })
+      if (targetCaseId) {
+        queryClient.invalidateQueries({ queryKey: ['uploadLinks', targetCaseId] })
+        queryClient.invalidateQueries({ queryKey: ['messages', 'case', targetCaseId] })
       }
     },
     onError: (err: Error, _data, context) => {
       // Rollback optimistic update on error
-      if (context?.previous && activeCaseId) {
-        queryClient.setQueryData(['messages', 'case', activeCaseId], context.previous)
+      if (context?.previous && context.messagesKey) {
+        queryClient.setQueryData(context.messagesKey, context.previous)
       }
       toast.error(err.message || t('clients.uploadLinkFailed'))
     },
@@ -385,6 +387,9 @@ function ClientDetailPage() {
   const ownerIndividual = client?.clientType === 'BUSINESS' && client.clientGroup?.clients
     ? client.clientGroup.clients.find((c) => c.clientType === 'INDIVIDUAL') ?? null
     : null
+  const ownerSelectedCase = ownerIndividual?.taxCases?.find((taxCase) => taxCase.taxYear === selectedCase?.taxYear) ?? null
+  const uploadLinkCaseId = ownerSelectedCase?.id || activeCaseId
+  const messageClientId = ownerSelectedCase ? ownerIndividual?.id || clientId : clientId
 
   // Fetch checklist for the latest case
   const { data: checklistResponse } = useQuery({
@@ -393,12 +398,14 @@ function ClientDetailPage() {
     enabled: !!activeCaseId,
   })
 
-  // Resolve portal URL: prefer individual owner's for business clients
-  const portalUploadUrl = ownerIndividual?.portalUrl || selectedCase?.portalUrl || client?.portalUrl || null
+  // Resolve portal URL for the selected year; business clients use the owner case for that year.
+  const portalUploadUrl = ownerSelectedCase
+    ? ownerSelectedCase.portalUrl ?? null
+    : selectedCase?.portalUrl || client?.portalUrl || null
 
-  // Fetch unread count — use individual owner's caseId when redirecting.
+  // Fetch unread count — use the same case as upload-link SMS when redirecting.
   // Query key owned by useChatUnread: ['unread-count', 'case', caseId].
-  const messageCaseId = ownerIndividual?.latestCaseId || activeCaseId
+  const messageCaseId = uploadLinkCaseId
   const {
     unreadCount,
     isLoading: isUnreadLoading,
@@ -406,7 +413,7 @@ function ClientDetailPage() {
     refetch: refetchUnread,
   } = useChatUnread(
     messageCaseId
-      ? { type: 'case', caseId: messageCaseId, clientId: ownerIndividual?.id || clientId }
+      ? { type: 'case', caseId: messageCaseId, clientId: messageClientId }
       : { type: 'case', caseId: '', clientId: '' },
     !!messageCaseId,
   )
@@ -951,6 +958,10 @@ function ClientDetailPage() {
       {activeTab === 'files' && activeCaseId && (
         <FilesTab
           caseId={activeCaseId}
+          clientId={clientId}
+          uploadLinkCaseId={uploadLinkCaseId}
+          onSendUploadLink={() => setIsSendUploadLinkOpen(true)}
+          isSendingUploadLink={sendUploadLinkMutation.isPending}
           images={rawImages}
           docs={digitalDocs}
           clientGroupId={!isBusiness && client.clientGroupId ? client.clientGroupId : undefined}
@@ -1295,7 +1306,7 @@ function ClientDetailPage() {
             context={{
               type: 'case',
               caseId: messageCaseId,
-              clientId: ownerIndividual?.id || clientId,
+              clientId: messageClientId,
             }}
             headerProps={{
               title: ownerIndividual?.name || client.name,

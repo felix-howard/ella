@@ -21,7 +21,13 @@ import {
   notifyMissingDocuments,
   sendBatchMissingReminders,
 } from '../../services/sms'
-import { getSignedDownloadUrl, resolveAvatarUrl } from '../../services/storage'
+import {
+  getSafeStorageError,
+  getSafeStorageReference,
+  getSignedDownloadUrl,
+  resolveAvatarUrl,
+  SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
+} from '../../services/storage'
 import type { MessageChannel, MessageDirection } from '@ella/db'
 import { buildClientScopeFilter } from '../../lib/org-scope'
 import { isBizWithGroup } from '../../lib/client-helpers'
@@ -212,7 +218,7 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
 
   // Helper: fetch file from R2 by key and return Response
   const fetchFromR2 = async (key: string) => {
-    const signedUrl = await getSignedDownloadUrl(key)
+    const signedUrl = await getSignedDownloadUrl(key, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS)
     if (!signedUrl) return null
 
     const response = await fetch(signedUrl)
@@ -223,7 +229,9 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
     return new Response(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, no-store, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     })
   }
@@ -247,7 +255,11 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
       // Try the image at the same index position (MMS attachments are ordered)
       const candidate = smsImages[index]
       if (candidate && candidate.r2Key !== r2Key) {
-        console.log(`[Messages] R2 key renamed: ${r2Key} -> ${candidate.r2Key} (message: ${messageId})`)
+        console.log('[Messages] R2 key renamed', {
+          from: getSafeStorageReference(r2Key),
+          to: getSafeStorageReference(candidate.r2Key),
+          messageId,
+        })
         const renamedResult = await fetchFromR2(candidate.r2Key)
         if (renamedResult) {
           // Auto-repair: update message with current R2 key (fire and forget)
@@ -256,17 +268,29 @@ messagesRoute.get('/media/:messageId/:index', async (c) => {
           prisma.message.update({
             where: { id: messageId },
             data: { attachmentR2Keys: updatedKeys },
-          }).catch(err => console.error(`[Messages] Failed to repair R2 key for message ${messageId}:`, err))
+          }).catch((err) =>
+            console.error('[Messages] Failed to repair R2 key', {
+              messageId,
+              object: getSafeStorageReference(candidate.r2Key),
+              error: getSafeStorageError(err),
+            })
+          )
 
           return renamedResult
         }
       }
     }
 
-    console.error(`[Messages] R2 fetch failed for key ${r2Key} (message: ${messageId})`)
+    console.error('[Messages] R2 fetch failed', {
+      object: getSafeStorageReference(r2Key),
+      messageId,
+    })
     return c.json({ error: 'FETCH_ERROR', message: 'Failed to fetch file from storage' }, 500)
   } catch (error) {
-    console.error(`[Messages] Failed to proxy media for message ${messageId}:`, error)
+    console.error('[Messages] Failed to proxy media', {
+      messageId,
+      error: getSafeStorageError(error),
+    })
     return c.json({ error: 'PROXY_ERROR', message: 'Failed to serve attachment' }, 500)
   }
 })

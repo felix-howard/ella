@@ -19,9 +19,40 @@ export class ApiError extends Error {
 
 // Error messages for different status codes
 const ERROR_MESSAGES: Record<number, { code: string; vi: string; en: string }> = {
-  429: { code: 'RATE_LIMITED', vi: 'Quá nhiều yêu cầu. Vui lòng đợi một chút.', en: 'Too many requests. Please wait.' },
-  500: { code: 'SERVER_ERROR', vi: 'Lỗi máy chủ. Vui lòng thử lại.', en: 'Server error. Please try again.' },
-  503: { code: 'UNAVAILABLE', vi: 'Dịch vụ tạm thời không khả dụng.', en: 'Service temporarily unavailable.' },
+  429: {
+    code: 'RATE_LIMITED',
+    vi: 'Quá nhiều yêu cầu. Vui lòng đợi một chút.',
+    en: 'Too many requests. Please wait.',
+  },
+  500: {
+    code: 'SERVER_ERROR',
+    vi: 'Lỗi máy chủ. Vui lòng thử lại.',
+    en: 'Server error. Please try again.',
+  },
+  503: {
+    code: 'UNAVAILABLE',
+    vi: 'Dịch vụ tạm thời không khả dụng.',
+    en: 'Service temporarily unavailable.',
+  },
+}
+
+function getPortalLanguage(): 'vi' | 'en' {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('ella-language')
+    if (saved?.startsWith('en')) return 'en'
+    if (saved?.startsWith('vi')) return 'vi'
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.language.startsWith('en')) {
+    return 'en'
+  }
+
+  return 'vi'
+}
+
+function getErrorMessage(status: number): string | null {
+  const errInfo = ERROR_MESSAGES[status]
+  return errInfo ? errInfo[getPortalLanguage()] : null
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -39,7 +70,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     // Handle rate limiting specifically
     if (response.status === 429) {
       const errInfo = ERROR_MESSAGES[429]
-      throw new ApiError(429, errInfo.code, errInfo.vi)
+      throw new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi)
     }
 
     const data = await response.json()
@@ -48,7 +79,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // Check for known error status codes
       const errInfo = ERROR_MESSAGES[response.status]
       if (errInfo) {
-        throw new ApiError(response.status, errInfo.code, errInfo.vi)
+        throw new ApiError(
+          response.status,
+          errInfo.code,
+          getErrorMessage(response.status) || errInfo.vi
+        )
       }
       throw new ApiError(
         response.status,
@@ -153,7 +188,7 @@ export interface PortalTaxCase {
   id: string
   taxYear: number
   status: string
-  engagementId?: string  // Added for multi-year support (Phase 5)
+  engagementId?: string // Added for multi-year support (Phase 5)
 }
 
 export interface ChecklistDoc {
@@ -205,13 +240,6 @@ export interface PortalData {
   clientGroup?: PortalClientGroup | null
 }
 
-export interface UploadedImage {
-  id: string
-  filename: string
-  status: string
-  createdAt: string
-}
-
 // Per-entity uploaded file row returned by GET /portal/:token?caseId=
 export type UploadedFileStatus =
   | 'UPLOADED'
@@ -224,15 +252,15 @@ export type UploadedFileStatus =
 
 export interface UploadedFile {
   id: string
-  filename: string
-  displayName: string | null
+  safeLabel: string
   status: UploadedFileStatus
   createdAt: string
+  sequenceNumber: number
 }
 
 export interface UploadResponse {
   uploaded: number
-  images: UploadedImage[]
+  images: UploadedFile[]
   message: string
 }
 
@@ -270,11 +298,13 @@ export const portalApi = {
           }
         } else if (xhr.status === 429) {
           const errInfo = ERROR_MESSAGES[429]
-          reject(new ApiError(429, errInfo.code, errInfo.vi))
+          reject(new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi))
         } else {
           const errInfo = ERROR_MESSAGES[xhr.status]
           if (errInfo) {
-            reject(new ApiError(xhr.status, errInfo.code, errInfo.vi))
+            reject(
+              new ApiError(xhr.status, errInfo.code, getErrorMessage(xhr.status) || errInfo.vi)
+            )
           } else {
             try {
               const data = JSON.parse(xhr.responseText)
@@ -287,11 +317,7 @@ export const portalApi = {
               )
             } catch {
               reject(
-                new ApiError(
-                  xhr.status,
-                  'UPLOAD_ERROR',
-                  'Không thể tải lên. Vui lòng thử lại.'
-                )
+                new ApiError(xhr.status, 'UPLOAD_ERROR', 'Không thể tải lên. Vui lòng thử lại.')
               )
             }
           }
@@ -299,9 +325,7 @@ export const portalApi = {
       }
 
       xhr.onerror = () => {
-        reject(
-          new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.')
-        )
+        reject(new ApiError(0, 'NETWORK_ERROR', 'Không thể kết nối. Vui lòng thử lại.'))
       }
 
       xhr.open('POST', `${API_BASE_URL}/portal/${token}/upload`)
@@ -310,11 +334,7 @@ export const portalApi = {
   },
 
   // Upload files via magic link (legacy - no progress)
-  upload: async (
-    token: string,
-    files: File[],
-    targetCaseId?: string
-  ): Promise<UploadResponse> => {
+  upload: async (token: string, files: File[], targetCaseId?: string): Promise<UploadResponse> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
     if (targetCaseId) formData.append('targetCaseId', targetCaseId)
@@ -327,7 +347,7 @@ export const portalApi = {
     // Handle rate limiting for uploads
     if (response.status === 429) {
       const errInfo = ERROR_MESSAGES[429]
-      throw new ApiError(429, errInfo.code, errInfo.vi)
+      throw new ApiError(429, errInfo.code, getErrorMessage(429) || errInfo.vi)
     }
 
     const data = await response.json()
@@ -336,7 +356,11 @@ export const portalApi = {
       // Check for known error status codes
       const errInfo = ERROR_MESSAGES[response.status]
       if (errInfo) {
-        throw new ApiError(response.status, errInfo.code, errInfo.vi)
+        throw new ApiError(
+          response.status,
+          errInfo.code,
+          getErrorMessage(response.status) || errInfo.vi
+        )
       }
       throw new ApiError(
         response.status,
@@ -350,9 +374,7 @@ export const portalApi = {
 
   // Get uploaded files for one entity (per-case list) via short-circuit query
   getEntityUploads: (token: string, caseId: string) =>
-    request<{ uploads: UploadedFile[] }>(
-      `/portal/${token}?caseId=${encodeURIComponent(caseId)}`
-    ),
+    request<{ uploads: UploadedFile[] }>(`/portal/${token}?caseId=${encodeURIComponent(caseId)}`),
 
   // Get draft return data for portal viewing
   getDraft: (token: string) => request<DraftReturnData>(`/portal/draft/${token}`),
@@ -366,23 +388,21 @@ export const portalApi = {
 
   // Load agreement by public token
   getAgreement: async (token: string): Promise<AgreementPublicView> => {
-    const envelope = await request<ApiEnvelope<AgreementPublicView>>(
-      `/public/agreements/${token}`,
-    )
+    const envelope = await request<ApiEnvelope<AgreementPublicView>>(`/public/agreements/${token}`)
     return envelope.data
   },
 
   // Submit agreement signature
   signAgreement: async (
     token: string,
-    payload: AgreementSignPayload,
+    payload: AgreementSignPayload
   ): Promise<AgreementSignResult> => {
     const envelope = await request<ApiEnvelope<AgreementSignResult>>(
       `/public/agreements/${token}/sign`,
       {
         method: 'POST',
         body: JSON.stringify(payload),
-      },
+      }
     )
     return envelope.data
   },

@@ -32,7 +32,7 @@ import {
   computeIntakeAnswersDiff,
   computeProfileFieldDiff,
 } from '../../services/audit-logger'
-import { createMagicLink, upgradeActivePortalLinksToGroup } from '../../services/magic-link'
+import { createMagicLink, createPortalMagicLink, getMagicLinkUrl, upgradeActivePortalLinksToGroup } from '../../services/magic-link'
 import { getSignedUploadUrl, generateClientAvatarKey, resolveAvatarUrl } from '../../services/storage'
 import { sendWelcomeMessage, isSmsEnabled, getOrgSmsLanguage } from '../../services/sms'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
@@ -50,10 +50,25 @@ import { buildClientScopeFilter } from '../../lib/org-scope'
 import { rateLimiter } from '../../middleware/rate-limiter'
 import { requireOrgAdmin } from '../../middleware/auth'
 import type { AuthVariables } from '../../middleware/auth'
+import { ActivityRiskLevel } from '@ella/db'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
 import { clientsAgreementsRoute } from './agreements'
 import { clientsAgreementsStaffRoute } from './agreements-staff'
 
 const clientsRoute = new Hono<{ Variables: AuthVariables }>()
+
+function activePortalLinkWhere(now: Date) {
+  return {
+    isActive: true,
+    type: 'PORTAL' as const,
+    revokedAt: null,
+    replacedById: null,
+    OR: [
+      { expiresAt: null },
+      { expiresAt: { gt: now } },
+    ],
+  }
+}
 
 // Sub-routes (paths relative to /clients, e.g. /:clientId/agreements)
 // Read-only listing first; staff mutations layer requireOrgAdmin internally.
@@ -111,6 +126,7 @@ clientsRoute.get('/intake-questions', async (c) => {
 clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => {
   const { page, limit, search, managedById, attention, tag, clientType } = c.req.valid('query')
   const { skip, page: safePage, limit: safeLimit } = getPaginationParams(page, limit)
+  const now = new Date()
 
   // Build where clause with org + assignment scope
   const user = c.get('user')
@@ -200,7 +216,7 @@ clientsRoute.get('/', zValidator('query', listClientsQuerySchema), async (c) => 
             _count: {
               select: {
                 checklistItems: { where: { status: 'MISSING' } },
-                magicLinks: { where: { isActive: true } },
+                magicLinks: { where: activePortalLinkWhere(now) },
               }
             },
             digitalDocs: {
@@ -576,6 +592,7 @@ clientsRoute.post('/', zValidator('json', createClientSchema), async (c) => {
 clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
+  const now = new Date()
 
   const client = await prisma.client.findFirst({
     where: { id, ...buildClientScopeFilter(user) },
@@ -594,12 +611,11 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
               email: true, businessType: true, einEncrypted: true,
               taxCases: {
                 orderBy: { taxYear: 'desc' },
-                take: 1,
                 include: {
                   magicLinks: {
                     // Only PORTAL links — Schedule C/E links live on the same case
                     // and would otherwise win the orderBy and break the upload button.
-                    where: { isActive: true, type: 'PORTAL' },
+                    where: activePortalLinkWhere(now),
                     orderBy: { createdAt: 'desc' },
                     take: 1,
                     select: { token: true },
@@ -618,7 +634,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
         include: {
           magicLinks: {
             // Only PORTAL links — see sibling-client query for rationale.
-            where: { isActive: true, type: 'PORTAL' },
+            where: activePortalLinkWhere(now),
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -653,7 +669,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
   const taxCasesWithPortal = client.taxCases.map((tc) => {
     const activeMagicLink = tc.magicLinks?.[0]
     const portalUrl = activeMagicLink && portalBaseUrl
-      ? `${portalBaseUrl}/u/${activeMagicLink.token}`
+      ? getMagicLinkUrl(activeMagicLink.token, 'PORTAL')
       : null
     return {
       ...tc,
@@ -683,8 +699,15 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
             einMasked: maskEIN(siblingEin),
             latestCaseId: siblingCase?.id ?? null,
             latestCaseTaxYear: siblingCase?.taxYear ?? null,
+            taxCases: taxCases.map((tc) => ({
+              id: tc.id,
+              taxYear: tc.taxYear,
+              portalUrl: tc.magicLinks?.[0] && portalBaseUrl
+                ? getMagicLinkUrl(tc.magicLinks[0].token, 'PORTAL')
+                : null,
+            })),
             portalUrl: siblingMagicLink && portalBaseUrl
-              ? `${portalBaseUrl}/u/${siblingMagicLink.token}`
+              ? getMagicLinkUrl(siblingMagicLink.token, 'PORTAL')
               : null,
             scheduleCExpense: siblingSC
               ? {
@@ -719,6 +742,7 @@ clientsRoute.get('/:id', zValidator('param', clientIdParamSchema), async (c) => 
 clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), async (c) => {
   const { id } = c.req.valid('param')
   const user = c.get('user')
+  const now = new Date()
 
   // Fetch client with latest case and active magic link (org-scoped)
   const client = await prisma.client.findFirst({
@@ -730,7 +754,7 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
         include: {
           magicLinks: {
             // Only PORTAL — resend-sms must not pick a Schedule C/E link.
-            where: { isActive: true, type: 'PORTAL' },
+            where: activePortalLinkWhere(now),
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
@@ -774,7 +798,7 @@ clientsRoute.post('/:id/resend-sms', zValidator('param', clientIdParamSchema), a
   }
 
   // Build portal URL and send welcome SMS
-  const portalUrl = `${portalBaseUrl}/u/${magicLink.token}`
+  const portalUrl = getMagicLinkUrl(magicLink.token, 'PORTAL')
 
   try {
     const smsLanguage = await getOrgSmsLanguage(user.organizationId)
@@ -1584,11 +1608,19 @@ clientsRoute.post(
     const { id } = c.req.valid('param')
     const user = c.get('user')
 
-    // Parse optional custom message from body
+    // Parse optional custom message and selected source case from body.
     let customMessage: string | undefined
+    let requestedCaseId: string | undefined
     try {
       const body = await c.req.json()
-      customMessage = body?.customMessage
+      const parsed = z.object({
+        customMessage: z.string().optional(),
+        targetCaseId: z.string().optional(),
+      }).safeParse(body ?? {})
+      if (parsed.success) {
+        customMessage = parsed.data.customMessage
+        requestedCaseId = parsed.data.targetCaseId
+      }
     } catch {
       // No body or invalid JSON - use default template
     }
@@ -1608,7 +1640,6 @@ clientsRoute.post(
         clientGroupId: true,
         taxCases: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
           select: { id: true, taxYear: true },
         },
       },
@@ -1618,21 +1649,27 @@ clientsRoute.post(
       return c.json({ error: 'Client not found' }, 404)
     }
 
-    const latestCase = client.taxCases[0]
-    if (!latestCase) {
+    const selectedCase = requestedCaseId
+      ? client.taxCases.find((taxCase) => taxCase.id === requestedCaseId)
+      : client.taxCases[0]
+    if (!selectedCase) {
+      if (requestedCaseId) {
+        return c.json({ error: 'Tax case not found' }, 404)
+      }
       return c.json({ error: 'No tax case found' }, 400)
     }
 
     if (!isSmsEnabled()) {
       return c.json({ error: 'SMS not configured' }, 500)
     }
+    const now = new Date()
 
     // Resolve SMS recipient and target taxCase
     // For business clients with group, redirect to individual's phone + taxCase
     let smsPhone = client.phone
     let smsName = client.name
     let smsLanguage = client.language
-    let targetCaseId = latestCase.id
+    let targetCaseId = selectedCase.id
 
     if (client.clientType === 'BUSINESS' && client.clientGroupId) {
       // Each group has exactly one individual in current data model.
@@ -1650,7 +1687,7 @@ clientsRoute.post(
           name: true,
           language: true,
           taxCases: {
-            where: { taxYear: latestCase.taxYear },
+            where: { taxYear: selectedCase.taxYear },
             orderBy: { createdAt: 'desc' },
             take: 1,
             select: { id: true },
@@ -1668,7 +1705,7 @@ clientsRoute.post(
           targetCaseId = indivCase.id
           console.log(`[Send Upload Link] Redirected business ${id} → individual case ${indivCase.id}`)
         } else {
-          console.warn(`[Send Upload Link] Individual ${individual.id} has no taxCase for year ${latestCase.taxYear} — using business case`)
+          console.warn(`[Send Upload Link] Individual ${individual.id} has no taxCase for year ${selectedCase.taxYear} — using business case`)
         }
       } else {
         console.warn(`[Send Upload Link] Business client ${id} in group ${client.clientGroupId} has no individual — falling back to business phone`)
@@ -1679,14 +1716,53 @@ clientsRoute.post(
     // portal renders the entity picker (individual + linked businesses). Without
     // this the link is CASE-scoped and the picker is bypassed for clients with
     // 2+ entities — same bug pattern as the form-submit auto-send link.
-    // createMagicLink returns full URL (e.g., https://portal.ellatax.com/upload/tuyet-nguyen-7k3m)
-    const portalUrl = client.clientGroupId
-      ? await createMagicLink(targetCaseId, {
-          clientName: smsName,
-          scope: 'GROUP',
-          clientGroupId: client.clientGroupId,
+    const linkScope = client.clientGroupId ? 'GROUP' : 'CASE'
+    const existingPortalLink = await prisma.magicLink.findFirst({
+      where: {
+        ...activePortalLinkWhere(now),
+        scope: linkScope,
+        ...(client.clientGroupId
+          ? { clientGroupId: client.clientGroupId, taxCase: { taxYear: selectedCase.taxYear } }
+          : { caseId: targetCaseId }),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        token: true,
+        expiresAt: true,
+        scope: true,
+        clientGroupId: true,
+      },
+    })
+    const portalLink = existingPortalLink
+      ? {
+          ...existingPortalLink,
+          url: getMagicLinkUrl(existingPortalLink.token, 'PORTAL'),
+        }
+      : await createPortalMagicLink(targetCaseId, {
+          scope: linkScope,
+          clientGroupId: client.clientGroupId ?? undefined,
         })
-      : await createMagicLink(targetCaseId, { clientName: smsName })
+    const portalUrl = portalLink.url
+
+    if (!existingPortalLink && user.staffId) {
+      await logStaffActivity({
+        organizationId: user.organizationId,
+        caseId: targetCaseId,
+        magicLinkId: portalLink.id,
+        actorStaffId: user.staffId,
+        action: 'upload_link.generated',
+        riskLevel: ActivityRiskLevel.HIGH,
+        metadata: {
+          source: 'send_upload_link',
+          requestedClientId: client.id,
+          scope: portalLink.scope,
+          clientGroupId: portalLink.clientGroupId,
+          expiresAt: portalLink.expiresAt?.toISOString() ?? null,
+        },
+        request: getAuditRequestContext(c),
+      })
+    }
 
     try {
       const result = await sendWelcomeMessage(
@@ -1694,7 +1770,7 @@ clientsRoute.post(
         smsName,
         smsPhone,
         portalUrl,
-        latestCase.taxYear,
+        selectedCase.taxYear,
         smsLanguage as 'VI' | 'EN',
         customMessage,
         user.staffId,
@@ -1704,7 +1780,7 @@ clientsRoute.post(
         return c.json({ error: result.error || 'Failed to send SMS' }, 500)
       }
 
-      return c.json({ success: true, messageId: result.messageId })
+      return c.json({ success: true, messageId: result.messageId, targetCaseId })
     } catch (error) {
       console.error('[Send Upload Link] Error:', error)
       return c.json({ error: 'Failed to send upload link' }, 500)

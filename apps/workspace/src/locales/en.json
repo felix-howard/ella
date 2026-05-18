@@ -460,6 +460,7 @@
   "fileActions.deleteConfirmTitle": "Delete file?",
   "fileActions.deleteConfirmMessage": "Are you sure you want to delete \"{{filename}}\"? This action cannot be undone.",
   "files.openFile": "Open {{filename}}",
+  "files.uploadedAt": "Uploaded",
   "files.retention.noticeTitle": "Identity document retention",
   "files.retention.noticeBody": "Storage images auto-delete on the shown dates. Metadata and audit history stay retained.",
   "files.retention.days_one": "{{count}} day left",

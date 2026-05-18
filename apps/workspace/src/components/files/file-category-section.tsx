@@ -14,7 +14,7 @@ import { cn } from '@ella/ui'
 import { api, type RawImage, type DigitalDoc, type EntityInfo } from '../../lib/api-client'
 import { toast } from '../../stores/toast-store'
 import { DOC_TYPE_LABELS } from '../../lib/constants'
-import { sanitizeText } from '../../lib/formatters'
+import { formatUploadDateTime, sanitizeText } from '../../lib/formatters'
 import { ImageThumbnail } from './image-thumbnail'
 import { FileActionDropdown } from './file-action-dropdown'
 import { useMarkDocumentViewed } from '../../hooks'
@@ -315,7 +315,7 @@ const FileItemRow = memo(function FileItemRow({
   entityInfo,
   entities,
 }: FileItemRowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const markViewed = useMarkDocumentViewed()
   const [isDragging, setIsDragging] = useState(false)
@@ -607,11 +607,12 @@ const FileItemRow = memo(function FileItemRow({
               <p className="font-medium text-foreground truncate" title={displayName}>
                 {displayName}
               </p>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{docLabel}</span>
                 {pageDisplay && <PageBadge display={pageDisplay} />}
                 <FileTypeBadge filename={image.filename} />
                 <UploadSourceBadge uploadedVia={image.uploadedVia} />
+                <UploadTimeBadge createdAt={image.createdAt} locale={i18n.language} label={t('files.uploadedAt')} />
                 {entityInfo && <EntityBadge name={entityInfo.entityName} index={entityInfo.entityIndex} />}
                 <IdentityRetentionBadge image={image} />
               </div>
@@ -742,6 +743,24 @@ function UploadSourceBadge({ uploadedVia }: { uploadedVia?: string }) {
   }
 
   return null
+}
+
+/**
+ * Small timestamp showing when the client uploaded the document.
+ */
+function UploadTimeBadge({ createdAt, locale, label }: { createdAt: string; locale?: string; label: string }) {
+  const formatted = formatUploadDateTime(createdAt, locale)
+
+  return (
+    <time
+      dateTime={createdAt}
+      title={`${label} ${formatted}`}
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium flex-shrink-0"
+    >
+      <Clock className="w-2.5 h-2.5" />
+      {label} {formatted}
+    </time>
+  )
 }
 
 /**

@@ -457,6 +457,7 @@
   "fileActions.deleteConfirmTitle": "Xóa tệp?",
   "fileActions.deleteConfirmMessage": "Bạn có chắc muốn xóa \"{{filename}}\"? Hành động này không thể hoàn tác.",
   "files.openFile": "Mở {{filename}}",
+  "files.uploadedAt": "Tải lên",
   "files.retention.noticeTitle": "Lưu giữ giấy tờ tùy thân",
   "files.retention.noticeBody": "Ảnh lưu trữ sẽ tự xóa vào ngày hiển thị. Metadata và lịch sử audit vẫn được giữ lại.",
   "files.retention.days_one": "Còn {{count}} ngày",

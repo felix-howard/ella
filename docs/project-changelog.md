@@ -7,6 +7,17 @@
 
 ## 2026-05-18
 
+### Workspace: Files Tab Upload Timestamp
+**Status:** Complete
+
+**Changed:**
+- Added per-document upload time in the Files tab metadata row using existing `RawImage.createdAt`.
+- Formatted upload timestamps by active locale and wrapped metadata badges to avoid row overflow.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings only
+
 ### Security: Upload Portal Hardening Rollout
 **Status:** Complete
 

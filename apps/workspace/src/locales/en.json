@@ -1830,7 +1830,7 @@
   "clientOverview.nda.empty": "No NDA on file.",
   "clientOverview.nda.loadError": "Failed to load NDAs.",
   "clientOverview.nda.viewAll": "View all ({{count}})",
-  "agreements.send.button": "Send Agreement",
+  "agreements.send.button": "Choose an agreement",
   "agreements.type.NDA": "NDA",
   "agreements.type.ENGAGEMENT_LETTER": "Engagement Letter",
   "agreements.type.SERVICE_AGREEMENT": "Service Agreement",

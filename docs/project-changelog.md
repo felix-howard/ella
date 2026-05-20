@@ -1,7 +1,22 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-18 ICT
+> **Last Updated:** 2026-05-20 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
+
+---
+
+## 2026-05-20
+
+### API/Portal: Empty Upload Guard
+**Status:** Complete
+
+**Changed:**
+- Rejected zero-byte portal uploads before any R2 write or `RawImage` create.
+- Added portal-side empty-file validation with localized guidance for iCloud/Drive placeholder files.
+- Added a native browser unload guard while uploads are in progress.
+
+**Validation:**
+- Targeted API validation test added for empty files.
 
 ---
 

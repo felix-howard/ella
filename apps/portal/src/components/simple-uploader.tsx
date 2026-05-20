@@ -4,7 +4,7 @@
  * Mobile-first, no technical jargon visible to user
  * Uses global toast for success/error notifications
  */
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload, Loader2 } from 'lucide-react'
 import { Button } from '@ella/ui'
@@ -55,21 +55,30 @@ export function SimpleUploader({
       // Validate files and track rejected count
       const validFiles: File[] = []
       let rejectedCount = 0
+      let firstRejectionMessage: string | null = null
 
       for (const file of selectedFiles) {
         const isValidType = VALID_TYPES.includes(file.type)
+        const isNonEmpty = file.size > 0
         const isValidSize = file.size <= MAX_FILE_SIZE
 
-        if (isValidType && isValidSize) {
+        if (isValidType && isNonEmpty && isValidSize) {
           validFiles.push(file)
         } else {
           rejectedCount++
+          if (!firstRejectionMessage) {
+            firstRejectionMessage = !isNonEmpty
+              ? t('portal.emptyFile')
+              : !isValidSize
+                ? t('portal.fileTooLarge')
+                : t('portal.invalidFileType')
+          }
         }
       }
 
       // All files rejected - show error toast
       if (validFiles.length === 0) {
-        const errorMsg = t('portal.invalidFileType')
+        const errorMsg = firstRejectionMessage || t('portal.invalidFileType')
         toast.error(errorMsg)
         onError(errorMsg)
         return
@@ -78,6 +87,7 @@ export function SimpleUploader({
       // Some files rejected - continue with valid ones silently
       if (rejectedCount > 0) {
         console.info(`Upload: ${rejectedCount} files rejected, ${validFiles.length} valid`)
+        if (firstRejectionMessage) toast.error(firstRejectionMessage)
       }
 
       // Start upload
@@ -99,6 +109,8 @@ export function SimpleUploader({
         const message =
           err instanceof ApiError && err.code === 'RATE_LIMITED'
             ? t('portal.rateLimited')
+            : err instanceof ApiError && err.code === 'EMPTY_FILE'
+              ? t('portal.emptyFile')
             : err instanceof ApiError && err.code === 'INVALID_FILE_CONTENT'
               ? t('portal.invalidFileContent')
             : err instanceof ApiError
@@ -113,6 +125,18 @@ export function SimpleUploader({
     },
     [token, targetCaseId, onUploadComplete, onError, t]
   )
+
+  useEffect(() => {
+    if (!uploading) return
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [uploading])
 
   return (
     <div className="space-y-4" role="region" aria-label={t('portal.uploadTitle')}>

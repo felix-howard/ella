@@ -312,6 +312,8 @@ portalRoute.post('/:token/upload', async (c) => {
     const errorMessages: Record<string, string> = {
       NO_FILES: 'Vui lòng chọn ít nhất một file',
       TOO_MANY_FILES: 'Quá nhiều file. Tối đa 50 file mỗi lần tải lên',
+      EMPTY_FILE:
+        'File này không có nội dung. Vui lòng mở file trên thiết bị, tải về nếu đang ở iCloud/Drive, rồi gửi lại',
       FILE_TOO_LARGE: 'File quá lớn. Tối đa 10MB mỗi file',
       INVALID_TYPE: 'Loại file không được hỗ trợ. Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
       INVALID_FILE_CONTENT:

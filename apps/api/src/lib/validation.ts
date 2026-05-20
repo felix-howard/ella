@@ -30,6 +30,7 @@ export interface FileValidationResult {
   errorCode?:
     | 'INVALID_TYPE'
     | 'INVALID_FILE_CONTENT'
+    | 'EMPTY_FILE'
     | 'FILE_TOO_LARGE'
     | 'TOO_MANY_FILES'
     | 'NO_FILES'
@@ -142,6 +143,14 @@ export function validateUploadedFiles(files: File[]): FileValidationResult {
   }
 
   for (const file of files) {
+    if (file.size <= 0) {
+      return {
+        valid: false,
+        error: `File "${file.name}" is empty`,
+        errorCode: 'EMPTY_FILE',
+      }
+    }
+
     // Check file size
     if (file.size > config.upload.maxFileSize) {
       const maxMB = Math.round(config.upload.maxFileSize / 1024 / 1024)

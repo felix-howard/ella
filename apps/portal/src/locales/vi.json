@@ -42,6 +42,7 @@
   "portal.dragDropHere": "Kéo thả file vào đây",
   "portal.clickToBrowse": "hoặc click để chọn",
   "portal.fileTooLarge": "File quá lớn (tối đa 10MB)",
+  "portal.emptyFile": "File này không có nội dung. Vui lòng mở file trên thiết bị, tải về trước nếu file ở iCloud hoặc Drive, rồi gửi lại.",
   "portal.invalidFileType": "Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF",
   "portal.invalidFileContent": "File này không phải PDF hoặc ảnh hợp lệ. Vui lòng chọn file khác.",
   "portal.maxFilesReached": "Chỉ có thể thêm {{count}} file nữa",

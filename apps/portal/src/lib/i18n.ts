@@ -74,6 +74,8 @@ export const UI_TEXT = {
     dragDropHere: 'Kéo thả file vào đây',
     clickToBrowse: 'hoặc click để chọn',
     fileTooLarge: 'File quá lớn (tối đa 10MB)',
+    emptyFile:
+      'File này không có nội dung. Vui lòng mở file trên thiết bị, tải về trước nếu file ở iCloud hoặc Drive, rồi gửi lại.',
     invalidFileType: 'Chỉ chấp nhận ảnh (JPEG, PNG, WebP, HEIC) và PDF',
     invalidFileContent: 'File này không phải PDF hoặc ảnh hợp lệ. Vui lòng chọn file khác.',
     maxFilesReached: 'Chỉ có thể thêm {count} file nữa',
@@ -123,6 +125,8 @@ export const UI_TEXT = {
     dragDropHere: 'Drag and drop files here',
     clickToBrowse: 'or click to browse',
     fileTooLarge: 'File too large (max 10MB)',
+    emptyFile:
+      'This file is empty. Open it on your device, download it first if it is in iCloud or Drive, then upload it again.',
     invalidFileType: 'Only images (JPEG, PNG, WebP, HEIC) and PDF accepted',
     invalidFileContent: 'This file is not a valid PDF or supported image. Please choose another file.',
     maxFilesReached: 'Can only add {count} more files',

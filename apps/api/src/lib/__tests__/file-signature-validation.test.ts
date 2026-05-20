@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   detectFileType,
+  validateUploadedFiles,
   validateUploadedFileContent,
   type DetectedFileType,
 } from '../validation'
@@ -24,6 +25,16 @@ function heifBuffer(majorBrand: string, compatibleBrand = majorBrand): Buffer {
 }
 
 describe('file signature validation', () => {
+  it('rejects empty files before storage upload', () => {
+    const emptyPdf = new File([], 'empty.pdf', { type: 'application/pdf' })
+
+    expect(validateUploadedFiles([emptyPdf])).toEqual({
+      valid: false,
+      error: 'File "empty.pdf" is empty',
+      errorCode: 'EMPTY_FILE',
+    })
+  })
+
   it.each([
     ['PDF', Buffer.from('\ufeff \n%PDF-1.7\n', 'utf8'), 'application/pdf'],
     ['JPEG', Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]), 'image/jpeg'],

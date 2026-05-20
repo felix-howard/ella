@@ -42,6 +42,7 @@
   "portal.dragDropHere": "Drag and drop files here",
   "portal.clickToBrowse": "or click to browse",
   "portal.fileTooLarge": "File too large (max 10MB)",
+  "portal.emptyFile": "This file is empty. Open it on your device, download it first if it is in iCloud or Drive, then upload it again.",
   "portal.invalidFileType": "Only images (JPEG, PNG, WebP, HEIC) and PDF accepted",
   "portal.invalidFileContent": "This file is not a valid PDF or supported image. Please choose another file.",
   "portal.maxFilesReached": "Can only add {{count}} more files",

@@ -5,7 +5,7 @@
  */
 
 import { memo, lazy, Suspense, useCallback, useRef } from 'react'
-import { Loader2, FileText, Image as ImageIcon } from 'lucide-react'
+import { Loader2, FileText, Image as ImageIcon, ShieldOff } from 'lucide-react'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 
 // Lazy load PDF thumbnail for code splitting (~150KB savings)
@@ -15,6 +15,7 @@ interface ImageThumbnailProps {
   imageId: string
   filename: string
   className?: string
+  disabled?: boolean
 }
 
 /** Check if file is PDF based on filename */
@@ -35,8 +36,12 @@ export const ImageThumbnail = memo(function ImageThumbnail({
   imageId,
   filename,
   className = 'w-full h-full',
+  disabled = false,
 }: ImageThumbnailProps) {
-  const { data, isLoading, error, invalidateAndRefetch } = useSignedUrl(imageId, { staleTime: 55 * 60 * 1000 })
+  const { data, isLoading, error, invalidateAndRefetch } = useSignedUrl(imageId, {
+    enabled: !disabled,
+    staleTime: 55 * 60 * 1000,
+  })
   const isPdf = isPdfFile(filename)
   const retryCountRef = useRef(0)
 
@@ -48,6 +53,14 @@ export const ImageThumbnail = memo(function ImageThumbnail({
       invalidateAndRefetch()
     }
   }, [invalidateAndRefetch])
+
+  if (disabled) {
+    return (
+      <div className={`${className} flex flex-col items-center justify-center`}>
+        <ShieldOff className="w-6 h-6 text-muted-foreground" />
+      </div>
+    )
+  }
 
   // Only show loading spinner on initial load (no cached data)
   // This prevents flash when switching tabs since URLs are cached

@@ -25,6 +25,7 @@ import { DOC_CATEGORIES, CATEGORY_ORDER, type DocCategoryKey } from '../../lib/d
 import { toast } from '../../stores/toast-store'
 import { useSignedUrl } from '../../hooks/use-signed-url'
 import { MoveToEntitySubmenu } from './move-to-entity-submenu'
+import { isRetentionStorageDeleted } from './identity-retention'
 
 export interface FileActionDropdownProps {
   image: RawImage
@@ -65,6 +66,7 @@ export function FileActionDropdown({
   const entityHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const hasPeers = !!peers && peers.length > 0
+  const isStorageDeleted = isRetentionStorageDeleted(image)
 
   // Calculate dropdown position
   const updatePosition = useCallback(() => {
@@ -200,7 +202,7 @@ export function FileActionDropdown({
 
   // Fetch signed URL for download
   const { data: signedUrlData } = useSignedUrl(image.id, {
-    enabled: isOpen,
+    enabled: isOpen && !isStorageDeleted,
     staleTime: 55 * 60 * 1000,
   })
 
@@ -291,6 +293,11 @@ export function FileActionDropdown({
   }
 
   const handleOpenInNewTab = () => {
+    if (isStorageDeleted) {
+      toast.error(t('fileActions.fileDeletedByRetention'))
+      return
+    }
+
     if (!signedUrlData?.url) {
       toast.error(t('fileActions.cannotOpenFile'))
       return
@@ -301,6 +308,12 @@ export function FileActionDropdown({
   }
 
   const handleDownload = async () => {
+    if (isStorageDeleted) {
+      toast.error(t('fileActions.fileDeletedByRetention'))
+      setIsOpen(false)
+      return
+    }
+
     try {
       // Use fetchMediaBlobUrl which includes Bearer auth token
       const blobUrl = await fetchMediaBlobUrl(`/cases/images/${image.id}/file`)
@@ -496,7 +509,8 @@ export function FileActionDropdown({
       {/* Open in new tab */}
       <button
         onClick={handleOpenInNewTab}
-        disabled={!signedUrlData?.url}
+        disabled={isStorageDeleted || !signedUrlData?.url}
+        title={isStorageDeleted ? t('fileActions.fileDeletedByRetention') : undefined}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <ExternalLink className="w-4 h-4 text-muted-foreground" />
@@ -506,7 +520,8 @@ export function FileActionDropdown({
       {/* Download */}
       <button
         onClick={handleDownload}
-        disabled={!signedUrlData?.url}
+        disabled={isStorageDeleted || !signedUrlData?.url}
+        title={isStorageDeleted ? t('fileActions.fileDeletedByRetention') : undefined}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Download className="w-4 h-4 text-muted-foreground" />

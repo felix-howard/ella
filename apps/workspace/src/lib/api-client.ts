@@ -287,10 +287,10 @@ export const api = {
         { method: 'POST' }
       ),
 
-    sendUploadLink: (id: string, customMessage?: string) =>
-      request<{ success: boolean; messageId?: string }>(
+    sendUploadLink: (id: string, customMessage?: string, targetCaseId?: string) =>
+      request<{ success: boolean; messageId?: string; targetCaseId?: string }>(
         `/clients/${id}/send-upload-link`,
-        { method: 'POST', body: JSON.stringify({ customMessage }) }
+        { method: 'POST', body: JSON.stringify({ customMessage, targetCaseId }) }
       ),
 
     // Cascade cleanup when parent answer changes to false
@@ -558,6 +558,15 @@ export const api = {
       }),
   },
 
+  // Activity timeline
+  activity: {
+    recent: (params?: ActivityQueryParams) =>
+      request<ActivityTimelineResponse>('/activity/recent', { params: params ? { ...params } : undefined }),
+
+    client: (clientId: string, params?: Omit<ActivityQueryParams, 'actorStaffId'>) =>
+      request<ActivityTimelineResponse>(`/activity/clients/${clientId}`, { params: params ? { ...params } : undefined }),
+  },
+
   // Tax Cases
   cases: {
     list: (params?: { page?: number; limit?: number; status?: string; taxYear?: number; clientId?: string }) =>
@@ -622,13 +631,19 @@ export const api = {
       }),
 
     markFiled: (id: string) =>
-      request<{ success: boolean }>(`/cases/${id}/mark-filed`, {
+      request<CaseFiledActionResponse>(`/cases/${id}/mark-filed`, {
         method: 'POST',
       }),
 
     reopen: (id: string) =>
-      request<{ success: boolean }>(`/cases/${id}/reopen`, {
+      request<CaseReopenActionResponse>(`/cases/${id}/reopen`, {
         method: 'POST',
+      }),
+
+    extendIdentityRetention: (id: string, data: { days: IdentityRetentionExtensionDays }) =>
+      request<IdentityRetentionExtensionResponse>(`/cases/${id}/identity-retention/extend`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
 
     // Trigger batch document grouping (manual)
@@ -1250,6 +1265,28 @@ export const api = {
       }),
   },
 
+  // Upload Links - Portal upload link lifecycle per tax case
+  uploadLinks: {
+    listForCase: (caseId: string) =>
+      request<ListUploadLinksResponse>(`/upload-links/cases/${caseId}`),
+
+    revoke: (id: string) =>
+      request<UploadLinkMutationResponse>(`/upload-links/${id}/revoke`, {
+        method: 'POST',
+      }),
+
+    extend: (id: string, days: 7 | 14 | 30 | 60) =>
+      request<UploadLinkMutationResponse & { expiresAt: string }>(`/upload-links/${id}/extend`, {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      }),
+
+    generate: (caseId: string) =>
+      request<UploadLinkMutationResponse>(`/upload-links/cases/${caseId}/generate`, {
+        method: 'POST',
+      }),
+  },
+
   // Shared Docs - Multi-section document sharing per tax case
   sharedDocs: {
     list: (caseId: string) =>
@@ -1824,6 +1861,7 @@ export interface ClientPreview {
   einMasked?: string | null
   latestCaseId?: string | null
   latestCaseTaxYear?: number | null
+  taxCases?: { id: string; taxYear: number; portalUrl?: string | null }[]
   portalUrl?: string | null
   scheduleCExpense?: ScheduleCExpenseSummary | null
 }
@@ -2095,6 +2133,70 @@ export interface ClientActivity {
   direction?: string
 }
 
+export type ActivityCategory =
+  | 'CLIENT'
+  | 'CASE'
+  | 'DOCUMENT'
+  | 'MESSAGE'
+  | 'PROFILE'
+  | 'SETTINGS'
+  | 'TEAM'
+  | 'LEAD'
+  | 'UPLOAD_LINK'
+  | 'AUTH'
+  | 'SYSTEM'
+
+export type ActivityRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface ActivityQueryParams {
+  limit?: number
+  cursor?: string
+  category?: ActivityCategory
+  actorStaffId?: string
+  riskLevel?: ActivityRiskLevel
+}
+
+export interface ActivityTimelineItem {
+  id: string
+  createdAt: string
+  category: ActivityCategory
+  action: string
+  riskLevel: ActivityRiskLevel
+  summary: string
+  actor: {
+    type: 'STAFF' | 'CLIENT_PORTAL' | 'SYSTEM'
+    staffId: string | null
+    name: string | null
+    avatarUrl: string | null
+  }
+  target: {
+    type:
+      | 'CLIENT'
+      | 'CASE'
+      | 'RAW_IMAGE'
+      | 'MAGIC_LINK'
+      | 'MESSAGE'
+      | 'CONVERSATION'
+      | 'STAFF'
+      | 'ORGANIZATION'
+      | 'LEAD'
+      | 'TEMPLATE'
+      | 'CHECKLIST_ITEM'
+      | 'UNKNOWN'
+    id: string | null
+    label: string | null
+  }
+  clientId: string | null
+  caseId: string | null
+  route: string | null
+  method: string | null
+}
+
+export interface ActivityTimelineResponse {
+  data: ActivityTimelineItem[]
+  nextCursor: string | null
+}
+
 export interface TaxCaseSummary {
   id: string
   taxYear: number
@@ -2106,6 +2208,9 @@ export interface TaxCaseSummary {
   isInReview?: boolean
   /** Manual flag: case has been filed */
   isFiled?: boolean
+  /** Date/time the return was marked filed */
+  filedAt?: string | null
+  identityRetentionSummary?: IdentityRetentionSummary
   /** Portal URL specific to this tax case/year */
   portalUrl?: string | null
   _count: {
@@ -2122,6 +2227,7 @@ export interface TaxCase {
   taxYear: number
   taxTypes: TaxType[]
   status: TaxCaseStatus
+  filedAt?: string | null
   createdAt: string
   updatedAt: string
   /** Manual flag: case sent for review */
@@ -2147,6 +2253,43 @@ export interface TaxCaseDetail extends TaxCase {
     pendingVerification: number
     blurryCount: number
   }
+}
+
+export interface CaseFiledActionResponse {
+  success: boolean
+  caseId: string
+  status: TaxCaseStatus
+  isFiled: boolean
+  filedAt: string | null
+  scheduledIdentityDocs: number
+}
+
+export interface CaseReopenActionResponse {
+  success: boolean
+  caseId: string
+  status: TaxCaseStatus
+  isFiled: boolean
+  filedAt: string | null
+  clearedIdentityDocs: number
+}
+
+export type IdentityRetentionExtensionDays = 30 | 60 | 90
+
+export interface IdentityRetentionSummary {
+  scheduledIdentityDocs: number
+  nextIdentityDeletionAt: string | null
+  latestIdentityDeletionAt: string | null
+}
+
+export interface IdentityRetentionExtensionResponse {
+  success: boolean
+  caseId: string
+  days: IdentityRetentionExtensionDays
+  scheduledIdentityDocs: number
+  extendedIdentityDocs: number
+  extendedUntil: string
+  nextIdentityDeletionAt: string | null
+  latestIdentityDeletionAt: string | null
 }
 
 // Checklist types
@@ -2233,6 +2376,12 @@ export interface RawImage {
   // Entity routing fields
   entityConfidence?: number | null
   routedFromCaseId?: string | null
+  // Identity document retention metadata
+  retentionPolicy?: string | null
+  retentionDeleteAt?: string | null
+  retentionDeletedAt?: string | null
+  storageDeletedAt?: string | null
+  isStorageDeleted?: boolean
 }
 
 // Image group for duplicate detection
@@ -3281,6 +3430,40 @@ export interface SharedDocMagicLinkData {
   isActive: boolean
   usageCount: number
   lastUsedAt: string | null
+}
+
+export type UploadLinkStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'REPLACED'
+
+export interface UploadLinkData {
+  id: string
+  status: UploadLinkStatus
+  url: string | null
+  scope: 'CASE' | 'GROUP'
+  clientGroupId: string | null
+  expiresAt: string | null
+  revokedAt: string | null
+  extendedAt: string | null
+  lastUsedAt: string | null
+  usageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ListUploadLinksResponse {
+  data: UploadLinkData[]
+  taxCase: {
+    id: string
+    taxYear: number
+    client: {
+      id: string
+      name: string
+    }
+  }
+}
+
+export interface UploadLinkMutationResponse {
+  success: boolean
+  magicLink: UploadLinkData
 }
 
 export interface SharedDocVersionData {

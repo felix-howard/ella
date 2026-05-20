@@ -2,13 +2,10 @@
  * Tax Cases API routes
  * CRUD operations for tax case management
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma } from '../../lib/db'
-import {
-  getPaginationParams,
-  buildPaginationResponse,
-} from '../../lib/constants'
+import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
 import {
   createCaseSchema,
   updateCaseSchema,
@@ -20,11 +17,25 @@ import {
   updateChecklistItemNotesSchema,
   caseIdParamSchema,
   groupDocumentsSchema,
+  extendIdentityRetentionSchema,
 } from './schemas'
 import { inngest } from '../../lib/inngest'
 import { generateChecklist } from '../../services/checklist-generator'
-import { getSignedDownloadUrl } from '../../services/storage'
+import { getSignedDownloadUrl, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS } from '../../services/storage'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import {
+  ACTIVITY_ACTIONS,
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_TARGET_TYPES,
+  type ActivityTargetType,
+} from '../../services/activity-actions'
+import {
+  clearScheduledIdentityRetentionForCase,
+  extendScheduledIdentityRetentionForCase,
+  scheduleIdentityRetentionForFiledCase,
+} from '../../services/identity-doc-retention'
 import { findOrCreateEngagement } from '../../services/engagement-helpers'
+import { ActivityRiskLevel } from '@ella/db'
 import type { TaxType, TaxCaseStatus, RawImageStatus, DocType } from '@ella/db'
 import type { AuthVariables } from '../../middleware/auth'
 import { isValidStatusTransition, getValidNextStatuses } from '@ella/shared'
@@ -32,6 +43,47 @@ import { buildNestedClientScope, buildClientScopeFilter } from '../../lib/org-sc
 import { isBizWithGroup } from '../../lib/client-helpers'
 
 const casesRoute = new Hono<{ Variables: AuthVariables }>()
+
+async function logCaseMutation(
+  c: Context<{ Variables: AuthVariables }>,
+  user: AuthVariables['user'],
+  input: {
+    clientId: string
+    caseId: string
+    targetId?: string
+    targetType?: ActivityTargetType
+    targetLabel?: string
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  if (!user.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    clientId: input.clientId,
+    caseId: input.caseId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.CASE,
+    targetType: input.targetType ?? ACTIVITY_TARGET_TYPES.CASE,
+    targetId: input.targetId ?? input.caseId,
+    targetLabel: input.targetLabel,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.LOW,
+    metadata: input.metadata,
+    request: getAuditRequestContext(c),
+  })
+}
+
+function getGenericPatchTransitions(currentStatus: TaxCaseStatus): TaxCaseStatus[] {
+  return getValidNextStatuses(currentStatus).filter((nextStatus) => {
+    if (nextStatus === currentStatus) return true
+    return nextStatus !== 'FILED' && currentStatus !== 'FILED'
+  })
+}
 
 // GET /cases - List all cases with filters
 casesRoute.get('/', zValidator('query', listCasesQuerySchema), async (c) => {
@@ -95,7 +147,13 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
       where: { id: providedEngagementId },
     })
     if (!engagement || engagement.clientId !== clientId) {
-      return c.json({ error: 'INVALID_ENGAGEMENT', message: 'Engagement not found or does not belong to this client' }, 400)
+      return c.json(
+        {
+          error: 'INVALID_ENGAGEMENT',
+          message: 'Engagement not found or does not belong to this client',
+        },
+        400
+      )
     }
   }
 
@@ -133,11 +191,26 @@ casesRoute.post('/', zValidator('json', createCaseSchema), async (c) => {
     await generateChecklist(taxCase.id, taxTypes as TaxType[], client.profile)
   }
 
+  await logCaseMutation(c, user, {
+    clientId,
+    caseId: taxCase.id,
+    targetLabel: `${taxYear}`,
+    summary: 'Created tax case',
+    action: ACTIVITY_ACTIONS.CASE.CREATED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      taxYear,
+      taxTypes,
+      status: taxCase.status,
+      engagementId: taxCase.engagementId,
+    },
+  })
+
   return c.json(
     {
       id: taxCase.id,
       clientId: taxCase.clientId,
-      engagementId: taxCase.engagementId,  // Include engagementId in response
+      engagementId: taxCase.engagementId, // Include engagementId in response
       taxYear: taxCase.taxYear,
       taxTypes: taxCase.taxTypes,
       status: taxCase.status,
@@ -156,7 +229,7 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
     where: { id, ...buildNestedClientScope(user) },
     include: {
       client: true,
-      engagement: true,  // Include engagement data for multi-year support
+      engagement: true, // Include engagement data for multi-year support
       checklistItems: {
         include: { template: true },
         orderBy: { template: { sortOrder: 'asc' } },
@@ -164,7 +237,11 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
       rawImages: { orderBy: { createdAt: 'desc' } },
       digitalDocs: {
         orderBy: { createdAt: 'desc' },
-        include: { rawImage: { select: { id: true, filename: true, r2Key: true, displayName: true, rotation: true } } },
+        include: {
+          rawImage: {
+            select: { id: true, filename: true, r2Key: true, displayName: true, rotation: true },
+          },
+        },
       },
     },
   })
@@ -176,14 +253,9 @@ casesRoute.get('/:id', zValidator('param', caseIdParamSchema), async (c) => {
   // Calculate stats
   const stats = {
     totalChecklist: taxCase.checklistItems.length,
-    completedChecklist: taxCase.checklistItems.filter(
-      (item) => item.status === 'VERIFIED'
-    ).length,
-    pendingVerification: taxCase.digitalDocs.filter(
-      (doc) => doc.status === 'EXTRACTED'
-    ).length,
-    blurryCount: taxCase.rawImages.filter((img) => img.status === 'BLURRY')
-      .length,
+    completedChecklist: taxCase.checklistItems.filter((item) => item.status === 'VERIFIED').length,
+    pendingVerification: taxCase.digitalDocs.filter((doc) => doc.status === 'EXTRACTED').length,
+    blurryCount: taxCase.rawImages.filter((img) => img.status === 'BLURRY').length,
   }
 
   return c.json({
@@ -206,7 +278,7 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
   // Fetch current case to validate transition (org-scoped)
   const currentCase = await prisma.taxCase.findFirst({
     where: { id, ...buildNestedClientScope(user) },
-    select: { status: true },
+    select: { status: true, clientId: true },
   })
 
   if (!currentCase) {
@@ -214,9 +286,11 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
   }
 
   // Validate status transition if status is being changed
-  if (status && status !== currentCase.status) {
+  const isStatusChange = Boolean(status && status !== currentCase.status)
+
+  if (isStatusChange) {
     if (!isValidStatusTransition(currentCase.status as TaxCaseStatus, status as TaxCaseStatus)) {
-      const validNext = getValidNextStatuses(currentCase.status as TaxCaseStatus).slice(1)
+      const validNext = getGenericPatchTransitions(currentCase.status as TaxCaseStatus).slice(1)
       return c.json(
         {
           error: 'INVALID_TRANSITION',
@@ -227,28 +301,90 @@ casesRoute.patch('/:id', zValidator('json', updateCaseSchema), async (c) => {
         400
       )
     }
+
+    if (status === 'FILED' || currentCase.status === 'FILED') {
+      return c.json(
+        {
+          error: 'FILED_ACTION_REQUIRED',
+          message: 'Use mark-filed or reopen endpoint for filed case transitions',
+          currentStatus: currentCase.status,
+        },
+        400
+      )
+    }
   }
 
   const updateData: Record<string, unknown> = {}
   if (status) {
     updateData.status = status as TaxCaseStatus
     // Track completion timestamps
-    if (status === 'ENTRY_COMPLETE') {
+    if (isStatusChange && status === 'ENTRY_COMPLETE') {
       updateData.entryCompletedAt = new Date()
-    } else if (status === 'FILED') {
-      updateData.filedAt = new Date()
     }
   }
 
-  const taxCase = await prisma.taxCase.update({
-    where: { id },
-    data: updateData,
+  const patchResult = await prisma.$transaction(async (tx) => {
+    const result = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        status: currentCase.status,
+      },
+      data: updateData,
+    })
+
+    if (result.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { status: true },
+      })
+
+      return {
+        error: scopedCase ? 'STATUS_CHANGED' : 'NOT_FOUND',
+        currentStatus: scopedCase?.status,
+      } as const
+    }
+
+    const updated = await tx.taxCase.findUnique({ where: { id } })
+
+    return updated
+  })
+
+  if (!patchResult) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  if ('error' in patchResult) {
+    if (patchResult.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json(
+      {
+        error: 'STATUS_CHANGED',
+        message: 'Case status changed; refresh and retry',
+        currentStatus: patchResult.currentStatus,
+      },
+      409
+    )
+  }
+
+  await logCaseMutation(c, user, {
+    clientId: patchResult.clientId,
+    caseId: id,
+    summary: isStatusChange ? 'Changed tax case status' : 'Updated tax case',
+    action: isStatusChange ? ACTIVITY_ACTIONS.CASE.STATUS_CHANGED : ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: isStatusChange ? ActivityRiskLevel.MEDIUM : ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: Object.keys(updateData),
+      previousStatus: currentCase.status,
+      newStatus: patchResult.status,
+    },
   })
 
   return c.json({
-    ...taxCase,
-    createdAt: taxCase.createdAt.toISOString(),
-    updatedAt: taxCase.updatedAt.toISOString(),
+    ...patchResult,
+    createdAt: patchResult.createdAt.toISOString(),
+    updatedAt: patchResult.updatedAt.toISOString(),
   })
 })
 
@@ -267,7 +403,7 @@ casesRoute.get('/:id/valid-transitions', async (c) => {
   }
 
   const currentStatus = taxCase.status as TaxCaseStatus
-  const validTransitions = getValidNextStatuses(currentStatus)
+  const validTransitions = getGenericPatchTransitions(currentStatus)
 
   return c.json({
     currentStatus,
@@ -294,10 +430,10 @@ casesRoute.get('/:id/checklist', async (c) => {
     include: {
       template: true,
       rawImages: {
-        orderBy: { createdAt: 'desc' },  // Most recent images first
+        orderBy: { createdAt: 'desc' }, // Most recent images first
       },
       digitalDocs: {
-        orderBy: { createdAt: 'desc' },  // Most recent docs first
+        orderBy: { createdAt: 'desc' }, // Most recent docs first
       },
       addedBy: { select: { id: true, name: true } },
       skippedBy: { select: { id: true, name: true } },
@@ -333,6 +469,10 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
 
+  // Read-repair filed cases so existing identity-category uploads created
+  // before the current eligibility rules still return countdown metadata.
+  await scheduleIdentityRetentionForFiledCase(id)
+
   const where: Record<string, unknown> = { caseId: id }
   if (status) where.status = status as RawImageStatus
 
@@ -346,10 +486,12 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
       include: {
         checklistItem: { include: { template: true } },
         // Include documentViews for current staff to check isNew
-        documentViews: user.staffId ? {
-          where: { staffId: user.staffId },
-          select: { id: true },
-        } : false,
+        documentViews: user.staffId
+          ? {
+              where: { staffId: user.staffId },
+              select: { id: true },
+            }
+          : false,
       },
     }),
     prisma.rawImage.count({ where }),
@@ -367,6 +509,9 @@ casesRoute.get('/:id/images', zValidator('query', listImagesQuerySchema), async 
         documentViews: undefined, // Don't expose in response
         createdAt: img.createdAt.toISOString(),
         updatedAt: img.updatedAt.toISOString(),
+        retentionDeleteAt: img.retentionDeleteAt?.toISOString() ?? null,
+        retentionDeletedAt: img.retentionDeletedAt?.toISOString() ?? null,
+        storageDeletedAt: img.storageDeletedAt?.toISOString() ?? null,
       }
     }),
     pagination: buildPaginationResponse(safePage, safeLimit, total),
@@ -418,10 +563,28 @@ casesRoute.get('/:id/docs', zValidator('query', listDocsQuerySchema), async (c) 
 casesRoute.get('/images/:imageId/signed-url', async (c) => {
   const imageId = c.req.param('imageId')
   const user = c.get('user')
+  const staffId = user.staffId
+
+  if (!staffId) {
+    return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+  }
 
   const image = await prisma.rawImage.findFirst({
     where: { id: imageId, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, r2Key: true, filename: true },
+    select: {
+      id: true,
+      caseId: true,
+      r2Key: true,
+      filename: true,
+      isStorageDeleted: true,
+      storageDeletedAt: true,
+      retentionDeletedAt: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
   })
 
   if (!image) {
@@ -432,11 +595,25 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
     return c.json({ error: 'NO_FILE', message: 'Image file not available' }, 404)
   }
 
-  const signedUrl = await getSignedDownloadUrl(image.r2Key)
+  if (image.isStorageDeleted || image.storageDeletedAt || image.retentionDeletedAt) {
+    return c.json(
+      {
+        error: 'FILE_DELETED_BY_RETENTION',
+        message: 'Image file was deleted by retention policy',
+        retentionDeletedAt: image.retentionDeletedAt?.toISOString() ?? image.storageDeletedAt?.toISOString(),
+      },
+      410
+    )
+  }
+
+  const signedUrl = await getSignedDownloadUrl(image.r2Key, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS)
 
   if (!signedUrl) {
     return c.json(
-      { error: 'STORAGE_ERROR', message: 'Could not generate signed URL. R2 may not be configured.' },
+      {
+        error: 'STORAGE_ERROR',
+        message: 'Could not generate signed URL. R2 may not be configured.',
+      },
       500
     )
   }
@@ -445,7 +622,7 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
     id: image.id,
     filename: image.filename,
     url: signedUrl,
-    expiresIn: 3600, // 1 hour
+    expiresIn: SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS,
   })
 })
 
@@ -454,10 +631,32 @@ casesRoute.get('/images/:imageId/signed-url', async (c) => {
 casesRoute.get('/images/:imageId/file', async (c) => {
   const imageId = c.req.param('imageId')
   const user = c.get('user')
+  const staffId = user.staffId
+
+  if (!staffId) {
+    return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+  }
 
   const image = await prisma.rawImage.findFirst({
     where: { id: imageId, taxCase: { client: buildClientScopeFilter(user) } },
-    select: { id: true, r2Key: true, filename: true, mimeType: true },
+    select: {
+      id: true,
+      caseId: true,
+      r2Key: true,
+      filename: true,
+      mimeType: true,
+      status: true,
+      classifiedType: true,
+      category: true,
+      isStorageDeleted: true,
+      storageDeletedAt: true,
+      retentionDeletedAt: true,
+      taxCase: {
+        select: {
+          client: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
   })
 
   if (!image) {
@@ -468,13 +667,21 @@ casesRoute.get('/images/:imageId/file', async (c) => {
     return c.json({ error: 'NO_FILE', message: 'Image file not available' }, 404)
   }
 
-  const signedUrl = await getSignedDownloadUrl(image.r2Key)
+  if (image.isStorageDeleted || image.storageDeletedAt || image.retentionDeletedAt) {
+    return c.json(
+      {
+        error: 'FILE_DELETED_BY_RETENTION',
+        message: 'Image file was deleted by retention policy',
+        retentionDeletedAt: image.retentionDeletedAt?.toISOString() ?? image.storageDeletedAt?.toISOString(),
+      },
+      410
+    )
+  }
+
+  const signedUrl = await getSignedDownloadUrl(image.r2Key, SENSITIVE_DOC_SIGNED_URL_TTL_SECONDS)
 
   if (!signedUrl) {
-    return c.json(
-      { error: 'STORAGE_ERROR', message: 'Could not fetch file from storage.' },
-      500
-    )
+    return c.json({ error: 'STORAGE_ERROR', message: 'Could not fetch file from storage.' }, 500)
   }
 
   try {
@@ -487,14 +694,39 @@ casesRoute.get('/images/:imageId/file', async (c) => {
     const arrayBuffer = await response.arrayBuffer()
 
     // Determine content type
-    const contentType = image.mimeType || response.headers.get('content-type') || 'application/octet-stream'
+    const contentType =
+      image.mimeType || response.headers.get('content-type') || 'application/octet-stream'
+
+    void logStaffActivity({
+      organizationId: image.taxCase.client.organizationId,
+      clientId: image.taxCase.client.id,
+      caseId: image.caseId,
+      rawImageId: image.id,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.RAW_IMAGE,
+      targetId: image.id,
+      summary: 'Viewed document through file proxy',
+      action: ACTIVITY_ACTIONS.DOCUMENT.FILE_PROXIED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        rawImageId: image.id,
+        docType: image.classifiedType,
+        category: image.category,
+        mimeType: contentType,
+        status: image.status,
+      },
+      request: getAuditRequestContext(c),
+    })
 
     // Return the file with proper headers
     return new Response(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${encodeURIComponent(image.filename)}"`,
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': 'private, no-store, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     })
   } catch (error) {
@@ -517,7 +749,7 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
   // Verify case exists and belongs to user's org
   const taxCase = await prisma.taxCase.findFirst({
     where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
+    select: { id: true, clientId: true },
   })
 
   if (!taxCase) {
@@ -530,7 +762,10 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
   })
 
   if (!template) {
-    return c.json({ error: 'INVALID_DOC_TYPE', message: 'No template found for this document type' }, 400)
+    return c.json(
+      { error: 'INVALID_DOC_TYPE', message: 'No template found for this document type' },
+      400
+    )
   }
 
   // Check if item already exists for this case+template
@@ -544,7 +779,10 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
   })
 
   if (existingItem) {
-    return c.json({ error: 'DUPLICATE', message: 'Checklist item already exists for this document type' }, 409)
+    return c.json(
+      { error: 'DUPLICATE', message: 'Checklist item already exists for this document type' },
+      409
+    )
   }
 
   // Create the checklist item
@@ -564,51 +802,87 @@ casesRoute.post('/:id/checklist/items', zValidator('json', addChecklistItemSchem
     },
   })
 
+  await logCaseMutation(c, user, {
+    clientId: taxCase.clientId,
+    caseId,
+    targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+    targetId: item.id,
+    targetLabel: template.labelVi,
+    summary: 'Added checklist item',
+    action: ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['checklistItems'],
+      docType,
+      expectedCount: expectedCount ?? 1,
+      manuallyAdded: true,
+    },
+  })
+
   return c.json({ data: item }, 201)
 })
 
 // PATCH /cases/:id/checklist/items/:itemId/skip - Skip checklist item
-casesRoute.patch('/:id/checklist/items/:itemId/skip', zValidator('json', skipChecklistItemSchema), async (c) => {
-  const { id: caseId, itemId } = c.req.param()
-  const { reason } = c.req.valid('json')
-  const user = c.get('user')
-  const staffId = user.staffId || null
+casesRoute.patch(
+  '/:id/checklist/items/:itemId/skip',
+  zValidator('json', skipChecklistItemSchema),
+  async (c) => {
+    const { id: caseId, itemId } = c.req.param()
+    const { reason } = c.req.valid('json')
+    const user = c.get('user')
+    const staffId = user.staffId || null
 
-  // Verify case belongs to user's org
-  const caseCheck = await prisma.taxCase.findFirst({
-    where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
-  })
-  if (!caseCheck) {
-    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    // Verify case belongs to user's org
+    const caseCheck = await prisma.taxCase.findFirst({
+      where: { id: caseId, ...buildNestedClientScope(user) },
+      select: { id: true, clientId: true },
+    })
+    if (!caseCheck) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+
+    // Verify item exists and belongs to case
+    const item = await prisma.checklistItem.findFirst({
+      where: { id: itemId, caseId },
+    })
+
+    if (!item) {
+      return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
+    }
+
+    // Update item to NOT_REQUIRED
+    const updatedItem = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'NOT_REQUIRED',
+        skippedAt: new Date(),
+        skippedById: staffId,
+        skippedReason: reason,
+      },
+      include: {
+        template: true,
+        skippedBy: { select: { id: true, name: true } },
+      },
+    })
+
+    await logCaseMutation(c, user, {
+      clientId: caseCheck.clientId,
+      caseId,
+      targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+      targetId: itemId,
+      targetLabel: updatedItem.template.labelVi,
+      summary: 'Skipped checklist item',
+      action: ACTIVITY_ACTIONS.CASE.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['status', 'skippedAt', 'skippedById', 'skippedReason'],
+        status: 'NOT_REQUIRED',
+      },
+    })
+
+    return c.json({ data: updatedItem })
   }
-
-  // Verify item exists and belongs to case
-  const item = await prisma.checklistItem.findFirst({
-    where: { id: itemId, caseId },
-  })
-
-  if (!item) {
-    return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
-  }
-
-  // Update item to NOT_REQUIRED
-  const updatedItem = await prisma.checklistItem.update({
-    where: { id: itemId },
-    data: {
-      status: 'NOT_REQUIRED',
-      skippedAt: new Date(),
-      skippedById: staffId,
-      skippedReason: reason,
-    },
-    include: {
-      template: true,
-      skippedBy: { select: { id: true, name: true } },
-    },
-  })
-
-  return c.json({ data: updatedItem })
-})
+)
 
 // PATCH /cases/:id/checklist/items/:itemId/unskip - Restore skipped item
 casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
@@ -618,7 +892,7 @@ casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
   // Verify case belongs to user's org
   const caseCheck = await prisma.taxCase.findFirst({
     where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
+    select: { id: true, clientId: true },
   })
   if (!caseCheck) {
     return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
@@ -655,150 +929,375 @@ casesRoute.patch('/:id/checklist/items/:itemId/unskip', async (c) => {
     include: { template: true },
   })
 
+  await logCaseMutation(c, user, {
+    clientId: caseCheck.clientId,
+    caseId,
+    targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+    targetId: itemId,
+    targetLabel: updatedItem.template.labelVi,
+    summary: 'Unskipped checklist item',
+    action: ACTIVITY_ACTIONS.CASE.UPDATED,
+    riskLevel: ActivityRiskLevel.LOW,
+    metadata: {
+      changedFields: ['status', 'skippedAt', 'skippedById', 'skippedReason'],
+      status: newStatus,
+    },
+  })
+
   return c.json({ data: updatedItem })
 })
 
 // PATCH /cases/:id/checklist/items/:itemId/notes - Update item notes
-casesRoute.patch('/:id/checklist/items/:itemId/notes', zValidator('json', updateChecklistItemNotesSchema), async (c) => {
-  const { id: caseId, itemId } = c.req.param()
-  const user = c.get('user')
+casesRoute.patch(
+  '/:id/checklist/items/:itemId/notes',
+  zValidator('json', updateChecklistItemNotesSchema),
+  async (c) => {
+    const { id: caseId, itemId } = c.req.param()
+    const user = c.get('user')
 
-  // Verify case belongs to user's org
-  const caseCheck = await prisma.taxCase.findFirst({
-    where: { id: caseId, ...buildNestedClientScope(user) },
-    select: { id: true },
-  })
-  if (!caseCheck) {
-    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    // Verify case belongs to user's org
+    const caseCheck = await prisma.taxCase.findFirst({
+      where: { id: caseId, ...buildNestedClientScope(user) },
+      select: { id: true, clientId: true },
+    })
+    if (!caseCheck) {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    const { notes } = c.req.valid('json')
+
+    // Verify item exists and belongs to case
+    const item = await prisma.checklistItem.findFirst({
+      where: { id: itemId, caseId },
+    })
+
+    if (!item) {
+      return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
+    }
+
+    const updatedItem = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data: { notes },
+      include: { template: true },
+    })
+
+    await logCaseMutation(c, user, {
+      clientId: caseCheck.clientId,
+      caseId,
+      targetType: ACTIVITY_TARGET_TYPES.CHECKLIST_ITEM,
+      targetId: itemId,
+      targetLabel: updatedItem.template.labelVi,
+      summary: 'Updated checklist item notes',
+      action: ACTIVITY_ACTIONS.CASE.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: ['notes'],
+      },
+    })
+
+    return c.json({ data: updatedItem })
   }
-  const { notes } = c.req.valid('json')
-
-  // Verify item exists and belongs to case
-  const item = await prisma.checklistItem.findFirst({
-    where: { id: itemId, caseId },
-  })
-
-  if (!item) {
-    return c.json({ error: 'NOT_FOUND', message: 'Checklist item not found' }, 404)
-  }
-
-  const updatedItem = await prisma.checklistItem.update({
-    where: { id: itemId },
-    data: { notes },
-    include: { template: true },
-  })
-
-  return c.json({ data: updatedItem })
-})
+)
 
 // ============================================
 // STATUS ACTION ENDPOINTS (Computed Status System)
 // ============================================
 
 // POST /cases/:id/send-to-review - Move case to REVIEW state
-casesRoute.post(
-  '/:id/send-to-review',
-  zValidator('param', caseIdParamSchema),
-  async (c) => {
-    const { id } = c.req.valid('param')
-    const user = c.get('user')
+casesRoute.post('/:id/send-to-review', zValidator('param', caseIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-    // Verify case exists and check current state (org-scoped)
-    const taxCase = await prisma.taxCase.findFirst({
-      where: { id, ...buildNestedClientScope(user) },
-      select: { isInReview: true, isFiled: true }
-    })
+  // Verify case exists and check current state (org-scoped)
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: { clientId: true, isInReview: true, isFiled: true },
+  })
 
-    if (!taxCase) {
-      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-    }
-
-    if (taxCase.isFiled) {
-      return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
-    }
-
-    if (taxCase.isInReview) {
-      return c.json({ error: 'ALREADY_IN_REVIEW', message: 'Case is already in review' }, 400)
-    }
-
-    await prisma.taxCase.update({
-      where: { id },
-      data: {
-        isInReview: true,
-        lastActivityAt: new Date()
-      }
-    })
-
-    return c.json({ success: true })
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
-)
+
+  if (taxCase.isFiled) {
+    return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
+  }
+
+  if (taxCase.isInReview) {
+    return c.json({ error: 'ALREADY_IN_REVIEW', message: 'Case is already in review' }, 400)
+  }
+
+  await prisma.taxCase.update({
+    where: { id },
+    data: {
+      isInReview: true,
+      lastActivityAt: new Date(),
+    },
+  })
+
+  await logCaseMutation(c, user, {
+    clientId: taxCase.clientId,
+    caseId: id,
+    summary: 'Sent tax case to review',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.MEDIUM,
+    metadata: {
+      changedFields: ['isInReview', 'lastActivityAt'],
+      isInReview: true,
+    },
+  })
+
+  return c.json({ success: true })
+})
 
 // POST /cases/:id/mark-filed - Mark case as filed
-casesRoute.post(
-  '/:id/mark-filed',
-  zValidator('param', caseIdParamSchema),
-  async (c) => {
-    const { id } = c.req.valid('param')
-    const user = c.get('user')
+casesRoute.post('/:id/mark-filed', zValidator('param', caseIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-    const taxCase = await prisma.taxCase.findFirst({
-      where: { id, ...buildNestedClientScope(user) },
-      select: { isInReview: true, isFiled: true }
-    })
-
-    if (!taxCase) {
-      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-    }
-
-    if (taxCase.isFiled) {
-      return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
-    }
-
-    await prisma.taxCase.update({
-      where: { id },
+  const now = new Date()
+  const result = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        isFiled: false,
+        status: { not: 'FILED' },
+        filedAt: null,
+      },
       data: {
         isFiled: true,
-        filedAt: new Date(),
-        lastActivityAt: new Date()
-      }
+        isInReview: false,
+        status: 'FILED',
+        filedAt: now,
+        lastActivityAt: now,
+      },
     })
 
-    return c.json({ success: true })
-  }
-)
+    if (updateResult.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { id: true },
+      })
 
-// POST /cases/:id/reopen - Reopen a filed case (goes back to review)
+      return {
+        error: scopedCase ? 'ALREADY_FILED' : 'NOT_FOUND',
+      } as const
+    }
+
+    const updated = await tx.taxCase.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        clientId: true,
+        status: true,
+        isFiled: true,
+        filedAt: true,
+      },
+    })
+
+    const retention = await scheduleIdentityRetentionForFiledCase(id, tx)
+    return { updated, scheduledIdentityDocs: retention.scheduled } as const
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json({ error: 'ALREADY_FILED', message: 'Case is already filed' }, 400)
+  }
+
+  if (!result.updated) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  await logCaseMutation(c, user, {
+    clientId: result.updated.clientId,
+    caseId: id,
+    summary: 'Marked tax case filed',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      changedFields: ['isFiled', 'isInReview', 'status', 'filedAt', 'lastActivityAt'],
+      status: result.updated.status,
+      scheduledIdentityDocs: result.scheduledIdentityDocs,
+    },
+  })
+
+  return c.json({
+    success: true,
+    caseId: result.updated.id,
+    status: result.updated.status,
+    isFiled: result.updated.isFiled,
+    filedAt: result.updated.filedAt?.toISOString() ?? null,
+    scheduledIdentityDocs: result.scheduledIdentityDocs,
+  })
+})
+
+// POST /cases/:id/reopen - Reopen a filed case
+casesRoute.post('/:id/reopen', zValidator('param', caseIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
+  const user = c.get('user')
+
+  const now = new Date()
+  const result = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.taxCase.updateMany({
+      where: {
+        id,
+        ...buildNestedClientScope(user),
+        OR: [{ isFiled: true }, { status: 'FILED' }, { filedAt: { not: null } }],
+      },
+      data: {
+        isFiled: false,
+        isInReview: false,
+        status: 'IN_PROGRESS',
+        filedAt: null,
+        lastActivityAt: now,
+      },
+    })
+
+    if (updateResult.count === 0) {
+      const scopedCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: { id: true },
+      })
+
+      return {
+        error: scopedCase ? 'NOT_FILED' : 'NOT_FOUND',
+      } as const
+    }
+
+    const updated = await tx.taxCase.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        clientId: true,
+        status: true,
+        isFiled: true,
+        filedAt: true,
+      },
+    })
+
+    const retention = await clearScheduledIdentityRetentionForCase(id, tx)
+    return { updated, clearedIdentityDocs: retention.cleared } as const
+  })
+
+  if ('error' in result) {
+    if (result.error === 'NOT_FOUND') {
+      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+    }
+    return c.json({ error: 'NOT_FILED', message: 'Case is not filed' }, 400)
+  }
+
+  if (!result.updated) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
+  }
+
+  await logCaseMutation(c, user, {
+    clientId: result.updated.clientId,
+    caseId: id,
+    summary: 'Reopened filed tax case',
+    action: ACTIVITY_ACTIONS.CASE.STATUS_CHANGED,
+    riskLevel: ActivityRiskLevel.HIGH,
+    metadata: {
+      changedFields: ['isFiled', 'isInReview', 'status', 'filedAt', 'lastActivityAt'],
+      status: result.updated.status,
+      clearedIdentityDocs: result.clearedIdentityDocs,
+    },
+  })
+
+  return c.json({
+    success: true,
+    caseId: result.updated.id,
+    status: result.updated.status,
+    isFiled: result.updated.isFiled,
+    filedAt: result.updated.filedAt?.toISOString() ?? null,
+    clearedIdentityDocs: result.clearedIdentityDocs,
+  })
+})
+
+// POST /cases/:id/identity-retention/extend - Delay scheduled identity doc deletion
 casesRoute.post(
-  '/:id/reopen',
+  '/:id/identity-retention/extend',
   zValidator('param', caseIdParamSchema),
+  zValidator('json', extendIdentityRetentionSchema),
   async (c) => {
     const { id } = c.req.valid('param')
+    const { days } = c.req.valid('json')
     const user = c.get('user')
+    const staffId = user.staffId
 
-    const taxCase = await prisma.taxCase.findFirst({
-      where: { id, ...buildNestedClientScope(user) },
-      select: { isFiled: true }
+    if (!staffId) {
+      return c.json({ error: 'STAFF_REQUIRED', message: 'Staff ID required' }, 400)
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const taxCase = await tx.taxCase.findFirst({
+        where: { id, ...buildNestedClientScope(user) },
+        select: {
+          id: true,
+          clientId: true,
+          status: true,
+          isFiled: true,
+          filedAt: true,
+          client: { select: { organizationId: true } },
+        },
+      })
+
+      if (!taxCase) return null
+
+      if (!taxCase.isFiled && taxCase.status !== 'FILED' && !taxCase.filedAt) {
+        return { error: 'CASE_NOT_FILED' } as const
+      }
+
+      const retention = await extendScheduledIdentityRetentionForCase(id, days, tx)
+      return { taxCase, retention } as const
     })
 
-    if (!taxCase) {
+    if (!result) {
       return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
     }
 
-    if (!taxCase.isFiled) {
-      return c.json({ error: 'NOT_FILED', message: 'Case is not filed' }, 400)
+    if ('error' in result) {
+      return c.json(
+        {
+          error: result.error,
+          message: 'Only filed cases can extend identity document retention',
+        },
+        400
+      )
     }
 
-    await prisma.taxCase.update({
-      where: { id },
-      data: {
-        isFiled: false,
-        isInReview: true, // Go back to review state
-        filedAt: null,
-        lastActivityAt: new Date()
-      }
+    await logStaffActivity({
+      organizationId: result.taxCase.client.organizationId,
+      clientId: result.taxCase.clientId,
+      caseId: id,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.DOCUMENT,
+      targetType: ACTIVITY_TARGET_TYPES.CASE,
+      targetId: id,
+      summary: 'Extended identity document retention',
+      action: ACTIVITY_ACTIONS.DOCUMENT.RETENTION_EXTENDED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        days,
+        scheduledIdentityDocs: result.retention.scheduled,
+        extendedIdentityDocs: result.retention.extended,
+        extendedUntil: result.retention.extendedUntil.toISOString(),
+        nextIdentityDeletionAt: result.retention.nextDeletionAt?.toISOString() ?? null,
+        latestIdentityDeletionAt: result.retention.latestDeletionAt?.toISOString() ?? null,
+      },
+      request: getAuditRequestContext(c),
     })
 
-    return c.json({ success: true })
+    return c.json({
+      success: true,
+      caseId: id,
+      days,
+      scheduledIdentityDocs: result.retention.scheduled,
+      extendedIdentityDocs: result.retention.extended,
+      extendedUntil: result.retention.extendedUntil.toISOString(),
+      nextIdentityDeletionAt: result.retention.nextDeletionAt?.toISOString() ?? null,
+      latestIdentityDeletionAt: result.retention.latestDeletionAt?.toISOString() ?? null,
+    })
   }
 )
 
@@ -836,10 +1335,13 @@ casesRoute.post(
     const lastTrigger = groupingInProgress.get(id)
     if (lastTrigger && Date.now() - lastTrigger < GROUPING_COOLDOWN_MS) {
       const remainingSec = Math.ceil((GROUPING_COOLDOWN_MS - (Date.now() - lastTrigger)) / 1000)
-      return c.json({
-        error: 'RATE_LIMITED',
-        message: `Grouping already in progress. Try again in ${remainingSec}s`
-      }, 429)
+      return c.json(
+        {
+          error: 'RATE_LIMITED',
+          message: `Grouping already in progress. Try again in ${remainingSec}s`,
+        },
+        429
+      )
     }
 
     // Verify case exists and belongs to user's org
@@ -849,9 +1351,9 @@ casesRoute.post(
         id: true,
         _count: {
           select: {
-            rawImages: { where: { status: { in: ['CLASSIFIED', 'LINKED'] } } }
-          }
-        }
+            rawImages: { where: { status: { in: ['CLASSIFIED', 'LINKED'] } } },
+          },
+        },
       },
     })
 
@@ -862,17 +1364,22 @@ casesRoute.post(
     // Check if there are documents to group
     const classifiedCount = taxCase._count.rawImages
     if (classifiedCount === 0) {
-      return c.json({
-        error: 'NO_DOCUMENTS',
-        message: 'No classified documents to group'
-      }, 400)
+      return c.json(
+        {
+          error: 'NO_DOCUMENTS',
+          message: 'No classified documents to group',
+        },
+        400
+      )
     }
 
     // Set rate limit before triggering
     groupingInProgress.set(id, Date.now())
 
     // M2: Audit logging
-    console.log(`[Manual Grouping] caseId=${id} staffId=${user.staffId} forceRegroup=${forceRegroup} docCount=${classifiedCount}`)
+    console.log(
+      `[Manual Grouping] caseId=${id} staffId=${user.staffId} forceRegroup=${forceRegroup} docCount=${classifiedCount}`
+    )
 
     // Trigger Inngest batch grouping job
     const { ids } = await inngest.send({
@@ -905,34 +1412,30 @@ casesRoute.post(
 )
 
 // GET /cases/:id/grouping-status - Check batch document grouping job status
-casesRoute.get(
-  '/:id/grouping-status',
-  zValidator('param', caseIdParamSchema),
-  async (c) => {
-    const { id } = c.req.valid('param')
-    const user = c.get('user')
+casesRoute.get('/:id/grouping-status', zValidator('param', caseIdParamSchema), async (c) => {
+  const { id } = c.req.valid('param')
+  const user = c.get('user')
 
-    const taxCase = await prisma.taxCase.findFirst({
-      where: { id, ...buildNestedClientScope(user) },
-      select: {
-        groupingJobId: true,
-        groupingStartedAt: true,
-      },
-    })
+  const taxCase = await prisma.taxCase.findFirst({
+    where: { id, ...buildNestedClientScope(user) },
+    select: {
+      groupingJobId: true,
+      groupingStartedAt: true,
+    },
+  })
 
-    if (!taxCase) {
-      return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
-    }
-
-    // If groupingJobId is null, no job is running (or it completed)
-    const isRunning = taxCase.groupingJobId !== null
-
-    return c.json({
-      isRunning,
-      jobId: taxCase.groupingJobId,
-      startedAt: taxCase.groupingStartedAt?.toISOString() ?? null,
-    })
+  if (!taxCase) {
+    return c.json({ error: 'NOT_FOUND', message: 'Case not found' }, 404)
   }
-)
+
+  // If groupingJobId is null, no job is running (or it completed)
+  const isRunning = taxCase.groupingJobId !== null
+
+  return c.json({
+    isRunning,
+    jobId: taxCase.groupingJobId,
+    startedAt: taxCase.groupingStartedAt?.toISOString() ?? null,
+  })
+})
 
 export { casesRoute }

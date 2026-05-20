@@ -31,11 +31,50 @@ vi.mock('../../../lib/db', () => ({
   },
 }))
 
+vi.mock('../../../services/activity-log', () => ({
+  getAuditRequestContext: vi.fn(() => ({
+    ipAddress: '127.0.0.1',
+    userAgent: 'vitest',
+    route: '/admin/test',
+    method: 'POST',
+  })),
+  getChangedFieldNames: vi.fn((input: Record<string, unknown>) =>
+    Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key)
+  ),
+  logStaffActivity: vi.fn(),
+}))
+
+vi.mock('../../../middleware/auth', () => ({
+  requireOrgAdmin: async (c: { get: (key: string) => { orgRole?: string | null; role?: string | null }; json: (body: unknown, status?: number) => Response }, next: () => Promise<void>) => {
+    const user = c.get('user')
+    if (user?.orgRole !== 'org:admin' && user?.role !== 'ADMIN') {
+      return c.json({ error: 'Chỉ admin mới có quyền' }, 403)
+    }
+    return next()
+  },
+}))
+
 import { Hono } from 'hono'
 import { prisma } from '../../../lib/db'
 import { adminRoute } from '../index'
+import type { AuthVariables } from '../../../middleware/auth'
 
-const app = new Hono()
+const app = new Hono<{ Variables: AuthVariables }>()
+app.use('*', async (c, next) => {
+  c.set('user', {
+    id: 'clerk_user_1',
+    staffId: 'staff_1',
+    email: 'admin@test.com',
+    name: 'Admin',
+    role: 'ADMIN',
+    organizationId: 'org_db_1',
+    clerkOrgId: 'org_clerk_1',
+    orgRole: 'org:admin',
+  })
+  await next()
+})
 app.route('/admin', adminRoute)
 
 // ============================================

@@ -41,10 +41,13 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
     }
   }, [navigate, token, useUploadPrefix])
 
-  const handleUploadComplete = useCallback((_result: UploadResponse) => {
-    listRef.current?.refetch()
-    queryClient.invalidateQueries({ queryKey: portalDataQueryKey(token) })
-  }, [queryClient, token])
+  const handleUploadComplete = useCallback(
+    (_result: UploadResponse) => {
+      listRef.current?.refetch()
+      queryClient.invalidateQueries({ queryKey: portalDataQueryKey(token) })
+    },
+    [queryClient, token]
+  )
 
   const handleUploadError = useCallback((message: string) => {
     console.error('Upload error:', message)
@@ -63,16 +66,19 @@ export function EntityUploadPage({ token, caseId }: EntityUploadPageProps) {
   }
 
   if (!entity) {
-    const message = error instanceof ApiError ? error.message : t('portal.errorLoading')
+    const message =
+      error instanceof ApiError && error.code === 'RATE_LIMITED'
+        ? t('portal.rateLimited')
+        : error instanceof ApiError
+          ? error.message
+          : t('portal.errorLoading')
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center" role="alert">
         <div className="max-w-sm">
           <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-3">
             <AlertCircle className="w-6 h-6 text-error" aria-hidden="true" />
           </div>
-          <p className="text-foreground mb-4">
-            {error ? message : t('portal.invalidLink')}
-          </p>
+          <p className="text-foreground mb-4">{error ? message : t('portal.invalidLink')}</p>
           <Button onClick={handleBack} className="gap-2">
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             {t('portal.entityUpload.back')}

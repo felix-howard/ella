@@ -421,51 +421,51 @@ describe('getContinuationCategory', () => {
   })
 
   describe('FORM_ prefix', () => {
-    it('returns TAX_FORM for FORM_2210', () => {
+    it('returns TAX_RETURNS for FORM_2210', () => {
       const result = getContinuationCategory('FORM_2210')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for FORM_4562', () => {
+    it('returns TAX_RETURNS for FORM_4562', () => {
       const result = getContinuationCategory('FORM_4562')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for FORM_8949', () => {
+    it('returns TAX_RETURNS for FORM_8949', () => {
       const result = getContinuationCategory('FORM_8949')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for any FORM_ prefix', () => {
+    it('returns TAX_RETURNS for any FORM_ prefix', () => {
       const result = getContinuationCategory('FORM_1040')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
   })
 
   describe('SCHEDULE_ prefix', () => {
-    it('returns TAX_FORM for SCHEDULE_A', () => {
+    it('returns TAX_RETURNS for SCHEDULE_A', () => {
       const result = getContinuationCategory('SCHEDULE_A')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for SCHEDULE_C', () => {
+    it('returns TAX_RETURNS for SCHEDULE_C', () => {
       const result = getContinuationCategory('SCHEDULE_C')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for SCHEDULE_E', () => {
+    it('returns TAX_RETURNS for SCHEDULE_E', () => {
       const result = getContinuationCategory('SCHEDULE_E')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for SCHEDULE_1', () => {
+    it('returns TAX_RETURNS for SCHEDULE_1', () => {
       const result = getContinuationCategory('SCHEDULE_1')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
 
-    it('returns TAX_FORM for any SCHEDULE_ prefix', () => {
+    it('returns TAX_RETURNS for any SCHEDULE_ prefix', () => {
       const result = getContinuationCategory('SCHEDULE_SE')
-      expect(result).toBe('TAX_FORM')
+      expect(result).toBe('TAX_RETURNS')
     })
   })
 
@@ -494,10 +494,10 @@ describe('getContinuationCategory', () => {
   describe('integration scenarios', () => {
     it('categorizes common tax form continuations', () => {
       const testCases = [
-        { parent: 'FORM_2210', expected: 'TAX_FORM' },
-        { parent: 'SCHEDULE_C', expected: 'TAX_FORM' },
-        { parent: 'FORM_4562', expected: 'TAX_FORM' },
-        { parent: 'SCHEDULE_E', expected: 'TAX_FORM' },
+        { parent: 'FORM_2210', expected: 'TAX_RETURNS' },
+        { parent: 'SCHEDULE_C', expected: 'TAX_RETURNS' },
+        { parent: 'FORM_4562', expected: 'TAX_RETURNS' },
+        { parent: 'SCHEDULE_E', expected: 'TAX_RETURNS' },
         { parent: null, expected: 'OTHER' },
       ]
 
@@ -519,7 +519,7 @@ describe('Integration: detectParentForm + getContinuationCategory', () => {
     const category = getContinuationCategory(parentForm)
 
     expect(parentForm).toBe('FORM_2210')
-    expect(category).toBe('TAX_FORM')
+    expect(category).toBe('TAX_RETURNS')
   })
 
   it('handles generic attachment with no parent form', () => {
@@ -583,11 +583,11 @@ describe('Integration: isContinuationPage + getContinuationCategory', () => {
 
     expect(results[0]).toEqual({
       isContinuation: true,
-      category: 'TAX_FORM',
+      category: 'TAX_RETURNS',
     })
     expect(results[1]).toEqual({
       isContinuation: true,
-      category: 'TAX_FORM',
+      category: 'TAX_RETURNS',
     })
     expect(results[2]).toEqual({
       isContinuation: false,

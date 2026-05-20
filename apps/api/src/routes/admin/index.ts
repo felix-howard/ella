@@ -2,10 +2,14 @@
  * Admin API routes
  * Configuration management for intake questions, checklist templates, and doc type library
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import type { TaxType, FieldType, DocType } from '@ella/db'
+import { requireOrgAdmin, type AuthVariables } from '../../middleware/auth'
+import { getAuditRequestContext, getChangedFieldNames, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 import {
   intakeQuestionIdParamSchema,
   listIntakeQuestionsQuerySchema,
@@ -26,7 +30,38 @@ import {
 } from './schemas'
 import type { MessageTemplateCategory } from '@ella/db'
 
-const adminRoute = new Hono()
+const adminRoute = new Hono<{ Variables: AuthVariables }>()
+
+adminRoute.use('*', requireOrgAdmin)
+
+async function logAdminTemplateActivity(
+  c: Context<{ Variables: AuthVariables }>,
+  input: {
+    targetId: string
+    targetLabel?: string | null
+    summary: string
+    action: string
+    riskLevel?: ActivityRiskLevel
+    metadata?: Record<string, unknown>
+  }
+) {
+  const user = c.get('user')
+  if (!user?.staffId) return
+
+  await logStaffActivity({
+    organizationId: user.organizationId,
+    actorStaffId: user.staffId,
+    category: ACTIVITY_CATEGORIES.SETTINGS,
+    targetType: ACTIVITY_TARGET_TYPES.TEMPLATE,
+    targetId: input.targetId,
+    targetLabel: input.targetLabel,
+    summary: input.summary,
+    action: input.action,
+    riskLevel: input.riskLevel ?? ActivityRiskLevel.MEDIUM,
+    metadata: input.metadata,
+    request: getAuditRequestContext(c),
+  })
+}
 
 // ============================================
 // INTAKE QUESTIONS ENDPOINTS
@@ -93,6 +128,18 @@ adminRoute.post(
         },
       })
 
+      await logAdminTemplateActivity(c, {
+        targetId: question.id,
+        targetLabel: question.questionKey,
+        summary: 'Created intake question',
+        action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_CREATED,
+        metadata: {
+          templateType: 'intake_question',
+          questionKey: question.questionKey,
+          taxTypes: question.taxTypes,
+        },
+      })
+
       return c.json(question, 201)
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
@@ -124,6 +171,17 @@ adminRoute.put(
       },
     })
 
+    await logAdminTemplateActivity(c, {
+      targetId: question.id,
+      targetLabel: question.questionKey,
+      summary: 'Updated intake question',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_UPDATED,
+      metadata: {
+        templateType: 'intake_question',
+        changedFields: getChangedFieldNames(body),
+      },
+    })
+
     return c.json(question)
   }
 )
@@ -136,6 +194,14 @@ adminRoute.delete(
     const { id } = c.req.valid('param')
 
     await prisma.intakeQuestion.delete({ where: { id } })
+
+    await logAdminTemplateActivity(c, {
+      targetId: id,
+      summary: 'Deleted intake question',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_DELETED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: { templateType: 'intake_question' },
+    })
 
     return c.json({ success: true })
   }
@@ -213,6 +279,18 @@ adminRoute.post(
         },
       })
 
+      await logAdminTemplateActivity(c, {
+        targetId: template.id,
+        targetLabel: template.docType,
+        summary: 'Created checklist template',
+        action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_CREATED,
+        metadata: {
+          templateType: 'checklist_template',
+          taxType: template.taxType,
+          docType: template.docType,
+        },
+      })
+
       return c.json(template, 201)
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
@@ -240,6 +318,17 @@ adminRoute.put(
       data: body,
     })
 
+    await logAdminTemplateActivity(c, {
+      targetId: template.id,
+      targetLabel: template.docType,
+      summary: 'Updated checklist template',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_UPDATED,
+      metadata: {
+        templateType: 'checklist_template',
+        changedFields: getChangedFieldNames(body),
+      },
+    })
+
     return c.json(template)
   }
 )
@@ -252,6 +341,14 @@ adminRoute.delete(
     const { id } = c.req.valid('param')
 
     await prisma.checklistTemplate.delete({ where: { id } })
+
+    await logAdminTemplateActivity(c, {
+      targetId: id,
+      summary: 'Deleted checklist template',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_DELETED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: { templateType: 'checklist_template' },
+    })
 
     return c.json({ success: true })
   }
@@ -323,6 +420,18 @@ adminRoute.post(
         data: body,
       })
 
+      await logAdminTemplateActivity(c, {
+        targetId: docType.id,
+        targetLabel: docType.code,
+        summary: 'Created document type',
+        action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_CREATED,
+        metadata: {
+          templateType: 'doc_type_library',
+          code: docType.code,
+          category: docType.category,
+        },
+      })
+
       return c.json(docType, 201)
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
@@ -350,6 +459,17 @@ adminRoute.put(
       data: body,
     })
 
+    await logAdminTemplateActivity(c, {
+      targetId: docType.id,
+      targetLabel: docType.code,
+      summary: 'Updated document type',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_UPDATED,
+      metadata: {
+        templateType: 'doc_type_library',
+        changedFields: getChangedFieldNames(body),
+      },
+    })
+
     return c.json(docType)
   }
 )
@@ -362,6 +482,14 @@ adminRoute.delete(
     const { id } = c.req.valid('param')
 
     await prisma.docTypeLibrary.delete({ where: { id } })
+
+    await logAdminTemplateActivity(c, {
+      targetId: id,
+      summary: 'Deleted document type',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_DELETED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: { templateType: 'doc_type_library' },
+    })
 
     return c.json({ success: true })
   }
@@ -453,6 +581,17 @@ adminRoute.post(
       },
     })
 
+    await logAdminTemplateActivity(c, {
+      targetId: template.id,
+      targetLabel: template.title,
+      summary: 'Created message template',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_CREATED,
+      metadata: {
+        templateType: 'message_template',
+        category: template.category,
+      },
+    })
+
     return c.json(template, 201)
   }
 )
@@ -474,6 +613,17 @@ adminRoute.put(
       },
     })
 
+    await logAdminTemplateActivity(c, {
+      targetId: template.id,
+      targetLabel: template.title,
+      summary: 'Updated message template',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_UPDATED,
+      metadata: {
+        templateType: 'message_template',
+        changedFields: getChangedFieldNames(body),
+      },
+    })
+
     return c.json(template)
   }
 )
@@ -486,6 +636,14 @@ adminRoute.delete(
     const { id } = c.req.valid('param')
 
     await prisma.messageTemplate.delete({ where: { id } })
+
+    await logAdminTemplateActivity(c, {
+      targetId: id,
+      summary: 'Deleted message template',
+      action: ACTIVITY_ACTIONS.SETTINGS.ADMIN_TEMPLATE_DELETED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: { templateType: 'message_template' },
+    })
 
     return c.json({ success: true })
   }

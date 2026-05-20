@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@ella/ui'
 import { ArrowLeft } from 'lucide-react'
@@ -28,6 +29,7 @@ function ConversationDetailView() {
   const { t } = useTranslation()
   const { isAdmin } = useOrgRole()
   const { caseId } = Route.useParams()
+  const queryClient = useQueryClient()
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [caseData, setCaseData] = useState<{
@@ -150,6 +152,7 @@ function ConversationDetailView() {
               : m
           )
         )
+        queryClient.invalidateQueries({ queryKey: ['activity'] })
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Failed to send message:', error)
@@ -162,7 +165,7 @@ function ConversationDetailView() {
         )
       }
     },
-    [caseId]
+    [caseId, queryClient]
   )
 
   // Retry a failed optimistic message

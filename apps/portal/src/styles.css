@@ -50,20 +50,57 @@
 }
 
 /* Sanitized agreement custom HTML rendered on signing page (defence-in-depth via DOMPurify) */
-.agreement-custom-html-content > * + * { margin-top: 0.65rem; }
-.agreement-custom-html-content h2 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; color: var(--color-foreground); }
-.agreement-custom-html-content h3 { font-size: 0.9375rem; font-weight: 600; margin-top: 1rem; color: var(--color-foreground); }
+.agreement-custom-html-content {
+  max-width: 72ch;
+  margin-inline: auto;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.agreement-custom-html-content > * + * { margin-top: 0.9rem; }
+.agreement-custom-html-content h2 {
+  margin-top: 2.1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border, #cbd5e1) 75%, transparent);
+  color: var(--color-foreground);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+.agreement-custom-html-content h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.agreement-custom-html-content h3 {
+  margin-top: 1.4rem;
+  color: var(--color-foreground);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
 .agreement-custom-html-content p { margin: 0; }
 .agreement-custom-html-content ul,
-.agreement-custom-html-content ol { padding-left: 1.25rem; }
+.agreement-custom-html-content ol {
+  padding-left: 1.5rem;
+  margin-top: 0.9rem;
+}
 .agreement-custom-html-content ul { list-style: disc; }
 .agreement-custom-html-content ol { list-style: decimal; }
-.agreement-custom-html-content li + li { margin-top: 0.35rem; }
+.agreement-custom-html-content li {
+  padding-left: 0.15rem;
+  line-height: 1.65;
+}
+.agreement-custom-html-content li + li { margin-top: 0.45rem; }
 .agreement-custom-html-content a { color: var(--color-primary, #2563eb); text-decoration: underline; }
-.agreement-custom-html-content strong { font-weight: 600; }
+.agreement-custom-html-content strong { font-weight: 700; }
 .agreement-custom-html-content em { font-style: italic; }
 
 @media (min-width: 1024px) {
-  .agreement-custom-html-content h2 { font-size: 1.0625rem; }
-  .agreement-custom-html-content h3 { font-size: 1rem; }
+  .agreement-custom-html-content {
+    font-size: 1.0625rem;
+  }
+  .agreement-custom-html-content h2 { font-size: 1.35rem; }
+  .agreement-custom-html-content h3 { font-size: 1.125rem; }
 }

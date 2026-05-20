@@ -34,7 +34,12 @@ export const UploadedFilesList = forwardRef<UploadedFilesListHandle, UploadedFil
           setFiles(result.uploads)
         }
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : t('portal.errorLoading')
+        const message =
+          err instanceof ApiError && err.code === 'RATE_LIMITED'
+            ? t('portal.rateLimited')
+            : err instanceof ApiError
+              ? err.message
+              : t('portal.errorLoading')
         toast.error(message)
       } finally {
         if (isMountedRef.current) setLoading(false)

@@ -17,6 +17,10 @@ import {
   groupIdParamSchema,
   listGroupsQuerySchema,
 } from './schemas'
+import {
+  isCaseFiled,
+  scheduleIdentityRetentionForFiledCase,
+} from '../../services/identity-doc-retention'
 
 const clientGroupsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -301,7 +305,7 @@ clientGroupsRoute.get(
     }
 
     // Get all cases in group for this tax year with their images
-    const cases = await prisma.taxCase.findMany({
+    let cases = await prisma.taxCase.findMany({
       where: {
         client: {
           clientGroupId: id,
@@ -315,6 +319,29 @@ clientGroupsRoute.get(
       },
     })
 
+    const filedCases = cases.filter((taxCase) => isCaseFiled(taxCase))
+    if (filedCases.length > 0) {
+      const results = await Promise.all(
+        filedCases.map((taxCase) => scheduleIdentityRetentionForFiledCase(taxCase.id))
+      )
+
+      if (results.some((result) => result.scheduled > 0)) {
+        cases = await prisma.taxCase.findMany({
+          where: {
+            client: {
+              clientGroupId: id,
+              organizationId: orgId,
+            },
+            taxYear,
+          },
+          include: {
+            client: { select: { id: true, name: true, clientType: true } },
+            rawImages: { orderBy: { createdAt: 'desc' } },
+          },
+        })
+      }
+    }
+
     // Flatten images with entity info
     const images = cases.flatMap((tc) =>
       tc.rawImages.map((img) => ({
@@ -322,6 +349,11 @@ clientGroupsRoute.get(
         entityClientId: tc.client.id,
         entityName: tc.client.name,
         entityType: tc.client.clientType,
+        createdAt: img.createdAt.toISOString(),
+        updatedAt: img.updatedAt.toISOString(),
+        retentionDeleteAt: img.retentionDeleteAt?.toISOString() ?? null,
+        retentionDeletedAt: img.retentionDeletedAt?.toISOString() ?? null,
+        storageDeletedAt: img.storageDeletedAt?.toISOString() ?? null,
       }))
     )
 

@@ -11,6 +11,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
 import { authMiddleware, requireOrgAdmin } from '../../middleware/auth'
@@ -24,6 +25,8 @@ import {
   markLeadMessagesReadSchema,
 } from './messages-schemas'
 import { getVerifiedAuth } from './auth-helpers'
+import { getAuditRequestContext, logStaffActivity } from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const leadMessagesRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -155,6 +158,25 @@ leadMessagesRoute.post(
       channel: 'SMS',
     }).catch(() => {})
 
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.MESSAGE,
+      targetId: message.id,
+      summary: 'Sent SMS to lead',
+      action: ACTIVITY_ACTIONS.LEAD.MESSAGE_SENT,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        channel: 'SMS',
+        leadId: lead.id,
+        messageId: message.id,
+        smsSent: smsResult.success,
+        twilioStatusCategory: twilioStatus.startsWith('ERROR:') ? 'failed' : twilioStatus,
+      },
+      request: getAuditRequestContext(c),
+    })
+
     return c.json(
       {
         message: {
@@ -210,7 +232,7 @@ leadMessagesRoute.post(
   zValidator('param', leadIdParamSchema),
   zValidator('json', markLeadMessagesReadSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { id } = c.req.valid('param')
     const { upTo } = c.req.valid('json')
 
@@ -232,6 +254,23 @@ leadMessagesRoute.post(
         direction: 'INBOUND',
         createdAt: { gt: readAt },
       },
+    })
+
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.LEAD,
+      targetId: id,
+      summary: 'Marked lead messages read',
+      action: ACTIVITY_ACTIONS.LEAD.MESSAGE_READ,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        leadId: id,
+        readAt: readAt.toISOString(),
+        unreadCount,
+      },
+      request: getAuditRequestContext(c),
     })
 
     return c.json({ leadId: id, unreadCount, readAt: readAt.toISOString() })

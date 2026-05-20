@@ -4,6 +4,7 @@
  */
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { ActivityRiskLevel } from '@ella/db'
 import { prisma } from '../../lib/db'
 import { getPaginationParams, buildPaginationResponse } from '../../lib/constants'
 import { sanitizeSearchInput, sanitizeTextInput } from '../../lib/validation'
@@ -23,6 +24,13 @@ import {
   bulkSmsSchema,
 } from './schemas'
 import { getVerifiedAuth } from './auth-helpers'
+import {
+  getAuditRequestContext,
+  getChangedFieldNames,
+  logStaffActivity,
+  logSystemActivity,
+} from '../../services/activity-log'
+import { ACTIVITY_ACTIONS, ACTIVITY_CATEGORIES, ACTIVITY_TARGET_TYPES } from '../../services/activity-actions'
 
 const leadsRoute = new Hono<{ Variables: AuthVariables }>()
 
@@ -75,6 +83,23 @@ leadsRoute.post(
         },
       })
 
+      await logSystemActivity({
+        organizationId: org.id,
+        category: ACTIVITY_CATEGORIES.LEAD,
+        targetType: ACTIVITY_TARGET_TYPES.LEAD,
+        targetId: lead.id,
+        summary: 'Created lead from public form',
+        action: ACTIVITY_ACTIONS.LEAD.CREATED,
+        riskLevel: ActivityRiskLevel.LOW,
+        metadata: {
+          source: 'public_form',
+          campaignTag,
+          hasEmail: Boolean(email),
+          hasBusinessName: Boolean(businessName),
+        },
+        request: getAuditRequestContext(c),
+      })
+
       return c.json({ success: true, leadId: lead.id })
     } catch (err: unknown) {
       // Handle duplicate phone+org unique constraint violation
@@ -95,7 +120,7 @@ leadsRoute.post(
   requireOrgAdmin,
   zValidator('json', adminCreateLeadSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { firstName, lastName, phone, email, notes } = c.req.valid('json')
 
     const normalizedPhone = formatPhoneToE164(phone)
@@ -111,6 +136,23 @@ leadsRoute.post(
           status: 'NEW',
           organizationId: orgId,
         },
+      })
+
+      await logStaffActivity({
+        organizationId: orgId,
+        actorStaffId: staffId,
+        category: ACTIVITY_CATEGORIES.LEAD,
+        targetType: ACTIVITY_TARGET_TYPES.LEAD,
+        targetId: lead.id,
+        summary: 'Created lead',
+        action: ACTIVITY_ACTIONS.LEAD.CREATED,
+        riskLevel: ActivityRiskLevel.LOW,
+        metadata: {
+          source: 'workspace_admin',
+          hasEmail: Boolean(email),
+          hasNotes: Boolean(notes),
+        },
+        request: getAuditRequestContext(c),
       })
 
       return c.json({ success: true, data: lead })
@@ -305,7 +347,7 @@ leadsRoute.patch(
   zValidator('param', leadIdParamSchema),
   zValidator('json', updateLeadSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { id } = c.req.valid('param')
     const updates = c.req.valid('json')
 
@@ -329,6 +371,21 @@ leadsRoute.patch(
     const updated = await prisma.lead.update({
       where: { id },
       data: sanitized,
+    })
+
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.LEAD,
+      targetId: id,
+      summary: 'Updated lead',
+      action: ACTIVITY_ACTIONS.LEAD.UPDATED,
+      riskLevel: ActivityRiskLevel.LOW,
+      metadata: {
+        changedFields: getChangedFieldNames(sanitized),
+      },
+      request: getAuditRequestContext(c),
     })
 
     return c.json({ success: true, data: updated })
@@ -512,6 +569,26 @@ leadsRoute.post(
       conversationId: result.conversation.id,
     })
 
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.LEAD,
+      targetId: id,
+      summary: 'Converted lead to client',
+      action: ACTIVITY_ACTIONS.LEAD.CONVERTED,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        clientId: result.client.id,
+        caseId: result.taxCase.id,
+        conversationId: result.conversation.id,
+        migratedMessages: result.migratedCount,
+        migratedAgreements: result.agreementMigratedCount,
+        welcomeSmsRequested: sendWelcomeSms,
+      },
+      request: getAuditRequestContext(c),
+    })
+
     // Send welcome SMS if requested (outside transaction)
     if (sendWelcomeSms && isTwilioConfigured()) {
       try {
@@ -660,6 +737,26 @@ leadsRoute.post(
       })
     }
 
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.ORGANIZATION,
+      targetId: orgId,
+      summary: 'Sent bulk SMS to leads',
+      action: ACTIVITY_ACTIONS.LEAD.MESSAGE_SENT,
+      riskLevel: ActivityRiskLevel.MEDIUM,
+      metadata: {
+        channel: 'SMS',
+        count: leads.length,
+        sent,
+        failed,
+        formLinkType,
+        usedStaffFormSlug: Boolean(staffFormSlug),
+      },
+      request: getAuditRequestContext(c),
+    })
+
     return c.json({
       success: true,
       sent,
@@ -678,7 +775,7 @@ leadsRoute.delete(
   requireOrgAdmin,
   zValidator('param', leadIdParamSchema),
   async (c) => {
-    const { orgId } = getVerifiedAuth(c.get('user'))
+    const { orgId, staffId } = getVerifiedAuth(c.get('user'))
     const { id } = c.req.valid('param')
 
     const lead = await prisma.lead.findFirst({
@@ -690,6 +787,22 @@ leadsRoute.delete(
     }
 
     await prisma.lead.delete({ where: { id } })
+
+    await logStaffActivity({
+      organizationId: orgId,
+      actorStaffId: staffId,
+      category: ACTIVITY_CATEGORIES.LEAD,
+      targetType: ACTIVITY_TARGET_TYPES.LEAD,
+      targetId: id,
+      summary: 'Deleted lead',
+      action: ACTIVITY_ACTIONS.LEAD.DELETED,
+      riskLevel: ActivityRiskLevel.HIGH,
+      metadata: {
+        previousStatus: lead.status,
+        convertedToId: lead.convertedToId,
+      },
+      request: getAuditRequestContext(c),
+    })
 
     return c.json({ success: true })
   }

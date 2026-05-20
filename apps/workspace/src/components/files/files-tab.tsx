@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import JSZip from 'jszip'
 import { Upload, Download, CheckCheck, Loader2, FolderSync, Sparkles } from 'lucide-react'
 import { cn, Button } from '@ella/ui'
-import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory, type EntityInfo } from '../../lib/api-client'
+import { api, fetchMediaBlob, type RawImage, type DigitalDoc, type DocCategory, type EntityInfo, type IdentityRetentionExtensionDays } from '../../lib/api-client'
 import { toast, hotToast } from '../../stores/toast-store'
 import { DOC_CATEGORIES, CATEGORY_ORDER, isValidCategory, type DocCategoryKey } from '../../lib/doc-categories'
 import { groupDocuments } from '../../lib/document-grouping'
@@ -20,9 +20,15 @@ import { SimpleImageViewerModal } from './simple-image-viewer-modal'
 import { ManualClassificationModal, VerificationModal } from '../documents'
 import { useMarkDocumentViewed } from '../../hooks'
 import { EntityFilterBar } from './entity-filter-bar'
+import { UploadLinkManager } from '../upload-links'
+import { isRetentionStorageDeleted } from './identity-retention'
 
 export interface FilesTabProps {
   caseId: string
+  clientId?: string
+  uploadLinkCaseId?: string
+  onSendUploadLink?: () => void
+  isSendingUploadLink?: boolean
   /** Pre-fetched images from parent (optional - for consistent loading with other tabs) */
   images?: RawImage[]
   /** Pre-fetched docs from parent (optional) */
@@ -33,6 +39,13 @@ export interface FilesTabProps {
   clientGroupId?: string | null
   /** Tax year for group images query */
   taxYear?: number
+  identityRetentionSummary?: {
+    scheduledCount: number
+    nextDeletionLabel: string | null
+    canExtend: boolean
+    isExtendPending: boolean
+    onExtend?: (days: IdentityRetentionExtensionDays) => Promise<unknown> | unknown
+  }
 }
 
 /** Navigation item for file viewer modals */
@@ -46,7 +59,19 @@ export interface FileNavItem {
  * Files Tab - Document explorer view showing all uploaded files
  * Grouped by DB category field, unclassified at top
  */
-export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoading: parentLoading, clientGroupId, taxYear }: FilesTabProps) {
+export function FilesTab({
+  caseId,
+  clientId,
+  uploadLinkCaseId,
+  onSendUploadLink,
+  isSendingUploadLink,
+  images: parentImages,
+  docs: parentDocs,
+  isLoading: parentLoading,
+  clientGroupId,
+  taxYear,
+  identityRetentionSummary,
+}: FilesTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [classifyImage, setClassifyImage] = useState<RawImage | null>(null)
@@ -290,12 +315,14 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       // Groups first (each group's pages in order)
       for (const group of groups) {
         for (const img of group.images) {
+          if (isRetentionStorageDeleted(img)) continue
           items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
         }
       }
 
       // Then ungrouped
       for (const img of ungrouped) {
+        if (isRetentionStorageDeleted(img)) continue
         items.push({ imageId: img.id, doc: docsMap.get(img.id), image: img })
       }
     }
@@ -475,6 +502,14 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
     setIsDownloading(true)
 
     try {
+      const downloadableImages = images.filter((img) => !isRetentionStorageDeleted(img))
+      const skippedCount = images.length - downloadableImages.length
+
+      if (downloadableImages.length === 0) {
+        toast.error(t('filesTab.noDownloadableFiles'))
+        return
+      }
+
       const zip = new JSZip()
       const usedFilenames = new Map<string, number>()
 
@@ -491,7 +526,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       }
 
       // Download all files in parallel
-      const results = await Promise.all(images.map(fetchFile))
+      const results = await Promise.all(downloadableImages.map(fetchFile))
 
       // Add successful downloads to ZIP
       for (const result of results) {
@@ -537,7 +572,11 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       document.body.removeChild(link)
 
       URL.revokeObjectURL(zipUrl)
-      toast.success(t('filesTab.downloadedFiles', { count: images.length }))
+      const downloadedCount = results.filter((result) => result.success && result.blob).length
+      toast.success(t('filesTab.downloadedFiles', { count: downloadedCount }))
+      if (skippedCount > 0) {
+        toast.info(t('filesTab.skippedDeletedFiles', { count: skippedCount }))
+      }
     } catch {
       toast.error(t('filesTab.downloadError'))
     } finally {
@@ -724,12 +763,20 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
   // Empty state - only when there are truly no files at all
   if (allImages.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">{t('filesTab.noFiles')}</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t('filesTab.noFilesDesc')}
-        </p>
+      <div className="space-y-4">
+        <UploadLinkManager
+          caseId={uploadLinkCaseId ?? caseId}
+          clientId={clientId}
+          onSendSms={onSendUploadLink}
+          isSendingSms={isSendingUploadLink}
+        />
+        <div className="text-center py-12">
+          <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">{t('filesTab.noFiles')}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('filesTab.noFilesDesc')}
+          </p>
+        </div>
       </div>
     )
   }
@@ -740,6 +787,13 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
       onDragEnter={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      <UploadLinkManager
+        caseId={uploadLinkCaseId ?? caseId}
+        clientId={clientId}
+        onSendSms={onSendUploadLink}
+        isSendingSms={isSendingUploadLink}
+      />
+
       {/* Action buttons header */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
@@ -876,6 +930,7 @@ export function FilesTab({ caseId, images: parentImages, docs: parentDocs, isLoa
             defaultCollapsed={images.length > 30 && idx > 0}
             entityMap={isUnifiedMode ? entityMap : undefined}
             entities={isUnifiedMode ? entities : undefined}
+            identityRetentionSummary={categoryKey === 'IDENTITY' ? identityRetentionSummary : undefined}
           />
         )
       })}

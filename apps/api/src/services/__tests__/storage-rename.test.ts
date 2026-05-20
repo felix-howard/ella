@@ -1,6 +1,7 @@
 /**
  * Storage Rename Function Tests
- * Tests R2 copy+delete pattern for file renaming
+ * Tests R2 copy-only pattern for file renaming.
+ * Callers delete the old key after DB update succeeds.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
@@ -51,7 +52,7 @@ describe('Storage Rename', () => {
   })
 
   describe('renameFile', () => {
-    it('should copy file to new key and delete old key', async () => {
+    it('should copy file to new key', async () => {
       mockSend.mockResolvedValue({})
 
       const result = await renameFile(
@@ -125,11 +126,8 @@ describe('Storage Rename', () => {
       expect(result.newKey).toBe('cases/abc123/raw/123456.pdf')
     })
 
-    it('should succeed even if delete fails (orphaned file OK)', async () => {
-      // First call (copy) succeeds, second call (delete) fails
-      mockSend
-        .mockResolvedValueOnce({}) // CopyObject
-        .mockRejectedValueOnce(new Error('Delete failed')) // DeleteObject
+    it('should leave old key deletion to the caller', async () => {
+      mockSend.mockResolvedValue({})
 
       const result = await renameFile(
         'cases/abc123/raw/123456.pdf',
@@ -142,11 +140,10 @@ describe('Storage Rename', () => {
         }
       )
 
-      // Should still succeed
       expect(result.success).toBe(true)
       expect(result.newKey).toBe('cases/abc123/docs/2025_W2_John.pdf')
-      // Warning should be logged
-      expect(console.warn).toHaveBeenCalled()
+      expect(mockSend).toHaveBeenCalledTimes(1)
+      expect(console.warn).not.toHaveBeenCalled()
     })
 
     it('should handle Vietnamese names correctly', async () => {
@@ -166,9 +163,8 @@ describe('Storage Rename', () => {
       expect(result.newKey).toBe('cases/abc123/docs/2025_W2_CongTyAbc_NguyenVanA.pdf')
     })
 
-    it('should use current year when taxYear is null', async () => {
+    it('should omit year for identity docs even when taxYear is null', async () => {
       mockSend.mockResolvedValue({})
-      const currentYear = new Date().getFullYear()
 
       const result = await renameFile(
         'cases/abc123/raw/123456.pdf',
@@ -181,7 +177,7 @@ describe('Storage Rename', () => {
         }
       )
 
-      expect(result.newKey).toContain(String(currentYear))
+      expect(result.newKey).toBe('cases/abc123/docs/SSN_CARD_John.pdf')
     })
 
     it('should default to pdf extension when none found', async () => {
@@ -217,7 +213,7 @@ describe('Storage Rename', () => {
         }
       )
 
-      expect(result.newKey).toBe('cases/abc123/docs/2025_PASSPORT_John.pdf')
+      expect(result.newKey).toBe('cases/abc123/docs/PASSPORT_John.pdf')
     })
 
     it('should handle complex doc types', async () => {

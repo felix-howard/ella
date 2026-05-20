@@ -1,11 +1,283 @@
 # Project Changelog
 
-> **Last Updated:** 2026-05-17 ICT
+> **Last Updated:** 2026-05-20 ICT
 > **Format:** Semantic versioning + dated entries. Most recent first.
 
 ---
 
+## 2026-05-20
+
+### API/Workspace: Identity Retention Countdown Eligibility
+**Status:** Complete
+
+**Changed:**
+- Fixed filed-case identity retention scheduling for Identity category uploads whose classifier type is ambiguous (`OTHER`, `UNKNOWN`, or empty).
+- Kept known non-retention identity-category document types, such as Power of Attorney, excluded from auto-delete.
+- Ensured the expired identity-doc deletion job uses the same eligibility gate as scheduling, so Files tab countdown badges have matching backend behavior.
+- Added Files API read-repair so existing filed cases schedule missing identity retention before returning file rows.
+- Moved retention date and extend action from the client header into the Identity Documents section.
+
+### Portal: Solo Upload File List
+**Status:** Complete
+
+**Changed:**
+- Added the uploaded documents list to solo/no-business upload pages.
+- Reused the existing portal-safe per-case upload list and refetches it after successful uploads for consistency with entity upload pages.
+
+**Validation:**
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm -F @ella/portal lint` pass with one pre-existing Fast Refresh warning in `intake-business-form.tsx`
+- `pnpm -F @ella/portal build` pass with existing chunk-size warning
+
+### Workspace/API: Recent Activity Noise Reduction
+**Status:** Complete
+
+**Changed:**
+- Removed category filter pills from Recent Activity.
+- Added max-height scroll behavior so the activity card stays contained.
+- Stopped writing activity rows for temporary document signed URL creation.
+- Hid routine document access rows from activity timelines so old `document.signed_url_created` and `document.file_proxied` records do not dominate the feed.
+
+### Workspace/API: Comprehensive User Activity Log Rollout
+**Status:** Complete
+
+**Changed:**
+- Completed rollout docs and checklist for `ActivityLog` as the canonical user/system action timeline.
+- Dashboard recent activity now uses `api.activity.recent`; client overview uses `api.activity.client`.
+- Removed message body snippets from the legacy `/clients/:id/activity` fallback response.
+- Documented privacy boundary: no message bodies, phone numbers, emails, addresses, SSN/TIN/EIN raw values, tokens, signed URLs, OCR/raw text, R2 keys, or long notes in activity metadata/UI.
+- Deferred admin-only detail drawer and CSV export as future options.
+
+### API: Activity Query API Phase 03
+**Status:** Complete
+
+**Changed:**
+- Added authenticated `/activity/recent` and `/activity/clients/:clientId` endpoints for org-wide and client-scoped activity timelines.
+- Returned safe timeline DTOs with actor hydration, cursor pagination, and no raw metadata exposure.
+- Invalid or stale cursors now return 400 `INVALID_CURSOR`; client access stays org-scoped.
+- Workspace API gained `api.activity.recent` and `api.activity.client` helpers.
+
+### API/DB: Activity Log Taxonomy and Safe Timeline Contract
+**Status:** Complete
+
+**Changed:**
+- Added canonical `ActivityLog` taxonomy with grouped `ACTIVITY_ACTIONS`, category and target metadata, and stable safe-summary fields for UI surfaces.
+- Expanded metadata redaction to cover message/body/content, notes, phone, email, address, avatar, signature, URL, token, OCR, and storage-key patterns.
+- Added DTO mapping so timelines render normalized activity items instead of raw metadata.
+- Enriched route and job logging for upload links, portal rate limits, document access, case retention, and other server-side business actions.
+
+### Security: Operational Filed Retention Workflow Rollout
+**Status:** Complete
+
+**Changed:**
+- Completed validation and rollout docs for the operational filed retention workflow.
+- Documented `Mark return filed` as the identity retention trigger; review, verification, checklist completion, data entry, and Files tab usage are not prerequisites.
+- Added production SQL preflight queries for scheduled identity docs, due identity docs, and already storage-deleted retention docs.
+- Sequenced the preflight before API/Inngest enablement and added backup/R2 recovery as a rollout gate.
+- Clarified retention extension semantics: extension sets a minimum future date and never shortens later scheduled dates.
+- Documented late upload/reclassification risk for already-filed cases because those identity docs can become immediately due on old filed cases.
+- Updated rollback notes: reopening a filed case clears pending identity retention only for docs not already storage-deleted.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/cases/__tests__/case-filed-actions.test.ts src/routes/cases/__tests__/case-status-transitions.test.ts src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts` pass, 32 tests
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass, 5 tests
+- `pnpm -F @ella/api test` pass, 2397 tests
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm type-check` pass across 8 packages
+- `pnpm lint` pass with 27 pre-existing warnings and 0 errors
+
+### Workspace/API: Retention Visibility and Extension
+**Status:** Complete
+
+**Changed:**
+- Added filed date and identity retention summary visibility to the client detail header.
+- Added `POST /cases/:id/identity-retention/extend` with 30/60/90 day extension choices for scheduled identity docs.
+- Added guarded extension logic so deleted or in-progress retention rows cannot be resurrected.
+- Added workspace API and UI controls for extending scheduled identity retention from filed cases.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts src/routes/cases/__tests__/case-filed-actions.test.ts` pass
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api lint` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+### Workspace: Operational Filed Action UX
+**Status:** Complete
+
+**Changed:**
+- Exposed `Mark return filed` in the workspace client/case header for any active unfiled case without requiring review or verification gating.
+- Added a confirmation modal that explains the identity retention deletion schedule and that DB metadata/audit records remain.
+- Added filed-state `Reopen filing` confirmation for cases already marked filed.
+- Wired success toasts to backend retention counts from filed and reopen responses.
+- Renamed the filed action copy to operational language in the workspace locale strings.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace test -- case-filed-action.test.tsx` pass
+- `pnpm -F @ella/workspace lint` pass with existing warnings only
+
+### API: Operational Filed Action Semantics
+**Status:** Complete
+
+**Changed:**
+- Made `POST /cases/:id/mark-filed` set `status=FILED`, `isFiled=true`, `isInReview=false`, `filedAt`, and `lastActivityAt` together.
+- Made `POST /cases/:id/reopen` reset filed state to `IN_PROGRESS`, clear pending identity retention, and return cleared count.
+- Used scoped conditional writes for case status mutations to avoid stale authorization/state races.
+- Stopped generic `PATCH /cases/:id` and valid-transition metadata from advertising filed/reopen transitions; canonical endpoints own those semantics.
+- Added workspace API client response types for filed and reopen actions.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/routes/cases/__tests__/case-filed-actions.test.ts src/routes/cases/__tests__/case-status-transitions.test.ts` pass
+- `pnpm -F @ella/api test -- src/services/__tests__/identity-doc-retention.test.ts src/jobs/__tests__/delete-expired-identity-docs.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+
+---
+
+### API/Portal: Empty Upload Guard
+**Status:** Complete
+
+**Changed:**
+- Rejected zero-byte portal uploads before any R2 write or `RawImage` create.
+- Added portal-side empty-file validation with localized guidance for iCloud/Drive placeholder files.
+- Added a native browser unload guard while uploads are in progress.
+
+**Validation:**
+- Targeted API validation test added for empty files.
+
+---
+
+## 2026-05-18
+
+### Workspace: Files Tab Upload Timestamp
+**Status:** Complete
+
+**Changed:**
+- Added per-document upload time in the Files tab metadata row using existing `RawImage.createdAt`.
+- Formatted upload timestamps by active locale and wrapped metadata badges to avoid row overflow.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings only
+
+### Security: Upload Portal Hardening Rollout
+**Status:** Complete
+
+**Changed:**
+- Documented the full upload portal security posture: random 32-character portal tokens, default 60-day expiry, revoke/extend/replace lifecycle, audit logging, trusted-proxy-aware rate limits, portal filename privacy, file signature validation, 900-second sensitive document signed URLs, and identity document retention.
+- Added rollout checklist in `docs/security-upload-portal-hardening.md` with migration/deploy order, production smoke checks, rollback notes, and future malware scanning gap.
+- Removed current-state docs references to friendly client-name upload tokens and no-expiry portal links.
+- Registered the daily `delete-expired-identity-docs` Inngest cron and added route-level registration coverage.
+- Switched remaining API/SMS portal URL emitters to the canonical `/upload/:token` URL builder.
+
+**Migration/Operations:**
+- Required migrations for this hardening set: `20260517152014_add_activity_log`, `20260518025105_upload_link_lifecycle`, and `20260518043301_identity_doc_retention`.
+- Production rollout order: apply DB migrations, deploy API, deploy workspace, deploy portal, verify trusted proxy/rate-limit topology, verify existing link expiry/backfill, create a new random link, confirm portal filename privacy, and verify an identity retention countdown sample.
+- Malware scanning/quarantine is still future work; do not represent uploaded files as virus-scanned.
+
+**Validation:**
+- `pnpm -F @ella/db migrate status` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/portal type-check` pass
+- `pnpm type-check` pass
+- `pnpm -F @ella/api test -- src/routes/__tests__/inngest-registration.test.ts src/services/ai/__tests__/continuation-detection.test.ts src/services/__tests__/storage-rename.test.ts src/services/ai/__tests__/benchmark-prompts.test.ts` pass
+- Full API test suite initially exposed stale expectations in continuation category, storage rename, and prompt length budget tests; tests were updated to match current behavior.
+
+### API/Portal: Portal File Content Validation
+**Status:** Complete
+
+**Changed:**
+- Added signature-based upload validation for portal files before any R2 write or `RawImage` create.
+- Supported signatures cover PDF, JPEG, PNG, WebP, and HEIC/HEIF, with MIME/content mismatches rejected as `INVALID_FILE_CONTENT`.
+- Added localized portal error copy for invalid file content; no schema or migration changes.
+
+**Validation:**
+- Reviewed `apps/api/src/lib/validation.ts`, `apps/api/src/routes/portal/index.ts`, `apps/api/src/lib/__tests__/file-signature-validation.test.ts`, and portal locale files.
+
+### API/Portal: Portal Rate Limits + 429 UX
+**Status:** Complete
+
+**Changed:**
+- Added token+IP rate limits to `GET /portal/:token` and `POST /portal/:token/upload`.
+- Throttled invalid-token probe traffic separately from valid-token traffic and returned `Retry-After` on 429s.
+- Wired portal query and upload UI to treat `RATE_LIMITED` as non-retriable with localized copy.
+
+**Validation:**
+- Reviewed `apps/api/src/routes/portal/index.ts`, `apps/api/src/middleware/rate-limiter.ts`, `apps/portal/src/lib/portal-data-query.ts`, `apps/portal/src/components/portal-page.tsx`, `apps/portal/src/components/entity-upload-page.tsx`, `apps/portal/src/components/simple-uploader.tsx`, and `apps/portal/src/components/uploaded-files-list.tsx`.
+
+### Workspace/API: Files Tab Retention Countdown
+**Status:** Complete
+
+**Changed:**
+- Added Files tab retention countdown badges and a compact identity retention notice for scheduled identity document storage deletion.
+- Disabled open/view/download flows for retention-deleted storage objects and skipped those objects during bulk ZIP downloads with staff feedback.
+- Added workspace handling for `storageDeletedAt` plus retention metadata from case and client-group image responses.
+- Changed file proxy responses to `Cache-Control: no-store`.
+- Added a final identity retention deletion job eligibility gate immediately before storage deletion.
+
+**Validation:**
+- `pnpm -F @ella/workspace test src/components/files/identity-retention-badge.test.ts` pass
+- `pnpm -F @ella/api test -- delete-expired-identity-docs` pass
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/api type-check` pass
+- Targeted Phase 06 workspace ESLint pass
+
+---
+
+### API/DB: Identity Document Retention Backend
+**Status:** Complete
+
+**Changed:**
+- Added RawImage retention metadata fields and migration `20260518043301_identity_doc_retention`.
+- Added configurable identity document retention scheduling after cases are filed, defaulting to 90 days.
+- Added daily retention deletion job that removes R2 objects while preserving RawImage metadata.
+- Added signed URL/file proxy 410 responses for storage-deleted documents.
+- Added audit logging and stale-state safeguards for reclassified, moved, or reopened cases.
+
+**Validation:**
+- `pnpm -F @ella/api test -- identity-doc-retention delete-expired-identity-docs` pass (12 tests)
+- `pnpm -F @ella/api type-check` pass
+- `cd packages/db && pnpm exec dotenv -e ../../.env -- prisma migrate status` pass
+
+---
+
+### Workspace/API: Upload Link Management UI
+**Status:** Complete
+
+**Changed:**
+- Added Files tab upload link manager with status, expiry countdown, copy/open, SMS send/resend, extend, revoke, and replacement controls.
+- Added confirmations for revoke and replacement; UI copies full upload URL only and does not expose raw token separately.
+- Added selected-year scoping for business clients so upload link controls target the owner individual case for the selected tax year.
+- Updated send-upload-link behavior to reuse active unexpired links instead of silently replacing them on resend.
+
+**Validation:**
+- `pnpm -F @ella/workspace type-check` pass
+- `pnpm -F @ella/workspace lint` pass with existing unrelated warnings
+- `pnpm -F @ella/workspace test -- src/components/upload-links/upload-link-status-badge.test.ts src/components/upload-links/upload-link-manager.test.tsx` pass
+- `pnpm -F @ella/api test -- src/routes/clients/__tests__/send-upload-link.test.ts src/routes/upload-links/__tests__/upload-links.test.ts src/services/__tests__/magic-link.test.ts` pass
+- `pnpm -F @ella/api build` pass
+- `pnpm -F @ella/workspace build` pass with existing large chunk warning
+
+---
+
 ## 2026-05-17
+
+### API: Engagement Letter PDF Title Spacing
+**Status:** Complete
+
+**Changed:**
+- Engagement Letter PDF preview now inserts default spacing between the document title and first content block when no subtitle/header is rendered.
+- NDA PDFs and PDFs with subtitle/header keep existing spacing behavior.
+
+**Validation:**
+- `pnpm -F @ella/api test -- src/services/agreements/__tests__/pdf-document-v2.test.ts src/services/agreements/__tests__/pdf-generator.test.ts` pass
+- `pnpm -F @ella/api type-check` pass
+- `pnpm -F @ella/api lint` pass
+
+---
 
 ### API: Engagement Letter PDF Header Cleanup
 **Status:** Complete

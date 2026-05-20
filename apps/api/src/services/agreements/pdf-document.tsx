@@ -56,6 +56,7 @@ export function NdaPdfDocument({
   const isPreview = mode === 'preview'
   const isV2 = !!headerBlock || !!signatureBlock
   const heading = title?.trim() || template.title
+  const renderTitleBodySpacer = isV2 && !subtitle && !headerBlock
 
   return (
     <Document
@@ -81,6 +82,8 @@ export function NdaPdfDocument({
 
         {/* v2: Parties / Header block before body */}
         {headerBlock ?? null}
+
+        {renderTitleBodySpacer ? <View style={s.titleBodySpacer} /> : null}
 
         {/* Body sections */}
         {bodyNodes

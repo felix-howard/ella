@@ -67,7 +67,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `/accept-invitation` - Clerk org invite acceptance (Phase 6)
 
 **Key Pages (Portal):**
-- `/upload/:token` - Document upload portal with friendly URLs (e.g., `/upload/tuyet-nguyen-a7k3mz`, magic link auth)
+- `/upload/:token` - Document upload portal with random 32-character magic link tokens, default 60-day expiry, and token auth
 - `/u/:token` - Legacy document upload portal (backward compatible, deprecated)
 - `/schedule-c/:token` - Schedule C expense form (magic link auth)
 - `/schedule-e/:token` - Schedule E rental form (magic link auth)
@@ -109,7 +109,7 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
   - New types: `SharedDocListItem`, `ListSharedDocsResponse`, `SectionDetailResponse`, `CreateSectionResponse`
   - Error code: `DOC_DELETED` (410) for soft-deleted documents
 - **Portal API Methods (portalApi):**
-  - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats
+  - `getData(token)` - Fetch portal data via magic link: client info, tax case, checklist, stats. Callers treat `RATE_LIMITED` / invalid-token errors as non-retriable.
   - `getDraft(token)` - Fetch document data + signed PDF URL (includes title)
   - `trackDraftView(token)` - Post-load view tracking (fire & forget)
 
@@ -165,13 +165,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `GET /portal/draft/:token` - Validate token, return section data + PDF signed URL (public). Returns 410 DOC_DELETED if soft-deleted.
 - `POST /portal/draft/:token/viewed` - Increment viewCount, update lastViewedAt (public)
 
-**Portal Document Upload (Phase 2 - Entity Separation - Simplified):**
-- `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns status 401 for invalid/expired token.
-- `POST /portal/:token/upload` - Upload document images via token (public). Validates token, stores images as RawImage records, triggers async Gemini classification + activity tracking. Returns 400 for invalid files, 401 for invalid token.
-- MagicLink generation: Service creates token scoped to individual's taxCaseId (for business clients in groups, routes to individual owner's case via send-upload-link endpoint).
-  - **Friendly Token Format (PORTAL type):** Slugified client name + random 6-char suffix (e.g., `tuyet-nguyen-a7k3mz`). Fallback to 12-char random token if name is empty/invalid.
-  - **Other Types:** Random 12-char alphanumeric tokens (SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN).
-  - **No Expiry:** All magic links now never expire (expiresAt=null) for better UX. Previously Schedule C/E had 7-day TTL.
+**Portal Document Upload (Security Hardened):**
+- `GET /portal/:token` - Validate MagicLink token, return portal data (client, taxCase, checklist, stats). Returns 401 for invalid/expired/revoked/replaced token and 429 when rate limited. Read requests are capped at 120 requests / 10 minutes per token hash + IP when trusted proxy headers are enabled; invalid-token probes are capped separately at 30 requests / 10 minutes per IP. Current buckets are process-local memory, so multi-instance deploys need sticky routing or shared limiter storage for global enforcement.
+- `POST /portal/:token/upload` - Upload document images via token (public). Validates token, checks file signatures against the declared MIME, stores only supported PDF/JPEG/PNG/WebP/HEIC/HEIF content, then writes RawImage records and triggers async Gemini classification + activity tracking. Returns `INVALID_FILE_CONTENT` before any R2 write or RawImage create when signature and MIME do not match. Returns 400 for invalid files, 401 for invalid token, and 429 when rate limited. Upload requests are capped at 20 requests / hour per token hash + IP when trusted proxy headers are enabled; invalid-token probes use the same separate 30 requests / 10 minutes per IP guard.
+- Public portal file lists and upload responses expose safe labels/status only; original filenames, AI-renamed filenames, R2 keys, and signed URLs stay internal.
+- PORTAL MagicLink generation: 32-character URL-safe random token, `/upload/:token` route, default 60-day expiry from `MAGIC_LINK_EXPIRY_DAYS`, CASE or GROUP scope, and replacement locking. Staff can reuse active links, extend 7/14/30/60 days, revoke, or replace from the Files tab. Other MagicLink types keep their existing token/expiry behavior.
+- Sensitive staff document access: signed URLs default to 900 seconds, workspace cache is shorter than the URL lifetime, and file/media proxy responses use private/no-store cache headers.
+- Identity document retention: identity doc types become retention-eligible when staff explicitly clicks `Mark return filed`; review, verification, data entry, checklist completion, and Files tab usage are not prerequisites. Late uploads or reclassification on already-filed cases can schedule retention from the original `filedAt`. The default retention window is 90 days from `IDENTITY_DOC_RETENTION_DAYS`; staff can reopen a filed case to clear pending schedules or extend scheduled identity retention 30/60/90 days. The delete job removes only due R2 objects, preserves DB metadata, marks storage deleted, and logs audit activity without R2 keys, filenames, OCR text, or signed URLs.
+- Out of scope: malware/virus scanning and quarantine before CPA preview/download are not implemented yet.
 
 **Portal PDF Viewer (Phase 02-05 Complete):**
 - Phase 02: Core react-pdf viewer with fit-to-width scaling, DPI rendering, responsive loading
@@ -254,12 +255,14 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /clients/:id` - Update profile/intakeAnswers/tags. Tags support add/remove/replace mutations. Phase 10: Can update clientType, ein (re-encrypted), businessType, business address fields.
 - `DELETE /clients/:id` - Deactivate
 - `GET /clients/:id/resend-sms` - Resend welcome link
-- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with friendly URL format (e.g., `/upload/tuyet-nguyen-a7k3mz`). Generates friendly slug token based on client name. Phase 15: For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
+- `POST /clients/:id/send-upload-link` - Send upload link SMS to client with random expiring `/upload/:token` URL. Reuses active unexpired links and supports lifecycle controls through Files tab. For business clients with clientGroupId, resolves individual client's taxCase for same year and creates magic link on individual's case—uploads go to individual. Falls back to business case with warning if individual has no taxCase for year. Adds organizationId filter for security.
 - `POST /clients/:id/avatar/presigned-url` - Get R2 upload URL for client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/avatar` - Confirm avatar upload + return signed download URL (Phase 02 Backend)
 - `DELETE /clients/:id/avatar` - Remove client avatar (Phase 02 Backend)
 - `PATCH /clients/:id/notes` - Update client notes/internal comments (Phase 02 Backend)
-- `GET /clients/:id/activity` - Get recent activity timeline (uploads, messages, case updates, Phase 02 Backend)
+- `GET /activity/recent` - Get org-scoped recent activity timeline with safe DTOs, cursor pagination, and filters (`limit`, `category`, `actorStaffId`, `riskLevel`). Invalid cursors return 400 `INVALID_CURSOR`.
+- `GET /activity/clients/:clientId` - Get client-scoped activity timeline with safe DTOs and cursor pagination. Access stays org-scoped; inaccessible clients return 404.
+- `GET /clients/:id/activity` - Legacy client overview timeline kept during the workspace migration; sanitized message rows do not include message body snippets.
 - `GET /clients/:id/stats` - Get quick stats (totalFiles, taxYears, verifiedPercent, lastMessageAt, Phase 02 Backend)
 - Status endpoints for action tracking. Client.source expanded to 5 values: MANUAL, FORM, GENERIC_FORM, STAFF_FORM, CONVERTED.
 
@@ -280,7 +283,10 @@ Ella employs a layered, monorepo-based architecture prioritizing modularity, typ
 - `PATCH /engagements/:id` - Update profile
 - `GET /cases/:id` - Case detail with checklist
 - `GET /cases/:id/images` - Case images with `isNew` boolean per image (Phase 2)
-- `PATCH /cases/:id` - Update case status
+- `PATCH /cases/:id` - Update editable case fields and non-filed status transitions. Filed/reopen transitions are rejected here and must use canonical action endpoints.
+- `POST /cases/:id/mark-filed` - Canonical filed action. Sets `status=FILED`, `isFiled=true`, clears review state, stamps `filedAt`, and schedules eligible identity document retention.
+- `POST /cases/:id/reopen` - Reopens a filed case, resets status to `IN_PROGRESS`, and clears pending identity retention for not-yet-deleted docs.
+- `POST /cases/:id/identity-retention/extend` - Extends scheduled identity retention by 30, 60, or 90 days without shortening later schedules.
 - Actions for compliance tracking
 
 **Documents & Classification (14+):**
@@ -386,6 +392,8 @@ Organization (root entity)
 **Audit Logging:**
 - AuditLog tracks: entity type, id, field, old/new values, changedBy, timestamp
 - All org-scoped changes logged for compliance
+- ActivityLog tracks server-side business actions with category, target, actor, risk, and safe summary fields; metadata is redacted before persistence and should not be rendered raw in UI.
+- Timeline and activity surfaces should use `toActivityTimelineItem()` or equivalent safe DTOs, not the stored metadata JSON.
 
 ## Database Schema
 
@@ -408,6 +416,7 @@ Organization (root entity)
 - **DocumentGroup** - Phase 2/3 multi-page document grouping: baseName (base filename), documentType (identified type), pageCount (pages in group), confidence (AI confidence), images relation (array of RawImages). Indexes: caseId, caseId+createdAt. Phase 3 Enhancement: sortDocumentsByPageMarker() orders docs by extracted pageMarker.currentPage with fallback to upload order. validatePageSequence() checks for gaps and duplicates in page ordering.
 - **DigitalDoc** - OCR extracted fields
 - **ShareableDocument** (Prisma model name; table preserved as `DraftReturn` via `@@map`) - taxCaseId FK (Cascade delete), r2Key (unique storage), filename, fileSize, title (default: "Draft Return", min 1 / max 100 chars, unique per case+ACTIVE+non-deleted), version tracking (auto-increment per section via (taxCaseId, title) grouping; rename propagates title across all versions to keep grouping stable), uploadedById FK to Staff, status (DocumentStatus enum: ACTIVE|REVOKED|EXPIRED|SUPERSEDED), viewCount, lastViewedAt, deletedAt (soft-delete — single source of truth for "removed"), magicLinks relation. Indexes: taxCaseId, (taxCaseId, status, deletedAt)
+- **ActivityLog** - canonical org-scoped event stream for business actions. Fields: organizationId, clientId, caseId, rawImageId, magicLinkId, category, targetType, targetId, targetLabel, summary, actorType, actorStaffId, action, riskLevel, redacted metadata, request context. Indexes support org/category, target lookup, and actor/category lookup. Used for upload links, portal rate limits, document access, retention jobs, profile/team/settings changes, leads, auth, and other system events.
 - **MagicLink** - type (PORTAL|SCHEDULE_C|SCHEDULE_E|DRAFT_RETURN), token (unique, 12-char base36), caseId/type reference, optional `draftReturnId` FK (SetNull) pointing at current ShareableDocument — FK column name preserved for zero data movement, isActive, expiresAt (14-day TTL for DRAFT_RETURN, null for others), usageCount, lastUsedAt. On version upload the same token is retained and `draftReturnId` is repointed to the new version. Indexes: token (unique), caseId+type, draftReturnId
 - **Message** - SMS/PORTAL/SYSTEM/CALL channels
 - **AuditLog** - Complete change trail
@@ -998,9 +1007,16 @@ PATCH /clients/:id/notes
   Request: { notes: string } (HTML, max 50KB)
   Response: { id, notes, notesUpdatedAt, updatedAt }
 
-GET /clients/:id/activity
-  Response: ActivityItem[] (10 items max, desc by timestamp)
-  Types: upload | message | case_updated
+GET /activity/recent
+  Response: ActivityTimelineResponse { data[], nextCursor }
+  Notes: Org-scoped, safe DTOs only, filters: limit/category/actorStaffId/riskLevel
+
+GET /activity/clients/:clientId
+  Response: ActivityTimelineResponse { data[], nextCursor }
+  Notes: Client-scoped, safe DTOs only, invalid cursor returns 400 INVALID_CURSOR
+
+GET /clients/:id/activity (legacy)
+  Response: ActivityItem[] (legacy sanitized fallback; message descriptions do not include body snippets)
 
 GET /clients/:id/stats
   Response: { totalFiles, taxYears[], verifiedPercent, lastMessageAt }
@@ -1410,12 +1426,13 @@ Magic Link Service:
 ```typescript
 apps/api/src/services/magic-link.ts
 ├── getMagicLinkUrl() - Maps link types to URLs (/upload, /expense, /rental, /draft)
-├── createMagicLink() - Generate token scoped to caseId, optional clientName for slug generation
-├── generateSlugToken(clientName) - PORTAL-type tokens: "name-random6" (e.g., "tuyet-nguyen-a7k3mz"), fallback to random if invalid
-├── resolveToken(type, clientName) - PORTAL with name → slug token; others → random token
+├── createPortalMagicLink() - Generate 32-character random PORTAL token with default 60-day expiry and CASE/GROUP scope
+├── createMagicLink() - Generate token scoped to caseId; PORTAL delegates to createPortalMagicLink()
+├── createMagicLinkWithDeactivation() - Atomically create replacement link and deactivate previous active link
+├── resolveToken(type) - PORTAL → random 32-character token; other link types → random 12-character token
 ├── validateMagicLink() - Token validation + usage tracking
 ├── validateScheduleEToken() - Schedule E validation + expiry check
-└── Support for PORTAL (friendly URLs), SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN types
+└── Support for PORTAL, SCHEDULE_C, SCHEDULE_E, DRAFT_RETURN types
 ```
 
 ## Schedule E Workspace Tab (Phase 4 Frontend - 2026-02-06)
@@ -2317,20 +2334,43 @@ Client {
 - Output: `{ id, notes, notesUpdatedAt, updatedAt }`
 - XSS prevention: Frontend auto-escapes React rendering (notes aren't treated as raw HTML)
 
-**Activity Timeline (`GET /clients/:id/activity`):**
-Aggregates recent events across client's tax cases in single endpoint:
+**Activity Timeline (`GET /activity/recent` and `GET /activity/clients/:clientId`):**
+Aggregates recent events into safe timeline DTOs with actor hydration and cursor pagination:
 ```typescript
-ActivityItem {
-  type: 'upload' | 'message' | 'case_updated'
+ActivityTimelineResponse {
+  data: ActivityTimelineResponseItem[]
+  nextCursor: string | null
+}
+
+ActivityTimelineResponseItem {
   id: string
-  timestamp: string (ISO8601)
-  description: string
+  createdAt: string
+  category: ActivityCategory
+  action: string
+  riskLevel: ActivityRiskLevel
+  summary: string
+  actor: {
+    type: ActivityActorType
+    staffId: string | null
+    name: string | null
+    avatarUrl: string | null
+  }
+  target: {
+    type: ActivityTargetType
+    id: string | null
+    label: string | null
+  }
+  clientId: string | null
+  caseId: string | null
+  route: string | null
+  method: string | null
 }
 ```
-- **uploads:** RawImage entries (displayName or filename)
-- **messages:** SMS/PORTAL messages (direction + first 50 chars of content)
-- **case_updated:** TaxCase status changes (year + current status)
-- Returns top 10 most recent (sorted desc by timestamp)
+- **Safe surface:** no raw `metadata`, IP address, or user-agent in the list response.
+- **Cursor handling:** stale or out-of-scope cursors return 400 `INVALID_CURSOR`.
+- **Actor hydration:** actor names/avatar URLs are joined from org-scoped `Staff` records.
+- **Workspace display:** dashboard shows recent org/access-scoped actions; client overview shows the same canonical stream filtered to that client.
+- **Future option:** admin-only detail drawer and CSV export can expose more context later, but must keep the same redaction boundary.
 
 **Quick Stats (`GET /clients/:id/stats`):**
 Single query endpoint for client overview cards:
@@ -2346,7 +2386,8 @@ Single query endpoint for client overview cards:
 **API Integration:**
 ```typescript
 // In api-client.ts
-api.clients.getActivity(clientId)       // GET /clients/:id/activity
+api.activity.recent({ limit: 20 })       // GET /activity/recent
+api.activity.client(clientId)            // GET /activity/clients/:clientId
 api.clients.getStats(clientId)          // GET /clients/:id/stats
 api.clients.avatarPresignedUrl(clientId, { contentType, fileSize })
 api.clients.confirmAvatar(clientId, { r2Key })
@@ -2450,7 +2491,9 @@ All avatar/notes UI will need i18n keys in workspace:
 **Data Isolation:**
 - Org-scoped queries at middleware & service layer
 - Client.managedById FK enforces single-manager relationship
-- Audit logging for all changes
+- ActivityLog is the canonical user/system timeline for meaningful mutations; route instrumentation records actor, org scope, target, request context, risk, and redacted metadata.
+- Audit logging remains for legacy field-level snapshots and specialized destructive snapshots.
+- `/admin/*` configuration routes require org admin access, and voice caller lookup is org-scoped.
 
 **Authentication:**
 - Clerk OAuth with org management
